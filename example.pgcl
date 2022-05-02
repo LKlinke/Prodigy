@@ -1,0 +1,17 @@
+nat k;
+nat flag;
+nat send;
+nat failed;
+
+while (k > 0 & not failed=1) {
+    retry := 5;
+    success := 0;
+    while( not (retry <= 0 || success=1) ){
+        {success := 1} [1/2] {retry := retry-1}
+    }
+    if (success = 1){
+        k := k-1;
+    } else {
+        failed := 1
+    }
+}

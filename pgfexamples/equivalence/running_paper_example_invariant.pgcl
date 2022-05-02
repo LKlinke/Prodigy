@@ -1,0 +1,10 @@
+nat x;
+nat c;
+nat tmp;
+
+if( x > 0){
+    tmp := iid(geometric(1/2), x)
+    c := c + tmp
+    tmp := 0
+    x := 0
+}{}

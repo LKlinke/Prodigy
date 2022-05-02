@@ -1,0 +1,4 @@
+nat n;
+nat m;
+
+# TODO: Find the invariant if there exists one

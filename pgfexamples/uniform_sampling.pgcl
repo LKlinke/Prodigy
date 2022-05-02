@@ -1,0 +1,29 @@
+# correctness proof in [Lumbroso 2013]
+# invariant most likely not in loop-free ReDiP-Fragment.
+
+nat running;
+nat v;
+nat c;
+
+
+# initialization:
+running := 1
+v := 12
+c := 11
+
+
+while(running = 1){
+ v := 2*v;
+ {c := 2 * c + 1} [1/2] {c := 2*c};
+ if( v >= 12){
+    if( 12 > c){
+        running := 0;
+    } else{
+        v := v - 12;
+        c := c - 12;
+    }
+ } else{
+    skip
+ }
+}
+v := 0;
