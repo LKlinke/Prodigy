@@ -1,6 +1,6 @@
 """
 =====================
-``probably.analysis``
+``prodigy.analysis``
 =====================
 
 The analysis module provides functionalities to analyze probablistic programs written in pGCL language.
@@ -15,8 +15,8 @@ derived.
 
 The *backwards semantics* module considers expectation transoformer semantics a la weakest preexpectation calculus [Kam19].
 
-.. automodule:: probably.analysis.forward
-.. automodule:: probably.analysis.backward
+.. automodule:: prodigy.analysis.forward
+.. automodule:: prodigy.analysis.backward
 """
 
 from prodigy.analysis.forward.config import ForwardAnalysisConfig

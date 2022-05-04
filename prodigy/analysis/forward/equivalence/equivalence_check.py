@@ -11,7 +11,12 @@ from prodigy.util.logger import log_setup
 logger = log_setup(__name__, logging.DEBUG)
 
 
-def phi(program: Program, invariant: Program):
+def phi(program: Program, invariant: Program) -> Program:
+    """
+        The characteristic loop functional. It unrolls a loop exactly once.
+
+        .. returns: A new program object equivaelnt to one loop unrolling of :param: program.
+    """
     assert isinstance(program.instructions[0], WhileInstr), "Program can only be one big loop to analyze."
     logger.debug("Create modified invariant program.")
     new_instructions = program.instructions[0].body.copy()
@@ -30,6 +35,12 @@ def phi(program: Program, invariant: Program):
 
 
 def generate_equivalence_test_distribution(program: Program, config: ForwardAnalysisConfig) -> Distribution:
+    """
+        Generates a second-order PGF, dependent on the given variables in a program. This SOP can be used to check
+        equivalences of two programs.
+
+        .. returns: The SOP expression.
+    """
     logger.debug("Generating test distribution.")
     dist = config.factory.one()
     for i, variable in enumerate(program.variables):
@@ -42,10 +53,10 @@ def check_equivalence(program: Program, invariant: Program, config: ForwardAnaly
     """
     This method uses the fact that we can sometimes determine program equivalence,
     by checking the equality of two parametrized infinite-state Distributions.
-    :param config: The configuration.
-    :param program: The While-Loop program
-    :param invariant: The loop-free invariant
-    :return: True, False, Unknown
+    .. param config: The configuration.
+    .. param program: The While-Loop program
+    .. param invariant: The loop-free invariant
+    .. returns: True, False, Unknown
     """
 
     logger.debug("Checking equivalence.")
