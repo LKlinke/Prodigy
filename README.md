@@ -88,55 +88,97 @@ To experiment with our tool on a custom example, you need to create two files: A
 ### Supported Grammar
 
 ```
-start: declarations instructions
+start: declarations instructions queries
 
-    declarations: declaration* -> declarations
+declarations: declaration* -> declarations
 
     declaration: "bool" var                  -> bool
                | "nat" var bounds?           -> nat
                | "real" var bounds?          -> real
                | "const" var ":=" expression -> const
-
+               | "rparam" var                -> rparam
+               | "nparam" var                -> nparam
+               
     bounds: "[" expression "," expression "]"
-
     instructions: instruction* -> instructions
-
+    
+    queries: query* -> queries
+    
     instruction: "skip"                                      -> skip
                | "while" "(" expression ")" block            -> while
                | "if" "(" expression ")" block "else"? block -> if
                | var ":=" rvalue                             -> assign
                | block "[" expression "]" block              -> choice
+               | "tick" "(" expression ")"                   -> tick
+               | "observe" "(" expression ")"                -> observe
                | "loop" "(" INT ")" block                    -> loop
-
-
+    
+    query: "?Ex" "[" expression "]"                          -> expectation
+               | "?Pr" "[" expression "]"                    -> prquery
+               | "!Print"                                    -> print
+               | "!Plot" "[" var ("," var)? ("," literal)?"]"-> plot
+               | "?Opt" "[" expression "," var "," var "]"   -> optimize
+               
+               
     block: "{" instruction* "}"
-
-    rvalue: "unif" "(" expression "," expression ")" -> duniform
-          | "geometric" "(" expression ")" -> geometric
-          | "poisson" "(" expression ")" -> poisson
-          | "logdist" "(" expression ")" -> logdist
-          | "binomial" "(" expression "," expression ")" -> binomial
-          | "bernoulli" "(" expression ")" -> bernoulli
-          | "iid" "(" rvalue "," var ")" -> iid
-          | expression
-
+    rvalue: "unif_d" "(" expression "," expression ")" -> duniform
+               | "unif" "(" expression "," expression ")" -> duniform
+               | "unif_c" "(" expression "," expression ")" -> cuniform
+               | "geometric" "(" expression ")" -> geometric
+               | "poisson" "(" expression ")" -> poisson
+               | "logdist" "(" expression ")" -> logdist
+               | "binomial" "(" expression "," expression ")" -> binomial
+               | "bernoulli" "(" expression ")" -> bernoulli
+               | "iid" "(" rvalue "," var ")" -> iid
+               | expression
+               
     literal: "true"  -> true
-           | "false" -> false
-           | INT     -> nat
-           | FLOAT   -> real
-           | "∞"     -> infinity
-           | "\\infty" -> infinity
-
+               | "false" -> false
+               | INT     -> nat
+               | FLOAT   -> real
+               | "∞"     -> infinity
+               | "\infty" -> infinity
     var: CNAME
-
-
+    
+    
     %ignore /#.*$/m
-    %ignore /\/\/.*$/m
+    %ignore /\\/\\/.*$/m
     %ignore WS
     %ignore ";"
-    
     %import common.CNAME
     %import common.INT
     %import common.FLOAT
     %import common.WS
+    
+    // create the expression table (this is auto-generated in code)
+    // Operator precedences are also encoded by this format.
+    
+    ?expression: expression_0
+    ?expression_0: expression_1
+               | expression_0 "||" expression_1 -> or
+    ?expression_1: expression_2
+               | expression_1 "&" expression_2 -> and
+    ?expression_2: expression_3
+               | expression_2 "<=" expression_3 -> leq
+               | expression_2 "<" expression_3 -> le
+               | expression_2 ">" expression_3 -> ge
+               | expression_2 ">=" expression_3 -> geq
+               | expression_2 "=" expression_3 -> eq
+    ?expression_3: expression_4
+               | expression_3 "+" expression_4 -> plus
+               | expression_3 "-" expression_4 -> minus
+    ?expression_4: expression_5
+               | expression_4 "*" expression_5 -> times
+               | expression_4 "/" expression_5 -> divide
+    ?expression_5: expression_6
+               | expression_6 "^" expression_5 -> power
+    ?expression_6: expression_7
+               | expression_6 ":" expression_7 -> likely
+    ?expression_7: expression_8
+               | expression_7 "%" expression_8 -> mod
+    ?expression_8: "not " expression_8 -> neg
+               | "(" expression ")" -> parens
+               | "[" expression "]" -> iverson
+               | literal -> literal
+               | var -> var
 ```
