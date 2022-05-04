@@ -24,13 +24,13 @@ from typing import Optional, Union, Tuple, Dict
 
 from lark import Lark, Tree
 
-from probably.pgcl.analyzer.syntax import has_variable
-from probably.pgcl.ast import *
-from probably.pgcl.ast.expressions import expr_str_parens, IidSampleExpr
-from probably.pgcl.ast.instructions import OptimizationQuery
-from probably.util.lark_expr_parser import (atom, build_expr_parser, infixl,
-                                            prefix, infixr)
-from probably.util.ref import Mut
+from prodigy.pgcl.analyzer.syntax import has_variable
+from prodigy.pgcl.ast import *
+from prodigy.pgcl.ast.expressions import expr_str_parens, IidSampleExpr
+from prodigy.pgcl.ast.instructions import OptimizationQuery
+from prodigy.util.lark_expr_parser import (atom, build_expr_parser, infixl,
+                                           prefix, infixr)
+from prodigy.util.ref import Mut
 
 _PGCL_GRAMMAR = ""
 

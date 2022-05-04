@@ -16,7 +16,7 @@ Use :attr:`probably.util.ref.Mut.val` to access the current node.
 
     .. doctest::
 
-        >>> from probably.util.ref import Mut
+        >>> from prodigy.util.ref import Mut
         >>> expr = Mut.alloc(UnopExpr(Unop.NEG, NatLitExpr(10)))
 
         >>> [ref.val for ref in walk_expr(Walk.DOWN, expr)]
@@ -37,7 +37,7 @@ from typing import Callable, Iterable, TypeVar, List
 
 from .instructions import Instr, InstrClass
 from .expressions import Expr, ExprClass
-from probably.util.ref import Mut
+from prodigy.util.ref import Mut
 
 
 T = TypeVar("T")

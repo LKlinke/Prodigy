@@ -13,7 +13,7 @@ It is also possible to calculate weakest pre-expectations of programs (see :mod:
 
 .. doctest::
 
-    >>> from probably.pgcl.compiler import compile_pgcl
+    >>> from prodigy.pgcl.compiler import compile_pgcl
     >>> code = '''# this is a comment
     ... # A program starts with the variable declarations.
     ... # Every variable must be declared.
@@ -47,5 +47,5 @@ For more details on what syntax is accepted for pGCL programs, you can view the 
 
 from .ast import *
 from .typechecker import *
-from probably.pgcl.parser import *
-from probably.pgcl.ast.walk import *
+from prodigy.pgcl.parser import *
+from prodigy.pgcl.ast.walk import *

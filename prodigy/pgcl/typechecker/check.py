@@ -6,10 +6,10 @@ Type Checking
 
 from typing import Dict, Optional, Union, get_args, Tuple
 import attr
-from probably.pgcl.ast import *
-from probably.pgcl.ast.expressions import IidSampleExpr
-from probably.pgcl.ast.instructions import OptimizationQuery
-from probably.util.color import Style
+from prodigy.pgcl.ast import *
+from prodigy.pgcl.ast.expressions import IidSampleExpr
+from prodigy.pgcl.ast.instructions import OptimizationQuery
+from prodigy.util.color import Style
 
 _T = TypeVar('_T')
 

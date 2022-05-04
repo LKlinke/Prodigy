@@ -13,13 +13,13 @@ If you want them, linearity checks live in :mod:`probably.pgcl.syntax`.
 
 from typing import Union
 
-from probably.pgcl import substitute
-from probably.util.ref import Mut
+from prodigy.pgcl import substitute
+from prodigy.util.ref import Mut
 
 from .ast import Expr, Program
-from probably.pgcl.typechecker.check import (CheckFail, check_expectation, check_expression,
-                                             check_program)
-from probably.pgcl.parser import parse_expectation, parse_expr, parse_pgcl
+from prodigy.pgcl.typechecker.check import (CheckFail, check_expectation, check_expression,
+                                            check_program)
+from prodigy.pgcl.parser import parse_expectation, parse_expr, parse_pgcl
 
 
 def compile_pgcl(code: str,

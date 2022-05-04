@@ -91,12 +91,12 @@ of initialization assignments before the loop using
 
 from typing import Optional, Sequence
 
-from probably.util.ref import Mut
+from prodigy.util.ref import Mut
 
-from probably.pgcl.ast import (AsgnInstr, Binop, BinopExpr, Expr, Instr, Program, Unop,
-                               UnopExpr, VarExpr, WhileInstr, NatLitExpr)
-from probably.pgcl.typechecker.check import CheckFail
-from probably.pgcl.ast.walk import Walk, instr_exprs, mut_expr_children, walk_expr, walk_instrs
+from prodigy.pgcl.ast import (AsgnInstr, Binop, BinopExpr, Expr, Instr, Program, Unop,
+                              UnopExpr, VarExpr, WhileInstr, NatLitExpr)
+from prodigy.pgcl.typechecker.check import CheckFail
+from prodigy.pgcl.ast.walk import Walk, instr_exprs, mut_expr_children, walk_expr, walk_instrs
 
 
 def check_is_linear_program(program: Program) -> Optional[CheckFail]:

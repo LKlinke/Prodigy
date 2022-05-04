@@ -33,7 +33,7 @@ Instead, a substitution applied to a symbolic variable will wrap the variable in
 
 .. doctest::
 
-    >>> from probably.util.ref import Mut
+    >>> from prodigy.util.ref import Mut
     >>> from .ast import SubstExpr, NatLitExpr, VarExpr
     >>> from .parser import parse_expr
 
@@ -90,11 +90,11 @@ from typing import Dict, FrozenSet, List, Optional, Union
 
 import attr
 
-from probably.util.ref import Mut
+from prodigy.util.ref import Mut
 
 from .ast import Expr, ExprClass, Program, SubstExpr, Var, VarExpr
-from probably.pgcl.ast.walk import (Walk, mut_expr_children, mut_instr_exprs, walk_expr,
-                                    walk_instrs)
+from prodigy.pgcl.ast.walk import (Walk, mut_expr_children, mut_instr_exprs, walk_expr,
+                                   walk_instrs)
 
 
 @attr.s(hash=True)
@@ -331,7 +331,7 @@ def substitute_constants(program: Program,
 
     .. doctest::
 
-        >>> from probably.pgcl.parser import parse_pgcl
+        >>> from prodigy.pgcl.parser import parse_pgcl
         >>> program = parse_pgcl("const x := 23; nat y; nat z; y := x; z := y")
         >>> substitute_constants(program)
         >>> program.instructions

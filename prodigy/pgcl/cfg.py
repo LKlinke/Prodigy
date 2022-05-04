@@ -11,7 +11,7 @@ one big loop (:func:`program_one_big_loop`).
 
 .. doctest::
 
-    >>> from probably.pgcl.compiler import compile_pgcl
+    >>> from prodigy.pgcl.compiler import compile_pgcl
     >>> program = compile_pgcl("nat x; while (x <= 3) { while (x = 0) { x := x + 1; }; if (x = 0) { x := x + 1; x := x + 2; x := x + 3; } {} }")
     >>> graph = ControlFlowGraph.from_instructions(program.instructions)
     >>> graph.render_dot().source
@@ -43,13 +43,13 @@ import graphviz as gv
 import networkx as nx
 from networkx.algorithms.dominance import dominance_frontiers
 
-from probably.util import dedup_list
+from prodigy.util import dedup_list
 
 from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, ChoiceInstr, Expr,
                   IfInstr, Instr, NatLitExpr, NatType, Program, SkipInstr, Var,
                   VarExpr, WhileInstr)
 from .compiler import parse_pgcl
-from probably.analysis.backward.simplify import simplifying_neg
+from prodigy.analysis.backward.simplify import simplifying_neg
 
 BasicBlockId = NewType('BasicBlockId', int)
 
