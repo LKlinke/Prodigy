@@ -134,8 +134,8 @@ class SnfExpectationTransformerProduct:
     prob: Expr = attr.ib()
     """
     The probability without any Iverson brackets or
-    :class:`probably.pgcl.ast.TickExpr`. It has types
-    :class:`probably.pgcl.ast.RealType` or :class:`probably.pgcl.ast.NatType`.
+    :class:`prodigy.pgcl.ast.TickExpr`. It has types
+    :class:`prodigy.pgcl.ast.RealType` or :class:`prodigy.pgcl.ast.NatType`.
     """
 
     subst: Optional[Dict[Var, Expr]] = attr.ib()
@@ -229,7 +229,7 @@ class SnfExpectationTransformerProduct:
 class SnfExpectationTransformer:
     """
     An expectation transformer
-    (:class:`probably.pgcl.backward.ExpectationTransformer`) is in *summation normal
+    (:class:`prodigy.pgcl.backward.ExpectationTransformer`) is in *summation normal
     form (SNF)* if it is a sum of products
     (:class:`SnfExpectationTransformerProduct`). This class can be accessed just
     like a list over :class:`SnfExpectationTransformerProduct`.
@@ -239,7 +239,7 @@ class SnfExpectationTransformer:
 
     The multiplication operator is implemented (``*``), but only one operand may
     include substitutions. This is always the case for transformers generated
-    from weakest pre-expectation semantics (see :mod:`probably.pgcl.backward`).
+    from weakest pre-expectation semantics (see :mod:`prodigy.pgcl.backward`).
 
     .. doctest::
 
