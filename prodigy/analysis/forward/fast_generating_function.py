@@ -2,7 +2,7 @@ from typing import Union, Generator, Set, Iterator, Tuple, Dict, get_args
 
 from .distribution import MarginalType
 from .distribution import Distribution
-import prodigy
+import pygin
 
 from ...pgcl import VarExpr, Expr, BinopExpr, UnopExpr, Binop, Unop
 from ...pgcl.ast.expressions import IidSampleExpr, GeometricExpr, DistrExpr, BernoulliExpr, DUniformExpr, PoissonExpr
@@ -17,12 +17,12 @@ class FPS(Distribution):
 
     def __init__(self, expression: str, parameter: str = None):
         if parameter is not None:
-            self.dist = prodigy.Dist(expression, parameter)
+            self.dist = pygin.Dist(expression, parameter)
         else:
-            self.dist = prodigy.Dist(expression)
+            self.dist = pygin.Dist(expression)
 
     @classmethod
-    def from_dist(cls, dist: prodigy.Dist) -> 'FPS':
+    def from_dist(cls, dist: pygin.Dist) -> 'FPS':
         result = FPS("0")
         result.dist = dist
         return result
@@ -144,18 +144,18 @@ class FPS(Distribution):
         sample_dist = sampling_exp.sampling_dist
         if isinstance(sample_dist, GeometricExpr):
             result = self.dist.updateIid(str(variable),
-                                         prodigy.geometric("test", str(sample_dist.param)),
+                                         pygin.geometric("test", str(sample_dist.param)),
                                          str(sampling_exp.variable))
             return FPS.from_dist(result)
         if isinstance(sample_dist, BernoulliExpr):
             result = self.dist.updateIid(str(variable),
-                                         prodigy.Dist(f"{sample_dist.param} * test + (1-{sample_dist.param})"),
+                                         pygin.Dist(f"{sample_dist.param} * test + (1-{sample_dist.param})"),
                                          str(sampling_exp.variable))
             return FPS.from_dist(result)
 
         elif isinstance(sample_dist, PoissonExpr):
             result = self.dist.updateIid(str(variable),
-                                         prodigy.Dist(f"exp({sample_dist.param} * (test - 1))"),
+                                         pygin.Dist(f"exp({sample_dist.param} * (test - 1))"),
                                          str(sampling_exp.variable)
                                          )
             return FPS.from_dist(result)
@@ -163,7 +163,7 @@ class FPS(Distribution):
         elif isinstance(sample_dist, DUniformExpr):
             result = self.dist.updateIid(
                 str(variable),
-                prodigy.Dist(f"1/(({sample_dist.end}) - ({sample_dist.start}) + 1) * test^({sample_dist.start}) "
+                pygin.Dist(f"1/(({sample_dist.end}) - ({sample_dist.start}) + 1) * test^({sample_dist.start}) "
                              f"* (test^(({sample_dist.end}) - ({sample_dist.start}) + 1) - 1) / (test - 1)"),
                 str(sampling_exp.variable)
             )
@@ -171,7 +171,7 @@ class FPS(Distribution):
 
         elif isinstance(sample_dist, get_args(Expr)) and not isinstance(sample_dist, get_args(DistrExpr)):
             result = FPS.from_dist(self.dist.updateIid(str(variable),
-                                                       prodigy.Dist(str(sample_dist)),
+                                                       pygin.Dist(str(sample_dist)),
                                                        str(sampling_exp.variable))
                                    )
             return result
