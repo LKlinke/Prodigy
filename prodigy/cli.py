@@ -13,12 +13,12 @@ from typing import IO
 import logging
 import click
 
-import probably.pgcl.compiler as pgcl
-from probably.analysis.forward.config import ForwardAnalysisConfig
-from probably.analysis.forward.equivalence.equivalence_check import check_equivalence
-from probably.pgcl.typechecker.check import CheckFail
-import probably.analysis
-from probably.util.color import Style
+import prodigy.pgcl.compiler as pgcl
+from prodigy.analysis.forward.config import ForwardAnalysisConfig
+from prodigy.analysis.forward.equivalence.equivalence_check import check_equivalence
+from prodigy.pgcl.typechecker.check import CheckFail
+import prodigy.analysis
+from prodigy.util.color import Style
 
 
 @click.group()
@@ -69,7 +69,7 @@ def main(ctx, program_file: IO, input_dist: str, show_input_program: bool) -> No
     else:
         dist = config.factory.from_expr(input_dist, *program.variables.keys(), preciseness=1.0)
 
-    dist = probably.analysis.compute_discrete_distribution(program.instructions, dist, config)
+    dist = prodigy.analysis.compute_discrete_distribution(program.instructions, dist, config)
     print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + str(dist) + Style.RESET)
 
 
