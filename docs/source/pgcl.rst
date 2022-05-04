@@ -1,2 +1,2 @@
 
-.. automodule:: probably.pgcl
+.. automodule:: prodigy.pgcl
