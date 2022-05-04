@@ -24,8 +24,8 @@ Linearity
                 \mid  &\quad n \cdot e && \text{\small{}(multiplication by constants)}
     \end{aligned}
 
-*Monus* means subtraction truncated at zero [#monus]_. In Probably, we just use
-:py:data:`probably.pgcl.ast.Binop.MINUS` (and do not distinguish between minus
+*Monus* means subtraction truncated at zero [#monus]_. In Prodigy, we just use
+:py:data:`prodigy.pgcl.ast.Binop.MINUS` (and do not distinguish between minus
 and monus).
 
 *Linear Boolean expressions* :math:`\varphi \in \mathsf{BE}_\text{lin}` adhere to the grammar
@@ -47,9 +47,9 @@ and monus).
 arithmetic and linear Boolean expressions. Probabilistic choices must be done
 with a constant probability expression.
 
-The weakest pre-expectations of linear programs (see :py:mod:`probably.pgcl.backward`)
+The weakest pre-expectations of linear programs (see :py:mod:`prodigy.pgcl.backward`)
 are also linear in the sense that they can be easily rewritten as *linear
-expectations*. You can use for example :py:func:`probably.pgcl.simplify.normalize_expectation`.
+expectations*. You can use for example :py:func:`prodigy.pgcl.simplify.normalize_expectation`.
 
 The set :math:`\mathsf{Exp}_\text{lin}` of *linear expectations* is given by the grammar
 
@@ -69,8 +69,8 @@ where :math:`e \in \mathsf{AE}_\text{lin}` is a linear arithmetic expression,
 
 .. [#monus] See the `Monus Wikipedia page <https://en.wikipedia.org/wiki/Monus>`_ for the general mathematical term.
 
-.. autofunction:: probably.pgcl.syntax.check_is_linear_program
-.. autofunction:: probably.pgcl.syntax.check_is_linear_expr
+.. autofunction:: prodigy.pgcl.analyzer.syntax.check_is_linear_program
+.. autofunction:: prodigy.pgcl.analyzer.syntax.check_is_linear_expr
 
 .. _one_big_loop:
 
@@ -83,9 +83,9 @@ assignment statements before the loop.
 
 Every program can be converted into a program with just one big loop and a bunch
 of initialization assignments before the loop using
-:py:func:`probably.pgcl.cfg.program_one_big_loop`.
+:py:func:`prodigy.pgcl.cfg.program_one_big_loop`.
 
-.. autofunction:: probably.pgcl.syntax.check_is_one_big_loop
+.. autofunction:: prodigy.pgcl.analyzer.syntax.check_is_one_big_loop
 
 """
 

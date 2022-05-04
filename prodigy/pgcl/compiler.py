@@ -6,9 +6,9 @@ Compiler Frontend
 This module provides an API that combines parsing and type-checking all at once.
 It is just a thin wrapper around the parser, type-checker, and constant substitution.
 
-Refer to :mod:`probably.pgcl.parser` and :mod:`probably.pgcl.check` for the parser and type-checker respectively.
-Variable/constant substituion is implemented in :mod:`probably.pgcl.substitute`.
-If you want them, linearity checks live in :mod:`probably.pgcl.syntax`.
+Refer to :mod:`prodigy.pgcl.parser` and :mod:`prodigy.pgcl.check` for the parser and type-checker respectively.
+Variable/constant substituion is implemented in :mod:`prodigy.pgcl.substitute`.
+If you want them, linearity checks live in :mod:`prodigy.pgcl.syntax`.
 """
 
 from typing import Union

@@ -98,7 +98,7 @@ class _LikelyExpr(ExprClass):
     probability as a constant. _LikelyExprs are transformed into
     CategoricalExprs later during parsing.
 
-    They do not occur in the public API of probably, but they may occur as part
+    They do not occur in the public API of prodigy, but they may occur as part
     of errors emitted by the parser before translation to CategoricalExprs.
     """
     value: Expr = attr.ib()
@@ -405,7 +405,7 @@ def _parse_program(config: ProgramConfig, t: Tree) -> Program:
 
 def parse_pgcl(code: str, config: ProgramConfig = ProgramConfig()) -> Program:
     """
-    Parse a pGCL program with an optional :py:class:`probably.pgcl.ast.ProgramConfig`.
+    Parse a pGCL program with an optional :py:class:`prodigy.pgcl.ast.ProgramConfig`.
 
     .. doctest::
 

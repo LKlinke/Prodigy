@@ -1,15 +1,15 @@
 """
 =================
-``probably.pgcl``
+``prodigy.pgcl``
 =================
 
 This module implements pGCL parsing, type-checking, and transformations of pGCL programs.
 The most important modules are the two below:
 
-1. :mod:`probably.pgcl.compiler`. Functions that do parsing and type-checking all at once.
-2. :mod:`probably.pgcl.ast`. The abstract syntax tree (AST) with all its types that define it.
+1. :mod:`prodigy.pgcl.compiler`. Functions that do parsing and type-checking all at once.
+2. :mod:`prodigy.pgcl.ast`. The abstract syntax tree (AST) with all its types that define it.
 
-It is also possible to calculate weakest pre-expectations of programs (see :mod:`probably.pgcl.backward`) for some specific types of programs.
+It is also possible to calculate weakest pre-expectations of programs (see :mod:`prodigy.pgcl.backward`) for some specific types of programs.
 
 .. doctest::
 
@@ -35,14 +35,14 @@ It is also possible to calculate weakest pre-expectations of programs (see :mod:
 
 For more details on what syntax is accepted for pGCL programs, you can view the :ref:`formal grammar used for the pGCL parser <pgcl_grammar>`.
 
-.. automodule:: probably.pgcl.compiler
-.. automodule:: probably.pgcl.ast
+.. automodule:: prodigy.pgcl.compiler
+.. automodule:: prodigy.pgcl.ast
     :no-members:
-.. automodule:: probably.pgcl.analyzer
-.. automodule:: probably.pgcl.parser
-.. automodule:: probably.pgcl.typechecker
-.. automodule:: probably.pgcl.substitute
-.. automodule:: probably.pgcl.cfg
+.. automodule:: prodigy.pgcl.analyzer
+.. automodule:: prodigy.pgcl.parser
+.. automodule:: prodigy.pgcl.typechecker
+.. automodule:: prodigy.pgcl.substitute
+.. automodule:: prodigy.pgcl.cfg
 """
 
 from .ast import *

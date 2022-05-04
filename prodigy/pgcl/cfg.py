@@ -23,8 +23,8 @@ its documentation for more information on how to visualize a control-flow graph.
 
 .. exec::
 
-    from probably.pgcl.compiler import compile_pgcl
-    from probably.pgcl.cfg import ControlFlowGraph, _write_docs_graphviz
+    from prodigy.pgcl.compiler import compile_pgcl
+    from prodigy.pgcl.cfg import ControlFlowGraph, _write_docs_graphviz
     program = compile_pgcl("nat x; while (x <= 3) { while (x = 0) { x := x + 1; }; if (x = 0) { x := x + 1; x := x + 2; x := x + 3; } {} }")
     dot = ControlFlowGraph.from_instructions(program.instructions).render_dot()
     _write_docs_graphviz(dot, "cfg")
@@ -138,7 +138,7 @@ class Terminator:
     def flip(self):
         """
         Flip the condition (by negation using
-        :func:`probably.pgcl.simplify.simplifying_neg`) and switch both branches
+        :func:`prodigy.pgcl.simplify.simplifying_neg`) and switch both branches
         of this terminator. The operation does not change the semantics of the
         terminator.
         """
@@ -409,7 +409,7 @@ class JumpTable:
 
     .. exec::
 
-        from probably.pgcl.cfg import _write_docs_jumptable_images
+        from prodigy.pgcl.cfg import _write_docs_jumptable_images
         _write_docs_jumptable_images()
 
     Let's look at a simple example. We start with two blocks: The ``x := 42``
@@ -473,7 +473,7 @@ class JumpTable:
         comparisons using :math:`\leq` (therefore logarithmic size in the number
         of jumps), we decide against it. Inequalities make it harder to see
         which conditions exclude each other and this makes debugging e.g.
-        weakest preexpectation generation (see :mod:`probably.pgcl.backward`) a bit
+        weakest preexpectation generation (see :mod:`prodigy.pgcl.backward`) a bit
         harder.
         """
         pc_expr = VarExpr(self._pc_var)
@@ -524,7 +524,7 @@ def one_big_loop(graph: ControlFlowGraph, pc_var: Var):
 
     .. exec::
 
-        from probably.pgcl.cfg import _write_docs_one_big_loop
+        from prodigy.pgcl.cfg import _write_docs_one_big_loop
         _write_docs_one_big_loop()
 
     Let's work through a (contrived) example. The program below uses two nested

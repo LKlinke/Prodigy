@@ -6,13 +6,13 @@ Walking ASTs
 Utilities to traverse ("walk") an AST, i.e. visiting each node in the AST.
 There are two directions (bottom-up and top-down) which you can select using :class:`Walk`.
 
-We also have :data:`probably.util.ref.Ref` and :class:`probably.util.ref.Mut` to represent mutable references to values.
+We also have :data:`prodigy.util.ref.Ref` and :class:`prodigy.util.ref.Mut` to represent mutable references to values.
 These allow a walk of an AST while modifying it.
 E.g. constant folding can be implemented as a bottom-up walk where each callback simplifies the current node.
 
 A simple example with :func:`walk_expr` is below.
 The returned iterable contains ``Mut[Expr]`` objects.
-Use :attr:`probably.util.ref.Mut.val` to access the current node.
+Use :attr:`prodigy.util.ref.Mut.val` to access the current node.
 
     .. doctest::
 
@@ -28,7 +28,7 @@ Use :attr:`probably.util.ref.Mut.val` to access the current node.
 
 .. rubric:: Why not manual recursion?
 
-This framework allows easy and flexible traversal of ASTs while also changing direction along the way: Using :class:`probably.util.ref.Mut`, we can modify the AST and then continue traversal with the new AST.
+This framework allows easy and flexible traversal of ASTs while also changing direction along the way: Using :class:`prodigy.util.ref.Mut`, we can modify the AST and then continue traversal with the new AST.
 This makes it hard to forget calling a recursive traversal call, which could easily happen if every single traversal was implemented manually.
 """
 
