@@ -1,8 +1,8 @@
-from probably.pgcl.ast import VarExpr
-from probably.pgcl.compiler import compile_pgcl
-from probably.pgcl.substitute import substitute_expr
-from probably.analysis.backward.wp import loopfree_wp
-from probably.util.ref import Mut
+from prodigy.pgcl.ast import VarExpr
+from prodigy.pgcl.compiler import compile_pgcl
+from prodigy.pgcl.substitute import substitute_expr
+from prodigy.analysis.backward.wp import loopfree_wp
+from prodigy.util.ref import Mut
 
 
 def test_uniform_sequence():

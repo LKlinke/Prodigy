@@ -2,9 +2,9 @@
 Here we do a bunch of tests on a larger collection of linear programs, with focus on weakest pre-expectation computation.
 """
 
-from probably.pgcl.compiler import parse_pgcl
-from probably.analysis.backward.wp import one_loop_wp_transformer
-from probably.analysis.backward.simplify import normalize_expectation_transformer
+from prodigy.pgcl.compiler import parse_pgcl
+from prodigy.analysis.backward.wp import one_loop_wp_transformer
+from prodigy.analysis.backward.simplify import normalize_expectation_transformer
 
 
 def test_branchy():
