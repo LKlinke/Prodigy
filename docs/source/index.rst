@@ -1,10 +1,10 @@
 ======================
-Probably Documentation
+Prodigy Documentation
 ======================
 
-**Probably** is a Python package for parsing, type-checking, and analyzing probabilistic programs written in the pGCL language.
+**Prodigy** is a Python package for parsing, type-checking, and analyzing probabilistic programs written in the pGCL language.
 
-For more information, visit `https://github.com/Philipp15b/probably <https://github.com/Philipp15b/probably>`_.
+For more information, visit `https://github.com/LKlinke/prodigy <https://github.com/LKlinke/prodigy>`_.
 
 Features:
 

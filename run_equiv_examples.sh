@@ -8,6 +8,6 @@ do
   else
     echo "Run example ${file}"
     printf "\e[32mResult:\t\e[m"
-    time python probably/cli.py $@ check_equality $file ${file%".pgcl"}"_invariant.pgcl"
+    time python prodigy/cli.py $@ check_equality $file ${file%".pgcl"}"_invariant.pgcl"
   fi
 done
