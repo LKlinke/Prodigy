@@ -1,5 +1,4 @@
 # pylint: disable-all
-import inspect
 import os
 import sys
 from datetime import datetime
@@ -18,9 +17,9 @@ extensions = [
 ]
 
 # General information about the project.
-project = 'Probably'
-copyright = '{}, Philipp Schröer'.format(datetime.now().year)
-author = 'Philipp Schröer'
+project = 'Prodigy'
+copyright = '{}, Lutz Klinkenberg'.format(datetime.now().year)
+author = 'Lutz Klinkenberg'
 master_doc = 'index'
 pygments_style = 'sphinx'
 todo_include_todos = True

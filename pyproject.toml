@@ -16,6 +16,7 @@ graphviz = "^0.15"
 networkx = "2.5"
 sympy = "^1.8"
 matplotlib = "^3.4.2"
+pygin = {git="https://git.rwth-aachen.de/tobias.winkler1/prodigy.git", branch="name-change"}
 
 [tool.poetry.dev-dependencies]
 pytest = "^4.6"
@@ -26,6 +27,7 @@ sphinx-autodoc-typehints = "^1.10.3"
 sphinx-bootstrap-theme = "^0.7.1"
 sphinx-click = "^2.3.2"
 sphinx-git = "^11.0.0"
+jinja2 = "<3.1"
 rope = "^0.17.0"
 pytest-cov = "^2.9.0"
 hypothesis = "^5.18.0"

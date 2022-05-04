@@ -1,2 +1,2 @@
-.. automodule:: probably.util
+.. automodule:: prodigy.util
     :no-members:

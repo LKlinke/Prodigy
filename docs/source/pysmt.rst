@@ -1,2 +1,2 @@
 
-.. automodule:: probably.pysmt
+.. automodule:: prodigy.pysmt

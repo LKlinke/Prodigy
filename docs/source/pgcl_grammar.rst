@@ -4,4 +4,4 @@
 pGCL Grammar
 ============
 
-.. autofunction:: probably.pgcl.parser._doc_parser_grammar
+.. autofunction:: prodigy.pgcl.parser._doc_parser_grammar

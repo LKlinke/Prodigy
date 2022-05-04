@@ -1,9 +1,9 @@
 .. cfg_internals:
 
 ===============================
-``probably.pgcl.cfg`` Internals
+``prodigy.pgcl.cfg`` Internals
 ===============================
 
-.. autoclass:: probably.pgcl.cfg._Region
-.. autofunction:: probably.pgcl.cfg._expand_region
-.. autofunction:: probably.pgcl.cfg._join_regions
+.. autoclass:: prodigy.pgcl.cfg._Region
+.. autofunction:: prodigy.pgcl.cfg._expand_region
+.. autofunction:: prodigy.pgcl.cfg._join_regions

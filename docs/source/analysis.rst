@@ -1,2 +1,2 @@
 
-.. automodule:: probably.analysis
+.. automodule:: prodigy.analysis

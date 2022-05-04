@@ -1,9 +1,9 @@
 .. substitute_internals:
 
 ======================================
-``probably.pgcl.substitute`` Internals
+``prodigy.pgcl.substitute`` Internals
 ======================================
 
-.. autoclass:: probably.pgcl.substitute._Binder
-.. autoclass:: probably.pgcl.substitute._Subst
-.. autofunction:: probably.pgcl.substitute._bind_substs
+.. autoclass:: prodigy.pgcl.substitute._Binder
+.. autoclass:: prodigy.pgcl.substitute._Subst
+.. autofunction:: prodigy.pgcl.substitute._bind_substs
