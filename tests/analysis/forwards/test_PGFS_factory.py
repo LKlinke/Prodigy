@@ -1,5 +1,5 @@
-from probably.analysis.forward.generating_function import GeneratingFunction
-from probably.analysis.forward.pgfs import SympyPGF
+from prodigy.analysis.forward.generating_function import GeneratingFunction
+from prodigy.analysis.forward.pgfs import SympyPGF
 import random as rng
 
 
