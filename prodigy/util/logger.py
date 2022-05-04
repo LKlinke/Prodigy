@@ -1,6 +1,6 @@
 import logging
 
-from probably.util.color import Style
+from prodigy.util.color import Style
 
 
 def log_setup(name: str, level, file: str = 'test.log') -> logging.Logger:
