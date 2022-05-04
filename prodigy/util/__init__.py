@@ -1,6 +1,6 @@
 """
 =================
-``probably.util``
+``prodigy.util``
 =================
 
 .. autofunction:: probably.util.dedup_list

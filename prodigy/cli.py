@@ -1,10 +1,10 @@
 """
-Probably also offers a simple command-line interface for quick program inspection.
+prodigy also offers a simple command-line interface for quick program inspection.
 
-If you use `poetry` and do not have probably installed globally, you can use `poetry run probably INPUT`.
+If you use `poetry` and do not have prodigy installed globally, you can use `poetry run prodigy INPUT`.
 
-.. click:: probably.cli:cli
-   :prog: probably
+.. click:: prodigy.cli:cli
+   :prog: prodigy
    :show-nested:
 """
 
