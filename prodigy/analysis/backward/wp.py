@@ -22,7 +22,7 @@ represented in the computed expectations as a
 
 .. doctest::
 
-    >>> from probably.pgcl.parser import parse_pgcl
+    >>> from prodigy.pgcl.parser import parse_pgcl
     >>> program = parse_pgcl("x := 5; tick(5)")
     >>> transformer = loopfree_wp_transformer(program, program.instructions)
     >>> print(transformer)
@@ -85,10 +85,10 @@ from typing import Dict, Sequence, Union
 
 import attr
 
-from probably.pgcl.ast import *
-from probably.pgcl.substitute import substitute_expr
-from probably.pgcl.analyzer.syntax import check_is_one_big_loop
-from probably.pgcl.ast.walk import Walk, walk_expr
+from prodigy.pgcl.ast import *
+from prodigy.pgcl.substitute import substitute_expr
+from prodigy.pgcl.analyzer.syntax import check_is_one_big_loop
+from prodigy.pgcl.ast.walk import Walk, walk_expr
 
 
 def loopfree_wp(instr: Union[Instr, Sequence[Instr]],
@@ -110,8 +110,8 @@ def loopfree_wp(instr: Union[Instr, Sequence[Instr]],
 
     .. doctest::
 
-        >>> from probably.pgcl.parser import parse_pgcl
-        >>> from probably.pgcl.ast import RealLitExpr, VarExpr
+        >>> from prodigy.pgcl.parser import parse_pgcl
+        >>> from prodigy.pgcl.ast import RealLitExpr, VarExpr
 
         >>> program = parse_pgcl("bool a; bool x; if (a) { x := 1 } {}")
         >>> res = loopfree_wp(program.instructions, RealLitExpr("1.0"))
@@ -244,7 +244,7 @@ class ExpectationTransformer:
 
         .. doctest::
 
-            >>> from probably.pgcl.parser import parse_pgcl
+            >>> from prodigy.pgcl.parser import parse_pgcl
             >>> program = parse_pgcl("x := 3")
             >>> backward = loopfree_wp_transformer(program, program.instructions)
             >>> print(backward)
@@ -326,7 +326,7 @@ class LoopExpectationTransformer:
 
     .. doctest::
 
-        >>> from probably.pgcl.parser import parse_pgcl
+        >>> from prodigy.pgcl.parser import parse_pgcl
         >>> program = parse_pgcl("bool x; x := true; while (x) { x := false }")
         >>> transformer = one_loop_wp_transformer(program, program.instructions)
         >>> print(transformer)
@@ -368,7 +368,7 @@ def one_loop_wp_transformer(
 
     .. doctest::
 
-        >>> from probably.pgcl.parser import parse_pgcl
+        >>> from prodigy.pgcl.parser import parse_pgcl
 
         >>> program = parse_pgcl("bool x; bool y; while(x) { { x := true } [0.5] { x := y } }")
         >>> print(one_loop_wp_transformer(program, program.instructions))
@@ -425,7 +425,7 @@ def general_wp_transformer(
 
     .. doctest::
 
-        >>> from probably.pgcl.parser import parse_pgcl
+        >>> from prodigy.pgcl.parser import parse_pgcl
 
         >>> program = parse_pgcl("bool x; while(x) { while (y) {} }")
         >>> print(general_wp_transformer(program))
@@ -436,7 +436,7 @@ def general_wp_transformer(
         substitute: Whether to call :meth:`ExpectationTransformer.substitute` on the ``body``.
     """
     # avoid a cyclic import
-    from probably.pgcl.cfg import \
+    from prodigy.pgcl.cfg import \
         program_one_big_loop  # pylint: disable=import-outside-toplevel,cyclic-import
 
     one_big_loop_err = check_is_one_big_loop(program.instructions)

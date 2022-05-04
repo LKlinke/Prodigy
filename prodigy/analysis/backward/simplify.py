@@ -12,12 +12,12 @@ from typing import Dict, Union, Optional
 
 import attr
 
-from probably.pgcl.ast.expressions import expr_str_parens
+from prodigy.pgcl.ast.expressions import expr_str_parens
 
-from probably.pgcl.ast import *
-from probably.pgcl.typechecker.check import CheckFail, get_type
-from probably.pgcl.ast.walk import Walk, walk_expr
-from probably.analysis.backward.wp import ExpectationTransformer
+from prodigy.pgcl.ast import *
+from prodigy.pgcl.typechecker.check import CheckFail, get_type
+from prodigy.pgcl.ast.walk import Walk, walk_expr
+from prodigy.analysis.backward.wp import ExpectationTransformer
 
 
 def simplifying_and(lhs: Expr, rhs: Expr) -> Expr:
