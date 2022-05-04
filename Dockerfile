@@ -29,10 +29,12 @@ RUN apt install -y vim nano
 WORKDIR /root/artifact
 COPY . .
 
-RUN bash -l -c 'poetry update && poetry env use 3.9 && poetry install --no-interaction'
+RUN bash -l -c 'poetry env use 3.9 && poetry update && poetry install --no-interaction'
 
 
 WORKDIR /root/
+
+CMD bash -l /root/artifact/load_env.sh
 
 # Enter poetry shell in /root/artifact, but then go up one directory and start a shell
 # CMD bash /root/artifact/cav_artifact/hello.sh
