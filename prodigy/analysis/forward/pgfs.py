@@ -1,14 +1,14 @@
 from typing import Union
 
-import prodigy
+import pygin
 import sympy as sp
 
-from probably.analysis.forward.distribution_factory import CommonDistributionsFactory, Distribution, Param
-from probably.analysis.forward.exceptions import DistributionParameterError
-from probably.analysis.forward.fast_generating_function import FPS
-from probably.analysis.forward.generating_function import GeneratingFunction
-from probably.pgcl import VarExpr, Expr
-from probably.pgcl.analyzer.syntax import has_variable
+from prodigy.analysis.forward.distribution_factory import CommonDistributionsFactory, Distribution, Param
+from prodigy.analysis.forward.exceptions import DistributionParameterError
+from prodigy.analysis.forward.fast_generating_function import FPS
+from prodigy.analysis.forward.generating_function import GeneratingFunction
+from prodigy.pgcl import VarExpr, Expr
+from prodigy.pgcl.analyzer.syntax import has_variable
 
 
 class SympyPGF(CommonDistributionsFactory):

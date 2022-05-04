@@ -7,8 +7,8 @@ from matplotlib.cm import ScalarMappable
 
 from .forward.distribution import Distribution
 from .forward.exceptions import ParameterError
-from probably.pgcl import VarExpr
-from probably.util.logger import log_setup
+from prodigy.pgcl import VarExpr
+from prodigy.util.logger import log_setup
 
 logger = log_setup(__name__, logging.DEBUG)
 

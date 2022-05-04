@@ -1,12 +1,12 @@
 import logging
 from typing import Tuple, Optional
 
-from probably.analysis.forward.distribution import Distribution
-from probably.analysis.forward.config import ForwardAnalysisConfig
-from probably.pgcl import Program, IfInstr, SkipInstr, VarExpr, WhileInstr
-from probably.analysis.forward.instruction_handler import compute_discrete_distribution
-from probably.util.color import Style
-from probably.util.logger import log_setup
+from prodigy.analysis.forward.distribution import Distribution
+from prodigy.analysis.forward.config import ForwardAnalysisConfig
+from prodigy.pgcl import Program, IfInstr, SkipInstr, VarExpr, WhileInstr
+from prodigy.analysis.forward.instruction_handler import compute_discrete_distribution
+from prodigy.util.color import Style
+from prodigy.util.logger import log_setup
 
 logger = log_setup(__name__, logging.DEBUG)
 

@@ -5,17 +5,17 @@ from fractions import Fraction
 from abc import ABC, abstractmethod
 from typing import get_args, Union, Sequence
 
-from probably.analysis.forward.config import ForwardAnalysisConfig
-from probably.analysis.forward.distribution import Distribution, MarginalType
-from probably.analysis.forward.exceptions import ObserveZeroEventError, VerificationError
-from probably.analysis.forward.pgfs import SympyPGF
-from probably.analysis.plotter import Plotter
-from probably.pgcl import *
-from probably.pgcl.ast.expressions import IidSampleExpr
-from probably.pgcl.ast.instructions import OptimizationQuery
-from probably.util.color import Style
+from prodigy.analysis.forward.config import ForwardAnalysisConfig
+from prodigy.analysis.forward.distribution import Distribution, MarginalType
+from prodigy.analysis.forward.exceptions import ObserveZeroEventError, VerificationError
+from prodigy.analysis.forward.pgfs import SympyPGF
+from prodigy.analysis.plotter import Plotter
+from prodigy.pgcl import *
+from prodigy.pgcl.ast.expressions import IidSampleExpr
+from prodigy.pgcl.ast.instructions import OptimizationQuery
+from prodigy.util.color import Style
 
-from probably.util.logger import log_setup, printProgressBar
+from prodigy.util.logger import log_setup, printProgressBar
 
 logger = log_setup(__name__, logging.DEBUG)
 
@@ -348,7 +348,7 @@ class WhileHandler(InstructionHandler):
                                 "[3]: Analyse until a certain probability mass is captured (might not terminate!)\n"))
         logger.info(f"User chose {user_choice}")
         if user_choice == 1:
-            from probably.analysis.forward.equivalence.equivalence_check import check_equivalence
+            from prodigy.analysis.forward.equivalence.equivalence_check import check_equivalence
             inv_filepath = input("Invariant file:\t")
             with open(inv_filepath, 'r') as inv_file:
                 inv_src = inv_file.read()

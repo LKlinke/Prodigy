@@ -3,15 +3,15 @@ from typing import Tuple, List, Set, Dict, Union, Generator, get_args
 
 import sympy
 import operator
-from probably.pgcl import Unop, VarExpr, NatLitExpr, BinopExpr, Binop, Expr, BoolLitExpr, UnopExpr, RealLitExpr, \
+from prodigy.pgcl import Unop, VarExpr, NatLitExpr, BinopExpr, Binop, Expr, BoolLitExpr, UnopExpr, RealLitExpr, \
     walk_expr, Walk, IidSampleExpr, DistrExpr, GeometricExpr, BernoulliExpr, DUniformExpr, PoissonExpr
-from probably.pgcl.analyzer.syntax import check_is_constant_constraint, check_is_modulus_condition, check_is_linear_expr
-from probably.pgcl.parser.parser import parse_expr
+from prodigy.pgcl.analyzer.syntax import check_is_constant_constraint, check_is_modulus_condition, check_is_linear_expr
+from prodigy.pgcl.parser.parser import parse_expr
 from .distribution import Distribution, MarginalType
 from .exceptions import ComparisonException, NotComputableException, DistributionParameterError, \
     IncomparableTypesException
-from probably.util.logger import log_setup, logging, Style
-from probably.util.ref import Mut
+from prodigy.util.logger import log_setup, logging, Style
+from prodigy.util.ref import Mut
 
 logger = log_setup(__name__, logging.DEBUG, file="GF_operations.log")
 

@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Union
 
-from probably.analysis.forward.distribution import Param, Distribution
-from probably.pgcl import VarExpr, Expr
+from prodigy.analysis.forward.distribution import Param, Distribution
+from prodigy.pgcl import VarExpr, Expr
 
 
 class CommonDistributionsFactory(ABC):

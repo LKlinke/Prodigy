@@ -3,8 +3,8 @@ from typing import Union, List
 
 import attr
 
-from probably.analysis.forward.distribution import Distribution
-from probably.pgcl import Expr, VarExpr, OptimizationType
+from prodigy.analysis.forward.distribution import Distribution
+from prodigy.pgcl import Expr, VarExpr, OptimizationType
 
 
 @attr.s

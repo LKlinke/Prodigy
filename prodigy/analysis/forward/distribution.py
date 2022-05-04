@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Union, Set, Dict, Iterator, Tuple, Generator
 
-from probably.pgcl import Expr, VarExpr
-from probably.pgcl.ast.expressions import IidSampleExpr
+from prodigy.pgcl import Expr, VarExpr
+from prodigy.pgcl.ast.expressions import IidSampleExpr
 
 
 class MarginalType(Enum):

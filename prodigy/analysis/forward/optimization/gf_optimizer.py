@@ -2,9 +2,9 @@ import sympy
 from typing import Union, List, get_args
 
 from .optimizer import Optimizer
-from probably.analysis.forward.exceptions import ParameterError
-from probably.analysis.forward.generating_function import GeneratingFunction
-from probably.pgcl import Expr, parse_expr, VarExpr, OptimizationType
+from prodigy.analysis.forward.exceptions import ParameterError
+from prodigy.analysis.forward.generating_function import GeneratingFunction
+from prodigy.pgcl import Expr, parse_expr, VarExpr, OptimizationType
 
 
 class GFOptimizer(Optimizer):

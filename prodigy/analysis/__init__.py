@@ -19,7 +19,7 @@ The *backwards semantics* module considers expectation transoformer semantics a 
 .. automodule:: probably.analysis.backward
 """
 
-from probably.analysis.forward.config import ForwardAnalysisConfig
-from probably.analysis.forward.distribution import Distribution
-from probably.analysis.forward.instruction_handler import compute_discrete_distribution
+from prodigy.analysis.forward.config import ForwardAnalysisConfig
+from prodigy.analysis.forward.distribution import Distribution
+from prodigy.analysis.forward.instruction_handler import compute_discrete_distribution
 from .backward.wp import loopfree_wp_transformer
