@@ -8,13 +8,13 @@ install:
 	poetry install
 
 lint:
-	poetry run pylint probably ${ARGS}
+	poetry run pylint prodigy ${ARGS}
 
 mypy:
-	poetry run mypy probably ${ARGS}
+	poetry run mypy prodigy ${ARGS}
 
 test:
-	poetry run pytest --doctest-modules --cov=probably --cov-report html --cov-report term --junitxml=testreport.xml tests/ probably/ ${ARGS}
+	poetry run pytest --doctest-modules --cov=prodigy --cov-report html --cov-report term --junitxml=testreport.xml tests/ prodigy/ ${ARGS}
 
 docs:
 	poetry run bash -c "cd docs && make html"

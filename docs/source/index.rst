@@ -43,4 +43,4 @@ API Documentation
 
 Command-Line Interface
 ----------------------
-.. automodule:: probably.cli
+.. automodule:: prodigy.cli

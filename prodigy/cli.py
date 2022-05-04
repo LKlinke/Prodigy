@@ -50,7 +50,7 @@ def main(ctx, program_file: IO, input_dist: str, show_input_program: bool) -> No
 
     # Setup the logging.
     # logging.basicConfig(level=logging.INFO)
-    logging.getLogger("probably.cli").info("Program started.")
+    logging.getLogger("prodigy.cli").info("Program started.")
 
     # Parse and the input and do typechecking.
     program_source = program_file.read()
