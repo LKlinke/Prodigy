@@ -3,10 +3,10 @@
 ``prodigy.util``
 =================
 
-.. autofunction:: probably.util.dedup_list
+.. autofunction:: prodigy.util.dedup_list
 
-.. automodule:: probably.util.ref
-.. automodule:: probably.util.lark_expr_parser
+.. automodule:: prodigy.util.ref
+.. automodule:: prodigy.util.lark_expr_parser
 """
 
 from typing import List, TypeVar
