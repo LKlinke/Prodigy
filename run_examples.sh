@@ -7,6 +7,6 @@ do
   then
     echo "Skipped!"
   else
-    time python prodigy/cli.py $@ main $file
+    python prodigy/cli.py $@ main $file
   fi
 done
