@@ -19,5 +19,11 @@ test:
 docs:
 	poetry run bash -c "cd docs && make html"
 
+docker-build:
+	docker build -t prodigy .
+
+docker-run:
+	docker run -ti prodigy
+
 clean:
 	rm -rf docs/build
