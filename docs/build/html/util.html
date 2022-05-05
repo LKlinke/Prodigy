@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prodigy.util &#8212; Prodigy  documentation</title>
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css" />
+    <link rel="stylesheet" type="text/css" href="_static/katex-math.css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/contrib/auto-render.min.js"></script>
+    <script src="_static/katex_autorenderer.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="prodigy.analysis" href="analysis.html" />
+    
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="text/javascript" src="_static/js/jquery-1.11.0.min.js "></script>
+<script type="text/javascript" src="_static/js/jquery-fix.js "></script>
+<script type="text/javascript" src="_static/bootstrap-3.3.7/js/bootstrap.min.js "></script>
+<script type="text/javascript" src="_static/bootstrap-sphinx.js "></script>
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,400;0,700;1,400&family=Source+Sans+Pro:ital,wght@0,300;0,400;1,400&family=Source+Serif+Pro:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font: 15px/1.4 "Source Sans Pro",sans-serif;
+        }
+        h1, h2, h3, h5, h6, h6 {
+            font-family: "Source Sans Pro",sans-serif;
+        }
+        p {
+            font-family: "Source Serif Pro",serif;
+        }
+        .py, .field-list p, pre, code {
+            font-family: 'Source Code Pro', monospace;
+        }
+
+        /* fix navbar overlaying contents when clicking on anchors */
+        :target::before {
+            content: "";
+            display: block;
+            height: 60px; /* fixed header height*/
+            margin: -60px 0 0; /* negative fixed header height */
+            background: none;
+        }
+
+        /* hack to limit the yellow highlight to the the children of the target,
+           because of the above hack the target's highlight would be way too large */
+        dt:target {
+            background-color: transparent;
+        }
+        dt:target > * {
+            background-color: #fbe54e;
+        }
+
+        /* spacing adjustments */
+        .section {
+            margin-bottom: 10rem;
+            margin-top: 6rem;
+        }
+        div.body > .section:first-of-type {
+            margin-top: 0rem;
+        }
+        .class, .function, .data {
+            margin-top: 5rem;
+            margin-bottom: 7rem;
+            border-left: 1px solid #eee;
+            padding-left: 1rem;
+        }
+        dl.attribute > dd, dl.class > dd, dl.function > dd, dl.method > dd {
+            margin-left: 30px;
+        }
+        p {
+            margin-top: 1.05em;
+            margin-bottom: 1.05em;
+            text-align: justify;
+        }
+        .field-list p, li p {
+            text-align: left;
+        }
+        /* adjust font sizes */
+        dl.field-list, dl.attribute {
+            font-size: 90%;
+        }
+        .math {
+            font-size: 90.09%;
+        }
+    </style>
+
+  </head><body>
+
+  <div id="navbar" class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="index.html">
+          Prodigy</a>
+        <span class="navbar-text navbar-version pull-left"><b></b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+                <li><a href="https://github.com/Philipp15b/probably">GitHub Repository</a></li>
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="index.html">Contents <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="pgcl.html"><code class="docutils literal notranslate"><span class="pre">prodigy.pgcl</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pgcl.html#compiler-frontend">Compiler Frontend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pgcl.html#module-prodigy.pgcl.parser.parser">Parser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pgcl.html#variable-substitution">Variable Substitution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pgcl.html#control-flow-graph">Control-Flow Graph</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pysmt.html"><code class="docutils literal notranslate"><span class="pre">prodigy.pysmt</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pysmt.html#translation-context">Translation Context</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pysmt.html#expression-translation">Expression Translation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="analysis.html"><code class="docutils literal notranslate"><span class="pre">prodigy.analysis</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="analysis.html#forward-analysis">Forward Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="analysis.html#the-semantics">The Semantics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="analysis.html#distribution">Distribution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="analysis.html#analysis-configuration">Analysis Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="analysis.html#forward-analysis-config">Forward Analysis Config</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="analysis.html#module-prodigy.analysis.backward.wp">Backward Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="analysis.html#weakest-pre-expectations">Weakest Pre-Expectations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="analysis.html#loop-free">Loop-Free</a></li>
+<li class="toctree-l4"><a class="reference internal" href="analysis.html#transformers">Transformers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="analysis.html#loops">Loops</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">prodigy.util</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#mutable-references">Mutable References</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lark-expression-parser">Lark Expression Parser</a></li>
+</ul>
+</li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+            
+            
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+      <div class="col-md-3">
+        <div id="sidebar" class="bs-sidenav" role="complementary">
+<h4 style="padding: 5px 20px">Contents</h4>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="pgcl.html"><code class="docutils literal notranslate"><span class="pre">prodigy.pgcl</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="pysmt.html"><code class="docutils literal notranslate"><span class="pre">prodigy.pysmt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="analysis.html"><code class="docutils literal notranslate"><span class="pre">prodigy.analysis</span></code></a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">prodigy.util</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#mutable-references">Mutable References</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#lark-expression-parser">Lark Expression Parser</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    <div class="body col-md-9 content" role="main">
+      
+  <span class="target" id="module-prodigy.util"></span><div class="section" id="prodigy-util">
+<h1><code class="docutils literal notranslate"><span class="pre">prodigy.util</span></code><a class="headerlink" href="#prodigy-util" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt id="prodigy.util.dedup_list">
+<code class="sig-name descname"><span class="pre">dedup_list</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/util.html#dedup_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.util.dedup_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deduplicate a list using a set, preserving the ordering of the list.</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dedup_list</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">])</span>
+<span class="go">[1, 2, 3]</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[~T]) – </p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[~T]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<span class="target" id="module-prodigy.util.ref"></span><div class="section" id="mutable-references">
+<h2>Mutable References<a class="headerlink" href="#mutable-references" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="prodigy.util.ref.Mut">
+<em class="property"><span class="pre">class</span> </em><code class="sig-name descname"><span class="pre">Mut</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">read</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/util/ref.html#Mut"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.util.ref.Mut" title="Permalink to this definition">¶</a></dt>
+<dd><p>A mutable reference to a value of type M, represented a getter and a setter.
+Use <a class="reference internal" href="#prodigy.util.ref.Mut.val" title="prodigy.util.ref.Mut.val"><code class="xref py py-attr docutils literal notranslate"><span class="pre">val</span></code></a> to read and write the value.</p>
+<p>Mut is useful to transform an AST while walking it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>read</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[], ~M]) – </p></li>
+<li><p><strong>write</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Callable</span></code></a>[[~M], <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.10)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>]) – </p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt id="prodigy.util.ref.Mut.read">
+<code class="sig-name descname"><span class="pre">read</span></code><em class="property"><span class="pre">:</span> <span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span> </span><span class="pre">M</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#prodigy.util.ref.Mut.read" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="prodigy.util.ref.Mut.write">
+<code class="sig-name descname"><span class="pre">write</span></code><em class="property"><span class="pre">:</span> <span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">M</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.10)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#prodigy.util.ref.Mut.write" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="prodigy.util.ref.Mut.val">
+<em class="property"><span class="pre">property</span> </em><code class="sig-name descname"><span class="pre">val</span></code><a class="headerlink" href="#prodigy.util.ref.Mut.val" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property that wraps <code class="docutils literal notranslate"><span class="pre">read</span></code> and <code class="docutils literal notranslate"><span class="pre">write</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>~M</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="prodigy.util.ref.Mut.alloc">
+<em class="property"><span class="pre">static</span> </em><code class="sig-name descname"><span class="pre">alloc</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/util/ref.html#Mut.alloc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.util.ref.Mut.alloc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a new Mut in a new anonmyous location.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>value</strong> (<em>~M</em>) – </p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#prodigy.util.ref.Mut" title="prodigy.util.ref.Mut"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mut</span></code></a>[~M]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="prodigy.util.ref.Mut.wrap">
+<em class="property"><span class="pre">static</span> </em><code class="sig-name descname"><span class="pre">wrap</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ref</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/util/ref.html#Mut.wrap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.util.ref.Mut.wrap" title="Permalink to this definition">¶</a></dt>
+<dd><p>If <code class="docutils literal notranslate"><span class="pre">ref</span></code> isn’ already a Mut, wrap it with <a class="reference internal" href="#prodigy.util.ref.Mut.alloc" title="prodigy.util.ref.Mut.alloc"><code class="xref py py-meth docutils literal notranslate"><span class="pre">alloc()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>ref</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference internal" href="#prodigy.util.ref.Mut" title="prodigy.util.ref.Mut"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mut</span></code></a>[~M], ~M]) – </p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#prodigy.util.ref.Mut" title="prodigy.util.ref.Mut"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mut</span></code></a>[~M]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="prodigy.util.ref.Mut.list">
+<em class="property"><span class="pre">static</span> </em><code class="sig-name descname"><span class="pre">list</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/util/ref.html#Mut.list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.util.ref.Mut.list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a Mut for each element in the list.</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">my_list</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ref_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">Mut</span><span class="o">.</span><span class="n">list</span><span class="p">(</span><span class="n">my_list</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ref_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">val</span> <span class="o">=</span> <span class="mi">15</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">my_list</span>
+<span class="go">[15, 2, 3]</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>values</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[~M]) – </p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code></a>[<a class="reference internal" href="#prodigy.util.ref.Mut" title="prodigy.util.ref.Mut"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mut</span></code></a>[~M]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="prodigy.util.ref.Mut.dict_items">
+<em class="property"><span class="pre">static</span> </em><code class="sig-name descname"><span class="pre">dict_items</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/util/ref.html#Mut.dict_items"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.util.ref.Mut.dict_items" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a Mut for each key-value pair in the dict.</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">my_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;hello&#39;</span><span class="p">:</span> <span class="mi">42</span><span class="p">}</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">refs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">Mut</span><span class="o">.</span><span class="n">dict_items</span><span class="p">(</span><span class="n">my_dict</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">refs</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">val</span> <span class="o">=</span> <span class="mi">43</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">my_dict</span>
+<span class="go">{&#39;hello&#39;: 43}</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>values</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~Key, ~M]) – </p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[~Key, <a class="reference internal" href="#prodigy.util.ref.Mut" title="prodigy.util.ref.Mut"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mut</span></code></a>[~M]]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="prodigy.util.ref.Mut.dict_values">
+<em class="property"><span class="pre">static</span> </em><code class="sig-name descname"><span class="pre">dict_values</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/util/ref.html#Mut.dict_values"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.util.ref.Mut.dict_values" title="Permalink to this definition">¶</a></dt>
+<dd><p>A Mut reference to each value in the map.
+See <a class="reference internal" href="#prodigy.util.ref.Mut.dict_items" title="prodigy.util.ref.Mut.dict_items"><code class="xref py py-meth docutils literal notranslate"><span class="pre">dict_items()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>values</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[~Key, ~M]) – </p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code></a>[<a class="reference internal" href="#prodigy.util.ref.Mut" title="prodigy.util.ref.Mut"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mut</span></code></a>[~M]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="prodigy.util.ref.Mut.iterate">
+<em class="property"><span class="pre">static</span> </em><code class="sig-name descname"><span class="pre">iterate</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reference</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/util/ref.html#Mut.iterate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.util.ref.Mut.iterate" title="Permalink to this definition">¶</a></dt>
+<dd><p>If this is a reference to a list of elements, apply <a class="reference internal" href="#prodigy.util.ref.Mut.list" title="prodigy.util.ref.Mut.list"><code class="xref py py-meth docutils literal notranslate"><span class="pre">list()</span></code></a>.
+Otherwise return only the reference itself.</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">list</span><span class="p">(</span><span class="n">Mut</span><span class="o">.</span><span class="n">iterate</span><span class="p">(</span><span class="n">Mut</span><span class="o">.</span><span class="n">alloc</span><span class="p">(</span><span class="s1">&#39;a&#39;</span><span class="p">)))</span>
+<span class="go">[Mut(val=&#39;a&#39;)]</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">list</span><span class="p">(</span><span class="n">Mut</span><span class="o">.</span><span class="n">iterate</span><span class="p">(</span><span class="n">Mut</span><span class="o">.</span><span class="n">alloc</span><span class="p">([</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">])))</span>
+<span class="go">[Mut(val=&#39;a&#39;), Mut(val=&#39;b&#39;)]</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>reference</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference internal" href="#prodigy.util.ref.Mut" title="prodigy.util.ref.Mut"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mut</span></code></a>[~M], <a class="reference internal" href="#prodigy.util.ref.Mut" title="prodigy.util.ref.Mut"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mut</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[~M]]]) – </p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Iterable</span></code></a>[<a class="reference internal" href="#prodigy.util.ref.Mut" title="prodigy.util.ref.Mut"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mut</span></code></a>[~M]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py data">
+<dt id="prodigy.util.ref.Ref">
+<code class="sig-name descname"><span class="pre">Ref</span></code><a class="headerlink" href="#prodigy.util.ref.Ref" title="Permalink to this definition">¶</a></dt>
+<dd><p>A Ref is either a Mut or a value.</p>
+<p>alias of Union[prodigy.util.ref.Mut, M]</p>
+</dd></dl>
+
+</div>
+<span class="target" id="module-prodigy.util.lark_expr_parser"></span><div class="section" id="lark-expression-parser">
+<h2>Lark Expression Parser<a class="headerlink" href="#lark-expression-parser" title="Permalink to this headline">¶</a></h2>
+<p>Generate Lark grammars for expressions from operator tables.
+The algorithm is pretty simple, but easy to mess up when doing it by hand.</p>
+<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">table</span> <span class="o">=</span> <span class="p">[</span>
+<span class="gp">... </span>   <span class="p">[</span><span class="n">infixl</span><span class="p">(</span><span class="s2">&quot;plus&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">),</span> <span class="n">infixl</span><span class="p">(</span><span class="s2">&quot;minus&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">)],</span>
+<span class="gp">... </span>   <span class="p">[</span><span class="n">prefix</span><span class="p">(</span><span class="s2">&quot;neg&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">),</span> <span class="n">atom</span><span class="p">(</span><span class="s2">&quot;parens&quot;</span><span class="p">,</span> <span class="s1">&#39;&quot;(&quot; test &quot;)&quot;&#39;</span><span class="p">),</span> <span class="n">atom</span><span class="p">(</span><span class="s2">&quot;int&quot;</span><span class="p">,</span> <span class="s2">&quot;/[0-9]+/&quot;</span><span class="p">)]</span>
+<span class="gp">... </span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">build_expr_parser</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">))</span>
+<span class="go">?test: test_0</span>
+<span class="go">?test_0: test_1</span>
+<span class="go">    | test_0 &quot;+&quot; test_1 -&gt; plus</span>
+<span class="go">    | test_0 &quot;-&quot; test_1 -&gt; minus</span>
+<span class="go">?test_1: &quot;-&quot; test_1 -&gt; neg</span>
+<span class="go">    | &quot;(&quot; test &quot;)&quot; -&gt; parens</span>
+<span class="go">    | /[0-9]+/ -&gt; int</span>
+</pre></div>
+</div>
+<dl class="py class">
+<dt id="prodigy.util.lark_expr_parser.Assoc">
+<em class="property"><span class="pre">class</span> </em><code class="sig-name descname"><span class="pre">Assoc</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/util/lark_expr_parser.html#Assoc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.util.lark_expr_parser.Assoc" title="Permalink to this definition">¶</a></dt>
+<dd><p>An enumeration.</p>
+<dl class="py attribute">
+<dt id="prodigy.util.lark_expr_parser.Assoc.LEFT">
+<code class="sig-name descname"><span class="pre">LEFT</span></code><em class="property"> <span class="pre">=</span> <span class="pre">1</span></em><a class="headerlink" href="#prodigy.util.lark_expr_parser.Assoc.LEFT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="prodigy.util.lark_expr_parser.Assoc.RIGHT">
+<code class="sig-name descname"><span class="pre">RIGHT</span></code><em class="property"> <span class="pre">=</span> <span class="pre">2</span></em><a class="headerlink" href="#prodigy.util.lark_expr_parser.Assoc.RIGHT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt id="prodigy.util.lark_expr_parser.infixl">
+<code class="sig-name descname"><span class="pre">infixl</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">op</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/util/lark_expr_parser.html#infixl"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.util.lark_expr_parser.infixl" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – </p></li>
+<li><p><strong>op</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">_InfixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_PrefixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_PostfixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_AtomOperator</span></code>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="prodigy.util.lark_expr_parser.infixr">
+<code class="sig-name descname"><span class="pre">infixr</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">op</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/util/lark_expr_parser.html#infixr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.util.lark_expr_parser.infixr" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – </p></li>
+<li><p><strong>op</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">_InfixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_PrefixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_PostfixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_AtomOperator</span></code>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="prodigy.util.lark_expr_parser.prefix">
+<code class="sig-name descname"><span class="pre">prefix</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">op</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/util/lark_expr_parser.html#prefix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.util.lark_expr_parser.prefix" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – </p></li>
+<li><p><strong>op</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">_InfixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_PrefixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_PostfixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_AtomOperator</span></code>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="prodigy.util.lark_expr_parser.postfix">
+<code class="sig-name descname"><span class="pre">postfix</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">op</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/util/lark_expr_parser.html#postfix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.util.lark_expr_parser.postfix" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – </p></li>
+<li><p><strong>op</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">_InfixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_PrefixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_PostfixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_AtomOperator</span></code>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="prodigy.util.lark_expr_parser.atom">
+<code class="sig-name descname"><span class="pre">atom</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rule_str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/util/lark_expr_parser.html#atom"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.util.lark_expr_parser.atom" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – </p></li>
+<li><p><strong>rule_str</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">_InfixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_PrefixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_PostfixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_AtomOperator</span></code>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py data">
+<dt id="prodigy.util.lark_expr_parser.OperatorTable">
+<code class="sig-name descname"><span class="pre">OperatorTable</span></code><a class="headerlink" href="#prodigy.util.lark_expr_parser.OperatorTable" title="Permalink to this definition">¶</a></dt>
+<dd><p>An OperatorTable contains a list of precedence levels in ascending order.</p>
+<p>alias of List[List[Union[prodigy.util.lark_expr_parser._InfixOperator, prodigy.util.lark_expr_parser._PrefixOperator, prodigy.util.lark_expr_parser._PostfixOperator, prodigy.util.lark_expr_parser._AtomOperator]]]</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="prodigy.util.lark_expr_parser.build_expr_parser">
+<code class="sig-name descname"><span class="pre">build_expr_parser</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">table</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rule_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/util/lark_expr_parser.html#build_expr_parser"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.util.lark_expr_parser.build_expr_parser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate Lark grammar from the operator table.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>table</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">_InfixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_PrefixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_PostfixOperator</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_AtomOperator</span></code>]]]) – </p></li>
+<li><p><strong>rule_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</div>
+
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+        <br/>
+        
+<div id="sourcelink">
+  <a href="_sources/util.rst.txt"
+     rel="nofollow">Source</a>
+</div>
+      
+    </p>
+    <p>
+        &copy; Copyright 2022, Lutz Klinkenberg.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.5.4.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>
