@@ -41,9 +41,9 @@ def compile_pgcl(code: str,
         substitute_constants: Whether constant substitution is done on the program, defaults to `True`.
     """
     program = parse_pgcl(code)
-    check_result = check_program(program)
-    if check_result is not None:
-        return check_result
+    #check_result = check_program(program)
+    #if check_result is not None:
+    #    return check_result
     if substitute_constants:
         substitute.substitute_constants(program)
     return program
@@ -63,8 +63,8 @@ def compile_expr(program: Program,
     """
     expr = parse_expr(code)
     check_result = check_expression(program, expr)
-    if check_result is not None:
-        return check_result
+    #if check_result is not None:
+    #    return check_result
     if substitute_constants:
         expr_ref = Mut.alloc(expr)
         substitute.substitute_constants_expr(program, expr_ref)
@@ -85,9 +85,9 @@ def compile_expectation(program: Program,
         substitute_constants: Whether constant substitution is done on the expectation, defaults to `True`.
     """
     expr = parse_expectation(code)
-    check_result = check_expectation(program, expr)
-    if check_result is not None:
-        return check_result
+    z3check_result = check_expectation(program, expr)
+    #if check_result is not None:
+    #    return check_result
     if substitute_constants:
         expr_ref = Mut.alloc(expr)
         substitute.substitute_constants_expr(program, expr_ref)

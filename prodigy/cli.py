@@ -12,6 +12,7 @@ from typing import IO
 
 import logging
 import click
+import time
 
 import prodigy.pgcl.compiler as pgcl
 from prodigy.analysis.forward.config import ForwardAnalysisConfig
@@ -55,9 +56,9 @@ def main(ctx, program_file: IO, input_dist: str, show_input_program: bool) -> No
     # Parse and the input and do typechecking.
     program_source = program_file.read()
     program = pgcl.compile_pgcl(program_source)
-    if isinstance(program, CheckFail):
-        print("Error:", program)
-        return
+    #if isinstance(program, CheckFail):
+    #    print("Error:", program)
+    #    return
 
     if show_input_program:
         print("Program source:")
@@ -69,7 +70,10 @@ def main(ctx, program_file: IO, input_dist: str, show_input_program: bool) -> No
     else:
         dist = config.factory.from_expr(input_dist, *program.variables.keys(), preciseness=1.0)
 
+    start = time.perf_counter()
     dist = prodigy.analysis.compute_discrete_distribution(program.instructions, dist, config)
+    stop = time.perf_counter()
+    print(f"Elapsed time: {stop-start:04f} seconds")
     print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + str(dist) + Style.RESET)
 
 
@@ -94,8 +98,10 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
     inv = pgcl.compile_pgcl(inv_src)
     if isinstance(inv, CheckFail):
         raise Exception(f"Could not compile invariant. {inv}")
-
+    start = time.perf_counter()
     equiv = check_equivalence(prog, inv, ctx.obj['CONFIG'])
+    stop = time.perf_counter()
+    print(f"Elapsed time: {stop - start:04f} seconds")
     print(
         f"Program{f'{Style.OKRED} is not equivalent{Style.RESET}' if not equiv[0] else f'{Style.OKGREEN} is equivalent{Style.RESET}'} to invaraint")
     return equiv
