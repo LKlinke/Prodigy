@@ -1,8 +1,8 @@
 # pylint: disable=wildcard-import
 import pytest
 
-from probably.pgcl import *
-from probably.pgcl.analyzer.syntax import check_for_nested_loops, get_nested_while_loops
+from prodigy.pgcl import *
+from prodigy.pgcl.analyzer.syntax import check_for_nested_loops, get_nested_while_loops
 
 
 def test_chain():

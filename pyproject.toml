@@ -1,11 +1,11 @@
 [tool.poetry]
-name = "probably"
+name = "prodigy"
 version = "3.0.0"
 description = ""
-authors = ["Philipp Schröer <mail@philworld.de>"]
+authors = ["Lutz Klinkenberg <lutz.klinkenberg@cs.rwth-aachen.de>", "Philipp Schröer <mail@philworld.de>"]
 
 [tool.poetry.dependencies]
-python = ">=3.7"
+python = "^3.9.0"
 lark-parser = "^0.8.5"
 algebraic-data-types = "^0.1.3"
 attrs = "^19.3.0"
@@ -16,6 +16,7 @@ graphviz = "^0.15"
 networkx = "2.5"
 sympy = "^1.8"
 matplotlib = "^3.4.2"
+pygin = {git="https://git.rwth-aachen.de/tobias.winkler1/prodigy.git", branch="name-change"}
 
 [tool.poetry.dev-dependencies]
 pytest = "^4.6"
@@ -23,16 +24,17 @@ pylint = "^2.5.2"
 mypy = "^0.770"
 yapf = "^0.30.0"
 sphinx-autodoc-typehints = "^1.10.3"
-sphinx-bootstrap-theme = "^0.7.1"
+sphinx-bootstrap-theme = "^0.8.1"
 sphinx-click = "^2.3.2"
 sphinx-git = "^11.0.0"
+jinja2 = "<3.1"
 rope = "^0.17.0"
 pytest-cov = "^2.9.0"
 hypothesis = "^5.18.0"
 
 
 [tool.poetry.scripts]
-probably = "probably.cli:main"
+prodigy = "prodigy.cli:main"
 
 [build-system]
 requires = ["poetry>=0.12"]

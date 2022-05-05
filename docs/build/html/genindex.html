@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Index &#8212; Prodigy  documentation</title>
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css" />
+    <link rel="stylesheet" type="text/css" href="_static/katex-math.css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/contrib/auto-render.min.js"></script>
+    <script src="_static/katex_autorenderer.js"></script>
+    <link rel="index" title="Index" href="#" />
+    <link rel="search" title="Search" href="search.html" />
+    
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="text/javascript" src="_static/js/jquery-1.11.0.min.js "></script>
+<script type="text/javascript" src="_static/js/jquery-fix.js "></script>
+<script type="text/javascript" src="_static/bootstrap-3.3.7/js/bootstrap.min.js "></script>
+<script type="text/javascript" src="_static/bootstrap-sphinx.js "></script>
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,400;0,700;1,400&family=Source+Sans+Pro:ital,wght@0,300;0,400;1,400&family=Source+Serif+Pro:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font: 15px/1.4 "Source Sans Pro",sans-serif;
+        }
+        h1, h2, h3, h5, h6, h6 {
+            font-family: "Source Sans Pro",sans-serif;
+        }
+        p {
+            font-family: "Source Serif Pro",serif;
+        }
+        .py, .field-list p, pre, code {
+            font-family: 'Source Code Pro', monospace;
+        }
+
+        /* fix navbar overlaying contents when clicking on anchors */
+        :target::before {
+            content: "";
+            display: block;
+            height: 60px; /* fixed header height*/
+            margin: -60px 0 0; /* negative fixed header height */
+            background: none;
+        }
+
+        /* hack to limit the yellow highlight to the the children of the target,
+           because of the above hack the target's highlight would be way too large */
+        dt:target {
+            background-color: transparent;
+        }
+        dt:target > * {
+            background-color: #fbe54e;
+        }
+
+        /* spacing adjustments */
+        .section {
+            margin-bottom: 10rem;
+            margin-top: 6rem;
+        }
+        div.body > .section:first-of-type {
+            margin-top: 0rem;
+        }
+        .class, .function, .data {
+            margin-top: 5rem;
+            margin-bottom: 7rem;
+            border-left: 1px solid #eee;
+            padding-left: 1rem;
+        }
+        dl.attribute > dd, dl.class > dd, dl.function > dd, dl.method > dd {
+            margin-left: 30px;
+        }
+        p {
+            margin-top: 1.05em;
+            margin-bottom: 1.05em;
+            text-align: justify;
+        }
+        .field-list p, li p {
+            text-align: left;
+        }
+        /* adjust font sizes */
+        dl.field-list, dl.attribute {
+            font-size: 90%;
+        }
+        .math {
+            font-size: 90.09%;
+        }
+    </style>
+
+  </head><body>
+
+  <div id="navbar" class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="index.html">
+          Prodigy</a>
+        <span class="navbar-text navbar-version pull-left"><b></b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+                <li><a href="https://github.com/Philipp15b/probably">GitHub Repository</a></li>
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="index.html">Contents <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul>
+<li class="toctree-l1"><a class="reference internal" href="pgcl.html"><code class="docutils literal notranslate"><span class="pre">prodigy.pgcl</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pgcl.html#compiler-frontend">Compiler Frontend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pgcl.html#module-prodigy.pgcl.parser.parser">Parser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pgcl.html#variable-substitution">Variable Substitution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pgcl.html#control-flow-graph">Control-Flow Graph</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pysmt.html"><code class="docutils literal notranslate"><span class="pre">prodigy.pysmt</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pysmt.html#translation-context">Translation Context</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pysmt.html#expression-translation">Expression Translation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="analysis.html"><code class="docutils literal notranslate"><span class="pre">prodigy.analysis</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="analysis.html#forward-analysis">Forward Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="analysis.html#the-semantics">The Semantics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="analysis.html#distribution">Distribution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="analysis.html#analysis-configuration">Analysis Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="analysis.html#forward-analysis-config">Forward Analysis Config</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="analysis.html#module-prodigy.analysis.backward.wp">Backward Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="analysis.html#weakest-pre-expectations">Weakest Pre-Expectations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="analysis.html#loop-free">Loop-Free</a></li>
+<li class="toctree-l4"><a class="reference internal" href="analysis.html#transformers">Transformers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="analysis.html#loops">Loops</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="util.html"><code class="docutils literal notranslate"><span class="pre">prodigy.util</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="util.html#mutable-references">Mutable References</a></li>
+<li class="toctree-l2"><a class="reference internal" href="util.html#lark-expression-parser">Lark Expression Parser</a></li>
+</ul>
+</li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+            
+            
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+      <div class="col-md-3">
+        <div id="sidebar" class="bs-sidenav" role="complementary">
+<h4 style="padding: 5px 20px">Contents</h4>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pgcl.html"><code class="docutils literal notranslate"><span class="pre">prodigy.pgcl</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="pysmt.html"><code class="docutils literal notranslate"><span class="pre">prodigy.pysmt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="analysis.html"><code class="docutils literal notranslate"><span class="pre">prodigy.analysis</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="util.html"><code class="docutils literal notranslate"><span class="pre">prodigy.util</span></code></a></li>
+</ul>
+
+        </div>
+      </div>
+    <div class="body col-md-9 content" role="main">
+      
+
+<h1 id="index">Index</h1>
+
+<div class="genindex-jumpbox">
+ <a href="#Symbols"><strong>Symbols</strong></a>
+ | <a href="#_"><strong>_</strong></a>
+ | <a href="#A"><strong>A</strong></a>
+ | <a href="#B"><strong>B</strong></a>
+ | <a href="#C"><strong>C</strong></a>
+ | <a href="#D"><strong>D</strong></a>
+ | <a href="#E"><strong>E</strong></a>
+ | <a href="#F"><strong>F</strong></a>
+ | <a href="#G"><strong>G</strong></a>
+ | <a href="#I"><strong>I</strong></a>
+ | <a href="#J"><strong>J</strong></a>
+ | <a href="#K"><strong>K</strong></a>
+ | <a href="#L"><strong>L</strong></a>
+ | <a href="#M"><strong>M</strong></a>
+ | <a href="#N"><strong>N</strong></a>
+ | <a href="#O"><strong>O</strong></a>
+ | <a href="#P"><strong>P</strong></a>
+ | <a href="#Q"><strong>Q</strong></a>
+ | <a href="#R"><strong>R</strong></a>
+ | <a href="#S"><strong>S</strong></a>
+ | <a href="#T"><strong>T</strong></a>
+ | <a href="#U"><strong>U</strong></a>
+ | <a href="#V"><strong>V</strong></a>
+ | <a href="#W"><strong>W</strong></a>
+ 
+</div>
+<h2 id="Symbols">Symbols</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    --engine &lt;engine&gt;
+
+      <ul>
+        <li><a href="index.html#cmdoption-prodigy-engine">prodigy command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --intermediate-results
+
+      <ul>
+        <li><a href="index.html#cmdoption-prodigy-intermediate-results">prodigy command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --no-simplification
+
+      <ul>
+        <li><a href="index.html#cmdoption-prodigy-no-simplification">prodigy command line option</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    --show-input-program
+
+      <ul>
+        <li><a href="index.html#cmdoption-prodigy-main-show-input-program">prodigy-main command line option</a>
+</li>
+      </ul></li>
+      <li>
+    --use-latex
+
+      <ul>
+        <li><a href="index.html#cmdoption-prodigy-use-latex">prodigy command line option</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="_">_</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="substitute_internals.html#prodigy.pgcl.substitute._bind_substs">_bind_substs() (in module prodigy.pgcl.substitute)</a>
+</li>
+      <li><a href="substitute_internals.html#prodigy.pgcl.substitute._Binder">_Binder (class in prodigy.pgcl.substitute)</a>
+</li>
+      <li><a href="pgcl_grammar.html#prodigy.pgcl.parser._doc_parser_grammar">_doc_parser_grammar() (in module prodigy.pgcl.parser)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cfg_internals.html#prodigy.pgcl.cfg._expand_region">_expand_region() (in module prodigy.pgcl.cfg)</a>
+</li>
+      <li><a href="cfg_internals.html#prodigy.pgcl.cfg._join_regions">_join_regions() (in module prodigy.pgcl.cfg)</a>
+</li>
+      <li><a href="cfg_internals.html#prodigy.pgcl.cfg._Region">_Region (class in prodigy.pgcl.cfg)</a>
+</li>
+      <li><a href="substitute_internals.html#prodigy.pgcl.substitute._Subst">_Subst (class in prodigy.pgcl.substitute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="A">A</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cfg_internals.html#prodigy.pgcl.cfg._Region.add_block">add_block() (_Region method)</a>
+</li>
+      <li><a href="substitute_internals.html#prodigy.pgcl.substitute._Subst.add_bound">add_bound() (_Subst method)</a>
+</li>
+      <li><a href="util.html#prodigy.util.ref.Mut.alloc">alloc() (Mut static method)</a>
+</li>
+      <li><a href="substitute_internals.html#prodigy.pgcl.substitute._Subst.apply">apply() (_Subst method)</a>
+
+      <ul>
+        <li><a href="analysis.html#id10">(ExpectationTransformer method)</a>, <a href="analysis.html#prodigy.analysis.backward.wp.ExpectationTransformer.apply">[1]</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution.approximate">approximate() (Distribution method)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.AssignmentHandler">AssignmentHandler (class in prodigy.analysis.forward.instruction_handler)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.BasicBlock.assignments">assignments (BasicBlock attribute)</a>
+</li>
+      <li><a href="util.html#prodigy.util.lark_expr_parser.Assoc">Assoc (class in prodigy.util.lark_expr_parser)</a>
+</li>
+      <li><a href="util.html#prodigy.util.lark_expr_parser.atom">atom() (in module prodigy.util.lark_expr_parser)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="B">B</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.BasicBlock">BasicBlock (class in prodigy.pgcl.cfg)</a>
+</li>
+      <li><a href="substitute_internals.html#prodigy.pgcl.substitute._Binder.bind">bind() (_Binder method)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.BlockType">BlockType (class in prodigy.pgcl.cfg)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#id14">body (LoopExpectationTransformer attribute)</a>, <a href="analysis.html#prodigy.analysis.backward.wp.LoopExpectationTransformer.body">[1]</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.TerminatorKind.BOOLEAN">BOOLEAN (TerminatorKind attribute)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.Terminator.branch">branch() (Terminator static method)</a>
+</li>
+      <li><a href="util.html#prodigy.util.lark_expr_parser.build_expr_parser">build_expr_parser() (in module prodigy.util.lark_expr_parser)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="C">C</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cfg_internals.html#prodigy.pgcl.cfg._Region.child">child() (_Region static method)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.Terminator.choice">choice() (Terminator static method)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.compiler.compile_expectation">compile_expectation() (in module prodigy.pgcl.compiler)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.compiler.compile_expr">compile_expr() (in module prodigy.pgcl.compiler)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.compiler.compile_pgcl">compile_pgcl() (in module prodigy.pgcl.compiler)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.AssignmentHandler.compute">compute() (AssignmentHandler static method)</a>
+
+      <ul>
+        <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.InstructionHandler.compute">(InstructionHandler static method)</a>
+</li>
+        <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.ITEHandler.compute">(ITEHandler static method)</a>
+</li>
+        <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.LoopHandler.compute">(LoopHandler static method)</a>
+</li>
+        <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.ObserveHandler.compute">(ObserveHandler static method)</a>
+</li>
+        <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.PChoiceHandler.compute">(PChoiceHandler static method)</a>
+</li>
+        <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.QueryHandler.compute">(QueryHandler static method)</a>
+</li>
+        <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.SampleHandler.compute">(SampleHandler static method)</a>
+</li>
+        <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.SequenceHandler.compute">(SequenceHandler class method)</a>
+</li>
+        <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.WhileHandler.compute">(WhileHandler static method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.compute_discrete_distribution">compute_discrete_distribution() (in module prodigy.analysis.forward.instruction_handler)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.Terminator.condition">condition (Terminator attribute)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.ControlFlowGraph">ControlFlowGraph (class in prodigy.pgcl.cfg)</a>
+</li>
+      <li><a href="substitute_internals.html#prodigy.pgcl.substitute._Subst.copy">copy() (_Subst method)</a>
+
+      <ul>
+        <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution.copy">(Distribution method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="D">D</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="util.html#prodigy.util.dedup_list">dedup_list() (in module prodigy.util)</a>
+</li>
+      <li><a href="util.html#prodigy.util.ref.Mut.dict_items">dict_items() (Mut static method)</a>
+</li>
+      <li><a href="util.html#prodigy.util.ref.Mut.dict_values">dict_values() (Mut static method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution">Distribution (class in prodigy.analysis.forward.distribution)</a>
+</li>
+      <li><a href="cfg_internals.html#prodigy.pgcl.cfg._Region.dominates_successor">dominates_successor() (_Region method)</a>
+</li>
+      <li><a href="cfg_internals.html#prodigy.pgcl.cfg._Region.dominator_id">dominator_id (_Region attribute)</a>
+</li>
+      <li><a href="analysis.html#id15">done (LoopExpectationTransformer attribute)</a>, <a href="analysis.html#prodigy.analysis.backward.wp.LoopExpectationTransformer.done">[1]</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="E">E</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.config.ForwardAnalysisConfig.engine">engine (ForwardAnalysisConfig attribute)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.ControlFlowGraph.entry_id">entry_id (ControlFlowGraph attribute)</a>
+
+      <ul>
+        <li><a href="pgcl.html#prodigy.pgcl.cfg.JumpTable.entry_id">(JumpTable attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.JumpTable.error_id">error_id (JumpTable attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.MarginalType.Exclude">Exclude (MarginalType attribute)</a>
+</li>
+      <li><a href="analysis.html#id8">expectation (ExpectationTransformer attribute)</a>, <a href="analysis.html#prodigy.analysis.backward.wp.ExpectationTransformer.expectation">[1]</a>
+</li>
+      <li><a href="analysis.html#id6">ExpectationTransformer (class in prodigy.analysis.backward.wp)</a>, <a href="analysis.html#prodigy.analysis.backward.wp.ExpectationTransformer">[1]</a>
+</li>
+      <li><a href="pysmt.html#prodigy.pysmt.expr.expr_to_pysmt">expr_to_pysmt() (in module prodigy.pysmt.expr)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="F">F</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.config.ForwardAnalysisConfig.factory">factory() (ForwardAnalysisConfig property)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution.filter">filter() (Distribution method)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.JumpTable.finalize">finalize() (JumpTable method)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.Terminator.flip">flip() (Terminator method)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.BlockType.FORWARD">FORWARD (BlockType attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.config.ForwardAnalysisConfig">ForwardAnalysisConfig (class in prodigy.analysis.forward.config)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.config.ForwardAnalysisConfig.Engine">ForwardAnalysisConfig.Engine (class in prodigy.analysis.forward.config)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.ControlFlowGraph.fresh_block">fresh_block() (ControlFlowGraph method)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.ControlFlowGraph.from_instructions">from_instructions() (ControlFlowGraph static method)</a>
+</li>
+      <li><a href="pysmt.html#prodigy.pysmt.context.TranslationContext.from_program">from_program() (TranslationContext static method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="G">G</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#id17">general_wp_transformer() (in module prodigy.analysis.backward.wp)</a>, <a href="analysis.html#prodigy.analysis.backward.wp.general_wp_transformer">[1]</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution.get_expected_value_of">get_expected_value_of() (Distribution method)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution.get_parameters">get_parameters() (Distribution method)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution.get_probability_mass">get_probability_mass() (Distribution method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution.get_probability_of">get_probability_of() (Distribution method)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution.get_variables">get_variables() (Distribution method)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.config.ForwardAnalysisConfig.Engine.GINAC">GINAC (ForwardAnalysisConfig.Engine attribute)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.Terminator.goto">goto() (Terminator static method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="I">I</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pysmt.html#prodigy.pysmt.context.TranslationContext.id_subst">id_subst (TranslationContext attribute)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.BasicBlock.ident">ident (BasicBlock attribute)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.Terminator.if_false">if_false (Terminator attribute)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.Terminator.if_true">if_true (Terminator attribute)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.MarginalType.Include">Include (MarginalType attribute)</a>
+</li>
+      <li><a href="pysmt.html#prodigy.pysmt.context.TranslationContext.infinity">infinity (TranslationContext attribute)</a>
+</li>
+      <li><a href="util.html#prodigy.util.lark_expr_parser.infixl">infixl() (in module prodigy.util.lark_expr_parser)</a>
+</li>
+      <li><a href="util.html#prodigy.util.lark_expr_parser.infixr">infixr() (in module prodigy.util.lark_expr_parser)</a>
+</li>
+      <li><a href="analysis.html#id13">init (LoopExpectationTransformer attribute)</a>, <a href="analysis.html#prodigy.analysis.backward.wp.LoopExpectationTransformer.init">[1]</a>
+</li>
+      <li><a href="cfg_internals.html#prodigy.pgcl.cfg._Region.initial">initial() (_Region static method)</a>
+</li>
+      <li>
+    INPUT_DIST
+
+      <ul>
+        <li><a href="index.html#cmdoption-prodigy-main-arg-INPUT_DIST">prodigy-main command line option</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cfg_internals.html#prodigy.pgcl.cfg._Region.instrs">instrs (_Region attribute)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.InstructionHandler">InstructionHandler (class in prodigy.analysis.forward.instruction_handler)</a>
+</li>
+      <li>
+    INVARIANT_FILE
+
+      <ul>
+        <li><a href="index.html#cmdoption-prodigy-check_equality-arg-INVARIANT_FILE">prodigy-check_equality command line option</a>
+</li>
+      </ul></li>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution.is_finite">is_finite() (Distribution method)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.Terminator.is_goto">is_goto() (Terminator method)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.BasicBlock.is_trap">is_trap() (BasicBlock method)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution.is_zero_dist">is_zero_dist() (Distribution method)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.ITEHandler">ITEHandler (class in prodigy.analysis.forward.instruction_handler)</a>
+</li>
+      <li><a href="util.html#prodigy.util.ref.Mut.iterate">iterate() (Mut static method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="J">J</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.JumpTable">JumpTable (class in prodigy.pgcl.cfg)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="K">K</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.Terminator.kind">kind (Terminator attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="L">L</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.Terminator.LEAF">LEAF (Terminator attribute)</a>
+</li>
+      <li><a href="util.html#prodigy.util.lark_expr_parser.Assoc.LEFT">LEFT (Assoc attribute)</a>
+</li>
+      <li><a href="util.html#prodigy.util.ref.Mut.list">list() (Mut static method)</a>
+</li>
+      <li><a href="substitute_internals.html#prodigy.pgcl.substitute._Binder.lookup">lookup() (_Binder method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.BlockType.LOOP_HEAD">LOOP_HEAD (BlockType attribute)</a>
+</li>
+      <li><a href="analysis.html#id12">LoopExpectationTransformer (class in prodigy.analysis.backward.wp)</a>, <a href="analysis.html#prodigy.analysis.backward.wp.LoopExpectationTransformer">[1]</a>
+</li>
+      <li><a href="analysis.html#id0">loopfree_wp() (in module prodigy.analysis.backward.wp)</a>, <a href="analysis.html#prodigy.analysis.backward.wp.loopfree_wp">[1]</a>
+</li>
+      <li><a href="analysis.html#id11">loopfree_wp_transformer() (in module prodigy.analysis.backward.wp)</a>, <a href="analysis.html#prodigy.analysis.backward.wp.loopfree_wp_transformer">[1]</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.LoopHandler">LoopHandler (class in prodigy.analysis.forward.instruction_handler)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="M">M</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution.marginal">marginal() (Distribution method)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.MarginalType">MarginalType (class in prodigy.analysis.forward.distribution)</a>
+</li>
+      <li>
+    module
+
+      <ul>
+        <li><a href="analysis.html#module-prodigy.analysis">prodigy.analysis</a>
+</li>
+        <li><a href="analysis.html#module-prodigy.analysis.backward">prodigy.analysis.backward</a>
+</li>
+        <li><a href="analysis.html#module-prodigy.analysis.backward.wp">prodigy.analysis.backward.wp</a>
+</li>
+        <li><a href="analysis.html#module-prodigy.analysis.forward">prodigy.analysis.forward</a>
+</li>
+        <li><a href="analysis.html#module-prodigy.analysis.forward.config">prodigy.analysis.forward.config</a>
+</li>
+        <li><a href="analysis.html#module-prodigy.analysis.forward.distribution">prodigy.analysis.forward.distribution</a>
+</li>
+        <li><a href="analysis.html#module-prodigy.analysis.forward.instruction_handler">prodigy.analysis.forward.instruction_handler</a>
+</li>
+        <li><a href="index.html#module-prodigy.cli">prodigy.cli</a>
+</li>
+        <li><a href="pgcl.html#module-prodigy.pgcl">prodigy.pgcl</a>
+</li>
+        <li><a href="pgcl.html#module-prodigy.pgcl.analyzer">prodigy.pgcl.analyzer</a>
+</li>
+        <li><a href="pgcl.html#module-prodigy.pgcl.ast">prodigy.pgcl.ast</a>
+</li>
+        <li><a href="pgcl.html#module-prodigy.pgcl.cfg">prodigy.pgcl.cfg</a>
+</li>
+        <li><a href="pgcl.html#module-prodigy.pgcl.compiler">prodigy.pgcl.compiler</a>
+</li>
+        <li><a href="pgcl.html#module-prodigy.pgcl.parser">prodigy.pgcl.parser</a>
+</li>
+        <li><a href="pgcl.html#module-prodigy.pgcl.parser.parser">prodigy.pgcl.parser.parser</a>
+</li>
+        <li><a href="pgcl.html#module-prodigy.pgcl.substitute">prodigy.pgcl.substitute</a>
+</li>
+        <li><a href="pgcl.html#module-prodigy.pgcl.typechecker">prodigy.pgcl.typechecker</a>
+</li>
+        <li><a href="pysmt.html#module-prodigy.pysmt">prodigy.pysmt</a>
+</li>
+        <li><a href="pysmt.html#module-prodigy.pysmt.context">prodigy.pysmt.context</a>
+</li>
+        <li><a href="pysmt.html#module-prodigy.pysmt.expr">prodigy.pysmt.expr</a>
+</li>
+        <li><a href="util.html#module-prodigy.util">prodigy.util</a>
+</li>
+        <li><a href="util.html#module-prodigy.util.lark_expr_parser">prodigy.util.lark_expr_parser</a>
+</li>
+        <li><a href="util.html#module-prodigy.util.ref">prodigy.util.ref</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="util.html#prodigy.util.ref.Mut">Mut (class in prodigy.util.ref)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="N">N</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.SequenceHandler.normalization">normalization (SequenceHandler attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution.normalize">normalize() (Distribution method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="O">O</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.ObserveHandler">ObserveHandler (class in prodigy.analysis.forward.instruction_handler)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.one_big_loop">one_big_loop() (in module prodigy.pgcl.cfg)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#id16">one_loop_wp_transformer() (in module prodigy.analysis.backward.wp)</a>, <a href="analysis.html#prodigy.analysis.backward.wp.one_loop_wp_transformer">[1]</a>
+</li>
+      <li><a href="util.html#prodigy.util.lark_expr_parser.OperatorTable">OperatorTable (in module prodigy.util.lark_expr_parser)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.config.ForwardAnalysisConfig.optimizer">optimizer() (ForwardAnalysisConfig property)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="P">P</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pgcl.html#prodigy.pgcl.parser.parser.parse_expectation">parse_expectation() (in module prodigy.pgcl.parser.parser)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.parser.parser.parse_expr">parse_expr() (in module prodigy.pgcl.parser.parser)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.parser.parser.parse_pgcl">parse_pgcl() (in module prodigy.pgcl.parser.parser)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.PChoiceHandler">PChoiceHandler (class in prodigy.analysis.forward.instruction_handler)</a>
+</li>
+      <li><a href="util.html#prodigy.util.lark_expr_parser.postfix">postfix() (in module prodigy.util.lark_expr_parser)</a>
+</li>
+      <li><a href="util.html#prodigy.util.lark_expr_parser.prefix">prefix() (in module prodigy.util.lark_expr_parser)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.TerminatorKind.PROBABILISTIC">PROBABILISTIC (TerminatorKind attribute)</a>
+</li>
+      <li>
+    prodigy command line option
+
+      <ul>
+        <li><a href="index.html#cmdoption-prodigy-engine">--engine &lt;engine&gt;</a>
+</li>
+        <li><a href="index.html#cmdoption-prodigy-intermediate-results">--intermediate-results</a>
+</li>
+        <li><a href="index.html#cmdoption-prodigy-no-simplification">--no-simplification</a>
+</li>
+        <li><a href="index.html#cmdoption-prodigy-use-latex">--use-latex</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy-check_equality command line option
+
+      <ul>
+        <li><a href="index.html#cmdoption-prodigy-check_equality-arg-INVARIANT_FILE">INVARIANT_FILE</a>
+</li>
+        <li><a href="index.html#cmdoption-prodigy-check_equality-arg-PROGRAM_FILE">PROGRAM_FILE</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy-main command line option
+
+      <ul>
+        <li><a href="index.html#cmdoption-prodigy-main-show-input-program">--show-input-program</a>
+</li>
+        <li><a href="index.html#cmdoption-prodigy-main-arg-INPUT_DIST">INPUT_DIST</a>
+</li>
+        <li><a href="index.html#cmdoption-prodigy-main-arg-PROGRAM_FILE">PROGRAM_FILE</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.analysis
+
+      <ul>
+        <li><a href="analysis.html#module-prodigy.analysis">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.analysis.backward
+
+      <ul>
+        <li><a href="analysis.html#module-prodigy.analysis.backward">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.analysis.backward.wp
+
+      <ul>
+        <li><a href="analysis.html#module-prodigy.analysis.backward.wp">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.analysis.forward
+
+      <ul>
+        <li><a href="analysis.html#module-prodigy.analysis.forward">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.analysis.forward.config
+
+      <ul>
+        <li><a href="analysis.html#module-prodigy.analysis.forward.config">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.analysis.forward.distribution
+
+      <ul>
+        <li><a href="analysis.html#module-prodigy.analysis.forward.distribution">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.analysis.forward.instruction_handler
+
+      <ul>
+        <li><a href="analysis.html#module-prodigy.analysis.forward.instruction_handler">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.cli
+
+      <ul>
+        <li><a href="index.html#module-prodigy.cli">module</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    prodigy.pgcl
+
+      <ul>
+        <li><a href="pgcl.html#module-prodigy.pgcl">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.pgcl.analyzer
+
+      <ul>
+        <li><a href="pgcl.html#module-prodigy.pgcl.analyzer">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.pgcl.ast
+
+      <ul>
+        <li><a href="pgcl.html#module-prodigy.pgcl.ast">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.pgcl.cfg
+
+      <ul>
+        <li><a href="pgcl.html#module-prodigy.pgcl.cfg">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.pgcl.compiler
+
+      <ul>
+        <li><a href="pgcl.html#module-prodigy.pgcl.compiler">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.pgcl.parser
+
+      <ul>
+        <li><a href="pgcl.html#module-prodigy.pgcl.parser">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.pgcl.parser.parser
+
+      <ul>
+        <li><a href="pgcl.html#module-prodigy.pgcl.parser.parser">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.pgcl.substitute
+
+      <ul>
+        <li><a href="pgcl.html#module-prodigy.pgcl.substitute">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.pgcl.typechecker
+
+      <ul>
+        <li><a href="pgcl.html#module-prodigy.pgcl.typechecker">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.pysmt
+
+      <ul>
+        <li><a href="pysmt.html#module-prodigy.pysmt">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.pysmt.context
+
+      <ul>
+        <li><a href="pysmt.html#module-prodigy.pysmt.context">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.pysmt.expr
+
+      <ul>
+        <li><a href="pysmt.html#module-prodigy.pysmt.expr">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.util
+
+      <ul>
+        <li><a href="util.html#module-prodigy.util">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.util.lark_expr_parser
+
+      <ul>
+        <li><a href="util.html#module-prodigy.util.lark_expr_parser">module</a>
+</li>
+      </ul></li>
+      <li>
+    prodigy.util.ref
+
+      <ul>
+        <li><a href="util.html#module-prodigy.util.ref">module</a>
+</li>
+      </ul></li>
+      <li>
+    PROGRAM_FILE
+
+      <ul>
+        <li><a href="index.html#cmdoption-prodigy-check_equality-arg-PROGRAM_FILE">prodigy-check_equality command line option</a>
+</li>
+        <li><a href="index.html#cmdoption-prodigy-main-arg-PROGRAM_FILE">prodigy-main command line option</a>
+</li>
+      </ul></li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.program_one_big_loop">program_one_big_loop() (in module prodigy.pgcl.cfg)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="Q">Q</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.QueryHandler">QueryHandler (class in prodigy.analysis.forward.instruction_handler)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="R">R</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="util.html#prodigy.util.ref.Mut.read">read (Mut attribute)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.reduce_cfg_to_instrs">reduce_cfg_to_instrs() (in module prodigy.pgcl.cfg)</a>
+</li>
+      <li><a href="util.html#prodigy.util.ref.Ref">Ref (in module prodigy.util.ref)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.ControlFlowGraph.render_dot">render_dot() (ControlFlowGraph method)</a>
+</li>
+      <li><a href="substitute_internals.html#prodigy.pgcl.substitute._Binder.resolve">resolve() (_Binder method)</a>
+</li>
+      <li><a href="util.html#prodigy.util.lark_expr_parser.Assoc.RIGHT">RIGHT (Assoc attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="S">S</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.SampleHandler">SampleHandler (class in prodigy.analysis.forward.instruction_handler)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.SequenceHandler">SequenceHandler (class in prodigy.analysis.forward.instruction_handler)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution.set_variables">set_variables() (Distribution method)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.parser.parser.setup">setup() (in module prodigy.pgcl.parser.parser)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.config.ForwardAnalysisConfig.show_intermediate_steps">show_intermediate_steps (ForwardAnalysisConfig attribute)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.config.ForwardAnalysisConfig.show_rational_probabilities">show_rational_probabilities (ForwardAnalysisConfig attribute)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.ControlFlowGraph.substitute">substitute() (ControlFlowGraph method)</a>
+
+      <ul>
+        <li><a href="analysis.html#id9">(ExpectationTransformer method)</a>, <a href="analysis.html#prodigy.analysis.backward.wp.ExpectationTransformer.substitute">[1]</a>
+</li>
+        <li><a href="pgcl.html#prodigy.pgcl.cfg.Terminator.substitute">(Terminator method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pgcl.html#prodigy.pgcl.substitute.substitute_constants">substitute_constants() (in module prodigy.pgcl.substitute)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.substitute.substitute_constants_expr">substitute_constants_expr() (in module prodigy.pgcl.substitute)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.substitute.substitute_expr">substitute_expr() (in module prodigy.pgcl.substitute)</a>
+</li>
+      <li><a href="cfg_internals.html#prodigy.pgcl.cfg._Region.successor_id">successor_id (_Region attribute)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.Terminator.successors">successors() (Terminator property)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.config.ForwardAnalysisConfig.Engine.SYMPY">SYMPY (ForwardAnalysisConfig.Engine attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="T">T</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.BasicBlock.terminator">terminator (BasicBlock attribute)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.Terminator">Terminator (class in prodigy.pgcl.cfg)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.TerminatorKind">TerminatorKind (class in prodigy.pgcl.cfg)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.ControlFlowGraph.to_networkx">to_networkx() (ControlFlowGraph method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.BlockType.TRAMPOLINE">TRAMPOLINE (BlockType attribute)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.JumpTable.trampoline">trampoline() (JumpTable method)</a>
+</li>
+      <li><a href="pysmt.html#prodigy.pysmt.context.TranslationContext">TranslationContext (class in prodigy.pysmt.context)</a>
+</li>
+      <li><a href="pgcl.html#prodigy.pgcl.cfg.BasicBlock.typ">typ (BasicBlock attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="U">U</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution.update">update() (Distribution method)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.distribution.Distribution.update_iid">update_iid() (Distribution method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.config.ForwardAnalysisConfig.use_latex">use_latex (ForwardAnalysisConfig attribute)</a>
+</li>
+      <li><a href="analysis.html#prodigy.analysis.forward.config.ForwardAnalysisConfig.use_simplification">use_simplification (ForwardAnalysisConfig attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="V">V</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="util.html#prodigy.util.ref.Mut.val">val() (Mut property)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#id7">variable (ExpectationTransformer attribute)</a>, <a href="analysis.html#prodigy.analysis.backward.wp.ExpectationTransformer.variable">[1]</a>
+</li>
+      <li><a href="pysmt.html#prodigy.pysmt.context.TranslationContext.variables">variables (TranslationContext attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="W">W</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="analysis.html#prodigy.analysis.forward.instruction_handler.WhileHandler">WhileHandler (class in prodigy.analysis.forward.instruction_handler)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="util.html#prodigy.util.ref.Mut.wrap">wrap() (Mut static method)</a>
+</li>
+      <li><a href="util.html#prodigy.util.ref.Mut.write">write (Mut attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+        <br/>
+        
+      
+    </p>
+    <p>
+        &copy; Copyright 2022, Lutz Klinkenberg.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.5.4.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>

@@ -1,7 +1,7 @@
 from lark import Lark
 
-from probably.util.lark_expr_parser import (atom, build_expr_parser, infixl,
-                                            prefix)
+from prodigy.util.lark_expr_parser import (atom, build_expr_parser, infixl,
+                                           prefix)
 
 
 def test_build_expr_parser():

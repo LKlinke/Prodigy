@@ -1,13 +1,13 @@
-import probably.pgcl
+import prodigy.pgcl
 import random
 import sympy
 import pytest
 
-from probably.analysis.forward.distribution import MarginalType
-from probably.analysis.forward.exceptions import ComparisonException
-from probably.analysis.forward.pgfs import SympyPGF
-from probably.analysis.forward.generating_function import GeneratingFunction
-from probably.pgcl import Binop, BinopExpr, VarExpr, NatLitExpr
+from prodigy.analysis.forward.distribution import MarginalType
+from prodigy.analysis.forward.exceptions import ComparisonException
+from prodigy.analysis.forward.pgfs import SympyPGF
+from prodigy.analysis.forward.generating_function import GeneratingFunction
+from prodigy.pgcl import Binop, BinopExpr, VarExpr, NatLitExpr
 
 
 def create_random_gf(vars: int = 1, terms: int = 1):
@@ -74,10 +74,10 @@ class TestDistributionInterface:
 
     def test_get_probability_of(self):
         gf = GeneratingFunction("(1-sqrt(1-x**2))/x")
-        assert gf.get_probability_of(probably.pgcl.parse_expr("x <= 3")) == probably.pgcl.parse_expr("5/8")
+        assert gf.get_probability_of(prodigy.pgcl.parse_expr("x <= 3")) == prodigy.pgcl.parse_expr("5/8")
 
         gf = SympyPGF.zero("x")
-        assert gf.get_probability_of(probably.pgcl.parse_expr("not (z*y < 12)")) == probably.pgcl.parse_expr("0")
+        assert gf.get_probability_of(prodigy.pgcl.parse_expr("not (z*y < 12)")) == prodigy.pgcl.parse_expr("0")
 
     def test_get_probability_mass(self):
         gf = GeneratingFunction("(1-sqrt(1-x**2))/x")
@@ -131,18 +131,18 @@ class TestDistributionInterface:
 
     def test_filter(self):
         gf = SympyPGF.zero("x")
-        assert gf.filter(probably.pgcl.parse_expr("x*3 < 25*y")) == gf
+        assert gf.filter(prodigy.pgcl.parse_expr("x*3 < 25*y")) == gf
 
         # check filter on infinite GF
         gf = GeneratingFunction("(1-sqrt(1-c**2))/c")
-        assert gf.filter(probably.pgcl.parse_expr("c <= 5")) == GeneratingFunction("c/2 + c**3/8 + c**5/16")
+        assert gf.filter(prodigy.pgcl.parse_expr("c <= 5")) == GeneratingFunction("c/2 + c**3/8 + c**5/16")
 
         # check filter on finite GF
         gf = GeneratingFunction("1/2*x*c + 1/4 * x**2 + 1/4")
-        assert gf.filter(probably.pgcl.parse_expr("x*c < 123")) == gf
+        assert gf.filter(prodigy.pgcl.parse_expr("x*c < 123")) == gf
 
         gf = GeneratingFunction("(1-sqrt(1-c**2))/c")
-        assert gf.filter(probably.pgcl.parse_expr("x*z <= 10")) == SympyPGF.zero()
+        assert gf.filter(prodigy.pgcl.parse_expr("x*z <= 10")) == SympyPGF.zero()
 
     def test_is_zero_dist(self):
         gf = create_random_gf(4, 10)

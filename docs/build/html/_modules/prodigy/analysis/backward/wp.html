@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prodigy.analysis.backward.wp &#8212; Prodigy  documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/katex-math.css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/contrib/auto-render.min.js"></script>
+    <script src="../../../../_static/katex_autorenderer.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+    
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="text/javascript" src="../../../../_static/js/jquery-1.11.0.min.js "></script>
+<script type="text/javascript" src="../../../../_static/js/jquery-fix.js "></script>
+<script type="text/javascript" src="../../../../_static/bootstrap-3.3.7/js/bootstrap.min.js "></script>
+<script type="text/javascript" src="../../../../_static/bootstrap-sphinx.js "></script>
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,400;0,700;1,400&family=Source+Sans+Pro:ital,wght@0,300;0,400;1,400&family=Source+Serif+Pro:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font: 15px/1.4 "Source Sans Pro",sans-serif;
+        }
+        h1, h2, h3, h5, h6, h6 {
+            font-family: "Source Sans Pro",sans-serif;
+        }
+        p {
+            font-family: "Source Serif Pro",serif;
+        }
+        .py, .field-list p, pre, code {
+            font-family: 'Source Code Pro', monospace;
+        }
+
+        /* fix navbar overlaying contents when clicking on anchors */
+        :target::before {
+            content: "";
+            display: block;
+            height: 60px; /* fixed header height*/
+            margin: -60px 0 0; /* negative fixed header height */
+            background: none;
+        }
+
+        /* hack to limit the yellow highlight to the the children of the target,
+           because of the above hack the target's highlight would be way too large */
+        dt:target {
+            background-color: transparent;
+        }
+        dt:target > * {
+            background-color: #fbe54e;
+        }
+
+        /* spacing adjustments */
+        .section {
+            margin-bottom: 10rem;
+            margin-top: 6rem;
+        }
+        div.body > .section:first-of-type {
+            margin-top: 0rem;
+        }
+        .class, .function, .data {
+            margin-top: 5rem;
+            margin-bottom: 7rem;
+            border-left: 1px solid #eee;
+            padding-left: 1rem;
+        }
+        dl.attribute > dd, dl.class > dd, dl.function > dd, dl.method > dd {
+            margin-left: 30px;
+        }
+        p {
+            margin-top: 1.05em;
+            margin-bottom: 1.05em;
+            text-align: justify;
+        }
+        .field-list p, li p {
+            text-align: left;
+        }
+        /* adjust font sizes */
+        dl.field-list, dl.attribute {
+            font-size: 90%;
+        }
+        .math {
+            font-size: 90.09%;
+        }
+    </style>
+
+  </head><body>
+
+  <div id="navbar" class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../../../index.html">
+          Prodigy</a>
+        <span class="navbar-text navbar-version pull-left"><b></b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+                <li><a href="https://github.com/Philipp15b/probably">GitHub Repository</a></li>
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="../../../../index.html">Contents <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pysmt.html"><code class="docutils literal notranslate"><span class="pre">probably.pysmt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../analysis.html"><code class="docutils literal notranslate"><span class="pre">prodigy.analysis</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../analysis.html#forward-analysis">Forward Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analysis.html#the-semantics">The Semantics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analysis.html#distribution">Distribution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analysis.html#analysis-configuration">Analysis Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analysis.html#forward-analysis-config">Forward Analysis Config</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../analysis.html#module-prodigy.analysis.backward.wp">Backward Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analysis.html#weakest-pre-expectations">Weakest Pre-Expectations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analysis.html#loop-free">Loop-Free</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analysis.html#transformers">Transformers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analysis.html#loops">Loops</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../util.html"><code class="docutils literal notranslate"><span class="pre">probably.util</span></code></a></li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+            
+            
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="../../../../search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+      <div class="col-md-3">
+        <div id="sidebar" class="bs-sidenav" role="complementary">
+<h4 style="padding: 5px 20px">Contents</h4>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pysmt.html"><code class="docutils literal notranslate"><span class="pre">probably.pysmt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../analysis.html"><code class="docutils literal notranslate"><span class="pre">prodigy.analysis</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../util.html"><code class="docutils literal notranslate"><span class="pre">probably.util</span></code></a></li>
+</ul>
+
+        </div>
+      </div>
+    <div class="body col-md-9 content" role="main">
+      
+  <h1>Source code for prodigy.analysis.backward.wp</h1><div class="highlight"><pre>
+<span></span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">------------------------</span>
+<span class="sd">Weakest Pre-Expectations</span>
+<span class="sd">------------------------</span>
+
+<span class="sd">Want to calculate the weakest pre-expectation of a program?</span>
+<span class="sd">You&#39;re in the right module! You can read all about weakest pre-expectations of</span>
+<span class="sd">probabilistic programs in [kam19]_.</span>
+
+<span class="sd">The basic function is :func:`loopfree_wp`. It calculates weakest</span>
+<span class="sd">pre-expectations of loop-free programs. :func:`one_loop_wp` can calculate</span>
+<span class="sd">weakest pre-expectations of programs that consist of exactly one loop (see</span>
+<span class="sd">:ref:`one_big_loop`). :func:`general_wp` is applicable to all pGCL programs, but</span>
+<span class="sd">can produce extraordinarily ugly outputs.</span>
+
+<span class="sd">.. rubric:: Expected Runtimes</span>
+
+<span class="sd">All functions also support computation of *expected runtimes* (see chapter 7 of</span>
+<span class="sd">[kam19]_), which are given by :class:`prodigy.pgcl.ast.TickInstr` and</span>
+<span class="sd">represented in the computed expectations as a</span>
+<span class="sd">:class:`prodigy.pgcl.ast.TickExpr`.</span>
+
+<span class="sd">.. doctest::</span>
+
+<span class="sd">    &gt;&gt;&gt; from prodigy.pgcl.parser import parse_pgcl</span>
+<span class="sd">    &gt;&gt;&gt; program = parse_pgcl(&quot;x := 5; tick(5)&quot;)</span>
+<span class="sd">    &gt;&gt;&gt; transformer = loopfree_wp_transformer(program, program.instructions)</span>
+<span class="sd">    &gt;&gt;&gt; print(transformer)</span>
+<span class="sd">    λ𝑋. ((𝑋)[x/5]) + (tick(5))</span>
+<span class="sd">    &gt;&gt;&gt; transformer</span>
+<span class="sd">    ExpectationTransformer(variable=&#39;𝑋&#39;, expectation=BinopExpr(operator=Binop.PLUS, lhs=SubstExpr(subst={&#39;x&#39;: NatLitExpr(5)}, expr=VarExpr(&#39;𝑋&#39;)), rhs=TickExpr(expr=NatLitExpr(5))))</span>
+
+
+<span class="sd">It is always possible to represent expected runtimes in such a way.</span>
+<span class="sd">Theorem 7.11 of [kam19]_ (page 173):</span>
+
+<span class="sd">.. math::</span>
+
+<span class="sd">    \mathrm{ert}\llbracket{}C\rrbracket(t) = \mathrm{ert}\llbracket{}C\rrbracket(0) + \mathrm{backward}\llbracket{}C\rrbracket{}(t)</span>
+
+<span class="sd">Therefore the weakest pre-expectation of a program with ``tick`` instructions</span>
+<span class="sd">can be obtained by simply ignoring all :class:`prodigy.pgcl.ast.TickExpr` in</span>
+<span class="sd">the returned expectation, i.e. replacing them all by zero.</span>
+
+<span class="sd">.. [kam19] `Advanced Weakest Precondition Calculi for Probabilistic Programs &lt;https://publications.rwth-aachen.de/record/755408/files/755408.pdf&gt;`_, Benjamin Kaminski, 2019.</span>
+
+<span class="sd">Loop-Free</span>
+<span class="sd">#########</span>
+
+<span class="sd">The definition of loop-free weakest pre-expectations (and expected runtimes) is</span>
+<span class="sd">rather straightforward.</span>
+
+<span class="sd">.. autofunction:: loopfree_wp</span>
+
+<span class="sd">Transformers</span>
+<span class="sd">############</span>
+
+<span class="sd">.. autoclass:: ExpectationTransformer</span>
+<span class="sd">.. autofunction:: loopfree_wp_transformer</span>
+
+<span class="sd">Loops</span>
+<span class="sd">#####</span>
+
+<span class="sd">The :math:`\mathrm{backward}` semantics of loops require a least fixed-point. It is</span>
+<span class="sd">undecidable to compute. We do not represent least-fixed points explicitely in</span>
+<span class="sd">our AST (see :mod:`prodigy.pgcl.ast`), but instead represent the weakest</span>
+<span class="sd">pre-expectation transformer of a **single loop** (without any more nested loops)</span>
+<span class="sd">with optional initialization by a special :class:`LoopExpectationTransformer`.</span>
+<span class="sd">For such programs with exactly one loop, :func:`one_loop_wp` can calculate the</span>
+<span class="sd">:class:`LoopExpectationTransformer`.</span>
+
+<span class="sd">The function :func:`general_wp` is applicable to **all** pGCL programs. It uses</span>
+<span class="sd">:func:`prodigy.pgcl.cfg.program_one_big_loop` to transform arbitrarily structured</span>
+<span class="sd">programs into programs with one loop. Then it uses :func:`one_loop_wp` to</span>
+<span class="sd">compute the :class:`LoopExpectationTransformer`.</span>
+
+<span class="sd">.. autoclass:: LoopExpectationTransformer</span>
+<span class="sd">.. autofunction:: one_loop_wp_transformer</span>
+<span class="sd">.. autofunction:: general_wp_transformer</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">attr</span>
+
+<span class="kn">from</span> <span class="nn">prodigy.pgcl.ast</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">prodigy.pgcl.substitute</span> <span class="kn">import</span> <span class="n">substitute_expr</span>
+<span class="kn">from</span> <span class="nn">prodigy.pgcl.analyzer.syntax</span> <span class="kn">import</span> <span class="n">check_is_one_big_loop</span>
+<span class="kn">from</span> <span class="nn">prodigy.pgcl.ast.walk</span> <span class="kn">import</span> <span class="n">Walk</span><span class="p">,</span> <span class="n">walk_expr</span>
+
+
+<div class="viewcode-block" id="loopfree_wp"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.backward.wp.loopfree_wp">[docs]</a><span class="k">def</span> <span class="nf">loopfree_wp</span><span class="p">(</span><span class="n">instr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Instr</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Instr</span><span class="p">]],</span>
+                <span class="n">postexpectation</span><span class="p">:</span> <span class="n">Expr</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Build the weakest preexpectation as an expression. See also</span>
+<span class="sd">    :func:`loopfree_wp_transformer`.</span>
+
+<span class="sd">    .. warning::</span>
+<span class="sd">        Loops are not supported by this function.</span>
+
+<span class="sd">    .. todo::</span>
+<span class="sd">        At the moment, the returned expression is a tree and not a DAG.</span>
+<span class="sd">        Subexpressions that occur multiple times are *deepcopied*, even though that</span>
+<span class="sd">        is not strictly necessary. For example, ``jump := unif(0,1); t := t + 1``</span>
+<span class="sd">        creates an AST where the second assignment occurs twice, as different Python objects,</span>
+<span class="sd">        even though the two substitutions generated by the *uniform* expression could reuse it.</span>
+<span class="sd">        We do this because the :mod:`prodigy.pgcl.substitute` module cannot yet handle non-tree ASTs.</span>
+
+<span class="sd">    .. doctest::</span>
+
+<span class="sd">        &gt;&gt;&gt; from prodigy.pgcl.parser import parse_pgcl</span>
+<span class="sd">        &gt;&gt;&gt; from prodigy.pgcl.ast import RealLitExpr, VarExpr</span>
+
+<span class="sd">        &gt;&gt;&gt; program = parse_pgcl(&quot;bool a; bool x; if (a) { x := 1 } {}&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; res = loopfree_wp(program.instructions, RealLitExpr(&quot;1.0&quot;))</span>
+<span class="sd">        &gt;&gt;&gt; str(res)</span>
+<span class="sd">        &#39;([a] * ((1.0)[x/1])) + ([not a] * 1.0)&#39;</span>
+
+<span class="sd">        &gt;&gt;&gt; program = parse_pgcl(&quot;bool a; bool x; if (a) { { x := 1 } [0.5] {x := 2 } } {} x := x + 1&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; res = loopfree_wp(program.instructions, VarExpr(&quot;x&quot;))</span>
+<span class="sd">        &gt;&gt;&gt; str(res)</span>
+<span class="sd">        &#39;([a] * (((((x)[x/x + 1])[x/1]) * 0.5) + ((((x)[x/x + 1])[x/2]) * (1.0 - 0.5)))) + ([not a] * ((x)[x/x + 1]))&#39;</span>
+
+<span class="sd">        &gt;&gt;&gt; program = parse_pgcl(&quot;nat x; x := unif(1, 4)&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; res = loopfree_wp(program.instructions, VarExpr(&quot;x&quot;))</span>
+<span class="sd">        &gt;&gt;&gt; str(res)</span>
+<span class="sd">        &#39;(((1/4 * ((x)[x/1])) + (1/4 * ((x)[x/2]))) + (1/4 * ((x)[x/3]))) + (1/4 * ((x)[x/4]))&#39;</span>
+
+<span class="sd">        &gt;&gt;&gt; program = parse_pgcl(&quot;bool x; x := true : 0.5 + false : 0.5;&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; res = loopfree_wp(program.instructions, VarExpr(&quot;x&quot;))</span>
+<span class="sd">        &gt;&gt;&gt; str(res)</span>
+<span class="sd">        &#39;(0.5 * ((x)[x/true])) + (0.5 * ((x)[x/false]))&#39;</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        instr: The instruction to calculate the backward for, or a list of instructions.</span>
+<span class="sd">        postexpectation: The postexpectation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">functools</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">loopfree_wp</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span>
+                                <span class="nb">reversed</span><span class="p">(</span><span class="n">instr</span><span class="p">),</span> <span class="n">postexpectation</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">SkipInstr</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">postexpectation</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">WhileInstr</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;While instruction not supported for backward generation&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">IfInstr</span><span class="p">):</span>
+        <span class="n">true_block</span> <span class="o">=</span> <span class="n">loopfree_wp</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">true</span><span class="p">,</span> <span class="n">postexpectation</span><span class="p">)</span>
+        <span class="n">false_block</span> <span class="o">=</span> <span class="n">loopfree_wp</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">false</span><span class="p">,</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">postexpectation</span><span class="p">))</span>
+        <span class="n">true</span> <span class="o">=</span> <span class="n">BinopExpr</span><span class="p">(</span><span class="n">Binop</span><span class="o">.</span><span class="n">TIMES</span><span class="p">,</span> <span class="n">UnopExpr</span><span class="p">(</span><span class="n">Unop</span><span class="o">.</span><span class="n">IVERSON</span><span class="p">,</span> <span class="n">instr</span><span class="o">.</span><span class="n">cond</span><span class="p">),</span>
+                         <span class="n">true_block</span><span class="p">)</span>
+        <span class="n">false</span> <span class="o">=</span> <span class="n">BinopExpr</span><span class="p">(</span>
+            <span class="n">Binop</span><span class="o">.</span><span class="n">TIMES</span><span class="p">,</span> <span class="n">UnopExpr</span><span class="p">(</span><span class="n">Unop</span><span class="o">.</span><span class="n">IVERSON</span><span class="p">,</span>
+                                  <span class="n">UnopExpr</span><span class="p">(</span><span class="n">Unop</span><span class="o">.</span><span class="n">NEG</span><span class="p">,</span> <span class="n">instr</span><span class="o">.</span><span class="n">cond</span><span class="p">)),</span> <span class="n">false_block</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">BinopExpr</span><span class="p">(</span><span class="n">Binop</span><span class="o">.</span><span class="n">PLUS</span><span class="p">,</span> <span class="n">true</span><span class="p">,</span> <span class="n">false</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">AsgnInstr</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="p">(</span><span class="n">DUniformExpr</span><span class="p">,</span> <span class="n">CategoricalExpr</span><span class="p">)):</span>
+            <span class="n">distribution</span> <span class="o">=</span> <span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">distribution</span><span class="p">()</span>
+            <span class="n">branches</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">BinopExpr</span><span class="p">(</span>
+                    <span class="n">Binop</span><span class="o">.</span><span class="n">TIMES</span><span class="p">,</span> <span class="n">prob</span><span class="p">,</span>
+                    <span class="n">SubstExpr</span><span class="p">({</span><span class="n">instr</span><span class="o">.</span><span class="n">lhs</span><span class="p">:</span> <span class="n">expr</span><span class="p">},</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">postexpectation</span><span class="p">)))</span>
+                <span class="k">for</span> <span class="n">prob</span><span class="p">,</span> <span class="n">expr</span> <span class="ow">in</span> <span class="n">distribution</span>
+            <span class="p">]</span>
+            <span class="k">return</span> <span class="n">functools</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">BinopExpr</span><span class="p">(</span><span class="n">Binop</span><span class="o">.</span><span class="n">PLUS</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span>
+                                    <span class="n">branches</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">CUniformExpr</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                <span class="s2">&quot;continuous uniform not supported for backward generation&quot;</span><span class="p">)</span>
+
+        <span class="n">subst</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Var</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">instr</span><span class="o">.</span><span class="n">lhs</span><span class="p">:</span> <span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">SubstExpr</span><span class="p">(</span><span class="n">subst</span><span class="p">,</span> <span class="n">postexpectation</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">ChoiceInstr</span><span class="p">):</span>
+        <span class="n">lhs_block</span> <span class="o">=</span> <span class="n">loopfree_wp</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">lhs</span><span class="p">,</span> <span class="n">postexpectation</span><span class="p">)</span>
+        <span class="n">rhs_block</span> <span class="o">=</span> <span class="n">loopfree_wp</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">postexpectation</span><span class="p">))</span>
+        <span class="n">lhs</span> <span class="o">=</span> <span class="n">BinopExpr</span><span class="p">(</span><span class="n">Binop</span><span class="o">.</span><span class="n">TIMES</span><span class="p">,</span> <span class="n">lhs_block</span><span class="p">,</span> <span class="n">instr</span><span class="o">.</span><span class="n">prob</span><span class="p">)</span>
+        <span class="n">rhs</span> <span class="o">=</span> <span class="n">BinopExpr</span><span class="p">(</span><span class="n">Binop</span><span class="o">.</span><span class="n">TIMES</span><span class="p">,</span> <span class="n">rhs_block</span><span class="p">,</span>
+                        <span class="n">BinopExpr</span><span class="p">(</span><span class="n">Binop</span><span class="o">.</span><span class="n">MINUS</span><span class="p">,</span> <span class="n">RealLitExpr</span><span class="p">(</span><span class="s2">&quot;1.0&quot;</span><span class="p">),</span> <span class="n">instr</span><span class="o">.</span><span class="n">prob</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">BinopExpr</span><span class="p">(</span><span class="n">Binop</span><span class="o">.</span><span class="n">PLUS</span><span class="p">,</span> <span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">TickInstr</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">BinopExpr</span><span class="p">(</span><span class="n">Binop</span><span class="o">.</span><span class="n">PLUS</span><span class="p">,</span> <span class="n">postexpectation</span><span class="p">,</span> <span class="n">TickExpr</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">expr</span><span class="p">))</span>
+
+    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;unsupported instruction&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ExpectationTransformer"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.backward.wp.ExpectationTransformer">[docs]</a><span class="nd">@attr</span><span class="o">.</span><span class="n">s</span>
+<span class="k">class</span> <span class="nc">ExpectationTransformer</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wraps an expectation :math:`f` (represented by</span>
+<span class="sd">    :class:`prodigy.pgcl.ast.Expr`) and holds a reference to a variable</span>
+<span class="sd">    :math:`v`. Together they represent an *expectation transformer*, a function</span>
+<span class="sd">    :math:`\Phi : \mathbb{E} \to \mathbb{E}` mapping expectations to</span>
+<span class="sd">    expectations.</span>
+
+<span class="sd">    An expectation is applied (:math:`\Phi(g)`) by replacing :math:`f` by</span>
+<span class="sd">    :math:`g`.</span>
+
+<span class="sd">    The :mod:`prodigy.pgcl.simplify` module can translate expectation</span>
+<span class="sd">    transformers into *summation normal form*. See</span>
+<span class="sd">    :class:`prodigy.pgcl.simplify.SnfExpectationTransformer` and</span>
+<span class="sd">    :func:`prodigy.pgcl.simplify.normalize_expectation_transformer`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">variable</span><span class="p">:</span> <span class="n">Var</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="sd">&quot;&quot;&quot;The variable occuring in :data:`expectation`. Must not occur in the</span>
+<span class="sd">    program.&quot;&quot;&quot;</span>
+
+    <span class="n">expectation</span><span class="p">:</span> <span class="n">Expr</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_expectation_ref</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mut</span><span class="p">[</span><span class="n">Expr</span><span class="p">]:</span>
+        <span class="k">def</span> <span class="nf">write_expectation</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">expectation</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="k">return</span> <span class="n">Mut</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">expectation</span><span class="p">,</span> <span class="n">write_expectation</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ExpectationTransformer.substitute"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.backward.wp.ExpectationTransformer.substitute">[docs]</a>    <span class="k">def</span> <span class="nf">substitute</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;ExpectationTransformer&#39;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply all :class:`prodigy.pgcl.ast.SubstExpr` using</span>
+<span class="sd">        :func:`prodigy.pgcl.substitute.substitute_expr`, keeping</span>
+<span class="sd">        :data:`variable` symbolic.</span>
+
+<span class="sd">        Returns ``self`` for convenience.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">substitute_expr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_expectation_ref</span><span class="p">,</span>
+                        <span class="n">symbolic</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">variable</span><span class="p">]))</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="ExpectationTransformer.apply"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.backward.wp.ExpectationTransformer.apply">[docs]</a>    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expectation</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">substitute</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expr</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Transform the given expectation with this expectation transformer.</span>
+
+<span class="sd">        The result is the modified internal expression with the variable</span>
+<span class="sd">        replaced by the post-expectation, i.e. ``self.expectation``.</span>
+
+<span class="sd">        **Calling this method will change this object!**</span>
+
+<span class="sd">        .. doctest::</span>
+
+<span class="sd">            &gt;&gt;&gt; from prodigy.pgcl.parser import parse_pgcl</span>
+<span class="sd">            &gt;&gt;&gt; program = parse_pgcl(&quot;x := 3&quot;)</span>
+<span class="sd">            &gt;&gt;&gt; backward = loopfree_wp_transformer(program, program.instructions)</span>
+<span class="sd">            &gt;&gt;&gt; print(backward)</span>
+<span class="sd">            λ𝑋. (𝑋)[x/3]</span>
+<span class="sd">            &gt;&gt;&gt; print(backward.apply(VarExpr(&quot;x&quot;)))</span>
+<span class="sd">            3</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            substitute: Whether to apply all remaining substitutions in the expectation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># What would be very wrong:</span>
+        <span class="c1">#   expr: Expr = SubstExpr({self.variable: expectation}, self.expectation)</span>
+        <span class="c1">#   expectation_ref = Mut.alloc(expr)</span>
+        <span class="c1">#   substitute_expr(expectation_ref)</span>
+        <span class="c1">#   return expectation_ref.val</span>
+        <span class="c1">#</span>
+        <span class="c1"># This would first apply inner substitutions, and then replace the</span>
+        <span class="c1"># post-expectation. Consider the transformer &quot;λ𝑋. (𝑋)[x/3]&quot;. Consider</span>
+        <span class="c1"># the post-expectation &quot;x&quot;. Applying a substitution as above would</span>
+        <span class="c1"># result in &quot;λ𝑋. (𝑋)[x/3][𝑋/x]&quot; - after reduction, we&#39;d get the</span>
+        <span class="c1"># result &quot;x&quot; instead of the the correct &quot;3&quot;!</span>
+        <span class="c1">#</span>
+        <span class="c1"># Instead, simply search and replace the post-expectation in the expression.</span>
+        <span class="k">for</span> <span class="n">expr_ref</span> <span class="ow">in</span> <span class="n">walk_expr</span><span class="p">(</span><span class="n">Walk</span><span class="o">.</span><span class="n">DOWN</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_expectation_ref</span><span class="p">):</span>
+            <span class="n">expr</span> <span class="o">=</span> <span class="n">expr_ref</span><span class="o">.</span><span class="n">val</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">VarExpr</span><span class="p">)</span> <span class="ow">and</span> <span class="n">expr</span><span class="o">.</span><span class="n">var</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">variable</span><span class="p">:</span>
+                <span class="n">expr_ref</span><span class="o">.</span><span class="n">val</span> <span class="o">=</span> <span class="n">expectation</span>
+        <span class="c1"># Apply all remaining substitutions for convenience.</span>
+        <span class="k">if</span> <span class="n">substitute</span><span class="p">:</span>
+            <span class="n">substitute_expr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_expectation_ref</span><span class="p">,</span> <span class="n">deepcopy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">expectation</span></div>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;λ</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">variable</span><span class="si">}</span><span class="s2">. </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">expectation</span><span class="si">}</span><span class="s2">&quot;</span></div>
+
+
+<div class="viewcode-block" id="loopfree_wp_transformer"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.backward.wp.loopfree_wp_transformer">[docs]</a><span class="k">def</span> <span class="nf">loopfree_wp_transformer</span><span class="p">(</span><span class="n">program</span><span class="p">:</span> <span class="n">Program</span><span class="p">,</span>
+                            <span class="n">instr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Instr</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Instr</span><span class="p">]],</span>
+                            <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;𝑋&#39;</span><span class="p">,</span>
+                            <span class="n">substitute</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExpectationTransformer</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generalized version of :func:`loopfree_wp` that returns an</span>
+<span class="sd">    :class:`ExpectationTransformer`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        variable: Optional name for the variable to be used for the transformer. Must not occur elsewhere in the program.</span>
+<span class="sd">        substitute: Whether to call :meth:`ExpectationTransformer.substitute` on the ``body``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">variable</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">program</span><span class="o">.</span><span class="n">variables</span>
+    <span class="n">expectation</span> <span class="o">=</span> <span class="n">loopfree_wp</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">VarExpr</span><span class="p">(</span><span class="n">variable</span><span class="p">))</span>
+    <span class="n">transformer</span> <span class="o">=</span> <span class="n">ExpectationTransformer</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">expectation</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">substitute</span><span class="p">:</span>
+        <span class="n">transformer</span><span class="o">.</span><span class="n">substitute</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">transformer</span></div>
+
+
+<div class="viewcode-block" id="LoopExpectationTransformer"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.backward.wp.LoopExpectationTransformer">[docs]</a><span class="nd">@attr</span><span class="o">.</span><span class="n">s</span>
+<span class="k">class</span> <span class="nc">LoopExpectationTransformer</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The expectation *transformer* for a pGCL program with **exactly one loop and</span>
+<span class="sd">    optional initialization assignments before the loop**.</span>
+<span class="sd">    See :py:func:`one_loop_wp`.</span>
+
+<span class="sd">    A loop&#39;s expectation transformer is represented by the initialization</span>
+<span class="sd">    assignments themselves, an expectation transformer for the body, and a</span>
+<span class="sd">    :data:`done` term which is the expectation for loop termination.</span>
+
+<span class="sd">    Note that :data:`done` is not represented by an expectation transformer, but</span>
+<span class="sd">    rather just an expectation (:class:`prodigy.pgcl.ast.Expr`). This is</span>
+<span class="sd">    because the term in the weakest pre-expectation semantics for termination of</span>
+<span class="sd">    the while loop never contains the post-expectation :math:`f` (it is just</span>
+<span class="sd">    multiplied with it). A simpler representation allows for more convenient</span>
+<span class="sd">    further use. The :math:`\mathrm{backward}` semantics of a ``while`` loop are shown</span>
+<span class="sd">    below:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \mathrm{backward}\llbracket{}\mathtt{while} (b) \{ C \}\rrbracket(f) = \mathrm{lfp}~X.~ \underbrace{[b] \cdot \mathrm{backward}\llbracket{}C\rrbracket{}(X)}_{\text{body}} + \underbrace{[\neg b]}_{\text{done}} \cdot f</span>
+
+<span class="sd">    .. doctest::</span>
+
+<span class="sd">        &gt;&gt;&gt; from prodigy.pgcl.parser import parse_pgcl</span>
+<span class="sd">        &gt;&gt;&gt; program = parse_pgcl(&quot;bool x; x := true; while (x) { x := false }&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; transformer = one_loop_wp_transformer(program, program.instructions)</span>
+<span class="sd">        &gt;&gt;&gt; print(transformer)</span>
+<span class="sd">        x := true;</span>
+<span class="sd">        λ𝐹. lfp 𝑋. [x] * ((𝑋)[x/false]) + [not x] * 𝐹</span>
+<span class="sd">        &gt;&gt;&gt; print(repr(transformer))</span>
+<span class="sd">        LoopExpectationTransformer(init=[AsgnInstr(lhs=&#39;x&#39;, rhs=BoolLitExpr(True))], body=ExpectationTransformer(variable=&#39;𝑋&#39;, expectation=BinopExpr(operator=Binop.TIMES, lhs=UnopExpr(operator=Unop.IVERSON, expr=VarExpr(&#39;x&#39;)), rhs=SubstExpr(subst={&#39;x&#39;: BoolLitExpr(False)}, expr=VarExpr(&#39;𝑋&#39;)))), done=UnopExpr(operator=Unop.IVERSON, expr=UnopExpr(operator=Unop.NEG, expr=VarExpr(&#39;x&#39;))))</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">init</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">AsgnInstr</span><span class="p">]</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="sd">&quot;&quot;&quot;Initial assignments before the loop.&quot;&quot;&quot;</span>
+    <span class="n">body</span><span class="p">:</span> <span class="n">ExpectationTransformer</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="sd">&quot;&quot;&quot;The expectation transformer for the loop&#39;s body.&quot;&quot;&quot;</span>
+    <span class="n">done</span><span class="p">:</span> <span class="n">Expr</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="sd">&quot;&quot;&quot;The expectation for when the loop is done.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">assignments</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="nb">str</span><span class="p">(</span><span class="n">assignment</span><span class="p">)</span> <span class="k">for</span> <span class="n">assignment</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">init</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">assignments</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">assignments</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="c1"># possibly assert that 𝐹 is not in the program?</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">assignments</span><span class="si">}</span><span class="s1">λ𝐹. lfp </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">body</span><span class="o">.</span><span class="n">variable</span><span class="si">}</span><span class="s1">. </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">body</span><span class="o">.</span><span class="n">expectation</span><span class="si">}</span><span class="s1"> + </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="si">}</span><span class="s1"> * 𝐹&#39;</span></div>
+
+
+<div class="viewcode-block" id="one_loop_wp_transformer"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.backward.wp.one_loop_wp_transformer">[docs]</a><span class="k">def</span> <span class="nf">one_loop_wp_transformer</span><span class="p">(</span>
+        <span class="n">program</span><span class="p">:</span> <span class="n">Program</span><span class="p">,</span>
+        <span class="n">instr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Instr</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Instr</span><span class="p">]],</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;𝑋&#39;</span><span class="p">,</span>
+        <span class="n">substitute</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LoopExpectationTransformer</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculate the weakest pre-expectation transformer of a program that consists</span>
+<span class="sd">    of exactly one while loop with some optional assignments at the beginning.</span>
+<span class="sd">    That means the only supported programs are of the following form:</span>
+
+<span class="sd">    .. code-block::</span>
+
+<span class="sd">        x := e1</span>
+<span class="sd">        y := e2</span>
+<span class="sd">        while (cond) { .. }</span>
+
+<span class="sd">    .. doctest::</span>
+
+<span class="sd">        &gt;&gt;&gt; from prodigy.pgcl.parser import parse_pgcl</span>
+
+<span class="sd">        &gt;&gt;&gt; program = parse_pgcl(&quot;bool x; bool y; while(x) { { x := true } [0.5] { x := y } }&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; print(one_loop_wp_transformer(program, program.instructions))</span>
+<span class="sd">        λ𝐹. lfp 𝑋. [x] * ((((𝑋)[x/true]) * 0.5) + (((𝑋)[x/y]) * (1.0 - 0.5))) + [not x] * 𝐹</span>
+
+<span class="sd">        &gt;&gt;&gt; program = parse_pgcl(&quot;bool x; while(x) { if (x) { x := false } {x := true } }&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; print(one_loop_wp_transformer(program, program.instructions))</span>
+<span class="sd">        λ𝐹. lfp 𝑋. [x] * (([x] * ((𝑋)[x/false])) + ([not x] * ((𝑋)[x/true]))) + [not x] * 𝐹</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        variable: Optional name for the variable to be used for the transformer. Must not occur elsewhere in the program.</span>
+<span class="sd">        substitute: Whether to call :meth:`ExpectationTransformer.substitute` on the ``body``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># avoid a cyclic import</span>
+    <span class="kn">from</span> <span class="nn">.simplify</span> <span class="kn">import</span> <span class="n">simplifying_neg</span>  <span class="c1"># pylint: disable=import-outside-toplevel,cyclic-import</span>
+
+    <span class="c1"># extract assignments and the loop from the program</span>
+    <span class="n">instrs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">instr</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="p">[</span><span class="n">instr</span><span class="p">]</span>
+    <span class="n">init</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">AsgnInstr</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">instrs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instrs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">AsgnInstr</span><span class="p">):</span>
+        <span class="n">next_init</span> <span class="o">=</span> <span class="n">instrs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">next_init</span><span class="p">,</span> <span class="n">AsgnInstr</span><span class="p">)</span>  <span class="c1"># mypy is a bit dumb here</span>
+        <span class="n">init</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">next_init</span><span class="p">)</span>
+    <span class="n">loop</span> <span class="o">=</span> <span class="n">instrs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">err</span> <span class="o">=</span> <span class="s2">&quot;Program must consist of only instructions and a single while loop&quot;</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">instrs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">err</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">WhileInstr</span><span class="p">),</span> <span class="n">err</span>
+
+    <span class="c1"># weakest pre-expectation of the loop body</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="n">loopfree_wp_transformer</span><span class="p">(</span><span class="n">program</span><span class="p">,</span>
+                                   <span class="n">loop</span><span class="o">.</span><span class="n">body</span><span class="p">,</span>
+                                   <span class="n">variable</span><span class="o">=</span><span class="n">variable</span><span class="p">,</span>
+                                   <span class="n">substitute</span><span class="o">=</span><span class="n">substitute</span><span class="p">)</span>
+    <span class="n">body</span><span class="o">.</span><span class="n">expectation</span> <span class="o">=</span> <span class="n">BinopExpr</span><span class="p">(</span><span class="n">Binop</span><span class="o">.</span><span class="n">TIMES</span><span class="p">,</span> <span class="n">UnopExpr</span><span class="p">(</span><span class="n">Unop</span><span class="o">.</span><span class="n">IVERSON</span><span class="p">,</span>
+                                                       <span class="n">loop</span><span class="o">.</span><span class="n">cond</span><span class="p">),</span>
+                                 <span class="n">body</span><span class="o">.</span><span class="n">expectation</span><span class="p">)</span>
+
+    <span class="c1"># weakest pre-expectation of the done term</span>
+    <span class="n">done</span> <span class="o">=</span> <span class="n">UnopExpr</span><span class="p">(</span><span class="n">Unop</span><span class="o">.</span><span class="n">IVERSON</span><span class="p">,</span> <span class="n">simplifying_neg</span><span class="p">(</span><span class="n">loop</span><span class="o">.</span><span class="n">cond</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">LoopExpectationTransformer</span><span class="p">(</span><span class="n">init</span><span class="p">,</span> <span class="n">body</span><span class="p">,</span> <span class="n">done</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="general_wp_transformer"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.backward.wp.general_wp_transformer">[docs]</a><span class="k">def</span> <span class="nf">general_wp_transformer</span><span class="p">(</span>
+        <span class="n">program</span><span class="p">:</span> <span class="n">Program</span><span class="p">,</span>
+        <span class="n">substitute</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LoopExpectationTransformer</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculate the weakest pre-expectation transformer for any pGCL program. For</span>
+<span class="sd">    programs that consist of one big loop (see :ref:`one_big_loop`),</span>
+<span class="sd">    :func:`one_loop_wp_transformer` is invoked directly. All other programs are</span>
+<span class="sd">    run through :func:`prodigy.pgcl.cfg.program_one_big_loop` first and then</span>
+<span class="sd">    :func:`one_loop_wp_transformer` is used. This will introduce a new,</span>
+<span class="sd">    additional variable for the program counter.</span>
+
+<span class="sd">    .. doctest::</span>
+
+<span class="sd">        &gt;&gt;&gt; from prodigy.pgcl.parser import parse_pgcl</span>
+
+<span class="sd">        &gt;&gt;&gt; program = parse_pgcl(&quot;bool x; while(x) { while (y) {} }&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; print(general_wp_transformer(program))</span>
+<span class="sd">        pc := 1;</span>
+<span class="sd">        λ𝐹. lfp 𝑋. [not (pc = 0)] * (([pc = 1] * (([x] * ((𝑋)[pc/2])) + ([not x] * ((𝑋)[pc/0])))) + ([not (pc = 1)] * (([y] * ((𝑋)[pc/2])) + ([not y] * ((𝑋)[pc/1]))))) + [pc = 0] * 𝐹</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        substitute: Whether to call :meth:`ExpectationTransformer.substitute` on the ``body``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># avoid a cyclic import</span>
+    <span class="kn">from</span> <span class="nn">prodigy.pgcl.cfg</span> <span class="kn">import</span> \
+        <span class="n">program_one_big_loop</span>  <span class="c1"># pylint: disable=import-outside-toplevel,cyclic-import</span>
+
+    <span class="n">one_big_loop_err</span> <span class="o">=</span> <span class="n">check_is_one_big_loop</span><span class="p">(</span><span class="n">program</span><span class="o">.</span><span class="n">instructions</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">one_big_loop_err</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">one_loop_wp_transformer</span><span class="p">(</span><span class="n">program</span><span class="p">,</span> <span class="n">program</span><span class="o">.</span><span class="n">instructions</span><span class="p">)</span>
+    <span class="n">program</span> <span class="o">=</span> <span class="n">program_one_big_loop</span><span class="p">(</span><span class="n">program</span><span class="p">,</span> <span class="n">pc_var</span><span class="o">=</span><span class="s1">&#39;pc&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">one_loop_wp_transformer</span><span class="p">(</span><span class="n">program</span><span class="p">,</span>
+                                   <span class="n">program</span><span class="o">.</span><span class="n">instructions</span><span class="p">,</span>
+                                   <span class="n">substitute</span><span class="o">=</span><span class="n">substitute</span><span class="p">)</span></div>
+</pre></div>
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+        <br/>
+        
+      
+    </p>
+    <p>
+        &copy; Copyright 2022, Lutz Klinkenberg.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.5.4.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>

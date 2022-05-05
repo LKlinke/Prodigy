@@ -1,4 +1,4 @@
-from probably.analysis.forward.pgfs import ProdigyPGF
+from prodigy.analysis.forward.pgfs import ProdigyPGF
 
 
 def test_geometric():

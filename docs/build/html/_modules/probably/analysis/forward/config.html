@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>probably.analysis.forward.config &#8212; Probably  documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/katex-math.css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/contrib/auto-render.min.js"></script>
+    <script src="../../../../_static/katex_autorenderer.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+    
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="text/javascript" src="../../../../_static/js/jquery-1.11.0.min.js "></script>
+<script type="text/javascript" src="../../../../_static/js/jquery-fix.js "></script>
+<script type="text/javascript" src="../../../../_static/bootstrap-3.3.7/js/bootstrap.min.js "></script>
+<script type="text/javascript" src="../../../../_static/bootstrap-sphinx.js "></script>
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,400;0,700;1,400&family=Source+Sans+Pro:ital,wght@0,300;0,400;1,400&family=Source+Serif+Pro:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font: 15px/1.4 "Source Sans Pro",sans-serif;
+        }
+        h1, h2, h3, h5, h6, h6 {
+            font-family: "Source Sans Pro",sans-serif;
+        }
+        p {
+            font-family: "Source Serif Pro",serif;
+        }
+        .py, .field-list p, pre, code {
+            font-family: 'Source Code Pro', monospace;
+        }
+
+        /* fix navbar overlaying contents when clicking on anchors */
+        :target::before {
+            content: "";
+            display: block;
+            height: 60px; /* fixed header height*/
+            margin: -60px 0 0; /* negative fixed header height */
+            background: none;
+        }
+
+        /* hack to limit the yellow highlight to the the children of the target,
+           because of the above hack the target's highlight would be way too large */
+        dt:target {
+            background-color: transparent;
+        }
+        dt:target > * {
+            background-color: #fbe54e;
+        }
+
+        /* spacing adjustments */
+        .section {
+            margin-bottom: 10rem;
+            margin-top: 6rem;
+        }
+        div.body > .section:first-of-type {
+            margin-top: 0rem;
+        }
+        .class, .function, .data {
+            margin-top: 5rem;
+            margin-bottom: 7rem;
+            border-left: 1px solid #eee;
+            padding-left: 1rem;
+        }
+        dl.attribute > dd, dl.class > dd, dl.function > dd, dl.method > dd {
+            margin-left: 30px;
+        }
+        p {
+            margin-top: 1.05em;
+            margin-bottom: 1.05em;
+            text-align: justify;
+        }
+        .field-list p, li p {
+            text-align: left;
+        }
+        /* adjust font sizes */
+        dl.field-list, dl.attribute {
+            font-size: 90%;
+        }
+        .math {
+            font-size: 90.09%;
+        }
+    </style>
+
+  </head><body>
+
+  <div id="navbar" class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../../../index.html">
+          Probably</a>
+        <span class="navbar-text navbar-version pull-left"><b></b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+                <li><a href="https://github.com/Philipp15b/probably">GitHub Repository</a></li>
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="../../../../index.html">Contents <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pgcl.html"><code class="docutils literal notranslate"><span class="pre">probably.pgcl</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../pgcl.html#compiler-frontend">Compiler Frontend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../pgcl.html#module-probably.pgcl.parser.parser">Parser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../pgcl.html#variable-substitution">Variable Substitution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../pgcl.html#control-flow-graph">Control-Flow Graph</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pysmt.html"><code class="docutils literal notranslate"><span class="pre">probably.pysmt</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../pysmt.html#translation-context">Translation Context</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../pysmt.html#expression-translation">Expression Translation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../analysis.html"><code class="docutils literal notranslate"><span class="pre">probably.analysis</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../analysis.html#forward-analysis">Forward Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analysis.html#the-semantics">The Semantics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analysis.html#distribution">Distribution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analysis.html#analysis-configuration">Analysis Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analysis.html#forward-analysis-config">Forward Analysis Config</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../analysis.html#module-probably.analysis.backward.wp">Backward Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analysis.html#weakest-pre-expectations">Weakest Pre-Expectations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analysis.html#loop-free">Loop-Free</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analysis.html#transformers">Transformers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analysis.html#loops">Loops</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../util.html"><code class="docutils literal notranslate"><span class="pre">probably.util</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../util.html#mutable-references">Mutable References</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../util.html#lark-expression-parser">Lark Expression Parser</a></li>
+</ul>
+</li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+            
+            
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="../../../../search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+      <div class="col-md-3">
+        <div id="sidebar" class="bs-sidenav" role="complementary">
+<h4 style="padding: 5px 20px">Contents</h4>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pgcl.html"><code class="docutils literal notranslate"><span class="pre">probably.pgcl</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pysmt.html"><code class="docutils literal notranslate"><span class="pre">probably.pysmt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../analysis.html"><code class="docutils literal notranslate"><span class="pre">probably.analysis</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../util.html"><code class="docutils literal notranslate"><span class="pre">probably.util</span></code></a></li>
+</ul>
+
+        </div>
+      </div>
+    <div class="body col-md-9 content" role="main">
+      
+  <h1>Source code for probably.analysis.forward.config</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">-----------------------</span>
+<span class="sd">Forward Analysis Config</span>
+<span class="sd">-----------------------</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">auto</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Type</span>
+
+<span class="kn">import</span> <span class="nn">attr</span>
+
+<span class="kn">from</span> <span class="nn">.distribution_factory</span> <span class="kn">import</span> <span class="n">CommonDistributionsFactory</span>
+<span class="kn">from</span> <span class="nn">.exceptions</span> <span class="kn">import</span> <span class="n">ConfigurationError</span>
+<span class="kn">from</span> <span class="nn">.pgfs</span> <span class="kn">import</span> <span class="n">ProdigyPGF</span>
+<span class="kn">from</span> <span class="nn">.generating_function</span> <span class="kn">import</span> <span class="n">GeneratingFunction</span>
+<span class="kn">from</span> <span class="nn">.optimization.gf_optimizer</span> <span class="kn">import</span> <span class="n">GFOptimizer</span>
+<span class="kn">from</span> <span class="nn">.optimization</span> <span class="kn">import</span> <span class="n">Optimizer</span>
+<span class="kn">from</span> <span class="nn">.pgfs</span> <span class="kn">import</span> <span class="n">SympyPGF</span>
+
+
+<div class="viewcode-block" id="ForwardAnalysisConfig"><a class="viewcode-back" href="../../../../analysis.html#probably.analysis.forward.config.ForwardAnalysisConfig">[docs]</a><span class="nd">@attr</span><span class="o">.</span><span class="n">s</span>
+<span class="k">class</span> <span class="nc">ForwardAnalysisConfig</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Global configurable options for forward analysis.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ForwardAnalysisConfig.Engine"><a class="viewcode-back" href="../../../../analysis.html#probably.analysis.forward.config.ForwardAnalysisConfig.Engine">[docs]</a>    <span class="k">class</span> <span class="nc">Engine</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This enumeration specifies the type of backend used for distribution encodings and mathematical operations.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">SYMPY</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+        <span class="n">GINAC</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span></div>
+
+    <span class="sd">&quot;&quot;&quot;Enables the printing of results after each instruction.&quot;&quot;&quot;</span>
+    <span class="n">show_intermediate_steps</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="sd">&quot;&quot;&quot;Displays the probabilities in rational form. This does not change the preciseness of computation.&quot;&quot;&quot;</span>
+    <span class="n">show_rational_probabilities</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="sd">&quot;&quot;&quot;Enables simplification heuristics for expressions.&quot;&quot;&quot;</span>
+    <span class="n">use_simplification</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="sd">&quot;&quot;&quot;Toggle to print LaTeX-Code instead of ASCII expressions.&quot;&quot;&quot;</span>
+    <span class="n">use_latex</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="sd">&quot;&quot;&quot;Selects the distribution backend.&quot;&quot;&quot;</span>
+    <span class="n">engine</span><span class="p">:</span> <span class="n">Engine</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="n">Engine</span><span class="o">.</span><span class="n">SYMPY</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">optimizer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">Optimizer</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">engine</span> <span class="o">==</span> <span class="n">ForwardAnalysisConfig</span><span class="o">.</span><span class="n">Engine</span><span class="o">.</span><span class="n">SYMPY</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">GFOptimizer</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span><span class="s2">&quot;The configured engine does not implement an optimizer.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">factory</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="n">CommonDistributionsFactory</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">engine</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">Engine</span><span class="o">.</span><span class="n">SYMPY</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">SympyPGF</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">engine</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">Engine</span><span class="o">.</span><span class="n">GINAC</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ProdigyPGF</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">CommonDistributionsFactory</span>
+
+    <span class="k">def</span> <span class="nf">__attrs_post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">GeneratingFunction</span><span class="o">.</span><span class="n">use_latex_output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_latex</span>
+        <span class="n">GeneratingFunction</span><span class="o">.</span><span class="n">rational_preciseness</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">show_rational_probabilities</span>
+        <span class="n">GeneratingFunction</span><span class="o">.</span><span class="n">use_simplification</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_simplification</span>
+        <span class="n">GeneratingFunction</span><span class="o">.</span><span class="n">intermediate_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">show_intermediate_steps</span></div>
+
+</pre></div>
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+        <br/>
+        
+      
+    </p>
+    <p>
+        &copy; Copyright 2022, Philipp Schröer.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.5.4.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>

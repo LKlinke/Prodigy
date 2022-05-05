@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>probably.pgcl.cfg &#8212; Probably  documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/katex-math.css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/contrib/auto-render.min.js"></script>
+    <script src="../../../_static/katex_autorenderer.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="text/javascript" src="../../../_static/js/jquery-1.11.0.min.js "></script>
+<script type="text/javascript" src="../../../_static/js/jquery-fix.js "></script>
+<script type="text/javascript" src="../../../_static/bootstrap-3.3.7/js/bootstrap.min.js "></script>
+<script type="text/javascript" src="../../../_static/bootstrap-sphinx.js "></script>
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,400;0,700;1,400&family=Source+Sans+Pro:ital,wght@0,300;0,400;1,400&family=Source+Serif+Pro:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font: 15px/1.4 "Source Sans Pro",sans-serif;
+        }
+        h1, h2, h3, h5, h6, h6 {
+            font-family: "Source Sans Pro",sans-serif;
+        }
+        p {
+            font-family: "Source Serif Pro",serif;
+        }
+        .py, .field-list p, pre, code {
+            font-family: 'Source Code Pro', monospace;
+        }
+
+        /* fix navbar overlaying contents when clicking on anchors */
+        :target::before {
+            content: "";
+            display: block;
+            height: 60px; /* fixed header height*/
+            margin: -60px 0 0; /* negative fixed header height */
+            background: none;
+        }
+
+        /* hack to limit the yellow highlight to the the children of the target,
+           because of the above hack the target's highlight would be way too large */
+        dt:target {
+            background-color: transparent;
+        }
+        dt:target > * {
+            background-color: #fbe54e;
+        }
+
+        /* spacing adjustments */
+        .section {
+            margin-bottom: 10rem;
+            margin-top: 6rem;
+        }
+        div.body > .section:first-of-type {
+            margin-top: 0rem;
+        }
+        .class, .function, .data {
+            margin-top: 5rem;
+            margin-bottom: 7rem;
+            border-left: 1px solid #eee;
+            padding-left: 1rem;
+        }
+        dl.attribute > dd, dl.class > dd, dl.function > dd, dl.method > dd {
+            margin-left: 30px;
+        }
+        p {
+            margin-top: 1.05em;
+            margin-bottom: 1.05em;
+            text-align: justify;
+        }
+        .field-list p, li p {
+            text-align: left;
+        }
+        /* adjust font sizes */
+        dl.field-list, dl.attribute {
+            font-size: 90%;
+        }
+        .math {
+            font-size: 90.09%;
+        }
+    </style>
+
+  </head><body>
+
+  <div id="navbar" class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../../index.html">
+          Probably</a>
+        <span class="navbar-text navbar-version pull-left"><b></b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+                <li><a href="https://github.com/Philipp15b/probably">GitHub Repository</a></li>
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="../../../index.html">Contents <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pysmt.html"><code class="docutils literal notranslate"><span class="pre">probably.pysmt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../util.html"><code class="docutils literal notranslate"><span class="pre">probably.util</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../util.html#mutable-references">Mutable References</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../util.html#lark-expression-parser">Lark Expression Parser</a></li>
+</ul>
+</li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+            
+            
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="../../../search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+      <div class="col-md-3">
+        <div id="sidebar" class="bs-sidenav" role="complementary">
+<h4 style="padding: 5px 20px">Contents</h4>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pysmt.html"><code class="docutils literal notranslate"><span class="pre">probably.pysmt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../util.html"><code class="docutils literal notranslate"><span class="pre">probably.util</span></code></a></li>
+</ul>
+
+        </div>
+      </div>
+    <div class="body col-md-9 content" role="main">
+      
+  <h1>Source code for probably.pgcl.cfg</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">------------------</span>
+<span class="sd">Control-Flow Graph</span>
+<span class="sd">------------------</span>
+
+<span class="sd">This module can build up *control-flow graphs* (CFGs) of pGCL programs and</span>
+<span class="sd">*decompile* them back to programs again. The main purpose of this module is the</span>
+<span class="sd">transformation of a program with arbitrarily nested loops into a program with</span>
+<span class="sd">one big loop (:func:`program_one_big_loop`).</span>
+
+
+<span class="sd">.. doctest::</span>
+
+<span class="sd">    &gt;&gt;&gt; from probably.pgcl.compiler import compile_pgcl</span>
+<span class="sd">    &gt;&gt;&gt; program = compile_pgcl(&quot;nat x; while (x &lt;= 3) { while (x = 0) { x := x + 1; }; if (x = 0) { x := x + 1; x := x + 2; x := x + 3; } {} }&quot;)</span>
+<span class="sd">    &gt;&gt;&gt; graph = ControlFlowGraph.from_instructions(program.instructions)</span>
+<span class="sd">    &gt;&gt;&gt; graph.render_dot().source</span>
+<span class="sd">    &#39;digraph...&#39;</span>
+
+<span class="sd">You can see the control-flow graph for this program visualized using GraphViz</span>
+<span class="sd">below. It was created with the :meth:`ControlFlowGraph.render_dot` method. See</span>
+<span class="sd">its documentation for more information on how to visualize a control-flow graph.</span>
+
+<span class="sd">.. exec::</span>
+
+<span class="sd">    from probably.pgcl.compiler import compile_pgcl</span>
+<span class="sd">    from probably.pgcl.cfg import ControlFlowGraph, _write_docs_graphviz</span>
+<span class="sd">    program = compile_pgcl(&quot;nat x; while (x &lt;= 3) { while (x = 0) { x := x + 1; }; if (x = 0) { x := x + 1; x := x + 2; x := x + 3; } {} }&quot;)</span>
+<span class="sd">    dot = ControlFlowGraph.from_instructions(program.instructions).render_dot()</span>
+<span class="sd">    _write_docs_graphviz(dot, &quot;cfg&quot;)</span>
+
+
+<span class="sd">.. image:: _generated/cfg.svg</span>
+<span class="sd">    :align: center</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">auto</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">reduce</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">NewType</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">cast</span>
+
+<span class="kn">import</span> <span class="nn">attr</span>
+<span class="kn">import</span> <span class="nn">graphviz</span> <span class="k">as</span> <span class="nn">gv</span>
+<span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
+<span class="kn">from</span> <span class="nn">networkx.algorithms.dominance</span> <span class="kn">import</span> <span class="n">dominance_frontiers</span>
+
+<span class="kn">from</span> <span class="nn">probably.util</span> <span class="kn">import</span> <span class="n">dedup_list</span>
+
+<span class="kn">from</span> <span class="nn">.ast</span> <span class="kn">import</span> <span class="p">(</span><span class="n">AsgnInstr</span><span class="p">,</span> <span class="n">Binop</span><span class="p">,</span> <span class="n">BinopExpr</span><span class="p">,</span> <span class="n">BoolLitExpr</span><span class="p">,</span> <span class="n">ChoiceInstr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">,</span>
+                  <span class="n">IfInstr</span><span class="p">,</span> <span class="n">Instr</span><span class="p">,</span> <span class="n">NatLitExpr</span><span class="p">,</span> <span class="n">NatType</span><span class="p">,</span> <span class="n">Program</span><span class="p">,</span> <span class="n">SkipInstr</span><span class="p">,</span> <span class="n">Var</span><span class="p">,</span>
+                  <span class="n">VarExpr</span><span class="p">,</span> <span class="n">WhileInstr</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.compiler</span> <span class="kn">import</span> <span class="n">parse_pgcl</span>
+<span class="kn">from</span> <span class="nn">probably.analysis.backward.simplify</span> <span class="kn">import</span> <span class="n">simplifying_neg</span>
+
+<span class="n">BasicBlockId</span> <span class="o">=</span> <span class="n">NewType</span><span class="p">(</span><span class="s1">&#39;BasicBlockId&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_write_docs_graphviz</span><span class="p">(</span><span class="n">dot</span><span class="p">:</span> <span class="n">gv</span><span class="o">.</span><span class="n">Digraph</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="n">dot</span><span class="o">.</span><span class="n">format</span> <span class="o">=</span> <span class="s2">&quot;svg&quot;</span>
+    <span class="n">dot</span><span class="o">.</span><span class="n">attr</span><span class="p">(</span><span class="s2">&quot;graph&quot;</span><span class="p">,</span> <span class="n">bgcolor</span><span class="o">=</span><span class="s2">&quot;transparent&quot;</span><span class="p">,</span> <span class="n">rankdir</span><span class="o">=</span><span class="s2">&quot;LR&quot;</span><span class="p">)</span>
+    <span class="n">dot</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;source/_generated/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">TerminatorKind</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Whether the :class:`Terminator` branches on a Boolean condition or throws a</span>
+<span class="sd">    die with a probability given by an expression.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">BOOLEAN</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+    <span class="n">PROBABILISTIC</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+
+
+<span class="nd">@attr</span><span class="o">.</span><span class="n">s</span>
+<span class="k">class</span> <span class="nc">Terminator</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A :class:`BasicBlock` is terminated by a *terminator*, which says where to</span>
+<span class="sd">    go next after executing all assignment statements.</span>
+
+<span class="sd">    If a successor block id is `None`, it indicates program termination.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">LEAF</span><span class="p">:</span> <span class="s1">&#39;Terminator&#39;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">goto</span><span class="p">(</span><span class="n">ident</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s1">&#39;Terminator&#39;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Always go to the given block.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Terminator</span><span class="p">(</span><span class="n">TerminatorKind</span><span class="o">.</span><span class="n">BOOLEAN</span><span class="p">,</span> <span class="n">BoolLitExpr</span><span class="p">(</span><span class="kc">True</span><span class="p">),</span> <span class="n">ident</span><span class="p">,</span>
+                          <span class="n">ident</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">branch</span><span class="p">(</span><span class="n">cond</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">if_true</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">],</span>
+               <span class="n">if_false</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s1">&#39;Terminator&#39;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Construct a Boolean branching terminator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Terminator</span><span class="p">(</span><span class="n">TerminatorKind</span><span class="o">.</span><span class="n">BOOLEAN</span><span class="p">,</span> <span class="n">cond</span><span class="p">,</span> <span class="n">if_true</span><span class="p">,</span> <span class="n">if_false</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">choice</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">lhs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">],</span>
+               <span class="n">rhs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s1">&#39;Terminator&#39;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Construct a probabilistic choice terminator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Terminator</span><span class="p">(</span><span class="n">TerminatorKind</span><span class="o">.</span><span class="n">PROBABILISTIC</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
+
+    <span class="n">kind</span><span class="p">:</span> <span class="n">TerminatorKind</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="n">condition</span><span class="p">:</span> <span class="n">Expr</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="n">if_true</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">]</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="n">if_false</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">]</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">successors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">]]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a list of successors of terminator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">if_true</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_false</span><span class="p">]))</span>
+
+    <span class="k">def</span> <span class="nf">is_goto</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Whether the condition is constant `True` or both successors are the</span>
+<span class="sd">        same.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">condition</span> <span class="o">==</span> <span class="n">BoolLitExpr</span><span class="p">(</span>
+            <span class="kc">True</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_true</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_false</span>
+
+    <span class="k">def</span> <span class="nf">substitute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subst</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">],</span>
+                                     <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">]]):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply the substitution to this terminator&#39;s successors.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">Terminator</span><span class="o">.</span><span class="n">LEAF</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_true</span> <span class="ow">in</span> <span class="n">subst</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">if_true</span> <span class="o">=</span> <span class="n">subst</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">if_true</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_false</span> <span class="ow">in</span> <span class="n">subst</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">if_false</span> <span class="o">=</span> <span class="n">subst</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">if_false</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">flip</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Flip the condition (by negation using</span>
+<span class="sd">        :func:`probably.pgcl.simplify.simplifying_neg`) and switch both branches</span>
+<span class="sd">        of this terminator. The operation does not change the semantics of the</span>
+<span class="sd">        terminator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">Terminator</span><span class="o">.</span><span class="n">LEAF</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">condition</span> <span class="o">=</span> <span class="n">simplifying_neg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">condition</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">if_true</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_false</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_false</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_true</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="n">TerminatorKind</span><span class="o">.</span><span class="n">BOOLEAN</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_true</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">if_false</span><span class="p">:</span>
+                <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;goto </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">if_true</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;br (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">condition</span><span class="si">}</span><span class="s2">) </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">if_true</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">if_false</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;choice (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">condition</span><span class="si">}</span><span class="s2">) </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">if_true</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">if_false</span><span class="si">}</span><span class="s2">&quot;</span>
+
+
+<span class="n">Terminator</span><span class="o">.</span><span class="n">LEAF</span> <span class="o">=</span> <span class="n">Terminator</span><span class="p">(</span><span class="n">TerminatorKind</span><span class="o">.</span><span class="n">BOOLEAN</span><span class="p">,</span> <span class="n">BoolLitExpr</span><span class="p">(</span><span class="kc">True</span><span class="p">),</span> <span class="kc">None</span><span class="p">,</span>
+                             <span class="kc">None</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">BlockType</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A :class:`BasicBlock` has an attached marker type that is used for</span>
+<span class="sd">    back-conversion from a control-flow graph to a structured program, for</span>
+<span class="sd">    pretty-printing the graph, and for debugging.</span>
+
+<span class="sd">    All successor branches of `forward` blocks eventually converge on the same</span>
+<span class="sd">    block. These are created from any statement except loops. `Loop head` nodes</span>
+<span class="sd">    are the basic blocks created for the loop condition. These are the first</span>
+<span class="sd">    entry into a loop from the program start. `Trampoline` blocks are created by</span>
+<span class="sd">    the :py:func:`one_big_loop` transformation only.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">FORWARD</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+    <span class="n">LOOP_HEAD</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+    <span class="n">TRAMPOLINE</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+
+
+<span class="nd">@attr</span><span class="o">.</span><span class="n">s</span>
+<span class="k">class</span> <span class="nc">BasicBlock</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A *basic block* in the control-flow graph consists of a series of</span>
+<span class="sd">    (unconditional) assignments that are executed in sequence, followed by a</span>
+<span class="sd">    :class:`Terminator` that says where to go next (based on some condition).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">typ</span><span class="p">:</span> <span class="n">BlockType</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="n">ident</span><span class="p">:</span> <span class="n">BasicBlockId</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="n">assignments</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Var</span><span class="p">,</span> <span class="n">Expr</span><span class="p">]]</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="n">terminator</span><span class="p">:</span> <span class="n">Terminator</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">is_trap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">assignments</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">is_goto</span><span class="p">(</span>
+        <span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">if_true</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">ident</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s2"> := </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">assignments</span><span class="p">]</span> <span class="o">+</span>
+                         <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">terminator</span><span class="p">)])</span>
+
+
+<span class="nd">@attr</span><span class="o">.</span><span class="n">s</span>
+<span class="k">class</span> <span class="nc">ControlFlowGraph</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The control-flow graph consists of an indexed list of :class:`BasicBlock`.</span>
+
+<span class="sd">    The :meth:`render_dot` and :meth:`to_networkx` methods can be very useful</span>
+<span class="sd">    for debugging and visualization of control-flow graphs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">from_instructions</span><span class="p">(</span><span class="n">instructions</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Instr</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s1">&#39;ControlFlowGraph&#39;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convert the given list of instructions to the corresponding control-flow</span>
+<span class="sd">        graph. The successor of the final generated basic blocks is set to ``None``.</span>
+
+<span class="sd">        If the list of instructions is empty, a graph with a single basic block</span>
+<span class="sd">        will be returned.</span>
+
+<span class="sd">        .. doctest::</span>
+
+<span class="sd">            &gt;&gt;&gt; graph = ControlFlowGraph.from_instructions([])</span>
+<span class="sd">            &gt;&gt;&gt; len(graph)</span>
+<span class="sd">            1</span>
+<span class="sd">            &gt;&gt;&gt; list(graph)</span>
+<span class="sd">            [BasicBlock(typ=..., ident=0, assignments=[], terminator=Terminator(kind=..., condition=BoolLitExpr(True), if_true=None, if_false=None))]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">graph</span> <span class="o">=</span> <span class="n">ControlFlowGraph</span><span class="p">(</span><span class="n">BasicBlockId</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="nb">list</span><span class="p">())</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">instructions</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">block</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">fresh_block</span><span class="p">()</span>
+            <span class="n">start_id</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">],</span> <span class="n">block</span><span class="o">.</span><span class="n">ident</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="n">start_id</span> <span class="o">==</span> <span class="n">BasicBlockId</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">start_id</span> <span class="o">=</span> <span class="n">_cfg_add_instructions</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">instructions</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="n">start_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">graph</span><span class="o">.</span><span class="n">entry_id</span> <span class="o">=</span> <span class="n">start_id</span>
+        <span class="k">return</span> <span class="n">graph</span>
+
+    <span class="n">entry_id</span><span class="p">:</span> <span class="n">BasicBlockId</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="n">_basic_blocks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">BasicBlock</span><span class="p">]</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">fresh_block</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BasicBlock</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add a new, empty basic block to the graph of type `forward`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ident</span> <span class="o">=</span> <span class="n">BasicBlockId</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_basic_blocks</span><span class="p">))</span>
+        <span class="n">block</span> <span class="o">=</span> <span class="n">BasicBlock</span><span class="p">(</span><span class="n">BlockType</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">,</span> <span class="n">ident</span><span class="p">,</span> <span class="p">[],</span> <span class="n">Terminator</span><span class="o">.</span><span class="n">LEAF</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_basic_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">block</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_basic_blocks</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">BasicBlockId</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BasicBlock</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_basic_blocks</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">key</span><span class="p">)]</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_basic_blocks</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">substitute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                   <span class="n">subst</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">],</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">]],</span>
+                   <span class="o">*</span><span class="p">,</span>
+                   <span class="n">blocks</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply the substitutions to all blocks in `blocks` (or all blocks if</span>
+<span class="sd">        `blocks` is `None`).</span>
+
+<span class="sd">        Throws an exception if the entry point is replaced with `None`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">blocks</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">blocks</span> <span class="o">=</span> <span class="nb">set</span><span class="p">((</span><span class="n">block</span><span class="o">.</span><span class="n">ident</span> <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_basic_blocks</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">block_id</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">:</span>
+            <span class="bp">self</span><span class="p">[</span><span class="n">block_id</span><span class="p">]</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">substitute</span><span class="p">(</span><span class="n">subst</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span> <span class="ow">in</span> <span class="n">blocks</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span> <span class="ow">in</span> <span class="n">subst</span><span class="p">:</span>
+            <span class="n">new_entry_id</span> <span class="o">=</span> <span class="n">subst</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span><span class="p">]</span>
+            <span class="k">assert</span> <span class="n">new_entry_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span> <span class="o">=</span> <span class="n">new_entry_id</span>
+
+    <span class="k">def</span> <span class="nf">to_networkx</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nx</span><span class="o">.</span><span class="n">DiGraph</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a NetworkX :py:class:`networkx.DiGraph` from this control-flow</span>
+<span class="sd">        graph for further analysis.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">DiGraph</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">ident</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">succ_id</span> <span class="ow">in</span> <span class="n">block</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">successors</span><span class="p">:</span>
+                <span class="n">g</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">ident</span><span class="p">,</span> <span class="n">succ_id</span><span class="p">)</span>
+        <span class="n">g</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="s2">&quot;start&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">g</span>
+
+    <span class="k">def</span> <span class="nf">render_dot</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">gv</span><span class="o">.</span><span class="n">Digraph</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Render this control-flow graph as a GraphViz</span>
+<span class="sd">        :py:class:`graphviz.Digraph`.</span>
+
+<span class="sd">        The result can be written into a file using</span>
+<span class="sd">        :py:meth:`graphviz.Digraph.render`:</span>
+
+<span class="sd">        .. code::</span>
+
+<span class="sd">            graph.render_dot().render(filename=&#39;graph.svg&#39;)</span>
+
+<span class="sd">        The :py:meth:`graphviz.Digraph.view` method can be used to quickly view</span>
+<span class="sd">        a graph:</span>
+
+<span class="sd">        .. code::</span>
+
+<span class="sd">            graph.render_dot().view(filename=&#39;graph.svg&#39;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dot</span> <span class="o">=</span> <span class="n">gv</span><span class="o">.</span><span class="n">Digraph</span><span class="p">()</span>
+        <span class="n">dot</span><span class="o">.</span><span class="n">attr</span><span class="p">(</span><span class="s2">&quot;graph&quot;</span><span class="p">,</span> <span class="n">font</span><span class="o">=</span><span class="s2">&quot;monospace&quot;</span><span class="p">)</span>
+
+        <span class="n">dot</span><span class="o">.</span><span class="n">node</span><span class="p">(</span><span class="s2">&quot;start&quot;</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="s2">&quot;0&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="s2">&quot;0&quot;</span><span class="p">)</span>
+        <span class="n">dot</span><span class="o">.</span><span class="n">edge</span><span class="p">(</span><span class="s2">&quot;start&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span><span class="p">))</span>
+        <span class="n">dot</span><span class="o">.</span><span class="n">node</span><span class="p">(</span><span class="s2">&quot;end&quot;</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="s2">&quot;0&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="s2">&quot;0&quot;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_basic_blocks</span><span class="p">:</span>
+            <span class="n">styles</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">BlockType</span><span class="o">.</span><span class="n">FORWARD</span><span class="p">:</span> <span class="nb">dict</span><span class="p">(),</span>
+                <span class="n">BlockType</span><span class="o">.</span><span class="n">LOOP_HEAD</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;style&quot;</span><span class="p">:</span> <span class="s2">&quot;rounded&quot;</span>
+                <span class="p">},</span>
+                <span class="n">BlockType</span><span class="o">.</span><span class="n">TRAMPOLINE</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="s2">&quot;#e9e9e9&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;style&quot;</span><span class="p">:</span> <span class="s2">&quot;filled&quot;</span>
+                <span class="p">}</span>
+            <span class="p">}[</span><span class="n">block</span><span class="o">.</span><span class="n">typ</span><span class="p">]</span>
+            <span class="n">dot</span><span class="o">.</span><span class="n">node</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">ident</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">block</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="s2">&quot;box&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">styles</span><span class="p">)</span>
+            <span class="n">term</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">terminator</span>
+            <span class="n">successors</span> <span class="o">=</span> <span class="n">term</span><span class="o">.</span><span class="n">successors</span>
+            <span class="k">for</span> <span class="n">succ</span> <span class="ow">in</span> <span class="n">successors</span><span class="p">:</span>
+                <span class="n">succ_ident</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">succ</span><span class="p">)</span> <span class="k">if</span> <span class="n">succ</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;end&quot;</span>
+                <span class="n">edge_color</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">successors</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="n">edge_color</span> <span class="o">=</span> <span class="s2">&quot;#35C9A2&quot;</span> <span class="k">if</span> <span class="n">succ</span> <span class="o">==</span> <span class="n">term</span><span class="o">.</span><span class="n">if_true</span> <span class="k">else</span> <span class="s2">&quot;#cf0000&quot;</span>
+                <span class="n">dot</span><span class="o">.</span><span class="n">edge</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">ident</span><span class="p">),</span> <span class="n">succ_ident</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">edge_color</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dot</span>
+
+
+<span class="k">def</span> <span class="nf">_cfg_add_instruction</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="n">ControlFlowGraph</span><span class="p">,</span> <span class="n">instruction</span><span class="p">:</span> <span class="n">Instr</span><span class="p">,</span>
+                         <span class="n">next_block</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">BasicBlockId</span><span class="p">:</span>
+    <span class="n">block</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">fresh_block</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instruction</span><span class="p">,</span> <span class="n">SkipInstr</span><span class="p">):</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">terminator</span> <span class="o">=</span> <span class="n">Terminator</span><span class="o">.</span><span class="n">goto</span><span class="p">(</span><span class="n">next_block</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instruction</span><span class="p">,</span> <span class="n">WhileInstr</span><span class="p">):</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">typ</span> <span class="o">=</span> <span class="n">BlockType</span><span class="o">.</span><span class="n">LOOP_HEAD</span>
+        <span class="n">body_block_id</span> <span class="o">=</span> <span class="n">_cfg_add_instructions</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">instruction</span><span class="o">.</span><span class="n">body</span><span class="p">,</span>
+                                              <span class="n">block</span><span class="o">.</span><span class="n">ident</span><span class="p">)</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">terminator</span> <span class="o">=</span> <span class="n">Terminator</span><span class="o">.</span><span class="n">branch</span><span class="p">(</span><span class="n">instruction</span><span class="o">.</span><span class="n">cond</span><span class="p">,</span> <span class="n">body_block_id</span><span class="p">,</span>
+                                             <span class="n">next_block</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instruction</span><span class="p">,</span> <span class="n">IfInstr</span><span class="p">):</span>
+        <span class="n">true_block_id</span> <span class="o">=</span> <span class="n">_cfg_add_instructions</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">instruction</span><span class="o">.</span><span class="n">true</span><span class="p">,</span>
+                                              <span class="n">next_block</span><span class="p">)</span>
+        <span class="n">false_block_id</span> <span class="o">=</span> <span class="n">_cfg_add_instructions</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">instruction</span><span class="o">.</span><span class="n">false</span><span class="p">,</span>
+                                               <span class="n">next_block</span><span class="p">)</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">terminator</span> <span class="o">=</span> <span class="n">Terminator</span><span class="o">.</span><span class="n">branch</span><span class="p">(</span><span class="n">instruction</span><span class="o">.</span><span class="n">cond</span><span class="p">,</span> <span class="n">true_block_id</span><span class="p">,</span>
+                                             <span class="n">false_block_id</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instruction</span><span class="p">,</span> <span class="n">AsgnInstr</span><span class="p">):</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">assignments</span> <span class="o">=</span> <span class="p">[(</span><span class="n">instruction</span><span class="o">.</span><span class="n">lhs</span><span class="p">,</span> <span class="n">instruction</span><span class="o">.</span><span class="n">rhs</span><span class="p">)]</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">terminator</span> <span class="o">=</span> <span class="n">Terminator</span><span class="o">.</span><span class="n">goto</span><span class="p">(</span><span class="n">next_block</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instruction</span><span class="p">,</span> <span class="n">ChoiceInstr</span><span class="p">):</span>
+        <span class="n">lhs_block_id</span> <span class="o">=</span> <span class="n">_cfg_add_instructions</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">instruction</span><span class="o">.</span><span class="n">lhs</span><span class="p">,</span>
+                                             <span class="n">next_block</span><span class="p">)</span>
+        <span class="n">rhs_block_id</span> <span class="o">=</span> <span class="n">_cfg_add_instructions</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">instruction</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span>
+                                             <span class="n">next_block</span><span class="p">)</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">terminator</span> <span class="o">=</span> <span class="n">Terminator</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">instruction</span><span class="o">.</span><span class="n">prob</span><span class="p">,</span> <span class="n">lhs_block_id</span><span class="p">,</span>
+                                             <span class="n">rhs_block_id</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">block</span><span class="o">.</span><span class="n">ident</span>
+
+
+<span class="k">def</span> <span class="nf">_cfg_add_instructions</span><span class="p">(</span>
+        <span class="n">graph</span><span class="p">:</span> <span class="n">ControlFlowGraph</span><span class="p">,</span> <span class="n">instructions</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Instr</span><span class="p">],</span>
+        <span class="n">next_block</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Add a list of instructiosn to the graph and return the ID of the next block.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">reduce</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">next_id</span><span class="p">,</span> <span class="n">next_instr</span><span class="p">:</span> <span class="n">_cfg_add_instruction</span><span class="p">(</span>
+            <span class="n">graph</span><span class="p">,</span> <span class="n">next_instr</span><span class="p">,</span> <span class="n">next_id</span><span class="p">),</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">instructions</span><span class="p">),</span> <span class="n">next_block</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_write_docs_jumptable_images</span><span class="p">():</span>
+    <span class="n">graph</span> <span class="o">=</span> <span class="n">ControlFlowGraph</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="p">[])</span>
+    <span class="n">target1</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">fresh_block</span><span class="p">()</span>
+    <span class="n">target1</span><span class="o">.</span><span class="n">assignments</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">NatLitExpr</span><span class="p">(</span><span class="s2">&quot;42&quot;</span><span class="p">))]</span>
+    <span class="n">target2</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">fresh_block</span><span class="p">()</span>
+    <span class="n">target2</span><span class="o">.</span><span class="n">assignments</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="n">NatLitExpr</span><span class="p">(</span><span class="s2">&quot;11&quot;</span><span class="p">))]</span>
+    <span class="n">target1</span><span class="o">.</span><span class="n">terminator</span> <span class="o">=</span> <span class="n">Terminator</span><span class="o">.</span><span class="n">goto</span><span class="p">(</span><span class="n">target2</span><span class="o">.</span><span class="n">ident</span><span class="p">)</span>
+
+    <span class="n">_write_docs_graphviz</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">render_dot</span><span class="p">(),</span> <span class="s2">&quot;cfg-jumptable1&quot;</span><span class="p">)</span>
+
+    <span class="n">jump_table</span> <span class="o">=</span> <span class="n">JumpTable</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s2">&quot;pc&quot;</span><span class="p">)</span>
+    <span class="n">graph</span><span class="o">.</span><span class="n">entry_id</span> <span class="o">=</span> <span class="n">jump_table</span><span class="o">.</span><span class="n">trampoline</span><span class="p">(</span><span class="n">target1</span><span class="o">.</span><span class="n">ident</span><span class="p">)</span>
+
+    <span class="n">target2_trampoline</span> <span class="o">=</span> <span class="n">jump_table</span><span class="o">.</span><span class="n">trampoline</span><span class="p">(</span><span class="n">target2</span><span class="o">.</span><span class="n">ident</span><span class="p">)</span>
+    <span class="n">target1</span><span class="o">.</span><span class="n">terminator</span> <span class="o">=</span> <span class="n">Terminator</span><span class="o">.</span><span class="n">goto</span><span class="p">(</span><span class="n">target2_trampoline</span><span class="p">)</span>
+
+    <span class="n">jump_table</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+    <span class="n">_write_docs_graphviz</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">render_dot</span><span class="p">(),</span> <span class="s2">&quot;cfg-jumptable2&quot;</span><span class="p">)</span>
+
+
+<span class="nd">@attr</span><span class="o">.</span><span class="n">s</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">JumpTable</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    To implement :func:`one_big_loop`, we cannot allow non-local gotos. Instead,</span>
+<span class="sd">    we build a jump table that branches on a variable.</span>
+
+<span class="sd">    .. exec::</span>
+
+<span class="sd">        from probably.pgcl.cfg import _write_docs_jumptable_images</span>
+<span class="sd">        _write_docs_jumptable_images()</span>
+
+<span class="sd">    Let&#39;s look at a simple example. We start with two blocks: The ``x := 42``</span>
+<span class="sd">    block (call it `B1`), and the ``y := 11`` block (call it `B2`).</span>
+
+<span class="sd">    .. image:: _generated/cfg-jumptable1.svg</span>
+<span class="sd">        :align: center</span>
+<span class="sd">        :width: 330px</span>
+
+<span class="sd">    We&#39;ll connect `B1` and `B2` with the jump table so that `B2` executes after</span>
+<span class="sd">    `B1`. We add one trampoline for `B1` and let `start` enter at that</span>
+<span class="sd">    trampoline. And then let `B1` continue to a new trampoline to `B2`. Note</span>
+<span class="sd">    that the generated jump table is linear in the number of branches. See</span>
+<span class="sd">    :meth:`finalize` as to why.</span>
+
+<span class="sd">    .. image:: _generated/cfg-jumptable2.svg</span>
+<span class="sd">        :align: center</span>
+<span class="sd">        :width: 600px</span>
+
+<span class="sd">    The ``goto 3`` block is unreachable and we write a self-loop basic block</span>
+<span class="sd">    that never exits to indicate that.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_graph</span><span class="p">:</span> <span class="n">ControlFlowGraph</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="n">_pc_var</span><span class="p">:</span> <span class="n">Var</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="n">entry_id</span><span class="p">:</span> <span class="n">BasicBlockId</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="n">error_id</span><span class="p">:</span> <span class="n">BasicBlockId</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="n">_jumps</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">]]</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">graph</span><span class="p">:</span> <span class="n">ControlFlowGraph</span><span class="p">,</span> <span class="n">pc_var</span><span class="p">:</span> <span class="n">Var</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_graph</span> <span class="o">=</span> <span class="n">graph</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pc_var</span> <span class="o">=</span> <span class="n">pc_var</span>
+        <span class="n">jump_table_entry</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">fresh_block</span><span class="p">()</span>
+        <span class="n">jump_table_entry</span><span class="o">.</span><span class="n">typ</span> <span class="o">=</span> <span class="n">BlockType</span><span class="o">.</span><span class="n">TRAMPOLINE</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span> <span class="o">=</span> <span class="n">jump_table_entry</span><span class="o">.</span><span class="n">ident</span>
+        <span class="n">error</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">fresh_block</span><span class="p">()</span>
+        <span class="n">error</span><span class="o">.</span><span class="n">typ</span> <span class="o">=</span> <span class="n">BlockType</span><span class="o">.</span><span class="n">TRAMPOLINE</span>
+        <span class="n">error</span><span class="o">.</span><span class="n">terminator</span> <span class="o">=</span> <span class="n">Terminator</span><span class="o">.</span><span class="n">goto</span><span class="p">(</span><span class="n">error</span><span class="o">.</span><span class="n">ident</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">error_id</span> <span class="o">=</span> <span class="n">error</span><span class="o">.</span><span class="n">ident</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_jumps</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">trampoline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">BasicBlockId</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the block id for a new trampoline that sets the program counter</span>
+<span class="sd">        appropiately and then jumps to the jump table entry basic block.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">block</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_graph</span><span class="o">.</span><span class="n">fresh_block</span><span class="p">()</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">typ</span> <span class="o">=</span> <span class="n">BlockType</span><span class="o">.</span><span class="n">TRAMPOLINE</span>
+        <span class="n">target_pc_id</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_jumps</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_jumps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">assignments</span> <span class="o">=</span> <span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pc_var</span><span class="p">,</span> <span class="n">NatLitExpr</span><span class="p">(</span><span class="n">target_pc_id</span><span class="p">))]</span>
+        <span class="n">block</span><span class="o">.</span><span class="n">terminator</span> <span class="o">=</span> <span class="n">Terminator</span><span class="o">.</span><span class="n">goto</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">block</span><span class="o">.</span><span class="n">ident</span>
+
+    <span class="k">def</span> <span class="nf">finalize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Insert all jumps into the graph.</span>
+
+<span class="sd">        The generated jump table intentially only uses strict equality checks</span>
+<span class="sd">        against `pc`. While it is easily possible to generate a binary tree of</span>
+<span class="sd">        comparisons using :math:`\leq` (therefore logarithmic size in the number</span>
+<span class="sd">        of jumps), we decide against it. Inequalities make it harder to see</span>
+<span class="sd">        which conditions exclude each other and this makes debugging e.g.</span>
+<span class="sd">        weakest preexpectation generation (see :mod:`probably.pgcl.backward`) a bit</span>
+<span class="sd">        harder.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pc_expr</span> <span class="o">=</span> <span class="n">VarExpr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pc_var</span><span class="p">)</span>
+        <span class="n">cond_block</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_graph</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">entry_id</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">pc</span><span class="p">,</span> <span class="n">jump_target</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_jumps</span><span class="p">):</span>
+            <span class="n">eq_pc</span> <span class="o">=</span> <span class="n">BinopExpr</span><span class="p">(</span><span class="n">Binop</span><span class="o">.</span><span class="n">EQ</span><span class="p">,</span> <span class="n">pc_expr</span><span class="p">,</span> <span class="n">NatLitExpr</span><span class="p">(</span><span class="n">pc</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">pc</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_jumps</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">next_cond_block</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_graph</span><span class="o">.</span><span class="n">fresh_block</span><span class="p">()</span>
+                <span class="n">next_cond_block</span><span class="o">.</span><span class="n">typ</span> <span class="o">=</span> <span class="n">BlockType</span><span class="o">.</span><span class="n">TRAMPOLINE</span>
+                <span class="n">next_cond_block_id</span> <span class="o">=</span> <span class="n">next_cond_block</span><span class="o">.</span><span class="n">ident</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">next_cond_block_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">error_id</span>
+            <span class="n">cond_block</span><span class="o">.</span><span class="n">terminator</span> <span class="o">=</span> <span class="n">Terminator</span><span class="o">.</span><span class="n">branch</span><span class="p">(</span><span class="n">eq_pc</span><span class="p">,</span> <span class="n">jump_target</span><span class="p">,</span>
+                                                      <span class="n">next_cond_block_id</span><span class="p">)</span>
+            <span class="n">cond_block</span> <span class="o">=</span> <span class="n">next_cond_block</span>
+
+
+<span class="k">def</span> <span class="nf">_write_docs_one_big_loop</span><span class="p">():</span>
+    <span class="n">program</span> <span class="o">=</span> <span class="n">parse_pgcl</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">        bool x;</span>
+<span class="s2">        while (x) {</span>
+<span class="s2">            while (x) {</span>
+<span class="s2">                { } [0.5] { x:= false }</span>
+<span class="s2">            }</span>
+<span class="s2">        }</span>
+<span class="s2">    &quot;&quot;&quot;</span><span class="p">)</span>
+    <span class="n">graph</span> <span class="o">=</span> <span class="n">ControlFlowGraph</span><span class="o">.</span><span class="n">from_instructions</span><span class="p">(</span><span class="n">program</span><span class="o">.</span><span class="n">instructions</span><span class="p">)</span>
+    <span class="n">_write_docs_graphviz</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">render_dot</span><span class="p">(),</span> <span class="s2">&quot;cfg-one-big-loop1&quot;</span><span class="p">)</span>
+    <span class="n">one_big_loop</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s2">&quot;pc&quot;</span><span class="p">)</span>
+    <span class="n">_write_docs_graphviz</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">render_dot</span><span class="p">(),</span> <span class="s2">&quot;cfg-one-big-loop2&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">one_big_loop</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="n">ControlFlowGraph</span><span class="p">,</span> <span class="n">pc_var</span><span class="p">:</span> <span class="n">Var</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a control-flow graph from a pGCL program with arbitrarily nested</span>
+<span class="sd">    loops, modify the graph in such a way that there is only one big loop that</span>
+<span class="sd">    branches to states of the loop. Use ``pc_var`` as the variable name for the</span>
+<span class="sd">    program counter variable `pc` in the generated jump table (it must not be</span>
+<span class="sd">    used elsewhere, but should be declared in the program already). For a CFG</span>
+<span class="sd">    from a well-structured pGCL program, the result is basically one big loop.</span>
+
+<span class="sd">    It is assumed all loop heads (see :class:`BlockType`) are properly</span>
+<span class="sd">    annotated.</span>
+
+<span class="sd">    How does it work? This function basically just replaces each jump to a loop</span>
+<span class="sd">    header, and the program entry and exit with a trampoline</span>
+<span class="sd">    (:func:`JumpTable.trampoline`).</span>
+
+<span class="sd">    .. exec::</span>
+
+<span class="sd">        from probably.pgcl.cfg import _write_docs_one_big_loop</span>
+<span class="sd">        _write_docs_one_big_loop()</span>
+
+<span class="sd">    Let&#39;s work through a (contrived) example. The program below uses two nested</span>
+<span class="sd">    (but redundant) loops.</span>
+
+<span class="sd">    .. code::</span>
+
+<span class="sd">        bool x;</span>
+<span class="sd">        while (x) {</span>
+<span class="sd">            while (x) {</span>
+<span class="sd">                { } [0.5] { x:= false }</span>
+<span class="sd">            }</span>
+<span class="sd">        }</span>
+
+
+<span class="sd">    The resulting CFG is (from :meth:`ControlFlowGraph.from_instructions`):</span>
+
+<span class="sd">    .. image:: _generated/cfg-one-big-loop1.svg</span>
+<span class="sd">        :align: center</span>
+<span class="sd">        :width: 500px</span>
+
+<span class="sd">    After :meth:`one_big_loop`, we get a much more complicated diagram (see</span>
+<span class="sd">    below). Now all loops go through the jump table basic blocks that branch on</span>
+<span class="sd">    `pc`.</span>
+
+<span class="sd">    .. image:: _generated/cfg-one-big-loop2.svg</span>
+<span class="sd">        :align: center</span>
+<span class="sd">        :width: 100%</span>
+
+<span class="sd">    A subtlety can be found in the image above:  The first branch of the</span>
+<span class="sd">    generated jump table points to the program end and its terminator has been</span>
+<span class="sd">    flipped (:meth:`Terminator.flip()`) so that the `true` branch goes into the</span>
+<span class="sd">    loop and  and the `false` branch exits it. We do this to exactly reproduce</span>
+<span class="sd">    the shape of a generated `while` loop. Also note that the ``goto 5`` is</span>
+<span class="sd">    unreachable. See :class:`JumpTable` documentation for more information.</span>
+
+<span class="sd">    Unfortunately we cannot directly translate this control-flow graph back into</span>
+<span class="sd">    a well-structured pGCL program. By &quot;direct translation&quot; I mean translation</span>
+<span class="sd">    to a pGCL program while using each statement exactly once. Consider for</span>
+<span class="sd">    example the ``pc := 1`` basic block. It is obviously needed before the big</span>
+<span class="sd">    loop to enter the proper state, but it is also needed after the inner while</span>
+<span class="sd">    loop exits to return back to the outer loop (``br (x) 2 7``).</span>
+<span class="sd">    :func:`reduce_cfg_to_instrs` has extra functionality to handle this case and</span>
+<span class="sd">    will appropriately duplicate some trampoline blocks.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">blocks_via_jump_table</span> <span class="o">=</span> <span class="n">dedup_list</span><span class="p">(</span>
+        <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">graph</span><span class="o">.</span><span class="n">entry_id</span><span class="p">]</span> <span class="o">+</span>
+        <span class="p">[</span><span class="n">block</span><span class="o">.</span><span class="n">ident</span> <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">graph</span> <span class="k">if</span> <span class="n">block</span><span class="o">.</span><span class="n">typ</span> <span class="o">==</span> <span class="n">BlockType</span><span class="o">.</span><span class="n">LOOP_HEAD</span><span class="p">])</span>
+    <span class="n">all_blocks</span> <span class="o">=</span> <span class="nb">set</span><span class="p">((</span><span class="n">block</span><span class="o">.</span><span class="n">ident</span> <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">graph</span><span class="p">))</span>
+
+    <span class="c1"># Initialize the jump table after collecting the blocks, because the</span>
+    <span class="c1"># initialization already creates two blocks for the jump table that we do not</span>
+    <span class="c1"># want to modify.</span>
+    <span class="n">jump_table</span> <span class="o">=</span> <span class="n">JumpTable</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">pc_var</span><span class="p">)</span>
+
+    <span class="n">graph</span><span class="o">.</span><span class="n">substitute</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="n">block_id</span><span class="p">:</span> <span class="n">jump_table</span><span class="o">.</span><span class="n">trampoline</span><span class="p">(</span><span class="n">block_id</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">block_id</span> <span class="ow">in</span> <span class="n">blocks_via_jump_table</span>
+        <span class="p">},</span>
+        <span class="n">blocks</span><span class="o">=</span><span class="n">all_blocks</span><span class="p">)</span>
+    <span class="n">jump_table</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+
+    <span class="c1"># Change block types accordingly</span>
+    <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">graph</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">block</span><span class="o">.</span><span class="n">typ</span> <span class="o">==</span> <span class="n">BlockType</span><span class="o">.</span><span class="n">LOOP_HEAD</span><span class="p">:</span>
+            <span class="n">block</span><span class="o">.</span><span class="n">typ</span> <span class="o">=</span> <span class="n">BlockType</span><span class="o">.</span><span class="n">FORWARD</span>
+
+    <span class="c1"># Flip the entry basic block of the jump table so that we have a proper loop</span>
+    <span class="c1"># where the `false` branch exits the jump table immediately.</span>
+    <span class="n">jump_table_entry</span> <span class="o">=</span> <span class="n">graph</span><span class="p">[</span><span class="n">jump_table</span><span class="o">.</span><span class="n">entry_id</span><span class="p">]</span>
+    <span class="n">jump_table_entry</span><span class="o">.</span><span class="n">typ</span> <span class="o">=</span> <span class="n">BlockType</span><span class="o">.</span><span class="n">LOOP_HEAD</span>
+    <span class="n">jump_table_entry</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">flip</span><span class="p">()</span>
+
+
+<span class="n">_DominanceFrontiers</span> <span class="o">=</span> <span class="n">Dict</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">]]</span>
+
+
+<span class="k">def</span> <span class="nf">reduce_cfg_to_instrs</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="n">ControlFlowGraph</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Instr</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reduce a control-flow graph to a program (i.e. list of instructions). The</span>
+<span class="sd">    given graph must have the same shape as one generated by</span>
+<span class="sd">    :meth:`ControlFlowGraph.from_instructions`. This is the case for graphs</span>
+<span class="sd">    transformed by :func:`one_big_loop`.</span>
+
+<span class="sd">    .. rubric:: How Does It Work?</span>
+
+<span class="sd">    Recreating a structured program from a control-flow graph is a frighteningly</span>
+<span class="sd">    complex and not yet well studied problem. There is an ancient theorem called</span>
+<span class="sd">    `Structured Program Theorem`_ that essentially states &quot;flowcharts&quot;</span>
+<span class="sd">    (basically the class of control-flow graphs we care about) can be reduced to</span>
+<span class="sd">    structured programs in a very simple way with pretty unreadable output.</span>
+<span class="sd">    It is listed under &quot;folk version of the theorem&quot;, generating a single while</span>
+<span class="sd">    loop [1]_:</span>
+
+<span class="sd">    .. code::</span>
+
+<span class="sd">        pc = 1</span>
+<span class="sd">        while pc &gt; 0:</span>
+<span class="sd">            if pc == 1:</span>
+<span class="sd">                block1()</span>
+<span class="sd">                pc := successor of block 1</span>
+<span class="sd">            elif pc == 2:</span>
+<span class="sd">                block2()</span>
+<span class="sd">                pc := successor of block 2</span>
+<span class="sd">            ...</span>
+
+<span class="sd">    This was *not* done here. Instead, we use a slightly smarter algorithm that</span>
+<span class="sd">    reconstructs hierarchical control structure using `Dominator trees`_. Let&#39;s</span>
+<span class="sd">    define some terms.</span>
+
+<span class="sd">    node :math:`d` dominates a node :math:`n`</span>
+<span class="sd">        A node :math:`d` dominates a node :math:`n` if every path from the entry</span>
+<span class="sd">        node of the control-flow graph to :math:`n` must go through `d`. A node</span>
+<span class="sd">        :math:`d` *strictly* dominates a node :math:`n` if it dominates</span>
+<span class="sd">        :math:`n` and :math:`n \neq d`.</span>
+
+<span class="sd">    dominance frontier</span>
+<span class="sd">        The dominance frontier of a node :math:`d` is the set of all nodes</span>
+<span class="sd">        :math:`n` such that :math:`d` dominates an immediate predecessor of</span>
+<span class="sd">        :math:`n`, but does not strictly dominate :math:`n`.</span>
+
+<span class="sd">    region</span>
+<span class="sd">        A region is defined by an *entry edge* and *exit edge*, where the entry</span>
+<span class="sd">        edge dominates the exit edge, the exit edge post-dominates the entry</span>
+<span class="sd">        edge, and any cycle that includes one also includes the other.</span>
+
+<span class="sd">    For example, the basic block for the condition of an if statement dominates</span>
+<span class="sd">    all blocks in its *true* and *false* branches. Blocks for successor</span>
+<span class="sd">    statements to that conditional statement are also dominated. The same thing</span>
+<span class="sd">    holds for a while loop. So for CFGs generated from structured programs (and</span>
+<span class="sd">    specifically for those generated by</span>
+<span class="sd">    :meth:`ControlFlowGraph.from_instructions`), it suffices to concatenate</span>
+<span class="sd">    statements into a sequence as long as each statement dominates the next one.</span>
+<span class="sd">    The set of basic blocks in such a sequence is called a *region*</span>
+<span class="sd">    (:class:`_Region`, see also [fcd16]_).</span>
+
+<span class="sd">    Fortunately, this implementation can be restricted to these</span>
+<span class="sd">    program-generated CFGs and those modified by :func:`one_big_loop`. That</span>
+<span class="sd">    means we can create regions without problems for *almost all* basic blocks.</span>
+<span class="sd">    The only difficulty are generated trampoline blocks. We handle those</span>
+<span class="sd">    separately in an ugly method (:func:`_join_regions`).</span>
+
+<span class="sd">    .. rubric:: Restrictions and Generalizations</span>
+
+<span class="sd">    It is not completely clear what the above restrictions on input CFGs mean</span>
+<span class="sd">    formally. Ignoring trampoline blocks, the restrictions are more strict than</span>
+<span class="sd">    just having CFGs *reducible* [2]_. On the other hand, a generalized</span>
+<span class="sd">    algorithm is a hard task, particularly for CFGs with arbitrary `goto`. The</span>
+<span class="sd">    *relooper* of *Emscripten* was an attempt in a production JS-to-LLVM</span>
+<span class="sd">    compiler [zak11]_. Iozzelli has revisited the problem for the *Cheerp*</span>
+<span class="sd">    compiler using a dominator tree-based approach [ioz19]_. In their article,</span>
+<span class="sd">    some ideas implemented here are discovered independently (e.g. our</span>
+<span class="sd">    :class:`JumpTable` under the name &quot;dispatcher&quot;). Their general algorithms</span>
+<span class="sd">    may be of interest for an improvement of this method [3]_ at the cost of a</span>
+<span class="sd">    much more complex implementation, although the current one hopefully</span>
+<span class="sd">    suffices.</span>
+
+<span class="sd">    .. seealso::</span>
+
+<span class="sd">        `Documentation of internal classes and functions &lt;cfg_internals.html&gt;`_ can be found on another page.</span>
+
+<span class="sd">    .. _Structured Program Theorem: https://en.wikipedia.org/wiki/Structured_program_theorem</span>
+<span class="sd">    .. _Dominator trees: https://en.wikipedia.org/wiki/Dominator_(graph_theory)</span>
+<span class="sd">    .. [1] The attentive reader might notice that such an output would subsume :func:`one_big_loop` completely. Just applying the &quot;folk theorem&quot; would have been an easier way of implementation, but at the cost of almost completely unreadable output.</span>
+<span class="sd">    .. [2] A `reducible`_ control-flow graph can be split into a directed acyclic graph of forward edges and a set of back edges where the target dominates the source.</span>
+<span class="sd">    .. [3] In contrast to our pGCL programs, their reconstructed code is allowed to use *break* and *continue* statements.</span>
+<span class="sd">    .. _reducible: https://en.wikipedia.org/wiki/Control-flow_graph#Reducibility</span>
+<span class="sd">    .. [fcd16] &quot;`The Region Problem &lt;https://zneak.github.io/fcd/2016/02/17/structuring.html&gt;`_&quot;  on the `fcd` decompiler blog, 2016.</span>
+<span class="sd">    .. [zak11] &quot;`Emscripten: an LLVM-to-JavaScript compiler &lt;https://raw.githubusercontent.com/kripken/emscripten/8a6e2d67c156d9eaedf88b752be4d1cf4242e088/docs/paper.pdf&gt;`_&quot;, Alon Zakai, OOPSLA &#39;11.</span>
+<span class="sd">    .. [ioz19] &quot;`Solving the structured control flow problem once and for all &lt;https://medium.com/leaningtech/solving-the-structured-control-flow-problem-once-and-for-all-5123117b1ee2&gt;`_&quot;, Yuri Iozzelli, 2019.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Remove traps. Those are generated from</span>
+    <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">graph</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">block</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">if_false</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">false_block</span> <span class="o">=</span> <span class="n">graph</span><span class="p">[</span><span class="n">block</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">if_false</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">false_block</span><span class="o">.</span><span class="n">is_trap</span><span class="p">():</span>
+                <span class="n">block</span><span class="o">.</span><span class="n">terminator</span> <span class="o">=</span> <span class="n">Terminator</span><span class="o">.</span><span class="n">goto</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">if_true</span><span class="p">)</span>
+
+    <span class="n">nx_graph</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">to_networkx</span><span class="p">()</span>
+    <span class="n">frontiers</span> <span class="o">=</span> <span class="n">dominance_frontiers</span><span class="p">(</span><span class="n">nx_graph</span><span class="p">,</span> <span class="n">graph</span><span class="o">.</span><span class="n">entry_id</span><span class="p">)</span>
+    <span class="n">region</span> <span class="o">=</span> <span class="n">_Region</span><span class="o">.</span><span class="n">initial</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">entry_id</span><span class="p">)</span>
+    <span class="n">_expand_region</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">frontiers</span><span class="p">,</span> <span class="n">region</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">region</span><span class="o">.</span><span class="n">successor_id</span> <span class="ow">is</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">region</span><span class="o">.</span><span class="n">instrs</span>
+
+
+<div class="viewcode-block" id="_Region"><a class="viewcode-back" href="../../../cfg_internals.html#probably.pgcl.cfg._Region">[docs]</a><span class="nd">@attr</span><span class="o">.</span><span class="n">s</span>
+<span class="k">class</span> <span class="nc">_Region</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A region is like a basic block, but it contains general program statements</span>
+<span class="sd">    instead of only assignments and has</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">dominator_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">]</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="n">instrs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Instr</span><span class="p">]</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+    <span class="n">successor_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">]</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">ib</span><span class="p">()</span>
+
+<div class="viewcode-block" id="_Region.initial"><a class="viewcode-back" href="../../../cfg_internals.html#probably.pgcl.cfg._Region.initial">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">initial</span><span class="p">(</span><span class="n">initial_block_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s1">&#39;_Region&#39;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_Region</span><span class="p">(</span><span class="n">initial_block_id</span><span class="p">,</span> <span class="p">[],</span> <span class="n">initial_block_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="_Region.child"><a class="viewcode-back" href="../../../cfg_internals.html#probably.pgcl.cfg._Region.child">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">child</span><span class="p">(</span><span class="n">parent_id</span><span class="p">:</span> <span class="n">BasicBlockId</span><span class="p">,</span>
+              <span class="n">block_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s1">&#39;_Region&#39;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_Region</span><span class="p">(</span><span class="n">parent_id</span><span class="p">,</span> <span class="p">[],</span> <span class="n">block_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="_Region.dominates_successor"><a class="viewcode-back" href="../../../cfg_internals.html#probably.pgcl.cfg._Region.dominates_successor">[docs]</a>    <span class="k">def</span> <span class="nf">dominates_successor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frontiers</span><span class="p">:</span> <span class="n">_DominanceFrontiers</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">dominator_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">successor_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">frontiers</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">dominator_id</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="_Region.add_block"><a class="viewcode-back" href="../../../cfg_internals.html#probably.pgcl.cfg._Region.add_block">[docs]</a>    <span class="k">def</span> <span class="nf">add_block</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="n">BasicBlock</span><span class="p">,</span> <span class="n">instrs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Instr</span><span class="p">],</span>
+                  <span class="n">successor_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BasicBlockId</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dominator_id</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">ident</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">instrs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">AsgnInstr</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span> <span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">rhs</span> <span class="ow">in</span> <span class="n">block</span><span class="o">.</span><span class="n">assignments</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">instrs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">instrs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">successor_id</span> <span class="o">=</span> <span class="n">successor_id</span></div></div>
+
+
+<div class="viewcode-block" id="_expand_region"><a class="viewcode-back" href="../../../cfg_internals.html#probably.pgcl.cfg._expand_region">[docs]</a><span class="k">def</span> <span class="nf">_expand_region</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="n">ControlFlowGraph</span><span class="p">,</span> <span class="n">frontiers</span><span class="p">:</span> <span class="n">_DominanceFrontiers</span><span class="p">,</span>
+                   <span class="n">region</span><span class="p">:</span> <span class="n">_Region</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    See :func:`reduce_cfg_to_instrs`. Given a control-flow graph for a program,</span>
+<span class="sd">    the dominance frontiers and a block id, create a block (i.e. list of</span>
+<span class="sd">    instructions) where each statement in the block dominates the next</span>
+<span class="sd">    statements. All statements in that block eventually end up in the second</span>
+<span class="sd">    returned item, the successor&#39;s block id.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Expand the region while it dominates the successor</span>
+    <span class="k">while</span> <span class="n">region</span><span class="o">.</span><span class="n">successor_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">region</span><span class="o">.</span><span class="n">dominates_successor</span><span class="p">(</span>
+            <span class="n">frontiers</span><span class="p">):</span>
+        <span class="n">block_id</span> <span class="o">=</span> <span class="n">region</span><span class="o">.</span><span class="n">successor_id</span>
+        <span class="n">block</span> <span class="o">=</span> <span class="n">graph</span><span class="p">[</span><span class="n">block_id</span><span class="p">]</span>
+        <span class="n">terminator</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">terminator</span>
+
+        <span class="c1"># An unconditional goto is added to the end of the region</span>
+        <span class="k">if</span> <span class="n">terminator</span><span class="o">.</span><span class="n">is_goto</span><span class="p">():</span>
+            <span class="n">region</span><span class="o">.</span><span class="n">add_block</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="p">[],</span> <span class="n">terminator</span><span class="o">.</span><span class="n">if_true</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># A conditional branch may be either an if statement or a while loop</span>
+            <span class="n">if_region</span> <span class="o">=</span> <span class="n">_Region</span><span class="o">.</span><span class="n">child</span><span class="p">(</span><span class="n">block_id</span><span class="p">,</span> <span class="n">terminator</span><span class="o">.</span><span class="n">if_true</span><span class="p">)</span>
+            <span class="n">_expand_region</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">frontiers</span><span class="p">,</span> <span class="n">if_region</span><span class="p">)</span>
+            <span class="n">else_region</span> <span class="o">=</span> <span class="n">_Region</span><span class="o">.</span><span class="n">child</span><span class="p">(</span><span class="n">block_id</span><span class="p">,</span> <span class="n">terminator</span><span class="o">.</span><span class="n">if_false</span><span class="p">)</span>
+            <span class="n">_expand_region</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">frontiers</span><span class="p">,</span> <span class="n">else_region</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">block</span><span class="o">.</span><span class="n">typ</span> <span class="o">==</span> <span class="n">BlockType</span><span class="o">.</span><span class="n">LOOP_HEAD</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="n">if_region</span><span class="o">.</span><span class="n">successor_id</span> <span class="o">==</span> <span class="n">block_id</span>
+                <span class="n">while_instr</span><span class="p">:</span> <span class="n">Instr</span> <span class="o">=</span> <span class="n">WhileInstr</span><span class="p">(</span><span class="n">terminator</span><span class="o">.</span><span class="n">condition</span><span class="p">,</span>
+                                                <span class="n">if_region</span><span class="o">.</span><span class="n">instrs</span><span class="p">)</span>
+                <span class="n">instrs</span> <span class="o">=</span> <span class="p">[</span><span class="n">while_instr</span><span class="p">]</span> <span class="o">+</span> <span class="n">else_region</span><span class="o">.</span><span class="n">instrs</span>
+                <span class="n">region</span><span class="o">.</span><span class="n">add_block</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">instrs</span><span class="p">,</span> <span class="n">else_region</span><span class="o">.</span><span class="n">successor_id</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">joined_regions</span> <span class="o">=</span> <span class="n">_join_regions</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">if_region</span><span class="p">,</span> <span class="n">else_region</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="n">if_region</span><span class="o">.</span><span class="n">successor_id</span> <span class="o">==</span> <span class="n">else_region</span><span class="o">.</span><span class="n">successor_id</span>
+                <span class="n">if_ctor</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">IfInstr</span> <span class="k">if</span> <span class="n">terminator</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="n">TerminatorKind</span><span class="o">.</span><span class="n">BOOLEAN</span> <span class="k">else</span> <span class="n">ChoiceInstr</span>
+                <span class="n">if_instr</span><span class="p">:</span> <span class="n">Instr</span> <span class="o">=</span> <span class="n">if_ctor</span><span class="p">(</span><span class="n">terminator</span><span class="o">.</span><span class="n">condition</span><span class="p">,</span>
+                                          <span class="n">if_region</span><span class="o">.</span><span class="n">instrs</span><span class="p">,</span> <span class="n">else_region</span><span class="o">.</span><span class="n">instrs</span><span class="p">)</span>
+                <span class="n">region</span><span class="o">.</span><span class="n">add_block</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="p">[</span><span class="n">if_instr</span><span class="p">],</span> <span class="n">if_region</span><span class="o">.</span><span class="n">successor_id</span><span class="p">)</span>
+                <span class="c1"># see _join_regions documentation</span>
+                <span class="k">if</span> <span class="n">joined_regions</span><span class="p">:</span>
+                    <span class="k">break</span></div>
+
+
+<div class="viewcode-block" id="_join_regions"><a class="viewcode-back" href="../../../cfg_internals.html#probably.pgcl.cfg._join_regions">[docs]</a><span class="k">def</span> <span class="nf">_join_regions</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="n">ControlFlowGraph</span><span class="p">,</span> <span class="n">region1</span><span class="p">:</span> <span class="n">_Region</span><span class="p">,</span>
+                  <span class="n">region2</span><span class="p">:</span> <span class="n">_Region</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    For if instructions, both branches must continue with the same block. Let&#39;s</span>
+<span class="sd">    call this block the *join point*. For programs generated using</span>
+<span class="sd">    :meth:`ControlFlowGraph.from_instructions`, this will be the case. However,</span>
+<span class="sd">    programs modified by :func:`one_big_loop` do not necessarily have proper</span>
+<span class="sd">    join points. An example can be seen in the documentation of</span>
+<span class="sd">    :func:`one_big_loop`. We handle those cases here explicitly by duplicating</span>
+<span class="sd">    trampoline blocks.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">region1</span><span class="o">.</span><span class="n">successor_id</span> <span class="o">==</span> <span class="n">region2</span><span class="o">.</span><span class="n">successor_id</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="n">succ1</span> <span class="o">=</span> <span class="n">graph</span><span class="p">[</span>
+        <span class="n">region1</span><span class="o">.</span><span class="n">successor_id</span><span class="p">]</span> <span class="k">if</span> <span class="n">region1</span><span class="o">.</span><span class="n">successor_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">succ2</span> <span class="o">=</span> <span class="n">graph</span><span class="p">[</span>
+        <span class="n">region2</span><span class="o">.</span><span class="n">successor_id</span><span class="p">]</span> <span class="k">if</span> <span class="n">region2</span><span class="o">.</span><span class="n">successor_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">succ1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">succ1</span><span class="o">.</span><span class="n">typ</span> <span class="o">==</span> <span class="n">BlockType</span><span class="o">.</span><span class="n">TRAMPOLINE</span> <span class="ow">and</span> <span class="n">succ1</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">if_true</span> <span class="o">==</span> <span class="n">region2</span><span class="o">.</span><span class="n">successor_id</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">succ1</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">is_goto</span><span class="p">()</span>
+        <span class="n">region1</span><span class="o">.</span><span class="n">add_block</span><span class="p">(</span><span class="n">succ1</span><span class="p">,</span> <span class="p">[],</span> <span class="n">succ1</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">if_true</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">if</span> <span class="n">succ2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">succ2</span><span class="o">.</span><span class="n">typ</span> <span class="o">==</span> <span class="n">BlockType</span><span class="o">.</span><span class="n">TRAMPOLINE</span> <span class="ow">and</span> <span class="n">succ2</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">if_true</span> <span class="o">==</span> <span class="n">region1</span><span class="o">.</span><span class="n">successor_id</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">succ2</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">is_goto</span><span class="p">()</span>
+        <span class="n">region2</span><span class="o">.</span><span class="n">add_block</span><span class="p">(</span><span class="n">succ2</span><span class="p">,</span> <span class="p">[],</span> <span class="n">succ2</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">if_true</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">if</span> <span class="n">succ1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">succ2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">succ1</span><span class="o">.</span><span class="n">typ</span> <span class="o">==</span> <span class="n">BlockType</span><span class="o">.</span><span class="n">TRAMPOLINE</span> <span class="ow">and</span> <span class="n">succ2</span><span class="o">.</span><span class="n">typ</span> <span class="o">==</span> <span class="n">BlockType</span><span class="o">.</span><span class="n">TRAMPOLINE</span> <span class="ow">and</span> <span class="n">succ1</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">if_true</span> <span class="o">==</span> <span class="n">succ2</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">if_true</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">succ1</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">is_goto</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">succ2</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">is_goto</span><span class="p">()</span>
+        <span class="n">region1</span><span class="o">.</span><span class="n">add_block</span><span class="p">(</span><span class="n">succ1</span><span class="p">,</span> <span class="p">[],</span> <span class="n">succ1</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">if_true</span><span class="p">)</span>
+        <span class="n">region2</span><span class="o">.</span><span class="n">add_block</span><span class="p">(</span><span class="n">succ2</span><span class="p">,</span> <span class="p">[],</span> <span class="n">succ2</span><span class="o">.</span><span class="n">terminator</span><span class="o">.</span><span class="n">if_true</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Block </span><span class="si">{</span><span class="n">region1</span><span class="o">.</span><span class="n">dominator_id</span><span class="si">}</span><span class="s2"> has two irregular branches that end at </span><span class="si">{</span><span class="n">region1</span><span class="o">.</span><span class="n">successor_id</span><span class="si">}</span><span class="s2"> resp. </span><span class="si">{</span><span class="n">region2</span><span class="o">.</span><span class="n">successor_id</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">program_one_big_loop</span><span class="p">(</span><span class="n">program</span><span class="p">:</span> <span class="n">Program</span><span class="p">,</span> <span class="n">pc_var</span><span class="p">:</span> <span class="n">Var</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Program</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Apply :func:`one_big_loop` to the CFG generated from the given instructions</span>
+<span class="sd">    (using :meth:`ControlFlowGraph.from_instructions`), and convert back to a</span>
+<span class="sd">    list of instructions using :func:`reduce_cfg_to_instrs`.</span>
+<span class="sd">    A new program will be returned.</span>
+
+<span class="sd">    Use `pc_var` as the name of the generated variable (see :class:`JumpTable`).</span>
+<span class="sd">    It must not be used already and will be added to the program&#39;s declarations</span>
+<span class="sd">    by this function.</span>
+
+<span class="sd">    :raises AssertionError: if `pc_var` is already declared</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">program</span><span class="o">.</span><span class="n">to_skeleton</span><span class="p">()</span>
+    <span class="n">res</span><span class="o">.</span><span class="n">add_variable</span><span class="p">(</span><span class="n">pc_var</span><span class="p">,</span> <span class="n">NatType</span><span class="p">(</span><span class="kc">None</span><span class="p">))</span>
+    <span class="n">graph</span> <span class="o">=</span> <span class="n">ControlFlowGraph</span><span class="o">.</span><span class="n">from_instructions</span><span class="p">(</span><span class="n">program</span><span class="o">.</span><span class="n">instructions</span><span class="p">)</span>
+    <span class="n">one_big_loop</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">pc_var</span><span class="p">)</span>
+    <span class="n">res</span><span class="o">.</span><span class="n">instructions</span> <span class="o">=</span> <span class="n">reduce_cfg_to_instrs</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">res</span>
+</pre></div>
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+        <br/>
+        
+      
+    </p>
+    <p>
+        &copy; Copyright 2022, Philipp Schröer.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.5.4.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>

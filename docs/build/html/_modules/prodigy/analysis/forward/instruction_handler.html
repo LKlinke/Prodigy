@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prodigy.analysis.forward.instruction_handler &#8212; Prodigy  documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/katex-math.css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/contrib/auto-render.min.js"></script>
+    <script src="../../../../_static/katex_autorenderer.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+    
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="text/javascript" src="../../../../_static/js/jquery-1.11.0.min.js "></script>
+<script type="text/javascript" src="../../../../_static/js/jquery-fix.js "></script>
+<script type="text/javascript" src="../../../../_static/bootstrap-3.3.7/js/bootstrap.min.js "></script>
+<script type="text/javascript" src="../../../../_static/bootstrap-sphinx.js "></script>
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,400;0,700;1,400&family=Source+Sans+Pro:ital,wght@0,300;0,400;1,400&family=Source+Serif+Pro:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font: 15px/1.4 "Source Sans Pro",sans-serif;
+        }
+        h1, h2, h3, h5, h6, h6 {
+            font-family: "Source Sans Pro",sans-serif;
+        }
+        p {
+            font-family: "Source Serif Pro",serif;
+        }
+        .py, .field-list p, pre, code {
+            font-family: 'Source Code Pro', monospace;
+        }
+
+        /* fix navbar overlaying contents when clicking on anchors */
+        :target::before {
+            content: "";
+            display: block;
+            height: 60px; /* fixed header height*/
+            margin: -60px 0 0; /* negative fixed header height */
+            background: none;
+        }
+
+        /* hack to limit the yellow highlight to the the children of the target,
+           because of the above hack the target's highlight would be way too large */
+        dt:target {
+            background-color: transparent;
+        }
+        dt:target > * {
+            background-color: #fbe54e;
+        }
+
+        /* spacing adjustments */
+        .section {
+            margin-bottom: 10rem;
+            margin-top: 6rem;
+        }
+        div.body > .section:first-of-type {
+            margin-top: 0rem;
+        }
+        .class, .function, .data {
+            margin-top: 5rem;
+            margin-bottom: 7rem;
+            border-left: 1px solid #eee;
+            padding-left: 1rem;
+        }
+        dl.attribute > dd, dl.class > dd, dl.function > dd, dl.method > dd {
+            margin-left: 30px;
+        }
+        p {
+            margin-top: 1.05em;
+            margin-bottom: 1.05em;
+            text-align: justify;
+        }
+        .field-list p, li p {
+            text-align: left;
+        }
+        /* adjust font sizes */
+        dl.field-list, dl.attribute {
+            font-size: 90%;
+        }
+        .math {
+            font-size: 90.09%;
+        }
+    </style>
+
+  </head><body>
+
+  <div id="navbar" class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../../../index.html">
+          Prodigy</a>
+        <span class="navbar-text navbar-version pull-left"><b></b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+                <li><a href="https://github.com/Philipp15b/probably">GitHub Repository</a></li>
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="../../../../index.html">Contents <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pysmt.html"><code class="docutils literal notranslate"><span class="pre">probably.pysmt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../analysis.html"><code class="docutils literal notranslate"><span class="pre">prodigy.analysis</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../analysis.html#forward-analysis">Forward Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analysis.html#the-semantics">The Semantics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analysis.html#distribution">Distribution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analysis.html#analysis-configuration">Analysis Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analysis.html#forward-analysis-config">Forward Analysis Config</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../analysis.html#module-prodigy.analysis.backward.wp">Backward Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../analysis.html#weakest-pre-expectations">Weakest Pre-Expectations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analysis.html#loop-free">Loop-Free</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analysis.html#transformers">Transformers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../analysis.html#loops">Loops</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../util.html"><code class="docutils literal notranslate"><span class="pre">probably.util</span></code></a></li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+            
+            
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="../../../../search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+      <div class="col-md-3">
+        <div id="sidebar" class="bs-sidenav" role="complementary">
+<h4 style="padding: 5px 20px">Contents</h4>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pysmt.html"><code class="docutils literal notranslate"><span class="pre">probably.pysmt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../analysis.html"><code class="docutils literal notranslate"><span class="pre">prodigy.analysis</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../util.html"><code class="docutils literal notranslate"><span class="pre">probably.util</span></code></a></li>
+</ul>
+
+        </div>
+      </div>
+    <div class="body col-md-9 content" role="main">
+      
+  <h1>Source code for prodigy.analysis.forward.instruction_handler</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">fractions</span> <span class="kn">import</span> <span class="n">Fraction</span>
+
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">get_args</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Sequence</span>
+
+<span class="kn">from</span> <span class="nn">prodigy.analysis.forward.config</span> <span class="kn">import</span> <span class="n">ForwardAnalysisConfig</span>
+<span class="kn">from</span> <span class="nn">prodigy.analysis.forward.distribution</span> <span class="kn">import</span> <span class="n">Distribution</span><span class="p">,</span> <span class="n">MarginalType</span>
+<span class="kn">from</span> <span class="nn">prodigy.analysis.forward.exceptions</span> <span class="kn">import</span> <span class="n">ObserveZeroEventError</span><span class="p">,</span> <span class="n">VerificationError</span>
+<span class="kn">from</span> <span class="nn">prodigy.analysis.forward.pgfs</span> <span class="kn">import</span> <span class="n">SympyPGF</span>
+<span class="kn">from</span> <span class="nn">prodigy.analysis.plotter</span> <span class="kn">import</span> <span class="n">Plotter</span>
+<span class="kn">from</span> <span class="nn">prodigy.pgcl</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">prodigy.pgcl.ast.expressions</span> <span class="kn">import</span> <span class="n">IidSampleExpr</span>
+<span class="kn">from</span> <span class="nn">prodigy.pgcl.ast.instructions</span> <span class="kn">import</span> <span class="n">OptimizationQuery</span>
+<span class="kn">from</span> <span class="nn">prodigy.util.color</span> <span class="kn">import</span> <span class="n">Style</span>
+
+<span class="kn">from</span> <span class="nn">prodigy.util.logger</span> <span class="kn">import</span> <span class="n">log_setup</span><span class="p">,</span> <span class="n">printProgressBar</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">log_setup</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_assume</span><span class="p">(</span><span class="n">instruction</span><span class="p">:</span> <span class="n">Instr</span><span class="p">,</span> <span class="n">instr_type</span><span class="p">,</span> <span class="n">clsname</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Checks that the instruction is given as the right type.&quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instruction</span><span class="p">,</span> <span class="n">instr_type</span><span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;The Instruction handled by a </span><span class="si">{</span><span class="n">clsname</span><span class="si">}</span><span class="s2"> must be of type&quot;</span> \
+                                                <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">instr_type</span><span class="si">}</span><span class="s2"> got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">instruction</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+
+
+<div class="viewcode-block" id="compute_discrete_distribution"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.compute_discrete_distribution">[docs]</a><span class="k">def</span> <span class="nf">compute_discrete_distribution</span><span class="p">(</span><span class="n">instr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Instr</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Instr</span><span class="p">]],</span>
+                                  <span class="n">dist</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span>
+                                  <span class="n">config</span><span class="p">:</span> <span class="n">ForwardAnalysisConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Distribution</span><span class="p">:</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">SequenceHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">SequenceHandler</span><span class="o">.</span><span class="n">normalization</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">normalize</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="InstructionHandler"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.InstructionHandler">[docs]</a><span class="k">class</span> <span class="nc">InstructionHandler</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Abstract class that defines a strategy for handling a specific program instruction. &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="InstructionHandler.compute"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.InstructionHandler.compute">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="n">instruction</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Instr</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Instr</span><span class="p">]],</span>
+                <span class="n">distribution</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span>
+                <span class="n">config</span><span class="p">:</span> <span class="n">ForwardAnalysisConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Distribution</span><span class="p">:</span>
+        <span class="k">pass</span></div></div>
+
+
+<div class="viewcode-block" id="SequenceHandler"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.SequenceHandler">[docs]</a><span class="k">class</span> <span class="nc">SequenceHandler</span><span class="p">(</span><span class="n">InstructionHandler</span><span class="p">):</span>
+    <span class="n">normalization</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="SequenceHandler.compute"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.SequenceHandler.compute">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">instr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Instr</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Instr</span><span class="p">]],</span>
+                <span class="n">dist</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span>
+                <span class="n">config</span><span class="o">=</span><span class="n">ForwardAnalysisConfig</span><span class="p">())</span> <span class="o">-&gt;</span> <span class="n">Distribution</span><span class="p">:</span>
+
+        <span class="k">def</span> <span class="nf">_show_steps</span><span class="p">(</span><span class="n">distribution</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span> <span class="n">instruction</span><span class="p">:</span> <span class="n">Instr</span><span class="p">):</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">SequenceHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instruction</span><span class="p">,</span> <span class="n">distribution</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="p">(</span><span class="n">WhileInstr</span><span class="p">,</span> <span class="n">IfInstr</span><span class="p">,</span> <span class="n">LoopInstr</span><span class="p">)):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">BLUE</span><span class="si">}</span><span class="s2">Instruction:</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">instruction</span><span class="si">}</span><span class="se">\t</span><span class="s2"> </span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">GREEN</span><span class="si">}</span><span class="s2">Result:</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">res</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">res</span>
+
+        <span class="k">def</span> <span class="nf">_dont_show_steps</span><span class="p">(</span><span class="n">distribution</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span> <span class="n">instruction</span><span class="p">:</span> <span class="n">Instr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">SequenceHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instruction</span><span class="p">,</span> <span class="n">distribution</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">func</span> <span class="o">=</span> <span class="n">_show_steps</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">show_intermediate_steps</span> <span class="k">else</span> <span class="n">_dont_show_steps</span>
+            <span class="k">return</span> <span class="n">functools</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">instr</span><span class="p">,</span> <span class="n">dist</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">SkipInstr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">dist</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">WhileInstr</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">instr</span><span class="si">}</span><span class="s2"> gets handled&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">WhileHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">IfInstr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">ITEHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">AsgnInstr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">AssignmentHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">ChoiceInstr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">PChoiceHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">ObserveInstr</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">instr</span><span class="si">}</span><span class="s2"> gets handled&quot;</span><span class="p">)</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">normalization</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">return</span> <span class="n">ObserveHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">get_args</span><span class="p">(</span><span class="n">Query</span><span class="p">)):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">instr</span><span class="si">}</span><span class="s2"> gets handled&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">normalization</span><span class="p">:</span>
+                <span class="n">dist</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">normalize</span><span class="p">()</span>
+                <span class="bp">cls</span><span class="o">.</span><span class="n">normalization</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">return</span> <span class="n">QueryHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">LoopInstr</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">instr</span><span class="si">}</span><span class="s2"> gets handled&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">LoopHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;illegal instruction&quot;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="QueryHandler"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.QueryHandler">[docs]</a><span class="k">class</span> <span class="nc">QueryHandler</span><span class="p">(</span><span class="n">InstructionHandler</span><span class="p">):</span>
+
+<div class="viewcode-block" id="QueryHandler.compute"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.QueryHandler.compute">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">:</span> <span class="n">Instr</span><span class="p">,</span> <span class="n">dist</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ForwardAnalysisConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Distribution</span><span class="p">:</span>
+        <span class="n">_assume</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">get_args</span><span class="p">(</span><span class="n">Query</span><span class="p">),</span> <span class="s1">&#39;QueryHandler&#39;</span><span class="p">)</span>
+
+        <span class="c1"># User wants to compute an expected value of an expression</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">ExpectationInstr</span><span class="p">):</span>
+            <span class="n">expression</span> <span class="o">=</span> <span class="n">instr</span><span class="o">.</span><span class="n">expr</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="p">(</span><span class="n">VarExpr</span><span class="p">,</span> <span class="n">NatLitExpr</span><span class="p">,</span> <span class="n">RealLitExpr</span><span class="p">)):</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_expected_value_of</span><span class="p">(</span><span class="n">expression</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">BinopExpr</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">expression</span><span class="o">.</span><span class="n">operator</span> <span class="ow">in</span> <span class="p">(</span><span class="n">Binop</span><span class="o">.</span><span class="n">PLUS</span><span class="p">,</span> <span class="n">Binop</span><span class="o">.</span><span class="n">MINUS</span><span class="p">,</span> <span class="n">Binop</span><span class="o">.</span><span class="n">TIMES</span><span class="p">):</span>
+                    <span class="n">result</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_expected_value_of</span><span class="p">(</span><span class="n">expression</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">SyntaxError</span><span class="p">(</span><span class="s2">&quot;Expression cannot be a condition.&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">UnopExpr</span><span class="p">)</span> <span class="ow">and</span> <span class="n">expression</span><span class="o">.</span><span class="n">operator</span> <span class="o">==</span> <span class="n">Unop</span><span class="o">.</span><span class="n">NEG</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_expected_value_of</span><span class="p">(</span><span class="n">expression</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">SyntaxError</span><span class="p">(</span><span class="s2">&quot;Expression has wrong format.&quot;</span><span class="p">)</span>
+
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected value: </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">dist</span>
+
+        <span class="c1"># User wants to compute a marginal, or the probability of a condition.</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">ProbabilityQueryInstr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">QueryHandler</span><span class="o">.</span><span class="n">__query_probability_of</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">expr</span><span class="p">,</span> <span class="n">dist</span><span class="p">)</span>
+
+        <span class="c1"># User wants to Plot something</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">PlotInstr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">QueryHandler</span><span class="o">.</span><span class="n">__query_plot</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">dist</span><span class="p">)</span>
+
+        <span class="c1"># User wants to print the current distribution.</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">PrintInstr</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">dist</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">dist</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">OptimizationQuery</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">QueryHandler</span><span class="o">.</span><span class="n">__query_optimization</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">SyntaxError</span><span class="p">(</span><span class="s2">&quot;This should not happen.&quot;</span><span class="p">)</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">__query_optimization</span><span class="p">(</span><span class="n">instr</span><span class="p">:</span> <span class="n">OptimizationQuery</span><span class="p">,</span> <span class="n">dist</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ForwardAnalysisConfig</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Computing the optimal value for parameter </span><span class="si">{</span><span class="n">instr</span><span class="o">.</span><span class="n">parameter</span><span class="si">}</span><span class="s2">&quot;</span>
+                     <span class="sa">f</span><span class="s2">&quot;in order to </span><span class="si">{</span><span class="s1">&#39;maximize&#39;</span> <span class="k">if</span> <span class="n">instr</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">OptimizationType</span><span class="o">.</span><span class="n">MAXIMIZE</span> <span class="k">else</span> <span class="s1">&#39;minimize&#39;</span><span class="si">}</span><span class="s2">&quot;</span>
+                     <span class="sa">f</span><span class="s2">&quot;the distribution </span><span class="si">{</span><span class="n">dist</span><span class="si">}</span><span class="s2"> with respect to </span><span class="si">{</span><span class="n">instr</span><span class="o">.</span><span class="n">expr</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">expr</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">instr</span><span class="o">.</span><span class="n">parameter</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">instr</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No solutions could be found.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The optimal value is at </span><span class="si">{</span><span class="n">instr</span><span class="o">.</span><span class="n">parameter</span><span class="si">}</span><span class="s2">=</span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The maximal values can be achieved choosing the parameter </span><span class="si">{</span><span class="n">instr</span><span class="o">.</span><span class="n">parameter</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dist</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">__query_plot</span><span class="p">(</span><span class="n">instr</span><span class="p">:</span> <span class="n">PlotInstr</span><span class="p">,</span> <span class="n">dist</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Distribution</span><span class="p">:</span>
+        <span class="c1"># Gather the variables to plot.</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">[</span><span class="n">instr</span><span class="o">.</span><span class="n">var_1</span><span class="o">.</span><span class="n">var</span><span class="p">]</span>
+        <span class="n">variables</span> <span class="o">+=</span> <span class="p">[</span><span class="n">instr</span><span class="o">.</span><span class="n">var_2</span><span class="o">.</span><span class="n">var</span><span class="p">]</span> <span class="k">if</span> <span class="n">instr</span><span class="o">.</span><span class="n">var_2</span> <span class="k">else</span> <span class="p">[]</span>
+
+        <span class="c1"># User can specify either a probability threshold or a number of terms which are shown in the histogram.</span>
+        <span class="k">if</span> <span class="n">instr</span><span class="o">.</span><span class="n">prob</span><span class="p">:</span>
+            <span class="c1"># User chose a probability or oo (meaning, try to compute the whole histogram).</span>
+            <span class="k">if</span> <span class="n">instr</span><span class="o">.</span><span class="n">prob</span><span class="o">.</span><span class="n">is_infinite</span><span class="p">():</span>
+                <span class="n">Plotter</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="o">*</span><span class="n">variables</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">Plotter</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="o">*</span><span class="n">variables</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">prob</span><span class="p">))</span>
+
+        <span class="k">elif</span> <span class="n">instr</span><span class="o">.</span><span class="n">term_count</span><span class="p">:</span>
+            <span class="c1"># User has chosen a term limit.</span>
+            <span class="n">Plotter</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="o">*</span><span class="n">variables</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="n">instr</span><span class="o">.</span><span class="n">term_count</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+            <span class="c1"># User did neither specify a term limit nor a threshold probability. We try an iterative approach...</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="mf">.1</span>
+            <span class="n">inc</span> <span class="o">=</span> <span class="mf">.1</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">Plotter</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="o">*</span><span class="n">variables</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">p</span> <span class="o">+</span> <span class="n">inc</span> <span class="k">if</span> <span class="n">p</span> <span class="o">+</span> <span class="n">inc</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mi">1</span>
+                <span class="n">cont</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Continue with p=</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2">? [Y/n]&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">cont</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;n&#39;</span><span class="p">:</span>
+                    <span class="k">break</span>
+        <span class="k">return</span> <span class="n">dist</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">__query_probability_of</span><span class="p">(</span><span class="n">expression</span><span class="p">:</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">dist</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Distribution</span><span class="p">:</span>
+        <span class="c1"># Marginal computation</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">VarExpr</span><span class="p">):</span>
+            <span class="n">marginal</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">marginal</span><span class="p">(</span><span class="n">expression</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">MarginalType</span><span class="o">.</span><span class="n">Include</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Marginal distribution of </span><span class="si">{</span><span class="n">expression</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">marginal</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="c1"># Probability of condition computation.</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sat_part</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">expression</span><span class="p">)</span>
+            <span class="n">prob</span> <span class="o">=</span> <span class="n">sat_part</span><span class="o">.</span><span class="n">get_probability_mass</span><span class="p">()</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Probability of </span><span class="si">{</span><span class="n">expression</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">prob</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dist</span></div>
+
+
+<div class="viewcode-block" id="SampleHandler"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.SampleHandler">[docs]</a><span class="k">class</span> <span class="nc">SampleHandler</span><span class="p">(</span><span class="n">InstructionHandler</span><span class="p">):</span>
+
+<div class="viewcode-block" id="SampleHandler.compute"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.SampleHandler.compute">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">:</span> <span class="n">Instr</span><span class="p">,</span> <span class="n">dist</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ForwardAnalysisConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Distribution</span><span class="p">:</span>
+        <span class="n">_assume</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">AsgnInstr</span><span class="p">,</span> <span class="s1">&#39;SampleHandler&#39;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">get_args</span><span class="p">(</span><span class="n">DistrExpr</span><span class="p">)),</span> <span class="sa">f</span><span class="s2">&quot;The Instruction handled by a SampleHandler&quot;</span> \
+                                                           <span class="sa">f</span><span class="s2">&quot; must be of type DistrExpr, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">instr</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Computing distribution sampling update.</span><span class="se">\n</span><span class="si">{</span><span class="n">instr</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">variable</span><span class="p">:</span> <span class="n">Var</span> <span class="o">=</span> <span class="n">instr</span><span class="o">.</span><span class="n">lhs</span>
+        <span class="n">marginal</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">marginal</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">MarginalType</span><span class="o">.</span><span class="n">Exclude</span><span class="p">)</span>
+        <span class="n">factory</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">factory</span>
+
+        <span class="c1"># rhs is a categorical expression (explicit finite distr)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">CategoricalExpr</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Categorical expression are currently not supported.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># rhs is a uniform distribution</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">DUniformExpr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">marginal</span> <span class="o">*</span> <span class="n">factory</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">end</span><span class="p">)</span>
+
+        <span class="c1"># rhs is geometric distribution</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">GeometricExpr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">marginal</span> <span class="o">*</span> <span class="n">factory</span><span class="o">.</span><span class="n">geometric</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">param</span><span class="p">)</span>
+
+        <span class="c1"># rhs is binomial distribution</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">BinomialExpr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">marginal</span> <span class="o">*</span> <span class="n">factory</span><span class="o">.</span><span class="n">binomial</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">p</span><span class="p">)</span>
+
+        <span class="c1"># rhs is poisson distribution</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">PoissonExpr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">marginal</span> <span class="o">*</span> <span class="n">factory</span><span class="o">.</span><span class="n">poisson</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">param</span><span class="p">)</span>
+
+        <span class="c1"># rhs is bernoulli distribution</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">BernoulliExpr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">marginal</span> <span class="o">*</span> <span class="n">factory</span><span class="o">.</span><span class="n">bernoulli</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">param</span><span class="p">)</span>
+
+        <span class="c1"># rhs is logarithmic distribution</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">LogDistExpr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">marginal</span> <span class="o">*</span> <span class="n">factory</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="o">.</span><span class="n">param</span><span class="p">)</span>
+
+        <span class="c1"># rhs is an iid sampling expression</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">IidSampleExpr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">dist</span><span class="o">.</span><span class="n">update_iid</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">instr</span><span class="o">.</span><span class="n">lhs</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="AssignmentHandler"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.AssignmentHandler">[docs]</a><span class="k">class</span> <span class="nc">AssignmentHandler</span><span class="p">(</span><span class="n">InstructionHandler</span><span class="p">):</span>
+
+<div class="viewcode-block" id="AssignmentHandler.compute"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.AssignmentHandler.compute">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">:</span> <span class="n">Instr</span><span class="p">,</span>
+                <span class="n">dist</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span>
+                <span class="n">config</span><span class="p">:</span> <span class="n">ForwardAnalysisConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Distribution</span><span class="p">:</span>
+        <span class="n">_assume</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">AsgnInstr</span><span class="p">,</span> <span class="s1">&#39;AssignmentHandler&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">get_args</span><span class="p">(</span><span class="n">DistrExpr</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">SampleHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">get_args</span><span class="p">(</span><span class="n">Expr</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">SyntaxError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Assignment </span><span class="si">{</span><span class="n">instr</span><span class="si">}</span><span class="s2"> is ill-formed. right-hand-side must be an expression.&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Computing distribution update.</span><span class="se">\n</span><span class="si">{</span><span class="n">instr</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dist</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">BinopExpr</span><span class="p">(</span><span class="n">operator</span><span class="o">=</span><span class="n">Binop</span><span class="o">.</span><span class="n">EQ</span><span class="p">,</span> <span class="n">lhs</span><span class="o">=</span><span class="n">VarExpr</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">lhs</span><span class="p">),</span> <span class="n">rhs</span><span class="o">=</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">))</span></div></div>
+
+
+<div class="viewcode-block" id="ObserveHandler"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.ObserveHandler">[docs]</a><span class="k">class</span> <span class="nc">ObserveHandler</span><span class="p">(</span><span class="n">InstructionHandler</span><span class="p">):</span>
+
+<div class="viewcode-block" id="ObserveHandler.compute"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.ObserveHandler.compute">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="n">instruction</span><span class="p">:</span> <span class="n">Instr</span><span class="p">,</span>
+                <span class="n">distribution</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span>
+                <span class="n">config</span><span class="p">:</span> <span class="n">ForwardAnalysisConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Distribution</span><span class="p">:</span>
+        <span class="n">_assume</span><span class="p">(</span><span class="n">instruction</span><span class="p">,</span> <span class="n">ObserveInstr</span><span class="p">,</span> <span class="s1">&#39;ObserverHandler&#39;</span><span class="p">)</span>
+
+        <span class="n">sat_part</span> <span class="o">=</span> <span class="n">distribution</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">instruction</span><span class="o">.</span><span class="n">cond</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sat_part</span><span class="o">.</span><span class="n">get_probability_mass</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ObserveZeroEventError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;observed event </span><span class="si">{</span><span class="n">instruction</span><span class="o">.</span><span class="n">cond</span><span class="si">}</span><span class="s2"> has probability 0&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">sat_part</span></div></div>
+
+
+<div class="viewcode-block" id="PChoiceHandler"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.PChoiceHandler">[docs]</a><span class="k">class</span> <span class="nc">PChoiceHandler</span><span class="p">(</span><span class="n">InstructionHandler</span><span class="p">):</span>
+
+<div class="viewcode-block" id="PChoiceHandler.compute"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.PChoiceHandler.compute">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">:</span> <span class="n">Instr</span><span class="p">,</span>
+                <span class="n">dist</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span>
+                <span class="n">config</span><span class="p">:</span> <span class="n">ForwardAnalysisConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Distribution</span><span class="p">:</span>
+        <span class="n">_assume</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">ChoiceInstr</span><span class="p">,</span> <span class="s1">&#39;PChoiceHandlerGF&#39;</span><span class="p">)</span>
+
+        <span class="n">lhs_block</span> <span class="o">=</span> <span class="n">SequenceHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">lhs</span><span class="p">,</span> <span class="n">dist</span><span class="p">)</span>
+        <span class="n">rhs_block</span> <span class="o">=</span> <span class="n">SequenceHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">rhs</span><span class="p">,</span> <span class="n">dist</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Combining PChoice branches.</span><span class="se">\n</span><span class="si">{</span><span class="n">instr</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">lhs_block</span> <span class="o">*</span> <span class="nb">str</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">prob</span><span class="p">)</span> <span class="o">+</span> <span class="n">rhs_block</span> <span class="o">*</span> <span class="sa">f</span><span class="s2">&quot;1-</span><span class="si">{</span><span class="n">instr</span><span class="o">.</span><span class="n">prob</span><span class="si">}</span><span class="s2">&quot;</span></div></div>
+
+
+<div class="viewcode-block" id="ITEHandler"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.ITEHandler">[docs]</a><span class="k">class</span> <span class="nc">ITEHandler</span><span class="p">(</span><span class="n">InstructionHandler</span><span class="p">):</span>
+
+<div class="viewcode-block" id="ITEHandler.compute"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.ITEHandler.compute">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">:</span> <span class="n">Instr</span><span class="p">,</span>
+                <span class="n">dist</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span>
+                <span class="n">config</span><span class="p">:</span> <span class="n">ForwardAnalysisConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Distribution</span><span class="p">:</span>
+        <span class="n">_assume</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">IfInstr</span><span class="p">,</span> <span class="s1">&#39;ITEHandler&#39;</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Filtering the guard </span><span class="si">{</span><span class="n">instr</span><span class="o">.</span><span class="n">cond</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">sat_part</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">cond</span><span class="p">)</span>
+        <span class="n">non_sat_part</span> <span class="o">=</span> <span class="n">dist</span> <span class="o">-</span> <span class="n">sat_part</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">show_intermediate_steps</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">YELLOW</span><span class="si">}</span><span class="s2">Filter:</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">instr</span><span class="o">.</span><span class="n">cond</span><span class="si">}</span><span class="s2"> </span><span class="se">\t</span><span class="s2"> </span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">GREEN</span><span class="si">}</span><span class="s2">Result:</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">sat_part</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">YELLOW</span><span class="si">}</span><span class="s2"> If-branch: (</span><span class="si">{</span><span class="n">instr</span><span class="o">.</span><span class="n">cond</span><span class="si">}</span><span class="s2">)</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">if_branch</span> <span class="o">=</span> <span class="n">SequenceHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">true</span><span class="p">,</span> <span class="n">sat_part</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">YELLOW</span><span class="si">}</span><span class="s2"> Else-branch:</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">else_branch</span> <span class="o">=</span> <span class="n">SequenceHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">false</span><span class="p">,</span> <span class="n">non_sat_part</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">YELLOW</span><span class="si">}</span><span class="s2">Combined:</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">if_branch</span> <span class="o">=</span> <span class="n">SequenceHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">true</span><span class="p">,</span> <span class="n">sat_part</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+            <span class="n">else_branch</span> <span class="o">=</span> <span class="n">SequenceHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">false</span><span class="p">,</span> <span class="n">non_sat_part</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">if_branch</span> <span class="o">+</span> <span class="n">else_branch</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Combining if-branches.</span><span class="se">\n</span><span class="si">{</span><span class="n">instr</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div></div>
+
+
+<div class="viewcode-block" id="LoopHandler"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.LoopHandler">[docs]</a><span class="k">class</span> <span class="nc">LoopHandler</span><span class="p">(</span><span class="n">InstructionHandler</span><span class="p">):</span>
+
+<div class="viewcode-block" id="LoopHandler.compute"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.LoopHandler.compute">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">:</span> <span class="n">Instr</span><span class="p">,</span> <span class="n">dist</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ForwardAnalysisConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Distribution</span><span class="p">:</span>
+        <span class="n">_assume</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">LoopInstr</span><span class="p">,</span> <span class="s1">&#39;LoopHandler&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">iterations</span><span class="o">.</span><span class="n">value</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Computing iteration </span><span class="si">{</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="si">}</span><span class="s2"> out of </span><span class="si">{</span><span class="n">instr</span><span class="o">.</span><span class="n">iterations</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">dist</span> <span class="o">=</span> <span class="n">SequenceHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">body</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dist</span></div></div>
+
+
+<div class="viewcode-block" id="WhileHandler"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.WhileHandler">[docs]</a><span class="k">class</span> <span class="nc">WhileHandler</span><span class="p">(</span><span class="n">InstructionHandler</span><span class="p">):</span>
+
+<div class="viewcode-block" id="WhileHandler.compute"><a class="viewcode-back" href="../../../../analysis.html#prodigy.analysis.forward.instruction_handler.WhileHandler.compute">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">compute</span><span class="p">(</span><span class="n">instr</span><span class="p">:</span> <span class="n">Instr</span><span class="p">,</span>
+                <span class="n">dist</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span>
+                <span class="n">config</span><span class="p">:</span> <span class="n">ForwardAnalysisConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Distribution</span><span class="p">:</span>
+
+        <span class="n">_assume</span><span class="p">(</span><span class="n">instr</span><span class="p">,</span> <span class="n">WhileInstr</span><span class="p">,</span> <span class="s1">&#39;WhileHandler&#39;</span><span class="p">)</span>
+
+        <span class="n">user_choice</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">input</span><span class="p">(</span><span class="s2">&quot;While Instruction has only limited support. Choose an option:</span><span class="se">\n</span><span class="s2">&quot;</span>
+                                <span class="s2">&quot;[1]: Solve using invariants (Checks whether the invariant over-approximates the loop)</span><span class="se">\n</span><span class="s2">&quot;</span>
+                                <span class="s2">&quot;[2]: Fix a maximum number of iterations (This results in an under-approximation)</span><span class="se">\n</span><span class="s2">&quot;</span>
+                                <span class="s2">&quot;[3]: Analyse until a certain probability mass is captured (might not terminate!)</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">))</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;User chose </span><span class="si">{</span><span class="n">user_choice</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">user_choice</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">prodigy.analysis.forward.equivalence.equivalence_check</span> <span class="kn">import</span> <span class="n">check_equivalence</span>
+            <span class="n">inv_filepath</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Invariant file:</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">inv_filepath</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">inv_file</span><span class="p">:</span>
+                <span class="n">inv_src</span> <span class="o">=</span> <span class="n">inv_file</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+                <span class="n">inv_prog</span> <span class="o">=</span> <span class="n">parse_pgcl</span><span class="p">(</span><span class="n">inv_src</span><span class="p">)</span>
+
+                <span class="n">prog</span> <span class="o">=</span> <span class="n">Program</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                               <span class="n">declarations</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                               <span class="n">variables</span><span class="o">=</span><span class="n">inv_prog</span><span class="o">.</span><span class="n">variables</span><span class="p">,</span>
+                               <span class="n">constants</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                               <span class="n">parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                               <span class="n">instructions</span><span class="o">=</span><span class="p">[</span><span class="n">instr</span><span class="p">])</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">YELLOW</span><span class="si">}</span><span class="s2">Verifying invariant...</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">answer</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="n">check_equivalence</span><span class="p">(</span><span class="n">prog</span><span class="p">,</span> <span class="n">inv_prog</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">answer</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="n">Style</span><span class="o">.</span><span class="n">OKGREEN</span> <span class="o">+</span> <span class="s2">&quot;Invariant successfully validated!</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="n">Style</span><span class="o">.</span><span class="n">RESET</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">show_intermediate_steps</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="n">Style</span><span class="o">.</span><span class="n">YELLOW</span> <span class="o">+</span> <span class="s2">&quot;\Compute the result using the invariant&quot;</span> <span class="o">+</span> <span class="n">Style</span><span class="o">.</span><span class="n">RESET</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">compute_discrete_distribution</span><span class="p">(</span><span class="n">inv_prog</span><span class="o">.</span><span class="n">instructions</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">VerificationError</span><span class="p">(</span><span class="s2">&quot;Invariant could not be determined as such.&quot;</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="n">user_choice</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">max_iter</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Specify a maximum iteration limit: &quot;</span><span class="p">))</span>
+            <span class="n">sat_part</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">cond</span><span class="p">)</span>
+            <span class="n">non_sat_part</span> <span class="o">=</span> <span class="n">dist</span> <span class="o">-</span> <span class="n">sat_part</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_iter</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
+                <span class="n">printProgressBar</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">max_iter</span><span class="p">,</span> <span class="s2">&quot;Iteration:&quot;</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+                <span class="n">iterated_part</span> <span class="o">=</span> <span class="n">SequenceHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">body</span><span class="p">,</span> <span class="n">sat_part</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+                <span class="n">iterated_sat</span> <span class="o">=</span> <span class="n">iterated_part</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">cond</span><span class="p">)</span>
+                <span class="n">iterated_non_sat</span> <span class="o">=</span> <span class="n">iterated_part</span> <span class="o">-</span> <span class="n">iterated_sat</span>
+                <span class="k">if</span> <span class="n">iterated_non_sat</span> <span class="o">==</span> <span class="n">SympyPGF</span><span class="o">.</span><span class="n">zero</span><span class="p">()</span> <span class="ow">and</span> <span class="n">iterated_sat</span> <span class="o">==</span> <span class="n">sat_part</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">OKGREEN</span><span class="si">}</span><span class="s2">Terminated already after </span><span class="si">{</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="si">}</span><span class="s2"> step(s)!</span><span class="si">{</span><span class="n">Style</span><span class="o">.</span><span class="n">RESET</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="k">break</span>
+                <span class="n">non_sat_part</span> <span class="o">+=</span> <span class="n">iterated_non_sat</span>
+                <span class="n">sat_part</span> <span class="o">=</span> <span class="n">iterated_sat</span>
+            <span class="k">return</span> <span class="n">non_sat_part</span>
+
+        <span class="k">elif</span> <span class="n">user_choice</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">captured_probability_threshold</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Enter the probability threshold: &quot;</span><span class="p">))</span>
+            <span class="n">sat_part</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">cond</span><span class="p">)</span>
+            <span class="n">non_sat_part</span> <span class="o">=</span> <span class="n">dist</span> <span class="o">-</span> <span class="n">sat_part</span>
+            <span class="k">while</span> <span class="n">Fraction</span><span class="p">(</span><span class="n">non_sat_part</span><span class="o">.</span><span class="n">get_probability_mass</span><span class="p">())</span> <span class="o">&lt;</span> <span class="n">captured_probability_threshold</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Collected &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="p">(</span><span class="nb">float</span><span class="p">((</span><span class="n">Fraction</span><span class="p">(</span><span class="n">non_sat_part</span><span class="o">.</span><span class="n">get_probability_mass</span><span class="p">())</span> <span class="o">/</span> <span class="n">captured_probability_threshold</span><span class="p">))</span> <span class="o">*</span> <span class="mi">100</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> %)&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot; of the desired mass.&quot;</span><span class="p">)</span>
+                <span class="n">iterated_part</span> <span class="o">=</span> <span class="n">SequenceHandler</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">body</span><span class="p">,</span> <span class="n">sat_part</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+                <span class="n">iterated_sat</span> <span class="o">=</span> <span class="n">iterated_part</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">cond</span><span class="p">)</span>
+                <span class="n">iterated_non_sat</span> <span class="o">=</span> <span class="n">iterated_part</span> <span class="o">-</span> <span class="n">iterated_sat</span>
+                <span class="n">non_sat_part</span> <span class="o">+=</span> <span class="n">iterated_non_sat</span>
+                <span class="n">sat_part</span> <span class="o">=</span> <span class="n">iterated_sat</span>
+                <span class="n">printProgressBar</span><span class="p">(</span>
+                    <span class="nb">int</span><span class="p">(</span> <span class="p">(</span><span class="n">Fraction</span><span class="p">(</span><span class="n">non_sat_part</span><span class="o">.</span><span class="n">get_probability_mass</span><span class="p">())</span> <span class="o">/</span> <span class="n">captured_probability_threshold</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span> <span class="p">),</span>
+                    <span class="mi">100</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;of desired mass captured&quot;</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">non_sat_part</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Input &#39;</span><span class="si">{</span><span class="n">user_choice</span><span class="si">}</span><span class="s2">&#39; cannot be handled properly.&quot;</span><span class="p">)</span></div></div>
+</pre></div>
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+        <br/>
+        
+      
+    </p>
+    <p>
+        &copy; Copyright 2022, Lutz Klinkenberg.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.5.4.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>

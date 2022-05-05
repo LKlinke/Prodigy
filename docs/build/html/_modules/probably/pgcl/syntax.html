@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>probably.pgcl.syntax &#8212; Probably  documentation</title>
+    <link rel="stylesheet" href="../../../_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/katex-math.css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/contrib/auto-render.min.js"></script>
+    <script src="../../../_static/katex_autorenderer.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script type="text/javascript" src="../../../_static/js/jquery-1.11.0.min.js "></script>
+<script type="text/javascript" src="../../../_static/js/jquery-fix.js "></script>
+<script type="text/javascript" src="../../../_static/bootstrap-3.3.7/js/bootstrap.min.js "></script>
+<script type="text/javascript" src="../../../_static/bootstrap-sphinx.js "></script>
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,400;0,700;1,400&family=Source+Sans+Pro:ital,wght@0,300;0,400;1,400&family=Source+Serif+Pro:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font: 15px/1.4 "Source Sans Pro",sans-serif;
+        }
+        h1, h2, h3, h5, h6, h6 {
+            font-family: "Source Sans Pro",sans-serif;
+        }
+        p {
+            font-family: "Source Serif Pro",serif;
+        }
+        .py, .field-list p, pre, code {
+            font-family: 'Source Code Pro', monospace;
+        }
+
+        /* fix navbar overlaying contents when clicking on anchors */
+        :target::before {
+            content: "";
+            display: block;
+            height: 60px; /* fixed header height*/
+            margin: -60px 0 0; /* negative fixed header height */
+            background: none;
+        }
+
+        /* hack to limit the yellow highlight to the the children of the target,
+           because of the above hack the target's highlight would be way too large */
+        dt:target {
+            background-color: transparent;
+        }
+        dt:target > * {
+            background-color: #fbe54e;
+        }
+
+        /* spacing adjustments */
+        .section {
+            margin-bottom: 10rem;
+            margin-top: 6rem;
+        }
+        div.body > .section:first-of-type {
+            margin-top: 0rem;
+        }
+        .class, .function, .data {
+            margin-top: 5rem;
+            margin-bottom: 7rem;
+            border-left: 1px solid #eee;
+            padding-left: 1rem;
+        }
+        dl.attribute > dd, dl.class > dd, dl.function > dd, dl.method > dd {
+            margin-left: 30px;
+        }
+        p {
+            margin-top: 1.05em;
+            margin-bottom: 1.05em;
+            text-align: justify;
+        }
+        .field-list p, li p {
+            text-align: left;
+        }
+        /* adjust font sizes */
+        dl.field-list, dl.attribute {
+            font-size: 90%;
+        }
+        .math {
+            font-size: 90.09%;
+        }
+    </style>
+
+  </head><body>
+
+  <div id="navbar" class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../../index.html">
+          Probably</a>
+        <span class="navbar-text navbar-version pull-left"><b></b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+                <li><a href="https://github.com/Philipp15b/probably">GitHub Repository</a></li>
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="../../../index.html">Contents <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pgcl.html"><code class="docutils literal notranslate"><span class="pre">probably.pgcl</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../pgcl.html#compiler-frontend">Compiler Frontend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../pgcl.html#ast">AST</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../pgcl.html#program">Program</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../pgcl.html#types">Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../pgcl.html#declarations">Declarations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../pgcl.html#expressions">Expressions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../pgcl.html#instructions">Instructions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../pgcl.html#superclasses">Superclasses</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../pgcl.html#weakest-pre-expectations">Weakest Pre-Expectations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../pgcl.html#loop-free">Loop-Free</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../pgcl.html#transformers">Transformers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../pgcl.html#loops">Loops</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../pgcl.html#program-shapes">Program Shapes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../pgcl.html#linearity">Linearity</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../pgcl.html#one-big-loop">One Big Loop</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../pgcl.html#parser">Parser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../pgcl.html#walking-asts">Walking ASTs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../pgcl.html#type-checking">Type Checking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../pgcl.html#variable-substitution">Variable Substitution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../pgcl.html#expression-simplification">Expression Simplification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../pgcl.html#control-flow-graph">Control-Flow Graph</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../pysmt.html"><code class="docutils literal notranslate"><span class="pre">probably.pysmt</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../pysmt.html#translation-context">Translation Context</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../pysmt.html#expression-translation">Expression Translation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../util.html"><code class="docutils literal notranslate"><span class="pre">probably.util</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../util.html#mutable-references">Mutable References</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../util.html#lark-expression-parser">Lark Expression Parser</a></li>
+</ul>
+</li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+            
+            
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="../../../search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+      <div class="col-md-3">
+        <div id="sidebar" class="bs-sidenav" role="complementary">
+<h4 style="padding: 5px 20px">Contents</h4>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../pgcl.html"><code class="docutils literal notranslate"><span class="pre">probably.pgcl</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../pysmt.html"><code class="docutils literal notranslate"><span class="pre">probably.pysmt</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../util.html"><code class="docutils literal notranslate"><span class="pre">probably.util</span></code></a></li>
+</ul>
+
+        </div>
+      </div>
+    <div class="body col-md-9 content" role="main">
+      
+  <h1>Source code for probably.pgcl.syntax</h1><div class="highlight"><pre>
+<span></span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">--------------</span>
+<span class="sd">Program Shapes</span>
+<span class="sd">--------------</span>
+
+<span class="sd">The ``syntax`` module provides functions to analyze a program&#39;s syntax: Whether it</span>
+<span class="sd">is *linear*, or whether it only consists of one big loop.</span>
+
+<span class="sd">.. _linearity:</span>
+
+<span class="sd">^^^^^^^^^</span>
+<span class="sd">Linearity</span>
+<span class="sd">^^^^^^^^^</span>
+
+<span class="sd">*Linear arithmetic expressions* :math:`e \in \mathsf{AE}_\text{lin}` adhere to the grammar</span>
+
+<span class="sd">.. math::</span>
+
+<span class="sd">    \begin{aligned}</span>
+<span class="sd">        e \rightarrow &amp;\quad n \in \mathbb{N} \quad &amp;&amp; \text{\small{}(constants)} \\</span>
+<span class="sd">                \mid  &amp;\quad x \in \mathsf{Vars} &amp;&amp; \text{\small{}(variables)} \\</span>
+<span class="sd">                \mid  &amp;\quad e + e &amp;&amp; \text{\small{}(addition)} \\</span>
+<span class="sd">                \mid  &amp;\quad e \dot{-} e &amp;&amp; \text{\small{}(monus)} \\</span>
+<span class="sd">                \mid  &amp;\quad n \cdot e &amp;&amp; \text{\small{}(multiplication by constants)}</span>
+<span class="sd">    \end{aligned}</span>
+
+<span class="sd">*Monus* means subtraction truncated at zero [#monus]_. In Probably, we just use</span>
+<span class="sd">:py:data:`probably.pgcl.ast.Binop.MINUS` (and do not distinguish between minus</span>
+<span class="sd">and monus).</span>
+
+<span class="sd">*Linear Boolean expressions* :math:`\varphi \in \mathsf{BE}_\text{lin}` adhere to the grammar</span>
+
+<span class="sd">.. math::</span>
+
+<span class="sd">    \begin{aligned}</span>
+<span class="sd">        \varphi \rightarrow &amp;\quad e &lt; e \quad &amp;&amp; \text{\small{}(strict inequality of arithmetic expressions)} \\</span>
+<span class="sd">                       \mid &amp;\quad e \leq e &amp;&amp; \text{\small{}(inequality of arithmetic expressions)} \\</span>
+<span class="sd">                       \mid &amp;\quad e = e &amp;&amp; \text{\small{}(equality of arithmetic expressions)} \\</span>
+<span class="sd">                       \mid &amp;\quad \varphi \land \varphi &amp;&amp; \text{\small{}(conjunction)} \\</span>
+<span class="sd">                       \mid &amp;\quad \varphi \lor \varphi &amp;&amp; \text{\small{}(disjunction)} \\</span>
+<span class="sd">                       \mid &amp;\quad \neg \varphi &amp;&amp; \text{\small{}(negation)} \\</span>
+<span class="sd">                       \mid &amp;\quad \mathsf{true} \\</span>
+<span class="sd">                       \mid &amp;\quad \mathsf{false}</span>
+<span class="sd">    \end{aligned}</span>
+
+<span class="sd">*Linear pGCL programs* consist of statements which only ever use linear</span>
+<span class="sd">arithmetic and linear Boolean expressions. Probabilistic choices must be done</span>
+<span class="sd">with a constant probability expression.</span>
+
+<span class="sd">The weakest pre-expectations of linear programs (see :py:mod:`probably.pgcl.wp`)</span>
+<span class="sd">are also linear in the sense that they can be easily rewritten as *linear</span>
+<span class="sd">expectations*. You can use for example :py:func:`probably.pgcl.simplify.normalize_expectation`.</span>
+
+<span class="sd">The set :math:`\mathsf{Exp}_\text{lin}` of *linear expectations* is given by the grammar</span>
+
+<span class="sd">.. math::</span>
+
+<span class="sd">    \begin{aligned}</span>
+<span class="sd">        f \rightarrow &amp;\quad e\quad &amp;&amp; \text{\small{}(arithmetic expression)} \\</span>
+<span class="sd">                 \mid &amp;\quad \infty &amp;&amp; \text{\small{}(infinity)} \\</span>
+<span class="sd">                 \mid &amp;\quad r \cdot f &amp;&amp; \text{\small{}(scaling)} \\</span>
+<span class="sd">                 \mid &amp;\quad [\varphi] \cdot f &amp;&amp; \text{\small{}(guarding)} \\</span>
+<span class="sd">                 \mid &amp;\quad f + f &amp;&amp; \text{\small{}(addition)}</span>
+<span class="sd">    \end{aligned}</span>
+
+<span class="sd">where :math:`e \in \mathsf{AE}_\text{lin}` is a linear arithmetic expression,</span>
+<span class="sd">:math:`r \in \mathbb{Q}_{\geq 0}` is a non-negative rational, and where</span>
+<span class="sd">:math:`\varphi \in \mathsf{BE}_\text{lin}` is a linear Boolean expression.</span>
+
+<span class="sd">.. [#monus] See the `Monus Wikipedia page &lt;https://en.wikipedia.org/wiki/Monus&gt;`_ for the general mathematical term.</span>
+
+<span class="sd">.. autofunction:: probably.pgcl.syntax.check_is_linear_program</span>
+<span class="sd">.. autofunction:: probably.pgcl.syntax.check_is_linear_expr</span>
+
+<span class="sd">.. _one_big_loop:</span>
+
+<span class="sd">^^^^^^^^^^^^</span>
+<span class="sd">One Big Loop</span>
+<span class="sd">^^^^^^^^^^^^</span>
+
+<span class="sd">Check whether the program consists of one big while loop with optional</span>
+<span class="sd">assignment statements before the loop.</span>
+
+<span class="sd">Every program can be converted into a program with just one big loop and a bunch</span>
+<span class="sd">of initialization assignments before the loop using</span>
+<span class="sd">:py:func:`probably.pgcl.cfg.program_one_big_loop`.</span>
+
+<span class="sd">.. autofunction:: probably.pgcl.syntax.check_is_one_big_loop</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
+
+<span class="kn">from</span> <span class="nn">probably.util.ref</span> <span class="kn">import</span> <span class="n">Mut</span>
+
+<span class="kn">from</span> <span class="nn">.ast</span> <span class="kn">import</span> <span class="p">(</span><span class="n">AsgnInstr</span><span class="p">,</span> <span class="n">Binop</span><span class="p">,</span> <span class="n">BinopExpr</span><span class="p">,</span> <span class="n">Expr</span><span class="p">,</span> <span class="n">Instr</span><span class="p">,</span> <span class="n">Program</span><span class="p">,</span> <span class="n">Unop</span><span class="p">,</span>
+                  <span class="n">UnopExpr</span><span class="p">,</span> <span class="n">VarExpr</span><span class="p">,</span> <span class="n">WhileInstr</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.check</span> <span class="kn">import</span> <span class="n">CheckFail</span>
+<span class="kn">from</span> <span class="nn">.walk</span> <span class="kn">import</span> <span class="n">Walk</span><span class="p">,</span> <span class="n">instr_exprs</span><span class="p">,</span> <span class="n">mut_expr_children</span><span class="p">,</span> <span class="n">walk_expr</span><span class="p">,</span> <span class="n">walk_instrs</span>
+
+
+<div class="viewcode-block" id="check_is_linear_program"><a class="viewcode-back" href="../../../pgcl.html#probably.pgcl.syntax.check_is_linear_program">[docs]</a><span class="k">def</span> <span class="nf">check_is_linear_program</span><span class="p">(</span><span class="n">program</span><span class="p">:</span> <span class="n">Program</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CheckFail</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Check if the given (well-typed) program is linear.</span>
+
+<span class="sd">    .. doctest::</span>
+
+<span class="sd">        &gt;&gt;&gt; from .parser import parse_pgcl</span>
+
+<span class="sd">        &gt;&gt;&gt; program = parse_pgcl(&quot;bool b; while (true) { }&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; check_is_linear_program(program)</span>
+
+<span class="sd">        &gt;&gt;&gt; program = parse_pgcl(&quot;while (true) { x := 2 * x }&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; check_is_linear_program(program)</span>
+
+<span class="sd">        &gt;&gt;&gt; program = parse_pgcl(&quot;while (true) { x := x * x }&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; check_is_linear_program(program)</span>
+<span class="sd">        CheckFail(location=..., message=&#39;Is not a linear expression&#39;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">instr_ref</span> <span class="ow">in</span> <span class="n">walk_instrs</span><span class="p">(</span><span class="n">Walk</span><span class="o">.</span><span class="n">DOWN</span><span class="p">,</span> <span class="n">program</span><span class="o">.</span><span class="n">instructions</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">expr</span> <span class="ow">in</span> <span class="n">instr_exprs</span><span class="p">(</span><span class="n">instr_ref</span><span class="o">.</span><span class="n">val</span><span class="p">):</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">check_is_linear_expr</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">CheckFail</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">res</span>
+    <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="check_is_linear_expr"><a class="viewcode-back" href="../../../pgcl.html#probably.pgcl.syntax.check_is_linear_expr">[docs]</a><span class="k">def</span> <span class="nf">check_is_linear_expr</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="n">Expr</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CheckFail</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Linear expressions do not multiply variables with each other.</span>
+<span class="sd">    However, they may contain multiplication with constants or Iverson brackets.</span>
+<span class="sd">    Division is also not allowed in linear expressions.</span>
+
+<span class="sd">    .. doctest::</span>
+
+<span class="sd">        &gt;&gt;&gt; from .ast import *</span>
+<span class="sd">        &gt;&gt;&gt; from .parser import parse_expectation</span>
+<span class="sd">        &gt;&gt;&gt; nat = NatLitExpr(10)</span>
+<span class="sd">        &gt;&gt;&gt; check_is_linear_expr(BinopExpr(Binop.TIMES, nat, nat))</span>
+<span class="sd">        &gt;&gt;&gt; check_is_linear_expr(BinopExpr(Binop.TIMES, nat, VarExpr(&#39;x&#39;)))</span>
+<span class="sd">        &gt;&gt;&gt; check_is_linear_expr(BinopExpr(Binop.TIMES, VarExpr(&#39;x&#39;), VarExpr(&#39;x&#39;)))</span>
+<span class="sd">        CheckFail(location=..., message=&#39;Is not a linear expression&#39;)</span>
+<span class="sd">        &gt;&gt;&gt; check_is_linear_expr(parse_expectation(&quot;[x &lt; 6] * x&quot;))</span>
+<span class="sd">        &gt;&gt;&gt; check_is_linear_expr(parse_expectation(&quot;[x * x]&quot;))</span>
+<span class="sd">        CheckFail(location=..., message=&#39;Is not a linear expression&#39;)</span>
+<span class="sd">        &gt;&gt;&gt; check_is_linear_expr(parse_expectation(&quot;x/x&quot;))</span>
+<span class="sd">        CheckFail(location=..., message=&#39;General division is not linear (division of constants is)&#39;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">has_variable</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="n">Expr</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">UnopExpr</span><span class="p">)</span> <span class="ow">and</span> <span class="n">expr</span><span class="o">.</span><span class="n">operator</span> <span class="o">==</span> <span class="n">Unop</span><span class="o">.</span><span class="n">IVERSON</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">VarExpr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">for</span> <span class="n">child_ref</span> <span class="ow">in</span> <span class="n">mut_expr_children</span><span class="p">(</span><span class="n">Mut</span><span class="o">.</span><span class="n">alloc</span><span class="p">(</span><span class="n">expr</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">has_variable</span><span class="p">(</span><span class="n">child_ref</span><span class="o">.</span><span class="n">val</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="k">for</span> <span class="n">node_ref</span> <span class="ow">in</span> <span class="n">walk_expr</span><span class="p">(</span><span class="n">Walk</span><span class="o">.</span><span class="n">DOWN</span><span class="p">,</span> <span class="n">Mut</span><span class="o">.</span><span class="n">alloc</span><span class="p">(</span><span class="n">expr</span><span class="p">)):</span>
+        <span class="n">node</span> <span class="o">=</span> <span class="n">node_ref</span><span class="o">.</span><span class="n">val</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">BinopExpr</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">operator</span> <span class="o">==</span> <span class="n">Binop</span><span class="o">.</span><span class="n">TIMES</span> <span class="ow">and</span> <span class="n">has_variable</span><span class="p">(</span>
+                    <span class="n">node</span><span class="o">.</span><span class="n">lhs</span><span class="p">)</span> <span class="ow">and</span> <span class="n">has_variable</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">rhs</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">CheckFail</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s2">&quot;Is not a linear expression&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">operator</span> <span class="o">==</span> <span class="n">Binop</span><span class="o">.</span><span class="n">DIVIDE</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">CheckFail</span><span class="p">(</span>
+                    <span class="n">node</span><span class="p">,</span>
+                    <span class="s2">&quot;General division is not linear (division of constants is)&quot;</span>
+                <span class="p">)</span>
+
+    <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="check_is_one_big_loop"><a class="viewcode-back" href="../../../pgcl.html#probably.pgcl.syntax.check_is_one_big_loop">[docs]</a><span class="k">def</span> <span class="nf">check_is_one_big_loop</span><span class="p">(</span><span class="n">instrs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Instr</span><span class="p">],</span>
+                          <span class="o">*</span><span class="p">,</span>
+                          <span class="n">allow_init</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CheckFail</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Check whether this program consists of only one big loop with optional</span>
+<span class="sd">    assignments before that.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        instrs: List of instructions to check</span>
+<span class="sd">        allow_init: Whether to allow an optional sequence of assignments before the loop.</span>
+
+<span class="sd">    .. doctest::</span>
+
+<span class="sd">        &gt;&gt;&gt; from .parser import parse_pgcl</span>
+
+<span class="sd">        &gt;&gt;&gt; program = parse_pgcl(&quot;&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; check_is_one_big_loop(program.instructions)</span>
+<span class="sd">        CheckFail(location=..., message=&#39;Program must contain exactly one loop&#39;)</span>
+
+<span class="sd">        &gt;&gt;&gt; program = parse_pgcl(&quot;while (true) { while (true) { } }&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; check_is_one_big_loop(program.instructions)</span>
+<span class="sd">        CheckFail(location=..., message=&#39;Program must contain exactly one loop&#39;)</span>
+
+<span class="sd">        &gt;&gt;&gt; program = parse_pgcl(&quot;x := 5; while (true) { x := 2 * x }&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; check_is_one_big_loop(program.instructions) is None</span>
+<span class="sd">        True</span>
+
+<span class="sd">        &gt;&gt;&gt; program = parse_pgcl(&quot;x := 5; while (true) { x := 2 * x }&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; check_is_one_big_loop(program.instructions, allow_init=False)</span>
+<span class="sd">        CheckFail(location=..., message=&#39;Program must contain exactly one loop&#39;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">instrs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">instrs</span><span class="p">)</span>
+
+    <span class="k">while</span> <span class="n">allow_init</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">instrs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instrs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">AsgnInstr</span><span class="p">):</span>
+        <span class="n">instrs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">err</span> <span class="o">=</span> <span class="s2">&quot;Program must contain exactly one loop&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">instrs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instrs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">WhileInstr</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">CheckFail</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+
+    <span class="n">loop</span> <span class="o">=</span> <span class="n">instrs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">instr</span> <span class="ow">in</span> <span class="n">walk_instrs</span><span class="p">(</span><span class="n">Walk</span><span class="o">.</span><span class="n">DOWN</span><span class="p">,</span> <span class="n">loop</span><span class="o">.</span><span class="n">body</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">val</span><span class="p">,</span> <span class="n">WhileInstr</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">CheckFail</span><span class="p">(</span><span class="n">instr</span><span class="o">.</span><span class="n">val</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span></div>
+</pre></div>
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+        <br/>
+        
+      
+    </p>
+    <p>
+        &copy; Copyright 2021, Philipp Schröer.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.2.1.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>

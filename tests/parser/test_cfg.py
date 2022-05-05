@@ -1,8 +1,8 @@
 from textwrap import dedent
 
 import pytest
-from probably.pgcl.cfg import program_one_big_loop
-from probably.pgcl.compiler import parse_pgcl
+from prodigy.pgcl.cfg import program_one_big_loop
+from prodigy.pgcl.compiler import parse_pgcl
 
 
 def test_one_big_loop1():

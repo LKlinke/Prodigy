@@ -1,6 +1,6 @@
-from probably.pgcl.compiler import parse_pgcl
-from probably.analysis.backward.wp import one_loop_wp_transformer
-from probably.analysis.backward.simplify import normalize_expectation_transformer
+from prodigy.pgcl.compiler import parse_pgcl
+from prodigy.analysis.backward.wp import one_loop_wp_transformer
+from prodigy.analysis.backward.simplify import normalize_expectation_transformer
 
 
 def test_ber_ert():
