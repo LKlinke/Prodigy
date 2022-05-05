@@ -73,8 +73,9 @@ def main(ctx, program_file: IO, input_dist: str, show_input_program: bool) -> No
     start = time.perf_counter()
     dist = prodigy.analysis.compute_discrete_distribution(program.instructions, dist, config)
     stop = time.perf_counter()
+
     print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + str(dist) + Style.RESET)
-    print(f"Elapsed time: {stop-start:04f} seconds")
+    print(f"CPU-time elapsed: {stop-start:04f} seconds")
 
 @cli.command('check_equality')
 @click.pass_context
@@ -97,12 +98,14 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
     inv = pgcl.compile_pgcl(inv_src)
     if isinstance(inv, CheckFail):
         raise Exception(f"Could not compile invariant. {inv}")
+
     start = time.perf_counter()
     equiv = check_equivalence(prog, inv, ctx.obj['CONFIG'])
     stop = time.perf_counter()
+
     print(
         f"Program{f'{Style.OKRED} is not equivalent{Style.RESET}' if not equiv[0] else f'{Style.OKGREEN} is equivalent{Style.RESET}'} to invaraint")
-    print(f"Elapsed time: {stop - start:04f} seconds")
+    print(f"CPU-time elapsed: {stop - start:04f} seconds")
     return equiv
 
 
