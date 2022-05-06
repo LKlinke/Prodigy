@@ -56,7 +56,7 @@ distribution of values: :math:`\Sigma \to \text{Dist}[\Sigma]`. And
 mapping of states to *expected values*: :math:`\Sigma \to \mathbb{R}`.
 
 .. autodata:: Expr
-.. autoclass:: DistrExpr
+.. autodata:: DistrExpr
 .. autoclass:: VarExpr
 .. autoclass:: BoolLitExpr
 .. autoclass:: NatLitExpr
@@ -80,7 +80,7 @@ mapping of states to *expected values*: :math:`\Sigma \to \mathbb{R}`.
 Instructions
 ############
 .. autodata:: Instr
-.. autoclass:: Query
+.. autodata:: Query
 .. autoclass:: SkipInstr
 .. autoclass:: WhileInstr
 .. autoclass:: IfInstr
