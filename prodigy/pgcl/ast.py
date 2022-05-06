@@ -1005,7 +1005,7 @@ class Program:
             >>> from .parser import parse_pgcl
             >>> program = parse_pgcl("nat x; nat y; while (x < 2) {}")
             >>> program.to_skeleton()
-            Program(variables={'x': NatType(bounds=None), 'y': NatType(bounds=None)}, constants={}, instructions=[])
+            Program(variables={'x': NatType(bounds=None), 'y': NatType(bounds=None)}, constants={}, parameters={}, instructions=[])
         """
         return Program(config=self.config,
                        declarations=copy.copy(self.declarations),

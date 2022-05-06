@@ -105,6 +105,10 @@ def _doc_parser_grammar():
 _doc_parser_grammar.__doc__ = "The Lark grammar for pGCL::\n" + _PGCL_GRAMMAR + "\n\nThis function only exists for documentation purposes and should never be called in code."
 
 
+# Collect parameter information here.
+parameters: Dict[Var, Type] = dict()
+
+
 @attr.s
 class _LikelyExpr(ExprClass):
     """
@@ -253,7 +257,7 @@ def _parse_rvalue(t: Tree) -> Expr:
         end = _parse_expr(_child_tree(t, 1))
         if not isinstance(end, NatLitExpr):
             raise Exception(f"{end} is not a natural number")
-        return UniformExpr(start, end)
+        return DUniformExpr(start, end)
 
     # otherwise we have an expression, but it may contain _LikelyExprs, which we
     # need to parse.
@@ -313,30 +317,30 @@ def _parse_instrs(t: Tree) -> List[Instr]:
     return [_parse_instr(_as_tree(t)) for t in t.children]
 
 
-def _parse_program(t: Tree) -> Program:
+def _parse_program(config: ProgramConfig, t: Tree) -> Program:
     assert t.data == 'start'
     declarations = _parse_declarations(_child_tree(t, 0))
     instructions = _parse_instrs(_child_tree(t, 1))
-    return Program.from_parse(declarations, instructions)
+    return Program.from_parse(config, declarations, parameters, instructions)
 
 
-def parse_pgcl(code: str) -> Program:
+def parse_pgcl(code: str, config: ProgramConfig = ProgramConfig()) -> Program:
     """
     Parse a pGCL program.
 
     .. doctest::
 
         >>> parse_pgcl("x := y")
-        Program(variables={}, constants={}, instructions=[AsgnInstr(lhs='x', rhs=VarExpr('y'))])
+        Program(variables={}, constants={}, parameters={}, instructions=[AsgnInstr(lhs='x', rhs=VarExpr('y'))])
 
         >>> parse_pgcl("x := unif(5, 17)").instructions[0]
-        AsgnInstr(lhs='x', rhs=UniformExpr(start=NatLitExpr(5), end=NatLitExpr(17)))
+        AsgnInstr(lhs='x', rhs=DUniformExpr(start=NatLitExpr(5), end=NatLitExpr(17)))
 
         >>> parse_pgcl("x := x : 1/3 + y : 2/3").instructions[0]
         AsgnInstr(lhs='x', rhs=CategoricalExpr(exprs=[(VarExpr('x'), FloatLitExpr("1/3")), (VarExpr('y'), FloatLitExpr("2/3"))]))
     """
     tree = _PARSER.parse(code)
-    return _parse_program(tree)
+    return _parse_program(config, tree)
 
 
 def parse_expr(code: str) -> Expr:

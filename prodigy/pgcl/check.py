@@ -13,8 +13,8 @@ from probably.util.ref import Mut
 from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
                   CategoricalExpr, ChoiceInstr, Decl, Expr, FloatLitExpr,
                   FloatType, IfInstr, Instr, NatLitExpr, NatType, Node,
-                  Program, SkipInstr, Type, UniformExpr, Unop, UnopExpr, Var,
-                  VarExpr, WhileInstr)
+                  Program, SkipInstr, Type, DUniformExpr, Unop, UnopExpr, Var,
+                  VarExpr, WhileInstr, ProgramConfig)
 from .walk import Walk, walk_expr
 
 _T = TypeVar('_T')
@@ -73,7 +73,7 @@ def get_type(program: Program,
 
         >>> from .ast import *
         >>> nat = NatLitExpr(10)
-        >>> program = Program(list(), dict(), dict(), list())
+        >>> program = Program(ProgramConfig(), list(), dict(), dict(), dict(), list())
 
         >>> get_type(program, BinopExpr(Binop.TIMES, nat, nat))
         NatType(bounds=None)
@@ -169,7 +169,7 @@ def get_type(program: Program,
                 return NatType(bounds=None)
             return lhs_typ
 
-    if isinstance(expr, UniformExpr):
+    if isinstance(expr, DUniformExpr):
         return NatType(bounds=None)
 
     if isinstance(expr, CategoricalExpr):
@@ -374,7 +374,7 @@ def check_expression(program, expr: Expr) -> Optional[CheckFail]:
 
     .. doctest::
 
-        >>> program = Program(list(), dict(), dict(), list())
+        >>> program = Program(ProgramConfig(), list(), dict(), dict(), dict(), list())
         >>> check_expression(program, FloatLitExpr("1.0"))
         CheckFail(location=..., message='A program expression may not return a probability.')
     """
