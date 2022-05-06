@@ -34,6 +34,7 @@ Declarations
 .. autodata:: Decl
 .. autoclass:: VarDecl
 .. autoclass:: ConstDecl
+.. autoclass:: ParameterDecl
 
 
 .. _expressions:
@@ -55,6 +56,7 @@ distribution of values: :math:`\Sigma \to \text{Dist}[\Sigma]`. And
 mapping of states to *expected values*: :math:`\Sigma \to \mathbb{R}`.
 
 .. autodata:: Expr
+.. autoclass:: DistrExpr
 .. autoclass:: VarExpr
 .. autoclass:: BoolLitExpr
 .. autoclass:: NatLitExpr
@@ -63,7 +65,14 @@ mapping of states to *expected values*: :math:`\Sigma \to \mathbb{R}`.
 .. autoclass:: UnopExpr
 .. autoclass:: Binop
 .. autoclass:: BinopExpr
-.. autoclass:: UniformExpr
+.. autoclass:: DUniformExpr
+.. autoclass:: CUniformExpr
+.. autoclass:: BernoulliExpr
+.. autoclass:: GeometricExpr
+.. autoclass:: PoissonExpr
+.. autoclass:: LogDistExpr
+.. autoclass:: BinomialExpr
+.. autoclass:: IidSampleExpr
 .. autoclass:: CategoricalExpr
 .. autoclass:: SubstExpr
 .. autoclass:: TickExpr
@@ -71,12 +80,21 @@ mapping of states to *expected values*: :math:`\Sigma \to \mathbb{R}`.
 Instructions
 ############
 .. autodata:: Instr
+.. autoclass:: Query
 .. autoclass:: SkipInstr
 .. autoclass:: WhileInstr
 .. autoclass:: IfInstr
 .. autoclass:: AsgnInstr
 .. autoclass:: ChoiceInstr
+.. autoclass:: LoopInstr
 .. autoclass:: TickInstr
+.. autoclass:: ObserveInstr
+.. autoclass:: ExpectationInstr
+.. autoclass:: OptimizationType
+.. autoclass:: OptimizationQuery
+.. autoclass:: ProbabilityQueryInstr
+.. autoclass:: PrintInstr
+.. autoclass:: PlotInstr
 
 Superclasses
 ############
