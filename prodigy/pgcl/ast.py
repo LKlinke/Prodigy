@@ -200,6 +200,8 @@ class VarDecl(DeclClass):
             if self.typ.bounds is not None:
                 res += " " + str(self.typ.bounds)
             return res + ";"
+        elif isinstance(self.typ, FloatType):
+            return f"float {self.var};"
         raise ValueError(f"invalid type: {self.typ}")
 
 
@@ -212,8 +214,26 @@ class ConstDecl(DeclClass):
     def __str__(self) -> str:
         return f"const {self.var} := {self.value};"
 
+@attr.s
+class ParameterDecl(DeclClass):
+    """ A parameter declaration with a name and a type."""
+    var: Var = attr.ib()
+    typ: Type = attr.ib()
 
-Decl = Union[VarDecl, ConstDecl]
+    def __str__(self) -> str:
+        if isinstance(self.typ, BoolType):
+            raise SyntaxError("A parameter cannot be of BoolType.")
+        elif isinstance(self.typ, NatType):
+            res = f"nparam {self.var}"
+            if self.typ.bounds is not None:
+                res += " " + str(self.typ.bounds)
+            return res + ";"
+        elif isinstance(self.typ, FloatType):
+            return f"rparam {self.var};"
+        raise ValueError(f"invalid type: {self.typ}")
+
+
+Decl = Union[VarDecl, ConstDecl, ParameterDecl]
 """Union type for all declaration objects. See :class:`DeclClass` for use with isinstance."""
 
 
@@ -245,12 +265,16 @@ class ExprClass(Node):
 class VarExpr(ExprClass):
     """A variable is an expression."""
     var: Var = attr.ib()
+    is_parameter: bool = attr.ib(default=False)
 
     def __str__(self) -> str:
         return self.var
 
     def __repr__(self) -> str:
-        return f'VarExpr({repr(self.var)})'
+        if self.is_parameter:
+            return f"ParamExpr({repr(self.var)})"
+        else:
+            return f'VarExpr({repr(self.var)})'
 
 
 @attr.s(repr=False)
@@ -387,11 +411,15 @@ class Binop(Enum):
     AND = auto()
     LEQ = auto()
     LE = auto()
+    GE = auto()
+    GEQ = auto()
     EQ = auto()
     PLUS = auto()
     MINUS = auto()
     TIMES = auto()
+    POWER = auto()
     DIVIDE = auto()
+    MODULO = auto()
 
     def is_associative(self) -> bool:
         """Is this operator associative?"""
@@ -407,11 +435,15 @@ class Binop(Enum):
             Binop.AND: "&",
             Binop.LEQ: "<=",
             Binop.LE: "<",
+            Binop.GE: ">",
+            Binop.GEQ: ">=",
             Binop.EQ: "=",
             Binop.PLUS: "+",
             Binop.MINUS: "-",
             Binop.TIMES: "*",
+            Binop.POWER: "^",
             Binop.DIVIDE: "/",
+            Binop.MODULO: "%",
         })[self]
 
 
@@ -468,11 +500,13 @@ class BinopExpr(ExprClass):
         return flatten_expr(self)
 
     def __str__(self) -> str:
+        if self.operator == Binop.POWER:
+            return f'({self.lhs}) {self.operator} ({self.rhs})'
         return f'{expr_str_parens(self.lhs)} {self.operator} {expr_str_parens(self.rhs)}'
 
 
 @attr.s
-class UniformExpr(ExprClass):
+class DUniformExpr(ExprClass):
     """
     Chooses a random integer within the (inclusive) interval.
 
@@ -480,8 +514,8 @@ class UniformExpr(ExprClass):
     expressions are only allowed as the right-hand side of an assignment
     statement and not somewhere in a nested expression.
     """
-    start: NatLitExpr = attr.ib()
-    end: NatLitExpr = attr.ib()
+    start: 'Expr' = attr.ib()
+    end: 'Expr' = attr.ib()
 
     def distribution(self) -> List[Tuple[FloatLitExpr, NatLitExpr]]:
         r"""
@@ -489,10 +523,13 @@ class UniformExpr(ExprClass):
         probabilities. For the uniform distribution, all probabilites are equal
         to :math:`\frac{1}{\text{end} - \text{start} + 1}`.
         """
-        width = self.end.value - self.start.value + 1
-        prob = FloatLitExpr(Fraction(1, width))
-        return [(prob, NatLitExpr(i))
-                for i in range(self.start.value, self.end.value + 1)]
+        if isinstance(self.start, NatLitExpr) and isinstance(self.end, NatLitExpr):
+            width = self.end.value - self.start.value + 1
+            prob = FloatLitExpr(Fraction(1, width))
+            return [(prob, NatLitExpr(i))
+                    for i in range(self.start.value, self.end.value + 1)]
+        else:
+            NotImplementedError("Parameters not implemented yet.")
 
     def __str__(self) -> str:
         return f'unif({expr_str_parens(self.start)}, {expr_str_parens(self.end)})'
@@ -503,6 +540,104 @@ def _check_categorical_exprs(_self: "CategoricalExpr", _attribute: Any,
     probabilities = (prob.to_fraction() for _, prob in value)
     if sum(probabilities) != 1:
         raise ValueError("Probabilities need to sum up to 1!")
+
+
+@attr.s
+class CUniformExpr(ExprClass):
+    """
+    Chooses a random real number within the (inclusive) interval.
+
+    As *monadic expressions* (see :ref:`expressions`), uniform choice
+    expressions are only allowed as the right-hand side of an assignment
+    statement and not somewhere in a nested expression.
+    """
+    start: 'Expr' = attr.ib()
+    end: 'Expr' = attr.ib()
+
+    def __str__(self) -> str:
+        return f'unif({expr_str_parens(self.start)}, {expr_str_parens(self.end)})'
+
+
+@attr.s
+class BernoulliExpr(ExprClass):
+    """
+    Chooses a random bernoulli distributed integer.
+
+    As *monadic expressions* (see :ref:`expressions`), geometric choice
+    expressions are only allowed as the right-hand side of an assignment
+    statement and not somewhere in a nested expression.
+    """
+    param: 'Expr' = attr.ib()
+
+    def __str__(self) -> str:
+        return f'bernoulli({expr_str_parens(self.param)})'
+
+
+@attr.s
+class GeometricExpr(ExprClass):
+    """
+    Chooses a random geometrically distributed integer.
+
+    As *monadic expressions* (see :ref:`expressions`), geometric choice
+    expressions are only allowed as the right-hand side of an assignment
+    statement and not somewhere in a nested expression.
+    """
+    param: 'Expr' = attr.ib()
+
+    def __str__(self) -> str:
+        return f'geometric({expr_str_parens(self.param)})'
+
+
+@attr.s
+class PoissonExpr(ExprClass):
+    """
+    Chooses a random poisson distributed integer.
+
+    As *monadic expressions* (see :ref:`expressions`), geometric choice
+    expressions are only allowed as the right-hand side of an assignment
+    statement and not somewhere in a nested expression.
+    """
+    param: 'Expr' = attr.ib()
+
+    def __str__(self) -> str:
+        return f'poisson({expr_str_parens(self.param)})'
+
+
+@attr.s
+class LogDistExpr(ExprClass):
+    """
+    Chooses a random logarithmically distributed integer.
+    """
+    param: 'Expr' = attr.ib()
+
+    def __str__(self) -> str:
+        return f'logdist({expr_str_parens(self.param)})'
+
+
+@attr.s
+class BinomialExpr(ExprClass):
+    """
+    Chooses a random logarithmically distributed integer.
+
+    As *monadic expressions* (see :ref:`expressions`), geometric choice
+    expressions are only allowed as the right-hand side of an assignment
+    statement and not somewhere in a nested expression.
+    """
+    n: 'Expr' = attr.ib()
+    p: 'Expr' = attr.ib()
+
+    def __str__(self) -> str:
+        return f'binomial({expr_str_parens(self.n)}, {expr_str_parens(self.p)})'
+
+
+@attr.s
+class IidSampleExpr(ExprClass):
+    """ Independently sampling from identical distributions"""
+    sampling_dist: 'Expr' = attr.ib()
+    variable: VarExpr = attr.ib()
+
+    def __str__(self) -> str:
+        return f"iid({self.sampling_dist}, {self.variable})"
 
 
 @attr.s
@@ -583,8 +718,13 @@ def expr_str_parens(expr: ExprClass) -> str:
         return f'({expr})'
 
 
+DistrExpr = Union[DUniformExpr, CUniformExpr, BernoulliExpr, GeometricExpr, PoissonExpr, LogDistExpr, BinomialExpr,
+                  IidSampleExpr]
+""" A type combining all sampling expressions"""
+
+
 Expr = Union[VarExpr, BoolLitExpr, NatLitExpr, FloatLitExpr, UnopExpr,
-             BinopExpr, UniformExpr, CategoricalExpr, SubstExpr, TickExpr]
+             BinopExpr, CategoricalExpr, SubstExpr, TickExpr, DistrExpr]
 """Union type for all expression objects. See :class:`ExprClass` for use with isinstance."""
 
 
@@ -675,6 +815,16 @@ class ChoiceInstr(InstrClass):
 
 
 @attr.s
+class LoopInstr(InstrClass):
+    """ iterating a block a constant amount of times"""
+    iterations: NatLitExpr = attr.ib()
+    body: List["Instr"] = attr.ib()
+
+    def __str__(self) -> str:
+        return f"loop({self.iterations}){_str_block(self.body)}"
+
+
+@attr.s
 class TickInstr(InstrClass):
     """
     An instruction that does not modify the program state, but only increases
@@ -689,9 +839,102 @@ class TickInstr(InstrClass):
         return f"tick({self.expr});"
 
 
-Instr = Union[SkipInstr, WhileInstr, IfInstr, AsgnInstr, ChoiceInstr,
-              TickInstr]
+@attr.s
+class ObserveInstr(InstrClass):
+    """
+    Updates the current distribution according to the observation (forward analysis only).
+    May result in an error if the observed condition has probability zero.
+
+    The type of ``expr`` must be :class:`BoolType`.
+    """
+    cond: Expr = attr.ib()
+
+    def __str__(self) -> str:
+        return f"observe({self.cond});"
+
+
+@attr.s
+class ExpectationInstr(InstrClass):
+    """
+    Allows for expectation queries inside of a pgcl program.
+    """
+    expr: Expr = attr.ib()
+
+    def __str__(self) -> str:
+        return f"?Ex[{self.expr}];"
+
+
+class OptimizationType(Enum):
+    MAXIMIZE = auto()
+    MINIMIZE = auto()
+
+
+@attr.s
+class OptimizationQuery(InstrClass):
+    expr: Expr = attr.ib()
+    parameter: Var = attr.ib()
+    type: OptimizationType = attr.ib()
+
+    def __str__(self) -> str:
+        return f"?Opt[{self.expr}, {self.parameter}, {'MAX' if self.type == OptimizationType.MAXIMIZE else 'MIN'}];"
+
+
+@attr.s
+class ProbabilityQueryInstr(InstrClass):
+    expr: Expr = attr.ib()
+
+    def __str__(self) -> str:
+        return f"?Pr[{self.expr}];"
+
+
+@attr.s
+class PrintInstr(InstrClass):
+    def __str__(self) -> str:
+        return f"!Print;"
+
+
+@attr.s
+class PlotInstr(InstrClass):
+    var_1: VarExpr = attr.ib()
+    var_2: VarExpr = attr.ib(default=None)
+    prob: FloatLitExpr = attr.ib(default=None)
+    term_count: NatLitExpr = attr.ib(default=None)
+
+    def __str__(self) -> str:
+        output = str(self.var_1)
+        if self.var_2:
+            output += f", {str(self.var_2)}"
+        if self.prob:
+            output += f", {str(self.prob)}"
+        if self.term_count:
+            output += f", {str(self.term_count)}"
+        return f"!Plot[{output}]"
+
+
+Query = Union[ProbabilityQueryInstr, ExpectationInstr, PlotInstr, PrintInstr, OptimizationQuery]
+"""Union type for all query objects. See :class:`QueryInstr` for use with isinstance."""
+
+
+Instr = Union[SkipInstr, WhileInstr, IfInstr, AsgnInstr, ChoiceInstr, LoopInstr,
+              TickInstr, ObserveInstr, Query]
 """Union type for all instruction objects. See :class:`InstrClass` for use with isinstance."""
+
+
+@attr.s(frozen=True)
+class ProgramConfig:
+    """
+    Some compilation options for programs. Frozen after initialization (cannot
+    be modified).
+
+    At the moment, we only have a flag for the type checker on which types are
+    allowed as program variables.
+    """
+
+    allow_real_vars: bool = attr.ib(default=True)
+    """
+    Whether real numbers are allowed as program values (in computations, or as
+    variables).
+    """
 
 
 @attr.s
@@ -699,6 +942,8 @@ class Program:
     """
     A pGCL program has a bunch of variables with types, constants with defining expressions, and a list of instructions.
     """
+    config: ProgramConfig = attr.ib(repr=False)
+
     declarations: List[Decl] = attr.ib(repr=False)
     """The original list of declarations."""
 
@@ -714,10 +959,16 @@ class Program:
     Only valid if the declarations are well-typed.
     """
 
+    parameters: Dict[Var, Type] = attr.ib()
+    """
+        A dict of parameters to their type.
+        Only valid if the declarations are well-typed.
+    """
+
     instructions: List[Instr] = attr.ib()
 
     @staticmethod
-    def from_parse(declarations: List[Decl],
+    def from_parse(config: ProgramConfig, declarations: List[Decl], parameters: Dict[Var, Type],
                    instructions: List[Instr]) -> "Program":
         """Create a program from the parser's output."""
         variables: Dict[Var, Type] = dict()
@@ -729,7 +980,7 @@ class Program:
             elif isinstance(decl, ConstDecl):
                 constants[decl.var] = decl.value
 
-        return Program(declarations, variables, constants, instructions)
+        return Program(config, declarations, variables, constants, parameters, instructions)
 
     def add_variable(self, var: Var, typ: Type):
         """
@@ -756,7 +1007,9 @@ class Program:
             >>> program.to_skeleton()
             Program(variables={'x': NatType(bounds=None), 'y': NatType(bounds=None)}, constants={}, instructions=[])
         """
-        return Program(declarations=copy.copy(self.declarations),
+        return Program(config=self.config,
+                       declarations=copy.copy(self.declarations),
+                       parameters=copy.copy(self.parameters),
                        variables=copy.copy(self.variables),
                        constants=copy.copy(self.constants),
                        instructions=[])
