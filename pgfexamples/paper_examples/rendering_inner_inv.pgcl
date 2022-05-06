@@ -1,0 +1,11 @@
+nat running;
+nat c;
+nat tmp;
+
+if(running = 1){
+    tmp := c
+    running := 0
+    c := geometric(1/2)
+    c := c + tmp
+    tmp := 0
+} else {skip}

@@ -1,0 +1,16 @@
+nat n;
+nat running;
+nat c;
+nat tmp;
+
+while (n > 0) {
+  running := 1;
+  if(running = 1){
+      tmp := c
+      running := 0
+      c := geometric(1/2)
+      c := c + tmp
+      tmp := 0
+  } else {skip}
+  n := n-1
+}

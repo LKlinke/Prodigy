@@ -1,0 +1,12 @@
+nat c;
+nat n;
+nat tmp;
+nat running;
+
+if(n > 0){
+    tmp := iid(geometric(1/2), n);
+    c := c + tmp
+    n := 0
+    tmp := 0
+    running := 0
+} else {skip}

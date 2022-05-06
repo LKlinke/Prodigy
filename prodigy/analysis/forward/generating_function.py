@@ -793,6 +793,7 @@ class GeneratingFunction(Distribution):
         if self._is_closed_form:
             print(f"\rComputing limit...", end="\r", flush=True)
             func = func.limit(sympy.S(variable), sympy.S(value), "-")
+            print(f"\r                                                                          ", end="\r", flush=True)
             # func = func.subs(sympy.S(variable), sympy.S(value))
         else:
             func = func.subs(sympy.S(variable), sympy.S(value))
@@ -825,6 +826,7 @@ class GeneratingFunction(Distribution):
             if self._is_closed_form:
                 print(f"\rComputing limit(linear transformation)...", end='\r', flush=True)
                 result = result.limit(subst_var, 1, '-')
+                print(f"\r                                                                          ", end="\r", flush=True)
             else:
                 result = result.subs(subst_var, 1)
 

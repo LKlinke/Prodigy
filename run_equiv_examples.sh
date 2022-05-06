@@ -11,3 +11,4 @@ do
     python prodigy/cli.py $@ check_equality $file ${file%".pgcl"}"_invariant.pgcl"
   fi
 done
+
