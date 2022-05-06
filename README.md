@@ -1,6 +1,6 @@
 # Prodigy: PRObability DIstributions via GeneratingfunctionologY
 
-Prodigy is a prototypical tool for the analysis of probabilistic integer programs with `while`-loops. It is based on (probability) generating functions.
+Prodigy is a tool for analyzing probabilistic integer programs with `while`-loops. It is based on (probability) generating functions.
 
 Given an almost-surely terminating loop `while(G) {B}` and a loop-free (specification) program `I` (also called _invariant_), prodigy checks whether `while(G) {B}` and `I` are _equivalent_ programs, i.e., they yield the same output distribution on every possible input distribution.
 
@@ -10,36 +10,26 @@ Does a Program Yield the Right Distribution? Verifying Probabilistic Programs vi
 
 Experiments in the paper are carried out on a 2,4GHz Intel i5 Quad-Core processor with 16GB RAM running macOS Monterey 12.0.1.
 
-
 ## Contents
 
-* Contents of the artifact
-* Loading the Docker image
+* Building & loading the Docker image
 * Smoke test
 * Replicating the results from the paper
 * Running your own example
-* Building the Docker image yourself
 * Supported program syntax
 
-
-## Contents of the artifact
-
-```bash
-AE-CAV22-Prodigy
-├── prodigy.tar.gz   # docker image of Prodigy
-├── paper.pdf        # accepted paper
-├── LICENSE          # Apache-2.0 license
-└── README.md        # well, it's me
-```
-
-## Loading the Docker image
+## Building & loading the Docker image
 
 1. Install Docker (https://www.docker.com/get-started/) in case you do not have it yet.
-2. Lauch a terminal and locate the artifact (e.g., in your home directory):
+2. Checkout the repository on the artifact-evaluation branch:
+    ```bash
+    git clone --single-branch --branch ae https://github.com/LKlinke/prodigy.git
+    ```
+3. Locate the repository and build the docker image:
    ```bash
-   cd ~/AE-CAV22-Prodigy/
+   cd prodigy && make docker-build
    ```
-3. Load the Docker image of Prodigy (~1min):
+4. Load the Docker image of Prodigy (~1min):
    ```bash
    docker image load -i prodigy.tar.gz
    ```
@@ -61,9 +51,9 @@ The structure of the artifact is as follows (`ls -l`).
 
 ## Smoke test
 
-For a quick test to see if everything works you may execute the following steps:
+For a quick test to see if everything works:
 
-4. Run Prodigy via Docker:
+5. Run Prodigy via Docker:
    ```bash
    docker run -it prodigy
    ```
@@ -78,7 +68,7 @@ The equivalence check for Examples #1 - #11 presented in the paper, as well as t
 
 ### Reproducing the results
 
-5. Reproduce the results presented in the paper:
+6. Reproduce the results presented in the paper:
     ```bash
     ./reproduce_results.sh
     ```
@@ -88,10 +78,10 @@ The equivalence check for Examples #1 - #11 presented in the paper, as well as t
 
 Observe that in case of _nested_ or _sequential_ loops (e.g., Example #1, #5, and #11), the invariants (e.g., outer_inv and inner_inv) are verified jointly and thus the timings shall be totaled.
 
-    
 ## Running your own example
 
 To experiment with Prodigy on a customized example, you need to create two files: 1) a program consisting of a single `while`-loop and 2) a loop-free invariant program (the supported syntax is specified further below).
+
 1. Open an editor by typing, e.g., `nano myexample.pgcl`.
 2. Write a program with a single `while`-loop such as
     ```bash
@@ -124,20 +114,6 @@ To experiment with Prodigy on a customized example, you need to create two files
     and confirm your input with `[ENTER]` again.
     
     Similarly you can query probabilities by appending `?Pr[...]` to `myexample.pgcl`.
-
-## Building the Docker image yourself
-
-In case you would like to build your Docker image from the source code:
-
-1. Exit all running Prodigy containers.
-2. Checkout the repository on the artifact-evaluation branch:
-    ```bash
-    git clone --single-branch --branch ae https://github.com/LKlinke/prodigy.git
-    ```
-3. Locate the repository and build the docker image. 
-   ```bash
-   cd prodigy && make docker-build
-   ```
 
 ## Supported program syntax
 
