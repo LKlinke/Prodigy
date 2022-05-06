@@ -16,7 +16,7 @@ from pysmt.shortcuts import (FALSE, LE, LT, TRUE, And, EqualsOrIff, Int, Ite,
 from pysmt.typing import INT
 
 from probably.pgcl.ast import (Binop, BinopExpr, BoolLitExpr, Expr,
-                               FloatLitExpr, NatLitExpr, SubstExpr, Unop,
+                               RealLitExpr, NatLitExpr, SubstExpr, Unop,
                                UnopExpr, VarExpr)
 from probably.pysmt.context import TranslationContext
 
@@ -59,7 +59,7 @@ def expr_to_pysmt(context: TranslationContext,
             return ToReal(Int(expr.value))
         else:
             return Int(expr.value)
-    elif isinstance(expr, FloatLitExpr):
+    elif isinstance(expr, RealLitExpr):
         if expr.is_infinite():
             if not allow_infinity:
                 raise Exception(

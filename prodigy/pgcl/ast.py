@@ -27,7 +27,7 @@ Types
 .. autoclass:: BoolType
 .. autoclass:: NatType
 .. autoclass:: Bounds
-.. autoclass:: FloatType
+.. autoclass:: RealType
 
 Declarations
 ############
@@ -58,7 +58,7 @@ mapping of states to *expected values*: :math:`\Sigma \to \mathbb{R}`.
 .. autoclass:: VarExpr
 .. autoclass:: BoolLitExpr
 .. autoclass:: NatLitExpr
-.. autoclass:: FloatLitExpr
+.. autoclass:: RealLitExpr
 .. autoclass:: Unop
 .. autoclass:: UnopExpr
 .. autoclass:: Binop
@@ -164,11 +164,11 @@ class NatType(TypeClass):
 
 
 @attr.s
-class FloatType(TypeClass):
-    """Floating numbers, used for probabilities."""
+class RealType(TypeClass):
+    """Real numbers, used for probabilities."""
 
 
-Type = Union[BoolType, NatType, FloatType]
+Type = Union[BoolType, NatType, RealType]
 """Union type for all type objects. See :class:`TypeClass` for use with isinstance."""
 
 
@@ -200,8 +200,8 @@ class VarDecl(DeclClass):
             if self.typ.bounds is not None:
                 res += " " + str(self.typ.bounds)
             return res + ";"
-        elif isinstance(self.typ, FloatType):
-            return f"float {self.var};"
+        elif isinstance(self.typ, RealType):
+            return f"real {self.var};"
         raise ValueError(f"invalid type: {self.typ}")
 
 
@@ -228,7 +228,7 @@ class ParameterDecl(DeclClass):
             if self.typ.bounds is not None:
                 res += " " + str(self.typ.bounds)
             return res + ";"
-        elif isinstance(self.typ, FloatType):
+        elif isinstance(self.typ, RealType):
             return f"rparam {self.var};"
         raise ValueError(f"invalid type: {self.typ}")
 
@@ -301,14 +301,14 @@ class NatLitExpr(ExprClass):
         return f'NatLitExpr({self.value})'
 
 
-def _validate_float_lit_value(_object: 'FloatLitExpr', _attribute: Any,
+def _validate_real_lit_value(_object: 'RealLitExpr', _attribute: Any,
                               value: Any):
     if not isinstance(value, Decimal) and not isinstance(value, Fraction):
         raise ValueError(
             f"Expected a Decimal or Fraction value, got: {value!r}")
 
 
-def _parse_float_lit_expr(
+def _parse_real_lit_expr(
         value: Union[str, Decimal, Fraction]) -> Union[Decimal, Fraction]:
     if isinstance(value, str):
         if "/" in value:
@@ -321,7 +321,7 @@ def _parse_float_lit_expr(
 
 
 @attr.s(repr=False, frozen=True)
-class FloatLitExpr(ExprClass):
+class RealLitExpr(ExprClass):
     """
     A decimal literal (used for probabilities) is an expression.
 
@@ -337,20 +337,20 @@ class FloatLitExpr(ExprClass):
         For calculations, please use :meth:`to_fraction()`.
     """
     value: Union[Decimal,
-                 Fraction] = attr.ib(validator=_validate_float_lit_value,
-                                     converter=_parse_float_lit_expr)
+                 Fraction] = attr.ib(validator=_validate_real_lit_value,
+                                     converter=_parse_real_lit_expr)
 
     @staticmethod
-    def infinity() -> 'FloatLitExpr':
+    def infinity() -> 'RealLitExpr':
         """
         Create a new infinite value.
 
         .. doctest::
 
-            >>> FloatLitExpr.infinity().is_infinite()
+            >>> RealLitExpr.infinity().is_infinite()
             True
         """
-        return FloatLitExpr(Decimal('Infinity'))
+        return RealLitExpr(Decimal('Infinity'))
 
     def is_infinite(self):
         """
@@ -365,7 +365,7 @@ class FloatLitExpr(ExprClass):
 
         .. doctest::
 
-            >>> expr = FloatLitExpr("0.1")
+            >>> expr = RealLitExpr("0.1")
             >>> expr.to_fraction()
             Fraction(1, 10)
         """
@@ -378,7 +378,7 @@ class FloatLitExpr(ExprClass):
         return str(self.value)
 
     def __repr__(self) -> str:
-        return f'FloatLitExpr("{str(self.value)}")'
+        return f'RealLitExpr("{str(self.value)}")'
 
 
 class Unop(Enum):
@@ -517,7 +517,7 @@ class DUniformExpr(ExprClass):
     start: 'Expr' = attr.ib()
     end: 'Expr' = attr.ib()
 
-    def distribution(self) -> List[Tuple[FloatLitExpr, NatLitExpr]]:
+    def distribution(self) -> List[Tuple[RealLitExpr, NatLitExpr]]:
         r"""
         Return the distribution of possible values as a list along with
         probabilities. For the uniform distribution, all probabilites are equal
@@ -525,7 +525,7 @@ class DUniformExpr(ExprClass):
         """
         if isinstance(self.start, NatLitExpr) and isinstance(self.end, NatLitExpr):
             width = self.end.value - self.start.value + 1
-            prob = FloatLitExpr(Fraction(1, width))
+            prob = RealLitExpr(Fraction(1, width))
             return [(prob, NatLitExpr(i))
                     for i in range(self.start.value, self.end.value + 1)]
         else:
@@ -536,7 +536,7 @@ class DUniformExpr(ExprClass):
 
 
 def _check_categorical_exprs(_self: "CategoricalExpr", _attribute: Any,
-                             value: List[Tuple["Expr", FloatLitExpr]]):
+                             value: List[Tuple["Expr", RealLitExpr]]):
     probabilities = (prob.to_fraction() for _, prob in value)
     if sum(probabilities) != 1:
         raise ValueError("Probabilities need to sum up to 1!")
@@ -652,10 +652,10 @@ class CategoricalExpr(ExprClass):
     expressions are only allowed as the right-hand side of an assignment
     statement and not somewhere in a nested expression.
     """
-    exprs: List[Tuple["Expr", FloatLitExpr]] = attr.ib(
+    exprs: List[Tuple["Expr", RealLitExpr]] = attr.ib(
         validator=_check_categorical_exprs)
 
-    def distribution(self) -> List[Tuple[FloatLitExpr, "Expr"]]:
+    def distribution(self) -> List[Tuple[RealLitExpr, "Expr"]]:
         r"""
         Return the distribution of possible values as a list along with
         probabilities.
@@ -712,7 +712,7 @@ class TickExpr(ExprClass):
 def expr_str_parens(expr: ExprClass) -> str:
     """Wrap parentheses around an expression, but not for simple expressions."""
     if isinstance(expr,
-                  (VarExpr, BoolLitExpr, NatLitExpr, FloatLitExpr, UnopExpr)):
+                  (VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr)):
         return str(expr)
     else:
         return f'({expr})'
@@ -723,7 +723,7 @@ DistrExpr = Union[DUniformExpr, CUniformExpr, BernoulliExpr, GeometricExpr, Pois
 """ A type combining all sampling expressions"""
 
 
-Expr = Union[VarExpr, BoolLitExpr, NatLitExpr, FloatLitExpr, UnopExpr,
+Expr = Union[VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr,
              BinopExpr, CategoricalExpr, SubstExpr, TickExpr, DistrExpr]
 """Union type for all expression objects. See :class:`ExprClass` for use with isinstance."""
 
@@ -897,7 +897,7 @@ class PrintInstr(InstrClass):
 class PlotInstr(InstrClass):
     var_1: VarExpr = attr.ib()
     var_2: VarExpr = attr.ib(default=None)
-    prob: FloatLitExpr = attr.ib(default=None)
+    prob: RealLitExpr = attr.ib(default=None)
     term_count: NatLitExpr = attr.ib(default=None)
 
     def __str__(self) -> str:

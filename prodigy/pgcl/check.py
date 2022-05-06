@@ -11,8 +11,8 @@ import attr
 from probably.util.ref import Mut
 
 from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
-                  CategoricalExpr, ChoiceInstr, Decl, Expr, FloatLitExpr,
-                  FloatType, IfInstr, Instr, NatLitExpr, NatType, Node,
+                  CategoricalExpr, ChoiceInstr, Decl, Expr, RealLitExpr,
+                  RealType, IfInstr, Instr, NatLitExpr, NatType, Node,
                   Program, SkipInstr, Type, DUniformExpr, Unop, UnopExpr, Var,
                   VarExpr, WhileInstr, ProgramConfig)
 from .walk import Walk, walk_expr
@@ -82,7 +82,7 @@ def get_type(program: Program,
         CheckFail(location=VarExpr('x'), message='variable is not declared')
 
         >>> get_type(program, UnopExpr(Unop.IVERSON, BoolLitExpr(True)))
-        FloatType()
+        RealType()
     """
 
     if isinstance(expr, VarExpr):
@@ -103,8 +103,8 @@ def get_type(program: Program,
     if isinstance(expr, NatLitExpr):
         return NatType(bounds=None)
 
-    if isinstance(expr, FloatLitExpr):
-        return FloatType()
+    if isinstance(expr, RealLitExpr):
+        return RealType()
 
     if isinstance(expr, UnopExpr):
         if check:
@@ -123,7 +123,7 @@ def get_type(program: Program,
             return BoolType()
 
         if expr.operator == Unop.IVERSON:
-            return FloatType()
+            return RealType()
 
     if isinstance(expr, BinopExpr):
         # binops that take boolean operands and return a boolean
@@ -142,7 +142,7 @@ def get_type(program: Program,
         lhs_typ = get_type(program, expr.lhs, check=check)
         if isinstance(lhs_typ, CheckFail):
             return lhs_typ
-        if not isinstance(lhs_typ, (NatType, FloatType)):
+        if not isinstance(lhs_typ, (NatType, RealType)):
             return CheckFail.expected_numeric_got(expr.lhs, lhs_typ)
 
         if check and expr.operator in [
@@ -152,7 +152,7 @@ def get_type(program: Program,
             rhs_typ = get_type(program, expr.rhs, check=check)
             if isinstance(rhs_typ, CheckFail):
                 return rhs_typ
-            if not isinstance(rhs_typ, (NatType, FloatType)):
+            if not isinstance(rhs_typ, (NatType, RealType)):
                 return CheckFail.expected_numeric_got(expr.rhs, rhs_typ)
 
             if not is_compatible(lhs_typ, rhs_typ):
@@ -349,8 +349,8 @@ def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
         prob_type = get_type(program, instr.prob, check=True)
         if isinstance(prob_type, CheckFail):
             return prob_type
-        if not is_compatible(FloatType(), prob_type):
-            return CheckFail.expected_type_got(instr.prob, FloatType(),
+        if not is_compatible(RealType(), prob_type):
+            return CheckFail.expected_type_got(instr.prob, RealType(),
                                                prob_type)
         return _check_instrs(program, instr.lhs, instr.rhs)
 
@@ -375,13 +375,13 @@ def check_expression(program, expr: Expr) -> Optional[CheckFail]:
     .. doctest::
 
         >>> program = Program(ProgramConfig(), list(), dict(), dict(), dict(), list())
-        >>> check_expression(program, FloatLitExpr("1.0"))
+        >>> check_expression(program, RealLitExpr("1.0"))
         CheckFail(location=..., message='A program expression may not return a probability.')
     """
     expr_type = get_type(program, expr, check=True)
     if isinstance(expr_type, CheckFail):
         return expr_type
-    if isinstance(expr_type, FloatType):
+    if isinstance(expr_type, RealType):
         return CheckFail(expr,
                          "A program expression may not return a probability.")
     return None
