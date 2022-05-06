@@ -1,91 +1,145 @@
-Please note: This file is best viewed with a markdown editor.
+# Prodigy: PRObability DIstributions via GeneratingfunctionologY
 
-# prodigy: PRObability DIstributions via GeneratingfunctionologY
-
-prodigy is a prototypical tool for the analysis of probabilistic integer programs with `while`-loops. It is based on (probability) generating functions.
+Prodigy is a prototypical tool for the analysis of probabilistic integer programs with `while`-loops. It is based on (probability) generating functions.
 
 Given an almost-surely terminating loop `while(G) {B}` and a loop-free (specification) program `I` (also called _invariant_), prodigy checks whether `while(G) {B}` and `I` are _equivalent_ programs, i.e., they yield the same output distribution on every possible input distribution.
 
+For more technical details, please refer to our CAV'22 paper:
+> Mingshuai Chen, Joost-Pieter Katoen, Lutz Klinkenberg, Tobias Winkler:
+Does a Program Yield the Right Distribution? Verifying Probabilistic Programs via Generating Functions. In Proc. of CAV'22, to appear (as enclosed in the zipfile).
+
+Experiments in the paper are carried out on a 2,4GHz Intel i5 Quad-Core processor with 16GB RAM running macOS Monterey 12.0.1.
+
+
 ## Contents
 
-1. Booting the VM
-2. Smoke test
-3. Reproducing the examples from the paper
-4. Running your own example
+* Contents of the artifact
+* Loading the Docker image
+* Smoke test
+* Replicating the results from the paper
+* Running your own example
+* Building the Docker image yourself
+* Supported program syntax
 
-## Booting the VM
 
-Download the VM image and open it in your virtualization software. We have tested everything with VirtualBox (https://www.virtualbox.org), using 8GB of RAM.
-The login credentials for the VM are user `CAV` and password `ae`.
+## Contents of the artifact
+
+```bash
+AE-CAV22-Prodigy
+├── prodigy.tar.gz   # docker image of Prodigy
+├── paper.pdf        # accepted paper
+├── LICENSE          # Apache-2.0 license
+└── README.md        # well, it's me
+```
+
+## Loading the Docker image
+
+1. Install Docker (https://www.docker.com/get-started/) in case you do not have it yet.
+2. Lauch a terminal and locate the artifact (e.g., in your home directory):
+   ```bash
+   cd ~/AE-CAV22-Prodigy/
+   ```
+3. Load the Docker image of Prodigy (~1min):
+   ```bash
+   docker image load -i prodigy.tar.gz
+   ```
+   
+The structure of the artifact is as follows (`ls -l`).
+
+```bash
+/root/artifact
+├── docs                   # documentation of Prodigy
+├── pgfexamples            
+|   └── paper_examples     # example pGCL-programs #1 - #11 with their corresponding invariants
+├── prodigy                # source code of Prodigy
+├── tests                  # Prodigy unit tests
+├── load_env.sh            # script for loading the virtual python environment
+├── pyproject.toml         # Prodigy dependencies
+├── reproduce_results.sh   # script for reproducing the results in the paper
+└── ...
+```
 
 ## Smoke test
 
 For a quick test to see if everything works you may execute the following steps:
-* Open a terminal by right-clicking on the desktop.
-* `cd prodigy/frontend/`
-* Run `poetry shell`
-* Run `python probably/cli.py`
 
-You should see the output `Usage: cli.py [OPTIONS] COMMAND [ARGS]...` in the terminal.
-
-## Reproducing the examples from the paper
-
-Our example programs are located in the `~/Desktop/prodigy/frontend/pgfexamples` folder.
-We now describe how you can run our tool on these examples.
-* Open a terminal by right-clicking on the desktop.
-* `cd prodigy/frontend/`
-* Run `poetry shell`
-* Execute `./run_equiv_examples.sh --engine prodigy` to run the single-loop examples from Section 6 and Appendix E of the paper. This should not take more than 1 minute.
-
-> _Hint:_ You can exchange the computer algebra backend with the `--engine` option. Possible alternatives are `prodigy` and `sympy`. The former enables our C++ backend based on the GiNaC package. The latter employs the python computer algebra package sympy. `prodigy` is generally faster than `sympy`.
-
-The examples involving more than one loop, i.e. nested (Example 5) or sequential (Example 11), require some more manual effort:
-* Run `python probably/cli.py --engine prodigy main pgfexamples/nested_while.pgcl` for the nested loop example.
-* When prompted, choose option _[1] Solve using invariants_ by typing `1` in the terminal
-* Specify the outer loop's invariant by typing `pgfexamples/nested_while_inv_outer.pgcl`
-* Choose option _[1] Solve using invariants_ again to specify the second invariant.
-* Specify the inner loop's invariant by typing `pgfexamples/nested_while_inv_inner.pgcl`
-
-Observe that in the case of nested loops, the two invariants are verified jointly once both have been specified.
-
-Next consider the sequential loops example:
-* Run `python probably/cli.py --engine prodigy main pgfexamples/sequential_loops.pgcl` for the sequential loops example.
-* When prompted, choose option _[1] Solve using invariants_ by typing `1` in the terminal
-* Specify the first loop's invariant by typing `pgfexamples/sequential_loops_first_inv.pgcl`
-* Choose option _[1] Solve using invariants_ again to specify the second invariant.
-* Specify the second loop's invariant by typing `pgfexamples/sequential_loops_second_inv.pgcl`
+4. Run Prodigy via Docker:
+   ```bash
+   docker run -it prodigy
+   ```
+You shall see a welcome message by Prodigy and be directed into the Docker container (which can be exited via `exit`).
 
 
+## Replicating the results from the paper
 
+### Reproducible elements in the paper
+
+The equivalence check for Examples #1 - #11 presented in the paper, as well as the corresponding queries (on the output distributions) for Examples #1, #3, and #9.
+
+### Reproducing the results
+
+5. Reproduce the results presented in the paper:
+    ```bash
+    ./reproduce_results.sh
+    ```
+
+
+    > _Note:_ The script uses predefined backends. Prodigy currently supports `ginac` and `sympy`. The former enables our C++ backend based on the GiNaC package. The latter employs the python computer algebra package sympy. `ginac` is generally faster than `sympy`, however for computing queries on final distributions, the current implementation relies on `sympy`.
+
+Observe that in case of _nested_ or _sequential_ loops (e.g., Example #1, #5, and #11), the invariants (e.g., outer_inv and inner_inv) are verified jointly and thus the timings shall be totaled.
+
+    
 ## Running your own example
 
-To experiment with our tool on a custom example, you need to create two files: A program consisting of a single `while`-loop and a loop-free invariant/specification program (the supported syntax is specified further below).
-* In folder `prodigy/frontend/` open an editor by typing e.g. `nano myexample.pgcl`
-* Write a program with a single `while`-loop such as this:
-    ```
+To experiment with Prodigy on a customized example, you need to create two files: 1) a program consisting of a single `while`-loop and 2) a loop-free invariant program (the supported syntax is specified further below).
+1. Open an editor by typing, e.g., `nano myexample.pgcl`.
+2. Write a program with a single `while`-loop such as
+    ```bash
     nat n; nat x;
     while(n > 0) {
         n := n - 1;
         { x := 0; } [1/2] { x := 1; }
     }
     ```
-* The effect of the above program can be summarized as follows: If `n > 0` initially, then `n` is set to zero and `x` is randomly assigned either `0` or `1`. This can be formally verified by writing the following loop-free invariant program (open a new editor by typing `nano myexample_inv.pgcl`):
-    ```
+3. The effect of the above program can be summarized as follows: If `n > 0` initially, then upon termination `n` is set to zero and `x` is randomly assigned either `0` or `1`. This can be formally verified by writing the following loop-free invariant program (e.g., `nano myexample_inv.pgcl`):
+    ```bash
     nat n; nat x;
     if(n > 0) {
         { x := 0; } [1/2] { x := 1; }
         n := 0;
     } else {}
     ```
-* Check using that your invariant is correct using
+4. Check that your invariant is correct via
     ```
-    python probably/cli.py --engine prodigy main myexample.pgcl 
+    python prodigy/cli.py --engine ginac check_equality myexample.pgcl myexample_inv.pgcl 
+    ``` 
+5. Queries can be specified below the `while`-loop itself. Assume that we are interested in the expected value of `x` after termination with initial distribution `n^5`, we can append `?Ex[x]` to the end of `myexample.pgcl` and then invoke Prodigy in the `main` mode:
+    ```bash
+    python prodigy/cli.py main myexample.pgcl "n^5"
     ```
-    and when promted type `1` followed by your invariant file `myexample_inv.pgcl`.
-* Optionally, you can append an input distribution in PGF notation to the above line, e.g. `n^5` (meaning that `n=5` initially with probability 1). The tool will then output the resulting distribution after the loop. In the above example, you should see `1/2 + 1/2*x` which means that `x=0` and `x=1` hold with probability `1/2` each.
+    when prompted press `1` and confirm your input with `[ENTER]`. Now give the path to the invariant       file:
+    ```bash
+    myexample_inv.pgcl
+    ```
+    and confirm your input with `[ENTER]` again.
+    
+    Similarly you can query probabilities by appending `?Pr[...]` to `myexample.pgcl`.
 
+## Building the Docker image yourself
 
-### Supported Grammar
+In case you would like to build your Docker image from the source code:
+
+1. Exit all running Prodigy containers.
+2. Checkout the repository on the artifact-evaluation branch:
+    ```bash
+    git clone --single-branch --branch ae https://github.com/LKlinke/prodigy.git
+    ```
+3. Locate the repository and build the docker image. 
+   ```bash
+   cd prodigy && make docker-build
+   ```
+
+## Supported program syntax
 
 ```
 start: declarations instructions queries
@@ -96,8 +150,6 @@ declarations: declaration* -> declarations
                | "nat" var bounds?           -> nat
                | "real" var bounds?          -> real
                | "const" var ":=" expression -> const
-               | "rparam" var                -> rparam
-               | "nparam" var                -> nparam
                
     bounds: "[" expression "," expression "]"
     instructions: instruction* -> instructions
@@ -109,15 +161,11 @@ declarations: declaration* -> declarations
                | "if" "(" expression ")" block "else"? block -> if
                | var ":=" rvalue                             -> assign
                | block "[" expression "]" block              -> choice
-               | "tick" "(" expression ")"                   -> tick
-               | "observe" "(" expression ")"                -> observe
                | "loop" "(" INT ")" block                    -> loop
     
     query: "?Ex" "[" expression "]"                          -> expectation
                | "?Pr" "[" expression "]"                    -> prquery
                | "!Print"                                    -> print
-               | "!Plot" "[" var ("," var)? ("," literal)?"]"-> plot
-               | "?Opt" "[" expression "," var "," var "]"   -> optimize
                
                
     block: "{" instruction* "}"
