@@ -1,0 +1,9 @@
+nat x;
+nat y;
+nat temp;
+
+
+while (y = 1){
+   {y := 0}[1/2]{x:= x+1}
+   temp := 0
+}
