@@ -10,4 +10,5 @@ while( c > 0 ){
     tmp := 0
 }
 
-?Ex[m]
+?Ex[m^3 + 2*m*n + n^2]
+?Pr[m > 7 &  n < 3]

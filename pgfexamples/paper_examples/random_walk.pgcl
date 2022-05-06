@@ -8,4 +8,4 @@ while(s > 0){
     tmp := 0
 }
 
-//?Ex[c]
+?Ex[c]

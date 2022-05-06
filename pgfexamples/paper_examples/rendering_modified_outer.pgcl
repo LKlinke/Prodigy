@@ -14,3 +14,5 @@ while (n > 0) {
   } else {skip}
   n := n-1
 }
+
+?Ex[c]
