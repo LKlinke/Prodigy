@@ -1,5 +1,9 @@
 # Prodigy: PRObability DIstributions via GeneratingfunctionologY
 
+[![Open Source? Yes!](https://badgen.net/badge/Open%20Source%20%3F/Yes%21/blue?icon=github)](https://github.com/LKlinke/Prodigy/tree/ae)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4725465.svg)](https://doi.org/10.5281/zenodo.6511363)
+[![License](https://img.shields.io/badge/License-Apache_2.0-yellow.svg)](https://github.com/LKlinke/Prodigy/blob/ae/LICENSE)
+
 Prodigy is a tool for analyzing probabilistic integer programs with `while`-loops. It is based on (probability) generating functions.
 
 Given an almost-surely terminating loop `while(G) {B}` and a loop-free (specification) program `I` (also called _invariant_), prodigy checks whether `while(G) {B}` and `I` are _equivalent_ programs, i.e., they yield the same output distribution on every possible input distribution.
