@@ -146,8 +146,8 @@ class Bounds:
 
     The bounds can contain constant expressions, therefore bounds have type :class:`Expr`.
     """
-    lower: "Expr" = attr.ib()
-    upper: "Expr" = attr.ib()
+    lower: Expr = attr.ib()
+    upper: Expr = attr.ib()
 
     def __str__(self) -> str:
         return f"[{self.lower}, {self.upper}]"
@@ -230,7 +230,7 @@ class VarDecl(DeclClass):
 class ConstDecl(DeclClass):
     """A constant declaration with a name and an expression."""
     var: Var = attr.ib()
-    value: "Expr" = attr.ib()
+    value: Expr = attr.ib()
 
     def __str__(self) -> str:
         return f"const {self.var} := {self.value};"
@@ -265,7 +265,7 @@ class ExprClass(Node):
 
     All expressions can be transformed into human-readable strings using the `str` operator.
     """
-    def cast(self) -> "Expr":
+    def cast(self) -> Expr:
         """Cast to Expr. This is sometimes necessary to satisfy the type checker."""
         return self  # type: ignore
 
@@ -322,7 +322,7 @@ class NatLitExpr(ExprClass):
         return f'NatLitExpr({self.value})'
 
 
-def _validate_real_lit_value(_object: 'RealLitExpr', _attribute: Any,
+def _validate_real_lit_value(_object: RealLitExpr, _attribute: Any,
                               value: Any):
     if not isinstance(value, Decimal) and not isinstance(value, Fraction):
         raise ValueError(
@@ -362,7 +362,7 @@ class RealLitExpr(ExprClass):
                                      converter=_parse_real_lit_expr)
 
     @staticmethod
-    def infinity() -> 'RealLitExpr':
+    def infinity() -> RealLitExpr:
         """
         Create a new infinite value.
 
@@ -416,7 +416,7 @@ class Unop(Enum):
 class UnopExpr(ExprClass):
     """A unary operator is an expression."""
     operator: Unop = attr.ib()
-    expr: "Expr" = attr.ib()
+    expr: Expr = attr.ib()
 
     def __str__(self) -> str:
         if self.operator == Unop.NEG:
@@ -472,13 +472,13 @@ class Binop(Enum):
 class BinopExpr(ExprClass):
     """A binary operator is an expression."""
     operator: Binop = attr.ib()
-    lhs: "Expr" = attr.ib()
-    rhs: "Expr" = attr.ib()
+    lhs: Expr = attr.ib()
+    rhs: Expr = attr.ib()
 
     @staticmethod
     def reduce(operator: Binop,
-               iterable: Sequence["Expr"],
-               default: Optional["Expr"] = None) -> "Expr":
+               iterable: Sequence[Expr],
+               default: Optional[Expr] = None) -> Expr:
         """
         Builds a :class:`BinopExpr` using :func:`functools.reduce`.
 
@@ -495,7 +495,7 @@ class BinopExpr(ExprClass):
             assert default is not None
             return default
 
-    def flatten(self) -> List["Expr"]:
+    def flatten(self) -> List[Expr]:
         """
         Return a list of all recursive operands of the same operator.
         This really only makes sense if the operator is associative (see
@@ -512,7 +512,7 @@ class BinopExpr(ExprClass):
         """
         assert self.operator.is_associative()
 
-        def flatten_expr(expr: "Expr") -> List["Expr"]:
+        def flatten_expr(expr: Expr) -> List[Expr]:
             if isinstance(expr, BinopExpr) and expr.operator == self.operator:
                 return flatten_expr(expr.lhs) + flatten_expr(expr.rhs)
             else:
@@ -535,8 +535,8 @@ class DUniformExpr(ExprClass):
     expressions are only allowed as the right-hand side of an assignment
     statement and not somewhere in a nested expression.
     """
-    start: 'Expr' = attr.ib()
-    end: 'Expr' = attr.ib()
+    start: Expr = attr.ib()
+    end: Expr = attr.ib()
 
     def distribution(self) -> List[Tuple[RealLitExpr, NatLitExpr]]:
         r"""
@@ -556,8 +556,8 @@ class DUniformExpr(ExprClass):
         return f'unif({expr_str_parens(self.start)}, {expr_str_parens(self.end)})'
 
 
-def _check_categorical_exprs(_self: "CategoricalExpr", _attribute: Any,
-                             value: List[Tuple["Expr", RealLitExpr]]):
+def _check_categorical_exprs(_self: CategoricalExpr, _attribute: Any,
+                             value: List[Tuple[Expr, RealLitExpr]]):
     probabilities = (prob.to_fraction() for _, prob in value)
     if sum(probabilities) != 1:
         raise ValueError("Probabilities need to sum up to 1!")
@@ -572,8 +572,8 @@ class CUniformExpr(ExprClass):
     expressions are only allowed as the right-hand side of an assignment
     statement and not somewhere in a nested expression.
     """
-    start: 'Expr' = attr.ib()
-    end: 'Expr' = attr.ib()
+    start: Expr = attr.ib()
+    end: Expr = attr.ib()
 
     def __str__(self) -> str:
         return f'unif({expr_str_parens(self.start)}, {expr_str_parens(self.end)})'
@@ -588,7 +588,7 @@ class BernoulliExpr(ExprClass):
     expressions are only allowed as the right-hand side of an assignment
     statement and not somewhere in a nested expression.
     """
-    param: 'Expr' = attr.ib()
+    param: Expr = attr.ib()
 
     def __str__(self) -> str:
         return f'bernoulli({expr_str_parens(self.param)})'
@@ -603,7 +603,7 @@ class GeometricExpr(ExprClass):
     expressions are only allowed as the right-hand side of an assignment
     statement and not somewhere in a nested expression.
     """
-    param: 'Expr' = attr.ib()
+    param: Expr = attr.ib()
 
     def __str__(self) -> str:
         return f'geometric({expr_str_parens(self.param)})'
@@ -618,7 +618,7 @@ class PoissonExpr(ExprClass):
     expressions are only allowed as the right-hand side of an assignment
     statement and not somewhere in a nested expression.
     """
-    param: 'Expr' = attr.ib()
+    param: Expr = attr.ib()
 
     def __str__(self) -> str:
         return f'poisson({expr_str_parens(self.param)})'
@@ -629,7 +629,7 @@ class LogDistExpr(ExprClass):
     """
     Chooses a random logarithmically distributed integer.
     """
-    param: 'Expr' = attr.ib()
+    param: Expr = attr.ib()
 
     def __str__(self) -> str:
         return f'logdist({expr_str_parens(self.param)})'
@@ -644,8 +644,8 @@ class BinomialExpr(ExprClass):
     expressions are only allowed as the right-hand side of an assignment
     statement and not somewhere in a nested expression.
     """
-    n: 'Expr' = attr.ib()
-    p: 'Expr' = attr.ib()
+    n: Expr = attr.ib()
+    p: Expr = attr.ib()
 
     def __str__(self) -> str:
         return f'binomial({expr_str_parens(self.n)}, {expr_str_parens(self.p)})'
@@ -654,7 +654,7 @@ class BinomialExpr(ExprClass):
 @attr.s
 class IidSampleExpr(ExprClass):
     """ Independently sampling from identical distributions"""
-    sampling_dist: 'Expr' = attr.ib()
+    sampling_dist: Expr = attr.ib()
     variable: VarExpr = attr.ib()
 
     def __str__(self) -> str:
@@ -673,10 +673,10 @@ class CategoricalExpr(ExprClass):
     expressions are only allowed as the right-hand side of an assignment
     statement and not somewhere in a nested expression.
     """
-    exprs: List[Tuple["Expr", RealLitExpr]] = attr.ib(
+    exprs: List[Tuple[Expr, RealLitExpr]] = attr.ib(
         validator=_check_categorical_exprs)
 
-    def distribution(self) -> List[Tuple[RealLitExpr, "Expr"]]:
+    def distribution(self) -> List[Tuple[RealLitExpr, Expr]]:
         r"""
         Return the distribution of possible values as a list along with
         probabilities.
@@ -705,8 +705,8 @@ class SubstExpr(ExprClass):
     Substitutions can be applied using the :mod:`probably.pgcl.substitute`
     module.
     """
-    subst: Dict[Var, "Expr"] = attr.ib()
-    expr: "Expr" = attr.ib()
+    subst: Dict[Var, Expr] = attr.ib()
+    expr: Expr = attr.ib()
 
     def __str__(self) -> str:
         substs = ", ".join(
@@ -720,7 +720,7 @@ class TickExpr(ExprClass):
     Generated only by the weakest pre-expectation semantics of
     :class:`TickInstr`.
     """
-    expr: "Expr" = attr.ib()
+    expr: Expr = attr.ib()
 
     def is_zero(self) -> bool:
         """Whether this expression represents exactly zero ticks."""
@@ -751,7 +751,7 @@ Expr = Union[VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr,
 
 class InstrClass(Node):
     """Superclass for all instructions. See :obj:`Instr`."""
-    def cast(self) -> "Instr":
+    def cast(self) -> Instr:
         """Cast to Instr. This is sometimes necessary to satisfy the type checker."""
         return self  # type: ignore
 
@@ -775,7 +775,7 @@ class InstrClass(Node):
         """
 
 
-def _str_block(instrs: List["Instr"]) -> str:
+def _str_block(instrs: List[Instr]) -> str:
     if len(instrs) == 0:
         return "{ }"
     lines = indent("\n".join(map(str, instrs)), "    ")
@@ -793,7 +793,7 @@ class SkipInstr(InstrClass):
 class WhileInstr(InstrClass):
     """A while loop with a condition and a body."""
     cond: Expr = attr.ib()
-    body: List["Instr"] = attr.ib()
+    body: List[Instr] = attr.ib()
 
     def __str__(self) -> str:
         return f"while ({self.cond}) {_str_block(self.body)}"
@@ -803,8 +803,8 @@ class WhileInstr(InstrClass):
 class IfInstr(InstrClass):
     """A conditional expression with two branches."""
     cond: Expr = attr.ib()
-    true: List["Instr"] = attr.ib()
-    false: List["Instr"] = attr.ib()
+    true: List[Instr] = attr.ib()
+    false: List[Instr] = attr.ib()
 
     def __str__(self) -> str:
         if len(self.false) > 0:
@@ -828,8 +828,8 @@ class AsgnInstr(InstrClass):
 class ChoiceInstr(InstrClass):
     """A probabilistic choice instruction with a probability expression and two branches."""
     prob: Expr = attr.ib()
-    lhs: List["Instr"] = attr.ib()
-    rhs: List["Instr"] = attr.ib()
+    lhs: List[Instr] = attr.ib()
+    rhs: List[Instr] = attr.ib()
 
     def __str__(self) -> str:
         return f"{_str_block(self.lhs)} [{self.prob}] {_str_block(self.rhs)}"
@@ -839,7 +839,7 @@ class ChoiceInstr(InstrClass):
 class LoopInstr(InstrClass):
     """ iterating a block a constant amount of times"""
     iterations: NatLitExpr = attr.ib()
-    body: List["Instr"] = attr.ib()
+    body: List[Instr] = attr.ib()
 
     def __str__(self) -> str:
         return f"loop({self.iterations}){_str_block(self.body)}"
@@ -990,7 +990,7 @@ class Program:
 
     @staticmethod
     def from_parse(config: ProgramConfig, declarations: List[Decl], parameters: Dict[Var, Type],
-                   instructions: List[Instr]) -> "Program":
+                   instructions: List[Instr]) -> Program:
         """Create a program from the parser's output."""
         variables: Dict[Var, Type] = dict()
         constants: Dict[Var, Expr] = dict()
@@ -1016,7 +1016,7 @@ class Program:
         self.declarations.append(VarDecl(var, typ))
         self.variables[var] = typ
 
-    def to_skeleton(self) -> 'Program':
+    def to_skeleton(self) -> Program:
         """
         Return a (shallow) copy of this program with just the declarations, but
         without any instructions.
