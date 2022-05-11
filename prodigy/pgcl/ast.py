@@ -116,6 +116,9 @@ Otherwise use corresponding Union types instead.
 
 .. autoclass:: Node
 """
+# Necessary for sphinx to use a union type's name in the docs (instead of always printing the full union type)
+from __future__ import annotations
+
 import copy
 import itertools
 from abc import ABC, abstractmethod
