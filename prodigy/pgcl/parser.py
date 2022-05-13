@@ -98,6 +98,7 @@ _PGCL_GRAMMAR = """
     %import common.WS
 """
 
+# The order of the operators corresponds to their precedence (earlier operators have lower precedence)
 _OPERATOR_TABLE = [[infixl("or", "||")], [infixl("and", "&")],
                    [infixl("leq", "<="),
                     infixl("le", "<"),
