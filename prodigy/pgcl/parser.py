@@ -19,28 +19,34 @@ we collect all `LikelyExpr` and flatten them into a single
 """
 import textwrap
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Optional, Callable
 
 from lark import Lark, Tree
 
+from probably.pgcl.syntax import has_variable
 from probably.pgcl.ast import *
 from probably.pgcl.walk import Walk, walk_expr
 from probably.util.lark_expr_parser import (atom, build_expr_parser, infixl,
-                                            prefix)
+                                            prefix, infixr)
 from probably.util.ref import Mut
 
 _PGCL_GRAMMAR = """
-    start: declarations instructions
+    start: declarations instructions queries
 
     declarations: declaration* -> declarations
 
     declaration: "bool" var                  -> bool
                | "nat" var bounds?           -> nat
+               | "real" var bounds?          -> real
                | "const" var ":=" expression -> const
+               | "rparam" var                -> rparam
+               | "nparam" var                -> nparam
 
     bounds: "[" expression "," expression "]"
 
     instructions: instruction* -> instructions
+
+    queries: query* -> queries
 
     instruction: "skip"                                      -> skip
                | "while" "(" expression ")" block            -> while
@@ -48,24 +54,41 @@ _PGCL_GRAMMAR = """
                | var ":=" rvalue                             -> assign
                | block "[" expression "]" block              -> choice
                | "tick" "(" expression ")"                   -> tick
+               | "observe" "(" expression ")"                -> observe
+               | "loop" "(" INT ")" block                    -> loop
+
+    query: "?Ex" "[" expression "]"                          -> expectation
+               | "?Pr" "[" expression "]"                    -> prquery
+               | "!Print"                                    -> print
+               | "!Plot" "[" var ("," var)? ("," literal)?"]"-> plot
+               | "?Opt" "[" expression "," var "," var "]"   -> optimize
 
 
     block: "{" instruction* "}"
 
-    rvalue: "unif" "(" expression "," expression ")" -> uniform
+    rvalue: "unif_d" "(" expression "," expression ")" -> duniform
+          | "unif" "(" expression "," expression ")" -> duniform
+          | "unif_c" "(" expression "," expression ")" -> cuniform
+          | "geometric" "(" expression ")" -> geometric
+          | "poisson" "(" expression ")" -> poisson
+          | "logdist" "(" expression ")" -> logdist
+          | "binomial" "(" expression "," expression ")" -> binomial
+          | "bernoulli" "(" expression ")" -> bernoulli
+          | "iid" "(" rvalue "," var ")" -> iid
           | expression
 
     literal: "true"  -> true
            | "false" -> false
            | INT     -> nat
-           | FLOAT   -> float
+           | FLOAT   -> real
            | "∞"     -> infinity
            | "\\infty" -> infinity
 
     var: CNAME
 
+
     %ignore /#.*$/m
-    %ignore /\\/\\/.*$/m
+    %ignore /\/\/.*$/m
     %ignore WS
     %ignore ";"
 
@@ -78,10 +101,12 @@ _PGCL_GRAMMAR = """
 _OPERATOR_TABLE = [[infixl("or", "||")], [infixl("and", "&")],
                    [infixl("leq", "<="),
                     infixl("le", "<"),
+                    infixl("ge", ">"),
+                    infixl("geq", ">="),
                     infixl("eq", "=")],
                    [infixl("plus", "+"),
-                    infixl("minus", "-")], [infixl("times", "*")],
-                   [infixl("likely", ":")], [infixl("divide", "/")],
+                    infixl("minus", "-")], [infixl("times", "*"), infixl("divide", "/")], [infixr("power", "^")],
+                   [infixl("likely", ":")], [infixl("mod", "%")],
                    [
                        prefix("neg", "not "),
                        atom("parens", '"(" expression ")"'),
@@ -107,6 +132,18 @@ _doc_parser_grammar.__doc__ = "The Lark grammar for pGCL::\n" + _PGCL_GRAMMAR + 
 
 # Collect parameter information here.
 parameters: Dict[Var, Type] = dict()
+
+# All known distribution types. Dictionary entry contains the token name as key.
+# Also the value of a given gey is a tuple consisting of the number of parameters and the Class name (constructor call)
+distributions: Dict[str, Tuple[int, Callable]] = {
+    "duniform": (2, DUniformExpr),
+    "cuniform": (2, CUniformExpr),
+    "geometric": (1, GeometricExpr),
+    "poisson": (1, PoissonExpr),
+    "logdist": (1, LogDistExpr),
+    "bernoulli": (1, BernoulliExpr),
+    "binomial": (2, BinomialExpr)
+}
 
 
 @attr.s
@@ -169,8 +206,16 @@ def _parse_declaration(t: Tree) -> Decl:
         return VarDecl(var0(), BoolType())
     elif t.data == "nat":
         return VarDecl(var0(), NatType(_parse_bounds(opt_child1())))
+    elif t.data == "real":
+        return VarDecl(var0(), RealType())
     elif t.data == "const":
         return ConstDecl(var0(), _parse_expr(_child_tree(t, 1)))
+    elif t.data == "rparam":
+        parameters[var0()] = RealType()
+        return ParameterDecl(var0(), RealType())
+    elif t.data == "nparam":
+        parameters[var0()] = NatType(bounds=None)
+        return ParameterDecl(var0(), NatType(bounds=None))
     else:
         raise Exception(f'invalid AST: {t.data}')
 
@@ -190,7 +235,8 @@ def _parse_expr(t: Tree) -> Expr:
     if t.data == 'literal':
         return _parse_literal(_child_tree(t, 0))
     elif t.data == 'var':
-        return VarExpr(_parse_var(_child_tree(t, 0)))
+        name = _parse_var(_child_tree(t, 0))
+        return VarExpr(name, name in parameters)
     elif t.data == 'or':
         return BinopExpr(Binop.OR, expr0(), expr1())
     elif t.data == 'and':
@@ -199,6 +245,10 @@ def _parse_expr(t: Tree) -> Expr:
         return BinopExpr(Binop.LEQ, expr0(), expr1())
     elif t.data == 'le':
         return BinopExpr(Binop.LE, expr0(), expr1())
+    elif t.data == 'geq':
+        return BinopExpr(Binop.GEQ, expr0(), expr1())
+    elif t.data == 'ge':
+        return BinopExpr(Binop.GE, expr0(), expr1())
     elif t.data == 'eq':
         return BinopExpr(Binop.EQ, expr0(), expr1())
     elif t.data == 'plus':
@@ -207,6 +257,10 @@ def _parse_expr(t: Tree) -> Expr:
         return BinopExpr(Binop.MINUS, expr0(), expr1())
     elif t.data == 'times':
         return BinopExpr(Binop.TIMES, expr0(), expr1())
+    elif t.data == 'power':
+        return BinopExpr(Binop.POWER, expr0(), expr1())
+    elif t.data == 'mod':
+        return BinopExpr(Binop.MODULO, expr0(), expr1())
     elif t.data == 'divide':
         return _parse_fraction(expr0(), expr1())
     elif t.data == 'likely':
@@ -241,7 +295,7 @@ def _parse_literal(t: Tree) -> Expr:
         return BoolLitExpr(False)
     elif t.data == 'nat':
         return NatLitExpr(int(_child_str(t, 0)))
-    elif t.data == 'float':
+    elif t.data == 'real':
         return RealLitExpr(Decimal(_child_str(t, 0)))
     elif t.data == 'infinity':
         return RealLitExpr.infinity()
@@ -249,15 +303,25 @@ def _parse_literal(t: Tree) -> Expr:
         raise Exception(f'invalid AST: {t.data}')
 
 
+def _parse_distribution(t: Tree) -> Expr:
+    assert t.data in distributions
+    param_count, constructor = distributions[t.data]
+    params = []
+    for i in range(param_count):
+        param = _parse_expr(_child_tree(t, i))
+        if has_variable(param):
+            raise SyntaxError(
+                "In distribution parameter expressions, no variables are allowed. - Forgot parameter declaration?")
+        params.append(param)
+    return constructor(*params)
+
+
 def _parse_rvalue(t: Tree) -> Expr:
-    if t.data == 'uniform':
-        start = _parse_expr(_child_tree(t, 0))
-        if not isinstance(start, NatLitExpr):
-            raise Exception(f"{start} is not a natural number")
-        end = _parse_expr(_child_tree(t, 1))
-        if not isinstance(end, NatLitExpr):
-            raise Exception(f"{end} is not a natural number")
-        return DUniformExpr(start, end)
+    if t.data in distributions:
+        return _parse_distribution(t)
+
+    elif t.data == "iid":
+        return IidSampleExpr(_parse_rvalue(_child_tree(t, 0)), VarExpr(_parse_var(_child_tree(t, 1))))
 
     # otherwise we have an expression, but it may contain _LikelyExprs, which we
     # need to parse.
@@ -300,6 +364,9 @@ def _parse_instr(t: Tree) -> Instr:
                        _parse_instrs(_child_tree(t, 1)),
                        _parse_instrs(_child_tree(t, 2)))
     elif t.data == 'assign':
+        variable = _parse_var(_child_tree(t, 0))
+        if variable in parameters:
+            raise SyntaxError("Parameters must not be assigned a new value.")
         return AsgnInstr(_parse_var(_child_tree(t, 0)),
                          _parse_rvalue(_child_tree(t, 1)))
     elif t.data == 'choice':
@@ -308,6 +375,10 @@ def _parse_instr(t: Tree) -> Instr:
                            _parse_instrs(_child_tree(t, 2)))
     elif t.data == 'tick':
         return TickInstr(_parse_expr(_child_tree(t, 0)))
+    elif t.data == 'observe':
+        return ObserveInstr(_parse_expr(_child_tree(t, 0)))
+    elif t.data == 'loop':
+        return LoopInstr(NatLitExpr(value=int(t.children[0])), _parse_instrs(_child_tree(t, 1)))
     else:
         raise Exception(f'invalid AST: {t.data}')
 
@@ -317,16 +388,80 @@ def _parse_instrs(t: Tree) -> List[Instr]:
     return [_parse_instr(_as_tree(t)) for t in t.children]
 
 
+def _parse_queries(t: Tree) -> List[Instr]:
+    assert t.data == "queries"
+    return [_parse_query(_as_tree(t)) for t in t.children]
+
+
+def _parse_query(t: Tree):
+    if t.data == 'expectation':
+        return ExpectationInstr(_parse_expr(_child_tree(t, 0)))
+    elif t.data == 'prquery':
+        return ProbabilityQueryInstr(_parse_expr(_child_tree(t, 0)))
+    elif t.data == 'print':
+        return PrintInstr()
+    elif t.data == 'optimize':
+        mode = _parse_var(_child_tree(t, 2))
+        if mode == "MAX":
+            opt_type = OptimizationType.MAXIMIZE
+        elif mode == "MIN":
+            opt_type = OptimizationType.MINIMIZE
+        else:
+            raise SyntaxError(f"The Optimization can either be 'MAX' or 'MIN', but not {mode}")
+        parameter = _parse_var(_child_tree(t, 1))
+        if parameter not in parameters:
+            raise SyntaxError(
+                f"In Optimization queries, the variable can only be a program parameter, was {parameter}.")
+        return OptimizationQuery(_parse_expr(_child_tree(t, 0)), parameter, opt_type)
+    elif t.data == "plot":
+        if len(t.children) == 3:
+            lit = _parse_literal(_child_tree(t, 2))
+            if isinstance(lit, BoolLitExpr):
+                raise SyntaxError("Plot instructions cannot handle boolean literals as arguments")
+            if t.children[2].data == 'real' or t.children[2].data == 'infinity':
+                return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
+                                 VarExpr(_parse_var(_child_tree(t, 1))),
+                                 prob=lit)
+            else:
+                return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
+                                 VarExpr(_parse_var(_child_tree(t, 1))),
+                                 term_count=lit)
+        elif len(t.children) == 2:
+            if t.children[1].data == 'real':
+                lit = _parse_literal(_child_tree(t, 1))
+                return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
+                                 prob=lit)
+            elif t.children[1].data == 'nat':
+                lit = _parse_literal(_child_tree(t, 1))
+                return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
+                                 term_count=lit)
+            elif t.children[1].data == 'infinity':
+                lit = _parse_literal(_child_tree(t, 1))
+                return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
+                                 prob=lit)
+            elif t.children[1].data == 'true' or t.children[1].data == 'false':
+                raise SyntaxError("Plot instruction does not support boolean operators")
+            else:
+                return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
+                                 VarExpr(_parse_var(_child_tree(t, 1))),
+                                 )
+        else:
+            return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))))
+    else:
+        raise Exception(f'invalid AST: {t.data}')
+
+
 def _parse_program(config: ProgramConfig, t: Tree) -> Program:
     assert t.data == 'start'
     declarations = _parse_declarations(_child_tree(t, 0))
     instructions = _parse_instrs(_child_tree(t, 1))
+    instructions.extend(_parse_queries(_child_tree(t, 2)))
     return Program.from_parse(config, declarations, parameters, instructions)
 
 
 def parse_pgcl(code: str, config: ProgramConfig = ProgramConfig()) -> Program:
     """
-    Parse a pGCL program.
+    Parse a pGCL program with an optional :py:class:`probably.pgcl.ast.ProgramConfig`.
 
     .. doctest::
 
