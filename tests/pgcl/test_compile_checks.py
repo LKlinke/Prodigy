@@ -5,7 +5,6 @@ from probably.pgcl.check import CheckFail
 from probably.pgcl.compiler import compile_pgcl
 
 
-@pytest.mark.xfail(reason="temporary")
 def test_uniform_checks():
     program = compile_pgcl("nat x; x := unif(13, 6.0);")
     assert isinstance(program, CheckFail)
