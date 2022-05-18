@@ -312,6 +312,8 @@ def _parse_distribution(t: Tree) -> Expr:
         if has_variable(param):
             raise SyntaxError(
                 "In distribution parameter expressions, no variables are allowed. - Forgot parameter declaration?")
+        if (not isinstance(param, NatLitExpr)) and (not isinstance(param, VarExpr)):
+            raise SyntaxError("Only parameters and natural numbers are allowed as distribution parameters")
         params.append(param)
     return constructor(*params)
 
