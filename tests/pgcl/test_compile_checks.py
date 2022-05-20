@@ -6,9 +6,6 @@ from probably.pgcl.compiler import compile_pgcl
 
 
 def test_uniform_checks():
-    program = compile_pgcl("nat x; x := unif(13, 6.0);")
-    assert isinstance(program, CheckFail)
-
     with pytest.raises(UnexpectedCharacters) as excinfo:
         compile_pgcl("nat x; x := x + unif(13, 6);")
 
