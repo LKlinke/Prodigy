@@ -456,8 +456,7 @@ def _parse_query(t: Tree):
 
 def _parse_program(config: ProgramConfig, t: Tree) -> Program:
     assert t.data == 'start'
-    global _parameters
-    _parameters = {}
+    globals()['_parameters'] = {}
     declarations = _parse_declarations(_child_tree(t, 0))
     instructions = _parse_instrs(_child_tree(t, 1))
     instructions.extend(_parse_queries(_child_tree(t, 2)))

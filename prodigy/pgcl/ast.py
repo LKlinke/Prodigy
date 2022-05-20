@@ -550,7 +550,7 @@ class DUniformExpr(ExprClass):
             return [(prob, NatLitExpr(i))
                     for i in range(self.start.value, self.end.value + 1)]
         else:
-            NotImplementedError("Parameters not implemented yet.")
+            raise NotImplementedError("Parameters not implemented yet.")
 
     def __str__(self) -> str:
         return f'unif({expr_str_parens(self.start)}, {expr_str_parens(self.end)})'

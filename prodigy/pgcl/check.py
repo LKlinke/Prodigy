@@ -10,6 +10,7 @@ import attr
 
 from probably.util.ref import Mut
 
+#pylint: disable=unused-import
 from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
                   CategoricalExpr, ChoiceInstr, Decl, Expr, RealLitExpr,
                   RealType, IfInstr, Instr, NatLitExpr, NatType, Node,
