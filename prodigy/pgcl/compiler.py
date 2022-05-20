@@ -13,7 +13,7 @@ If you want them, linearity checks live in :mod:`probably.pgcl.syntax`.
 
 from typing import Union
 
-import probably.pgcl.substitute as substitute
+from probably.pgcl import substitute
 from probably.util.ref import Mut
 
 from .ast import Expr, Program

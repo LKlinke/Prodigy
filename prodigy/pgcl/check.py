@@ -269,7 +269,7 @@ def _check_declaration_list(program: Program) -> Optional[CheckFail]:
         >>> _check_declaration_list(program)
         CheckFail(location=..., message='Already declared variable/constant before.')
     """
-    declared: Dict[Var, Decl] = dict()
+    declared: Dict[Var, Decl] = {}
     for decl in program.declarations:
         if declared.get(decl.var) is not None:
             return CheckFail(decl,

@@ -23,7 +23,7 @@ from typing import List, Optional, Callable
 
 from lark import Lark, Tree
 
-from probably.pgcl.syntax import has_variable
+from probably.pgcl.syntax import _has_variable
 from probably.pgcl.ast import *
 from probably.pgcl.walk import Walk, walk_expr
 from probably.util.lark_expr_parser import (atom, build_expr_parser, infixl,
@@ -88,7 +88,7 @@ _PGCL_GRAMMAR = """
 
 
     %ignore /#.*$/m
-    %ignore /\/\/.*$/m
+    %ignore /\\/\\/.*$/m
     %ignore WS
     %ignore ";"
 
@@ -98,7 +98,6 @@ _PGCL_GRAMMAR = """
     %import common.WS
 """
 
-# The order of the operators corresponds to their precedence (earlier operators have lower precedence)
 _OPERATOR_TABLE = [[infixl("or", "||")], [infixl("and", "&")],
                    [infixl("leq", "<="),
                     infixl("le", "<"),
@@ -114,6 +113,10 @@ _OPERATOR_TABLE = [[infixl("or", "||")], [infixl("and", "&")],
                        atom("literal", "literal"),
                        atom("var", "var")
                    ]]
+"""
+The order of the operators corresponds to their precedence (earlier operators have lower precedence).
+See also: :module:`probably.util.lark_expr_parser`
+"""
 
 _PGCL_GRAMMAR += "\n" + textwrap.indent(
     build_expr_parser(_OPERATOR_TABLE, "expression"), '    ')
@@ -131,7 +134,7 @@ _doc_parser_grammar.__doc__ = "The Lark grammar for pGCL::\n" + _PGCL_GRAMMAR + 
 
 
 # Collect parameter information here.
-parameters: Dict[Var, Type] = dict()
+_parameters: Dict[Var, Type] = {}
 
 # All known distribution types. Dictionary entry contains the token name as key.
 # Also the value of a given gey is a tuple consisting of the number of parameters and the Class name (constructor call)
@@ -211,10 +214,10 @@ def _parse_declaration(t: Tree) -> Decl:
     elif t.data == "const":
         return ConstDecl(var0(), _parse_expr(_child_tree(t, 1)))
     elif t.data == "rparam":
-        parameters[var0()] = RealType()
+        _parameters[var0()] = RealType()
         return ParameterDecl(var0(), RealType())
     elif t.data == "nparam":
-        parameters[var0()] = NatType(bounds=None)
+        _parameters[var0()] = NatType(bounds=None)
         return ParameterDecl(var0(), NatType(bounds=None))
     else:
         raise Exception(f'invalid AST: {t.data}')
@@ -236,7 +239,7 @@ def _parse_expr(t: Tree) -> Expr:
         return _parse_literal(_child_tree(t, 0))
     elif t.data == 'var':
         name = _parse_var(_child_tree(t, 0))
-        return VarExpr(name, name in parameters)
+        return VarExpr(name, name in _parameters)
     elif t.data == 'or':
         return BinopExpr(Binop.OR, expr0(), expr1())
     elif t.data == 'and':
@@ -309,7 +312,7 @@ def _parse_distribution(t: Tree) -> Expr:
     params = []
     for i in range(param_count):
         param = _parse_expr(_child_tree(t, i))
-        if has_variable(param):
+        if _has_variable(param):
             raise SyntaxError(
                 "In distribution parameter expressions, no variables are allowed. - Forgot parameter declaration?")
         params.append(param)
@@ -365,7 +368,7 @@ def _parse_instr(t: Tree) -> Instr:
                        _parse_instrs(_child_tree(t, 2)))
     elif t.data == 'assign':
         variable = _parse_var(_child_tree(t, 0))
-        if variable in parameters:
+        if variable in _parameters:
             raise SyntaxError("Parameters must not be assigned a new value.")
         return AsgnInstr(_parse_var(_child_tree(t, 0)),
                          _parse_rvalue(_child_tree(t, 1)))
@@ -407,18 +410,18 @@ def _parse_query(t: Tree):
         elif mode == "MIN":
             opt_type = OptimizationType.MINIMIZE
         else:
-            raise SyntaxError(f"The Optimization can either be 'MAX' or 'MIN', but not {mode}")
+            raise SyntaxError(f"The optimization can either be 'MAX' or 'MIN', but not {mode}")
         parameter = _parse_var(_child_tree(t, 1))
-        if parameter not in parameters:
+        if parameter not in _parameters:
             raise SyntaxError(
-                f"In Optimization queries, the variable can only be a program parameter, was {parameter}.")
+                f"In optimization queries, the variable can only be a program parameter, was {parameter}.")
         return OptimizationQuery(_parse_expr(_child_tree(t, 0)), parameter, opt_type)
     elif t.data == "plot":
         if len(t.children) == 3:
             lit = _parse_literal(_child_tree(t, 2))
             if isinstance(lit, BoolLitExpr):
                 raise SyntaxError("Plot instructions cannot handle boolean literals as arguments")
-            if t.children[2].data == 'real' or t.children[2].data == 'infinity':
+            if t.children[2].data in ('real', 'infinity'):
                 return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
                                  VarExpr(_parse_var(_child_tree(t, 1))),
                                  prob=lit)
@@ -439,7 +442,7 @@ def _parse_query(t: Tree):
                 lit = _parse_literal(_child_tree(t, 1))
                 return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
                                  prob=lit)
-            elif t.children[1].data == 'true' or t.children[1].data == 'false':
+            elif t.children[1].data in ('true', 'false'):
                 raise SyntaxError("Plot instruction does not support boolean operators")
             else:
                 return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
@@ -456,7 +459,7 @@ def _parse_program(config: ProgramConfig, t: Tree) -> Program:
     declarations = _parse_declarations(_child_tree(t, 0))
     instructions = _parse_instrs(_child_tree(t, 1))
     instructions.extend(_parse_queries(_child_tree(t, 2)))
-    return Program.from_parse(config, declarations, parameters, instructions)
+    return Program.from_parse(config, declarations, _parameters, instructions)
 
 
 def parse_pgcl(code: str, config: ProgramConfig = ProgramConfig()) -> Program:

@@ -244,7 +244,7 @@ class ParameterDecl(DeclClass):
     def __str__(self) -> str:
         if isinstance(self.typ, BoolType):
             raise SyntaxError("A parameter cannot be of BoolType.")
-        elif isinstance(self.typ, NatType):
+        if isinstance(self.typ, NatType):
             res = f"nparam {self.var}"
             if self.typ.bounds is not None:
                 res += " " + str(self.typ.bounds)
@@ -837,7 +837,7 @@ class ChoiceInstr(InstrClass):
 
 @attr.s
 class LoopInstr(InstrClass):
-    """ iterating a block a constant amount of times"""
+    """Iterating a block a constant amount of times."""
     iterations: NatLitExpr = attr.ib()
     body: List[Instr] = attr.ib()
 
@@ -866,7 +866,7 @@ class ObserveInstr(InstrClass):
     Updates the current distribution according to the observation (forward analysis only).
     May result in an error if the observed condition has probability zero.
 
-    The type of ``expr`` must be :class:`BoolType`.
+    The type of ``cond`` must be :class:`BoolType`.
     """
     cond: Expr = attr.ib()
 
@@ -877,7 +877,7 @@ class ObserveInstr(InstrClass):
 @attr.s
 class ExpectationInstr(InstrClass):
     """
-    Allows for expectation queries inside of a pgcl program.
+    Allows for expectation queries inside of a pGCL program.
     """
     expr: Expr = attr.ib()
 
@@ -911,7 +911,7 @@ class ProbabilityQueryInstr(InstrClass):
 @attr.s
 class PrintInstr(InstrClass):
     def __str__(self) -> str:
-        return f"!Print;"
+        return "!Print;"
 
 
 @attr.s
@@ -992,8 +992,8 @@ class Program:
     def from_parse(config: ProgramConfig, declarations: List[Decl], parameters: Dict[Var, Type],
                    instructions: List[Instr]) -> Program:
         """Create a program from the parser's output."""
-        variables: Dict[Var, Type] = dict()
-        constants: Dict[Var, Expr] = dict()
+        variables: Dict[Var, Type] = {}
+        constants: Dict[Var, Expr] = {}
 
         for decl in declarations:
             if isinstance(decl, VarDecl):
