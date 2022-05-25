@@ -119,7 +119,7 @@ Otherwise use corresponding Union types instead.
 
 Var = str
 
-# pylint: disable=wrong-import-position
+# pylint: disable=wrong-import-position, cyclic-import
 from .declarations import VarDecl, ConstDecl, ParameterDecl, Decl, Bounds
 from .expressions import VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, BinopExpr, UnopExpr, \
     SubstExpr, CategoricalExpr, TickExpr, DUniformExpr, CUniformExpr, GeometricExpr, PoissonExpr, LogDistExpr, \

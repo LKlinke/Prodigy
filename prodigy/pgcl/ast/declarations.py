@@ -6,6 +6,8 @@ import attr
 from .expressions import Expr
 from .ast import Node
 from . import Var
+# pylint: disable = cyclic-import
+# this is not actually a problem, as the types module only accesses Bounds, which doesn't access types
 from .types import Type, BoolType, NatType, RealType
 
 @attr.s
