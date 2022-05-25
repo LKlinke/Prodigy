@@ -6,22 +6,8 @@ import attr
 from .expressions import Expr
 from .ast import Node
 from . import Var
-# pylint: disable = cyclic-import
-# this is not actually a problem, as the types module only accesses Bounds, which doesn't access types
 from .types import Type, BoolType, NatType, RealType
 
-@attr.s
-class Bounds:
-    """
-    Bounds for a natural number type.
-
-    The bounds can contain constant expressions, therefore bounds have type :class:`Expr`.
-    """
-    lower: Expr = attr.ib()
-    upper: Expr = attr.ib()
-
-    def __str__(self) -> str:
-        return f"[{self.lower}, {self.upper}]"
 
 class DeclClass(Node):
     """Superclass for all declarations. See :obj:`Decl`."""
@@ -32,6 +18,7 @@ class DeclClass(Node):
 
         .. doctest::
 
+            >>> from .types import Bounds
             >>> str(VarDecl('x', NatType(Bounds(1, 10))))
             'nat x [1, 10];'
         """

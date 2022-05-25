@@ -3,8 +3,23 @@ from __future__ import annotations
 from typing import Optional, Union
 import attr
 
-from probably.pgcl.ast import declarations
 from .ast import Node
+from .expressions import Expr
+
+
+@attr.s
+class Bounds:
+    """
+    Bounds for a natural number type.
+
+    The bounds can contain constant expressions, therefore bounds have type :class:`Expr`.
+    """
+    lower: Expr = attr.ib()
+    upper: Expr = attr.ib()
+
+    def __str__(self) -> str:
+        return f"[{self.lower}, {self.upper}]"
+
 
 @attr.s
 class TypeClass(Node):
@@ -34,7 +49,7 @@ class NatType(TypeClass):
         NatType(bounds=None)
     """
 
-    bounds: Optional[declarations.Bounds] = attr.ib()
+    bounds: Optional[Bounds] = attr.ib()
 
 
 @attr.s
