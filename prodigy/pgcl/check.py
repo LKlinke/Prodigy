@@ -16,7 +16,7 @@ from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
                   RealType, IfInstr, Instr, NatLitExpr, NatType, Node,
                   Program, SkipInstr, Type, DUniformExpr, Unop, UnopExpr, Var,
                   VarExpr, WhileInstr, ProgramConfig)
-from .walk import Walk, walk_expr
+from .ast.walk import Walk, walk_expr
 
 _T = TypeVar('_T')
 

@@ -93,7 +93,7 @@ import attr
 from probably.util.ref import Mut
 
 from .ast import Expr, ExprClass, Program, SubstExpr, Var, VarExpr
-from .walk import (Walk, mut_expr_children, mut_instr_exprs, walk_expr,
+from .ast.walk import (Walk, mut_expr_children, mut_instr_exprs, walk_expr,
                    walk_instrs)
 
 

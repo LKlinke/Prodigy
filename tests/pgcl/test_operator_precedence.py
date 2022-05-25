@@ -1,6 +1,8 @@
 from probably.pgcl.parser import parse_pgcl
 from probably.pgcl.ast import *
 from pytest import raises
+from decimal import Decimal
+from fractions import Fraction
 
 def test_all_operators():
     program = parse_pgcl("""

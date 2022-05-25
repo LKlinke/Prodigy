@@ -19,13 +19,15 @@ we collect all `LikelyExpr` and flatten them into a single
 """
 import textwrap
 from decimal import Decimal
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, Dict, Tuple, Union
+from fractions import Fraction
 
+import attr
 from lark import Lark, Tree
 
 from probably.pgcl.syntax import _has_variable
 from probably.pgcl.ast import *
-from probably.pgcl.walk import Walk, walk_expr
+from probably.pgcl.ast.walk import Walk, walk_expr
 from probably.util.lark_expr_parser import (atom, build_expr_parser, infixl,
                                             prefix, infixr)
 from probably.util.ref import Mut
