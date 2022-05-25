@@ -383,6 +383,7 @@ def _parse_instr(t: Tree) -> Instr:
     elif t.data == 'observe':
         return ObserveInstr(_parse_expr(_child_tree(t, 0)))
     elif t.data == 'loop':
+        assert isinstance(t.children[0], str)
         return LoopInstr(NatLitExpr(value=int(t.children[0])), _parse_instrs(_child_tree(t, 1)))
     else:
         raise Exception(f'invalid AST: {t.data}')
@@ -423,25 +424,32 @@ def _parse_query(t: Tree):
             lit = _parse_literal(_child_tree(t, 2))
             if isinstance(lit, BoolLitExpr):
                 raise SyntaxError("Plot instructions cannot handle boolean literals as arguments")
+            assert isinstance(t.children[2], Tree)
             if t.children[2].data in ('real', 'infinity'):
+                assert isinstance(lit, RealLitExpr)
                 return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
                                  VarExpr(_parse_var(_child_tree(t, 1))),
                                  prob=lit)
             else:
+                assert isinstance(lit, NatLitExpr)
                 return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
                                  VarExpr(_parse_var(_child_tree(t, 1))),
                                  term_count=lit)
         elif len(t.children) == 2:
+            assert isinstance(t.children[1], Tree)
             if t.children[1].data == 'real':
                 lit = _parse_literal(_child_tree(t, 1))
+                assert isinstance(lit, RealLitExpr)
                 return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
                                  prob=lit)
             elif t.children[1].data == 'nat':
                 lit = _parse_literal(_child_tree(t, 1))
+                assert isinstance(lit, NatLitExpr)
                 return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
                                  term_count=lit)
             elif t.children[1].data == 'infinity':
                 lit = _parse_literal(_child_tree(t, 1))
+                assert isinstance(lit, RealLitExpr)
                 return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
                                  prob=lit)
             elif t.children[1].data in ('true', 'false'):
