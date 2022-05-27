@@ -25,7 +25,6 @@ from fractions import Fraction
 import attr
 from lark import Lark, Tree
 
-from probably.pgcl.syntax import _has_variable
 from probably.pgcl.ast import *
 from probably.pgcl.ast.walk import Walk, walk_expr
 from probably.util.lark_expr_parser import (atom, build_expr_parser, infixl,
@@ -135,9 +134,6 @@ def _doc_parser_grammar():
 _doc_parser_grammar.__doc__ = "The Lark grammar for pGCL::\n" + _PGCL_GRAMMAR + "\n\nThis function only exists for documentation purposes and should never be called in code."
 
 
-# Collect parameter information here.
-_parameters: Dict[Var, Type] = {}
-
 # All known distribution types. Dictionary entry contains the token name as key.
 # Also the value of a given gey is a tuple consisting of the number of parameters and the Class name (constructor call)
 distributions: Dict[str, Tuple[int, Callable]] = {
@@ -216,10 +212,8 @@ def _parse_declaration(t: Tree) -> Decl:
     elif t.data == "const":
         return ConstDecl(var0(), _parse_expr(_child_tree(t, 1)))
     elif t.data == "rparam":
-        _parameters[var0()] = RealType()
         return ParameterDecl(var0(), RealType())
     elif t.data == "nparam":
-        _parameters[var0()] = NatType(bounds=None)
         return ParameterDecl(var0(), NatType(bounds=None))
     else:
         raise Exception(f'invalid AST: {t.data}')
@@ -241,7 +235,7 @@ def _parse_expr(t: Tree) -> Expr:
         return _parse_literal(_child_tree(t, 0))
     elif t.data == 'var':
         name = _parse_var(_child_tree(t, 0))
-        return VarExpr(name, name in _parameters)
+        return VarExpr(name)
     elif t.data == 'or':
         return BinopExpr(Binop.OR, expr0(), expr1())
     elif t.data == 'and':
@@ -314,9 +308,6 @@ def _parse_distribution(t: Tree) -> Expr:
     params = []
     for i in range(param_count):
         param = _parse_expr(_child_tree(t, i))
-        if _has_variable(param):
-            raise SyntaxError(
-                "In distribution parameter expressions, no variables are allowed. - Forgot parameter declaration?")
         params.append(param)
     return constructor(*params)
 
@@ -369,9 +360,6 @@ def _parse_instr(t: Tree) -> Instr:
                        _parse_instrs(_child_tree(t, 1)),
                        _parse_instrs(_child_tree(t, 2)))
     elif t.data == 'assign':
-        variable = _parse_var(_child_tree(t, 0))
-        if variable in _parameters:
-            raise SyntaxError("Parameters must not be assigned a new value.")
         return AsgnInstr(_parse_var(_child_tree(t, 0)),
                          _parse_rvalue(_child_tree(t, 1)))
     elif t.data == 'choice':
@@ -415,9 +403,6 @@ def _parse_query(t: Tree):
         else:
             raise SyntaxError(f"The optimization can either be 'MAX' or 'MIN', but not {mode}")
         parameter = _parse_var(_child_tree(t, 1))
-        if parameter not in _parameters:
-            raise SyntaxError(
-                f"In optimization queries, the variable can only be a program parameter, was {parameter}.")
         return OptimizationQuery(_parse_expr(_child_tree(t, 0)), parameter, opt_type)
     elif t.data == "plot":
         if len(t.children) == 3:
@@ -466,7 +451,6 @@ def _parse_query(t: Tree):
 
 def _parse_program(config: ProgramConfig, t: Tree) -> Program:
     assert t.data == 'start'
-    globals()['_parameters'] = {}
     declarations = _parse_declarations(_child_tree(t, 0))
     instructions = _parse_instrs(_child_tree(t, 1))
     instructions.extend(_parse_queries(_child_tree(t, 2)))

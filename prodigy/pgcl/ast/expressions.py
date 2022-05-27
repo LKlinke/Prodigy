@@ -40,16 +40,12 @@ class ExprClass(Node):
 class VarExpr(ExprClass):
     """A variable is an expression."""
     var: Var = attr.ib()
-    is_parameter: bool = attr.ib(default=False)
 
     def __str__(self) -> str:
         return self.var
 
     def __repr__(self) -> str:
-        if self.is_parameter:
-            return f"ParamExpr({repr(self.var)})"
-        else:
-            return f'VarExpr({repr(self.var)})'
+        return f'VarExpr({repr(self.var)})'
 
 
 @attr.s(repr=False)
