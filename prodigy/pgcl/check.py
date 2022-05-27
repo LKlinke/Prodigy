@@ -10,12 +10,11 @@ import attr
 
 from probably.util.ref import Mut
 
-#pylint: disable=unused-import
 from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
                   CategoricalExpr, ChoiceInstr, Decl, Expr, RealLitExpr,
                   RealType, IfInstr, Instr, NatLitExpr, NatType, Node,
                   Program, SkipInstr, Type, DUniformExpr, Unop, UnopExpr, Var,
-                  VarExpr, WhileInstr, ProgramConfig)
+                  VarExpr, WhileInstr)
 from .ast.walk import Walk, walk_expr
 
 _T = TypeVar('_T')
@@ -375,6 +374,7 @@ def check_expression(program, expr: Expr) -> Optional[CheckFail]:
 
     .. doctest::
 
+        >>> from .ast import ProgramConfig
         >>> program = Program(ProgramConfig(), list(), dict(), dict(), dict(), list())
         >>> check_expression(program, RealLitExpr("1.0"))
         CheckFail(location=..., message='A program expression may not return a probability.')
