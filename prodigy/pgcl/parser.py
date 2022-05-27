@@ -470,7 +470,7 @@ def _parse_program(config: ProgramConfig, t: Tree) -> Program:
     declarations = _parse_declarations(_child_tree(t, 0))
     instructions = _parse_instrs(_child_tree(t, 1))
     instructions.extend(_parse_queries(_child_tree(t, 2)))
-    return Program.from_parse(config, declarations, _parameters, instructions)
+    return Program.from_parse(config, declarations, instructions)
 
 
 def parse_pgcl(code: str, config: ProgramConfig = ProgramConfig()) -> Program:

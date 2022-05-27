@@ -6,7 +6,7 @@ import copy
 import attr
 from . import Var
 from .types import Type
-from .declarations import Decl, VarDecl, ConstDecl
+from .declarations import Decl, ParameterDecl, VarDecl, ConstDecl
 from .expressions import Expr
 from .instructions import Instr
 
@@ -58,17 +58,19 @@ class Program:
     instructions: List[Instr] = attr.ib()
 
     @staticmethod
-    def from_parse(config: ProgramConfig, declarations: List[Decl], parameters: Dict[Var, Type],
-                   instructions: List[Instr]) -> Program:
+    def from_parse(config: ProgramConfig, declarations: List[Decl], instructions: List[Instr]) -> Program:
         """Create a program from the parser's output."""
         variables: Dict[Var, Type] = {}
         constants: Dict[Var, Expr] = {}
+        parameters: Dict[Var, Type] = {}
 
         for decl in declarations:
             if isinstance(decl, VarDecl):
                 variables[decl.var] = decl.typ
             elif isinstance(decl, ConstDecl):
                 constants[decl.var] = decl.value
+            elif isinstance(decl, ParameterDecl):
+                parameters[decl.var] = decl.typ
 
         return Program(config, declarations, variables, constants, parameters, instructions)
 

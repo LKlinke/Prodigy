@@ -44,3 +44,11 @@ def test_comments():
     """)
 
     assert len(program.instructions) == 0
+
+def test_params():
+    program = parse_pgcl("""
+        nparam x
+        rparam y
+    """)
+    assert program.parameters["x"] == NatType(None)
+    assert program.parameters["y"] == RealType()
