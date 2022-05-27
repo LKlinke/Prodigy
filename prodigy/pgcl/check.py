@@ -4,17 +4,21 @@ Type Checking
 -------------
 """
 
-from typing import Dict, Iterable, List, Optional, TypeVar, Union
+from typing import Dict, Iterable, List, Optional, TypeVar, Union, get_args, Tuple
 
 import attr
 
+from probably.util.color import Style
 from probably.util.ref import Mut
 
 from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
                   CategoricalExpr, ChoiceInstr, Decl, Expr, RealLitExpr,
                   RealType, IfInstr, Instr, NatLitExpr, NatType, Node,
                   Program, SkipInstr, Type, DUniformExpr, Unop, UnopExpr, Var,
-                  VarExpr, WhileInstr)
+                  VarExpr, WhileInstr, VarDecl, ObserveInstr, ProbabilityQueryInstr,
+                  ExpectationInstr, PrintInstr, OptimizationQuery, PlotInstr,
+                  LoopInstr, CUniformExpr, GeometricExpr, BernoulliExpr,PoissonExpr,
+                  LogDistExpr, BinomialExpr, IidSampleExpr, DistrExpr)
 from .ast.walk import Walk, walk_expr
 
 _T = TypeVar('_T')
@@ -91,6 +95,11 @@ def get_type(program: Program,
         if variable_type is not None:
             return variable_type
 
+        # maybe a parameter?
+        parameter_type = program.parameters.get(expr.var)
+        if parameter_type is not None:
+            return parameter_type
+
         # it must be a constant
         constant_type = program.constants.get(expr.var)
         if constant_type is None:
@@ -146,8 +155,8 @@ def get_type(program: Program,
             return CheckFail.expected_numeric_got(expr.lhs, lhs_typ)
 
         if check and expr.operator in [
-                Binop.LEQ, Binop.LE, Binop.EQ, Binop.PLUS, Binop.MINUS,
-                Binop.TIMES
+                Binop.LEQ, Binop.LE, Binop.GEQ, Binop.GE, Binop.EQ, Binop.PLUS, Binop.MINUS,
+                Binop.TIMES, Binop.MODULO, Binop.POWER
         ]:
             rhs_typ = get_type(program, expr.rhs, check=check)
             if isinstance(rhs_typ, CheckFail):
@@ -159,18 +168,18 @@ def get_type(program: Program,
                 return CheckFail.expected_type_got(expr, lhs_typ, rhs_typ)
 
         # binops that take numeric operands and return a boolean
-        if expr.operator in [Binop.LEQ, Binop.LE, Binop.EQ]:
+        if expr.operator in [Binop.LEQ, Binop.LE, Binop.EQ, Binop.GEQ, Binop.GE]:
             return BoolType()
 
         # binops that take numeric operands and return a numeric value
-        if expr.operator in [Binop.PLUS, Binop.MINUS, Binop.TIMES]:
+        if expr.operator in [Binop.PLUS, Binop.MINUS, Binop.TIMES, Binop.MODULO, Binop.POWER]:
             # intentionally lose the bounds on NatType (see NatType documentation)
             if isinstance(lhs_typ, NatType) and lhs_typ.bounds is not None:
                 return NatType(bounds=None)
             return lhs_typ
 
-    if isinstance(expr, DUniformExpr):
-        return NatType(bounds=None)
+    if isinstance(expr, get_args(DistrExpr)):
+        return _get_distribution_type(program, expr, check)
 
     if isinstance(expr, CategoricalExpr):
         first_expr = expr.exprs[0][0]
@@ -185,6 +194,52 @@ def get_type(program: Program,
                 if not is_compatible(typ, other_typ):
                     return CheckFail.expected_type_got(expr, typ, other_typ)
         return typ
+
+    raise Exception("unreachable")
+
+
+def _check_distribution_arguments(prog: Program, expected_type: Type, *parameters: Tuple[Type, Expr]):
+    for expected_param_type, param_expr in parameters:
+        param_type = get_type(prog, param_expr)
+        if isinstance(param_type, CheckFail):
+            return CheckFail
+        elif not is_compatible(expected_param_type, param_type):
+            return CheckFail.expected_type_got(param_expr, expected_param_type, param_type)
+    return expected_type
+
+
+def _get_distribution_type(prog: Program, expr: Expr, check: bool = True) -> Union[Type, CheckFail]:
+    assert isinstance(expr, get_args(DistrExpr)), f"Expression must be a distribution expression, was {type(expr)}."
+
+    if isinstance(expr, DUniformExpr):
+        return _check_distribution_arguments(prog, NatType(bounds=None), (NatType(bounds=None), expr.start),
+                                             (NatType(bounds=None), expr.end)
+                                             )
+    elif isinstance(expr, CUniformExpr):
+        raise NotImplementedError("Currently continuous distributions are not supported.")
+
+    elif isinstance(expr, GeometricExpr):
+        return _check_distribution_arguments(prog, NatType(bounds=None), (RealType(), expr.param))
+
+    elif isinstance(expr, BernoulliExpr):
+        return _check_distribution_arguments(prog, NatType(bounds=None), (RealType(), expr.param))
+
+    elif isinstance(expr, PoissonExpr):
+        return _check_distribution_arguments(prog, NatType(bounds=None), (NatType(bounds=None), expr.param))
+
+    elif isinstance(expr, LogDistExpr):
+        return _check_distribution_arguments(prog, NatType(bounds=None), (RealType(), expr.param))
+
+    elif isinstance(expr, BinomialExpr):
+        return _check_distribution_arguments(prog, NatType(bounds=None), (NatType(bounds=None), expr.n),
+                                             (RealType(), expr.p)
+                                             )
+    if isinstance(expr, IidSampleExpr):
+        if isinstance(expr.sampling_dist, get_args(DistrExpr)):
+            return _get_distribution_type(prog, expr.sampling_dist, check)
+        else:
+            print(Style.OKRED + "Type Checking is not accurate anymore." + Style.RESET)
+            return check_expression(prog, expr.sampling_dist)
 
     raise Exception("unreachable")
 
@@ -260,7 +315,8 @@ def _check_constant_declarations(program: Program) -> Optional[CheckFail]:
 
 def _check_declaration_list(program: Program) -> Optional[CheckFail]:
     """
-    Check that all variables/constants are defined at most once.
+    Check that all variables/constants are defined at most once and that real
+    variables are only declared if they are allowed in the config.
 
     .. doctest::
 
@@ -274,6 +330,12 @@ def _check_declaration_list(program: Program) -> Optional[CheckFail]:
         if declared.get(decl.var) is not None:
             return CheckFail(decl,
                              "Already declared variable/constant before.")
+        if not program.config.allow_real_vars:
+            if isinstance(decl, VarDecl) and isinstance(decl.typ, RealType):
+                return CheckFail(
+                    decl,
+                    "Real number variables are not allowed by the program config."
+                )
         declared[decl.var] = decl
     return None
 
@@ -288,6 +350,7 @@ def _check_instrs(program: Program,
     return None
 
 
+# pylint: disable = too-many-statements
 def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
     """
     Check a single instruction for type-safety.
@@ -353,8 +416,73 @@ def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
             return CheckFail.expected_type_got(instr.prob, RealType(),
                                                prob_type)
         return _check_instrs(program, instr.lhs, instr.rhs)
+    if isinstance(instr, ObserveInstr):
+        cond_type = get_type(program, instr.cond)
+        if isinstance(cond_type, CheckFail):
+            return cond_type
+        if not is_compatible(BoolType(), cond_type):
+            return CheckFail.expected_type_got(instr.cond, BoolType(),
+                                               cond_type)
+        return None
+
+    if isinstance(instr, ProbabilityQueryInstr):
+        cond_type = get_type(program, instr.expr)
+        if isinstance(cond_type, CheckFail):
+            return cond_type
+        if not (is_compatible(BoolType(), cond_type) or is_compatible(NatType(None), cond_type)):
+            return CheckFail.expected_type_got(instr.expr, BoolType(),
+                                               cond_type)
+        return None
+
+    if isinstance(instr, ExpectationInstr):
+        expr_type = get_type(program, instr.expr, check=True)
+        if isinstance(expr_type, CheckFail):
+            return expr_type
+        return None
+
+    if isinstance(instr, PrintInstr):
+        return None
+
+    if isinstance(instr, OptimizationQuery):
+        expr_type = get_type(program, instr.expr, check=True)
+        if isinstance(expr_type, CheckFail):
+            return expr_type
+        return None
+
+    if isinstance(instr, PlotInstr):
+        var_1_type = get_type(program, instr.var_1, check=True)
+        if isinstance(var_1_type, CheckFail):
+            return var_1_type
+        if instr.var_2:
+            var_2_type = get_type(program, instr.var_2, check=True)
+            if isinstance(var_2_type, CheckFail):
+                return var_2_type
+        if instr.prob:
+            prob_type = get_type(program, instr.prob, check=True)
+            if isinstance(prob_type, CheckFail):
+                return prob_type
+            if not is_compatible(RealType(), prob_type):
+                return CheckFail.expected_type_got(instr.prob, RealType(),
+                                                   prob_type)
+        if instr.term_count:
+            int_type = get_type(program, instr.term_count, check=True)
+            if isinstance(int_type, CheckFail):
+                return int_type
+            if not is_compatible(NatType(bounds=None), int_type):
+                return CheckFail.expected_type_got(instr.term_count, NatType(None),
+                                                   int_type)
+        return None
+    if isinstance(instr, LoopInstr):
+        int_type = get_type(program, instr.iterations, check=True)
+        if isinstance(int_type, CheckFail):
+            return int_type
+        if not is_compatible(NatType(bounds=None), int_type):
+            return CheckFail.expected_type_got(instr.iterations, NatType(None),
+                                               int_type)
+        return _check_instrs(program, instr.body)
 
     raise Exception("unreachable")
+# pylint: enable = too-many-statements
 
 
 def check_program(program: Program) -> Optional[CheckFail]:
