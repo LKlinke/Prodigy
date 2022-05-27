@@ -85,7 +85,7 @@ def test_for_instr_errors():
         while(x) {
             skip
         }
-    """, ProgramConfig(allow_real_vars = False))
+    """)
     assert isinstance(check_program(program), CheckFail)
 
     program = parse_pgcl("""
@@ -95,18 +95,18 @@ def test_for_instr_errors():
         } else {
             // ???
         }
-    """, ProgramConfig(allow_real_vars = False))
+    """)
     assert isinstance(check_program(program), CheckFail)
 
     program = parse_pgcl("""
         real x
         x := 5
-    """, ProgramConfig(allow_real_vars = False))
+    """)
     assert isinstance(check_program(program), CheckFail)
 
     program = parse_pgcl("""
         x := 5
-    """, ProgramConfig(allow_real_vars = False))
+    """)
     assert isinstance(check_program(program), CheckFail)
 
     program = parse_pgcl("""
@@ -115,5 +115,5 @@ def test_for_instr_errors():
         } [true] {
             skip
         }
-    """, ProgramConfig(allow_real_vars = False))
+    """)
     assert isinstance(check_program(program), CheckFail)
