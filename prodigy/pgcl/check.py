@@ -416,6 +416,7 @@ def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
             return CheckFail.expected_type_got(instr.prob, RealType(),
                                                prob_type)
         return _check_instrs(program, instr.lhs, instr.rhs)
+
     if isinstance(instr, ObserveInstr):
         cond_type = get_type(program, instr.cond)
         if isinstance(cond_type, CheckFail):
