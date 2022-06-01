@@ -117,3 +117,9 @@ def test_for_instr_errors():
         }
     """)
     assert isinstance(check_program(program), CheckFail)
+
+    program = parse_pgcl("""
+        nparam x
+        x := 5
+    """)
+    assert isinstance(check_program(program), CheckFail)

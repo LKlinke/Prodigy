@@ -199,6 +199,7 @@ def get_type(program: Program,
 
 def _check_distribution_arguments(prog: Program, expected_type: Type, *parameters: Tuple[Type, Expr]) -> Union[Type, CheckFail]:
     for expected_param_type, param_expr in parameters:
+        # Check for variables in parameters here
         param_type = get_type(prog, param_expr)
         if isinstance(param_type, CheckFail):
             return param_type
@@ -446,6 +447,8 @@ def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
         expr_type = get_type(program, instr.expr, check=True)
         if isinstance(expr_type, CheckFail):
             return expr_type
+        if instr.parameter not in program.parameters:
+            return CheckFail(instr, f"In optimization queries, the variable can only be a program parameter, was {instr.parameter}.")
         return None
 
     if isinstance(instr, PlotInstr):
