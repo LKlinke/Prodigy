@@ -8,7 +8,6 @@ from typing import Dict, Iterable, List, Optional, TypeVar, Union, get_args, Tup
 
 import attr
 
-from probably.util.color import Style
 from probably.util.ref import Mut
 
 from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
@@ -198,11 +197,11 @@ def get_type(program: Program,
     raise Exception("unreachable")
 
 
-def _check_distribution_arguments(prog: Program, expected_type: Type, *parameters: Tuple[Type, Expr]):
+def _check_distribution_arguments(prog: Program, expected_type: Type, *parameters: Tuple[Type, Expr]) -> Union[Type, CheckFail]:
     for expected_param_type, param_expr in parameters:
         param_type = get_type(prog, param_expr)
         if isinstance(param_type, CheckFail):
-            return CheckFail
+            return param_type
         elif not is_compatible(expected_param_type, param_type):
             return CheckFail.expected_type_got(param_expr, expected_param_type, param_type)
     return expected_type
@@ -238,8 +237,7 @@ def _get_distribution_type(prog: Program, expr: Expr, check: bool = True) -> Uni
         if isinstance(expr.sampling_dist, get_args(DistrExpr)):
             return _get_distribution_type(prog, expr.sampling_dist, check)
         else:
-            print(Style.OKRED + "Type Checking is not accurate anymore." + Style.RESET)
-            return check_expression(prog, expr.sampling_dist)
+            return get_type(prog, expr.sampling_dist, check)
 
     raise Exception("unreachable")
 
