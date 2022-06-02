@@ -32,7 +32,7 @@ def test_all_operators():
 
     assert instr[4].rhs == BinopExpr(Binop.POWER, NatLitExpr(1), BinopExpr(Binop.POWER, NatLitExpr(2), NatLitExpr(3)))
 
-    assert instr[5].rhs == BinopExpr(Binop.POWER, BinopExpr(Binop.MODULO, NatLitExpr(1), NatLitExpr(2)), NatLitExpr(3))
+    assert instr[5].rhs == BinopExpr(Binop.MODULO, NatLitExpr(1), BinopExpr(Binop.POWER, NatLitExpr(2), NatLitExpr(3)))
 
 def test_likely_minus_error():
     with raises(Exception) as e:

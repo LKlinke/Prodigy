@@ -106,7 +106,7 @@ _OPERATOR_TABLE = [[infixl("or", "||")], [infixl("and", "&")],
                     infixl("geq", ">="),
                     infixl("eq", "=")],
                    [infixl("plus", "+"), infixl("minus", "-")], [infixl("likely", ":")],
-                   [infixl("times", "*"), infixl("divide", "/")], [infixr("power", "^")], [infixl("mod", "%")],
+                   [infixl("times", "*"), infixl("divide", "/"), infixl("mod", "%")], [infixr("power", "^")],
                    [
                        prefix("neg", "not "),
                        atom("parens", '"(" expression ")"'),
