@@ -105,7 +105,7 @@ def expr_to_pysmt(context: TranslationContext,
             return And(lhs, rhs)
         elif expr.operator == Binop.LEQ:
             return LE(lhs, rhs)
-        elif expr.operator == Binop.LE:
+        elif expr.operator == Binop.LT:
             return LT(lhs, rhs)
         elif expr.operator == Binop.EQ:
             return EqualsOrIff(lhs, rhs)

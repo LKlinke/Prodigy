@@ -154,7 +154,7 @@ def get_type(program: Program,
             return CheckFail.expected_numeric_got(expr.lhs, lhs_typ)
 
         if check and expr.operator in [
-                Binop.LEQ, Binop.LE, Binop.GEQ, Binop.GE, Binop.EQ, Binop.PLUS, Binop.MINUS,
+                Binop.LEQ, Binop.LT, Binop.GEQ, Binop.GT, Binop.EQ, Binop.PLUS, Binop.MINUS,
                 Binop.TIMES, Binop.MODULO, Binop.POWER
         ]:
             rhs_typ = get_type(program, expr.rhs, check=check)
@@ -167,7 +167,7 @@ def get_type(program: Program,
                 return CheckFail.expected_type_got(expr, lhs_typ, rhs_typ)
 
         # binops that take numeric operands and return a boolean
-        if expr.operator in [Binop.LEQ, Binop.LE, Binop.EQ, Binop.GEQ, Binop.GE]:
+        if expr.operator in [Binop.LEQ, Binop.LT, Binop.EQ, Binop.GEQ, Binop.GT]:
             return BoolType()
 
         # binops that take numeric operands and return a numeric value

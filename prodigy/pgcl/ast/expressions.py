@@ -180,8 +180,8 @@ class Binop(Enum):
     OR = auto()
     AND = auto()
     LEQ = auto()
-    LE = auto()
-    GE = auto()
+    LT = auto()
+    GT = auto()
     GEQ = auto()
     EQ = auto()
     PLUS = auto()
@@ -204,8 +204,8 @@ class Binop(Enum):
             Binop.OR: "||",
             Binop.AND: "&",
             Binop.LEQ: "<=",
-            Binop.LE: "<",
-            Binop.GE: ">",
+            Binop.LT: "<",
+            Binop.GT: ">",
             Binop.GEQ: ">=",
             Binop.EQ: "=",
             Binop.PLUS: "+",

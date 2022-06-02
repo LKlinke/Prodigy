@@ -21,7 +21,7 @@ def test_all_operators():
 
     assert instr[0].rhs == BinopExpr(Binop.OR, BoolLitExpr(True), BinopExpr(Binop.AND, BoolLitExpr(False), BoolLitExpr(True)))
 
-    assert instr[1].rhs == BinopExpr(Binop.AND, BinopExpr(Binop.GE, RealLitExpr(Decimal(6.0)), VarExpr("pi")),\
+    assert instr[1].rhs == BinopExpr(Binop.AND, BinopExpr(Binop.GT, RealLitExpr(Decimal(6.0)), VarExpr("pi")),\
          UnopExpr(Unop.NEG, BinopExpr(Binop.EQ, VarExpr("pi"), BinopExpr(Binop.TIMES, VarExpr("pi"), NatLitExpr(3)))))
 
     exprs = instr[2].rhs.exprs

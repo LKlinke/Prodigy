@@ -243,11 +243,11 @@ def _parse_expr(t: Tree) -> Expr:
     elif t.data == 'leq':
         return BinopExpr(Binop.LEQ, expr0(), expr1())
     elif t.data == 'le':
-        return BinopExpr(Binop.LE, expr0(), expr1())
+        return BinopExpr(Binop.LT, expr0(), expr1())
     elif t.data == 'geq':
         return BinopExpr(Binop.GEQ, expr0(), expr1())
     elif t.data == 'ge':
-        return BinopExpr(Binop.GE, expr0(), expr1())
+        return BinopExpr(Binop.GT, expr0(), expr1())
     elif t.data == 'eq':
         return BinopExpr(Binop.EQ, expr0(), expr1())
     elif t.data == 'plus':
