@@ -253,10 +253,12 @@ def _get_distribution_type(prog: Program, expr: Expr, check: bool = True) -> Uni
         if isinstance(expr.sampling_dist, get_args(DistrExpr)):
             return _get_distribution_type(prog, expr.sampling_dist, check)
         else:
+            # we cannot check whether the sampling distribution as given by the program is actually a distribution
             if check:
                 safe = check_expression(prog, expr.sampling_dist)
                 if isinstance(safe, CheckFail):
                     return safe
+            print(f"Type Checking is not accurate anymore (because of '{expr}').")
             return NatType(bounds=None)
 
     raise Exception("unreachable")
