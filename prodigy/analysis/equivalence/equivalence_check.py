@@ -17,14 +17,18 @@ def phi(program: Program, invariant: Program) -> Program:
 
         .. returns: A new program object equivaelnt to one loop unrolling of :param: program.
     """
-    assert isinstance(program.instructions[0], WhileInstr), "Program can only be one big loop to analyze."
+    assert isinstance(
+        program.instructions[0],
+        WhileInstr), "Program can only be one big loop to analyze."
     logger.debug("Create modified invariant program.")
     new_instructions = program.instructions[0].body.copy()
 
     for instr in invariant.instructions:
         new_instructions.append(instr)
 
-    guarded_instr = IfInstr(cond=program.instructions[0].cond, true=new_instructions, false=[SkipInstr()])
+    guarded_instr = IfInstr(cond=program.instructions[0].cond,
+                            true=new_instructions,
+                            false=[SkipInstr()])
 
     return Program(config=invariant.config,
                    declarations=invariant.declarations,
@@ -34,7 +38,8 @@ def phi(program: Program, invariant: Program) -> Program:
                    instructions=[guarded_instr])
 
 
-def generate_equivalence_test_distribution(program: Program, config: ForwardAnalysisConfig) -> Distribution:
+def generate_equivalence_test_distribution(
+        program: Program, config: ForwardAnalysisConfig) -> Distribution:
     """
         Generates a second-order PGF, dependent on the given variables in a program. This SOP can be used to check
         equivalences of two programs.
@@ -44,7 +49,8 @@ def generate_equivalence_test_distribution(program: Program, config: ForwardAnal
     logger.debug("Generating test distribution.")
     dist = config.factory.one()
     for i, variable in enumerate(program.variables):
-        dist *= config.factory.from_expr(f"1/(1-p{i}*{variable})", VarExpr(var=f"p{i}", is_parameter=True))
+        dist *= config.factory.from_expr(
+            f"1/(1-p{i}*{variable})", VarExpr(var=f"p{i}", is_parameter=True))
     return dist
 
 
@@ -62,24 +68,34 @@ def check_equivalence(program: Program, invariant: Program, config: ForwardAnaly
     logger.debug("Checking equivalence.")
     # First we create the modified input program in order to fit the premise of Park's Lemma
     if config.show_intermediate_steps:
-        print(f"{Style.YELLOW} Generate modified invariant program. {Style.RESET}")
+        print(
+            f"{Style.YELLOW} Generate modified invariant program. {Style.RESET}"
+        )
     modified_inv = phi(program, invariant)
 
     # Now we have to generate a infinite state parametrized distribution for every program variable.
     if config.show_intermediate_steps:
-        print(f"{Style.YELLOW} Generate second order generating function. {Style.RESET}")
+        print(
+            f"{Style.YELLOW} Generate second order generating function. {Style.RESET}"
+        )
     test_dist = generate_equivalence_test_distribution(program, config)
 
     # Compute the resulting distributions for both programs
     logger.debug("Compute the modified invariant...")
     if config.show_intermediate_steps:
-        print(f"\n{Style.YELLOW} Compute the result of the modified invariant. {Style.RESET}")
-    modified_inv_result = compute_discrete_distribution(modified_inv.instructions, test_dist, config)
+        print(
+            f"\n{Style.YELLOW} Compute the result of the modified invariant. {Style.RESET}"
+        )
+    modified_inv_result = compute_discrete_distribution(
+        modified_inv.instructions, test_dist, config)
     logger.debug(f"modified invariant result:\t{modified_inv_result}")
     logger.debug("Compute the invariant...")
     if config.show_intermediate_steps:
-        print(f"\n{Style.YELLOW} Compute the result of the invariant. {Style.RESET}")
-    inv_result = compute_discrete_distribution(invariant.instructions, test_dist, config)
+        print(
+            f"\n{Style.YELLOW} Compute the result of the invariant. {Style.RESET}"
+        )
+    inv_result = compute_discrete_distribution(invariant.instructions,
+                                               test_dist, config)
     logger.debug(f"invariant result:\t{inv_result}")
     # Compare them and check whether they are equal.
     logger.debug("Compare results")

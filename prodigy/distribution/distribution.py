@@ -5,7 +5,6 @@ from typing import Union, Set, Dict, Iterator, Tuple, Generator
 from probably.pgcl import Expr, VarExpr, IidSampleExpr
 
 
-
 class MarginalType(Enum):
     """ Specifies the type of marginalization. """
     Include = auto()
@@ -17,7 +16,6 @@ Param = Union[str, Expr]
 
 class Distribution(ABC):
     """ Abstract class that models different representations of probability distributions. """
-
     @abstractmethod
     def __add__(self, other):
         """ The addition of two distributions. """
@@ -113,12 +111,16 @@ class Distribution(ABC):
         pass
 
     @abstractmethod
-    def update_iid(self, sampling_exp: IidSampleExpr, variable: Union[str, VarExpr]) -> 'Distribution':
+    def update_iid(self, sampling_exp: IidSampleExpr,
+                   variable: Union[str, VarExpr]) -> 'Distribution':
         """ Updates the distribution by the the iid-sampling rules. """
         pass
 
     @abstractmethod
-    def marginal(self, *variables: Union[str, VarExpr], method: MarginalType = MarginalType.Include) -> 'Distribution':
+    def marginal(
+            self,
+            *variables: Union[str, VarExpr],
+            method: MarginalType = MarginalType.Include) -> 'Distribution':
         """ Computes the marginal distribution for the given variables (MarginalType.Include),
             or for all but the given variables (MarginalType.Exclude).
         """
@@ -134,7 +136,10 @@ class Distribution(ABC):
         pass
 
     @abstractmethod
-    def approximate(self, threshold: Union[str, int]) -> Generator['Distribution', None, None]:
+    def approximate(
+            self,
+            threshold: Union[str,
+                             int]) -> Generator['Distribution', None, None]:
         """
         Computes the approximation until the given threshold is reached. (Might not terminate)
         :param threshold: The threshold either as a maximum number of states, or a certain probability mass.

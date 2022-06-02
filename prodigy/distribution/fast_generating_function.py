@@ -14,7 +14,6 @@ class FPS(Distribution):
     These formal powerseries are itself provided by `prodigy` a python binding to GiNaC,
     something similar to a computer algebra system implemented in C++.
     """
-
     def __init__(self, expression: str, parameter: str = None):
         if parameter is not None:
             self.dist = pygin.Dist(expression, parameter)
@@ -33,7 +32,8 @@ class FPS(Distribution):
         elif isinstance(other, FPS):
             return FPS.from_dist(self.dist + other.dist)
         else:
-            raise NotImplementedError(f"Addition of {self.dist} and {other} not supported.")
+            raise NotImplementedError(
+                f"Addition of {self.dist} and {other} not supported.")
 
     def __sub__(self, other):
         if isinstance(other, str):
@@ -41,7 +41,8 @@ class FPS(Distribution):
         elif isinstance(other, FPS):
             return FPS.from_dist(self.dist - other.dist)
         else:
-            raise NotImplementedError(f"Subtraction of {self.dist} and {other} not supported.")
+            raise NotImplementedError(
+                f"Subtraction of {self.dist} and {other} not supported.")
 
     def __mul__(self, other):
         if isinstance(other, str):
@@ -49,7 +50,8 @@ class FPS(Distribution):
         elif isinstance(other, FPS):
             return FPS.from_dist(self.dist * other.dist)
         else:
-            raise NotImplementedError(f"Multiplication of {self.dist} and {other} not supported.")
+            raise NotImplementedError(
+                f"Multiplication of {self.dist} and {other} not supported.")
 
     def __truediv__(self, other):
         raise NotImplementedError(__name__)
@@ -96,39 +98,66 @@ class FPS(Distribution):
                 return self.filter(condition.lhs).filter(condition.rhs)
             elif condition.operator == Binop.OR:
                 filtered_left = self.filter(condition.lhs)
-                return filtered_left + self.filter(condition.rhs) - filtered_left.filter(condition.lhs)
+                return filtered_left + self.filter(
+                    condition.rhs) - filtered_left.filter(condition.lhs)
 
             # Normalize the conditional to variables on the lhs from the relation symbol.
             if isinstance(condition.rhs, VarExpr):
                 if condition.operator == Binop.EQ:
-                    return self.filter(BinopExpr(operator=Binop.EQ, lhs=condition.rhs, rhs=condition.lhs))
+                    return self.filter(
+                        BinopExpr(operator=Binop.EQ,
+                                  lhs=condition.rhs,
+                                  rhs=condition.lhs))
                 elif condition.operator == Binop.LEQ:
-                    return self.filter(BinopExpr(operator=Binop.GEQ, lhs=condition.rhs, rhs=condition.lhs))
+                    return self.filter(
+                        BinopExpr(operator=Binop.GEQ,
+                                  lhs=condition.rhs,
+                                  rhs=condition.lhs))
                 elif condition.operator == Binop.LE:
-                    return self.filter(BinopExpr(operator=Binop.GE, lhs=condition.rhs, rhs=condition.lhs))
+                    return self.filter(
+                        BinopExpr(operator=Binop.GE,
+                                  lhs=condition.rhs,
+                                  rhs=condition.lhs))
                 elif condition.operator == Binop.GEQ:
-                    return self.filter(BinopExpr(operator=Binop.LEQ, lhs=condition.rhs, rhs=condition.lhs))
+                    return self.filter(
+                        BinopExpr(operator=Binop.LEQ,
+                                  lhs=condition.rhs,
+                                  rhs=condition.lhs))
                 elif condition.operator == Binop.GE:
-                    return self.filter(BinopExpr(operator=Binop.LE, lhs=condition.rhs, rhs=condition.lhs))
+                    return self.filter(
+                        BinopExpr(operator=Binop.LE,
+                                  lhs=condition.rhs,
+                                  rhs=condition.lhs))
 
             # is normalized conditional
             if isinstance(condition.lhs, VarExpr):
                 if condition.operator == Binop.EQ:
-                    return FPS.from_dist(self.dist.filterEq(str(condition.lhs), str(condition.rhs)))
+                    return FPS.from_dist(
+                        self.dist.filterEq(str(condition.lhs),
+                                           str(condition.rhs)))
                 elif condition.operator == Binop.LE:
-                    return FPS.from_dist(self.dist.filterLess(str(condition.lhs), str(condition.rhs)))
+                    return FPS.from_dist(
+                        self.dist.filterLess(str(condition.lhs),
+                                             str(condition.rhs)))
                 elif condition.operator == Binop.LEQ:
-                    return FPS.from_dist(self.dist.filterLeq(str(condition.lhs), str(condition.rhs)))
+                    return FPS.from_dist(
+                        self.dist.filterLeq(str(condition.lhs),
+                                            str(condition.rhs)))
                 elif condition.operator == Binop.GE:
-                    return FPS.from_dist(self.dist.filterGreater(str(condition.lhs), str(condition.rhs)))
+                    return FPS.from_dist(
+                        self.dist.filterGreater(str(condition.lhs),
+                                                str(condition.rhs)))
                 elif condition.operator == Binop.GEQ:
-                    return FPS.from_dist(self.dist.filterGeq(str(condition.lhs), str(condition.rhs)))
+                    return FPS.from_dist(
+                        self.dist.filterGeq(str(condition.lhs),
+                                            str(condition.rhs)))
         elif isinstance(condition, UnopExpr):
             # unary relation
             if condition.operator == Unop.NEG:
                 return self - self.filter(condition.expr)
         else:
-            raise SyntaxError(f"Filtering Condition has unknown format {condition}.")
+            raise SyntaxError(
+                f"Filtering Condition has unknown format {condition}.")
 
     def is_zero_dist(self) -> bool:
         return self.dist.isZero()
@@ -137,48 +166,56 @@ class FPS(Distribution):
         raise NotImplementedError(__name__)
 
     def update(self, expression: Expr) -> Distribution:
-        return FPS.from_dist(self.dist.update(str(expression.lhs), str(expression.rhs)))
+        return FPS.from_dist(
+            self.dist.update(str(expression.lhs), str(expression.rhs)))
 
-    def update_iid(self, sampling_exp: IidSampleExpr, variable: Union[str, VarExpr]) -> Distribution:
+    def update_iid(self, sampling_exp: IidSampleExpr,
+                   variable: Union[str, VarExpr]) -> Distribution:
 
         sample_dist = sampling_exp.sampling_dist
         if isinstance(sample_dist, GeometricExpr):
-            result = self.dist.updateIid(str(variable),
-                                         pygin.geometric("test", str(sample_dist.param)),
-                                         str(sampling_exp.variable))
+            result = self.dist.updateIid(
+                str(variable), pygin.geometric("test", str(sample_dist.param)),
+                str(sampling_exp.variable))
             return FPS.from_dist(result)
         if isinstance(sample_dist, BernoulliExpr):
-            result = self.dist.updateIid(str(variable),
-                                         pygin.Dist(f"{sample_dist.param} * test + (1-{sample_dist.param})"),
-                                         str(sampling_exp.variable))
+            result = self.dist.updateIid(
+                str(variable),
+                pygin.Dist(
+                    f"{sample_dist.param} * test + (1-{sample_dist.param})"),
+                str(sampling_exp.variable))
             return FPS.from_dist(result)
 
         elif isinstance(sample_dist, PoissonExpr):
-            result = self.dist.updateIid(str(variable),
-                                         pygin.Dist(f"exp({sample_dist.param} * (test - 1))"),
-                                         str(sampling_exp.variable)
-                                         )
+            result = self.dist.updateIid(
+                str(variable),
+                pygin.Dist(f"exp({sample_dist.param} * (test - 1))"),
+                str(sampling_exp.variable))
             return FPS.from_dist(result)
 
         elif isinstance(sample_dist, DUniformExpr):
             result = self.dist.updateIid(
                 str(variable),
-                pygin.Dist(f"1/(({sample_dist.end}) - ({sample_dist.start}) + 1) * test^({sample_dist.start}) "
-                             f"* (test^(({sample_dist.end}) - ({sample_dist.start}) + 1) - 1) / (test - 1)"),
-                str(sampling_exp.variable)
-            )
+                pygin.Dist(
+                    f"1/(({sample_dist.end}) - ({sample_dist.start}) + 1) * test^({sample_dist.start}) "
+                    f"* (test^(({sample_dist.end}) - ({sample_dist.start}) + 1) - 1) / (test - 1)"
+                ), str(sampling_exp.variable))
             return FPS.from_dist(result)
 
-        elif isinstance(sample_dist, get_args(Expr)) and not isinstance(sample_dist, get_args(DistrExpr)):
-            result = FPS.from_dist(self.dist.updateIid(str(variable),
-                                                       pygin.Dist(str(sample_dist)),
-                                                       str(sampling_exp.variable))
-                                   )
+        elif isinstance(sample_dist, get_args(Expr)) and not isinstance(
+                sample_dist, get_args(DistrExpr)):
+            result = FPS.from_dist(
+                self.dist.updateIid(str(variable),
+                                    pygin.Dist(str(sample_dist)),
+                                    str(sampling_exp.variable)))
             return result
         else:
-            raise NotImplementedError("Iid Distribution type currently not supported.")
+            raise NotImplementedError(
+                "Iid Distribution type currently not supported.")
 
-    def marginal(self, *variables: Union[str, VarExpr], method: MarginalType = MarginalType.Include) -> Distribution:
+    def marginal(self,
+                 *variables: Union[str, VarExpr],
+                 method: MarginalType = MarginalType.Include) -> Distribution:
         # TODO: Make this work with an arbitrary number of variables to marginalize.
         if len(variables) > 1:
             raise NotImplementedError(__name__)
@@ -195,5 +232,7 @@ class FPS(Distribution):
     def set_variables(self, *variables: str) -> Distribution:
         raise NotImplementedError(__name__)
 
-    def approximate(self, threshold: Union[str, int]) -> Generator[Distribution, None, None]:
+    def approximate(
+            self,
+            threshold: Union[str, int]) -> Generator[Distribution, None, None]:
         raise NotImplementedError(__name__)

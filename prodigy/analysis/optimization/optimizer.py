@@ -12,13 +12,14 @@ class Optimizer(ABC):
     """
     The `Optimizer` optimizes target functions and distributions.
     """
-
     @staticmethod
     @abstractmethod
-    def optimize(condition: Union[str, Expr],
-                 dist: Distribution,
-                 *parameters: Union[str, VarExpr],
-                 method: OptimizationType = OptimizationType.MINIMIZE) -> List[Union[str, Expr]]:
+    def optimize(
+        condition: Union[str, Expr],
+        dist: Distribution,
+        *parameters: Union[str, VarExpr],
+        method: OptimizationType = OptimizationType.MINIMIZE
+    ) -> List[Union[str, Expr]]:
         """
         This method optimizes the given distribution parameters wrt to the optimization method and condition.
         :param parameters: The parameter(s) which is to be optimized.

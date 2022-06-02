@@ -20,7 +20,6 @@ from prodigy.distribution.pgfs import SympyPGF
 @attr.s
 class ForwardAnalysisConfig:
     """Global configurable options for forward analysis."""
-
     class Engine(Enum):
         """
         This enumeration specifies the type of backend used for distribution encodings and mathematical operations.
@@ -30,16 +29,12 @@ class ForwardAnalysisConfig:
 
     """Enables the printing of results after each instruction."""
     show_intermediate_steps: bool = attr.ib(default=False)
-
     """Displays the probabilities in rational form. This does not change the preciseness of computation."""
     show_rational_probabilities: bool = attr.ib(default=False)
-
     """Enables simplification heuristics for expressions."""
     use_simplification: bool = attr.ib(default=False)
-
     """Toggle to print LaTeX-Code instead of ASCII expressions."""
     use_latex: bool = attr.ib(default=False)
-
     """Selects the distribution backend."""
     engine: Engine = attr.ib(default=Engine.SYMPY)
 
@@ -48,7 +43,8 @@ class ForwardAnalysisConfig:
         if self.engine == ForwardAnalysisConfig.Engine.SYMPY:
             return GFOptimizer
         else:
-            raise ConfigurationError("The configured engine does not implement an optimizer.")
+            raise ConfigurationError(
+                "The configured engine does not implement an optimizer.")
 
     @property
     def factory(self) -> Type[CommonDistributionsFactory]:
@@ -64,4 +60,3 @@ class ForwardAnalysisConfig:
         GeneratingFunction.rational_preciseness = self.show_rational_probabilities
         GeneratingFunction.use_simplification = self.use_simplification
         GeneratingFunction.intermediate_results = self.show_intermediate_steps
-

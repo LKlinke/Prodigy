@@ -11,22 +11,29 @@ If you use `poetry` and do not have prodigy installed globally, you can use `poe
 from typing import IO
 
 import logging
-import click
 import time
+import click
 
-from prodigy import analysis
 from probably.pgcl import compiler
 from probably.pgcl.check import CheckFail
 from prodigy.util.color import Style
+from prodigy import analysis
 
 
 @click.group()
 @click.pass_context
 @click.option('--engine', type=str, required=False, default='GF')
-@click.option('--intermediate-results', is_flag=True, required=False, default=False)
-@click.option('--no-simplification', is_flag=True, required=False, default=False)
+@click.option('--intermediate-results',
+              is_flag=True,
+              required=False,
+              default=False)
+@click.option('--no-simplification',
+              is_flag=True,
+              required=False,
+              default=False)
 @click.option('--use-latex', is_flag=True, required=False, default=False)
-def cli(ctx, engine: str, intermediate_results: bool, no_simplification: bool, use_latex: bool):
+def cli(ctx, engine: str, intermediate_results: bool, no_simplification: bool,
+        use_latex: bool):
     ctx.ensure_object(dict)
     ctx.obj['CONFIG'] = \
         analysis.ForwardAnalysisConfig(
@@ -41,8 +48,12 @@ def cli(ctx, engine: str, intermediate_results: bool, no_simplification: bool, u
 @click.pass_context
 @click.argument('program_file', type=click.File('r'))
 @click.argument('input_dist', type=str, required=False)
-@click.option('--show-input-program', is_flag=True, required=False, default=False)
-def main(ctx, program_file: IO, input_dist: str, show_input_program: bool) -> None:
+@click.option('--show-input-program',
+              is_flag=True,
+              required=False,
+              default=False)
+def main(ctx, program_file: IO, input_dist: str,
+         show_input_program: bool) -> None:
     """
     Compile the given program and print some information about it.
     """
@@ -66,13 +77,16 @@ def main(ctx, program_file: IO, input_dist: str, show_input_program: bool) -> No
     if input_dist is None:
         dist = config.factory.one(*program.variables.keys())
     else:
-        dist = config.factory.from_expr(input_dist, *program.variables.keys(), preciseness=1.0)
+        dist = config.factory.from_expr(input_dist,
+                                        *program.variables.keys(),
+                                        preciseness=1.0)
 
     start = time.perf_counter()
     dist = analysis.compute_discrete_distribution(program, dist, config)
     stop = time.perf_counter()
 
-    print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + str(dist) + Style.RESET)
+    print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + str(dist) +
+          Style.RESET)
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
 
 
@@ -99,11 +113,13 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
         raise Exception(f"Could not compile invariant. {inv}")
 
     start = time.perf_counter()
-    equiv = analysis.equivalence.check_equivalence(prog, inv, ctx.obj['CONFIG'])
+    equiv = analysis.equivalence.check_equivalence(prog, inv,
+                                                   ctx.obj['CONFIG'])
     stop = time.perf_counter()
 
     print(
-        f"Program{f'{Style.OKRED} is not equivalent{Style.RESET}' if not equiv[0] else f'{Style.OKGREEN} is equivalent{Style.RESET}'} to invaraint")
+        f"Program{f'{Style.OKRED} is not equivalent{Style.RESET}' if not equiv[0] else f'{Style.OKGREEN} is equivalent{Style.RESET}'} to invaraint"
+    )
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
     return equiv
 

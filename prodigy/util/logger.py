@@ -7,14 +7,22 @@ def log_setup(name: str, level, file: str = 'test.log') -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(level)
     fhandler = logging.FileHandler(filename=file, mode='a')
-    fhandler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    fhandler.setFormatter(
+        logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     logger.addHandler(fhandler)
     return logger
 
 
 # Print iterations progress
-def printProgressBar(iteration, total, prefix='Progress:', suffix='completed', decimals=1, length=100,
-                     fill='█', printEnd=""):
+def printProgressBar(iteration,
+                     total,
+                     prefix='Progress:',
+                     suffix='completed',
+                     decimals=1,
+                     length=100,
+                     fill='█',
+                     printEnd=""):
     """
     Call in a loop to create terminal progress bar
     @params:
@@ -27,10 +35,14 @@ def printProgressBar(iteration, total, prefix='Progress:', suffix='completed', d
         fill        - Optional  : bar fill character (Str)
         printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
     """
-    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    percent = ("{0:." + str(decimals) + "f}").format(
+        100 * (iteration / float(total)))
     filledLength = int(length * iteration // total)
     bar = fill * filledLength + '-' * (length - filledLength)
-    print(f'{Style.YELLOW if (iteration / float(total)) < 1 else Style.GREEN}\r{prefix} |{bar}| {percent}% {suffix}{Style.RESET}', end=printEnd, flush=True)
+    print(
+        f'{Style.YELLOW if (iteration / float(total)) < 1 else Style.GREEN}\r{prefix} |{bar}| {percent}% {suffix}{Style.RESET}',
+        end=printEnd,
+        flush=True)
     # Print New Line on Complete
     if iteration == total:
         print()

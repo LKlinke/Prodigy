@@ -15,9 +15,9 @@ logger = log_setup(__name__, logging.DEBUG)
 
 class Plotter:
     """ Plotter that generates histogram plots using matplotlib."""
-
     @staticmethod
-    def _create_2d_hist(function: Distribution, var_1: str, var_2: str, threshold: Union[str, int]):
+    def _create_2d_hist(function: Distribution, var_1: str, var_2: str,
+                        threshold: Union[str, int]):
 
         x = sympy.S(var_1)
         y = sympy.S(var_2)
@@ -37,12 +37,14 @@ class Plotter:
             terms = 0
             prob_sum = 0
             for prob, state in marginal:
-                if isinstance(threshold, str) and prob_sum >= sympy.S(threshold):
+                if isinstance(threshold,
+                              str) and prob_sum >= sympy.S(threshold):
                     break
                 if isinstance(threshold, int) and terms >= threshold:
                     break
                 s_prob = sympy.S(prob)
-                maxima[x], maxima[y] = max(maxima[x], state[var_1]), max(maxima[y], state[var_2])
+                maxima[x], maxima[y] = max(maxima[x], state[var_1]), max(
+                    maxima[y], state[var_2])
                 coord = (state[var_1], state[var_2])
                 coord_and_prob[coord] = s_prob
                 max_prob = max(s_prob, max_prob)
@@ -58,7 +60,12 @@ class Plotter:
                 colors[coord[1]][coord[0]] = float(coord_and_prob[coord])
 
             # Plot the colors array
-            c = plt.imshow(colors, vmin=0, origin='lower', interpolation='nearest', cmap="turbo", aspect='auto')
+            c = plt.imshow(colors,
+                           vmin=0,
+                           origin='lower',
+                           interpolation='nearest',
+                           cmap="turbo",
+                           aspect='auto')
             plt.colorbar(c)
             plt.gca().set_xlabel(f"{x}")
             plt.gca().set_xticks(range(0, maxima[x] + 1))
@@ -76,7 +83,9 @@ class Plotter:
                 prev_sum = subsum
 
     @staticmethod
-    def _create_histogram_for_variable(function: Distribution, var: Union[str, VarExpr], threshold: Union[str, int]) -> None:
+    def _create_histogram_for_variable(function: Distribution,
+                                       var: Union[str, VarExpr],
+                                       threshold: Union[str, int]) -> None:
         marginal = function.marginal(var)
         if marginal.is_finite():
             data = []
@@ -85,7 +94,8 @@ class Plotter:
             for prob, state in marginal:
                 if isinstance(threshold, int) and terms >= threshold:
                     break
-                if isinstance(threshold, str) and prob_sum > sympy.S(threshold):
+                if isinstance(threshold,
+                              str) and prob_sum > sympy.S(threshold):
                     break
                 data.append(float(sympy.S(prob)))
                 ind.append(float(state[var]))
@@ -112,24 +122,37 @@ class Plotter:
                 prev_gf = gf
 
     @staticmethod
-    def plot(function: Distribution, *variables: Union[str, sympy.Symbol], threshold: Union[str, int]) -> None:
+    def plot(function: Distribution, *variables: Union[str, sympy.Symbol],
+             threshold: Union[str, int]) -> None:
         """ Shows the histogram of the marginal distribution of the specified variable(s). """
         if function.get_parameters():
             raise Exception("Cannot Plot parametrized functions.")
         if variables:
             if len(variables) > 2:
-                raise ParameterError(f"create_plot() cannot handle more than two variables!")
+                raise ParameterError(
+                    f"create_plot() cannot handle more than two variables!")
             if len(variables) == 2:
-                Plotter._create_2d_hist(function, var_1=variables[0], var_2=variables[1], threshold=threshold)
+                Plotter._create_2d_hist(function,
+                                        var_1=variables[0],
+                                        var_2=variables[1],
+                                        threshold=threshold)
             if len(variables) == 1:
-                Plotter._create_histogram_for_variable(function, var=variables[0], threshold=threshold)
+                Plotter._create_histogram_for_variable(function,
+                                                       var=variables[0],
+                                                       threshold=threshold)
         else:
             if len(function.get_variables()) > 2:
-                raise Exception("Multivariate distributions need to specify the variable to plot")
+                raise Exception(
+                    "Multivariate distributions need to specify the variable to plot"
+                )
 
             elif len(function.get_variables()) == 2:
                 vars = list(function.get_variables())
-                Plotter._create_2d_hist(function, var_1=vars[0], var_2=vars[1], threshold=threshold)
+                Plotter._create_2d_hist(function,
+                                        var_1=vars[0],
+                                        var_2=vars[1],
+                                        threshold=threshold)
             else:
                 for var in function.get_variables():
-                    Plotter._create_histogram_for_variable(var, threshold=threshold)
+                    Plotter._create_histogram_for_variable(var,
+                                                           threshold=threshold)

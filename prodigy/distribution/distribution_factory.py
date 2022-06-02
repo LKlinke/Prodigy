@@ -7,7 +7,6 @@ from probably.pgcl import VarExpr, Expr
 
 class CommonDistributionsFactory(ABC):
     """ Abstract Factory Class implementing a Factory for common distributions."""
-
     @staticmethod
     @abstractmethod
     def geometric(var: Union[str, VarExpr], p: Param) -> Distribution:
@@ -58,6 +57,7 @@ class CommonDistributionsFactory(ABC):
 
     @staticmethod
     @abstractmethod
-    def from_expr(expression: Union[str, Expr], *variables, **kwargs) -> Distribution:
+    def from_expr(expression: Union[str, Expr], *variables,
+                  **kwargs) -> Distribution:
         """ A distribution represented by the expression."""
         pass

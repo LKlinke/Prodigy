@@ -93,8 +93,8 @@ from typing import Sequence
 
 from prodigy.util.ref import Mut
 
-from probably.pgcl import (Binop, BinopExpr, Expr, Instr, Unop,
-                           UnopExpr, VarExpr, WhileInstr, NatLitExpr, Program)
+from probably.pgcl import (Binop, BinopExpr, Expr, Instr, Unop, UnopExpr,
+                           VarExpr, WhileInstr, NatLitExpr, Program)
 from probably.pgcl.ast.walk import Walk, mut_expr_children, walk_expr, walk_instrs
 
 
@@ -117,7 +117,8 @@ def check_is_modulus_condition(expression) -> bool:
             and isinstance(expression.lhs, BinopExpr) \
             and expression.lhs.operator == Binop.MODULO:
         mod_expr = expression.lhs
-        if isinstance(mod_expr.lhs, VarExpr) and isinstance(mod_expr.rhs, NatLitExpr):
+        if isinstance(mod_expr.lhs, VarExpr) and isinstance(
+                mod_expr.rhs, NatLitExpr):
             return True
     return False
 
@@ -125,7 +126,8 @@ def check_is_modulus_condition(expression) -> bool:
 def check_is_constant_constraint(expression: Expr, prog: Program) -> bool:
     if not isinstance(expression, BinopExpr):
         return False
-    if expression.operator not in (Binop.EQ, Binop.LEQ, Binop.LE, Binop.GE, Binop.GEQ):
+    if expression.operator not in (Binop.EQ, Binop.LEQ, Binop.LE, Binop.GE,
+                                   Binop.GEQ):
         return False
     if isinstance(expression.lhs, VarExpr):
         for sub_expr in walk_expr(Walk.DOWN, Mut.alloc(expression.rhs)):
@@ -144,7 +146,9 @@ def check_is_constant_constraint(expression: Expr, prog: Program) -> bool:
 def is_loopfree(instrs: Sequence[Instr]) -> bool:
     if not instrs:
         return True
-    return all(map(lambda x: not isinstance(x.val, WhileInstr), walk_instrs(Walk.DOWN, list(instrs))))
+    return all(
+        map(lambda x: not isinstance(x.val, WhileInstr),
+            walk_instrs(Walk.DOWN, list(instrs))))
 
 
 def check_for_nested_loops(instrs: Sequence[Instr]) -> bool:

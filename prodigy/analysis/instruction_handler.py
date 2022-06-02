@@ -24,9 +24,9 @@ def _assume(instruction: Instr, instr_type, clsname: str):
                                                 f" {instr_type} got {type(instruction)}"
 
 
-def compute_discrete_distribution(prog: Program,
-                                  dist: Distribution,
-                                  config: ForwardAnalysisConfig) -> Distribution:
+def compute_discrete_distribution(
+        prog: Program, dist: Distribution,
+        config: ForwardAnalysisConfig) -> Distribution:
     result = SequenceHandler.compute(prog.instructions, dist, config)
     if SequenceHandler.normalization:
         result = result.normalize()
@@ -35,7 +35,6 @@ def compute_discrete_distribution(prog: Program,
 
 class InstructionHandler(ABC):
     """ Abstract class that defines a strategy for handling a specific program instruction. """
-
     @staticmethod
     @abstractmethod
     def compute(instruction: Union[Instr, Sequence[Instr]],
@@ -48,10 +47,11 @@ class SequenceHandler(InstructionHandler):
     normalization: bool = False
 
     @classmethod
-    def compute(cls, instr: Union[Instr, Sequence[Instr]],
-                dist: Distribution,
-                config=ForwardAnalysisConfig()) -> Distribution:
-
+    def compute(
+        cls,
+        instr: Union[Instr, Sequence[Instr]],
+        dist: Distribution,
+        config=ForwardAnalysisConfig()) -> Distribution:
         def _show_steps(distribution: Distribution, instruction: Instr):
             res = SequenceHandler.compute(instruction, distribution, config)
             if isinstance(instr, (WhileInstr, IfInstr, LoopInstr)):
@@ -103,9 +103,9 @@ class SequenceHandler(InstructionHandler):
 
 
 class QueryHandler(InstructionHandler):
-
     @staticmethod
-    def compute(instr: Instr, dist: Distribution, config: ForwardAnalysisConfig) -> Distribution:
+    def compute(instr: Instr, dist: Distribution,
+                config: ForwardAnalysisConfig) -> Distribution:
         _assume(instr, get_args(Query), 'QueryHandler')
 
         # User wants to compute an expected value of an expression
@@ -114,11 +114,13 @@ class QueryHandler(InstructionHandler):
             if isinstance(expression, (VarExpr, NatLitExpr, RealLitExpr)):
                 result = dist.get_expected_value_of(expression)
             elif isinstance(expression, BinopExpr):
-                if expression.operator in (Binop.PLUS, Binop.MINUS, Binop.TIMES):
+                if expression.operator in (Binop.PLUS, Binop.MINUS,
+                                           Binop.TIMES):
                     result = dist.get_expected_value_of(expression)
                 else:
                     raise SyntaxError("Expression cannot be a condition.")
-            elif isinstance(expression, UnopExpr) and expression.operator == Unop.NEG:
+            elif isinstance(expression,
+                            UnopExpr) and expression.operator == Unop.NEG:
                 result = dist.get_expected_value_of(expression)
             else:
                 raise SyntaxError("Expression has wrong format.")
@@ -146,17 +148,24 @@ class QueryHandler(InstructionHandler):
             raise SyntaxError("This should not happen.")
 
     @staticmethod
-    def __query_optimization(instr: OptimizationQuery, dist: Distribution, config: ForwardAnalysisConfig):
-        logger.debug(f"Computing the optimal value for parameter {instr.parameter}"
-                     f"in order to {'maximize' if instr.type == OptimizationType.MAXIMIZE else 'minimize'}"
-                     f"the distribution {dist} with respect to {instr.expr}")
-        result = config.optimizer.optimize(instr.expr, dist, instr.parameter, method=instr.type)
+    def __query_optimization(instr: OptimizationQuery, dist: Distribution,
+                             config: ForwardAnalysisConfig):
+        logger.debug(
+            f"Computing the optimal value for parameter {instr.parameter}"
+            f"in order to {'maximize' if instr.type == OptimizationType.MAXIMIZE else 'minimize'}"
+            f"the distribution {dist} with respect to {instr.expr}")
+        result = config.optimizer.optimize(instr.expr,
+                                           dist,
+                                           instr.parameter,
+                                           method=instr.type)
         if not result:
             print(f"No solutions could be found.")
         elif len(result) == 1:
             print(f"The optimal value is at {instr.parameter}={result[0]}.")
         else:
-            print(f"The maximal values can be achieved choosing the parameter {instr.parameter} in {result}.")
+            print(
+                f"The maximal values can be achieved choosing the parameter {instr.parameter} in {result}."
+            )
         return dist
 
     @staticmethod
@@ -189,7 +198,8 @@ class QueryHandler(InstructionHandler):
         return dist
 
     @staticmethod
-    def __query_probability_of(expression: Expr, dist: Distribution) -> Distribution:
+    def __query_probability_of(expression: Expr,
+                               dist: Distribution) -> Distribution:
         # Marginal computation
         if isinstance(expression, VarExpr):
             marginal = dist.marginal(expression, method=MarginalType.Include)
@@ -203,10 +213,10 @@ class QueryHandler(InstructionHandler):
 
 
 class SampleHandler(InstructionHandler):
-
     @staticmethod
     @abstractmethod
-    def compute(instr: Instr, dist: Distribution, config: ForwardAnalysisConfig) -> Distribution:
+    def compute(instr: Instr, dist: Distribution,
+                config: ForwardAnalysisConfig) -> Distribution:
         _assume(instr, AsgnInstr, 'SampleHandler')
         assert isinstance(instr.rhs, get_args(DistrExpr)), f"The Instruction handled by a SampleHandler" \
                                                            f" must be of type DistrExpr, got {type(instr)}"
@@ -218,11 +228,13 @@ class SampleHandler(InstructionHandler):
 
         # rhs is a categorical expression (explicit finite distr)
         if isinstance(instr.rhs, CategoricalExpr):
-            raise NotImplementedError("Categorical expression are currently not supported.")
+            raise NotImplementedError(
+                "Categorical expression are currently not supported.")
 
         # rhs is a uniform distribution
         elif isinstance(instr.rhs, DUniformExpr):
-            return marginal * factory.uniform(variable, instr.rhs.start, instr.rhs.end)
+            return marginal * factory.uniform(variable, instr.rhs.start,
+                                              instr.rhs.end)
 
         # rhs is geometric distribution
         elif isinstance(instr.rhs, GeometricExpr):
@@ -230,7 +242,8 @@ class SampleHandler(InstructionHandler):
 
         # rhs is binomial distribution
         elif isinstance(instr.rhs, BinomialExpr):
-            return marginal * factory.binomial(variable, instr.rhs.n, instr.rhs.p)
+            return marginal * factory.binomial(variable, instr.rhs.n,
+                                               instr.rhs.p)
 
         # rhs is poisson distribution
         elif isinstance(instr.rhs, PoissonExpr):
@@ -250,10 +263,8 @@ class SampleHandler(InstructionHandler):
 
 
 class AssignmentHandler(InstructionHandler):
-
     @staticmethod
-    def compute(instr: Instr,
-                dist: Distribution,
+    def compute(instr: Instr, dist: Distribution,
                 config: ForwardAnalysisConfig) -> Distribution:
         _assume(instr, AsgnInstr, 'AssignmentHandler')
 
@@ -261,30 +272,31 @@ class AssignmentHandler(InstructionHandler):
             return SampleHandler.compute(instr, dist, config)
 
         if not isinstance(instr.rhs, get_args(Expr)):
-            raise SyntaxError(f"Assignment {instr} is ill-formed. right-hand-side must be an expression.")
+            raise SyntaxError(
+                f"Assignment {instr} is ill-formed. right-hand-side must be an expression."
+            )
         logger.info(f"Computing distribution update.\n{instr}")
-        return dist.update(BinopExpr(operator=Binop.EQ, lhs=VarExpr(instr.lhs), rhs=instr.rhs))
+        return dist.update(
+            BinopExpr(operator=Binop.EQ, lhs=VarExpr(instr.lhs),
+                      rhs=instr.rhs))
 
 
 class ObserveHandler(InstructionHandler):
-
     @staticmethod
-    def compute(instruction: Instr,
-                distribution: Distribution,
+    def compute(instruction: Instr, distribution: Distribution,
                 config: ForwardAnalysisConfig) -> Distribution:
         _assume(instruction, ObserveInstr, 'ObserverHandler')
 
         sat_part = distribution.filter(instruction.cond)
         if sat_part.get_probability_mass() == 0:
-            raise ObserveZeroEventError(f"observed event {instruction.cond} has probability 0")
+            raise ObserveZeroEventError(
+                f"observed event {instruction.cond} has probability 0")
         return sat_part
 
 
 class PChoiceHandler(InstructionHandler):
-
     @staticmethod
-    def compute(instr: Instr,
-                dist: Distribution,
+    def compute(instr: Instr, dist: Distribution,
                 config: ForwardAnalysisConfig) -> Distribution:
         _assume(instr, ChoiceInstr, 'PChoiceHandlerGF')
 
@@ -295,10 +307,8 @@ class PChoiceHandler(InstructionHandler):
 
 
 class ITEHandler(InstructionHandler):
-
     @staticmethod
-    def compute(instr: Instr,
-                dist: Distribution,
+    def compute(instr: Instr, dist: Distribution,
                 config: ForwardAnalysisConfig) -> Distribution:
         _assume(instr, IfInstr, 'ITEHandler')
 
@@ -306,44 +316,50 @@ class ITEHandler(InstructionHandler):
         sat_part = dist.filter(instr.cond)
         non_sat_part = dist - sat_part
         if config.show_intermediate_steps:
-            print(f"\n{Style.YELLOW}Filter:{Style.RESET} {instr.cond} \t {Style.GREEN}Result:{Style.RESET} {sat_part}")
+            print(
+                f"\n{Style.YELLOW}Filter:{Style.RESET} {instr.cond} \t {Style.GREEN}Result:{Style.RESET} {sat_part}"
+            )
             print(f"\n{Style.YELLOW} If-branch: ({instr.cond}){Style.RESET}")
             if_branch = SequenceHandler.compute(instr.true, sat_part, config)
             print(f"\n{Style.YELLOW} Else-branch:{Style.RESET}")
-            else_branch = SequenceHandler.compute(instr.false, non_sat_part, config)
+            else_branch = SequenceHandler.compute(instr.false, non_sat_part,
+                                                  config)
             print(f"\n{Style.YELLOW}Combined:{Style.RESET}")
         else:
             if_branch = SequenceHandler.compute(instr.true, sat_part, config)
-            else_branch = SequenceHandler.compute(instr.false, non_sat_part, config)
+            else_branch = SequenceHandler.compute(instr.false, non_sat_part,
+                                                  config)
         result = if_branch + else_branch
         logger.info(f"Combining if-branches.\n{instr}")
         return result
 
 
 class LoopHandler(InstructionHandler):
-
     @staticmethod
-    def compute(instr: Instr, dist: Distribution, config: ForwardAnalysisConfig) -> Distribution:
+    def compute(instr: Instr, dist: Distribution,
+                config: ForwardAnalysisConfig) -> Distribution:
         _assume(instr, LoopInstr, 'LoopHandler')
         for i in range(instr.iterations.value):
-            logger.debug(f"Computing iteration {i + 1} out of {instr.iterations.value}")
+            logger.debug(
+                f"Computing iteration {i + 1} out of {instr.iterations.value}")
             dist = SequenceHandler.compute(instr.body, dist, config)
         return dist
 
 
 class WhileHandler(InstructionHandler):
-
     @staticmethod
-    def compute(instr: Instr,
-                dist: Distribution,
+    def compute(instr: Instr, dist: Distribution,
                 config: ForwardAnalysisConfig) -> Distribution:
 
         _assume(instr, WhileInstr, 'WhileHandler')
 
-        user_choice = int(input("While Instruction has only limited support. Choose an option:\n"
-                                "[1]: Solve using invariants (Checks whether the invariant over-approximates the loop)\n"
-                                "[2]: Fix a maximum number of iterations (This results in an under-approximation)\n"
-                                "[3]: Analyse until a certain probability mass is captured (might not terminate!)\n"))
+        user_choice = int(
+            input(
+                "While Instruction has only limited support. Choose an option:\n"
+                "[1]: Solve using invariants (Checks whether the invariant over-approximates the loop)\n"
+                "[2]: Fix a maximum number of iterations (This results in an under-approximation)\n"
+                "[3]: Analyse until a certain probability mass is captured (might not terminate!)\n"
+            ))
         logger.info(f"User chose {user_choice}")
         if user_choice == 1:
             from prodigy.analysis.equivalence.equivalence_check import check_equivalence
@@ -361,46 +377,62 @@ class WhileHandler(InstructionHandler):
                 print(f"{Style.YELLOW}Verifying invariant...{Style.RESET}")
                 answer, result = check_equivalence(prog, inv_prog, config)
                 if answer:
-                    print(Style.OKGREEN + "Invariant successfully validated!\n" + Style.RESET)
+                    print(Style.OKGREEN +
+                          "Invariant successfully validated!\n" + Style.RESET)
                     if config.show_intermediate_steps:
-                        print(Style.YELLOW + "Compute the result using the invariant" + Style.RESET)
-                    return compute_discrete_distribution(inv_prog.instructions, dist, config)
+                        print(Style.YELLOW +
+                              "Compute the result using the invariant" +
+                              Style.RESET)
+                    return compute_discrete_distribution(
+                        inv_prog.instructions, dist, config)
                 else:
-                    raise VerificationError("Invariant could not be determined as such.")
+                    raise VerificationError(
+                        "Invariant could not be determined as such.")
 
         elif user_choice == 2:
             max_iter = int(input("Specify a maximum iteration limit: "))
             sat_part = dist.filter(instr.cond)
             non_sat_part = dist - sat_part
-            for i in range(max_iter+1):
+            for i in range(max_iter + 1):
                 printProgressBar(i, max_iter, "Iteration:", length=50)
-                iterated_part = SequenceHandler.compute(instr.body, sat_part, config)
+                iterated_part = SequenceHandler.compute(
+                    instr.body, sat_part, config)
                 iterated_sat = iterated_part.filter(instr.cond)
                 iterated_non_sat = iterated_part - iterated_sat
-                if iterated_non_sat == SympyPGF.zero() and iterated_sat == sat_part:
-                    print(f"\n{Style.OKGREEN}Terminated already after {i + 1} step(s)!{Style.RESET}")
+                if iterated_non_sat == SympyPGF.zero(
+                ) and iterated_sat == sat_part:
+                    print(
+                        f"\n{Style.OKGREEN}Terminated already after {i + 1} step(s)!{Style.RESET}"
+                    )
                     break
                 non_sat_part += iterated_non_sat
                 sat_part = iterated_sat
             return non_sat_part
 
         elif user_choice == 3:
-            captured_probability_threshold = float(input("Enter the probability threshold: "))
+            captured_probability_threshold = float(
+                input("Enter the probability threshold: "))
             sat_part = dist.filter(instr.cond)
             non_sat_part = dist - sat_part
-            while Fraction(non_sat_part.get_probability_mass()) < captured_probability_threshold:
+            while Fraction(non_sat_part.get_probability_mass()
+                           ) < captured_probability_threshold:
                 logger.info(
                     f"Collected "
                     f"({(float((Fraction(non_sat_part.get_probability_mass()) / captured_probability_threshold)) * 100):.2f} %)"
                     f" of the desired mass.")
-                iterated_part = SequenceHandler.compute(instr.body, sat_part, config)
+                iterated_part = SequenceHandler.compute(
+                    instr.body, sat_part, config)
                 iterated_sat = iterated_part.filter(instr.cond)
                 iterated_non_sat = iterated_part - iterated_sat
                 non_sat_part += iterated_non_sat
                 sat_part = iterated_sat
-                printProgressBar(
-                    int( (Fraction(non_sat_part.get_probability_mass()) / captured_probability_threshold) * 100 ),
-                    100, suffix="of desired mass captured", length=50)
+                printProgressBar(int(
+                    (Fraction(non_sat_part.get_probability_mass()) /
+                     captured_probability_threshold) * 100),
+                                 100,
+                                 suffix="of desired mass captured",
+                                 length=50)
             return non_sat_part
         else:
-            raise Exception(f"Input '{user_choice}' cannot be handled properly.")
+            raise Exception(
+                f"Input '{user_choice}' cannot be handled properly.")
