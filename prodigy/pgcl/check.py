@@ -238,7 +238,11 @@ def _get_distribution_type(prog: Program, expr: Expr, check: bool = True) -> Uni
         if isinstance(expr.sampling_dist, get_args(DistrExpr)):
             return _get_distribution_type(prog, expr.sampling_dist, check)
         else:
-            return get_type(prog, expr.sampling_dist, check)
+            if check:
+                safe = check_expression(prog, expr.sampling_dist)
+                if isinstance(safe, CheckFail):
+                    return safe
+            return NatType(bounds=None)
 
     raise Exception("unreachable")
 

@@ -117,7 +117,7 @@ Otherwise use corresponding Union types instead.
 .. autoclass:: Node
 """
 
-from .declarations import VarDecl, ConstDecl, ParameterDecl, Decl, Var
+from .declarations import VarDecl, ConstDecl, ParameterDecl, Decl
 from .expressions import VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, BinopExpr, UnopExpr, \
     SubstExpr, CategoricalExpr, TickExpr, DUniformExpr, CUniformExpr, GeometricExpr, PoissonExpr, LogDistExpr, \
     BinomialExpr, BernoulliExpr, Binop, Unop, Expr, ExprClass, DistrExpr, IidSampleExpr, expr_str_parens
@@ -125,6 +125,6 @@ from .instructions import ProbabilityQueryInstr, ExpectationInstr, PlotInstr, Sk
     AsgnInstr, LoopInstr, ChoiceInstr, TickInstr, ObserveInstr, Instr, Query, InstrClass, PrintInstr,\
     OptimizationType, OptimizationQuery
 from .types import BoolType, NatType, RealType, Type, Bounds
-from .ast import Node
+from .ast import Node, Var
 from .program import Program, ProgramConfig
 from .walk import *
