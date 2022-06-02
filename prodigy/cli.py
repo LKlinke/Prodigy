@@ -14,11 +14,9 @@ import logging
 import click
 import time
 
+from prodigy import analysis
 from probably.pgcl import compiler
-from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.forward import check_equivalence
 from probably.pgcl.check import CheckFail
-import prodigy.analysis
 from prodigy.util.color import Style
 
 
@@ -31,8 +29,8 @@ from prodigy.util.color import Style
 def cli(ctx, engine: str, intermediate_results: bool, no_simplification: bool, use_latex: bool):
     ctx.ensure_object(dict)
     ctx.obj['CONFIG'] = \
-        ForwardAnalysisConfig(
-            engine=ForwardAnalysisConfig.Engine.GINAC if engine == 'prodigy' else ForwardAnalysisConfig.Engine.SYMPY,
+        analysis.ForwardAnalysisConfig(
+            engine=analysis.ForwardAnalysisConfig.Engine.GINAC if engine == 'prodigy' else analysis.ForwardAnalysisConfig.Engine.SYMPY,
             show_intermediate_steps=intermediate_results,
             use_simplification=not no_simplification,
             use_latex=use_latex
@@ -71,7 +69,7 @@ def main(ctx, program_file: IO, input_dist: str, show_input_program: bool) -> No
         dist = config.factory.from_expr(input_dist, *program.variables.keys(), preciseness=1.0)
 
     start = time.perf_counter()
-    dist = prodigy.analysis.compute_discrete_distribution(program, dist, config)
+    dist = analysis.compute_discrete_distribution(program, dist, config)
     stop = time.perf_counter()
 
     print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + str(dist) + Style.RESET)
@@ -101,7 +99,7 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
         raise Exception(f"Could not compile invariant. {inv}")
 
     start = time.perf_counter()
-    equiv = check_equivalence(prog, inv, ctx.obj['CONFIG'])
+    equiv = analysis.equivalence.check_equivalence(prog, inv, ctx.obj['CONFIG'])
     stop = time.perf_counter()
 
     print(
