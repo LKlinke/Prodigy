@@ -14,10 +14,10 @@ import logging
 import click
 import time
 
-import prodigy.pgcl.compiler as pgcl
-from prodigy.analysis.forward.config import ForwardAnalysisConfig
-from prodigy.analysis.forward.equivalence.equivalence_check import check_equivalence
-from prodigy.pgcl.typechecker.check import CheckFail
+from probably.pgcl import compiler
+from prodigy.analysis.config import ForwardAnalysisConfig
+from prodigy.analysis.forward import check_equivalence
+from probably.pgcl.check import CheckFail
 import prodigy.analysis
 from prodigy.util.color import Style
 
@@ -36,7 +36,7 @@ def cli(ctx, engine: str, intermediate_results: bool, no_simplification: bool, u
             show_intermediate_steps=intermediate_results,
             use_simplification=not no_simplification,
             use_latex=use_latex
-            )
+        )
 
 
 @cli.command('main')
@@ -55,8 +55,8 @@ def main(ctx, program_file: IO, input_dist: str, show_input_program: bool) -> No
 
     # Parse and the input and do typechecking.
     program_source = program_file.read()
-    program = pgcl.compile_pgcl(program_source)
-    #if isinstance(program, CheckFail):
+    program = compiler.compile_pgcl(program_source)
+    # if isinstance(program, CheckFail):
     #    print("Error:", program)
     #    return
 
@@ -71,11 +71,12 @@ def main(ctx, program_file: IO, input_dist: str, show_input_program: bool) -> No
         dist = config.factory.from_expr(input_dist, *program.variables.keys(), preciseness=1.0)
 
     start = time.perf_counter()
-    dist = prodigy.analysis.compute_discrete_distribution(program.instructions, dist, config)
+    dist = prodigy.analysis.compute_discrete_distribution(program, dist, config)
     stop = time.perf_counter()
 
     print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + str(dist) + Style.RESET)
-    print(f"CPU-time elapsed: {stop-start:04f} seconds")
+    print(f"CPU-time elapsed: {stop - start:04f} seconds")
+
 
 @cli.command('check_equality')
 @click.pass_context
@@ -91,11 +92,11 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
     prog_src = program_file.read()
     inv_src = invariant_file.read()
 
-    prog = pgcl.compile_pgcl(prog_src)
+    prog = compiler.compile_pgcl(prog_src)
     if isinstance(prog, CheckFail):
         raise Exception(f"Could not compile the Program. {prog}")
 
-    inv = pgcl.compile_pgcl(inv_src)
+    inv = compiler.compile_pgcl(inv_src)
     if isinstance(inv, CheckFail):
         raise Exception(f"Could not compile invariant. {inv}")
 

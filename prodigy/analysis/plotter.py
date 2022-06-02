@@ -5,9 +5,9 @@ import logging
 import matplotlib.pyplot as plt
 from matplotlib.cm import ScalarMappable
 
-from .forward.distribution import Distribution
-from .forward.exceptions import ParameterError
-from prodigy.pgcl import VarExpr
+from prodigy.distribution.distribution import Distribution
+from prodigy.analysis.exceptions import ParameterError
+from probably.pgcl import VarExpr
 from prodigy.util.logger import log_setup
 
 logger = log_setup(__name__, logging.DEBUG)
