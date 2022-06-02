@@ -4,13 +4,13 @@ from typing import Union
 from abc import abstractmethod
 import attr
 from .expressions import Expr
-from .ast import Node
-from . import Var
+from .ast import Node, Var
 from .types import Type, BoolType, NatType, RealType
 
 
 class DeclClass(Node):
     """Superclass for all declarations. See :obj:`Decl`."""
+
     @abstractmethod
     def __str__(self) -> str:
         """

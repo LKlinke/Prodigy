@@ -117,10 +117,7 @@ Otherwise use corresponding Union types instead.
 .. autoclass:: Node
 """
 
-Var = str
-
-# pylint: disable=wrong-import-position, cyclic-import
-from .declarations import VarDecl, ConstDecl, ParameterDecl, Decl
+from .declarations import VarDecl, ConstDecl, ParameterDecl, Decl, Var
 from .expressions import VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, BinopExpr, UnopExpr, \
     SubstExpr, CategoricalExpr, TickExpr, DUniformExpr, CUniformExpr, GeometricExpr, PoissonExpr, LogDistExpr, \
     BinomialExpr, BernoulliExpr, Binop, Unop, Expr, ExprClass, DistrExpr, IidSampleExpr, expr_str_parens

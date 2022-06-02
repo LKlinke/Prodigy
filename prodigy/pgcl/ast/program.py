@@ -4,11 +4,11 @@ from typing import List, Dict, Any
 import copy
 
 import attr
-from . import Var
 from .types import Type
 from .declarations import Decl, ParameterDecl, VarDecl, ConstDecl
 from .expressions import Expr
 from .instructions import Instr
+from .ast import Var
 
 @attr.s(frozen=True)
 class ProgramConfig:

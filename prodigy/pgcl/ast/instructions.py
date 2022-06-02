@@ -7,8 +7,7 @@ from enum import Enum, auto
 
 import attr
 from .expressions import NatLitExpr, VarExpr, RealLitExpr, Expr
-from .ast import Node
-from . import Var
+from .ast import Node, Var
 
 class InstrClass(Node):
     """Superclass for all instructions. See :obj:`Instr`."""

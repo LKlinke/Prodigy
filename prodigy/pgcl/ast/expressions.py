@@ -9,8 +9,7 @@ from functools import reduce
 
 from abc import abstractmethod
 import attr
-from .ast import Node
-from . import Var
+from .ast import Node, Var
 
 class ExprClass(Node):
     """
@@ -427,7 +426,7 @@ class CategoricalExpr(ExprClass):
         validator=_check_categorical_exprs)
 
     def distribution(self) -> List[Tuple[RealLitExpr, Expr]]:
-        r"""
+        """
         Return the distribution of possible values as a list along with
         probabilities.
         """

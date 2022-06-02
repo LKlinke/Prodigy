@@ -38,7 +38,8 @@ from typing import Callable, Iterable, TypeVar, List
 
 from probably.util.ref import Mut
 
-from . import Expr, ExprClass, Instr, InstrClass
+from .expressions import Expr, ExprClass
+from .instructions import Instr, InstrClass
 
 T = TypeVar("T")
 
