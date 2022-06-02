@@ -1,11 +1,13 @@
 import sympy
 from typing import Union, List, get_args
 
-from .optimizer import Optimizer
-from prodigy.analysis.exceptions import ParameterError
-from prodigy.distribution.generating_function import GeneratingFunction
 from probably.pgcl import Expr, VarExpr, OptimizationType
 from probably.pgcl.parser import parse_expr
+from prodigy.analysis.exceptions import ParameterError
+from prodigy.distribution.generating_function import GeneratingFunction
+from .optimizer import Optimizer
+
+
 
 
 class GFOptimizer(Optimizer):

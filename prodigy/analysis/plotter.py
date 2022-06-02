@@ -25,10 +25,10 @@ class Plotter:
         # Marginalize distribution to the variables of interest.
         marginal = function.marginal(x, y)
         marginal = marginal.set_variables(*function.get_variables())
-        logger.debug(f"Creating Histogram for {marginal}")
+        logger.debug("Creating Histogram for %s", marginal)
         # Collect relevant data from the distribution and plot it.
         if marginal.is_finite():
-            coord_and_prob = dict()
+            coord_and_prob = {}
             maxima = {x: 0, y: 0}
             max_prob = 0
             colors = []

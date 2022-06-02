@@ -13,7 +13,7 @@ from prodigy.analysis.plotter import Plotter
 from probably.pgcl import *
 from prodigy.util.color import Style
 
-from prodigy.util.logger import log_setup, printProgressBar
+from prodigy.util.logger import log_setup, print_progress_bar
 
 logger = log_setup(__name__, logging.DEBUG)
 
@@ -71,7 +71,7 @@ class SequenceHandler(InstructionHandler):
             return dist
 
         elif isinstance(instr, WhileInstr):
-            logger.info(f"{instr} gets handled")
+            logger.info("%s gets handled", instr)
             return WhileHandler.compute(instr, dist, config)
 
         elif isinstance(instr, IfInstr):
@@ -84,19 +84,19 @@ class SequenceHandler(InstructionHandler):
             return PChoiceHandler.compute(instr, dist, config)
 
         elif isinstance(instr, ObserveInstr):
-            logger.info(f"{instr} gets handled")
+            logger.info("%s gets handled", instr)
             cls.normalization = True
             return ObserveHandler.compute(instr, dist, config)
 
         elif isinstance(instr, get_args(Query)):
-            logger.info(f"{instr} gets handled")
+            logger.info("%s gets handled", instr)
             if cls.normalization:
                 dist = dist.normalize()
                 cls.normalization = False
             return QueryHandler.compute(instr, dist, config)
 
         elif isinstance(instr, LoopInstr):
-            logger.info(f"{instr} gets handled")
+            logger.info("%s gets handled", instr)
             return LoopHandler.compute(instr, dist, config)
 
         raise Exception("illegal instruction")
@@ -151,9 +151,10 @@ class QueryHandler(InstructionHandler):
     def __query_optimization(instr: OptimizationQuery, dist: Distribution,
                              config: ForwardAnalysisConfig):
         logger.debug(
-            f"Computing the optimal value for parameter {instr.parameter}"
-            f"in order to {'maximize' if instr.type == OptimizationType.MAXIMIZE else 'minimize'}"
-            f"the distribution {dist} with respect to {instr.expr}")
+            "Computing the optimal value for parameter %s in order to %s the distribution %s with respect to %s",
+            instr.parameter, 'maximize' if instr.type == OptimizationType.MAXIMIZE else 'minimize',
+            dist, instr.expr
+        )
         result = config.optimizer.optimize(instr.expr,
                                            dist,
                                            instr.parameter,
@@ -221,7 +222,7 @@ class SampleHandler(InstructionHandler):
         assert isinstance(instr.rhs, get_args(DistrExpr)), f"The Instruction handled by a SampleHandler" \
                                                            f" must be of type DistrExpr, got {type(instr)}"
 
-        logger.info(f"Computing distribution sampling update.\n{instr}")
+        logger.info("Computing distribution sampling update.\n%s", instr)
         variable: Var = instr.lhs
         marginal = dist.marginal(variable, method=MarginalType.Exclude)
         factory = config.factory
@@ -275,7 +276,7 @@ class AssignmentHandler(InstructionHandler):
             raise SyntaxError(
                 f"Assignment {instr} is ill-formed. right-hand-side must be an expression."
             )
-        logger.info(f"Computing distribution update.\n{instr}")
+        logger.info("Computing distribution update.\n%s", instr)
         return dist.update(
             BinopExpr(operator=Binop.EQ, lhs=VarExpr(instr.lhs),
                       rhs=instr.rhs))
@@ -302,7 +303,7 @@ class PChoiceHandler(InstructionHandler):
 
         lhs_block = SequenceHandler.compute(instr.lhs, dist)
         rhs_block = SequenceHandler.compute(instr.rhs, dist)
-        logger.info(f"Combining PChoice branches.\n{instr}")
+        logger.info("Combining PChoice branches.\n%s", instr)
         return lhs_block * str(instr.prob) + rhs_block * f"1-{instr.prob}"
 
 
@@ -312,7 +313,7 @@ class ITEHandler(InstructionHandler):
                 config: ForwardAnalysisConfig) -> Distribution:
         _assume(instr, IfInstr, 'ITEHandler')
 
-        logger.info(f"Filtering the guard {instr.cond}")
+        logger.info("Filtering the guard %s", instr.cond)
         sat_part = dist.filter(instr.cond)
         non_sat_part = dist - sat_part
         if config.show_intermediate_steps:
@@ -330,7 +331,7 @@ class ITEHandler(InstructionHandler):
             else_branch = SequenceHandler.compute(instr.false, non_sat_part,
                                                   config)
         result = if_branch + else_branch
-        logger.info(f"Combining if-branches.\n{instr}")
+        logger.info("Combining if-branches.\n%s", instr)
         return result
 
 
@@ -340,8 +341,7 @@ class LoopHandler(InstructionHandler):
                 config: ForwardAnalysisConfig) -> Distribution:
         _assume(instr, LoopInstr, 'LoopHandler')
         for i in range(instr.iterations.value):
-            logger.debug(
-                f"Computing iteration {i + 1} out of {instr.iterations.value}")
+            logger.debug("Computing iteration %d out of %d", i+1, instr.iterations.value)
             dist = SequenceHandler.compute(instr.body, dist, config)
         return dist
 
@@ -394,7 +394,7 @@ class WhileHandler(InstructionHandler):
             sat_part = dist.filter(instr.cond)
             non_sat_part = dist - sat_part
             for i in range(max_iter + 1):
-                printProgressBar(i, max_iter, "Iteration:", length=50)
+                print_progress_bar(i, max_iter, "Iteration:", length=50)
                 iterated_part = SequenceHandler.compute(
                     instr.body, sat_part, config)
                 iterated_sat = iterated_part.filter(instr.cond)
@@ -426,7 +426,7 @@ class WhileHandler(InstructionHandler):
                 iterated_non_sat = iterated_part - iterated_sat
                 non_sat_part += iterated_non_sat
                 sat_part = iterated_sat
-                printProgressBar(int(
+                print_progress_bar(int(
                     (Fraction(non_sat_part.get_probability_mass()) /
                      captured_probability_threshold) * 100),
                                  100,

@@ -9,12 +9,12 @@ from typing import Type
 import attr
 
 from prodigy.distribution.distribution_factory import CommonDistributionsFactory
-from .exceptions import ConfigurationError
 from prodigy.distribution.pgfs import ProdigyPGF
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.analysis.optimization.gf_optimizer import GFOptimizer
 from prodigy.analysis.optimization import Optimizer
 from prodigy.distribution.pgfs import SympyPGF
+from .exceptions import ConfigurationError
 
 
 @attr.s
@@ -27,16 +27,21 @@ class ForwardAnalysisConfig:
         SYMPY = auto()
         GINAC = auto()
 
-    """Enables the printing of results after each instruction."""
+
     show_intermediate_steps: bool = attr.ib(default=False)
-    """Displays the probabilities in rational form. This does not change the preciseness of computation."""
+    """Enables the printing of results after each instruction."""
+
     show_rational_probabilities: bool = attr.ib(default=False)
-    """Enables simplification heuristics for expressions."""
+    """Displays the probabilities in rational form. This does not change the preciseness of computation."""
+
     use_simplification: bool = attr.ib(default=False)
-    """Toggle to print LaTeX-Code instead of ASCII expressions."""
+    """Enables simplification heuristics for expressions."""
+
     use_latex: bool = attr.ib(default=False)
-    """Selects the distribution backend."""
+    """Toggle to print LaTeX-Code instead of ASCII expressions."""
+
     engine: Engine = attr.ib(default=Engine.SYMPY)
+    """Selects the distribution backend."""
 
     @property
     def optimizer(self) -> Type[Optimizer]:

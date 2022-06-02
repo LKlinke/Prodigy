@@ -15,14 +15,14 @@ def log_setup(name: str, level, file: str = 'test.log') -> logging.Logger:
 
 
 # Print iterations progress
-def printProgressBar(iteration,
-                     total,
-                     prefix='Progress:',
-                     suffix='completed',
-                     decimals=1,
-                     length=100,
-                     fill='█',
-                     printEnd=""):
+def print_progress_bar(iteration,
+                       total,
+                       prefix='Progress:',
+                       suffix='completed',
+                       decimals=1,
+                       length=100,
+                       fill='█',
+                       print_end=""):
     """
     Call in a loop to create terminal progress bar
     @params:
@@ -37,11 +37,11 @@ def printProgressBar(iteration,
     """
     percent = ("{0:." + str(decimals) + "f}").format(
         100 * (iteration / float(total)))
-    filledLength = int(length * iteration // total)
-    bar = fill * filledLength + '-' * (length - filledLength)
+    filled_length = int(length * iteration // total)
+    bar = fill * filled_length + '-' * (length - filled_length)
     print(
         f'{Style.YELLOW if (iteration / float(total)) < 1 else Style.GREEN}\r{prefix} |{bar}| {percent}% {suffix}{Style.RESET}',
-        end=printEnd,
+        end=print_end,
         flush=True)
     # Print New Line on Complete
     if iteration == total:

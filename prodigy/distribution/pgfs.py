@@ -15,9 +15,10 @@ from prodigy.pgcl.analyzer.syntax import has_variable
 
 class SympyPGF(CommonDistributionsFactory):
     """Implements PGFs of standard distributions."""
+
     @staticmethod
     def geometric(var: Union[str, VarExpr], p: Param) -> Distribution:
-        if isinstance(p, str) and not (0 < sp.S(p) < 1):
+        if isinstance(p, str) and not 0 < sp.S(p) < 1:
             raise DistributionParameterError(
                 f"parameter of geom distr must be >0 and <=1, was {p}")
         elif isinstance(p, VarExpr) and has_variable(p):
@@ -32,7 +33,7 @@ class SympyPGF(CommonDistributionsFactory):
     @staticmethod
     def uniform(var: Union[str, VarExpr], a: Param, b: Param) -> Distribution:
         if isinstance(a, str) and isinstance(
-                b, str) and not (0 <= sp.S(a) <= sp.S(b)):
+                b, str) and not 0 <= sp.S(a) <= sp.S(b):
             raise DistributionParameterError(
                 f"Distribution parameters must satisfy 0 <= a < b < oo")
         elif (isinstance(a, VarExpr)
@@ -49,7 +50,7 @@ class SympyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def bernoulli(var: Union[str, VarExpr], p: Param) -> Distribution:
-        if isinstance(p, str) and not (0 <= sp.S(p) <= 1):
+        if isinstance(p, str) and not 0 <= sp.S(p) <= 1:
             raise DistributionParameterError(
                 f"Parameter of Bernoulli Distribution must be in [0,1], but was {p}"
             )
@@ -79,7 +80,7 @@ class SympyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def log(var: Union[str, VarExpr], p: Param) -> Distribution:
-        if isinstance(p, str) and not (0 <= sp.S(p) <= 1):
+        if isinstance(p, str) and not 0 <= sp.S(p) <= 1:
             raise DistributionParameterError(
                 f"Parameter of Logarithmic Distribution must be in [0,1], but was {p}"
             )
@@ -94,17 +95,17 @@ class SympyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def binomial(var: Union[str, VarExpr], n: Param, p: Param) -> Distribution:
-        if isinstance(p, str) and not (0 <= sp.S(p) <= 1):
+        if isinstance(p, str) and not 0 <= sp.S(p) <= 1:
             raise DistributionParameterError(
                 f"Parameter of Binomial Distribution must be in [0,1], but was {p}"
             )
-        if isinstance(n, str) and not (0 <= sp.S(n)):
+        if isinstance(n, str) and not 0 <= sp.S(n):
             raise DistributionParameterError(
                 f"Parameter of Binomial Distribution must be in [0,oo), but was {n}"
             )
-        elif (isinstance(n, VarExpr)
-              and has_variable(n)) or (isinstance(p, VarExpr)
-                                       and has_variable(p)):
+        if (isinstance(n, VarExpr)
+            and has_variable(n)) or (isinstance(p, VarExpr)
+                                     and has_variable(p)):
             raise DistributionParameterError(
                 f"Parameter for geometric distribution cannot depend on a program variable."
             )
