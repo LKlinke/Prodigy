@@ -18,7 +18,7 @@ from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
                   ExpectationInstr, PrintInstr, OptimizationQuery, PlotInstr,
                   LoopInstr, CUniformExpr, GeometricExpr, BernoulliExpr,PoissonExpr,
                   LogDistExpr, BinomialExpr, IidSampleExpr, DistrExpr)
-from .ast.walk import Walk, walk_expr
+from .ast.walk import Walk, mut_expr_children, walk_expr
 
 _T = TypeVar('_T')
 
@@ -198,8 +198,23 @@ def get_type(program: Program,
 
 
 def _check_distribution_arguments(prog: Program, expected_type: Type, *parameters: Tuple[Type, Expr]) -> Union[Type, CheckFail]:
+    # this function is copied from the syntax module, which is not pretty, but prevents cyclic imports
+    # also, it works only if constant substitution has been performed
+    # pylint: disable=duplicate-code
+    def _has_variable(expr: Expr) -> bool:
+        if isinstance(expr, UnopExpr) and expr.operator == Unop.IVERSON:
+            return False
+        if isinstance(expr, VarExpr) and expr.var not in prog.parameters:
+            return True
+        for child_ref in mut_expr_children(Mut.alloc(expr)):
+            if _has_variable(child_ref.val):
+                return True
+        return False
+
     for expected_param_type, param_expr in parameters:
-        # Check for variables in parameters here
+        if _has_variable(param_expr):
+            return CheckFail(param_expr, "In distribution parameter expressions, no variables are allowed. - Forgot parameter declaration?")
+
         param_type = get_type(prog, param_expr)
         if isinstance(param_type, CheckFail):
             return param_type

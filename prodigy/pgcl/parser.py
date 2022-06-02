@@ -485,7 +485,7 @@ def parse_expr(code: str) -> Expr:
     .. doctest::
 
         >>> parse_expr("x < y & z")
-        BinopExpr(operator=Binop.AND, lhs=BinopExpr(operator=Binop.LE, lhs=VarExpr('x'), rhs=VarExpr('y')), rhs=VarExpr('z'))
+        BinopExpr(operator=Binop.AND, lhs=BinopExpr(operator=Binop.LT, lhs=VarExpr('x'), rhs=VarExpr('y')), rhs=VarExpr('z'))
 
         >>> parse_expr("[x]")
         Traceback (most recent call last):

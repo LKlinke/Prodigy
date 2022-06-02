@@ -41,11 +41,11 @@ def compile_pgcl(code: str,
         substitute_constants: Whether constant substitution is done on the program, defaults to `True`.
     """
     program = parse_pgcl(code)
+    if substitute_constants:
+        substitute.substitute_constants(program)
     check_result = check_program(program)
     if check_result is not None:
         return check_result
-    if substitute_constants:
-        substitute.substitute_constants(program)
     return program
 
 
