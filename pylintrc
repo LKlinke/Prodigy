@@ -12,10 +12,13 @@ init-import=no
 ignored-modules=
 
 [BASIC]
-good-names=T,i,t,op,fn,R,M,ii,g,pc,tf,k
+good-names=T,i,t,op,fn,R,M,ii,g,pc,tf,k,p,x,y,n
 
 [FORMAT]
 max-line-length=120
+
+[MAIN]
+extension-pkg-allow-list=pygin
 
 [MISCELLANEOUS]
 notes=FIXME,XXX,TODO

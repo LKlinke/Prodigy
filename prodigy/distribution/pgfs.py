@@ -2,28 +2,27 @@ from typing import Union
 
 import pygin
 import sympy as sp
-
-from prodigy.distribution.distribution_factory import CommonDistributionsFactory, Distribution, Param
-from prodigy.analysis.exceptions import DistributionParameterError
-from prodigy.distribution.fast_generating_function import FPS
-from prodigy.distribution.generating_function import GeneratingFunction
 from probably.pgcl import VarExpr, Expr
 
+from prodigy.distribution import Distribution, DistributionParam
+from prodigy.distribution.distribution import CommonDistributionsFactory
+from prodigy.distribution.fast_generating_function import FPS
+from prodigy.distribution.generating_function import GeneratingFunction
 # We need to be able to get this import from probably
-from prodigy.pgcl.analyzer.syntax import has_variable
+from prodigy.pgcl.pgcl_checks import has_variable
 
 
 class SympyPGF(CommonDistributionsFactory):
     """Implements PGFs of standard distributions."""
 
     @staticmethod
-    def geometric(var: Union[str, VarExpr], p: Param) -> Distribution:
+    def geometric(var: Union[str, VarExpr], p: DistributionParam) -> Distribution:
         if isinstance(p, str) and not 0 < sp.S(p) < 1:
-            raise DistributionParameterError(
+            raise ValueError(
                 f"parameter of geom distr must be >0 and <=1, was {p}")
-        elif isinstance(p, VarExpr) and has_variable(p):
-            raise DistributionParameterError(
-                f"Parameter for geometric distribution cannot depend on a program variable."
+        if isinstance(p, VarExpr) and has_variable(p):
+            raise ValueError(
+                "Parameter for geometric distribution cannot depend on a program variable."
             )
         return GeneratingFunction(f"({p}) / (1 - (1-({p})) * {var})",
                                   var,
@@ -31,32 +30,32 @@ class SympyPGF(CommonDistributionsFactory):
                                   finite=False)
 
     @staticmethod
-    def uniform(var: Union[str, VarExpr], a: Param, b: Param) -> Distribution:
-        if isinstance(a, str) and isinstance(
-                b, str) and not 0 <= sp.S(a) <= sp.S(b):
-            raise DistributionParameterError(
-                f"Distribution parameters must satisfy 0 <= a < b < oo")
-        elif (isinstance(a, VarExpr)
-              and has_variable(a)) or (isinstance(b, VarExpr)
-                                       and has_variable(b)):
-            raise DistributionParameterError(
-                f"Parameter for uniform distribution cannot depend on a program variable."
+    def uniform(var: Union[str, VarExpr], lower: DistributionParam, upper: DistributionParam) -> Distribution:
+        if isinstance(lower, str) and isinstance(
+                upper, str) and not 0 <= sp.S(lower) <= sp.S(upper):
+            raise ValueError(
+                "Distribution parameters must satisfy 0 <= a < b < oo")
+        if (isinstance(lower, VarExpr)
+              and has_variable(lower)) or (isinstance(upper, VarExpr)
+                                           and has_variable(upper)):
+            raise ValueError(
+                "Parameter for uniform distribution cannot depend on a program variable."
             )
         return GeneratingFunction(
-            f"1/(({b}) - ({a}) + 1) * {var}**({a}) * ({var}**(({b}) - ({a}) + 1) - 1) / ({var} - 1)",
+            f"1/(({upper}) - ({lower}) + 1) * {var}**({lower}) * ({var}**(({upper}) - ({lower}) + 1) - 1) / ({var} - 1)",
             var,
             closed=True,
             finite=True)
 
     @staticmethod
-    def bernoulli(var: Union[str, VarExpr], p: Param) -> Distribution:
+    def bernoulli(var: Union[str, VarExpr], p: DistributionParam) -> Distribution:
         if isinstance(p, str) and not 0 <= sp.S(p) <= 1:
-            raise DistributionParameterError(
+            raise ValueError(
                 f"Parameter of Bernoulli Distribution must be in [0,1], but was {p}"
             )
-        elif isinstance(p, VarExpr) and has_variable(p):
-            raise DistributionParameterError(
-                f"Parameter for geometric distribution cannot depend on a program variable."
+        if isinstance(p, VarExpr) and has_variable(p):
+            raise ValueError(
+                "Parameter for geometric distribution cannot depend on a program variable."
             )
         return GeneratingFunction(f"1 - ({p}) + ({p}) * {var}",
                                   var,
@@ -64,14 +63,14 @@ class SympyPGF(CommonDistributionsFactory):
                                   finite=True)
 
     @staticmethod
-    def poisson(var: Union[str, VarExpr], lam: Param) -> Distribution:
+    def poisson(var: Union[str, VarExpr], lam: DistributionParam) -> Distribution:
         if isinstance(lam, str) and sp.S(lam) < 0:
-            raise DistributionParameterError(
+            raise ValueError(
                 f"Parameter of Poisson Distribution must be in [0, oo), but was {lam}"
             )
-        elif isinstance(lam, VarExpr) and has_variable(lam):
-            raise DistributionParameterError(
-                f"Parameter for geometric distribution cannot depend on a program variable."
+        if isinstance(lam, VarExpr) and has_variable(lam):
+            raise ValueError(
+                "Parameter for geometric distribution cannot depend on a program variable."
             )
         return GeneratingFunction(f"exp(({lam}) * ({var} - 1))",
                                   var,
@@ -79,14 +78,14 @@ class SympyPGF(CommonDistributionsFactory):
                                   finite=False)
 
     @staticmethod
-    def log(var: Union[str, VarExpr], p: Param) -> Distribution:
+    def log(var: Union[str, VarExpr], p: DistributionParam) -> Distribution:
         if isinstance(p, str) and not 0 <= sp.S(p) <= 1:
-            raise DistributionParameterError(
+            raise ValueError(
                 f"Parameter of Logarithmic Distribution must be in [0,1], but was {p}"
             )
-        elif isinstance(p, VarExpr) and has_variable(p):
-            raise DistributionParameterError(
-                f"Parameter for geometric distribution cannot depend on a program variable."
+        if isinstance(p, VarExpr) and has_variable(p):
+            raise ValueError(
+                "Parameter for geometric distribution cannot depend on a program variable."
             )
         return GeneratingFunction(f"log(1-({p})*{var})/log(1-({p}))",
                                   var,
@@ -94,20 +93,20 @@ class SympyPGF(CommonDistributionsFactory):
                                   finite=False)
 
     @staticmethod
-    def binomial(var: Union[str, VarExpr], n: Param, p: Param) -> Distribution:
+    def binomial(var: Union[str, VarExpr], n: DistributionParam, p: DistributionParam) -> Distribution:
         if isinstance(p, str) and not 0 <= sp.S(p) <= 1:
-            raise DistributionParameterError(
+            raise ValueError(
                 f"Parameter of Binomial Distribution must be in [0,1], but was {p}"
             )
         if isinstance(n, str) and not 0 <= sp.S(n):
-            raise DistributionParameterError(
+            raise ValueError(
                 f"Parameter of Binomial Distribution must be in [0,oo), but was {n}"
             )
         if (isinstance(n, VarExpr)
             and has_variable(n)) or (isinstance(p, VarExpr)
                                      and has_variable(p)):
-            raise DistributionParameterError(
-                f"Parameter for geometric distribution cannot depend on a program variable."
+            raise ValueError(
+                "Parameter for geometric distribution cannot depend on a program variable."
             )
         return GeneratingFunction(f"(1-({p})+({p})*{var})**({n})",
                                   var,
@@ -145,33 +144,33 @@ class SympyPGF(CommonDistributionsFactory):
 
 class ProdigyPGF(CommonDistributionsFactory):
     @staticmethod
-    def geometric(var: Union[str, VarExpr], p: Param) -> Distribution:
+    def geometric(var: Union[str, VarExpr], p: DistributionParam) -> Distribution:
         return FPS(str(pygin.geometric(var, str(p))))
 
     @staticmethod
-    def uniform(var: Union[str, VarExpr], a: Param, b: Param) -> Distribution:
-        f = f"1/({b} - {a} + 1) * ({var}^{a}) * (({var}^({b} - {a} + 1) - 1)/({var} - 1))"
-        return FPS(f)
+    def uniform(var: Union[str, VarExpr], lower: DistributionParam, upper: DistributionParam) -> Distribution:
+        function = f"1/({upper} - {lower} + 1) * ({var}^{lower}) * (({var}^({upper} - {lower} + 1) - 1)/({var} - 1))"
+        return FPS(function)
 
     @staticmethod
-    def bernoulli(var: Union[str, VarExpr], p: Param) -> Distribution:
-        f = f"({p}) * {var} + 1-({p})"
-        return FPS(f)
+    def bernoulli(var: Union[str, VarExpr], p: DistributionParam) -> Distribution:
+        function = f"({p}) * {var} + 1-({p})"
+        return FPS(function)
 
     @staticmethod
-    def poisson(var: Union[str, VarExpr], lam: Param) -> Distribution:
-        f = f"exp(({lam}) * ({var} - 1))"
-        return FPS(f)
+    def poisson(var: Union[str, VarExpr], lam: DistributionParam) -> Distribution:
+        function = f"exp(({lam}) * ({var} - 1))"
+        return FPS(function)
 
     @staticmethod
-    def log(var: Union[str, VarExpr], p: Param) -> Distribution:
-        f = f"log(1-({p})*{var})/log(1-({p}))"
-        return FPS(f)
+    def log(var: Union[str, VarExpr], p: DistributionParam) -> Distribution:
+        function = f"log(1-({p})*{var})/log(1-({p}))"
+        return FPS(function)
 
     @staticmethod
-    def binomial(var: Union[str, VarExpr], n: Param, p: Param) -> Distribution:
-        f = f"(({p})*{var} + (1-({p})))^({n})"
-        return FPS(f)
+    def binomial(var: Union[str, VarExpr], n: DistributionParam, p: DistributionParam) -> Distribution:
+        function = f"(({p})*{var} + (1-({p})))^({n})"
+        return FPS(function)
 
     @staticmethod
     def undefined(*variables: Union[str, VarExpr]) -> Distribution:
@@ -184,4 +183,4 @@ class ProdigyPGF(CommonDistributionsFactory):
     @staticmethod
     def from_expr(expression: Union[str, Expr], *variables,
                   **kwargs) -> 'Distribution':
-        return FPS(expression)
+        return FPS(expression, **kwargs)

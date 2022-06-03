@@ -2,9 +2,8 @@ from abc import ABC, abstractmethod
 from typing import Union, List
 
 import attr
-
-from prodigy.distribution.distribution import Distribution
 from probably.pgcl import Expr, VarExpr, OptimizationType
+from prodigy.distribution.distribution import Distribution
 
 
 @attr.s
@@ -12,13 +11,14 @@ class Optimizer(ABC):
     """
     The `Optimizer` optimizes target functions and distributions.
     """
+
     @staticmethod
     @abstractmethod
     def optimize(
-        condition: Union[str, Expr],
-        dist: Distribution,
-        *parameters: Union[str, VarExpr],
-        method: OptimizationType = OptimizationType.MINIMIZE
+            condition: Union[str, Expr],
+            dist: Distribution,
+            *parameters: Union[str, VarExpr],
+            method: OptimizationType = OptimizationType.MINIMIZE
     ) -> List[Union[str, Expr]]:
         """
         This method optimizes the given distribution parameters wrt to the optimization method and condition.
@@ -29,4 +29,3 @@ class Optimizer(ABC):
         :param method: The optimization method.
         :return: The parameter values, that optimize the function.
         """
-        pass

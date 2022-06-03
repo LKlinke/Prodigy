@@ -1,9 +1,9 @@
 import logging
 from typing import Tuple, Optional
 
+from probably.pgcl import Program, IfInstr, SkipInstr, VarExpr, WhileInstr
 from prodigy.distribution.distribution import Distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
-from probably.pgcl import Program, IfInstr, SkipInstr, VarExpr, WhileInstr
 from prodigy.analysis.instruction_handler import compute_discrete_distribution
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
@@ -50,7 +50,7 @@ def generate_equivalence_test_distribution(
     dist = config.factory.one()
     for i, variable in enumerate(program.variables):
         dist *= config.factory.from_expr(
-            f"1/(1-p{i}*{variable})", VarExpr(var=f"p{i}", is_parameter=True))
+            f"1/(1-p{i}*{variable})", VarExpr(var=f"p{i}")) #FIXME: Somehow we have to give the context which variables are parameters and which are variables
     return dist
 
 
@@ -87,16 +87,16 @@ def check_equivalence(program: Program, invariant: Program, config: ForwardAnaly
             f"\n{Style.YELLOW} Compute the result of the modified invariant. {Style.RESET}"
         )
     modified_inv_result = compute_discrete_distribution(
-        modified_inv.instructions, test_dist, config)
-    logger.debug(f"modified invariant result:\t{modified_inv_result}")
+        modified_inv, test_dist, config)
+    logger.debug("modified invariant result:\t%s", modified_inv_result)
     logger.debug("Compute the invariant...")
     if config.show_intermediate_steps:
         print(
             f"\n{Style.YELLOW} Compute the result of the invariant. {Style.RESET}"
         )
-    inv_result = compute_discrete_distribution(invariant.instructions,
+    inv_result = compute_discrete_distribution(invariant,
                                                test_dist, config)
-    logger.debug(f"invariant result:\t{inv_result}")
+    logger.debug("invariant result:\t%s", inv_result)
     # Compare them and check whether they are equal.
     logger.debug("Compare results")
     if config.show_intermediate_steps:

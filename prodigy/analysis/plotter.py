@@ -1,13 +1,12 @@
 from typing import Union
 
-import sympy
 import logging
+import sympy
 import matplotlib.pyplot as plt
 from matplotlib.cm import ScalarMappable
+from probably.pgcl import VarExpr
 
 from prodigy.distribution.distribution import Distribution
-from prodigy.analysis.exceptions import ParameterError
-from probably.pgcl import VarExpr
 from prodigy.util.logger import log_setup
 
 logger = log_setup(__name__, logging.DEBUG)
@@ -60,13 +59,13 @@ class Plotter:
                 colors[coord[1]][coord[0]] = float(coord_and_prob[coord])
 
             # Plot the colors array
-            c = plt.imshow(colors,
+            color_plot = plt.imshow(colors,
                            vmin=0,
                            origin='lower',
                            interpolation='nearest',
                            cmap="turbo",
                            aspect='auto')
-            plt.colorbar(c)
+            plt.colorbar(color_plot)
             plt.gca().set_xlabel(f"{x}")
             plt.gca().set_xticks(range(0, maxima[x] + 1))
             plt.gca().set_ylabel(f"{y}")
@@ -101,25 +100,25 @@ class Plotter:
                 ind.append(float(state[var]))
                 prob_sum += sympy.S(prob)
                 terms += 1
-            ax = plt.subplot()
+            axis = plt.subplot()
             my_cmap = plt.cm.get_cmap("Blues")
             colors = my_cmap([x / max(data) for x in data])
-            sm = ScalarMappable(cmap=my_cmap, norm=plt.Normalize(0, max(data)))
-            sm.set_array([])
-            ax.bar(ind, data, 1, linewidth=.5, ec=(0, 0, 0), color=colors)
-            ax.set_xlabel(f"{var}")
-            ax.set_xticks(ind)
-            ax.set_ylabel(f'Probability p({var})')
+            scalar_mappable = ScalarMappable(cmap=my_cmap, norm=plt.Normalize(0, max(data)))
+            scalar_mappable.set_array([])
+            axis.bar(ind, data, 1, linewidth=.5, ec=(0, 0, 0), color=colors)
+            axis.set_xlabel(f"{var}")
+            axis.set_xticks(ind)
+            axis.set_ylabel(f'Probability p({var})')
             plt.get_current_fig_manager().set_window_title("Histogram Plot")
             plt.gcf().suptitle("Histogram")
-            plt.colorbar(sm)
+            plt.colorbar(scalar_mappable)
             plt.show()
         else:
             prev_gf = marginal
-            for gf in marginal.approximate(threshold):
-                if not gf.is_zero_dist() and not prev_gf == gf:
-                    Plotter._create_histogram_for_variable(gf, var, threshold)
-                prev_gf = gf
+            for dist in marginal.approximate(threshold):
+                if not dist.is_zero_dist() and not prev_gf == dist:
+                    Plotter._create_histogram_for_variable(dist, var, threshold)
+                prev_gf = dist
 
     @staticmethod
     def plot(function: Distribution, *variables: Union[str, sympy.Symbol],
@@ -129,8 +128,7 @@ class Plotter:
             raise Exception("Cannot Plot parametrized functions.")
         if variables:
             if len(variables) > 2:
-                raise ParameterError(
-                    f"create_plot() cannot handle more than two variables!")
+                raise NotImplementedError("create_plot() cannot handle more than two variables!")
             if len(variables) == 2:
                 Plotter._create_2d_hist(function,
                                         var_1=variables[0],
@@ -146,13 +144,13 @@ class Plotter:
                     "Multivariate distributions need to specify the variable to plot"
                 )
 
-            elif len(function.get_variables()) == 2:
-                vars = list(function.get_variables())
+            if len(function.get_variables()) == 2:
+                plot_vars = list(function.get_variables())
                 Plotter._create_2d_hist(function,
-                                        var_1=vars[0],
-                                        var_2=vars[1],
+                                        var_1=plot_vars[0],
+                                        var_2=plot_vars[1],
                                         threshold=threshold)
             else:
-                for var in function.get_variables():
-                    Plotter._create_histogram_for_variable(var,
+                for plot_var in function.get_variables():
+                    Plotter._create_histogram_for_variable(plot_var,
                                                            threshold=threshold)

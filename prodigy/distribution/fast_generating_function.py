@@ -1,11 +1,9 @@
 from typing import Union, Generator, Set, Iterator, Tuple, Dict, get_args
-
+import pygin
+from probably.pgcl import VarExpr, Expr, BinopExpr, UnopExpr, Binop, Unop, IidSampleExpr, GeometricExpr, DistrExpr, \
+    BernoulliExpr, DUniformExpr, PoissonExpr
 from prodigy.distribution.distribution import MarginalType
 from prodigy.distribution.distribution import Distribution
-import pygin
-
-from probably.pgcl import VarExpr, Expr, BinopExpr, UnopExpr, Binop, Unop, IidSampleExpr, GeometricExpr, DistrExpr,\
-    BernoulliExpr, DUniformExpr, PoissonExpr
 
 
 class FPS(Distribution):
@@ -14,6 +12,7 @@ class FPS(Distribution):
     These formal powerseries are itself provided by `prodigy` a python binding to GiNaC,
     something similar to a computer algebra system implemented in C++.
     """
+
     def __init__(self, expression: str, parameter: str = None):
         if parameter is not None:
             self.dist = pygin.Dist(expression, parameter)
@@ -96,38 +95,20 @@ class FPS(Distribution):
         if isinstance(condition, BinopExpr):
             if condition.operator == Binop.AND:
                 return self.filter(condition.lhs).filter(condition.rhs)
-            elif condition.operator == Binop.OR:
+            if condition.operator == Binop.OR:
                 filtered_left = self.filter(condition.lhs)
                 return filtered_left + self.filter(
                     condition.rhs) - filtered_left.filter(condition.lhs)
 
             # Normalize the conditional to variables on the lhs from the relation symbol.
             if isinstance(condition.rhs, VarExpr):
-                if condition.operator == Binop.EQ:
-                    return self.filter(
-                        BinopExpr(operator=Binop.EQ,
-                                  lhs=condition.rhs,
-                                  rhs=condition.lhs))
-                elif condition.operator == Binop.LEQ:
-                    return self.filter(
-                        BinopExpr(operator=Binop.GEQ,
-                                  lhs=condition.rhs,
-                                  rhs=condition.lhs))
-                elif condition.operator == Binop.LE:
-                    return self.filter(
-                        BinopExpr(operator=Binop.GE,
-                                  lhs=condition.rhs,
-                                  rhs=condition.lhs))
-                elif condition.operator == Binop.GEQ:
-                    return self.filter(
-                        BinopExpr(operator=Binop.LEQ,
-                                  lhs=condition.rhs,
-                                  rhs=condition.lhs))
-                elif condition.operator == Binop.GE:
-                    return self.filter(
-                        BinopExpr(operator=Binop.LE,
-                                  lhs=condition.rhs,
-                                  rhs=condition.lhs))
+                switch_comparison = {Binop.EQ: Binop.EQ, Binop.LEQ: Binop.GEQ, Binop.LE: Binop.GE, Binop.GEQ: Binop.LEQ,
+                                     Binop.GE: Binop.LE}
+                return self.filter(
+                    BinopExpr(operator=switch_comparison[condition.operator],
+                              lhs=condition.rhs,
+                              rhs=condition.lhs)
+                )
 
             # is normalized conditional
             if isinstance(condition.lhs, VarExpr):
@@ -151,13 +132,13 @@ class FPS(Distribution):
                     return FPS.from_dist(
                         self.dist.filterGeq(str(condition.lhs),
                                             str(condition.rhs)))
-        elif isinstance(condition, UnopExpr):
+        if isinstance(condition, UnopExpr):
             # unary relation
             if condition.operator == Unop.NEG:
                 return self - self.filter(condition.expr)
-        else:
-            raise SyntaxError(
-                f"Filtering Condition has unknown format {condition}.")
+            raise SyntaxError(f"We do not support filtering for {type(Unop.IVERSON)} expressions.")
+
+        raise SyntaxError(f"Filtering Condition has unknown format {condition}.")
 
     def is_zero_dist(self) -> bool:
         return self.dist.isZero()
@@ -215,19 +196,19 @@ class FPS(Distribution):
 
     def marginal(self,
                  *variables: Union[str, VarExpr],
-                 method: MarginalType = MarginalType.Include) -> Distribution:
+                 method: MarginalType = MarginalType.INCLUDE) -> Distribution:
         # TODO: Make this work with an arbitrary number of variables to marginalize.
         if len(variables) > 1:
             raise NotImplementedError(__name__)
-        else:
-            if method == MarginalType.Exclude:
-                result = self.dist
-                for var in variables:
-                    result = result.update(str(var), "0")
-                return FPS.from_dist(result)
-            elif method == MarginalType.Include:
-                for var in variables:
-                    return FPS.from_dist(self.dist.marginal(str(var)))
+        if method == MarginalType.EXCLUDE:
+            result = self.dist
+            for var in variables:
+                result = result.update(str(var), "0")
+            return FPS.from_dist(result)
+        if method == MarginalType.INCLUDE:
+            for var in variables:
+                return FPS.from_dist(self.dist.marginal(str(var)))
+        raise AttributeError(f"`method`-argument can only be of type {type(MarginalType)} -- was {type(method)}")
 
     def set_variables(self, *variables: str) -> Distribution:
         raise NotImplementedError(__name__)

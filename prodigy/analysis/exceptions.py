@@ -3,31 +3,11 @@ class ForwardAnalysisError(Exception):
 
 
 class ObserveZeroEventError(ForwardAnalysisError):
-    pass
+    """ Observing an event that has zero probablity."""
 
 
 class DistributionParameterError(ForwardAnalysisError):
-    pass
-
-
-class IncomparableTypesException(Exception):
-    pass
-
-
-class ComparisonException(Exception):
-    pass
-
-
-class NotComputableException(Exception):
-    pass
-
-
-class ParameterError(Exception):
-    pass
-
-
-class ExpressionError(Exception):
-    pass
+    """The Parameter of a Distribution does not typematch"""
 
 
 class VerificationError(Exception):

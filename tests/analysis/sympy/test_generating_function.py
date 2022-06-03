@@ -3,16 +3,15 @@ import sympy
 import pytest
 
 from prodigy.distribution.distribution import MarginalType
-from prodigy.analysis.exceptions import ComparisonException
 from prodigy.distribution.pgfs import SympyPGF
 from prodigy.distribution.generating_function import GeneratingFunction
 from probably.pgcl import Binop, BinopExpr, VarExpr, NatLitExpr
 from probably.pgcl.parser import parse_expr
 
 
-def create_random_gf(vars: int = 1, terms: int = 1):
+def create_random_gf(number_of_variables: int = 1, terms: int = 1):
     # This does most likely does not create a PGF!
-    symbols = [sympy.S("x" + str(i)) for i in range(vars)]
+    symbols = [sympy.S("x" + str(i)) for i in range(number_of_variables)]
     values = [sympy.S(random.randint(0, 100)) for _ in range(len(symbols) * terms)]
     coeffs = [sympy.S(str(random.uniform(0, 1)), rational=True) for _ in range(terms)]
 
@@ -39,7 +38,7 @@ class TestDistributionInterface:
     def test_infinite_leq(self):
         gf1 = GeneratingFunction("(1-sqrt(1-x**2))/x")
         gf2 = GeneratingFunction("2/(2-x)-1")
-        with pytest.raises(ComparisonException):
+        with pytest.raises(RuntimeError):
             assert gf1 <= gf2
 
     def test_finite_le(self):
@@ -50,7 +49,7 @@ class TestDistributionInterface:
     def test_infinite_le(self):
         gf1 = GeneratingFunction("(1-sqrt(1-x**2))/x")
         gf2 = GeneratingFunction("2/(2-x)-1")
-        with pytest.raises(ComparisonException):
+        with pytest.raises(RuntimeError):
             assert gf1 < gf2
 
     def test_iteration(self):
@@ -189,7 +188,7 @@ class TestDistributionInterface:
 
         gf = SympyPGF.uniform("x", '0', '10') * SympyPGF.binomial('y', n='10', p='1/2')
         assert gf.marginal('x') == SympyPGF.uniform("x", '0', '10')
-        assert gf.marginal('x', method=MarginalType.Exclude) == SympyPGF.binomial('y', n='10', p='1/2')
+        assert gf.marginal('x', method=MarginalType.EXCLUDE) == SympyPGF.binomial('y', n='10', p='1/2')
         assert gf.marginal('x','y') == gf
 
     def test_set_variables(self):

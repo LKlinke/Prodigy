@@ -8,13 +8,13 @@ from typing import Type
 
 import attr
 
-from prodigy.distribution.distribution_factory import CommonDistributionsFactory
 from prodigy.distribution.pgfs import ProdigyPGF
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.analysis.optimization.gf_optimizer import GFOptimizer
 from prodigy.analysis.optimization import Optimizer
 from prodigy.distribution.pgfs import SympyPGF
 from .exceptions import ConfigurationError
+from ..distribution.distribution import CommonDistributionsFactory
 
 
 @attr.s

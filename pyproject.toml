@@ -22,7 +22,7 @@ probably = {git="https://github.com/Philipp15b/probably.git", branch="brand-new"
 [tool.poetry.dev-dependencies]
 pytest = "^4.6"
 pylint = "^2.5.2"
-mypy = "^0.770"
+mypy = ">0.770"
 yapf = "^0.30.0"
 sphinx-autodoc-typehints = "^1.10.3"
 sphinx-bootstrap-theme = "^0.8.1"

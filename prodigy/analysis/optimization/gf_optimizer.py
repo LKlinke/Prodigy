@@ -1,22 +1,19 @@
-import sympy
 from typing import Union, List, get_args
+import sympy
 
 from probably.pgcl import Expr, VarExpr, OptimizationType
 from probably.pgcl.parser import parse_expr
-from prodigy.analysis.exceptions import ParameterError
 from prodigy.distribution.generating_function import GeneratingFunction
 from .optimizer import Optimizer
-
-
 
 
 class GFOptimizer(Optimizer):
     @staticmethod
     def optimize(
-        condition: Union[str, Expr],
-        dist: GeneratingFunction,
-        *parameters: Union[str, VarExpr],
-        method: OptimizationType = OptimizationType.MINIMIZE
+            condition: Union[str, Expr],
+            dist: GeneratingFunction,
+            *parameters: Union[str, VarExpr],
+            method: OptimizationType = OptimizationType.MINIMIZE
     ) -> List[Union[str, Expr]]:
 
         if len(parameters) > 1:
@@ -55,6 +52,6 @@ class GFOptimizer(Optimizer):
                 if real_sol.is_real and real_sol.is_nonnegative
             ]
         else:
-            raise ParameterError(f"Unknown optimization method. {method}")
+            raise TypeError(f"Unknown optimization method. {method}")
 
         return param
