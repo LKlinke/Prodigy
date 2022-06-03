@@ -99,6 +99,8 @@ _PGCL_GRAMMAR = """
     %import common.WS
 """
 
+_illegal_variable_names = {"true", "false"}
+
 _OPERATOR_TABLE = [[infixl("or", "||")], [infixl("and", "&")],
                    [infixl("leq", "<="),
                     infixl("le", "<"),
@@ -183,6 +185,8 @@ def _child_str(t: Tree, index: int) -> str:
 def _parse_var(t: Tree) -> Var:
     assert t.data == 'var'
     assert t.children[0].type == 'CNAME'  # type: ignore
+    if t.children[0] in _illegal_variable_names:
+        raise SyntaxError(f"Illegal variable name: {t.children[0]}")
     return str(_child_str(t, 0))
 
 

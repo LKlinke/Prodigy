@@ -1,5 +1,6 @@
 from probably.pgcl.parser import parse_pgcl
 from probably.pgcl.ast import *
+from pytest import raises
 
 def test_all_distributions():
     program = parse_pgcl("""
@@ -23,3 +24,12 @@ def test_all_distributions():
         LogDistExpr(NatLitExpr(1)),
         BernoulliExpr(NatLitExpr(1)),
         BinomialExpr(NatLitExpr(1), NatLitExpr(2))]
+
+def test_illegal_variable_names():
+    illegal_names = {"true", "false"}
+    for name in illegal_names:
+        with raises(SyntaxError) as e:
+            parse_pgcl(f"""
+                nat {name}
+            """)
+        assert "Illegal variable name: " in e.value.msg
