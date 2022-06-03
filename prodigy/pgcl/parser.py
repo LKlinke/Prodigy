@@ -85,7 +85,7 @@ _PGCL_GRAMMAR = """
            | "∞"     -> infinity
            | "\\infty" -> infinity
 
-    var: CNAME
+    var: /(?!true|false)([_a-zA-Z]\\w*)/
 
 
     %ignore /#.*$/m
@@ -93,7 +93,6 @@ _PGCL_GRAMMAR = """
     %ignore WS
     %ignore ";"
 
-    %import common.CNAME
     %import common.INT
     %import common.FLOAT
     %import common.WS
@@ -184,7 +183,7 @@ def _child_str(t: Tree, index: int) -> str:
 
 def _parse_var(t: Tree) -> Var:
     assert t.data == 'var'
-    assert t.children[0].type == 'CNAME'  # type: ignore
+    #assert t.children[0].type == 'CNAME'  # type: ignore (doesn't work anymore)
     if t.children[0] in _illegal_variable_names:
         raise SyntaxError(f"Illegal variable name: {t.children[0]}")
     return str(_child_str(t, 0))
