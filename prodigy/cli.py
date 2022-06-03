@@ -22,7 +22,7 @@ from prodigy import analysis
 
 @click.group()
 @click.pass_context
-@click.option('--engine', type=str, required=False, default='GF')
+@click.option('--engine', type=str, required=False, default='')
 @click.option('--intermediate-results',
               is_flag=True,
               required=False,
@@ -37,7 +37,7 @@ def cli(ctx, engine: str, intermediate_results: bool, no_simplification: bool,
     ctx.ensure_object(dict)
     ctx.obj['CONFIG'] = \
         analysis.ForwardAnalysisConfig(
-            engine=analysis.ForwardAnalysisConfig.Engine.GINAC if engine == 'prodigy' else analysis.ForwardAnalysisConfig.Engine.SYMPY,
+            engine=analysis.ForwardAnalysisConfig.Engine.GINAC if engine == 'ginac' else analysis.ForwardAnalysisConfig.Engine.SYMPY,
             show_intermediate_steps=intermediate_results,
             use_simplification=not no_simplification,
             use_latex=use_latex

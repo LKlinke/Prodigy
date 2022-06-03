@@ -12,7 +12,6 @@ class FPS(Distribution):
     These formal powerseries are itself provided by `prodigy` a python binding to GiNaC,
     something similar to a computer algebra system implemented in C++.
     """
-
     def __init__(self, expression: str, parameter: str = None):
         if parameter is not None:
             self.dist = pygin.Dist(expression, parameter)
@@ -102,13 +101,17 @@ class FPS(Distribution):
 
             # Normalize the conditional to variables on the lhs from the relation symbol.
             if isinstance(condition.rhs, VarExpr):
-                switch_comparison = {Binop.EQ: Binop.EQ, Binop.LEQ: Binop.GEQ, Binop.LE: Binop.GE, Binop.GEQ: Binop.LEQ,
-                                     Binop.GE: Binop.LE}
+                switch_comparison = {
+                    Binop.EQ: Binop.EQ,
+                    Binop.LEQ: Binop.GEQ,
+                    Binop.LE: Binop.GE,
+                    Binop.GEQ: Binop.LEQ,
+                    Binop.GE: Binop.LE
+                }
                 return self.filter(
                     BinopExpr(operator=switch_comparison[condition.operator],
                               lhs=condition.rhs,
-                              rhs=condition.lhs)
-                )
+                              rhs=condition.lhs))
 
             # is normalized conditional
             if isinstance(condition.lhs, VarExpr):
@@ -136,9 +139,12 @@ class FPS(Distribution):
             # unary relation
             if condition.operator == Unop.NEG:
                 return self - self.filter(condition.expr)
-            raise SyntaxError(f"We do not support filtering for {type(Unop.IVERSON)} expressions.")
+            raise SyntaxError(
+                f"We do not support filtering for {type(Unop.IVERSON)} expressions."
+            )
 
-        raise SyntaxError(f"Filtering Condition has unknown format {condition}.")
+        raise SyntaxError(
+            f"Filtering Condition has unknown format {condition}.")
 
     def is_zero_dist(self) -> bool:
         return self.dist.isZero()
@@ -208,7 +214,9 @@ class FPS(Distribution):
         if method == MarginalType.INCLUDE:
             for var in variables:
                 return FPS.from_dist(self.dist.marginal(str(var)))
-        raise AttributeError(f"`method`-argument can only be of type {type(MarginalType)} -- was {type(method)}")
+        raise AttributeError(
+            f"`method`-argument can only be of type {type(MarginalType)} -- was {type(method)}"
+        )
 
     def set_variables(self, *variables: str) -> Distribution:
         raise NotImplementedError(__name__)

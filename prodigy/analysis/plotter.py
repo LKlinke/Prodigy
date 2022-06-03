@@ -60,11 +60,11 @@ class Plotter:
 
             # Plot the colors array
             color_plot = plt.imshow(colors,
-                           vmin=0,
-                           origin='lower',
-                           interpolation='nearest',
-                           cmap="turbo",
-                           aspect='auto')
+                                    vmin=0,
+                                    origin='lower',
+                                    interpolation='nearest',
+                                    cmap="turbo",
+                                    aspect='auto')
             plt.colorbar(color_plot)
             plt.gca().set_xlabel(f"{x}")
             plt.gca().set_xticks(range(0, maxima[x] + 1))
@@ -103,7 +103,8 @@ class Plotter:
             axis = plt.subplot()
             my_cmap = plt.cm.get_cmap("Blues")
             colors = my_cmap([x / max(data) for x in data])
-            scalar_mappable = ScalarMappable(cmap=my_cmap, norm=plt.Normalize(0, max(data)))
+            scalar_mappable = ScalarMappable(cmap=my_cmap,
+                                             norm=plt.Normalize(0, max(data)))
             scalar_mappable.set_array([])
             axis.bar(ind, data, 1, linewidth=.5, ec=(0, 0, 0), color=colors)
             axis.set_xlabel(f"{var}")
@@ -117,7 +118,8 @@ class Plotter:
             prev_gf = marginal
             for dist in marginal.approximate(threshold):
                 if not dist.is_zero_dist() and not prev_gf == dist:
-                    Plotter._create_histogram_for_variable(dist, var, threshold)
+                    Plotter._create_histogram_for_variable(
+                        dist, var, threshold)
                 prev_gf = dist
 
     @staticmethod
@@ -128,7 +130,8 @@ class Plotter:
             raise Exception("Cannot Plot parametrized functions.")
         if variables:
             if len(variables) > 2:
-                raise NotImplementedError("create_plot() cannot handle more than two variables!")
+                raise NotImplementedError(
+                    "create_plot() cannot handle more than two variables!")
             if len(variables) == 2:
                 Plotter._create_2d_hist(function,
                                         var_1=variables[0],

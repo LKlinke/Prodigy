@@ -51,7 +51,8 @@ class SequenceHandler(InstructionHandler):
         cls,
         instruction: Union[Instr, Sequence[Instr]],
         distribution: Distribution,
-        config=ForwardAnalysisConfig()) -> Distribution:
+        config=ForwardAnalysisConfig()
+    ) -> Distribution:
         def _show_steps(distribution: Distribution, instruction: Instr):
             res = SequenceHandler.compute(instruction, distribution, config)
             if isinstance(instruction, (WhileInstr, IfInstr, LoopInstr)):
@@ -130,7 +131,8 @@ class QueryHandler(InstructionHandler):
 
         # User wants to compute a marginal, or the probability of a condition.
         elif isinstance(instruction, ProbabilityQueryInstr):
-            return QueryHandler.__query_probability_of(instruction.expr, distribution)
+            return QueryHandler.__query_probability_of(instruction.expr,
+                                                       distribution)
 
         # User wants to Plot something
         elif isinstance(instruction, PlotInstr):
@@ -142,7 +144,8 @@ class QueryHandler(InstructionHandler):
             return distribution
 
         elif isinstance(instruction, OptimizationQuery):
-            return QueryHandler.__query_optimization(instruction, distribution, config)
+            return QueryHandler.__query_optimization(instruction, distribution,
+                                                     config)
 
         else:
             raise SyntaxError("This should not happen.")
@@ -152,9 +155,8 @@ class QueryHandler(InstructionHandler):
                              config: ForwardAnalysisConfig):
         logger.debug(
             "Computing the optimal value for parameter %s in order to %s the distribution %s with respect to %s",
-            instr.parameter, 'maximize' if instr.type == OptimizationType.MAXIMIZE else 'minimize',
-            dist, instr.expr
-        )
+            instr.parameter, 'maximize' if instr.type
+            == OptimizationType.MAXIMIZE else 'minimize', dist, instr.expr)
         result = config.optimizer.optimize(instr.expr,
                                            dist,
                                            instr.parameter,
@@ -239,7 +241,8 @@ class SampleHandler(InstructionHandler):
 
         # rhs is geometric distribution
         if isinstance(instruction.rhs, GeometricExpr):
-            return marginal * factory.geometric(variable, instruction.rhs.param)
+            return marginal * factory.geometric(variable,
+                                                instruction.rhs.param)
 
         # rhs is binomial distribution
         if isinstance(instruction.rhs, BinomialExpr):
@@ -252,7 +255,8 @@ class SampleHandler(InstructionHandler):
 
         # rhs is bernoulli distribution
         if isinstance(instruction.rhs, BernoulliExpr):
-            return marginal * factory.bernoulli(variable, instruction.rhs.param)
+            return marginal * factory.bernoulli(variable,
+                                                instruction.rhs.param)
 
         # rhs is logarithmic distribution
         if isinstance(instruction.rhs, LogDistExpr):
@@ -280,7 +284,8 @@ class AssignmentHandler(InstructionHandler):
             )
         logger.info("Computing distribution update.\n%s", instruction)
         return distribution.update(
-            BinopExpr(operator=Binop.EQ, lhs=VarExpr(instruction.lhs),
+            BinopExpr(operator=Binop.EQ,
+                      lhs=VarExpr(instruction.lhs),
                       rhs=instruction.rhs))
 
 
@@ -306,7 +311,8 @@ class PChoiceHandler(InstructionHandler):
         lhs_block = SequenceHandler.compute(instruction.lhs, distribution)
         rhs_block = SequenceHandler.compute(instruction.rhs, distribution)
         logger.info("Combining PChoice branches.\n%s", instruction)
-        return lhs_block * str(instruction.prob) + rhs_block * f"1-{instruction.prob}"
+        return lhs_block * str(
+            instruction.prob) + rhs_block * f"1-{instruction.prob}"
 
 
 class ITEHandler(InstructionHandler):
@@ -322,16 +328,20 @@ class ITEHandler(InstructionHandler):
             print(
                 f"\n{Style.YELLOW}Filter:{Style.RESET} {instruction.cond} \t {Style.GREEN}Result:{Style.RESET} {sat_part}"
             )
-            print(f"\n{Style.YELLOW} If-branch: ({instruction.cond}){Style.RESET}")
-            if_branch = SequenceHandler.compute(instruction.true, sat_part, config)
+            print(
+                f"\n{Style.YELLOW} If-branch: ({instruction.cond}){Style.RESET}"
+            )
+            if_branch = SequenceHandler.compute(instruction.true, sat_part,
+                                                config)
             print(f"\n{Style.YELLOW} Else-branch:{Style.RESET}")
-            else_branch = SequenceHandler.compute(instruction.false, non_sat_part,
-                                                  config)
+            else_branch = SequenceHandler.compute(instruction.false,
+                                                  non_sat_part, config)
             print(f"\n{Style.YELLOW}Combined:{Style.RESET}")
         else:
-            if_branch = SequenceHandler.compute(instruction.true, sat_part, config)
-            else_branch = SequenceHandler.compute(instruction.false, non_sat_part,
-                                                  config)
+            if_branch = SequenceHandler.compute(instruction.true, sat_part,
+                                                config)
+            else_branch = SequenceHandler.compute(instruction.false,
+                                                  non_sat_part, config)
         result = if_branch + else_branch
         logger.info("Combining if-branches.\n%s", instruction)
         return result
@@ -343,8 +353,10 @@ class LoopHandler(InstructionHandler):
                 config: ForwardAnalysisConfig) -> Distribution:
         _assume(instruction, LoopInstr, 'LoopHandler')
         for i in range(instruction.iterations.value):
-            logger.debug("Computing iteration %d out of %d", i + 1, instruction.iterations.value)
-            distribution = SequenceHandler.compute(instruction.body, distribution, config)
+            logger.debug("Computing iteration %d out of %d", i + 1,
+                         instruction.iterations.value)
+            distribution = SequenceHandler.compute(instruction.body,
+                                                   distribution, config)
         return distribution
 
 
@@ -418,7 +430,9 @@ class WhileHandler(InstructionHandler):
             non_sat_part = distribution - sat_part
             while Fraction(non_sat_part.get_probability_mass()
                            ) < captured_probability_threshold:
-                logger.info("Collected %f of the disired mass", (float((Fraction(non_sat_part.get_probability_mass()) / captured_probability_threshold)) * 100))
+                logger.info("Collected %f of the disired mass", (float(
+                    (Fraction(non_sat_part.get_probability_mass()) /
+                     captured_probability_threshold)) * 100))
                 iterated_part = SequenceHandler.compute(
                     instruction.body, sat_part, config)
                 iterated_sat = iterated_part.filter(instruction.cond)
@@ -428,8 +442,8 @@ class WhileHandler(InstructionHandler):
                 print_progress_bar(int(
                     (Fraction(non_sat_part.get_probability_mass()) /
                      captured_probability_threshold) * 100),
-                                 100,
-                                 length=50)
+                                   100,
+                                   length=50)
             return non_sat_part
         else:
             raise Exception(

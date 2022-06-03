@@ -15,11 +15,7 @@ def log_setup(name: str, level, file: str = 'test.log') -> logging.Logger:
 
 
 # Print iterations progress
-def print_progress_bar(iteration,
-                       total,
-                       decimals=1,
-                       length=100,
-                       print_end=""):
+def print_progress_bar(iteration, total, decimals=1, length=100, print_end=""):
     """
     Call in a loop to create terminal progress bar
     @params:

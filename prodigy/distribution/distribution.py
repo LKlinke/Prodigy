@@ -128,25 +128,28 @@ class Distribution(ABC):
 
 class CommonDistributionsFactory(ABC):
     """ Abstract Factory Class implementing a Factory for common distributions."""
-
     @staticmethod
     @abstractmethod
-    def geometric(var: Union[str, VarExpr], p: DistributionParam) -> Distribution:
+    def geometric(var: Union[str, VarExpr],
+                  p: DistributionParam) -> Distribution:
         """ A geometric distribution with parameter `p`."""
 
     @staticmethod
     @abstractmethod
-    def uniform(var: Union[str, VarExpr], lower: DistributionParam, upper: DistributionParam) -> Distribution:
+    def uniform(var: Union[str, VarExpr], lower: DistributionParam,
+                upper: DistributionParam) -> Distribution:
         """ A uniform distribution with bounds [`lower`,`upper`]."""
 
     @staticmethod
     @abstractmethod
-    def bernoulli(var: Union[str, VarExpr], p: DistributionParam) -> Distribution:
+    def bernoulli(var: Union[str, VarExpr],
+                  p: DistributionParam) -> Distribution:
         """ A bernoulli distribution with parameter `p`."""
 
     @staticmethod
     @abstractmethod
-    def poisson(var: Union[str, VarExpr], lam: DistributionParam) -> Distribution:
+    def poisson(var: Union[str, VarExpr],
+                lam: DistributionParam) -> Distribution:
         """ A poisson distribution with parameter `lamb`da."""
 
     @staticmethod
@@ -156,7 +159,8 @@ class CommonDistributionsFactory(ABC):
 
     @staticmethod
     @abstractmethod
-    def binomial(var: Union[str, VarExpr], n: DistributionParam, p: DistributionParam) -> Distribution:
+    def binomial(var: Union[str, VarExpr], n: DistributionParam,
+                 p: DistributionParam) -> Distribution:
         """ A binomial distribution with parameters `n` and `p`."""
 
     @staticmethod

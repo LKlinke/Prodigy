@@ -89,8 +89,8 @@ class GeneratingFunction(Distribution):
                                         preciseness=1,
                                         closed=True,
                                         finite=True)
-            progression_list = self.arithmetic_progression(str(expression.lhs),
-                                                           str(expression.rhs))
+            progression_list = self.arithmetic_progression(
+                str(expression.lhs), str(expression.rhs))
             for i in range(expression.rhs.value):
                 func = progression_list[i]
                 result += func.marginal(
@@ -98,7 +98,8 @@ class GeneratingFunction(Distribution):
                 ) * GeneratingFunction(f"{expression.lhs}**{i}")
             return result
         else:
-            raise NotImplementedError("Nested modulo expressions are currently not supported.")
+            raise NotImplementedError(
+                "Nested modulo expressions are currently not supported.")
 
     def _update_statewise(self, expression: Expr) -> 'GeneratingFunction':
         """ Updates a finite distribution by evaluating the expression for each encoded state separately. """
@@ -158,7 +159,8 @@ class GeneratingFunction(Distribution):
             )[-1].update(expression)
         else:
             raise NotImplementedError(
-                f"The assignment {expression} is currently not computable on {self}")
+                f"The assignment {expression} is currently not computable on {self}"
+            )
 
     def update_iid(self, sampling_exp: IidSampleExpr,
                    variable: Union[str, VarExpr]) -> 'Distribution':
@@ -253,9 +255,9 @@ class GeneratingFunction(Distribution):
             for factor in factor_powers:
                 if factor in addend.free_symbols:
                     result = (result[0],
-                              result[1] * factor ** factor_powers[factor])
+                              result[1] * factor**factor_powers[factor])
                 else:
-                    result = (result[0] * factor ** factor_powers[factor],
+                    result = (result[0] * factor**factor_powers[factor],
                               result[1])
             return result
 
@@ -286,12 +288,13 @@ class GeneratingFunction(Distribution):
         # other object is already a generating function.
         if isinstance(other, GeneratingFunction):
             # collect the meta information.
-            self_coeff_sum, other_coeff_sum = self.coefficient_sum(), other.coefficient_sum()
+            self_coeff_sum, other_coeff_sum = self.coefficient_sum(
+            ), other.coefficient_sum()
             is_closed_form = self._is_closed_form and other._is_closed_form
             is_finite = self._is_finite and other._is_finite
             preciseness = (self_coeff_sum + other_coeff_sum) / (
-                    self_coeff_sum / self._preciseness + other_coeff_sum / other._preciseness
-            )  # BUG: Something not working.
+                self_coeff_sum / self._preciseness + other_coeff_sum /
+                other._preciseness)  # BUG: Something not working.
 
             # do the actual operation
             function = op(self._function, other._function)
@@ -452,7 +455,7 @@ class GeneratingFunction(Distribution):
         monomial = sympy.S(1)
         for var in self._variables:
             if str(var) in state:
-                monomial *= var ** state[str(var)]
+                monomial *= var**state[str(var)]
         return monomial
 
     def precision(self):
@@ -488,8 +491,8 @@ class GeneratingFunction(Distribution):
             # instead of repeating all the monomials for higher total degrees, just cut-off the already created ones.
             if i > 1:
                 new_monomials = new_monomials[
-                                sympy.polys.monomials.
-                                    monomial_count(len(self._variables), i - 1):]
+                    sympy.polys.monomials.
+                    monomial_count(len(self._variables), i - 1):]
             logger.debug("Monomial_generation done")
 
             # after we have the list of new monomials, create (probability, state) pais and yielding them.
@@ -506,9 +509,9 @@ class GeneratingFunction(Distribution):
 
     # FIXME: Its not nice to have different behaviour depending on the variable type of `threshold`.
     def approximate(
-            self,
-            threshold: Union[str,
-                             int]) -> Generator['GeneratingFunction', None, None]:
+        self,
+        threshold: Union[str,
+                         int]) -> Generator['GeneratingFunction', None, None]:
         """
             Generate an approximation of a generating function, until `threshold` percent or terms of the probability
             mass is caputred.
@@ -561,7 +564,7 @@ class GeneratingFunction(Distribution):
         for var in self._variables:
             coefficient_sum = coefficient_sum.limit(
                 var, 1, "-") if self._is_closed_form else coefficient_sum.subs(
-                var, 1)
+                    var, 1)
         return coefficient_sum
 
     def get_probability_mass(self):
@@ -700,8 +703,8 @@ class GeneratingFunction(Distribution):
         :return: the marginal distribution.
         """
         logger.debug(
-            "Creating marginal for variables %s and joint probability distribution %s", variables, self
-        )
+            "Creating marginal for variables %s and joint probability distribution %s",
+            variables, self)
         marginal = self.copy()
         if method == MarginalType.INCLUDE:
             for s_var in marginal._variables.difference(
@@ -758,7 +761,7 @@ class GeneratingFunction(Distribution):
                 str(condition.lhs.rhs))[condition.rhs.value]
 
         # Constant expressions
-        elif check_is_constant_constraint(condition):
+        elif check_is_constant_constraint(condition, self):
             return self._filter_constant_condition(condition)
 
         # all other conditions given that the Generating Function is finite (exhaustive search)
@@ -777,7 +780,9 @@ class GeneratingFunction(Distribution):
         # Here we try marginalization and hope that the marginal is finite so we can do
         # exhaustive search again. If this is not possible, we raise an NotComputableException
         else:
-            return self.filter(self._explicit_state_unfolding(condition))
+            expression = self._explicit_state_unfolding(condition)
+            print(expression)
+            return self.filter(expression)
 
     def _filter_constant_condition(self,
                                    condition: Expr) -> 'GeneratingFunction':
@@ -789,7 +794,7 @@ class GeneratingFunction(Distribution):
 
         # Normalize the condition into the format _var_ (< | <= | =) const. I.e., having the variable on the lhs.
         if isinstance(condition.rhs,
-                      VarExpr) and not condition.rhs.is_parameter:
+                      VarExpr) and condition.rhs.var not in self._variables:
             if condition.operator == Binop.LEQ:
                 return self.filter(
                     UnopExpr(operator=Unop.NEG,
@@ -814,7 +819,7 @@ class GeneratingFunction(Distribution):
                               rhs=condition.lhs))
 
         if isinstance(condition.lhs,
-                      VarExpr) and not condition.lhs.is_parameter:
+                      VarExpr) and condition.lhs.var not in self._variables:
             if condition.operator == Binop.GE:
                 return self.filter(
                     BinopExpr(operator=Binop.LE,
@@ -839,7 +844,7 @@ class GeneratingFunction(Distribution):
         # Compute the probabilities of the states _var_ = i where i ranges depending on the operator (< , <=, =).
         for i in ranges[condition.operator]:
             result += (self._function.diff(variable, i) / sympy.factorial(i)
-                       ).limit(variable, 0, '-') * sympy.S(variable) ** i
+                       ).limit(variable, 0, '-') * sympy.S(variable)**i
 
         return GeneratingFunction(result,
                                   *self._variables,
@@ -905,7 +910,7 @@ class GeneratingFunction(Distribution):
 
     @staticmethod
     def _state_to_equality_expression(state: Dict[str, int]) -> BinopExpr:
-        equalities: List[BinopExpr] = []
+        equalities: List[Expr] = []
         for var, val in state.items():
             equalities.append(
                 BinopExpr(Binop.EQ, lhs=VarExpr(var), rhs=NatLitExpr(val)))
@@ -967,15 +972,15 @@ class GeneratingFunction(Distribution):
         for var in terms:
             # if there is a constant term, just do a multiplication
             if var == 1:
-                const_correction_term = subst_var ** terms[1]
+                const_correction_term = subst_var**terms[1]
             elif var in paramaters:
-                const_correction_term = subst_var ** var
+                const_correction_term = subst_var**var
             # if the variable is the substitution variable, a different update is necessary
             elif var == subst_var:
-                replacements.append((var, subst_var ** terms[var]))
+                replacements.append((var, subst_var**terms[var]))
             # otherwise we can collect the substitution in our replacement list
             else:
-                replacements.append((var, var * subst_var ** terms[var]))
+                replacements.append((var, var * subst_var**terms[var]))
         res_gf = GeneratingFunction(result.subs(replacements) *
                                     const_correction_term,
                                     *self._variables,
@@ -1005,9 +1010,9 @@ class GeneratingFunction(Distribution):
         for remainder in range(a):
             psum = 0
             for m in range(a):
-                psum += primitive_uroot ** (-m *
-                                            remainder) * self._function.subs(
-                    var, (primitive_uroot ** m) * var)
+                psum += primitive_uroot**(-m *
+                                          remainder) * self._function.subs(
+                                              var, (primitive_uroot**m) * var)
             result.append(
                 GeneratingFunction(f"(1/{a}) * ({psum})",
                                    *self._variables,
@@ -1017,7 +1022,7 @@ class GeneratingFunction(Distribution):
         return result
 
     def safe_filter(
-            self, condition: Expr
+        self, condition: Expr
     ) -> Tuple['GeneratingFunction', 'GeneratingFunction', bool]:
         """
         Filtering the Generating Function for a given condition. If the generating function cannot be filtered for the
@@ -1038,7 +1043,8 @@ class GeneratingFunction(Distribution):
             # and compute th approximation.
             print(err)
             probability = input(
-                f"Continue with approximation. Enter a probability (0, {self.coefficient_sum()}):\t")
+                f"Continue with approximation. Enter a probability (0, {self.coefficient_sum()}):\t"
+            )
             if sympy.S(probability) > sympy.S(0):
                 approx = list(self.approximate(probability))[-1]
                 approx_sat_part = approx.filter(condition)
