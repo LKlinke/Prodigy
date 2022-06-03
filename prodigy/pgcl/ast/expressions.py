@@ -403,7 +403,7 @@ class BinomialExpr(ExprClass):
 @attr.s
 class IidSampleExpr(ExprClass):
     """ Independently sampling from identical distributions
-    
+
     We assume the sampling distribution to be encoded as a PGF (this is not checked by probably)."""
     sampling_dist: Expr = attr.ib()
     variable: VarExpr = attr.ib()

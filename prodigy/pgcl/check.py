@@ -6,8 +6,8 @@ Type Checking
 
 from typing import Dict, Iterable, List, Optional, TypeVar, Union, get_args, Tuple
 
-import attr
 import logging
+import attr
 
 from probably.util.ref import Mut
 
@@ -259,7 +259,7 @@ def _get_distribution_type(prog: Program, expr: Expr, check: bool = True) -> Uni
                 safe = check_expression(prog, expr.sampling_dist)
                 if isinstance(safe, CheckFail):
                     return safe
-            logging.getLogger("probably").warn("Probably does not check whether expressions used in DistrExprs are actually valid PGFs.", expr=expr)
+            logging.getLogger("probably").warning("Probably does not check whether expressions used in DistrExprs are actually valid PGFs (%s).", expr)
             return NatType(bounds=None)
 
     raise Exception("unreachable")
