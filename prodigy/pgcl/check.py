@@ -7,6 +7,7 @@ Type Checking
 from typing import Dict, Iterable, List, Optional, TypeVar, Union, get_args, Tuple
 
 import attr
+import logging
 
 from probably.util.ref import Mut
 
@@ -253,12 +254,12 @@ def _get_distribution_type(prog: Program, expr: Expr, check: bool = True) -> Uni
         if isinstance(expr.sampling_dist, get_args(DistrExpr)):
             return _get_distribution_type(prog, expr.sampling_dist, check)
         else:
-            # we cannot check whether the sampling distribution as given by the program is actually a distribution
+            # we cannot check whether the sampling distribution as given by the program is actually a PGF
             if check:
                 safe = check_expression(prog, expr.sampling_dist)
                 if isinstance(safe, CheckFail):
                     return safe
-            print(f"Type Checking is not accurate anymore (because of '{expr}').")
+            logging.getLogger("probably").warn("Probably does not check whether expressions used in DistrExprs are actually valid PGFs.", expr=expr)
             return NatType(bounds=None)
 
     raise Exception("unreachable")
