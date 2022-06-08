@@ -40,6 +40,9 @@ class VarExpr(ExprClass):
     """A variable is an expression."""
     var: Var = attr.ib()
 
+    def __attrs_post_init__(self):
+        assert self.var not in {'true', 'false'}
+
     def __str__(self) -> str:
         return self.var
 

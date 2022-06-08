@@ -25,11 +25,19 @@ def test_all_distributions():
         BernoulliExpr(NatLitExpr(1)),
         BinomialExpr(NatLitExpr(1), NatLitExpr(2))]
 
-def test_illegal_variable_names():
+def test_syntax_errors():
     illegal_names = {"true", "false"}
     for name in illegal_names:
         with raises(SyntaxError) as e:
             parse_pgcl(f"""
                 nat {name}
             """)
+        assert "Illegal variable name: " in e.value.msg
+
+    with raises(SyntaxError) as e:
+        parse_pgcl(f"""
+            nat x
+            nat y
+            !Plot[x,y,true]
+        """)
         assert "Illegal variable name: " in e.value.msg
