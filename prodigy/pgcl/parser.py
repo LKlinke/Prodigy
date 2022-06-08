@@ -441,7 +441,8 @@ def _parse_query(t: Tree):
                 assert isinstance(lit, RealLitExpr)
                 return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
                                  prob=lit)
-            elif t.children[1].data in ('true', 'false'):
+            elif t.children[1].data in ('true', 'false') or \
+                    (t.children[1].data == 'var' and t.children[1].children[0] in ('true', 'false')):
                 raise SyntaxError("Plot instruction does not support boolean operators")
             else:
                 return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),

@@ -40,4 +40,11 @@ def test_syntax_errors():
             nat y
             !Plot[x,y,true]
         """)
-        assert "Illegal variable name: " in e.value.msg
+    assert "Plot instructions cannot handle boolean literals as arguments" in e.value.msg
+
+    with raises(SyntaxError) as e:
+        parse_pgcl(f"""
+            nat x
+            !Plot[x,true]
+        """)
+    assert "Plot instruction does not support boolean operators" in e.value.msg
