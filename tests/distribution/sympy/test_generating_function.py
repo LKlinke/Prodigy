@@ -60,6 +60,18 @@ class TestDistributionInterface:
         with pytest.raises(RuntimeError):
             assert gf1 < gf2
 
+    def test_equality_param_fail(self):
+        gf1 = GeneratingFunction("y*x", "x")
+        gf2 = GeneratingFunction("x*y", "y", "x")
+        assert gf1 != gf2
+
+    def test_equality_variable_fail(self):
+        gf1 = GeneratingFunction("y*x")
+        gf2 = GeneratingFunction("x*y")
+        gf1 = gf1.set_variables("x").set_parameters()
+        gf2 = gf1.set_variables("y").set_parameters()
+        assert gf1 != gf2
+
     def test_iteration(self):
         gf = GeneratingFunction("(1-sqrt(1-x**2))/x")
         expected_terms = [("1/2", {"x": 1}), ("1/8", {"x": 3}), ("1/16", {"x": 5}), ("5/128", {"x": 7}),

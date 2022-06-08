@@ -407,7 +407,9 @@ class GeneratingFunction(Distribution):
             return False
         # We rely on simplification of __sympy__ here. Thus, we cannot guarantee to detect equality when
         # simplification fails.
-        return bool(self._function.equals(other._function))
+        return bool(self._function.equals(other._function)) \
+               and self._variables == other._variables \
+               and self._parameters == other._parameters
 
     def __le__(self, other):
         return self == other or self < other
