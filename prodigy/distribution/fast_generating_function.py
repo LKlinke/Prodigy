@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 from typing import Union, Generator, Set, Iterator, Tuple, Dict, get_args
+
 import pygin
 from probably.pgcl import VarExpr, Expr, BinopExpr, UnopExpr, Binop, Unop, IidSampleExpr, GeometricExpr, DistrExpr, \
     BernoulliExpr, DUniformExpr, PoissonExpr
-from prodigy.distribution.distribution import MarginalType
-from prodigy.distribution.distribution import Distribution
+
+from prodigy.distribution.distribution import MarginalType, DistributionParam, Distribution, CommonDistributionsFactory
 
 
 class FPS(Distribution):
@@ -12,6 +15,7 @@ class FPS(Distribution):
     These formal powerseries are itself provided by `prodigy` a python binding to GiNaC,
     something similar to a computer algebra system implemented in C++.
     """
+
     def __init__(self, expression: str, parameter: str = None):
         if parameter is not None:
             self.dist = pygin.Dist(expression, parameter)
@@ -218,10 +222,62 @@ class FPS(Distribution):
             f"`method`-argument can only be of type {type(MarginalType)} -- was {type(method)}"
         )
 
-    def set_variables(self, *variables: str) -> Distribution:
+    def set_variables(self, *variables: str) -> FPS:
+        raise NotImplementedError(__name__)
+
+    def set_parameters(self, *parameters: str) -> FPS:
         raise NotImplementedError(__name__)
 
     def approximate(
             self,
             threshold: Union[str, int]) -> Generator[Distribution, None, None]:
         raise NotImplementedError(__name__)
+
+
+class ProdigyPGF(CommonDistributionsFactory):
+    @staticmethod
+    def geometric(var: Union[str, VarExpr],
+                  p: DistributionParam) -> FPS:
+        return FPS(str(pygin.geometric(var, str(p))))
+
+    @staticmethod
+    def uniform(var: Union[str, VarExpr], lower: DistributionParam,
+                upper: DistributionParam) -> FPS:
+        function = f"1/({upper} - {lower} + 1) * ({var}^{lower}) * (({var}^({upper} - {lower} + 1) - 1)/({var} - 1))"
+        return FPS(function)
+
+    @staticmethod
+    def bernoulli(var: Union[str, VarExpr],
+                  p: DistributionParam) -> FPS:
+        function = f"({p}) * {var} + 1-({p})"
+        return FPS(function)
+
+    @staticmethod
+    def poisson(var: Union[str, VarExpr],
+                lam: DistributionParam) -> FPS:
+        function = f"exp(({lam}) * ({var} - 1))"
+        return FPS(function)
+
+    @staticmethod
+    def log(var: Union[str, VarExpr], p: DistributionParam) -> FPS:
+        function = f"log(1-({p})*{var})/log(1-({p}))"
+        return FPS(function)
+
+    @staticmethod
+    def binomial(var: Union[str, VarExpr], n: DistributionParam,
+                 p: DistributionParam) -> FPS:
+        function = f"(({p})*{var} + (1-({p})))^({n})"
+        return FPS(function)
+
+    @staticmethod
+    def undefined(*variables: Union[str, VarExpr]) -> FPS:
+        raise NotImplementedError(__name__)
+
+    @staticmethod
+    def one(*variables: Union[str, VarExpr]) -> FPS:
+        return FPS("1")
+
+    @staticmethod
+    def from_expr(expression: Union[str, Expr], *variables,
+                  **kwargs) -> FPS:
+        return FPS(expression, **kwargs)

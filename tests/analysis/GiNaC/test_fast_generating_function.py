@@ -1,7 +1,7 @@
 import pytest
 from probably.pgcl.parser import parse_expr
 
-from prodigy.distribution.pgfs import ProdigyPGF
+from prodigy.distribution.fast_generating_function import ProdigyPGF
 
 
 def test_geometric():

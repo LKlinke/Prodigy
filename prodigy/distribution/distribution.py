@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import Union, Set, Dict, Iterator, Tuple, Generator
 
-from probably.pgcl import Expr, VarExpr, IidSampleExpr
+from probably.pgcl import Expr, VarExpr, IidSampleExpr  # type: ignore
 
 
 class MarginalType(Enum):
@@ -45,7 +47,7 @@ class Distribution(ABC):
         """ Returns an iterator that iterates over the (probability, state) pairs of the distribution."""
 
     @abstractmethod
-    def copy(self, deep: bool = True) -> 'Distribution':
+    def copy(self, deep: bool = True) -> Distribution:
         """ Returns a full copy of itself."""
 
     @abstractmethod
@@ -65,7 +67,7 @@ class Distribution(ABC):
         """ Returns the expected value of the expression `expression` evaluated in the distribution. """
 
     @abstractmethod
-    def normalize(self) -> 'Distribution':
+    def normalize(self) -> Distribution:
         """ Normalizes the probability mass of the distribution."""
 
     @abstractmethod
@@ -77,7 +79,7 @@ class Distribution(ABC):
         """ Returns the parameters of the distribution. """
 
     @abstractmethod
-    def filter(self, condition: Union[Expr, str]) -> 'Distribution':
+    def filter(self, condition: Union[Expr, str]) -> Distribution:
         """ Filters the distribution such that only the parts which satisfy the `condition` are left."""
 
     @abstractmethod
@@ -89,7 +91,7 @@ class Distribution(ABC):
         """ Returns whether the distribution has finite support."""
 
     @abstractmethod
-    def update(self, expression: Expr) -> 'Distribution':
+    def update(self, expression: Expr) -> Distribution:
         """ Updates the distribution by the result of the expression. """
 
     @abstractmethod
@@ -101,13 +103,13 @@ class Distribution(ABC):
     def marginal(
             self,
             *variables: Union[str, VarExpr],
-            method: MarginalType = MarginalType.INCLUDE) -> 'Distribution':
+            method: MarginalType = MarginalType.INCLUDE) -> Distribution:
         """ Computes the marginal distribution for the given variables (MarginalType.Include),
             or for all but the given variables (MarginalType.Exclude).
         """
 
     @abstractmethod
-    def set_variables(self, *variables: str) -> 'Distribution':
+    def set_variables(self, *variables: str) -> Distribution:
         """
         Sets the free variables in a distribution.
         :param variables: The variables.
@@ -115,10 +117,18 @@ class Distribution(ABC):
         """
 
     @abstractmethod
+    def set_parameters(self, *parameters: str) -> Distribution:
+        """
+        Sets the parameters in a distribution.
+        :param parameters: The parameters.
+        :return: The Distribution with parameters `parameters`
+        """
+
+    @abstractmethod
     def approximate(
             self,
             threshold: Union[str,
-                             int]) -> Generator['Distribution', None, None]:
+                             int]) -> Generator[Distribution, None, None]:
         """
         Computes the approximation until the given threshold is reached. (Might not terminate)
         :param threshold: The threshold either as a maximum number of states, or a certain probability mass.

@@ -4,6 +4,7 @@ from probably.pgcl import (Binop, BinopExpr, Expr, Unop, UnopExpr, VarExpr,
                            NatLitExpr, Program)
 from probably.pgcl.ast.walk import Walk, mut_expr_children, walk_expr
 from probably.util.ref import Mut
+
 from prodigy.distribution import Distribution
 
 
@@ -31,7 +32,8 @@ def check_is_modulus_condition(expression: Expr) -> bool:
     return False
 
 
-def check_is_constant_constraint(expression: Expr, context: Union[Distribution, Program]) -> bool:
+def check_is_constant_constraint(
+        expression: Expr, context: Union[Distribution, Program]) -> bool:
     if not isinstance(expression, BinopExpr):
         return False
     if expression.operator not in (Binop.EQ, Binop.LEQ, Binop.LE, Binop.GE,

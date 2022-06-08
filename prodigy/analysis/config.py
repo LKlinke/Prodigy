@@ -8,11 +8,10 @@ from typing import Type
 
 import attr
 
-from prodigy.distribution.pgfs import ProdigyPGF
-from prodigy.distribution.generating_function import GeneratingFunction
-from prodigy.analysis.optimization.gf_optimizer import GFOptimizer
 from prodigy.analysis.optimization import Optimizer
-from prodigy.distribution.pgfs import SympyPGF
+from prodigy.analysis.optimization.gf_optimizer import GFOptimizer
+from prodigy.distribution.fast_generating_function import ProdigyPGF
+from prodigy.distribution.generating_function import GeneratingFunction, SympyPGF
 from .exceptions import ConfigurationError
 from ..distribution.distribution import CommonDistributionsFactory
 
@@ -20,6 +19,7 @@ from ..distribution.distribution import CommonDistributionsFactory
 @attr.s
 class ForwardAnalysisConfig:
     """Global configurable options for forward analysis."""
+
     class Engine(Enum):
         """
         This enumeration specifies the type of backend used for distribution encodings and mathematical operations.

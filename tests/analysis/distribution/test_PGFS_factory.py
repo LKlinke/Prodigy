@@ -1,11 +1,12 @@
-from prodigy.distribution.generating_function import GeneratingFunction
-from prodigy.distribution.pgfs import SympyPGF
 import random as rng
+
+from prodigy.distribution.generating_function import GeneratingFunction, SympyPGF
 
 
 def test_bernoulli():
     probability = str(rng.random())
-    assert GeneratingFunction(f"1-{probability} + {probability}* variable") == SympyPGF.bernoulli("variable", probability)
+    assert GeneratingFunction(f"1-{probability} + {probability}* variable") == SympyPGF.bernoulli("variable",
+                                                                                                  probability)
 
 
 def test_geometric():

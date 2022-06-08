@@ -2,9 +2,10 @@ import logging
 from typing import Tuple, Optional
 
 from probably.pgcl import Program, IfInstr, SkipInstr, VarExpr, WhileInstr
-from prodigy.distribution.distribution import Distribution
+
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instruction_handler import compute_discrete_distribution
+from prodigy.distribution.distribution import Distribution
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
@@ -51,8 +52,8 @@ def generate_equivalence_test_distribution(
     for i, variable in enumerate(program.variables):
         dist *= config.factory.from_expr(
             f"1/(1-p{i}*{variable})", VarExpr(var=f"p{i}")
-        )  #FIXME: Somehow we have to give the context which variables are parameters and which are variables
-    return dist
+        )
+    return dist.set_variables(*program.variables.keys()).set_parameters()
 
 
 def check_equivalence(program: Program, invariant: Program, config: ForwardAnalysisConfig) \

@@ -1,12 +1,12 @@
 import random
-import sympy
-import pytest
 
-from prodigy.distribution.distribution import MarginalType
-from prodigy.distribution.pgfs import SympyPGF
-from prodigy.distribution.generating_function import GeneratingFunction
+import pytest
+import sympy
 from probably.pgcl import Binop, BinopExpr, VarExpr, NatLitExpr
 from probably.pgcl.parser import parse_expr
+
+from prodigy.distribution.distribution import MarginalType
+from prodigy.distribution.generating_function import GeneratingFunction, SympyPGF
 
 
 def create_random_gf(number_of_variables: int = 1, terms: int = 1):
@@ -27,8 +27,16 @@ def create_random_gf(number_of_variables: int = 1, terms: int = 1):
 class TestDistributionInterface:
 
     def test_arithmetic(self):
-        # Todo implement me: addition, subtraction multiplication
-        pass
+        g = GeneratingFunction("x", "x")
+        h = GeneratingFunction("y", "y")
+        summe = g + h
+        produkt = g * h
+        assert summe == GeneratingFunction("x + y", "x", "y")
+        assert produkt == GeneratingFunction("x*y", "x", "y")
+
+        f = GeneratingFunction("x*y", "y")
+        with pytest.raises(ArithmeticError):
+            f + g
 
     def test_finite_leq(self):
         gf1 = GeneratingFunction("x**2*y**3")
