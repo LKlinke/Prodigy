@@ -133,10 +133,3 @@ def test_for_instr_errors():
     res = check_program(program)
     assert isinstance(res, CheckFail)
     assert "In distribution parameter expressions, no variables are allowed. - Forgot parameter declaration?" in res.message
-
-    program = parse_pgcl("""
-        nat x
-        !Plot[x, true]
-    """)
-    res = check_program(program)
-    assert isinstance(res, CheckFail)
