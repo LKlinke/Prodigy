@@ -10,29 +10,12 @@ from .expressions import Expr
 from .instructions import Instr
 from .ast import Var
 
-@attr.s(frozen=True)
-class ProgramConfig:
-    """
-    Some compilation options for programs. Frozen after initialization (cannot
-    be modified).
-
-    At the moment, we only have a flag for the type checker on which types are
-    allowed as program variables.
-    """
-
-    allow_real_vars: bool = attr.ib(default=True)
-    """
-    Whether real numbers are allowed as program values (in computations, or as
-    variables).
-    """
-
 
 @attr.s
 class Program:
     """
     A pGCL program has a bunch of variables with types, constants with defining expressions, and a list of instructions.
     """
-    config: ProgramConfig = attr.ib(repr=False)
 
     declarations: List[Decl] = attr.ib(repr=False)
     """The original list of declarations."""
@@ -58,7 +41,7 @@ class Program:
     instructions: List[Instr] = attr.ib()
 
     @staticmethod
-    def from_parse(config: ProgramConfig, declarations: List[Decl], instructions: List[Instr]) -> Program:
+    def from_parse(declarations: List[Decl], instructions: List[Instr]) -> Program:
         """Create a program from the parser's output."""
         variables: Dict[Var, Type] = {}
         constants: Dict[Var, Expr] = {}
@@ -72,7 +55,7 @@ class Program:
             elif isinstance(decl, ParameterDecl):
                 parameters[decl.var] = decl.typ
 
-        return Program(config, declarations, variables, constants, parameters, instructions)
+        return Program(declarations, variables, constants, parameters, instructions)
 
     def add_variable(self, var: Var, typ: Type):
         """
@@ -99,8 +82,7 @@ class Program:
             >>> program.to_skeleton()
             Program(variables={'x': NatType(bounds=None), 'y': NatType(bounds=None)}, constants={}, parameters={}, instructions=[])
         """
-        return Program(config=self.config,
-                       declarations=copy.copy(self.declarations),
+        return Program(declarations=copy.copy(self.declarations),
                        parameters=copy.copy(self.parameters),
                        variables=copy.copy(self.variables),
                        constants=copy.copy(self.constants),

@@ -454,15 +454,15 @@ def _parse_query(t: Tree):
         raise Exception(f'invalid AST: {t.data}')
 
 
-def _parse_program(config: ProgramConfig, t: Tree) -> Program:
+def _parse_program(t: Tree) -> Program:
     assert t.data == 'start'
     declarations = _parse_declarations(_child_tree(t, 0))
     instructions = _parse_instrs(_child_tree(t, 1))
     instructions.extend(_parse_queries(_child_tree(t, 2)))
-    return Program.from_parse(config, declarations, instructions)
+    return Program.from_parse(declarations, instructions)
 
 
-def parse_pgcl(code: str, config: ProgramConfig = ProgramConfig()) -> Program:
+def parse_pgcl(code: str) -> Program:
     """
     Parse a pGCL program with an optional :py:class:`probably.pgcl.ast.ProgramConfig`.
 
@@ -478,7 +478,7 @@ def parse_pgcl(code: str, config: ProgramConfig = ProgramConfig()) -> Program:
         AsgnInstr(lhs='x', rhs=CategoricalExpr(exprs=[(VarExpr('x'), RealLitExpr("1/3")), (VarExpr('y'), RealLitExpr("2/3"))]))
     """
     tree = _PARSER.parse(code)
-    return _parse_program(config, tree)
+    return _parse_program(tree)
 
 
 def parse_expr(code: str) -> Expr:

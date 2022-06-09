@@ -15,7 +15,7 @@ from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
                   CategoricalExpr, ChoiceInstr, Decl, Expr, RealLitExpr,
                   RealType, IfInstr, Instr, NatLitExpr, NatType, Node,
                   Program, SkipInstr, Type, DUniformExpr, Unop, UnopExpr, Var,
-                  VarExpr, WhileInstr, VarDecl, ObserveInstr, ProbabilityQueryInstr,
+                  VarExpr, WhileInstr, ObserveInstr, ProbabilityQueryInstr,
                   ExpectationInstr, PrintInstr, OptimizationQuery, PlotInstr,
                   LoopInstr, CUniformExpr, GeometricExpr, BernoulliExpr,PoissonExpr,
                   LogDistExpr, BinomialExpr, IidSampleExpr, DistrExpr)
@@ -77,7 +77,7 @@ def get_type(program: Program,
 
         >>> from .ast import *
         >>> nat = NatLitExpr(10)
-        >>> program = Program(ProgramConfig(), list(), dict(), dict(), dict(), list())
+        >>> program = Program(list(), dict(), dict(), dict(), list())
 
         >>> get_type(program, BinopExpr(Binop.TIMES, nat, nat))
         NatType(bounds=None)
@@ -320,8 +320,7 @@ def _check_constant_declarations(program: Program) -> Optional[CheckFail]:
 
 def _check_declaration_list(program: Program) -> Optional[CheckFail]:
     """
-    Check that all variables/constants are defined at most once and that real
-    variables are only declared if they are allowed in the config.
+    Check that all variables/constants are defined at most once.
 
     .. doctest::
 
@@ -333,14 +332,7 @@ def _check_declaration_list(program: Program) -> Optional[CheckFail]:
     declared: Dict[Var, Decl] = {}
     for decl in program.declarations:
         if declared.get(decl.var) is not None:
-            return CheckFail(decl,
-                             "Already declared variable/constant before.")
-        if not program.config.allow_real_vars:
-            if isinstance(decl, VarDecl) and isinstance(decl.typ, RealType):
-                return CheckFail(
-                    decl,
-                    "Real number variables are not allowed by the program config."
-                )
+            return CheckFail(decl, "Already declared variable/constant before.")
         declared[decl.var] = decl
     return None
 
@@ -510,8 +502,7 @@ def check_expression(program, expr: Expr) -> Optional[CheckFail]:
 
     .. doctest::
 
-        >>> from .ast import ProgramConfig
-        >>> program = Program(ProgramConfig(), list(), dict(), dict(), dict(), list())
+        >>> program = Program(list(), dict(), dict(), dict(), list())
         >>> check_expression(program, RealLitExpr("1.0"))
         CheckFail(location=..., message='A program expression may not return a probability.')
     """

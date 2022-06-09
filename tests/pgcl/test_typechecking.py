@@ -1,4 +1,3 @@
-from probably.pgcl.ast.program import ProgramConfig
 from probably.pgcl.ast.declarations import ConstDecl, VarDecl
 from probably.pgcl.ast.expressions import NatLitExpr, VarExpr
 from probably.pgcl.ast.types import NatType, RealType
@@ -71,12 +70,6 @@ def test_for_declaration_errors():
     assert isinstance(check, CheckFail)
     assert check.location == ConstDecl("x", NatLitExpr(5))
     assert "Already declared variable/constant before." in check.message
-
-    program = parse_pgcl("real x", ProgramConfig(allow_real_vars = False))
-    check = check_program(program)
-    assert isinstance(check, CheckFail)
-    assert check.location == VarDecl("x", RealType())
-    assert "Real number variables are not allowed by the program config." in check.message
 
 
 def test_for_instr_errors():

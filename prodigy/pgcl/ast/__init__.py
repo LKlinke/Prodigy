@@ -126,5 +126,5 @@ from .instructions import ProbabilityQueryInstr, ExpectationInstr, PlotInstr, Sk
     OptimizationType, OptimizationQuery
 from .types import BoolType, NatType, RealType, Type, Bounds
 from .ast import Node, Var
-from .program import Program, ProgramConfig
+from .program import Program
 from .walk import *
