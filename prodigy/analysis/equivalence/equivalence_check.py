@@ -101,7 +101,7 @@ def check_equivalence(program: Program, invariant: Program, config: ForwardAnaly
     # Compare them and check whether they are equal.
     logger.debug("Compare results")
     if config.show_intermediate_steps:
-        print(f"\n{Style.YELLOW} Compare the results. {Style.RESET}")
+        print(f"\n{Style.YELLOW} Compare the results. {Style.RESET} \n {modified_inv_result} == {inv_result}")
     if modified_inv_result == inv_result:
         logger.debug("Invariant validated.")
         return True, inv_result
