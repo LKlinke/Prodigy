@@ -6,6 +6,20 @@ import prodigy.analysis
 from prodigy.distribution.generating_function import GeneratingFunction as GF
 
 
+def test_context_injection():
+    program = pgcl.parse_pgcl(
+        """
+        nat x;
+        nat y;
+        rparam p;
+        nparam n;
+        """
+    )
+    gf = GF("z^3")
+    result = prodigy.analysis.compute_discrete_distribution(program, gf, prodigy.analysis.ForwardAnalysisConfig())
+    assert result.get_variables() == {"x", "y", "z"} and result.get_parameters() == {"p", "n"}
+
+
 def test_subtraction_when_already_zero():
     result = prodigy.analysis.compute_discrete_distribution(pgcl.parse_pgcl("""
     nat n;

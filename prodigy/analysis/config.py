@@ -30,9 +30,6 @@ class ForwardAnalysisConfig:
     show_intermediate_steps: bool = attr.ib(default=False)
     """Enables the printing of results after each instruction."""
 
-    show_rational_probabilities: bool = attr.ib(default=False)
-    """Displays the probabilities in rational form. This does not change the preciseness of computation."""
-
     use_simplification: bool = attr.ib(default=False)
     """Enables simplification heuristics for expressions."""
 
@@ -61,6 +58,5 @@ class ForwardAnalysisConfig:
 
     def __attrs_post_init__(self):
         GeneratingFunction.use_latex_output = self.use_latex
-        GeneratingFunction.rational_preciseness = self.show_rational_probabilities
         GeneratingFunction.use_simplification = self.use_simplification
         GeneratingFunction.intermediate_results = self.show_intermediate_steps

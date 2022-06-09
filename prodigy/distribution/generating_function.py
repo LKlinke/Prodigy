@@ -39,7 +39,6 @@ class GeneratingFunction(Distribution):
     This class does not ensure to be in a healthy state (i.e., every coefficient is non-negative).
     """
 
-    rational_preciseness = False
     use_simplification = False
     intermediate_results = False
     use_latex_output = False
@@ -102,7 +101,7 @@ class GeneratingFunction(Distribution):
             raise NotImplementedError(
                 "Nested modulo expressions are currently not supported.")
 
-    def _update_statewise(self, expression: Expr) -> 'GeneratingFunction':
+    def _update_statewise(self, expression: Expr) -> GeneratingFunction:
         """ Updates a finite distribution by evaluating the expression for each encoded state separately. """
 
         assert self._is_finite, f"Cannot do a statewise update for infinite Generatingfunction {self}."
@@ -262,7 +261,7 @@ class GeneratingFunction(Distribution):
                               result[1])
             return result
 
-    def copy(self, deep: bool = True) -> 'GeneratingFunction':
+    def copy(self, deep: bool = True) -> GeneratingFunction:
         return GeneratingFunction(str(self._function),
                                   *self._variables,
                                   preciseness=self._preciseness,
@@ -346,26 +345,24 @@ class GeneratingFunction(Distribution):
             raise SyntaxError(
                 f"You cannot {str(op)} {type(self)} with {type(other)}.")
 
-    def __add__(self, other):
+    def __add__(self, other) -> GeneratingFunction:
         return self._arithmetic(other, operator.add)
 
-    def __sub__(self, other):
+    def __sub__(self, other) -> GeneratingFunction:
         return self._arithmetic(other, operator.sub)
 
-    def __mul__(self, other):
+    def __mul__(self, other) -> GeneratingFunction:
         return self._arithmetic(other, operator.mul)
 
-    def __truediv__(self, other):
+    def __truediv__(self, other) -> GeneratingFunction:
         logger.debug("Isn't it weird to divide Distributions?")
         return self._arithmetic(other, operator.truediv)
 
-    def __str__(self):
+    def __str__(self) -> str:
         if GeneratingFunction.use_latex_output:
             return sympy.latex(self._function)
-        if GeneratingFunction.rational_preciseness:
-            output = f"{str(self._function)}\t@{str(self._preciseness)}"
         else:
-            output = f"{str(self._function)}\t@{str(self._preciseness)}"
+            output = f"{self._function}"
         return output
 
     def __repr__(self):
@@ -373,7 +370,7 @@ class GeneratingFunction(Distribution):
 
     # ====== Comparison of Generating Functions ======
 
-    def __lt__(self, other):
+    def __lt__(self, other) -> bool:
         if not isinstance(other, GeneratingFunction):
             raise TypeError(
                 f"Incomparable types {type(self)} and {type(other)}.")
@@ -402,7 +399,7 @@ class GeneratingFunction(Distribution):
             "Both objects have infinite support. We cannot determine the order between them."
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if not isinstance(other, GeneratingFunction):
             return False
         # We rely on simplification of __sympy__ here. Thus, we cannot guarantee to detect equality when
@@ -411,16 +408,16 @@ class GeneratingFunction(Distribution):
                and self._variables == other._variables \
                and self._parameters == other._parameters
 
-    def __le__(self, other):
+    def __le__(self, other) -> bool:
         return self == other or self < other
 
-    def __ge__(self, other):
+    def __ge__(self, other) -> bool:
         return not self < other
 
-    def __gt__(self, other):
+    def __gt__(self, other) -> bool:
         return not self <= other
 
-    def __ne__(self, other):
+    def __ne__(self, other) -> bool:
         return not self == other
 
     def __iter__(self):
