@@ -1,6 +1,6 @@
 from abc import ABC
-import attr
 
+import attr
 
 Var = str
 

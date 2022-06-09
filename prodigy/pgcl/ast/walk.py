@@ -34,7 +34,7 @@ This makes it hard to forget calling a recursive traversal call, which could eas
 """
 
 from enum import Enum, auto
-from typing import Callable, Iterable, TypeVar, List
+from typing import Callable, Iterable, List, TypeVar
 
 from probably.util.ref import Mut
 

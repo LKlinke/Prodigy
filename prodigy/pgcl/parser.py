@@ -19,8 +19,8 @@ we collect all `LikelyExpr` and flatten them into a single
 """
 import textwrap
 from decimal import Decimal
-from typing import List, Optional, Callable, Dict, Tuple, Union
 from fractions import Fraction
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import attr
 from lark import Lark, Tree
@@ -28,7 +28,7 @@ from lark import Lark, Tree
 from probably.pgcl.ast import *
 from probably.pgcl.ast.walk import Walk, walk_expr
 from probably.util.lark_expr_parser import (atom, build_expr_parser, infixl,
-                                            prefix, infixr)
+                                            infixr, prefix)
 from probably.util.ref import Mut
 
 _PGCL_GRAMMAR = """
@@ -102,13 +102,19 @@ _PGCL_GRAMMAR = """
 _illegal_variable_names = {"true", "false"}
 
 _OPERATOR_TABLE = [[infixl("or", "||")], [infixl("and", "&")],
-                   [infixl("leq", "<="),
-                    infixl("le", "<"),
-                    infixl("ge", ">"),
-                    infixl("geq", ">="),
-                    infixl("eq", "=")],
-                   [infixl("plus", "+"), infixl("minus", "-")], [infixl("likely", ":")],
-                   [infixl("times", "*"), infixl("divide", "/"), infixl("mod", "%")], [infixr("power", "^")],
+                   [
+                       infixl("leq", "<="),
+                       infixl("le", "<"),
+                       infixl("ge", ">"),
+                       infixl("geq", ">="),
+                       infixl("eq", "=")
+                   ], [infixl("plus", "+"),
+                       infixl("minus", "-")], [infixl("likely", ":")],
+                   [
+                       infixl("times", "*"),
+                       infixl("divide", "/"),
+                       infixl("mod", "%")
+                   ], [infixr("power", "^")],
                    [
                        prefix("neg", "not "),
                        atom("parens", '"(" expression ")"'),
@@ -134,7 +140,6 @@ def _doc_parser_grammar():
 
 
 _doc_parser_grammar.__doc__ = "The Lark grammar for pGCL::\n" + _PGCL_GRAMMAR + "\n\nThis function only exists for documentation purposes and should never be called in code."
-
 
 # All known distribution types. Dictionary entry contains the token name as key.
 # Also the value of a given gey is a tuple consisting of the number of parameters and the Class name (constructor call)
@@ -321,7 +326,8 @@ def _parse_rvalue(t: Tree) -> Expr:
         return _parse_distribution(t)
 
     elif t.data == "iid":
-        return IidSampleExpr(_parse_rvalue(_child_tree(t, 0)), VarExpr(_parse_var(_child_tree(t, 1))))
+        return IidSampleExpr(_parse_rvalue(_child_tree(t, 0)),
+                             VarExpr(_parse_var(_child_tree(t, 1))))
 
     # otherwise we have an expression, but it may contain _LikelyExprs, which we
     # need to parse.
@@ -376,7 +382,8 @@ def _parse_instr(t: Tree) -> Instr:
         return ObserveInstr(_parse_expr(_child_tree(t, 0)))
     elif t.data == 'loop':
         assert isinstance(t.children[0], str)
-        return LoopInstr(NatLitExpr(value=int(t.children[0])), _parse_instrs(_child_tree(t, 1)))
+        return LoopInstr(NatLitExpr(value=int(t.children[0])),
+                         _parse_instrs(_child_tree(t, 1)))
     else:
         raise Exception(f'invalid AST: {t.data}')
 
@@ -405,14 +412,19 @@ def _parse_query(t: Tree):
         elif mode == "MIN":
             opt_type = OptimizationType.MINIMIZE
         else:
-            raise SyntaxError(f"The optimization can either be 'MAX' or 'MIN', but not {mode}")
+            raise SyntaxError(
+                f"The optimization can either be 'MAX' or 'MIN', but not {mode}"
+            )
         parameter = _parse_var(_child_tree(t, 1))
-        return OptimizationQuery(_parse_expr(_child_tree(t, 0)), parameter, opt_type)
+        return OptimizationQuery(_parse_expr(_child_tree(t, 0)), parameter,
+                                 opt_type)
     elif t.data == "plot":
         if len(t.children) == 3:
             lit = _parse_literal(_child_tree(t, 2))
             if isinstance(lit, BoolLitExpr):
-                raise SyntaxError("Plot instructions cannot handle boolean literals as arguments")
+                raise SyntaxError(
+                    "Plot instructions cannot handle boolean literals as arguments"
+                )
             assert isinstance(t.children[2], Tree)
             if t.children[2].data in ('real', 'infinity'):
                 assert isinstance(lit, RealLitExpr)
@@ -443,11 +455,13 @@ def _parse_query(t: Tree):
                                  prob=lit)
             elif t.children[1].data in ('true', 'false') or \
                     (t.children[1].data == 'var' and t.children[1].children[0] in ('true', 'false')):
-                raise SyntaxError("Plot instruction does not support boolean operators")
+                raise SyntaxError(
+                    "Plot instruction does not support boolean operators")
             else:
-                return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))),
-                                 VarExpr(_parse_var(_child_tree(t, 1))),
-                                 )
+                return PlotInstr(
+                    VarExpr(_parse_var(_child_tree(t, 0))),
+                    VarExpr(_parse_var(_child_tree(t, 1))),
+                )
         else:
             return PlotInstr(VarExpr(_parse_var(_child_tree(t, 0))))
     else:

@@ -45,6 +45,7 @@ def test_comments():
 
     assert len(program.instructions) == 0
 
+
 def test_params():
     program = parse_pgcl("""
         nparam x

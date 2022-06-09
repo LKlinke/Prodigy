@@ -4,6 +4,7 @@ from probably.pgcl.ast.types import NatType, RealType
 from probably.pgcl.check import CheckFail, check_program
 from probably.pgcl.parser import parse_pgcl
 
+
 def test_correct_program():
     program = parse_pgcl("""
         const pi := 3.14

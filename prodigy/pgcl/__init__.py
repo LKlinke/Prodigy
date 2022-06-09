@@ -51,6 +51,6 @@ For more details on what syntax is accepted for pGCL programs, you can view the 
 """
 
 from .ast import *
+from .ast.walk import *
 from .check import *
 from .parser import parse_pgcl
-from .ast.walk import *

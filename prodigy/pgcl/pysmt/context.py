@@ -15,7 +15,7 @@ from pysmt.fnode import FNode
 from pysmt.shortcuts import Symbol
 from pysmt.typing import BOOL, INT, REAL
 
-from probably.pgcl.ast import BoolType, RealType, NatType, Program, Type, Var
+from probably.pgcl.ast import BoolType, NatType, Program, RealType, Type, Var
 
 
 def _translate_type(typ: Type):

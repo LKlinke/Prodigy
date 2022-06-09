@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from enum import Enum, auto
 from textwrap import indent
 from typing import List, Union
-from enum import Enum, auto
 
 import attr
-from .expressions import NatLitExpr, VarExpr, RealLitExpr, Expr
+
 from .ast import Node, Var
+from .expressions import Expr, NatLitExpr, RealLitExpr, VarExpr
+
 
 class InstrClass(Node):
     """Superclass for all instructions. See :obj:`Instr`."""
@@ -193,10 +195,10 @@ class PlotInstr(InstrClass):
         return f"!Plot[{output}]"
 
 
-Query = Union[ProbabilityQueryInstr, ExpectationInstr, PlotInstr, PrintInstr, OptimizationQuery]
+Query = Union[ProbabilityQueryInstr, ExpectationInstr, PlotInstr, PrintInstr,
+              OptimizationQuery]
 """Union type for all query objects. See :class:`QueryInstr` for use with isinstance."""
 
-
-Instr = Union[SkipInstr, WhileInstr, IfInstr, AsgnInstr, ChoiceInstr, LoopInstr,
-              TickInstr, ObserveInstr, Query]
+Instr = Union[SkipInstr, WhileInstr, IfInstr, AsgnInstr, ChoiceInstr,
+              LoopInstr, TickInstr, ObserveInstr, Query]
 """Union type for all instruction objects. See :class:`InstrClass` for use with isinstance."""

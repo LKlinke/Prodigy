@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from typing import Union
 from abc import abstractmethod
+from typing import Union
+
 import attr
-from .expressions import Expr
+
 from .ast import Node, Var
-from .types import Type, BoolType, NatType, RealType
+from .expressions import Expr
+from .types import BoolType, NatType, RealType, Type
 
 
 class DeclClass(Node):
     """Superclass for all declarations. See :obj:`Decl`."""
-
     @abstractmethod
     def __str__(self) -> str:
         """
@@ -51,6 +52,7 @@ class ConstDecl(DeclClass):
 
     def __str__(self) -> str:
         return f"const {self.var} := {self.value};"
+
 
 @attr.s
 class ParameterDecl(DeclClass):

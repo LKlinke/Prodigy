@@ -117,14 +117,19 @@ Otherwise use corresponding Union types instead.
 .. autoclass:: Node
 """
 
-from .declarations import VarDecl, ConstDecl, ParameterDecl, Decl
-from .expressions import VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, BinopExpr, UnopExpr, \
-    SubstExpr, CategoricalExpr, TickExpr, DUniformExpr, CUniformExpr, GeometricExpr, PoissonExpr, LogDistExpr, \
-    BinomialExpr, BernoulliExpr, Binop, Unop, Expr, ExprClass, DistrExpr, IidSampleExpr, expr_str_parens
-from .instructions import ProbabilityQueryInstr, ExpectationInstr, PlotInstr, SkipInstr, WhileInstr, IfInstr,\
-    AsgnInstr, LoopInstr, ChoiceInstr, TickInstr, ObserveInstr, Instr, Query, InstrClass, PrintInstr,\
-    OptimizationType, OptimizationQuery
-from .types import BoolType, NatType, RealType, Type, Bounds
 from .ast import Node, Var
+from .declarations import ConstDecl, Decl, ParameterDecl, VarDecl
+from .expressions import (BernoulliExpr, BinomialExpr, Binop, BinopExpr,
+                          BoolLitExpr, CategoricalExpr, CUniformExpr,
+                          DistrExpr, DUniformExpr, Expr, ExprClass,
+                          GeometricExpr, IidSampleExpr, LogDistExpr,
+                          NatLitExpr, PoissonExpr, RealLitExpr, SubstExpr,
+                          TickExpr, Unop, UnopExpr, VarExpr, expr_str_parens)
+from .instructions import (AsgnInstr, ChoiceInstr, ExpectationInstr, IfInstr,
+                           Instr, InstrClass, LoopInstr, ObserveInstr,
+                           OptimizationQuery, OptimizationType, PlotInstr,
+                           PrintInstr, ProbabilityQueryInstr, Query, SkipInstr,
+                           TickInstr, WhileInstr)
 from .program import Program
+from .types import BoolType, Bounds, NatType, RealType, Type
 from .walk import *

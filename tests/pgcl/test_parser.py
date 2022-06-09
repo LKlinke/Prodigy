@@ -1,6 +1,8 @@
-from probably.pgcl.parser import parse_pgcl
-from probably.pgcl.ast import *
 from pytest import raises
+
+from probably.pgcl.ast import *
+from probably.pgcl.parser import parse_pgcl
+
 
 def test_all_distributions():
     program = parse_pgcl("""
@@ -16,14 +18,17 @@ def test_all_distributions():
     """)
     exprs = [instr.rhs for instr in program.instructions]
 
-    assert exprs == [DUniformExpr(NatLitExpr(1), NatLitExpr(2)),
+    assert exprs == [
+        DUniformExpr(NatLitExpr(1), NatLitExpr(2)),
         DUniformExpr(NatLitExpr(1), NatLitExpr(2)),
         CUniformExpr(NatLitExpr(1), NatLitExpr(2)),
         GeometricExpr(NatLitExpr(1)),
         PoissonExpr(NatLitExpr(1)),
         LogDistExpr(NatLitExpr(1)),
         BernoulliExpr(NatLitExpr(1)),
-        BinomialExpr(NatLitExpr(1), NatLitExpr(2))]
+        BinomialExpr(NatLitExpr(1), NatLitExpr(2))
+    ]
+
 
 def test_syntax_errors():
     illegal_names = {"true", "false"}

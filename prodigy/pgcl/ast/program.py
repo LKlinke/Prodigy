@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from typing import List, Dict, Any
 import copy
+from typing import Any, Dict, List
 
 import attr
-from .types import Type
-from .declarations import Decl, ParameterDecl, VarDecl, ConstDecl
+
+from .ast import Var
+from .declarations import ConstDecl, Decl, ParameterDecl, VarDecl
 from .expressions import Expr
 from .instructions import Instr
-from .ast import Var
+from .types import Type
 
 
 @attr.s
@@ -41,7 +42,8 @@ class Program:
     instructions: List[Instr] = attr.ib()
 
     @staticmethod
-    def from_parse(declarations: List[Decl], instructions: List[Instr]) -> Program:
+    def from_parse(declarations: List[Decl],
+                   instructions: List[Instr]) -> Program:
         """Create a program from the parser's output."""
         variables: Dict[Var, Type] = {}
         constants: Dict[Var, Expr] = {}
@@ -55,7 +57,8 @@ class Program:
             elif isinstance(decl, ParameterDecl):
                 parameters[decl.var] = decl.typ
 
-        return Program(declarations, variables, constants, parameters, instructions)
+        return Program(declarations, variables, constants, parameters,
+                       instructions)
 
     def add_variable(self, var: Var, typ: Type):
         """

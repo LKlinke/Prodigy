@@ -15,9 +15,8 @@ from pysmt.shortcuts import (FALSE, LE, LT, TRUE, And, EqualsOrIff, Int, Ite,
                              get_type)
 from pysmt.typing import INT
 
-from probably.pgcl.ast import (Binop, BinopExpr, BoolLitExpr, Expr,
-                               RealLitExpr, NatLitExpr, SubstExpr, Unop,
-                               UnopExpr, VarExpr)
+from probably.pgcl.ast import (Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr,
+                               RealLitExpr, SubstExpr, Unop, UnopExpr, VarExpr)
 from probably.pysmt.context import TranslationContext
 
 

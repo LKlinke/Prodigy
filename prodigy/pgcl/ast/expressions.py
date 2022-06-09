@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from decimal import Decimal
-from typing import Any, Union, Sequence, Optional, List, Tuple, Dict
-from fractions import Fraction
-from enum import auto, Enum
 import itertools
-from functools import reduce
-
 from abc import abstractmethod
+from decimal import Decimal
+from enum import Enum, auto
+from fractions import Fraction
+from functools import reduce
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
 import attr
+
 from .ast import Node, Var
+
 
 class ExprClass(Node):
     """
@@ -75,7 +77,7 @@ class NatLitExpr(ExprClass):
 
 
 def _validate_real_lit_value(_object: RealLitExpr, _attribute: Any,
-                              value: Any):
+                             value: Any):
     if not isinstance(value, Decimal) and not isinstance(value, Fraction):
         raise ValueError(
             f"Expected a Decimal or Fraction value, got: {value!r}")
@@ -296,7 +298,8 @@ class DUniformExpr(ExprClass):
         probabilities. For the uniform distribution, all probabilites are equal
         to :math:`\frac{1}{\text{end} - \text{start} + 1}`.
         """
-        if isinstance(self.start, NatLitExpr) and isinstance(self.end, NatLitExpr):
+        if isinstance(self.start, NatLitExpr) and isinstance(
+                self.end, NatLitExpr):
             width = self.end.value - self.start.value + 1
             prob = RealLitExpr(Fraction(1, width))
             return [(prob, NatLitExpr(i))
@@ -493,10 +496,9 @@ def expr_str_parens(expr: ExprClass) -> str:
         return f'({expr})'
 
 
-DistrExpr = Union[DUniformExpr, CUniformExpr, BernoulliExpr, GeometricExpr, PoissonExpr, LogDistExpr, BinomialExpr,
-                  IidSampleExpr]
+DistrExpr = Union[DUniformExpr, CUniformExpr, BernoulliExpr, GeometricExpr,
+                  PoissonExpr, LogDistExpr, BinomialExpr, IidSampleExpr]
 """ A type combining all sampling expressions"""
-
 
 Expr = Union[VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr,
              BinopExpr, CategoricalExpr, SubstExpr, TickExpr, DistrExpr]
