@@ -41,7 +41,7 @@ class TestDistributionInterface:
     def test_finite_leq(self):
         gf1 = GeneratingFunction("x**2*y**3")
         gf2 = GeneratingFunction("1/2*x**2*y**3")
-        assert not gf1 <= gf2
+        assert gf2 <= gf1
 
     def test_infinite_leq(self):
         gf1 = GeneratingFunction("(1-sqrt(1-x**2))/x")
@@ -52,11 +52,15 @@ class TestDistributionInterface:
     def test_finite_le(self):
         gf1 = GeneratingFunction("x**2*y**3")
         gf2 = GeneratingFunction("1/2*x**2*y**3")
+        assert gf2 < gf1
+
+        gf1 = GeneratingFunction("(1/2) * x**2*y**3 + (1/2) * x**3*y**2")
+        gf2 = GeneratingFunction("(1/3) * x**2*y**3 + (2/3) * x**3*y**2")
         assert not gf1 < gf2
 
     def test_infinite_le(self):
         gf1 = GeneratingFunction("(1-sqrt(1-x**2))/x")
-        gf2 = GeneratingFunction("2/(2-x)-1")
+        gf2 = GeneratingFunction("2/(2-x) - 1")
         with pytest.raises(RuntimeError):
             assert gf1 < gf2
 
@@ -234,7 +238,7 @@ def test_split_addend():
     for i in range(number_of_vars):
         monomial *= sympy.S("x" + str(i)) ** values[i]
     addend = probability * monomial
-    assert GeneratingFunction.split_addend(addend) == (probability, monomial)
+    assert GeneratingFunction._split_addend(addend) == (probability, monomial)
 
 
 def test_linear_transformation():

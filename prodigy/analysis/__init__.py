@@ -36,6 +36,6 @@ Sometimes, intermediate steps of the computation are desired. This and more conf
 
 .. automodule:: prodigy.analysis.forward.config
 """
-from .instruction_handler import compute_discrete_distribution
 from . import equivalence, optimization
 from .config import ForwardAnalysisConfig
+from .instruction_handler import compute_discrete_distribution

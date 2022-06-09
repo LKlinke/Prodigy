@@ -1,8 +1,8 @@
+import logging
 from typing import Union
 
-import logging
-import sympy
 import matplotlib.pyplot as plt
+import sympy
 from matplotlib.cm import ScalarMappable
 from probably.pgcl import VarExpr
 

@@ -11,7 +11,8 @@ import attr
 from prodigy.analysis.optimization import Optimizer
 from prodigy.analysis.optimization.gf_optimizer import GFOptimizer
 from prodigy.distribution.fast_generating_function import ProdigyPGF
-from prodigy.distribution.generating_function import GeneratingFunction, SympyPGF
+from prodigy.distribution.generating_function import (GeneratingFunction,
+                                                      SympyPGF)
 from .exceptions import ConfigurationError
 from ..distribution.distribution import CommonDistributionsFactory
 
@@ -59,4 +60,3 @@ class ForwardAnalysisConfig:
     def __attrs_post_init__(self):
         GeneratingFunction.use_latex_output = self.use_latex
         GeneratingFunction.use_simplification = self.use_simplification
-        GeneratingFunction.intermediate_results = self.show_intermediate_steps

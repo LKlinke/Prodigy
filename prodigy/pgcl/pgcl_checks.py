@@ -1,7 +1,7 @@
 from typing import Union
 
-from probably.pgcl import (Binop, BinopExpr, Expr, Unop, UnopExpr, VarExpr,
-                           NatLitExpr, Program)
+from probably.pgcl import (Binop, BinopExpr, Expr, NatLitExpr, Program, Unop,
+                           UnopExpr, VarExpr)
 from probably.pgcl.ast.walk import Walk, mut_expr_children, walk_expr
 from probably.util.ref import Mut
 

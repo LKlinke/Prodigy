@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Union, List
+from typing import List, Union
 
 import attr
-from probably.pgcl import Expr, VarExpr, OptimizationType
+from probably.pgcl import Expr, OptimizationType, VarExpr
+
 from prodigy.distribution.distribution import Distribution
 
 
@@ -11,6 +12,7 @@ class Optimizer(ABC):
     """
     The `Optimizer` optimizes target functions and distributions.
     """
+
     @staticmethod
     @abstractmethod
     def optimize(

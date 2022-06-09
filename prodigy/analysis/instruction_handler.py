@@ -7,7 +7,8 @@ from typing import Sequence
 from probably.pgcl import *
 
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.exceptions import ObserveZeroEventError, VerificationError
+from prodigy.analysis.exceptions import (ObserveZeroEventError,
+                                         VerificationError)
 from prodigy.analysis.plotter import Plotter
 from prodigy.distribution.distribution import Distribution, MarginalType
 from prodigy.distribution.generating_function import SympyPGF
@@ -45,7 +46,7 @@ class InstructionHandler(ABC):
     def compute(instruction: Union[Instr, Sequence[Instr]],
                 distribution: Distribution,
                 config: ForwardAnalysisConfig) -> Distribution:
-        pass
+        """Computes the updated distribution after executing the instruction `instruction` on input `distribution`"""
 
 
 class SequenceHandler(InstructionHandler):
@@ -365,90 +366,106 @@ class LoopHandler(InstructionHandler):
 
 
 class WhileHandler(InstructionHandler):
+
+    @staticmethod
+    def _analyze_with_invariant(instruction: Instr, distribution: Distribution,
+                                config: ForwardAnalysisConfig) -> Distribution:
+        from prodigy.analysis.equivalence.equivalence_check import \
+            check_equivalence
+        inv_filepath = input("Invariant file:\t")
+        with open(inv_filepath, 'r', encoding="utf-8") as inv_file:
+            inv_src = inv_file.read()
+            inv_prog = parse_pgcl(inv_src)
+
+            prog = Program(config=None,
+                           declarations=None,
+                           variables=inv_prog.variables,
+                           constants=None,
+                           parameters=None,
+                           instructions=[instruction])
+            print(f"{Style.YELLOW}Verifying invariant...{Style.RESET}")
+            answer, _ = check_equivalence(prog, inv_prog, config)
+            if answer:
+                print(Style.OKGREEN +
+                      "Invariant successfully validated!\n" + Style.RESET)
+                if config.show_intermediate_steps:
+                    print(Style.YELLOW +
+                          "Compute the result using the invariant" +
+                          Style.RESET)
+                return compute_discrete_distribution(
+                    inv_prog, distribution, config)
+            else:
+                raise VerificationError(
+                    "Invariant could not be determined as such.")
+
+    @staticmethod
+    def _compute_iterations(instruction: Instr, distribution: Distribution,
+                            config: ForwardAnalysisConfig) -> Distribution:
+        max_iter = int(input("Specify a maximum iteration limit: "))
+        sat_part = distribution.filter(instruction.cond)
+        non_sat_part = distribution - sat_part
+        for i in range(max_iter + 1):
+            print_progress_bar(i, max_iter, length=50)
+            iterated_part = SequenceHandler.compute(
+                instruction.body, sat_part, config)
+            iterated_sat = iterated_part.filter(instruction.cond)
+            iterated_non_sat = iterated_part - iterated_sat
+            if iterated_non_sat == SympyPGF.zero(
+            ) and iterated_sat == sat_part:
+                print(
+                    f"\n{Style.OKGREEN}Terminated already after {i + 1} step(s)!{Style.RESET}"
+                )
+                break
+            non_sat_part += iterated_non_sat
+            sat_part = iterated_sat
+        return non_sat_part
+
+    @staticmethod
+    def _compute_until_threshold(instruction: Instr, distribution: Distribution,
+                                 config: ForwardAnalysisConfig) -> Distribution:
+        captured_probability_threshold = float(
+            input("Enter the probability threshold: "))
+        sat_part = distribution.filter(instruction.cond)
+        non_sat_part = distribution - sat_part
+        while Fraction(non_sat_part.get_probability_mass()
+                       ) < captured_probability_threshold:
+            logger.info("Collected %f of the desired mass", (float(
+                (Fraction(non_sat_part.get_probability_mass()) /
+                 captured_probability_threshold)) * 100))
+            iterated_part = SequenceHandler.compute(
+                instruction.body, sat_part, config)
+            iterated_sat = iterated_part.filter(instruction.cond)
+            iterated_non_sat = iterated_part - iterated_sat
+            non_sat_part += iterated_non_sat
+            sat_part = iterated_sat
+            print_progress_bar(int(
+                (Fraction(non_sat_part.get_probability_mass()) /
+                 captured_probability_threshold) * 100),
+                100,
+                length=50)
+        return non_sat_part
+
     @staticmethod
     def compute(instruction: Instr, distribution: Distribution,
                 config: ForwardAnalysisConfig) -> Distribution:
 
         _assume(instruction, WhileInstr, 'WhileHandler')
 
-        user_choice = int(
-            input(
+        while True:
+            user_choice = input(
                 "While Instruction has only limited support. Choose an option:\n"
                 "[1]: Solve using invariants (Checks whether the invariant over-approximates the loop)\n"
                 "[2]: Fix a maximum number of iterations (This results in an under-approximation)\n"
                 "[3]: Analyse until a certain probability mass is captured (might not terminate!)\n"
-            ))
-        logger.info("User chose %d", user_choice)
-        if user_choice == 1:
-            from prodigy.analysis.equivalence.equivalence_check import check_equivalence
-            inv_filepath = input("Invariant file:\t")
-            with open(inv_filepath, 'r', encoding="utf-8") as inv_file:
-                inv_src = inv_file.read()
-                inv_prog = parse_pgcl(inv_src)
-
-                prog = Program(config=None,
-                               declarations=None,
-                               variables=inv_prog.variables,
-                               constants=None,
-                               parameters=None,
-                               instructions=[instruction])
-                print(f"{Style.YELLOW}Verifying invariant...{Style.RESET}")
-                answer, _ = check_equivalence(prog, inv_prog, config)
-                if answer:
-                    print(Style.OKGREEN +
-                          "Invariant successfully validated!\n" + Style.RESET)
-                    if config.show_intermediate_steps:
-                        print(Style.YELLOW +
-                              "Compute the result using the invariant" +
-                              Style.RESET)
-                    return compute_discrete_distribution(
-                        inv_prog, distribution, config)
-                else:
-                    raise VerificationError(
-                        "Invariant could not be determined as such.")
-
-        elif user_choice == 2:
-            max_iter = int(input("Specify a maximum iteration limit: "))
-            sat_part = distribution.filter(instruction.cond)
-            non_sat_part = distribution - sat_part
-            for i in range(max_iter + 1):
-                print_progress_bar(i, max_iter, length=50)
-                iterated_part = SequenceHandler.compute(
-                    instruction.body, sat_part, config)
-                iterated_sat = iterated_part.filter(instruction.cond)
-                iterated_non_sat = iterated_part - iterated_sat
-                if iterated_non_sat == SympyPGF.zero(
-                ) and iterated_sat == sat_part:
-                    print(
-                        f"\n{Style.OKGREEN}Terminated already after {i + 1} step(s)!{Style.RESET}"
-                    )
-                    break
-                non_sat_part += iterated_non_sat
-                sat_part = iterated_sat
-            return non_sat_part
-
-        elif user_choice == 3:
-            captured_probability_threshold = float(
-                input("Enter the probability threshold: "))
-            sat_part = distribution.filter(instruction.cond)
-            non_sat_part = distribution - sat_part
-            while Fraction(non_sat_part.get_probability_mass()
-                           ) < captured_probability_threshold:
-                logger.info("Collected %f of the disired mass", (float(
-                    (Fraction(non_sat_part.get_probability_mass()) /
-                     captured_probability_threshold)) * 100))
-                iterated_part = SequenceHandler.compute(
-                    instruction.body, sat_part, config)
-                iterated_sat = iterated_part.filter(instruction.cond)
-                iterated_non_sat = iterated_part - iterated_sat
-                non_sat_part += iterated_non_sat
-                sat_part = iterated_sat
-                print_progress_bar(int(
-                    (Fraction(non_sat_part.get_probability_mass()) /
-                     captured_probability_threshold) * 100),
-                    100,
-                    length=50)
-            return non_sat_part
-        else:
-            raise Exception(
-                f"Input '{user_choice}' cannot be handled properly.")
+                "[q]: Quit.\n"
+            )
+            logger.info("User chose %s", user_choice)
+            if user_choice == "1":
+                return WhileHandler._analyze_with_invariant(instruction, distribution, config)
+            if user_choice == "2":
+                return WhileHandler._compute_iterations(instruction, distribution, config)
+            if user_choice == "3":
+                return WhileHandler._compute_until_threshold(instruction, distribution, config)
+            if user_choice == "q":
+                exit()
+            print(f"Invalid input: {user_choice}")

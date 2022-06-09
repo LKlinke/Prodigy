@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from typing import Union, Generator, Set, Iterator, Tuple, Dict, get_args
+from typing import Dict, Generator, Iterator, Set, Tuple, Union, get_args
 
 import pygin
-from probably.pgcl import VarExpr, Expr, BinopExpr, UnopExpr, Binop, Unop, IidSampleExpr, GeometricExpr, DistrExpr, \
-    BernoulliExpr, DUniformExpr, PoissonExpr
+from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, DistrExpr,
+                           DUniformExpr, Expr, GeometricExpr, IidSampleExpr,
+                           PoissonExpr, Unop, UnopExpr, VarExpr)
 
-from prodigy.distribution.distribution import MarginalType, DistributionParam, Distribution, CommonDistributionsFactory
+from prodigy.distribution.distribution import (CommonDistributionsFactory,
+                                               Distribution, DistributionParam,
+                                               MarginalType)
 
 
 class FPS(Distribution):
@@ -23,12 +26,12 @@ class FPS(Distribution):
             self.dist = pygin.Dist(expression)
 
     @classmethod
-    def from_dist(cls, dist: pygin.Dist) -> 'FPS':
+    def from_dist(cls, dist: pygin.Dist) -> FPS:
         result = FPS("0")
         result.dist = dist
         return result
 
-    def __add__(self, other):
+    def __add__(self, other) -> FPS:
         if isinstance(other, str):
             return FPS.from_dist(self.dist + other)
         elif isinstance(other, FPS):
@@ -37,7 +40,7 @@ class FPS(Distribution):
             raise NotImplementedError(
                 f"Addition of {self.dist} and {other} not supported.")
 
-    def __sub__(self, other):
+    def __sub__(self, other) -> FPS:
         if isinstance(other, str):
             return FPS.from_dist(self.dist - other)
         elif isinstance(other, FPS):
@@ -46,7 +49,7 @@ class FPS(Distribution):
             raise NotImplementedError(
                 f"Subtraction of {self.dist} and {other} not supported.")
 
-    def __mul__(self, other):
+    def __mul__(self, other) -> FPS:
         if isinstance(other, str):
             return FPS.from_dist(self.dist * other)
         elif isinstance(other, FPS):
@@ -55,16 +58,19 @@ class FPS(Distribution):
             raise NotImplementedError(
                 f"Multiplication of {self.dist} and {other} not supported.")
 
-    def __truediv__(self, other):
+    def __truediv__(self, other) -> FPS:
         raise NotImplementedError(__name__)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if isinstance(other, FPS):
             return self.dist == other.dist
         else:
             return False
 
-    def __str__(self):
+    def __le__(self, other) -> bool:
+        raise NotImplementedError(__name__)
+
+    def __str__(self) -> str:
         return str(self.dist)
 
     def __repr__(self):
@@ -85,7 +91,7 @@ class FPS(Distribution):
     def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
         return self.dist.E(str(expression))
 
-    def normalize(self) -> Distribution:
+    def normalize(self) -> FPS:
         return FPS.from_dist(self.dist.normalize())
 
     def get_variables(self) -> Set[str]:
@@ -94,7 +100,7 @@ class FPS(Distribution):
     def get_parameters(self) -> Set[str]:
         raise NotImplementedError(__name__)
 
-    def filter(self, condition: Union[Expr, str]) -> Distribution:
+    def filter(self, condition: Union[Expr, str]) -> FPS:
         if isinstance(condition, BinopExpr):
             if condition.operator == Binop.AND:
                 return self.filter(condition.lhs).filter(condition.rhs)
@@ -156,12 +162,12 @@ class FPS(Distribution):
     def is_finite(self) -> bool:
         raise NotImplementedError(__name__)
 
-    def update(self, expression: Expr) -> Distribution:
+    def update(self, expression: Expr) -> FPS:
         return FPS.from_dist(
             self.dist.update(str(expression.lhs), str(expression.rhs)))
 
     def update_iid(self, sampling_exp: IidSampleExpr,
-                   variable: Union[str, VarExpr]) -> Distribution:
+                   variable: Union[str, VarExpr]) -> FPS:
 
         sample_dist = sampling_exp.sampling_dist
         if isinstance(sample_dist, GeometricExpr):

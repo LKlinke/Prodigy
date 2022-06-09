@@ -1,7 +1,7 @@
 import logging
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
-from probably.pgcl import Program, IfInstr, SkipInstr, VarExpr, WhileInstr
+from probably.pgcl import IfInstr, Program, SkipInstr, VarExpr, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instruction_handler import compute_discrete_distribution

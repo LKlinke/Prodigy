@@ -1,1 +1,2 @@
-from .distribution import Distribution, CommonDistributionsFactory, DistributionParam, MarginalType
+from .distribution import (CommonDistributionsFactory, Distribution,
+                           DistributionParam, MarginalType)

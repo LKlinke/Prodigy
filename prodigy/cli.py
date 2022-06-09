@@ -8,16 +8,16 @@ If you use `poetry` and do not have prodigy installed globally, you can use `poe
    :show-nested:
 """
 
-from typing import IO
-
 import logging
 import time
-import click
+from typing import IO
 
+import click
 from probably.pgcl import compiler
 from probably.pgcl.check import CheckFail
-from prodigy.util.color import Style
+
 from prodigy import analysis
+from prodigy.util.color import Style
 
 
 @click.group()

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-from typing import Union, Set, Dict, Iterator, Tuple, Generator
+from typing import Dict, Generator, Iterator, Set, Tuple, Union
 
-from probably.pgcl import Expr, VarExpr, IidSampleExpr  # type: ignore
+from probably.pgcl import Expr, IidSampleExpr, VarExpr  # type: ignore
 
 
 class MarginalType(Enum):
@@ -14,36 +14,45 @@ class MarginalType(Enum):
 
 
 DistributionParam = Union[str, Expr]
+State = Dict[str, int]
 
 
 class Distribution(ABC):
     """ Abstract class that models different representations of probability distributions. """
+
     @abstractmethod
-    def __add__(self, other):
+    def __add__(self, other) -> Distribution:
         """ The addition of two distributions. """
 
     @abstractmethod
-    def __sub__(self, other):
+    def __sub__(self, other) -> Distribution:
         """ The subtraction of two distributions. """
 
     @abstractmethod
-    def __mul__(self, other):
+    def __mul__(self, other) -> Distribution:
         """ The multiplication of two distributions. """
 
     @abstractmethod
-    def __truediv__(self, other):
+    def __truediv__(self, other) -> Distribution:
         """ The division of two distributions. """
 
     @abstractmethod
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         """ Checks whether two distributions are equal. """
 
     @abstractmethod
-    def __str__(self):
+    def __le__(self, other) -> bool:
+        """ Checks whether `self` is less or equal than `other`."""
+
+    def __lt__(self, other) -> bool:
+        return self <= other and not self == other
+
+    @abstractmethod
+    def __str__(self) -> str:
         """ The string representation of a distribution. """
 
     @abstractmethod
-    def __iter__(self) -> Iterator[Tuple[str, Dict[str, int]]]:
+    def __iter__(self) -> Iterator[Tuple[str, State]]:
         """ Returns an iterator that iterates over the (probability, state) pairs of the distribution."""
 
     @abstractmethod
@@ -138,6 +147,7 @@ class Distribution(ABC):
 
 class CommonDistributionsFactory(ABC):
     """ Abstract Factory Class implementing a Factory for common distributions."""
+
     @staticmethod
     @abstractmethod
     def geometric(var: Union[str, VarExpr],
