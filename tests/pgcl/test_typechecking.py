@@ -123,13 +123,3 @@ def test_for_instr_errors():
         x := 5
     """)
     assert isinstance(check_program(program), CheckFail)
-
-    program = parse_pgcl("""
-        nat x
-        nat y
-        x := 5
-        y := unif(10, x * 5 + 3)
-    """)
-    res = check_program(program)
-    assert isinstance(res, CheckFail)
-    assert "In distribution parameter expressions, no variables are allowed. - Forgot parameter declaration?" in res.message
