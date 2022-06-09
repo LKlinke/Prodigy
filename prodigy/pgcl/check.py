@@ -18,7 +18,7 @@ from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
                   VarExpr, WhileInstr, ObserveInstr, ProbabilityQueryInstr,
                   ExpectationInstr, PrintInstr, OptimizationQuery, PlotInstr,
                   LoopInstr, CUniformExpr, GeometricExpr, BernoulliExpr,PoissonExpr,
-                  LogDistExpr, BinomialExpr, IidSampleExpr, DistrExpr)
+                  LogDistExpr, BinomialExpr, IidSampleExpr, DistrExpr, TickInstr, TickExpr)
 from .ast.walk import Walk, walk_expr
 
 _T = TypeVar('_T')
@@ -193,6 +193,14 @@ def get_type(program: Program,
                     return other_typ
                 if not is_compatible(typ, other_typ):
                     return CheckFail.expected_type_got(expr, typ, other_typ)
+        return typ
+
+    if isinstance(expr, TickExpr):
+        typ = get_type(program, expr.expr, check=check)
+        if isinstance(typ, CheckFail):
+            return typ
+        if check and not is_compatible(NatType(bounds=None), typ):
+            return CheckFail.expected_type_got(expr.expr, NatType(None), typ)
         return typ
 
     raise Exception("unreachable")
@@ -472,6 +480,7 @@ def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
                 return CheckFail.expected_type_got(instr.term_count, NatType(None),
                                                    int_type)
         return None
+
     if isinstance(instr, LoopInstr):
         int_type = get_type(program, instr.iterations, check=True)
         if isinstance(int_type, CheckFail):
@@ -480,6 +489,14 @@ def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
             return CheckFail.expected_type_got(instr.iterations, NatType(None),
                                                int_type)
         return _check_instrs(program, instr.body)
+
+    if isinstance(instr, TickInstr):
+        typ = get_type(program, instr.expr, check=True)
+        if isinstance(typ, CheckFail):
+            return typ
+        if not is_compatible(NatType(bounds=None), typ):
+            return CheckFail.expected_type_got(instr.expr, NatType(None), typ)
+        return None
 
     raise Exception("unreachable")
 # pylint: enable = too-many-statements
