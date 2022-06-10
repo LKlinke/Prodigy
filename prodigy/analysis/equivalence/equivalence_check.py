@@ -31,8 +31,7 @@ def phi(program: Program, invariant: Program) -> Program:
                             true=new_instructions,
                             false=[SkipInstr()])
 
-    return Program(config=invariant.config,
-                   declarations=invariant.declarations,
+    return Program(declarations=invariant.declarations,
                    variables=invariant.variables,
                    constants=invariant.constants,
                    parameters=invariant.parameters,

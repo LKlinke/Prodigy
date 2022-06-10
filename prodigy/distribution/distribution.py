@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Dict, Generator, Iterator, Set, Tuple, Union
 
@@ -14,7 +15,45 @@ class MarginalType(Enum):
 
 
 DistributionParam = Union[str, Expr]
-State = Dict[str, int]
+
+
+@dataclass
+class State:
+    valuations: Dict[str, int] = field(default_factory=dict)
+
+    def __iter__(self):
+        return self.valuations.__iter__()
+
+    def __getitem__(self, item):
+        return self.valuations.__getitem__(item)
+
+    def __setitem__(self, key, value):
+        return self.valuations.__setitem__(key, value)
+
+    def __str__(self):
+        return self.valuations.__str__()
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, dict):
+            return self.valuations == other
+        if isinstance(other, State):
+            return self.valuations == other.valuations
+        return False
+
+    def items(self):
+        return self.valuations.items()
+
+    def to_monomial(self) -> str:
+        if self.valuations:
+            result = "*"
+            addends = []
+            for variable, value in self.valuations.items():
+                addends.append(f"{variable}^{value}")
+            return result.join(addends)
+        return ""
+
+    def copy(self):
+        return State(valuations=self.valuations.copy())
 
 
 class Distribution(ABC):

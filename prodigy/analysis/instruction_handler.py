@@ -1,5 +1,4 @@
 import functools
-import logging
 from abc import ABC, abstractmethod
 from fractions import Fraction
 from typing import Sequence
@@ -377,11 +376,10 @@ class WhileHandler(InstructionHandler):
             inv_src = inv_file.read()
             inv_prog = parse_pgcl(inv_src)
 
-            prog = Program(config=None,
-                           declarations=None,
+            prog = Program(declarations=[],
                            variables=inv_prog.variables,
-                           constants=None,
-                           parameters=None,
+                           constants=inv_prog.constants,
+                           parameters=inv_prog.parameters,
                            instructions=[instruction])
             print(f"{Style.YELLOW}Verifying invariant...{Style.RESET}")
             answer, _ = check_equivalence(prog, inv_prog, config)

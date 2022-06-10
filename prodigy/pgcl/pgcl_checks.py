@@ -36,7 +36,7 @@ def check_is_constant_constraint(
         expression: Expr, context: Union[Distribution, Program]) -> bool:
     if not isinstance(expression, BinopExpr):
         return False
-    if expression.operator not in (Binop.EQ, Binop.LEQ, Binop.LE, Binop.GE,
+    if expression.operator not in (Binop.EQ, Binop.LEQ, Binop.LT, Binop.GT,
                                    Binop.GEQ):
         return False
     if isinstance(expression.lhs, VarExpr):

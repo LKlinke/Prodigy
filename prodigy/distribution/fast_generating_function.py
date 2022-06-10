@@ -114,9 +114,9 @@ class FPS(Distribution):
                 switch_comparison = {
                     Binop.EQ: Binop.EQ,
                     Binop.LEQ: Binop.GEQ,
-                    Binop.LE: Binop.GE,
+                    Binop.LT: Binop.GT,
                     Binop.GEQ: Binop.LEQ,
-                    Binop.GE: Binop.LE
+                    Binop.GT: Binop.LT
                 }
                 return self.filter(
                     BinopExpr(operator=switch_comparison[condition.operator],
@@ -129,7 +129,7 @@ class FPS(Distribution):
                     return FPS.from_dist(
                         self.dist.filterEq(str(condition.lhs),
                                            str(condition.rhs)))
-                elif condition.operator == Binop.LE:
+                elif condition.operator == Binop.LT:
                     return FPS.from_dist(
                         self.dist.filterLess(str(condition.lhs),
                                              str(condition.rhs)))
@@ -137,7 +137,7 @@ class FPS(Distribution):
                     return FPS.from_dist(
                         self.dist.filterLeq(str(condition.lhs),
                                             str(condition.rhs)))
-                elif condition.operator == Binop.GE:
+                elif condition.operator == Binop.GT:
                     return FPS.from_dist(
                         self.dist.filterGreater(str(condition.lhs),
                                                 str(condition.rhs)))

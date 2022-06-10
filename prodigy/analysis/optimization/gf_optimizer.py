@@ -36,7 +36,7 @@ class GFOptimizer(Optimizer):
             maximum = sympy.maximum(
                 target_function, sympy.Symbol(str(parameters[0])),
                 sympy.sets.Interval(0, sympy.S("oo"), False, True))
-            param = sympy.solve((target_function - maximum).simplify(),
+            param = sympy.solve(target_function - maximum,
                                 sympy.S(str(parameters[0])))
             param = [
                 real_sol for real_sol in param

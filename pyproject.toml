@@ -16,8 +16,8 @@ graphviz = "^0.15"
 networkx = "2.5"
 sympy = "^1.8"
 matplotlib = "^3.4.2"
-pygin = {git="https://git.rwth-aachen.de/tobias.winkler1/prodigy.git", branch="name-change"}
-probably = {git="https://github.com/Philipp15b/probably.git", branch="brand-new"}
+pygin = { git = "https://git.rwth-aachen.de/tobias.winkler1/prodigy.git", branch = "name-change" }
+probably = { git = "https://github.com/Philipp15b/probably.git", branch = "master" }
 
 [tool.poetry.dev-dependencies]
 pytest = "^4.6"

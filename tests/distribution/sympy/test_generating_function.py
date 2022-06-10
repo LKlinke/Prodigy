@@ -5,7 +5,7 @@ import sympy
 from probably.pgcl import Binop, BinopExpr, VarExpr, NatLitExpr
 from probably.pgcl.parser import parse_expr
 
-from prodigy.distribution.distribution import MarginalType
+from prodigy.distribution.distribution import MarginalType, State
 from prodigy.distribution.generating_function import GeneratingFunction, SympyPGF
 
 
@@ -73,14 +73,16 @@ class TestDistributionInterface:
         gf1 = GeneratingFunction("y*x")
         gf2 = GeneratingFunction("x*y")
         gf1 = gf1.set_variables("x").set_parameters()
-        gf2 = gf1.set_variables("y").set_parameters()
+        gf2 = gf2.set_variables("y").set_parameters()
         assert gf1 != gf2
 
     def test_iteration(self):
         gf = GeneratingFunction("(1-sqrt(1-x**2))/x")
-        expected_terms = [("1/2", {"x": 1}), ("1/8", {"x": 3}), ("1/16", {"x": 5}), ("5/128", {"x": 7}),
-                          ("7/256", {"x": 9}), ("21/1024", {"x": 11}), ("33/2048", {"x": 13}), ("429/32768", {"x": 15}),
-                          ("715/65536", {"x": 17}), ("2431/262144", {"x": 19})]
+        expected_terms = [("1/2", {"x": 1}), ("1/8", State({"x": 3})), ("1/16", {"x": 5}),
+                          ("5/128", {"x": 7}), ("7/256", {"x": 9}), ("21/1024", {"x": 11}),
+                          ("33/2048", {"x": 13}), ("429/32768", {"x": 15}),
+                          ("715/65536", {"x": 17}), ("2431/262144", {"x": 19})
+                          ]
         i = 0
         for prob, state in gf:
             if i >= 4:
@@ -128,12 +130,12 @@ class TestDistributionInterface:
     def test_get_variables(self):
         variable_count = random.randint(1, 10)
         gf = create_random_gf(variable_count, 5)
-        assert len(gf.get_variables()) == variable_count,\
+        assert len(gf.get_variables()) == variable_count, \
             f"Amount of variables does not match. Should be {variable_count}, is {len(gf.get_variables())}."
 
-        assert all(map(lambda x: x in ["x"+str(i) for i in range(variable_count)], gf.get_variables())),\
+        assert all(map(lambda x: x in ["x" + str(i) for i in range(variable_count)], gf.get_variables())), \
             f"The variables do not coincide with the actual names." \
-            f"Should be {['x'+str(i) for i in range(variable_count)]}, is {gf.get_variables()}."
+            f"Should be {['x' + str(i) for i in range(variable_count)]}, is {gf.get_variables()}."
 
         gf = GeneratingFunction("a*x + (1-a)", "x")
         print(gf.get_variables(), gf.get_parameters())
@@ -145,10 +147,10 @@ class TestDistributionInterface:
         gf = create_random_gf(variable_count, 5)
 
         gf *= GeneratingFunction("p", "")
-        assert len(gf.get_parameters()) == 1,\
+        assert len(gf.get_parameters()) == 1, \
             f"Amount of variables does not match. Should be {2}, is {len(gf.get_parameters())}."
 
-        assert all(map(lambda x: x in {"p"}, gf.get_parameters())),\
+        assert all(map(lambda x: x in {"p"}, gf.get_parameters())), \
             f"The variables do not coincide with the actual names." \
             f"Should be {{'a', 'b'}}, is {gf.get_parameters()}."
 
@@ -213,7 +215,7 @@ class TestDistributionInterface:
         gf = SympyPGF.uniform("x", '0', '10') * SympyPGF.binomial('y', n='10', p='1/2')
         assert gf.marginal('x') == SympyPGF.uniform("x", '0', '10')
         assert gf.marginal('x', method=MarginalType.EXCLUDE) == SympyPGF.binomial('y', n='10', p='1/2')
-        assert gf.marginal('x','y') == gf
+        assert gf.marginal('x', 'y') == gf
 
     def test_set_variables(self):
         gf = create_random_gf(3, 5)
