@@ -575,7 +575,7 @@
 <span class="sd">    .. doctest::</span>
 
 <span class="sd">        &gt;&gt;&gt; parse_expr(&quot;x &lt; y &amp; z&quot;)</span>
-<span class="sd">        BinopExpr(operator=Binop.AND, lhs=BinopExpr(operator=Binop.LE, lhs=VarExpr(&#39;x&#39;), rhs=VarExpr(&#39;y&#39;)), rhs=VarExpr(&#39;z&#39;))</span>
+<span class="sd">        BinopExpr(operator=Binop.AND, lhs=BinopExpr(operator=Binop.LT, lhs=VarExpr(&#39;x&#39;), rhs=VarExpr(&#39;y&#39;)), rhs=VarExpr(&#39;z&#39;))</span>
 
 <span class="sd">        &gt;&gt;&gt; parse_expr(&quot;[x]&quot;)</span>
 <span class="sd">        Traceback (most recent call last):</span>
