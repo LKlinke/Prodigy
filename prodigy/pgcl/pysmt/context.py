@@ -15,7 +15,7 @@ from pysmt.fnode import FNode
 from pysmt.shortcuts import Symbol
 from pysmt.typing import BOOL, INT, REAL
 
-from probably.pgcl.ast import BoolType, FloatType, NatType, Program, Type, Var
+from probably.pgcl.ast import BoolType, NatType, Program, RealType, Type, Var
 
 
 def _translate_type(typ: Type):
@@ -24,7 +24,7 @@ def _translate_type(typ: Type):
     elif isinstance(typ, NatType):
         # pylint: disable=fixme
         return INT  # TODO: return bounds?
-    elif isinstance(typ, FloatType):
+    elif isinstance(typ, RealType):
         return REAL
 
     raise Exception("unreachable")

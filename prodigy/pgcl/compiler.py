@@ -13,7 +13,7 @@ If you want them, linearity checks live in :mod:`probably.pgcl.syntax`.
 
 from typing import Union
 
-import probably.pgcl.substitute as substitute
+from probably.pgcl import substitute
 from probably.util.ref import Mut
 
 from .ast import Expr, Program
@@ -31,7 +31,7 @@ def compile_pgcl(code: str,
     .. doctest::
 
         >>> compile_pgcl("nat x; nat y; x := y")
-        Program(variables={'x': NatType(bounds=None), 'y': NatType(bounds=None)}, constants={}, instructions=[AsgnInstr(lhs='x', rhs=VarExpr('y'))])
+        Program(variables={'x': NatType(bounds=None), 'y': NatType(bounds=None)}, constants={}, parameters={}, instructions=[AsgnInstr(lhs='x', rhs=VarExpr('y'))])
 
         >>> compile_pgcl("x := y")
         CheckFail(location=..., message='x is not a variable.')
@@ -41,11 +41,11 @@ def compile_pgcl(code: str,
         substitute_constants: Whether constant substitution is done on the program, defaults to `True`.
     """
     program = parse_pgcl(code)
+    if substitute_constants:
+        substitute.substitute_constants(program)
     check_result = check_program(program)
     if check_result is not None:
         return check_result
-    if substitute_constants:
-        substitute.substitute_constants(program)
     return program
 
 

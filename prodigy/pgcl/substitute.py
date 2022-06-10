@@ -93,8 +93,8 @@ import attr
 from probably.util.ref import Mut
 
 from .ast import Expr, ExprClass, Program, SubstExpr, Var, VarExpr
-from .walk import (Walk, mut_expr_children, mut_instr_exprs, walk_expr,
-                   walk_instrs)
+from .ast.walk import (Walk, mut_expr_children, mut_instr_exprs, walk_expr,
+                       walk_instrs)
 
 
 @attr.s(hash=True)
@@ -114,7 +114,7 @@ class _Binder:
     _deepcopy: bool
 
     def __init__(self, *, deepcopy: bool):
-        self._bound = list()
+        self._bound = []
         self._deepcopy = deepcopy
 
     def bind(self, expr: Expr) -> _BoundExpr:
@@ -177,7 +177,7 @@ class _Subst:
                  subst: Optional[Dict[Union[Var, _BoundExpr],
                                       _BoundExpr]] = None,
                  symbolic: FrozenSet[Var]):
-        self._subst = dict() if subst is None else subst.copy()
+        self._subst = {} if subst is None else subst.copy()
         self._symbolic = symbolic
 
     def add_bound(self, binder: _Binder, var: Union[Var, _BoundExpr],

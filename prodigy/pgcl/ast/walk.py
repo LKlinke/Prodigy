@@ -17,6 +17,7 @@ Use :attr:`probably.util.ref.Mut.val` to access the current node.
     .. doctest::
 
         >>> from probably.util.ref import Mut
+        >>> from . import *
         >>> expr = Mut.alloc(UnopExpr(Unop.NEG, NatLitExpr(10)))
 
         >>> [ref.val for ref in walk_expr(Walk.DOWN, expr)]
@@ -33,11 +34,12 @@ This makes it hard to forget calling a recursive traversal call, which could eas
 """
 
 from enum import Enum, auto
-from typing import Callable, Iterable, TypeVar
+from typing import Callable, Iterable, List, TypeVar
 
 from probably.util.ref import Mut
 
-from .ast import *
+from .expressions import Expr, ExprClass
+from .instructions import Instr, InstrClass
 
 T = TypeVar("T")
 
@@ -86,6 +88,7 @@ def _mut_instr_children(node_ref: Mut[Instr]) -> Iterable[Mut[Instr]]:
 
     .. doctest::
 
+        >>> from . import *
         >>> list(_mut_instr_children(Mut.alloc(ChoiceInstr(VarExpr('x'), [SkipInstr()], [SkipInstr()]))))
         [Mut(val=SkipInstr()), Mut(val=SkipInstr())]
     """
@@ -111,7 +114,7 @@ def instr_exprs(node: Instr) -> Iterable[Expr]:
 
     .. doctest::
 
-        >>> from .ast import *
+        >>> from . import *
         >>> list(instr_exprs(AsgnInstr('x', BoolLitExpr(True))))
         [BoolLitExpr(True)]
     """
@@ -126,6 +129,7 @@ def mut_instr_exprs(node: Instr) -> Iterable[Mut[Expr]]:
 
     .. doctest::
 
+        >>> from . import *
         >>> list(mut_instr_exprs(ChoiceInstr(VarExpr('x'), [SkipInstr()], [SkipInstr()])))
         [Mut(val=VarExpr('x'))]
     """

@@ -30,8 +30,8 @@ import attr
 
 
 class Assoc(Enum):
-    Left = auto()
-    Right = auto()
+    LEFT = auto()
+    RIGHT = auto()
 
 
 RuleName = str
@@ -53,7 +53,7 @@ class _InfixOperator(_OperatorClass):
 
     def grammar(self, name: RuleName, next_name: RuleName) -> str:
         (lhs, rhs) = (name,
-                      next_name) if self.assoc == Assoc.Left else (next_name,
+                      next_name) if self.assoc == Assoc.LEFT else (next_name,
                                                                    name)
         return f'{lhs} "{self.op}" {rhs} -> {self.name}'
 
@@ -81,11 +81,11 @@ Operator = Union[_InfixOperator, _PrefixOperator, _PostfixOperator,
 
 
 def infixl(name: RuleName, op: str) -> Operator:
-    return _InfixOperator(name, op, Assoc.Left)
+    return _InfixOperator(name, op, Assoc.LEFT)
 
 
 def infixr(name: RuleName, op: str) -> Operator:
-    return _InfixOperator(name, op, Assoc.Right)
+    return _InfixOperator(name, op, Assoc.RIGHT)
 
 
 def prefix(name: RuleName, op: str) -> Operator:
