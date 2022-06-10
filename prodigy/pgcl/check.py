@@ -209,7 +209,6 @@ def get_type(program: Program,
             return CheckFail.expected_type_got(expr.expr, NatType(None), typ)
         return typ
 
-    print(expr)
     raise Exception("unreachable")
 
 
