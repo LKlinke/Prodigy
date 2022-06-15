@@ -970,11 +970,11 @@ class GeneratingFunction(Distribution):
         rhs = sympy.S(str(expression))
         subst_var = sympy.S(variable)
 
-        paramaters: List[sympy.Symbol] = []
+        parameters: List[sympy.Symbol] = []
         for subexpr in walk_expr(Walk.DOWN, Mut.alloc(expr)):
             if isinstance(subexpr.val, VarExpr) and sympy.S(
                     subexpr.val.var) in self._parameters:
-                paramaters.append(sympy.S(subexpr.val.var))
+                parameters.append(sympy.S(subexpr.val.var))
 
         # Check whether the expression contains the substitution variable or not
         terms = rhs.as_coefficients_dict()
@@ -995,7 +995,7 @@ class GeneratingFunction(Distribution):
             # if there is a constant term, just do a multiplication
             if var == 1:
                 const_correction_term = subst_var ** terms[1]
-            elif var in paramaters:
+            elif var in parameters:
                 const_correction_term = subst_var ** var
             # if the variable is the substitution variable, a different update is necessary
             elif var == subst_var:
@@ -1011,12 +1011,15 @@ class GeneratingFunction(Distribution):
                                     finite=self._is_finite)
 
         if not all(map(lambda x: terms[x] >= 0, terms)):
-            test_gf = res_gf.marginal(subst_var)
-            test_gf._function = test_gf._function.subs(subst_var, 0)
-            if test_gf._function.equals(sympy.S("zoo")):
-                print(
-                    f"{Style.OKRED} WARNING: subtraction cannot be handled via substitution operations in this example.{Style.RESET}"
-                )
+            summands = sympy.Add.make_args(res_gf._function)
+            for summand in summands:
+                subbed: sympy.Basic = summand.subs(subst_var, 0)
+                for var in summand.free_symbols:
+                    subbed = subbed.subs(var, 1)
+                if subbed.equals(sympy.S("zoo")):
+                    res_gf._function -= summand
+                    res_gf._function += summand.subs(subst_var, 1)
+
         return res_gf
 
 
