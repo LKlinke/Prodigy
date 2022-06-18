@@ -169,6 +169,9 @@ class TestDistributionInterface:
         gf = GeneratingFunction("(1-sqrt(1-c**2))/c")
         assert gf.filter(parse_expr("x*z <= 10")) == SympyPGF.zero(*gf._variables)
 
+        gf = GeneratingFunction("(c/2 + c^3/2) * (1-sqrt(1-x**2))/x")
+        assert gf.filter(parse_expr("c*c <= 5")) == GeneratingFunction("c/2 * (1-sqrt(1-x**2))/x")
+
     def test_is_zero_dist(self):
         gf = create_random_gf(4, 10)
         assert (gf == SympyPGF.zero(*gf.get_variables())) == gf.is_zero_dist()

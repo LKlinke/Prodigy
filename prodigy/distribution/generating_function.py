@@ -20,7 +20,7 @@ from sympy.assumptions.assume import global_assumptions
 from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
 from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
-                                      check_is_modulus_condition)
+                                      check_is_modulus_condition, has_variable)
 from prodigy.util.logger import Style, log_setup, logging
 
 logger = log_setup(__name__, logging.DEBUG, file="GF_operations.log")
@@ -198,18 +198,18 @@ class GeneratingFunction(Distribution):
         :param condition: The condition to unfold.
         :return: The disjunction condition of explicitly encoded state conditions.
         """
-        expr = sympy.S(str(condition.rhs))
+        expr: sympy.Expr = sympy.S(str(condition.rhs))
         marginal = self.marginal(*expr.free_symbols)
 
         # Marker to express which side of the equation has only finitely many interpretations.
         left_side_original = True
 
         # Check whether left hand side has only finitely many interpretations.
-        if not marginal.is_finite():
+        if not marginal.is_finite() or len(expr.free_symbols) == 0:
             # Failed, so we have to check the right hand side
             left_side_original = False
             expr = sympy.S(str(condition.lhs))
-            marginal = self.marginal(expr.free_symbols)
+            marginal = self.marginal(*expr.free_symbols)
 
             if not marginal.is_finite():
                 # We are not able to marginalize into a finite amount of states! -> FAIL filtering.
@@ -253,8 +253,6 @@ class GeneratingFunction(Distribution):
         for var, val in state.items():
             equalities.append(
                 BinopExpr(Binop.EQ, lhs=VarExpr(var), rhs=NatLitExpr(val)))
-        if(equalities == []):
-            return BoolLitExpr(False)
         return functools.reduce(
             lambda expr1, expr2: BinopExpr(Binop.AND, expr1, expr2),
             equalities, BoolLitExpr(value=True))
@@ -926,6 +924,22 @@ class GeneratingFunction(Distribution):
             filtered = self.filter(condition.lhs)
             return filtered + self.filter(condition.rhs) - filtered.filter(
                 condition.rhs)
+
+        elif isinstance(condition, BinopExpr) and not has_variable(condition, SympyPGF.zero()):
+            if condition.operator == Binop.EQ:
+                return self.filter(BoolLitExpr(sympy.S(str(condition.lhs)) == sympy.S(str(condition.rhs))))
+            if condition.operator == Binop.LT:
+                return self.filter(BoolLitExpr(sympy.S(str(condition.lhs)) < sympy.S(str(condition.rhs))))
+            if condition.operator == Binop.LEQ:
+                return self.filter(BoolLitExpr(sympy.S(str(condition.lhs)) <= sympy.S(str(condition.rhs))))
+            if condition.operator == Binop.GT:
+                return self.filter(BoolLitExpr(sympy.S(str(condition.lhs)) > sympy.S(str(condition.rhs))))
+            if condition.operator == Binop.GEQ:
+                return self.filter(BoolLitExpr(sympy.S(str(condition.lhs)) >= sympy.S(str(condition.rhs))))
+
+        elif isinstance(condition, BinopExpr) and not (sympy.S(str(condition.lhs)).free_symbols \
+                | sympy.S(str(condition.rhs)).free_symbols).issubset(self._variables | self._parameters):
+            return SympyPGF.zero(*self._variables)
 
         # Modulo extractions
         elif check_is_modulus_condition(condition):
