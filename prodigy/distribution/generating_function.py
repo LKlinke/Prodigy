@@ -253,6 +253,8 @@ class GeneratingFunction(Distribution):
         for var, val in state.items():
             equalities.append(
                 BinopExpr(Binop.EQ, lhs=VarExpr(var), rhs=NatLitExpr(val)))
+        if(equalities == []):
+            return BoolLitExpr(False)
         return functools.reduce(
             lambda expr1, expr2: BinopExpr(Binop.AND, expr1, expr2),
             equalities, BoolLitExpr(value=True))

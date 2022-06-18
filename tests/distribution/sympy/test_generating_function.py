@@ -167,7 +167,7 @@ class TestDistributionInterface:
         assert gf.filter(parse_expr("x*c < 123")) == gf
 
         gf = GeneratingFunction("(1-sqrt(1-c**2))/c")
-        assert gf.filter(parse_expr("x*z <= 10")) == SympyPGF.zero()
+        assert gf.filter(parse_expr("x*z <= 10")) == SympyPGF.zero(*gf._variables)
 
     def test_is_zero_dist(self):
         gf = create_random_gf(4, 10)

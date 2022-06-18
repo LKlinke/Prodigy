@@ -35,7 +35,6 @@ def test_subtraction_when_already_zero():
     n := 1;
     n := n-m;
     """), GF("n^5"), prodigy.analysis.ForwardAnalysisConfig())
-    print(f"result = {result}")
     assert result == GF("m^3", "n", "m")
 
 
