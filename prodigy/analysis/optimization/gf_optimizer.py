@@ -5,6 +5,7 @@ from probably.pgcl import Expr, OptimizationType, VarExpr
 from probably.pgcl.parser import parse_expr
 
 from prodigy.distribution.generating_function import GeneratingFunction
+
 from .optimizer import Optimizer
 
 

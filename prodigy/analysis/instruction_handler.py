@@ -39,7 +39,6 @@ def compute_discrete_distribution(
 
 class InstructionHandler(ABC):
     """ Abstract class that defines a strategy for handling a specific program instruction. """
-
     @staticmethod
     @abstractmethod
     def compute(instruction: Union[Instr, Sequence[Instr]],
@@ -53,9 +52,9 @@ class SequenceHandler(InstructionHandler):
 
     @staticmethod
     def compute(
-            instruction: Union[Instr, Sequence[Instr]],
-            distribution: Distribution,
-            config=ForwardAnalysisConfig()
+        instruction: Union[Instr, Sequence[Instr]],
+        distribution: Distribution,
+        config=ForwardAnalysisConfig()
     ) -> Distribution:
         def _show_steps(distr: Distribution, instr: Instr) -> Distribution:
             res = SequenceHandler.compute(instr, distr, config)
@@ -65,7 +64,8 @@ class SequenceHandler(InstructionHandler):
             print(output)
             return res
 
-        def _dont_show_steps(distr: Distribution, instr: Instr) -> Distribution:
+        def _dont_show_steps(distr: Distribution,
+                             instr: Instr) -> Distribution:
             return SequenceHandler.compute(instr, distr, config)
 
         if isinstance(instruction, list):
@@ -160,7 +160,7 @@ class QueryHandler(InstructionHandler):
         logger.debug(
             "Computing the optimal value for parameter %s in order to %s the distribution %s with respect to %s",
             instr.parameter, 'maximize' if instr.type
-                                           == OptimizationType.MAXIMIZE else 'minimize', dist, instr.expr)
+            == OptimizationType.MAXIMIZE else 'minimize', dist, instr.expr)
         result = config.optimizer.optimize(instr.expr,
                                            dist,
                                            instr.parameter,
@@ -365,7 +365,6 @@ class LoopHandler(InstructionHandler):
 
 
 class WhileHandler(InstructionHandler):
-
     @staticmethod
     def _analyze_with_invariant(instruction: Instr, distribution: Distribution,
                                 config: ForwardAnalysisConfig) -> Distribution:
@@ -384,14 +383,14 @@ class WhileHandler(InstructionHandler):
             print(f"{Style.YELLOW}Verifying invariant...{Style.RESET}")
             answer, _ = check_equivalence(prog, inv_prog, config)
             if answer:
-                print(Style.OKGREEN +
-                      "Invariant successfully validated!\n" + Style.RESET)
+                print(Style.OKGREEN + "Invariant successfully validated!\n" +
+                      Style.RESET)
                 if config.show_intermediate_steps:
                     print(Style.YELLOW +
                           "Compute the result using the invariant" +
                           Style.RESET)
-                return compute_discrete_distribution(
-                    inv_prog, distribution, config)
+                return compute_discrete_distribution(inv_prog, distribution,
+                                                     config)
             else:
                 raise VerificationError(
                     "Invariant could not be determined as such.")
@@ -404,8 +403,8 @@ class WhileHandler(InstructionHandler):
         non_sat_part = distribution - sat_part
         for i in range(max_iter + 1):
             print_progress_bar(i, max_iter, length=50)
-            iterated_part = SequenceHandler.compute(
-                instruction.body, sat_part, config)
+            iterated_part = SequenceHandler.compute(instruction.body, sat_part,
+                                                    config)
             iterated_sat = iterated_part.filter(instruction.cond)
             iterated_non_sat = iterated_part - iterated_sat
             if iterated_non_sat == SympyPGF.zero(
@@ -419,8 +418,9 @@ class WhileHandler(InstructionHandler):
         return non_sat_part
 
     @staticmethod
-    def _compute_until_threshold(instruction: Instr, distribution: Distribution,
-                                 config: ForwardAnalysisConfig) -> Distribution:
+    def _compute_until_threshold(
+            instruction: Instr, distribution: Distribution,
+            config: ForwardAnalysisConfig) -> Distribution:
         captured_probability_threshold = float(
             input("Enter the probability threshold: "))
         sat_part = distribution.filter(instruction.cond)
@@ -430,8 +430,8 @@ class WhileHandler(InstructionHandler):
             logger.info("Collected %f of the desired mass", (float(
                 (Fraction(non_sat_part.get_probability_mass()) /
                  captured_probability_threshold)) * 100))
-            iterated_part = SequenceHandler.compute(
-                instruction.body, sat_part, config)
+            iterated_part = SequenceHandler.compute(instruction.body, sat_part,
+                                                    config)
             iterated_sat = iterated_part.filter(instruction.cond)
             iterated_non_sat = iterated_part - iterated_sat
             non_sat_part += iterated_non_sat
@@ -439,8 +439,8 @@ class WhileHandler(InstructionHandler):
             print_progress_bar(int(
                 (Fraction(non_sat_part.get_probability_mass()) /
                  captured_probability_threshold) * 100),
-                100,
-                length=50)
+                               100,
+                               length=50)
         return non_sat_part
 
     @staticmethod
@@ -455,15 +455,17 @@ class WhileHandler(InstructionHandler):
                 "[1]: Solve using invariants (Checks whether the invariant over-approximates the loop)\n"
                 "[2]: Fix a maximum number of iterations (This results in an under-approximation)\n"
                 "[3]: Analyse until a certain probability mass is captured (might not terminate!)\n"
-                "[q]: Quit.\n"
-            )
+                "[q]: Quit.\n")
             logger.info("User chose %s", user_choice)
             if user_choice == "1":
-                return WhileHandler._analyze_with_invariant(instruction, distribution, config)
+                return WhileHandler._analyze_with_invariant(
+                    instruction, distribution, config)
             if user_choice == "2":
-                return WhileHandler._compute_iterations(instruction, distribution, config)
+                return WhileHandler._compute_iterations(
+                    instruction, distribution, config)
             if user_choice == "3":
-                return WhileHandler._compute_until_threshold(instruction, distribution, config)
+                return WhileHandler._compute_until_threshold(
+                    instruction, distribution, config)
             if user_choice == "q":
                 exit()
             print(f"Invalid input: {user_choice}")

@@ -2,7 +2,7 @@
 
 .DEFAULT: help
 help:
-	@echo "Available targets: install, lint, mypy, test, docs, clean"
+	@echo "Available targets: install, lint, mypy, test, docs, clean, format"
 
 install:
 	poetry install
@@ -27,3 +27,7 @@ docker-run:
 
 clean:
 	rm -rf docs/build
+
+format:
+	poetry run yapf -r -i prodigy/ tests/
+	poetry run isort prodigy/ tests/

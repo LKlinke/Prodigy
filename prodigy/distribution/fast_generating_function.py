@@ -18,7 +18,6 @@ class FPS(Distribution):
     These formal powerseries are itself provided by `prodigy` a python binding to GiNaC,
     something similar to a computer algebra system implemented in C++.
     """
-
     def __init__(self, expression: str, parameter: str = None):
         if parameter is not None:
             self.dist = pygin.Dist(expression, parameter)
@@ -242,8 +241,7 @@ class FPS(Distribution):
 
 class ProdigyPGF(CommonDistributionsFactory):
     @staticmethod
-    def geometric(var: Union[str, VarExpr],
-                  p: DistributionParam) -> FPS:
+    def geometric(var: Union[str, VarExpr], p: DistributionParam) -> FPS:
         return FPS(str(pygin.geometric(var, str(p))))
 
     @staticmethod
@@ -253,14 +251,12 @@ class ProdigyPGF(CommonDistributionsFactory):
         return FPS(function)
 
     @staticmethod
-    def bernoulli(var: Union[str, VarExpr],
-                  p: DistributionParam) -> FPS:
+    def bernoulli(var: Union[str, VarExpr], p: DistributionParam) -> FPS:
         function = f"({p}) * {var} + 1-({p})"
         return FPS(function)
 
     @staticmethod
-    def poisson(var: Union[str, VarExpr],
-                lam: DistributionParam) -> FPS:
+    def poisson(var: Union[str, VarExpr], lam: DistributionParam) -> FPS:
         function = f"exp(({lam}) * ({var} - 1))"
         return FPS(function)
 
@@ -284,6 +280,5 @@ class ProdigyPGF(CommonDistributionsFactory):
         return FPS("1")
 
     @staticmethod
-    def from_expr(expression: Union[str, Expr], *variables,
-                  **kwargs) -> FPS:
+    def from_expr(expression: Union[str, Expr], *variables, **kwargs) -> FPS:
         return FPS(expression, **kwargs)
