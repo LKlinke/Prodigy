@@ -4,7 +4,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>prodigy.pysmt &#8212; Prodigy  documentation</title>
+    <title>&lt;no title&gt; &#8212; Prodigy  documentation</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="_static/bootstrap-sphinx.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css" />
@@ -18,7 +18,7 @@
     <script src="_static/katex_autorenderer.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="prodigy.analysis" href="analysis.html" />
+    <link rel="next" title="&lt;no title&gt;" href="analysis.html" />
     <link rel="prev" title="&lt;no title&gt;" href="pgcl.html" />
     
 <meta charset='utf-8'>
@@ -128,33 +128,7 @@
      href="index.html">Contents <b class="caret"></b></a>
   <ul class="dropdown-menu globaltoc"
       role="menu"
-      aria-labelledby="dLabelGlobalToc"><ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">prodigy.pysmt</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#translation-context">Translation Context</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#expression-translation">Expression Translation</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="analysis.html"><code class="docutils literal notranslate"><span class="pre">prodigy.analysis</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="analysis.html#forward-analysis">Forward Analysis</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="analysis.html#the-semantics">The Semantics</a></li>
-<li class="toctree-l3"><a class="reference internal" href="analysis.html#distribution">Distribution</a></li>
-<li class="toctree-l3"><a class="reference internal" href="analysis.html#analysis-configuration">Analysis Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="analysis.html#forward-analysis-config">Forward Analysis Config</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="analysis.html#module-prodigy.analysis.backward.wp">Backward Analysis</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="analysis.html#weakest-pre-expectations">Weakest Pre-Expectations</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="analysis.html#loop-free">Loop-Free</a></li>
-<li class="toctree-l4"><a class="reference internal" href="analysis.html#transformers">Transformers</a></li>
-<li class="toctree-l4"><a class="reference internal" href="analysis.html#loops">Loops</a></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
+      aria-labelledby="dLabelGlobalToc"><ul>
 <li class="toctree-l1"><a class="reference internal" href="util.html"><code class="docutils literal notranslate"><span class="pre">prodigy.util</span></code></a></li>
 </ul>
 </ul>
@@ -186,13 +160,7 @@
       <div class="col-md-3">
         <div id="sidebar" class="bs-sidenav" role="complementary">
 <h4 style="padding: 5px 20px">Contents</h4>
-<ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#"><code class="docutils literal notranslate"><span class="pre">prodigy.pysmt</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#translation-context">Translation Context</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#expression-translation">Expression Translation</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="analysis.html"><code class="docutils literal notranslate"><span class="pre">prodigy.analysis</span></code></a></li>
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="util.html"><code class="docutils literal notranslate"><span class="pre">prodigy.util</span></code></a></li>
 </ul>
 
@@ -200,105 +168,7 @@
       </div>
     <div class="body col-md-9 content" role="main">
       
-  <span class="target" id="module-prodigy.pysmt"></span><div class="section" id="prodigy-pysmt">
-<h1><code class="docutils literal notranslate"><span class="pre">prodigy.pysmt</span></code><a class="headerlink" href="#prodigy-pysmt" title="Permalink to this headline">¶</a></h1>
-<p>Probably contains some utility functions to translate parts of a pGCL program to
-pySMT.</p>
-<span class="target" id="module-prodigy.pysmt.context"></span><div class="section" id="translation-context">
-<h2>Translation Context<a class="headerlink" href="#translation-context" title="Permalink to this headline">¶</a></h2>
-<p>The translation of pGCL programs to pySMT requires a few details to be known:
-How to translate variables to pySMT, how to handle infinities, and so on. The
-<a class="reference internal" href="#prodigy.pysmt.context.TranslationContext" title="prodigy.pysmt.context.TranslationContext"><code class="xref py py-class docutils literal notranslate"><span class="pre">TranslationContext</span></code></a> handles all that.</p>
-<dl class="py class">
-<dt id="prodigy.pysmt.context.TranslationContext">
-<em class="property"><span class="pre">class</span> </em><code class="sig-name descname"><span class="pre">TranslationContext</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variables</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">infinity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">id_subst</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pysmt/context.html#TranslationContext"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pysmt.context.TranslationContext" title="Permalink to this definition">¶</a></dt>
-<dd><p>Context used for translation of pGCL parts.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>variables</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">FNode</span></code>]) – </p></li>
-<li><p><strong>infinity</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">FNode</span></code>]) – </p></li>
-<li><p><strong>id_subst</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">FNode</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">FNode</span></code>]]) – </p></li>
-</ul>
-</dd>
-</dl>
-<dl class="py attribute">
-<dt id="prodigy.pysmt.context.TranslationContext.variables">
-<code class="sig-name descname"><span class="pre">variables</span></code><em class="property"><span class="pre">:</span> <span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span> </span><span class="pre">pysmt.fnode.FNode</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#prodigy.pysmt.context.TranslationContext.variables" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt id="prodigy.pysmt.context.TranslationContext.infinity">
-<code class="sig-name descname"><span class="pre">infinity</span></code><em class="property"><span class="pre">:</span> <span class="pre">pysmt.fnode.FNode</span></em><a class="headerlink" href="#prodigy.pysmt.context.TranslationContext.infinity" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt id="prodigy.pysmt.context.TranslationContext.id_subst">
-<code class="sig-name descname"><span class="pre">id_subst</span></code><em class="property"><span class="pre">:</span> <span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">pysmt.fnode.FNode</span><span class="p"><span class="pre">,</span> </span><span class="pre">pysmt.fnode.FNode</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#prodigy.pysmt.context.TranslationContext.id_subst" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="prodigy.pysmt.context.TranslationContext.from_program">
-<em class="property"><span class="pre">static</span> </em><code class="sig-name descname"><span class="pre">from_program</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">program</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pysmt/context.html#TranslationContext.from_program"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pysmt.context.TranslationContext.from_program" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a new TranslationContext from a pGCL program’s declared
-variables.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>program</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Program</span></code>) – </p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="#prodigy.pysmt.context.TranslationContext" title="prodigy.pysmt.context.TranslationContext"><code class="xref py py-class docutils literal notranslate"><span class="pre">TranslationContext</span></code></a></p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-</div>
-<span class="target" id="module-prodigy.pysmt.expr"></span><div class="section" id="expression-translation">
-<h2>Expression Translation<a class="headerlink" href="#expression-translation" title="Permalink to this headline">¶</a></h2>
-<p>Translation of pGCL expressions to pySMT formulas.</p>
-<dl class="py function">
-<dt id="prodigy.pysmt.expr.expr_to_pysmt">
-<code class="sig-name descname"><span class="pre">expr_to_pysmt</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expr</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_expectation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_infinity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pysmt/expr.html#expr_to_pysmt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pysmt.expr.expr_to_pysmt" title="Permalink to this definition">¶</a></dt>
-<dd><p>Translate a pGCL expression to a pySMT formula.</p>
-<p>Note that substitution expressions are not allowed here (they are not
-supported in pySMT).</p>
-<p>You can pass in the optional <cite>is_expectation</cite> parameter to have all integer
-values converted to real values.</p>
-<p>If <cite>allow_infinity</cite> is <cite>True</cite>, then infinity expressions will be mapped
-directly to the <cite>infinity</cite> variable of the given
-<code class="xref py py-class docutils literal notranslate"><span class="pre">TranslationContext</span></code>. Take care to appropriately constrain the
-<cite>infinity</cite> variable! Note that arithmetic expressions may not contain
-infinity, to prevent expressions like <cite>infinity - infinity</cite>.</p>
-<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">prodigy.pgcl.parser</span> <span class="kn">import</span> <span class="n">parse_expr</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">pysmt.shortcuts</span> <span class="kn">import</span> <span class="n">Symbol</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">pysmt.typing</span> <span class="kn">import</span> <span class="n">INT</span>
-
-<span class="gp">&gt;&gt;&gt; </span><span class="n">expr</span> <span class="o">=</span> <span class="n">parse_expr</span><span class="p">(</span><span class="s2">&quot;x + 4 * 13&quot;</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">context</span> <span class="o">=</span> <span class="n">TranslationContext</span><span class="p">({</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">Symbol</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">INT</span><span class="p">)})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">expr_to_pysmt</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">expr</span><span class="p">)</span>
-<span class="go">(x + (4 * 13))</span>
-</pre></div>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>context</strong> (<a class="reference internal" href="#prodigy.pysmt.context.TranslationContext" title="prodigy.pysmt.context.TranslationContext"><code class="xref py py-class docutils literal notranslate"><span class="pre">TranslationContext</span></code></a>) – </p></li>
-<li><p><strong>expr</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">VarExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BoolLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">NatLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">RealLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">UnopExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BinopExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">CategoricalExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">SubstExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">TickExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DUniformExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">CUniformExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BernoulliExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">GeometricExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">PoissonExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">LogDistExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BinomialExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">IidSampleExpr</span></code>]) – </p></li>
-<li><p><strong>is_expectation</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – </p></li>
-<li><p><strong>allow_infinity</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – </p></li>
-</ul>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">FNode</span></code></p>
-</dd>
-</dl>
-</dd></dl>
-
-</div>
-</div>
-
+  
 
     </div>
       

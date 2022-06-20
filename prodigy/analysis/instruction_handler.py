@@ -1,4 +1,5 @@
 import functools
+import sys
 from abc import ABC, abstractmethod
 from fractions import Fraction
 from typing import Sequence
@@ -465,5 +466,5 @@ class WhileHandler(InstructionHandler):
             if user_choice == "3":
                 return WhileHandler._compute_until_threshold(instruction, distribution, config)
             if user_choice == "q":
-                exit()
+                sys.exit()
             print(f"Invalid input: {user_choice}")

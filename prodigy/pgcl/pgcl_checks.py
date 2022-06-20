@@ -5,7 +5,7 @@ from probably.pgcl import (Binop, BinopExpr, Expr, NatLitExpr, Program, Unop,
 from probably.pgcl.ast.walk import Walk, mut_expr_children, walk_expr
 from probably.util.ref import Mut
 
-from prodigy.distribution import Distribution
+from prodigy.distribution.distribution import Distribution
 
 
 def has_variable(expr: Expr, context: Union[Distribution, Program]) -> bool:

@@ -127,32 +127,6 @@
   <ul class="dropdown-menu globaltoc"
       role="menu"
       aria-labelledby="dLabelGlobalToc"><ul>
-<li class="toctree-l1"><a class="reference internal" href="pysmt.html"><code class="docutils literal notranslate"><span class="pre">prodigy.pysmt</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="pysmt.html#translation-context">Translation Context</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pysmt.html#expression-translation">Expression Translation</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="analysis.html"><code class="docutils literal notranslate"><span class="pre">prodigy.analysis</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="analysis.html#forward-analysis">Forward Analysis</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="analysis.html#the-semantics">The Semantics</a></li>
-<li class="toctree-l3"><a class="reference internal" href="analysis.html#distribution">Distribution</a></li>
-<li class="toctree-l3"><a class="reference internal" href="analysis.html#analysis-configuration">Analysis Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="analysis.html#forward-analysis-config">Forward Analysis Config</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="analysis.html#module-prodigy.analysis.backward.wp">Backward Analysis</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="analysis.html#weakest-pre-expectations">Weakest Pre-Expectations</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="analysis.html#loop-free">Loop-Free</a></li>
-<li class="toctree-l4"><a class="reference internal" href="analysis.html#transformers">Transformers</a></li>
-<li class="toctree-l4"><a class="reference internal" href="analysis.html#loops">Loops</a></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
 <li class="toctree-l1"><a class="reference internal" href="util.html"><code class="docutils literal notranslate"><span class="pre">prodigy.util</span></code></a></li>
 </ul>
 </ul>
@@ -185,8 +159,6 @@
         <div id="sidebar" class="bs-sidenav" role="complementary">
 <h4 style="padding: 5px 20px">Contents</h4>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="pysmt.html"><code class="docutils literal notranslate"><span class="pre">prodigy.pysmt</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="analysis.html"><code class="docutils literal notranslate"><span class="pre">prodigy.analysis</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="util.html"><code class="docutils literal notranslate"><span class="pre">prodigy.util</span></code></a></li>
 </ul>
 
@@ -196,136 +168,6 @@
       
   <div class="section" id="prodigy-pgcl-cfg-internals">
 <h1><code class="docutils literal notranslate"><span class="pre">prodigy.pgcl.cfg</span></code> Internals<a class="headerlink" href="#prodigy-pgcl-cfg-internals" title="Permalink to this headline">¶</a></h1>
-<dl class="py class">
-<dt id="prodigy.pgcl.cfg._Region">
-<em class="property"><span class="pre">class</span> </em><code class="sig-name descname"><span class="pre">_Region</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dominator_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">instrs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">successor_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/cfg.html#_Region"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.cfg._Region" title="Permalink to this definition">¶</a></dt>
-<dd><p>A region is like a basic block, but it contains general program statements
-instead of only assignments and has</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>dominator_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<code class="xref py py-func docutils literal notranslate"><span class="pre">NewType()</span></code>(<code class="xref py py-data docutils literal notranslate"><span class="pre">BasicBlockId</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>)]) – </p></li>
-<li><p><strong>instrs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">SkipInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">WhileInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">IfInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">AsgnInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ChoiceInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">LoopInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">TickInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ObserveInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ProbabilityQueryInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ExpectationInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">PlotInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">PrintInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">OptimizationQuery</span></code>]]) – </p></li>
-<li><p><strong>successor_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<code class="xref py py-func docutils literal notranslate"><span class="pre">NewType()</span></code>(<code class="xref py py-data docutils literal notranslate"><span class="pre">BasicBlockId</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>)]) – </p></li>
-</ul>
-</dd>
-</dl>
-<dl class="py attribute">
-<dt id="prodigy.pgcl.cfg._Region.dominator_id">
-<code class="sig-name descname"><span class="pre">dominator_id</span></code><em class="property"><span class="pre">:</span> <span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">BasicBlockId</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#prodigy.pgcl.cfg._Region.dominator_id" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt id="prodigy.pgcl.cfg._Region.instrs">
-<code class="sig-name descname"><span class="pre">instrs</span></code><em class="property"><span class="pre">:</span> <span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">prodigy.pgcl.ast.instructions.SkipInstr</span><span class="p"><span class="pre">,</span> </span><span class="pre">prodigy.pgcl.ast.instructions.WhileInstr</span><span class="p"><span class="pre">,</span> </span><span class="pre">prodigy.pgcl.ast.instructions.IfInstr</span><span class="p"><span class="pre">,</span> </span><span class="pre">prodigy.pgcl.ast.instructions.AsgnInstr</span><span class="p"><span class="pre">,</span> </span><span class="pre">prodigy.pgcl.ast.instructions.ChoiceInstr</span><span class="p"><span class="pre">,</span> </span><span class="pre">prodigy.pgcl.ast.instructions.LoopInstr</span><span class="p"><span class="pre">,</span> </span><span class="pre">prodigy.pgcl.ast.instructions.TickInstr</span><span class="p"><span class="pre">,</span> </span><span class="pre">prodigy.pgcl.ast.instructions.ObserveInstr</span><span class="p"><span class="pre">,</span> </span><span class="pre">prodigy.pgcl.ast.instructions.ProbabilityQueryInstr</span><span class="p"><span class="pre">,</span> </span><span class="pre">prodigy.pgcl.ast.instructions.ExpectationInstr</span><span class="p"><span class="pre">,</span> </span><span class="pre">prodigy.pgcl.ast.instructions.PlotInstr</span><span class="p"><span class="pre">,</span> </span><span class="pre">prodigy.pgcl.ast.instructions.PrintInstr</span><span class="p"><span class="pre">,</span> </span><span class="pre">prodigy.pgcl.ast.instructions.OptimizationQuery</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#prodigy.pgcl.cfg._Region.instrs" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt id="prodigy.pgcl.cfg._Region.successor_id">
-<code class="sig-name descname"><span class="pre">successor_id</span></code><em class="property"><span class="pre">:</span> <span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">BasicBlockId</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#prodigy.pgcl.cfg._Region.successor_id" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt id="prodigy.pgcl.cfg._Region.initial">
-<em class="property"><span class="pre">static</span> </em><code class="sig-name descname"><span class="pre">initial</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">initial_block_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/cfg.html#_Region.initial"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.cfg._Region.initial" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>initial_block_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<code class="xref py py-func docutils literal notranslate"><span class="pre">NewType()</span></code>(<code class="xref py py-data docutils literal notranslate"><span class="pre">BasicBlockId</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>)]) – </p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="#prodigy.pgcl.cfg._Region" title="prodigy.pgcl.cfg._Region"><code class="xref py py-class docutils literal notranslate"><span class="pre">_Region</span></code></a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="prodigy.pgcl.cfg._Region.child">
-<em class="property"><span class="pre">static</span> </em><code class="sig-name descname"><span class="pre">child</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/cfg.html#_Region.child"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.cfg._Region.child" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>parent_id</strong> (<code class="xref py py-func docutils literal notranslate"><span class="pre">NewType()</span></code>(<code class="xref py py-data docutils literal notranslate"><span class="pre">BasicBlockId</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>)) – </p></li>
-<li><p><strong>block_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<code class="xref py py-func docutils literal notranslate"><span class="pre">NewType()</span></code>(<code class="xref py py-data docutils literal notranslate"><span class="pre">BasicBlockId</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>)]) – </p></li>
-</ul>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="#prodigy.pgcl.cfg._Region" title="prodigy.pgcl.cfg._Region"><code class="xref py py-class docutils literal notranslate"><span class="pre">_Region</span></code></a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="prodigy.pgcl.cfg._Region.dominates_successor">
-<code class="sig-name descname"><span class="pre">dominates_successor</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frontiers</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/cfg.html#_Region.dominates_successor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.cfg._Region.dominates_successor" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>frontiers</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<code class="xref py py-func docutils literal notranslate"><span class="pre">NewType()</span></code>(<code class="xref py py-data docutils literal notranslate"><span class="pre">BasicBlockId</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>), <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<code class="xref py py-func docutils literal notranslate"><span class="pre">NewType()</span></code>(<code class="xref py py-data docutils literal notranslate"><span class="pre">BasicBlockId</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>)]]) – </p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="prodigy.pgcl.cfg._Region.add_block">
-<code class="sig-name descname"><span class="pre">add_block</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">instrs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">successor_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/cfg.html#_Region.add_block"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.cfg._Region.add_block" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>block</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">BasicBlock</span></code>) – </p></li>
-<li><p><strong>instrs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">SkipInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">WhileInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">IfInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">AsgnInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ChoiceInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">LoopInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">TickInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ObserveInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ProbabilityQueryInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ExpectationInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">PlotInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">PrintInstr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">OptimizationQuery</span></code>]]) – </p></li>
-<li><p><strong>successor_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<code class="xref py py-func docutils literal notranslate"><span class="pre">NewType()</span></code>(<code class="xref py py-data docutils literal notranslate"><span class="pre">BasicBlockId</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>)]) – </p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py function">
-<dt id="prodigy.pgcl.cfg._expand_region">
-<code class="sig-name descname"><span class="pre">_expand_region</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">graph</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frontiers</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/cfg.html#_expand_region"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.cfg._expand_region" title="Permalink to this definition">¶</a></dt>
-<dd><p>See <code class="xref py py-func docutils literal notranslate"><span class="pre">reduce_cfg_to_instrs()</span></code>. Given a control-flow graph for a program,
-the dominance frontiers and a block id, create a block (i.e. list of
-instructions) where each statement in the block dominates the next
-statements. All statements in that block eventually end up in the second
-returned item, the successor’s block id.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>graph</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">ControlFlowGraph</span></code>) – </p></li>
-<li><p><strong>frontiers</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<code class="xref py py-func docutils literal notranslate"><span class="pre">NewType()</span></code>(<code class="xref py py-data docutils literal notranslate"><span class="pre">BasicBlockId</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>), <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code></a>[<code class="xref py py-func docutils literal notranslate"><span class="pre">NewType()</span></code>(<code class="xref py py-data docutils literal notranslate"><span class="pre">BasicBlockId</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>)]]) – </p></li>
-<li><p><strong>region</strong> (<a class="reference internal" href="#prodigy.pgcl.cfg._Region" title="prodigy.pgcl.cfg._Region"><code class="xref py py-class docutils literal notranslate"><span class="pre">_Region</span></code></a>) – </p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt id="prodigy.pgcl.cfg._join_regions">
-<code class="sig-name descname"><span class="pre">_join_regions</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">graph</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/cfg.html#_join_regions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.cfg._join_regions" title="Permalink to this definition">¶</a></dt>
-<dd><p>For if instructions, both branches must continue with the same block. Let’s
-call this block the <em>join point</em>. For programs generated using
-<code class="xref py py-meth docutils literal notranslate"><span class="pre">ControlFlowGraph.from_instructions()</span></code>, this will be the case. However,
-programs modified by <code class="xref py py-func docutils literal notranslate"><span class="pre">one_big_loop()</span></code> do not necessarily have proper
-join points. An example can be seen in the documentation of
-<code class="xref py py-func docutils literal notranslate"><span class="pre">one_big_loop()</span></code>. We handle those cases here explicitly by duplicating
-trampoline blocks.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>graph</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">ControlFlowGraph</span></code>) – </p></li>
-<li><p><strong>region1</strong> (<a class="reference internal" href="#prodigy.pgcl.cfg._Region" title="prodigy.pgcl.cfg._Region"><code class="xref py py-class docutils literal notranslate"><span class="pre">_Region</span></code></a>) – </p></li>
-<li><p><strong>region2</strong> (<a class="reference internal" href="#prodigy.pgcl.cfg._Region" title="prodigy.pgcl.cfg._Region"><code class="xref py py-class docutils literal notranslate"><span class="pre">_Region</span></code></a>) – </p></li>
-</ul>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
-</dd>
-</dl>
-</dd></dl>
-
 </div>
 
 

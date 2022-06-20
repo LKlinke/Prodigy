@@ -525,7 +525,7 @@ class GeneratingFunction(Distribution):
             tmp = marginal.copy()
             for var, val in state.items():
                 for _ in range(val):
-                    tmp = tmp.diff(var, 1) * GeneratingFunction(var)
+                    tmp = tmp._diff(var, 1) * GeneratingFunction(var)
                 tmp = tmp._limit(var, "1")
             expected_value += GeneratingFunction(prob) * tmp
         if expected_value._function == sympy.S('oo'):
@@ -611,7 +611,7 @@ class GeneratingFunction(Distribution):
         # other object is either an expression, or literal
         elif isinstance(other, (str, float, int)):
             # we try to convert this into a Generatingfunction and compute the arithmetic from there on.
-            return self._arithmetic(GeneratingFunction(other), op)
+            return self._arithmetic(GeneratingFunction(str(other)), op)
         # We don't know how to do arithmetic on other types.
         else:
             raise SyntaxError(
@@ -709,7 +709,7 @@ class GeneratingFunction(Distribution):
                 lambda term: (str(term[0]), self._monomial_to_state(term[1])),
                 self._mult_term_generator())
 
-    def diff(self, variable, k):
+    def _diff(self, variable, k):
         r"""
         Partial `k`-th derivative of the generating function with respect to variable `variable`.
         :param variable: The variable in which the generating function gets differentiated.

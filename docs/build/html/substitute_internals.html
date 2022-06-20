@@ -127,8 +127,7 @@
   <ul class="dropdown-menu globaltoc"
       role="menu"
       aria-labelledby="dLabelGlobalToc"><ul>
-<li class="toctree-l1"><a class="reference internal" href="pysmt.html"><code class="docutils literal notranslate"><span class="pre">probably.pysmt</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="util.html"><code class="docutils literal notranslate"><span class="pre">probably.util</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="util.html"><code class="docutils literal notranslate"><span class="pre">prodigy.util</span></code></a></li>
 </ul>
 </ul>
 </li>
@@ -160,8 +159,7 @@
         <div id="sidebar" class="bs-sidenav" role="complementary">
 <h4 style="padding: 5px 20px">Contents</h4>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="pysmt.html"><code class="docutils literal notranslate"><span class="pre">probably.pysmt</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="util.html"><code class="docutils literal notranslate"><span class="pre">probably.util</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="util.html"><code class="docutils literal notranslate"><span class="pre">prodigy.util</span></code></a></li>
 </ul>
 
         </div>
@@ -170,145 +168,6 @@
       
   <div class="section" id="prodigy-pgcl-substitute-internals">
 <h1><code class="docutils literal notranslate"><span class="pre">prodigy.pgcl.substitute</span></code> Internals<a class="headerlink" href="#prodigy-pgcl-substitute-internals" title="Permalink to this headline">¶</a></h1>
-<dl class="py class">
-<dt id="prodigy.pgcl.substitute._Binder">
-<em class="property"><span class="pre">class</span> </em><code class="sig-name descname"><span class="pre">_Binder</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deepcopy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/substitute.html#_Binder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.substitute._Binder" title="Permalink to this definition">¶</a></dt>
-<dd><p>All substitutions (the <cite>values</cite> in the <cite>subst</cite> dict) are assigned a numeric identifier.
-The binder manages those.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>deepcopy</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – </p>
-</dd>
-</dl>
-<dl class="py method">
-<dt id="prodigy.pgcl.substitute._Binder.bind">
-<code class="sig-name descname"><span class="pre">bind</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">expr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/substitute.html#_Binder.bind"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.substitute._Binder.bind" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add the given expression to the binder, return a new <code class="xref py py-class docutils literal notranslate"><span class="pre">_BoundExpr</span></code>
-that points to the expression in the binder.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>expr</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">VarExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BoolLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">NatLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">RealLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">UnopExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BinopExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">CategoricalExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">SubstExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">TickExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DUniformExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">CUniformExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BernoulliExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">GeometricExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">PoissonExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">LogDistExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BinomialExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">IidSampleExpr</span></code>]) – </p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">_BoundExpr</span></code></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="prodigy.pgcl.substitute._Binder.resolve">
-<code class="sig-name descname"><span class="pre">resolve</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/substitute.html#_Binder.resolve"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.substitute._Binder.resolve" title="Permalink to this definition">¶</a></dt>
-<dd><p>In the internal list of bound expressions, replace all
-<code class="xref py py-class docutils literal notranslate"><span class="pre">_BoundExpr</span></code> by the the bound expressions.</p>
-<p>Cycles are handled using a two-step procedure (see module docs).</p>
-</dd></dl>
-
-<dl class="py method">
-<dt id="prodigy.pgcl.substitute._Binder.lookup">
-<code class="sig-name descname"><span class="pre">lookup</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bound</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/substitute.html#_Binder.lookup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.substitute._Binder.lookup" title="Permalink to this definition">¶</a></dt>
-<dd><p>Given a <code class="xref py py-class docutils literal notranslate"><span class="pre">_BoundExpr</span></code>, return the associated expression.</p>
-<p>_Deepcopies_ the expression if <code class="docutils literal notranslate"><span class="pre">deepcopy</span></code> is set to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>bound</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">_BoundExpr</span></code>) – </p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">VarExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BoolLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">NatLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">RealLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">UnopExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BinopExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">CategoricalExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">SubstExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">TickExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DUniformExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">CUniformExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BernoulliExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">GeometricExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">PoissonExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">LogDistExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BinomialExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">IidSampleExpr</span></code>]</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt id="prodigy.pgcl.substitute._Subst">
-<em class="property"><span class="pre">class</span> </em><code class="sig-name descname"><span class="pre">_Subst</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subst</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">symbolic</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/substitute.html#_Subst"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.substitute._Subst" title="Permalink to this definition">¶</a></dt>
-<dd><p>Data structure for current substitutions to be applied.</p>
-<ul class="simple">
-<li><p>It holds a mapping for the substitutions itself (Var/BoundExpr to BoundExpr),</p></li>
-<li><p>and the set of symbolic variables that cannot be substituted (see section <span class="xref std std-ref">substitute_symbolic_variables</span> for more information).</p></li>
-</ul>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>subst</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_BoundExpr</span></code>], <code class="xref py py-class docutils literal notranslate"><span class="pre">_BoundExpr</span></code>]]) – </p></li>
-<li><p><strong>symbolic</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.FrozenSet" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">FrozenSet</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – </p></li>
-</ul>
-</dd>
-</dl>
-<dl class="py method">
-<dt id="prodigy.pgcl.substitute._Subst.add_bound">
-<code class="sig-name descname"><span class="pre">add_bound</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">binder</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/substitute.html#_Subst.add_bound"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.substitute._Subst.add_bound" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bind the expression using <code class="docutils literal notranslate"><span class="pre">binder</span></code>, then add a new substitution that
-replaces <code class="docutils literal notranslate"><span class="pre">var</span></code> by the newly created bound expression.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>binder</strong> (<a class="reference internal" href="#prodigy.pgcl.substitute._Binder" title="prodigy.pgcl.substitute._Binder"><code class="xref py py-class docutils literal notranslate"><span class="pre">_Binder</span></code></a>) – </p></li>
-<li><p><strong>var</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">_BoundExpr</span></code>]) – </p></li>
-<li><p><strong>expr</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">VarExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BoolLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">NatLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">RealLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">UnopExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BinopExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">CategoricalExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">SubstExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">TickExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DUniformExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">CUniformExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BernoulliExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">GeometricExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">PoissonExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">LogDistExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BinomialExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">IidSampleExpr</span></code>]) – </p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="prodigy.pgcl.substitute._Subst.apply">
-<code class="sig-name descname"><span class="pre">apply</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">var_expr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/substitute.html#_Subst.apply"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.substitute._Subst.apply" title="Permalink to this definition">¶</a></dt>
-<dd><p>Apply the substitutions to the given variable expression. Symbolic
-variables are replaced by new substitution expressions.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>var_expr</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">VarExpr</span></code>) – </p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">VarExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BoolLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">NatLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">RealLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">UnopExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BinopExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">CategoricalExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">SubstExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">TickExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DUniformExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">CUniformExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BernoulliExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">GeometricExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">PoissonExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">LogDistExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BinomialExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">IidSampleExpr</span></code>]</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt id="prodigy.pgcl.substitute._Subst.copy">
-<code class="sig-name descname"><span class="pre">copy</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/substitute.html#_Subst.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.substitute._Subst.copy" title="Permalink to this definition">¶</a></dt>
-<dd><p>Make a new copy of this substitution dictionary, for use in branching
-expressions.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference internal" href="#prodigy.pgcl.substitute._Subst" title="prodigy.pgcl.substitute._Subst"><code class="xref py py-class docutils literal notranslate"><span class="pre">_Subst</span></code></a></p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py function">
-<dt id="prodigy.pgcl.substitute._bind_substs">
-<code class="sig-name descname"><span class="pre">_bind_substs</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">binder</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subst</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expr_ref</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prodigy/pgcl/substitute.html#_bind_substs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prodigy.pgcl.substitute._bind_substs" title="Permalink to this definition">¶</a></dt>
-<dd><p>Walk the <cite>expr_ref</cite> and replace all right-hand sides of each <code class="xref py py-class docutils literal notranslate"><span class="pre">SubstExpr</span></code> by a locally bound <code class="xref py py-class docutils literal notranslate"><span class="pre">_BoundExpr</span></code>.</p>
-<p>This test asserts the order in which substitutions are applied: First inner
-ones, then outer.</p>
-<div class="highlight-pycon3 notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">binder</span> <span class="o">=</span> <span class="n">_Binder</span><span class="p">(</span><span class="n">deepcopy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">subst</span> <span class="o">=</span> <span class="n">_Subst</span><span class="p">(</span><span class="n">symbolic</span><span class="o">=</span><span class="nb">set</span><span class="p">())</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">expr</span> <span class="o">=</span> <span class="n">SubstExpr</span><span class="p">({</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">VarExpr</span><span class="p">(</span><span class="s1">&#39;x1&#39;</span><span class="p">)},</span> <span class="n">SubstExpr</span><span class="p">({</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">VarExpr</span><span class="p">(</span><span class="s1">&#39;x2&#39;</span><span class="p">)},</span> <span class="n">VarExpr</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">expr_ref</span> <span class="o">=</span> <span class="n">Mut</span><span class="o">.</span><span class="n">alloc</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">_bind_substs</span><span class="p">(</span><span class="n">binder</span><span class="p">,</span> <span class="n">subst</span><span class="p">,</span> <span class="n">expr_ref</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">str</span><span class="p">(</span><span class="n">expr_ref</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
-<span class="go">&#39;BoundExpr(1)&#39;</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">binder</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">expr_ref</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
-<span class="go">VarExpr(&#39;x2&#39;)</span>
-</pre></div>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>binder</strong> (<a class="reference internal" href="#prodigy.pgcl.substitute._Binder" title="prodigy.pgcl.substitute._Binder"><code class="xref py py-class docutils literal notranslate"><span class="pre">_Binder</span></code></a>) – </p></li>
-<li><p><strong>subst</strong> (<a class="reference internal" href="#prodigy.pgcl.substitute._Subst" title="prodigy.pgcl.substitute._Subst"><code class="xref py py-class docutils literal notranslate"><span class="pre">_Subst</span></code></a>) – </p></li>
-<li><p><strong>expr_ref</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Mut</span></code>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">VarExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BoolLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">NatLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">RealLitExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">UnopExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BinopExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">CategoricalExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">SubstExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">TickExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">DUniformExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">CUniformExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BernoulliExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">GeometricExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">PoissonExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">LogDistExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">BinomialExpr</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">IidSampleExpr</span></code>]]) – </p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
 </div>
 
 
