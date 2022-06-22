@@ -58,7 +58,6 @@ class State:
 
 class Distribution(ABC):
     """ Abstract class that models different representations of probability distributions. """
-
     @abstractmethod
     def __add__(self, other) -> Distribution:
         """ The addition of two distributions. """
@@ -148,10 +147,9 @@ class Distribution(ABC):
         """ Updates the distribution by the the iid-sampling rules. """
 
     @abstractmethod
-    def marginal(
-            self,
-            *variables: Union[str, VarExpr],
-            method: MarginalType = MarginalType.INCLUDE) -> Distribution:
+    def marginal(self,
+                 *variables: Union[str, VarExpr],
+                 method: MarginalType = MarginalType.INCLUDE) -> Distribution:
         """ Computes the marginal distribution for the given variables (MarginalType.Include),
             or for all but the given variables (MarginalType.Exclude).
         """
@@ -175,8 +173,7 @@ class Distribution(ABC):
     @abstractmethod
     def approximate(
             self,
-            threshold: Union[str,
-                             int]) -> Generator[Distribution, None, None]:
+            threshold: Union[str, int]) -> Generator[Distribution, None, None]:
         """
         Computes the approximation until the given threshold is reached. (Might not terminate)
         :param threshold: The threshold either as a maximum number of states, or a certain probability mass.
@@ -186,7 +183,6 @@ class Distribution(ABC):
 
 class CommonDistributionsFactory(ABC):
     """ Abstract Factory Class implementing a Factory for common distributions."""
-
     @staticmethod
     @abstractmethod
     def geometric(var: Union[str, VarExpr],

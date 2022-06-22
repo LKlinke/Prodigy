@@ -12,7 +12,6 @@ class Optimizer(ABC):
     """
     The `Optimizer` optimizes target functions and distributions.
     """
-
     @staticmethod
     @abstractmethod
     def optimize(

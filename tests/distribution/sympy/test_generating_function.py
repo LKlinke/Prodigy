@@ -2,30 +2,34 @@ import random
 
 import pytest
 import sympy
-from probably.pgcl import Binop, BinopExpr, VarExpr, NatLitExpr
+from probably.pgcl import Binop, BinopExpr, NatLitExpr, VarExpr
 from probably.pgcl.parser import parse_expr
 
 from prodigy.distribution.distribution import MarginalType, State
-from prodigy.distribution.generating_function import GeneratingFunction, SympyPGF
+from prodigy.distribution.generating_function import (GeneratingFunction,
+                                                      SympyPGF)
 
 
 def create_random_gf(number_of_variables: int = 1, terms: int = 1):
     # This does most likely does not create a PGF!
     symbols = [sympy.S("x" + str(i)) for i in range(number_of_variables)]
-    values = [sympy.S(random.randint(0, 100)) for _ in range(len(symbols) * terms)]
-    coeffs = [sympy.S(str(random.uniform(0, 1)), rational=True) for _ in range(terms)]
+    values = [
+        sympy.S(random.randint(0, 100)) for _ in range(len(symbols) * terms)
+    ]
+    coeffs = [
+        sympy.S(str(random.uniform(0, 1)), rational=True) for _ in range(terms)
+    ]
 
     result = sympy.S(0)
     for i in range(terms):
         monomial = sympy.S(1)
         for var in symbols:
-            monomial *= var ** values[i]
+            monomial *= var**values[i]
         result += monomial * coeffs[i]
     return GeneratingFunction(result, *symbols)
 
 
 class TestDistributionInterface:
-
     def test_arithmetic(self):
         g = GeneratingFunction("x", "x")
         h = GeneratingFunction("y", "y")
@@ -78,11 +82,25 @@ class TestDistributionInterface:
 
     def test_iteration(self):
         gf = GeneratingFunction("(1-sqrt(1-x**2))/x")
-        expected_terms = [("1/2", {"x": 1}), ("1/8", State({"x": 3})), ("1/16", {"x": 5}),
-                          ("5/128", {"x": 7}), ("7/256", {"x": 9}), ("21/1024", {"x": 11}),
-                          ("33/2048", {"x": 13}), ("429/32768", {"x": 15}),
-                          ("715/65536", {"x": 17}), ("2431/262144", {"x": 19})
-                          ]
+        expected_terms = [("1/2", {
+            "x": 1
+        }), ("1/8", State({"x": 3})), ("1/16", {
+            "x": 5
+        }), ("5/128", {
+            "x": 7
+        }), ("7/256", {
+            "x": 9
+        }), ("21/1024", {
+            "x": 11
+        }), ("33/2048", {
+            "x": 13
+        }), ("429/32768", {
+            "x": 15
+        }), ("715/65536", {
+            "x": 17
+        }), ("2431/262144", {
+            "x": 19
+        })]
         i = 0
         for prob, state in gf:
             if i >= 4:
@@ -102,7 +120,8 @@ class TestDistributionInterface:
         assert gf.get_probability_of(parse_expr("x <= 3")) == parse_expr("5/8")
 
         gf = SympyPGF.zero("x")
-        assert gf.get_probability_of(parse_expr("not (z*y < 12)")) == parse_expr("0")
+        assert gf.get_probability_of(
+            parse_expr("not (z*y < 12)")) == parse_expr("0")
 
     def test_get_probability_mass(self):
         gf = GeneratingFunction("(1-sqrt(1-x**2))/x")
@@ -160,14 +179,20 @@ class TestDistributionInterface:
 
         # check filter on infinite GF
         gf = GeneratingFunction("(1-sqrt(1-c**2))/c")
-        assert gf.filter(parse_expr("c <= 5")) == GeneratingFunction("c/2 + c**3/8 + c**5/16")
+        assert gf.filter(parse_expr("c <= 5")) == GeneratingFunction(
+            "c/2 + c**3/8 + c**5/16")
 
         # check filter on finite GF
         gf = GeneratingFunction("1/2*x*c + 1/4 * x**2 + 1/4")
         assert gf.filter(parse_expr("x*c < 123")) == gf
 
         gf = GeneratingFunction("(1-sqrt(1-c**2))/c")
-        assert gf.filter(parse_expr("x*z <= 10")) == SympyPGF.zero()
+        assert gf.filter(
+            parse_expr("x*z <= 10")) == SympyPGF.zero(*gf._variables)
+
+        gf = GeneratingFunction("(c/2 + c^3/2) * (1-sqrt(1-x**2))/x")
+        assert gf.filter(parse_expr("c*c <= 5")) == GeneratingFunction(
+            "c/2 * (1-sqrt(1-x**2))/x")
 
     def test_is_zero_dist(self):
         gf = create_random_gf(4, 10)
@@ -192,29 +217,30 @@ class TestDistributionInterface:
                GeneratingFunction("c*(1-sqrt(1-c**2))/c")
 
         gf = SympyPGF.zero("x")
-        expr = BinopExpr(Binop.EQ,
-                         VarExpr('x'),
-                         BinopExpr(Binop.PLUS,
-                                   BinopExpr(Binop.TIMES,
-                                             VarExpr('x'),
-                                             NatLitExpr(5)
-                                             ),
-                                   NatLitExpr(1)
-                                   )
-                         )
+        expr = BinopExpr(
+            Binop.EQ, VarExpr('x'),
+            BinopExpr(Binop.PLUS,
+                      BinopExpr(Binop.TIMES, VarExpr('x'), NatLitExpr(5)),
+                      NatLitExpr(1)))
         assert gf.update(expr) == SympyPGF.zero("x")
 
         gf = SympyPGF.uniform("x", "0", "5")
-        expr = BinopExpr(Binop.EQ, VarExpr('x'), BinopExpr(Binop.TIMES, VarExpr('x'), VarExpr('x')))
-        assert gf.update(expr) == GeneratingFunction("1/6 * (1 + x + x**4 + x**9 + x**16 + x**25)")
+        expr = BinopExpr(Binop.EQ, VarExpr('x'),
+                         BinopExpr(Binop.TIMES, VarExpr('x'), VarExpr('x')))
+        assert gf.update(expr) == GeneratingFunction(
+            "1/6 * (1 + x + x**4 + x**9 + x**16 + x**25)")
 
     def test_marginal(self):
         gf = GeneratingFunction("(1-sqrt(1-c**2))/c")
         assert gf.marginal("x") == GeneratingFunction('1', 'x')
 
-        gf = SympyPGF.uniform("x", '0', '10') * SympyPGF.binomial('y', n='10', p='1/2')
+        gf = SympyPGF.uniform("x", '0', '10') * SympyPGF.binomial(
+            'y', n='10', p='1/2')
         assert gf.marginal('x') == SympyPGF.uniform("x", '0', '10')
-        assert gf.marginal('x', method=MarginalType.EXCLUDE) == SympyPGF.binomial('y', n='10', p='1/2')
+        assert gf.marginal(
+            'x', method=MarginalType.EXCLUDE) == SympyPGF.binomial('y',
+                                                                   n='10',
+                                                                   p='1/2')
         assert gf.marginal('x', 'y') == gf
 
     def test_set_variables(self):
@@ -224,8 +250,9 @@ class TestDistributionInterface:
 
     def test_approximate(self):
         gf = GeneratingFunction("2/(2-x) - 1")
-        assert list(gf.approximate("0.99"))[-1] == GeneratingFunction("1/2*x + 1/4*x**2 + 1/8 * x**3 + 1/16 * x**4"
-                                                                      "+ 1/32 * x**5 + 1/64 * x**6 + 1/128 * x**7")
+        assert list(gf.approximate("0.99"))[-1] == GeneratingFunction(
+            "1/2*x + 1/4*x**2 + 1/8 * x**3 + 1/16 * x**4"
+            "+ 1/32 * x**5 + 1/64 * x**6 + 1/128 * x**7")
 
         gf = SympyPGF.zero("x", 'y')
         for prob, state in gf.approximate(10):
@@ -238,7 +265,7 @@ def test_split_addend():
     values = [random.randint(1, 5000) for _ in range(number_of_vars)]
     monomial = sympy.S(1)
     for i in range(number_of_vars):
-        monomial *= sympy.S("x" + str(i)) ** values[i]
+        monomial *= sympy.S("x" + str(i))**values[i]
     addend = probability * monomial
     assert GeneratingFunction._split_addend(addend) == (probability, monomial)
 

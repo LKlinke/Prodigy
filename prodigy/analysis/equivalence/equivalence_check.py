@@ -49,9 +49,8 @@ def generate_equivalence_test_distribution(
     logger.debug("Generating test distribution.")
     dist = config.factory.one()
     for i, variable in enumerate(program.variables):
-        dist *= config.factory.from_expr(
-            f"1/(1-p{i}*{variable})", VarExpr(var=f"p{i}")
-        )
+        dist *= config.factory.from_expr(f"1/(1-p{i}*{variable})",
+                                         VarExpr(var=f"p{i}"))
     return dist.set_variables(*program.variables.keys()).set_parameters()
 
 
@@ -100,7 +99,9 @@ def check_equivalence(program: Program, invariant: Program, config: ForwardAnaly
     # Compare them and check whether they are equal.
     logger.debug("Compare results")
     if config.show_intermediate_steps:
-        print(f"\n{Style.YELLOW} Compare the results. {Style.RESET} \n {modified_inv_result} == {inv_result}")
+        print(
+            f"\n{Style.YELLOW} Compare the results. {Style.RESET} \n {modified_inv_result} == {inv_result}"
+        )
     if modified_inv_result == inv_result:
         logger.debug("Invariant validated.")
         return True, inv_result
