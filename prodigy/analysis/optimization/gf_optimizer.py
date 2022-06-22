@@ -4,7 +4,7 @@ import sympy
 from probably.pgcl import Expr, OptimizationType, VarExpr
 from probably.pgcl.parser import parse_expr
 
-from prodigy.distribution.generating_function import GeneratingFunction
+from prodigy.distribution.distribution import Distribution
 
 from .optimizer import Optimizer
 
@@ -13,7 +13,7 @@ class GFOptimizer(Optimizer):
     @staticmethod
     def optimize(
         condition: Union[str, Expr],
-        dist: GeneratingFunction,
+        dist: Distribution,
         *parameters: Union[str, VarExpr],
         method: OptimizationType = OptimizationType.MINIMIZE
     ) -> List[Union[str, Expr]]:

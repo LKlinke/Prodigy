@@ -55,7 +55,7 @@ class Plotter:
                 colors.append(list(0.0 for _ in range(maxima[x] + 1)))
 
             # Fill the colors array with the previously collected data.
-            for coord in coord_and_prob:
+            for coord in coord_and_prob.items():
                 colors[coord[1]][coord[0]] = float(coord_and_prob[coord])
 
             # Plot the colors array

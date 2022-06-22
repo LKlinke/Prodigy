@@ -2,10 +2,11 @@ import functools
 import sys
 from abc import ABC, abstractmethod
 from fractions import Fraction
-from typing import Sequence
+from typing import Sequence, Union
 
 from probably.pgcl import *
 
+import prodigy.analysis.equivalence.equivalence_check as equiv_check
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import (ObserveZeroEventError,
                                          VerificationError)
@@ -369,8 +370,6 @@ class WhileHandler(InstructionHandler):
     @staticmethod
     def _analyze_with_invariant(instruction: Instr, distribution: Distribution,
                                 config: ForwardAnalysisConfig) -> Distribution:
-        from prodigy.analysis.equivalence.equivalence_check import \
-            check_equivalence
         inv_filepath = input("Invariant file:\t")
         with open(inv_filepath, 'r', encoding="utf-8") as inv_file:
             inv_src = inv_file.read()
@@ -382,7 +381,7 @@ class WhileHandler(InstructionHandler):
                            parameters=inv_prog.parameters,
                            instructions=[instruction])
             print(f"{Style.YELLOW}Verifying invariant...{Style.RESET}")
-            answer, _ = check_equivalence(prog, inv_prog, config)
+            answer, _ = equiv_check.check_equivalence(prog, inv_prog, config)
             if answer:
                 print(Style.OKGREEN + "Invariant successfully validated!\n" +
                       Style.RESET)

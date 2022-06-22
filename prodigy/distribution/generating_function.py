@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import functools
 import operator
-from typing import Callable, Generator, List, Set, Tuple, Union, get_args
+from typing import (Callable, Generator, Iterator, List, Set, Tuple, Union,
+                    get_args)
 
 import sympy
 from probably.pgcl import BinopExpr  # type: ignore
@@ -22,7 +23,7 @@ from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
 from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
                                       check_is_modulus_condition, has_variable)
-from prodigy.util.logger import Style, log_setup, logging
+from prodigy.util.logger import log_setup, logging
 
 logger = log_setup(__name__, logging.DEBUG, file="GF_operations.log")
 
@@ -49,7 +50,7 @@ class GeneratingFunction(Distribution):
     # ==================================== CONSTRUCTORS ====================================
 
     def __init__(self,
-                 function: Union[str, sympy.Expr] = "",
+                 function: Union[str, sympy.Expr],
                  *variables: Union[str, sympy.Symbol],
                  preciseness: float = 1.0,
                  closed: bool = None,
@@ -60,7 +61,8 @@ class GeneratingFunction(Distribution):
         self._preciseness = sympy.S(str(preciseness), rational=True)
 
         # Set variables and parameters
-        self._variables: Set[sympy.Symbol] = self._function.free_symbols
+        self._variables: Set[
+            sympy.Symbol] = self._function.free_symbols  # type: ignore
         self._parameters: Set[sympy.Symbol] = set()
         if variables:
             self._variables = self._variables.union(
@@ -71,10 +73,12 @@ class GeneratingFunction(Distribution):
                     filter(lambda v: v != "", variables)))
             self._variables -= self._parameters
 
+        # pylint: disable = too-many-function-args
         for var in self._variables:
             global_assumptions.add(sympy.Q.nonnegative(var))
         for param in self._parameters:
             global_assumptions.add(sympy.Q.positive(param))
+        # pylint: enable = too-many-function-args
 
         # Do closed form and finiteness heuristics
         self._is_closed_form = closed if closed else not self._function.is_polynomial(
@@ -693,7 +697,7 @@ class GeneratingFunction(Distribution):
                and self._variables == other._variables \
                and self._parameters == other._parameters
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Tuple[str, State]]:
         """ Iterates over the generating function yielding (coefficient, state) pairs.
 
             For implicit (closed-form) generating functions, we generate terms via tailor expansion.
@@ -754,7 +758,7 @@ class GeneratingFunction(Distribution):
 
         if isinstance(threshold, int):
             assert threshold > 0, "Expanding to less than 0 terms is not valid."
-            for n, prob, state in enumerate(self):
+            for n, (prob, state) in enumerate(self):
                 if n >= threshold:
                     break
                 s_prob = sympy.S(prob)
@@ -898,15 +902,16 @@ class GeneratingFunction(Distribution):
         marginal = self.copy()
         if method == MarginalType.INCLUDE:
             for s_var in marginal._variables.difference(
-                    map(sympy.S, map(str, filter(lambda v: v != "",
-                                                 variables)))):
+                    map(sympy.sympify,
+                        map(str, filter(lambda v: v != "", variables)))):
                 if marginal._is_closed_form:
                     marginal._function = marginal._function.limit(
                         s_var, 1, "-")
                 else:
                     marginal._function = marginal._function.subs(s_var, 1)
             marginal._variables = set(
-                map(sympy.S, filter(lambda v: v != "", map(str, variables))))
+                map(sympy.sympify,
+                    filter(lambda v: v != "", map(str, variables))))
         else:
             for s_var in variables:
                 if marginal._is_closed_form:
@@ -966,11 +971,11 @@ class GeneratingFunction(Distribution):
 
         # all other conditions given that the Generating Function is finite (exhaustive search)
         elif self._is_finite:
-            result = sympy.S(0)
+            res = sympy.S(0)
             for prob, state in self:
                 if self.evaluate_condition(condition, state):
-                    result += sympy.S(f"{prob} * {state.to_monomial()}")
-            return GeneratingFunction(result,
+                    res += sympy.S(f"{prob} * {state.to_monomial()}")
+            return GeneratingFunction(res,
                                       *self._variables,
                                       preciseness=self._preciseness,
                                       closed=False,

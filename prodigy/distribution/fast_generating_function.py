@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from typing import Dict, Generator, Iterator, Set, Tuple, Union, get_args
+from typing import Generator, Iterator, Set, Tuple, Union, get_args
 
-import pygin
+import pygin  # type: ignore
 from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, DistrExpr,
                            DUniformExpr, Expr, GeometricExpr, IidSampleExpr,
                            PoissonExpr, Unop, UnopExpr, VarExpr)
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
-                                               MarginalType)
+                                               MarginalType, State)
 
 
 class FPS(Distribution):
@@ -75,7 +75,7 @@ class FPS(Distribution):
     def __repr__(self):
         return self.dist.__repr__()
 
-    def __iter__(self) -> Iterator[Tuple[str, Dict[str, int]]]:
+    def __iter__(self) -> Iterator[Tuple[str, State]]:
         raise NotImplementedError(__name__)
 
     def copy(self, deep: bool = True) -> Distribution:
