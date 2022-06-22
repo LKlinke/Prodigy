@@ -141,7 +141,12 @@ class TestDistributionInterface:
         assert gf.get_expected_value_of("x") == "0"
 
         gf = SympyPGF.uniform("x", "3", "10")
-        assert gf.get_expected_value_of("x**2+y") == "95/2"
+        with pytest.raises(Exception) as e:
+            gf.get_expected_value_of("x**2+y")
+        assert "Cannot compute expected value" in str(e)
+
+        gf = GeneratingFunction("(1-p) + p*x", 'x')
+        assert gf.get_expected_value_of('p*x') == "p^2"
 
     def test_normalize(self):
         assert create_random_gf().normalize().coefficient_sum() == 1
@@ -231,9 +236,6 @@ class TestDistributionInterface:
             "1/6 * (1 + x + x**4 + x**9 + x**16 + x**25)")
 
     def test_marginal(self):
-        gf = GeneratingFunction("(1-sqrt(1-c**2))/c")
-        assert gf.marginal("x") == GeneratingFunction('1', 'x')
-
         gf = SympyPGF.uniform("x", '0', '10') * SympyPGF.binomial(
             'y', n='10', p='1/2')
         assert gf.marginal('x') == SympyPGF.uniform("x", '0', '10')
@@ -242,6 +244,15 @@ class TestDistributionInterface:
                                                                    n='10',
                                                                    p='1/2')
         assert gf.marginal('x', 'y') == gf
+
+        gf = GeneratingFunction("(1-sqrt(1-c**2))/c")
+        with pytest.raises(Exception) as e:
+            gf.marginal('x', method=MarginalType.INCLUDE)
+        assert "Cannot compute marginal for" in str(e)
+
+        with pytest.raises(Exception) as e:
+            gf.marginal('x', method=MarginalType.EXCLUDE)
+        assert "Cannot compute marginal for" in str(e)
 
     def test_set_variables(self):
         gf = create_random_gf(3, 5)

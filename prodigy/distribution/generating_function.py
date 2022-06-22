@@ -202,13 +202,14 @@ class GeneratingFunction(Distribution):
         :return: The disjunction condition of explicitly encoded state conditions.
         """
         expr: sympy.Expr = sympy.S(str(condition.rhs))
-        marginal = self.marginal(*expr.free_symbols)
+        if not len(expr.free_symbols) == 0:
+            marginal = self.marginal(*expr.free_symbols)
 
         # Marker to express which side of the equation has only finitely many interpretations.
         left_side_original = True
 
         # Check whether left hand side has only finitely many interpretations.
-        if not marginal.is_finite() or len(expr.free_symbols) == 0:
+        if len(expr.free_symbols) == 0 or not marginal.is_finite():
             # Failed, so we have to check the right hand side
             left_side_original = False
             expr = sympy.S(str(condition.lhs))
@@ -517,6 +518,15 @@ class GeneratingFunction(Distribution):
         if not expr.is_polynomial():
             raise NotImplementedError(
                 "Expected Value only computable for polynomial expressions.")
+
+        if len(expr.free_symbols) == 0:
+            return str(expr)
+        if not expr.free_symbols.issubset(
+                self._variables.union(self._parameters)):
+            raise Exception(
+                f"Cannot compute expected value of {expr} because it contains unknown symbols"
+            )
+
         marginal = self.marginal(*expr.free_symbols,
                                  method=MarginalType.INCLUDE)
         gen_func = GeneratingFunction(expr)
@@ -774,7 +784,7 @@ class GeneratingFunction(Distribution):
                                          finite=True)
         else:
             raise TypeError(
-                f"Parameter threshold can only be of type str or int,"
+                f"Parameter threshold can only be of type stexpr.free_symbolsr or int,"
                 f" not {type(threshold)}.")
 
     def coefficient_sum(self) -> sympy.Expr:
@@ -877,6 +887,14 @@ class GeneratingFunction(Distribution):
         logger.debug(
             "Creating marginal for variables %s and joint probability distribution %s",
             variables, self)
+
+        if len(variables) == 0 or not {sympy.S(str(x))
+                                       for x in variables}.issubset(
+                                           self._variables):
+            raise Exception(
+                f"Cannot compute marginal for variables {variables} and joint probability distribution {self}"
+            )
+
         marginal = self.copy()
         if method == MarginalType.INCLUDE:
             for s_var in marginal._variables.difference(
