@@ -737,7 +737,7 @@ class GeneratingFunction(Distribution):
                                   *self._variables,
                                   preciseness=self._preciseness)
 
-    # FIXME: Its not nice to have different behaviour depending on the variable type of `threshold`.
+    # FIXME: It's not nice to have different behaviour depending on the variable type of `threshold`.
     def approximate(
         self,
         threshold: Union[str,
@@ -784,7 +784,7 @@ class GeneratingFunction(Distribution):
                                          finite=True)
         else:
             raise TypeError(
-                f"Parameter threshold can only be of type stexpr.free_symbolsr or int,"
+                f"Parameter threshold can only be of type str or int,"
                 f" not {type(threshold)}.")
 
     def coefficient_sum(self) -> sympy.Expr:
@@ -948,31 +948,7 @@ class GeneratingFunction(Distribution):
 
         elif isinstance(condition, BinopExpr) and not has_variable(
                 condition, SympyPGF.zero()):
-            if condition.operator == Binop.EQ:
-                return self.filter(
-                    BoolLitExpr(
-                        sympy.S(str(condition.lhs)) == sympy.S(
-                            str(condition.rhs))))
-            if condition.operator == Binop.LT:
-                return self.filter(
-                    BoolLitExpr(
-                        sympy.S(str(condition.lhs)) < sympy.S(
-                            str(condition.rhs))))
-            if condition.operator == Binop.LEQ:
-                return self.filter(
-                    BoolLitExpr(
-                        sympy.S(str(condition.lhs)) <= sympy.S(
-                            str(condition.rhs))))
-            if condition.operator == Binop.GT:
-                return self.filter(
-                    BoolLitExpr(
-                        sympy.S(str(condition.lhs)) > sympy.S(
-                            str(condition.rhs))))
-            if condition.operator == Binop.GEQ:
-                return self.filter(
-                    BoolLitExpr(
-                        sympy.S(str(condition.lhs)) >= sympy.S(
-                            str(condition.rhs))))
+            return self.filter(BoolLitExpr(sympy.S(str(condition))))
 
         elif isinstance(condition, BinopExpr) and not (sympy.S(str(condition.lhs)).free_symbols \
                 | sympy.S(str(condition.rhs)).free_symbols).issubset(self._variables | self._parameters):
