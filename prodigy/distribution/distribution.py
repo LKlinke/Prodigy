@@ -150,8 +150,14 @@ class Distribution(ABC):
     def marginal(self,
                  *variables: Union[str, VarExpr],
                  method: MarginalType = MarginalType.INCLUDE) -> Distribution:
-        """ Computes the marginal distribution for the given variables (MarginalType.Include),
-            or for all but the given variables (MarginalType.Exclude).
+        """ 
+        Computes the marginal distribution for the given variables (MarginalType.Include),
+        or for all but the given variables (MarginalType.Exclude).
+        :param method: The method of marginalization.
+        :param variables: A list of variables for which the marginal distribution should be computed.
+        If this list is empty or contains symbols that are not known variables of this distribution,
+        this function will raise an exception.
+        :return: The marginal distribution.
         """
 
     @abstractmethod

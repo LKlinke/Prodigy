@@ -146,6 +146,7 @@ class TestDistributionInterface:
         assert "Cannot compute expected value" in str(e)
 
         gf = GeneratingFunction("(1-p) + p*x", 'x')
+        assert gf.get_expected_value_of('x') == "p"
         assert gf.get_expected_value_of('p*x') == "p^2"
 
     def test_normalize(self):
@@ -246,11 +247,11 @@ class TestDistributionInterface:
         assert gf.marginal('x', 'y') == gf
 
         gf = GeneratingFunction("(1-sqrt(1-c**2))/c")
-        with pytest.raises(Exception) as e:
+        with pytest.raises(ValueError) as e:
             gf.marginal('x', method=MarginalType.INCLUDE)
         assert "Cannot compute marginal for" in str(e)
 
-        with pytest.raises(Exception) as e:
+        with pytest.raises(ValueError) as e:
             gf.marginal('x', method=MarginalType.EXCLUDE)
         assert "Cannot compute marginal for" in str(e)
 
