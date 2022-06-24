@@ -1,9 +1,11 @@
 import random
 
 import probably.pgcl as pgcl
+import sympy
 
 import prodigy.analysis
 from prodigy.distribution.generating_function import GeneratingFunction as GF
+from prodigy.distribution.generating_function import SympyPGF
 
 
 def test_context_injection():
@@ -29,6 +31,32 @@ def test_subtraction_when_already_zero():
     n := n-1;
     """), GF("n^5"), prodigy.analysis.ForwardAnalysisConfig())
     assert result == GF("1", "n")
+
+    result = prodigy.analysis.compute_discrete_distribution(
+        pgcl.parse_pgcl("""
+    nat n;
+    n := 0;
+    n := n - 2*n;
+    """), GF("n^5"), prodigy.analysis.ForwardAnalysisConfig())
+    assert result == GF("1", "n")
+
+    result: GF = prodigy.analysis.compute_discrete_distribution(
+        pgcl.parse_pgcl("""
+            nat x
+            x := x - 1
+        """), SympyPGF.poisson("x", "3"),
+        prodigy.analysis.ForwardAnalysisConfig())
+    assert result.filter(pgcl.parser.parse_expr(
+        "x = 0"))._function == sympy.sympify("exp(-3) + (3 * exp(-3))")
+
+    result: GF = prodigy.analysis.compute_discrete_distribution(
+        pgcl.parse_pgcl("""
+            nat x
+            x := x - 2*x
+        """), SympyPGF.poisson("x", "3"),
+        prodigy.analysis.ForwardAnalysisConfig())
+    assert result.filter(
+        pgcl.parser.parse_expr("x = 0"))._function == sympy.sympify("1*x^0")
 
     result = prodigy.analysis.compute_discrete_distribution(
         pgcl.parse_pgcl("""
