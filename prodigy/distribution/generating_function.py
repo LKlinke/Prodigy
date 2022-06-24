@@ -1004,7 +1004,7 @@ class GeneratingFunction(Distribution):
             expr = parse_expr(expression)
 
         # Transform expression into sympy readable format
-        rhs = sympy.S(str(expression))
+        rhs: sympy.Expr = sympy.S(str(expression))
         subst_var = sympy.S(variable)
 
         parameters: List[sympy.Symbol] = []
@@ -1028,34 +1028,43 @@ class GeneratingFunction(Distribution):
         # Do the actual update stepwise
         const_correction_term = 1
         replacements = []
+        gf0 = []
+        if terms[1] >= 0:
+            gf0.append(
+                self._filter_constant_condition(
+                    parse_expr(f"{subst_var} = 0"))._function)
         for var in terms:
             # if there is a constant term, just do a multiplication
             if var == 1:
                 const_correction_term = subst_var**terms[1]
+                if terms[1] < 0:
+                    gf0.append(
+                        self._filter_constant_condition(
+                            parse_expr(
+                                f"{subst_var} <= {-terms[1]}"))._function)
             elif var in parameters:
                 const_correction_term = subst_var**var
             # if the variable is the substitution variable, a different update is necessary
             elif var == subst_var:
                 replacements.append((var, subst_var**terms[var]))
+                if terms[var] < 0:
+                    gf0.append(self._function -
+                               self._filter_constant_condition(
+                                   parse_expr(f"{subst_var} = 0"))._function)
             # otherwise we can collect the substitution in our replacement list
             else:
                 replacements.append((var, var * subst_var**terms[var]))
-        res_gf = GeneratingFunction(result.subs(replacements) *
-                                    const_correction_term,
-                                    *self._variables,
-                                    preciseness=self._preciseness,
-                                    closed=self._is_closed_form,
-                                    finite=self._is_finite)
-
-        if not all(map(lambda x: terms[x] >= 0, terms)):
-            summands = sympy.Add.make_args(res_gf._function)
-            for summand in summands:
-                subbed: sympy.Basic = summand.subs(subst_var, 0)
-                for var in summand.free_symbols:
-                    subbed = subbed.subs(var, 1)
-                if subbed.equals(sympy.S("zoo")):
-                    res_gf._function -= summand
-                    res_gf._function += summand.subs(subst_var, 1)
+                if terms[var] < 0:
+                    #TODO how to handle this case?
+                    pass
+        res_gf = GeneratingFunction(
+            (result - sympy.Add(*gf0)).subs(replacements) *
+            const_correction_term +
+            sympy.Add(*[x.subs(subst_var, 1) for x in gf0]),
+            *self._variables,
+            preciseness=self._preciseness,
+            closed=self._is_closed_form,
+            finite=self._is_finite)
 
         return res_gf
 
