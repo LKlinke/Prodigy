@@ -43,11 +43,12 @@ def test_subtraction_when_already_zero():
     result: GF = prodigy.analysis.compute_discrete_distribution(
         pgcl.parse_pgcl("""
             nat x
-            x := x - 1
+            x := x - 2
         """), SympyPGF.poisson("x", "3"),
         prodigy.analysis.ForwardAnalysisConfig())
-    assert result.filter(pgcl.parser.parse_expr(
-        "x = 0"))._function == sympy.sympify("exp(-3) + (3 * exp(-3))")
+    assert result.filter(
+        pgcl.parser.parse_expr("x = 0"))._function == sympy.sympify(
+            "exp(-3) + (3 * exp(-3)) + (3^2 * exp(-3)) / 2!")
 
     result: GF = prodigy.analysis.compute_discrete_distribution(
         pgcl.parse_pgcl("""
@@ -67,6 +68,25 @@ def test_subtraction_when_already_zero():
     n := n-m;
     """), GF("n^5"), prodigy.analysis.ForwardAnalysisConfig())
     assert result == GF("m^3", "n", "m")
+
+    # monus is not commutative
+    result = prodigy.analysis.compute_discrete_distribution(
+        pgcl.parse_pgcl("""
+    nat n;
+    nat m;
+    n := n-6+1;
+    """), GF("n^5"), prodigy.analysis.ForwardAnalysisConfig())
+    assert result == GF("n", "n", "m")
+
+    result = prodigy.analysis.compute_discrete_distribution(
+        pgcl.parse_pgcl("""
+    nat n;
+    nat m;
+    m := 3
+    n := 1;
+    n := n-m+1;
+    """), GF("n^5"), prodigy.analysis.ForwardAnalysisConfig())
+    assert result == GF("m^3*n", "n", "m")
 
 
 def test_addition_assignment():
@@ -89,6 +109,13 @@ def test_multiplication_assignment():
         n := n*{rand_factor};
         """), GF(f"n^{rand_init}"), prodigy.analysis.ForwardAnalysisConfig())
     assert result == GF(f"n^{rand_init * rand_factor}", "n")
+
+    result = prodigy.analysis.compute_discrete_distribution(
+        pgcl.parse_pgcl(f"""
+        nat n;
+        n := n*0.5;
+        """), GF(f"n^4"), prodigy.analysis.ForwardAnalysisConfig())
+    assert result == GF(f"n^2", "n")
 
 
 def test_ite_statement():
