@@ -1026,45 +1026,45 @@ class GeneratingFunction(Distribution):
                 result = result.subs(subst_var, 1)
 
         # Do the actual update stepwise
-        const_correction_term = 1
-        replacements = []
-        gf0 = []
-        if terms[1] >= 0:
-            gf0.append(
-                self._filter_constant_condition(
-                    parse_expr(f"{subst_var} = 0"))._function)
         for var in terms:
             # if there is a constant term, just do a multiplication
             if var == 1:
-                const_correction_term = subst_var**terms[1]
                 if terms[1] < 0:
-                    gf0.append(
-                        self._filter_constant_condition(
+                    eq0 = GeneratingFunction(
+                        result, *self._variables)._filter_constant_condition(
                             parse_expr(
-                                f"{subst_var} <= {-terms[1]}"))._function)
+                                f"{subst_var} <= {-terms[1]}"))._function
+                    result = result - eq0
+                result = result * (subst_var**terms[1])
+                if terms[1] < 0:
+                    result = result + eq0.subs(subst_var, 1)
             elif var in parameters:
-                const_correction_term = subst_var**var
+                result = result * (subst_var**var)
             # if the variable is the substitution variable, a different update is necessary
             elif var == subst_var:
-                replacements.append((var, subst_var**terms[var]))
+                # TODO what if -1 < terms[var] < 0?
                 if terms[var] < 0:
-                    gf0.append(self._function -
-                               self._filter_constant_condition(
-                                   parse_expr(f"{subst_var} = 0"))._function)
+                    eq0 = result - GeneratingFunction(
+                        result, *self._variables)._filter_constant_condition(
+                            parse_expr(f"{subst_var} = 0"))._function
+                    result = result - eq0
+                result = result.subs(var, subst_var**terms[var])
+                if terms[var] < 0:
+                    result = result + eq0.subs(subst_var, 1)
             # otherwise we can collect the substitution in our replacement list
             else:
-                replacements.append((var, var * subst_var**terms[var]))
                 if terms[var] < 0:
-                    #TODO how to handle this case?
-                    pass
-        res_gf = GeneratingFunction(
-            (result - sympy.Add(*gf0)).subs(replacements) *
-            const_correction_term +
-            sympy.Add(*[x.subs(subst_var, 1) for x in gf0]),
-            *self._variables,
-            preciseness=self._preciseness,
-            closed=self._is_closed_form,
-            finite=self._is_finite)
+                    eq0 = GeneratingFunction(result, *self._variables).filter(
+                        parse_expr(f"{subst_var} <= {var}"))._function
+                    result = result - eq0
+                result = result.subs(var, var * subst_var**terms[var])
+                if terms[var] < 0:
+                    result = result + eq0.subs(subst_var, 1)
+        res_gf = GeneratingFunction(result,
+                                    *self._variables,
+                                    preciseness=self._preciseness,
+                                    closed=self._is_closed_form,
+                                    finite=self._is_finite)
 
         return res_gf
 
