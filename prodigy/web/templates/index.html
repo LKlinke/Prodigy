@@ -1,0 +1,143 @@
+<!doctype html>
+<html>
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script type="application/javascript">
+        $(document).ready(function () {
+            $(".spinner").hide();
+        });
+
+        function hide_results() {
+            $("#result_equiv").hide();
+            $("#result_analysis").hide();
+        }
+
+        function equivalence_request() {
+            $('.submit_button').fadeOut('fast');
+            let myform = document.getElementById("equiv_check");
+            let fd = new FormData(myform);
+            $(".spinner").show();
+            hide_results();
+            $.ajax({
+                url: "/equivalence",
+                data: fd,
+                cache: false,
+                processData: false,
+                contentType: false,
+                type: 'POST',
+                success: function (response, status) {
+                    $(".spinner").hide();
+                    if (response.equivalent) {
+                        $("#result_equiv").text("Program Equivalence Verified").css({"color": "green"}).show();
+                    } else {
+                        $("#result_equiv").text("Programs are not equivalent").css({"color": "red"}).show();
+                    }
+                    $(".submit_button").fadeIn();
+                },
+                error: function (response, status) {
+                    $(".spinner").hide();
+                    $("#result_equiv").text(response.statusText).css({"color": "red"}).show();
+                    $(".submit_button").fadeIn();
+                },
+                timeout: 20000
+            });
+        }
+
+        function analysis_request() {
+            $('.submit_button').fadeOut('fast');
+            let myform = document.getElementById("distribution_transform");
+            let fd = new FormData(myform);
+            $(".spinner").show();
+            hide_results();
+            $.ajax({
+                url: "/analyze",
+                data: fd,
+                cache: false,
+                processData: false,
+                contentType: false,
+                type: 'POST',
+                success: function (response, status) {
+                    $(".spinner").hide();
+                    $("#result_analysis").text(response.distribution).show();
+                    $(".submit_button").fadeIn();
+                },
+                error: function (response, status) {
+                    $(".spinner").hide();
+                    $("#result_analysis").text(response.statusText).css({"color": "red"}).show();
+                    $(".submit_button").fadeIn();
+                },
+                timeout: 20000
+            });
+        }
+    </script>
+    <link href="{{ url_for('static', filename='style.css') }}" type="text/css" rel="stylesheet">
+    <title> Prodigy! </title>
+</head>
+<body>
+<h1>PRODIGY</h1>
+<div class="prodigy-services">
+    <div class="login-box">
+        <h2>Equivalence Check</h2>
+        <form id="equiv_check" action="http://localhost:8080/equivalence" method="post" enctype="multipart/form-data">
+            <div class="user-box">
+                <label> Invariant file: </label><br><input type="file" id="invariant" name="invariant"
+                                                           value="Invariant File">
+            </div>
+            <div class="user-box">
+                <label> While Loop file: </label><br><input type="file" id="loop" name="loop">
+            </div>
+            <label>Engine: </label>
+            <input type="radio" id="ginac" name="engine" value="ginac"><label>GiNaC</label>
+            <input type="radio" id="sympy" name="engine" value="sympy" checked="checked"><label>SymPy</label>
+            <button type="button" class="submit_button" value="submit" onclick="equivalence_request();">Check!</button>
+        </form>
+        <div class="spinner">
+            <div class="bar1"></div>
+            <div class="bar2"></div>
+            <div class="bar3"></div>
+            <div class="bar4"></div>
+            <div class="bar5"></div>
+            <div class="bar6"></div>
+            <div class="bar7"></div>
+            <div class="bar8"></div>
+            <div class="bar9"></div>
+            <div class="bar10"></div>
+            <div class="bar11"></div>
+            <div class="bar12"></div>
+        </div>
+        <h2 id="result_equiv"></h2>
+    </div>
+    <div class="login-box">
+        <h2>Program Analysis</h2>
+        <form id="distribution_transform" action="http://localhost:8080/analyze" method="post"
+              enctype="multipart/form-data">
+            <div class="user-box">
+                <label> pGCL file: </label><br><input type="file" id="program" name="program" value="Program File">
+            </div>
+            <div class="user-box">
+                <label> Initial Distribution: </label><br><input type="text" id="input_dist" name="input_dist">
+            </div>
+            <label>Engine: </label>
+            <input type="radio" id="dist_ginac" name="engine" value="ginac"><label>GiNaC</label>
+            <input type="radio" id="dist_sympy" name="engine" value="sympy" checked="checked"><label>SymPy</label>
+            <button type="button" class="submit_button" value="submit" onclick="analysis_request();">Analyze!</button>
+        </form>
+        <div class="spinner">
+            <div class="bar1"></div>
+            <div class="bar2"></div>
+            <div class="bar3"></div>
+            <div class="bar4"></div>
+            <div class="bar5"></div>
+            <div class="bar6"></div>
+            <div class="bar7"></div>
+            <div class="bar8"></div>
+            <div class="bar9"></div>
+            <div class="bar10"></div>
+            <div class="bar11"></div>
+            <div class="bar12"></div>
+        </div>
+        <textarea id="result_analysis"></textarea>
+    </div>
+</div>
+</body>
+</html>
