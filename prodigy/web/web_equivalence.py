@@ -62,7 +62,7 @@ def distribution_transformation():
     input_dist = config.factory.from_expr(input_dist_str)
     app.logger.debug("Input distribution created")
 
-    app.logger.info("Analysis task started for $s with input distribution %s", program, input_dist)
+    app.logger.info("Analysis task started for %s with input distribution %s", program, input_dist)
     result = compute_discrete_distribution(program, input_dist, config)
     app.logger.info("Analysis completed")
     return jsonify({"distribution": str(result), "variables": list(result.get_variables()),
