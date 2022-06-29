@@ -1,5 +1,6 @@
 # pylint: disable=protected-access
 from __future__ import annotations
+from ast import BinOp
 
 import functools
 import operator
@@ -1014,9 +1015,8 @@ class GeneratingFunction(Distribution):
                 parameters.append(sympy.S(subexpr.val.var))
 
         # Check whether the expression contains the substitution variable or not
-        terms = rhs.as_coefficients_dict()
         result = self._function
-        if subst_var not in terms.keys():
+        if subst_var not in rhs.free_symbols:
             if self._is_closed_form:
                 print("\rComputing limit(linear transformation)...",
                       end='\r',
@@ -1026,40 +1026,68 @@ class GeneratingFunction(Distribution):
                 result = result.subs(subst_var, 1)
 
         # Do the actual update stepwise
-        for var in terms:
+        def split(e: Expr) -> List[Tuple[sympy.Basic, sympy.Basic]]:
+            assert isinstance(e, (NatLitExpr, RealLitExpr, VarExpr, BinopExpr))
+
+            if isinstance(e, BinopExpr):
+                if e.operator == Binop.PLUS:
+                    resList = split(e.lhs)
+                    resList.extend(split(e.rhs))
+                    return resList
+                elif e.operator == Binop.MINUS:
+                    right = split(e.rhs)
+                    (var, coeff) = right[0]
+                    right[0] = (var, -coeff)
+                    resList = split(e.lhs)
+                    resList.extend(right)
+                    return resList
+                else:
+                    assert e.operator == Binop.TIMES
+                    assert isinstance(e.lhs, (NatLitExpr, RealLitExpr, VarExpr))
+                    assert isinstance(e.rhs, (NatLitExpr, RealLitExpr, VarExpr))
+                    map = sympy.S(str(e)).as_coefficients_dict()
+                    [var] = map.keys()
+                    return [(var, map[var])]
+            elif isinstance(e, VarExpr):
+                return [(sympy.S(str(e)), sympy.S(1))]
+            else:
+                return [(sympy.S(1), sympy.S(str(e)))]
+
+        for (var, coeff) in split(expr):
             # if there is a constant term, just do a multiplication
             if var == 1:
-                if terms[1] < 0:
+                if coeff < 0:
                     eq0 = GeneratingFunction(
                         result, *self._variables)._filter_constant_condition(
                             parse_expr(
-                                f"{subst_var} <= {-terms[1]}"))._function
+                                f"{subst_var} <= {-coeff}"))._function
                     result = result - eq0
-                result = result * (subst_var**terms[1])
-                if terms[1] < 0:
+                result = result * (subst_var**coeff)
+                if coeff < 0:
                     result = result + eq0.subs(subst_var, 1)
             elif var in parameters:
                 result = result * (subst_var**var)
             # if the variable is the substitution variable, a different update is necessary
             elif var == subst_var:
                 # TODO what if -1 < terms[var] < 0?
-                if terms[var] < 0:
+                if coeff < 0:
                     eq0 = result - GeneratingFunction(
                         result, *self._variables)._filter_constant_condition(
                             parse_expr(f"{subst_var} = 0"))._function
                     result = result - eq0
-                result = result.subs(var, subst_var**terms[var])
-                if terms[var] < 0:
+                result = result.subs(var, subst_var**coeff)
+                if coeff < 0:
                     result = result + eq0.subs(subst_var, 1)
             # otherwise we can collect the substitution in our replacement list
             else:
-                if terms[var] < 0:
+                if coeff < 0:
                     eq0 = GeneratingFunction(result, *self._variables).filter(
                         parse_expr(f"{subst_var} <= {var}"))._function
                     result = result - eq0
-                result = result.subs(var, var * subst_var**terms[var])
-                if terms[var] < 0:
+                result = result.subs(var, var * subst_var**coeff)
+                if coeff < 0:
                     result = result + eq0.subs(subst_var, 1)
+        
         res_gf = GeneratingFunction(result,
                                     *self._variables,
                                     preciseness=self._preciseness,
