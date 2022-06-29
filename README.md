@@ -14,6 +14,8 @@ It provides a command-line interface as well as a webservice.
 
 ## Getting Started
 
+### Installation
+
 First, you need to install the dependencies and register the project. To do so, run the following steps in order.
 1. Once you have cloned (or downloaded) the repository, make sure you have installed `python` version 3.9 as well as `poetry`. More information on how to install `poetry` can be found [here](https://python-poetry.org/docs/#installation).
 2. Open a terminal and change directory the project folder.
