@@ -25,7 +25,7 @@ h1 {
 
 .login-box {
   position: relative;
-  left: 50%;
+  left: 30%;
   width: 400px;
   padding: 40px;
   background: rgba(0, 0, 0, .5);
@@ -54,6 +54,27 @@ h1 {
   display: none;
   margin: 1em 0 0 0;
   width: 100%;
+}
+
+#result_playground {
+  display: none;
+  margin: 1em 0 0 0;
+  width: 100%;
+}
+
+#codearea {
+  width: 100%;
+  min-height: 62px;
+}
+
+.footer {
+  position: fixed;
+  bottom: 0;
+  text-align: center;
+  display: block;
+  background-color: rgba(0, 0, 0, 0.2);
+  width: 100%;
+  color: #aaaaaa;
 }
 
 .login-box .user-box {
@@ -181,3 +202,14 @@ div.spinner div.bar12 {
   -webkit-animation-delay: -0.0833s;
 }
 
+a {
+  color: #fff;
+}
+
+a:hover {
+  color: #0aaaf1;
+}
+
+a:visited {
+  color: #fff;
+}

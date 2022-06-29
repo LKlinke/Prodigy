@@ -69,6 +69,34 @@ def distribution_transformation():
                     "parameters": list(result.get_parameters())})
 
 
+@app.route("/playground", methods=["POST"])
+def analyze_raw_code():
+    app.logger.info("Received a playground request")
+    app.logger.debug("Collecting necessary data")
+    prog_src = request.form['codearea']
+    input_dist_str = request.form["playground_dist"]
+    engine = ForwardAnalysisConfig.Engine.GINAC if request.form[
+                                                       'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
+
+    app.logger.debug("Parsing the program soruce")
+    program = parse_pgcl(prog_src)
+    app.logger.debug("Parsing done. Continue with type checking")
+    if check_program(program):
+        make_response("Typing Errors occured", 500)
+    app.logger.debug("Type check passed.")
+
+    app.logger.debug("Create input distribution")
+    config = ForwardAnalysisConfig(engine=engine)
+    input_dist = config.factory.from_expr(input_dist_str)
+    app.logger.debug("Input distribution created")
+
+    app.logger.info("Analysis task started for %s with input distribution %s", program, input_dist)
+    result = compute_discrete_distribution(program, input_dist, config)
+    app.logger.info("Analysis completed")
+    return jsonify({"distribution": str(result), "variables": list(result.get_variables()),
+                    "parameters": list(result.get_parameters())})
+
+
 def start_server(port: Optional[int] = 8080):
     app.logger.setLevel(logging.DEBUG)
     app.run("localhost", port)
