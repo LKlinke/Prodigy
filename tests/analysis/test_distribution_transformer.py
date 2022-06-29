@@ -73,10 +73,9 @@ def test_subtraction_when_already_zero():
     result = prodigy.analysis.compute_discrete_distribution(
         pgcl.parse_pgcl("""
     nat n;
-    nat m;
     n := n-6+1;
     """), GF("n^5"), prodigy.analysis.ForwardAnalysisConfig())
-    assert result == GF("n", "n", "m")
+    assert result == GF("n", "n")
 
     result = prodigy.analysis.compute_discrete_distribution(
         pgcl.parse_pgcl("""
