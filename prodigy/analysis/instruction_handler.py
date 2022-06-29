@@ -2,7 +2,7 @@ import functools
 import sys
 from abc import ABC, abstractmethod
 from fractions import Fraction
-from typing import Sequence, Union
+from typing import Sequence
 
 from probably.pgcl import *
 
@@ -92,14 +92,14 @@ class SequenceHandler(InstructionHandler):
 
         elif isinstance(instruction, ObserveInstr):
             logger.info("%s gets handled", instruction)
-            SampleHandler.normalization = True
+            SequenceHandler.normalization = True
             return ObserveHandler.compute(instruction, distribution, config)
 
         elif isinstance(instruction, get_args(Query)):
             logger.info("%s gets handled", instruction)
-            if SampleHandler.normalization:
+            if SequenceHandler.normalization:
                 distribution = distribution.normalize()
-                SampleHandler.normalization = False
+                SequenceHandler.normalization = False
             return QueryHandler.compute(instruction, distribution, config)
 
         elif isinstance(instruction, LoopInstr):
