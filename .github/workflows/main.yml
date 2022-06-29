@@ -39,7 +39,7 @@ jobs:
           python get-poetry.py -y
           echo "$HOME/.poetry/bin" >> $GITHUB_PATH
       - name: Install GiNaC
-        run: sudo apt-get install -y libginac-dev libginac11 ginac-tools
+        run: sudo apt-get install -y libginac-dev
       - name: Install dependencies
         run: poetry install --no-interaction
       - name: Run linter
