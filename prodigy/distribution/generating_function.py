@@ -1,6 +1,5 @@
 # pylint: disable=protected-access
 from __future__ import annotations
-from ast import BinOp
 
 import functools
 import operator

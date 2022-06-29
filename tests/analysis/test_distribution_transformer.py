@@ -87,6 +87,20 @@ def test_subtraction_when_already_zero():
     """), GF("n^5"), prodigy.analysis.ForwardAnalysisConfig())
     assert result == GF("m^3*n", "n", "m")
 
+    result = prodigy.analysis.compute_discrete_distribution(
+        pgcl.parse_pgcl("""
+    nat n;
+    n := n + n;
+    """), GF("n^5"), prodigy.analysis.ForwardAnalysisConfig())
+    assert result == GF("n^10", "n")
+
+    result = prodigy.analysis.compute_discrete_distribution(
+        pgcl.parse_pgcl("""
+    nat n;
+    n := 3 * (2*n);
+    """), GF("n^5"), prodigy.analysis.ForwardAnalysisConfig())
+    assert result == GF("n^30", "n")
+
 
 def test_addition_assignment():
     rand_inc = random.randint(0, 100)
