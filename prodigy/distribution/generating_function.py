@@ -517,13 +517,12 @@ class GeneratingFunction(Distribution):
             "Currently only geometric expressions are supported.")
 
     def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
-
         expr = sympy.S(str(expression)).ratsimp().expand()
         if not expr.is_polynomial():
             raise NotImplementedError(
                 "Expected Value only computable for polynomial expressions.")
 
-        if len(expr.free_symbols) == 0:
+        if len(expr.free_symbols & self._variables) == 0:
             return str(expr)
         if not expr.free_symbols.issubset(
                 self._variables.union(self._parameters)):
@@ -531,9 +530,10 @@ class GeneratingFunction(Distribution):
                 f"Cannot compute expected value of {expr} because it contains unknown symbols"
             )
 
-        marginal = self.marginal(*expr.free_symbols,
+        marginal = self.marginal(*(expr.free_symbols & self._variables),
                                  method=MarginalType.INCLUDE)
-        gen_func = GeneratingFunction(expr)
+        gen_func = GeneratingFunction(expr,
+                                      *(expr.free_symbols & self._variables))
         expected_value = GeneratingFunction('0')
         for prob, state in gen_func:
             tmp = marginal.copy()
