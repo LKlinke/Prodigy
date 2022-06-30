@@ -23,6 +23,47 @@ def test_context_injection():
     } and result.get_parameters() == {"p", "n"}
 
 
+def test_iid_predefined_distributions():
+    distributions = {
+        "geometric(p)": SympyPGF.geometric("x", "p"),
+        "binomial(n,p)": SympyPGF.binomial("x", "n", "p"),
+        "poisson(n)": SympyPGF.poisson("x", "n"),
+        "bernoulli(p)": SympyPGF.bernoulli("x", "p"),
+        "unif(n, n+10)": SympyPGF.uniform("x", "n", "n+10"),
+        "logdist(p)": SympyPGF.log("x", "p")
+    }
+
+    for distribution in distributions.keys():
+        result = prodigy.analysis.compute_discrete_distribution(
+            pgcl.parse_pgcl("""
+                    nat x;
+                    nparam n;
+                    rparam p;
+    
+                    x := 1
+                    x := iid(%s, x);
+                """ % distribution),
+            GF("1"),
+            prodigy.analysis.ForwardAnalysisConfig()
+        )
+        assert result == distributions[distribution]
+
+
+def test_iid_update():
+    result = prodigy.analysis.compute_discrete_distribution(
+        pgcl.parse_pgcl("""
+            nat x;
+            rparam p;
+            
+            x := binomial(5,p);
+            x := iid(geometric(p), x);
+        """),
+        GF("1"),
+        prodigy.analysis.ForwardAnalysisConfig()
+    )
+    assert result == GF("(p^2/(1-(1-p)*x) + 1 - p)^5", "x")
+
+
 def test_subtraction_when_already_zero():
     result = prodigy.analysis.compute_discrete_distribution(
         pgcl.parse_pgcl("""
@@ -48,7 +89,7 @@ def test_subtraction_when_already_zero():
         prodigy.analysis.ForwardAnalysisConfig())
     assert result.filter(
         pgcl.parser.parse_expr("x = 0"))._function == sympy.sympify(
-            "exp(-3) + (3 * exp(-3)) + (3^2 * exp(-3)) / 2!")
+        "exp(-3) + (3 * exp(-3)) + (3^2 * exp(-3)) / 2!")
 
     result: GF = prodigy.analysis.compute_discrete_distribution(
         pgcl.parse_pgcl("""
