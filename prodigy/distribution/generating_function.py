@@ -959,9 +959,11 @@ class GeneratingFunction(Distribution):
                 condition, SympyPGF.zero()):
             return self.filter(BoolLitExpr(sympy.S(str(condition))))
 
-        elif isinstance(condition, BinopExpr) and not sympy.S(
-                str(condition)).free_symbols.issubset(self._variables
-                                                      | self._parameters):
+        elif isinstance(
+                condition,
+                BinopExpr) and not (sympy.S(str(condition.lhs)).free_symbols
+                                    | sympy.S(str(condition.rhs)).free_symbols
+                                    ) <= (self._variables | self._parameters):
             raise ValueError(
                 f"Cannot filter based on the expression {str(condition)} because it contains unknown variables"
             )
@@ -1108,7 +1110,7 @@ class SympyPGF(CommonDistributionsFactory):
     @staticmethod
     def geometric(var: Union[str, VarExpr],
                   p: DistributionParam) -> Distribution:
-        if not isinstance(p, str) and not 0 < sympy.S(p) < 1:
+        if not isinstance(p, str) and not 0 < sympy.S(str(p)) < 1:
             raise ValueError(
                 f"parameter of geom distr must be 0 < p <=1, was {p}")
         return GeneratingFunction(f"({p}) / (1 - (1-({p})) * {var})",
@@ -1120,7 +1122,8 @@ class SympyPGF(CommonDistributionsFactory):
     def uniform(var: Union[str, VarExpr], lower: DistributionParam,
                 upper: DistributionParam) -> Distribution:
         if not isinstance(lower, str) and not isinstance(
-                upper, str) and not 0 <= sympy.S(lower) <= sympy.S(upper):
+                upper,
+                str) and not 0 <= sympy.S(str(lower)) <= sympy.S(str(upper)):
             raise ValueError(
                 "Distribution parameters must satisfy 0 <= a < b < oo")
         return GeneratingFunction(
@@ -1132,7 +1135,7 @@ class SympyPGF(CommonDistributionsFactory):
     @staticmethod
     def bernoulli(var: Union[str, VarExpr],
                   p: DistributionParam) -> Distribution:
-        if not isinstance(p, str) and not 0 <= sympy.S(p) <= 1:
+        if not isinstance(p, str) and not 0 <= sympy.S(str(p)) <= 1:
             raise ValueError(
                 f"Parameter of Bernoulli Distribution must be in [0,1], but was {p}"
             )
@@ -1144,7 +1147,7 @@ class SympyPGF(CommonDistributionsFactory):
     @staticmethod
     def poisson(var: Union[str, VarExpr],
                 lam: DistributionParam) -> Distribution:
-        if not isinstance(lam, str) and sympy.S(lam) < 0:
+        if not isinstance(lam, str) and sympy.S(str(lam)) < 0:
             raise ValueError(
                 f"Parameter of Poisson Distribution must be in [0, oo), but was {lam}"
             )
@@ -1155,7 +1158,7 @@ class SympyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def log(var: Union[str, VarExpr], p: DistributionParam) -> Distribution:
-        if not isinstance(p, str) and not 0 <= sympy.S(p) <= 1:
+        if not isinstance(p, str) and not 0 <= sympy.S(str(p)) <= 1:
             raise ValueError(
                 f"Parameter of Logarithmic Distribution must be in [0,1], but was {p}"
             )
@@ -1167,11 +1170,11 @@ class SympyPGF(CommonDistributionsFactory):
     @staticmethod
     def binomial(var: Union[str, VarExpr], n: DistributionParam,
                  p: DistributionParam) -> Distribution:
-        if not isinstance(p, str) and not 0 <= sympy.S(p) <= 1:
+        if not isinstance(p, str) and not 0 <= sympy.S(str(p)) <= 1:
             raise ValueError(
                 f"Parameter of Binomial Distribution must be in [0,1], but was {p}"
             )
-        if not isinstance(n, str) and not 0 <= sympy.S(n):
+        if not isinstance(n, str) and not 0 <= sympy.S(str(n)):
             raise ValueError(
                 f"Parameter of Binomial Distribution must be in [0,oo), but was {n}"
             )
