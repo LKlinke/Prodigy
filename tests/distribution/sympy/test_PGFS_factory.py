@@ -42,6 +42,6 @@ def test_poisson():
 def test_binomial():
     n = rng.randint(0, 20)
     p = rng.random()
-    assert GeneratingFunction(
-        f"(1-{p}+{p}*variable)**{n}") == SympyPGF.binomial(
-            "variable", str(n), str(p))
+    assert GeneratingFunction(f"(1-{p}+{p}*variable)**{n}",
+                              "variable") == SympyPGF.binomial(
+                                  "variable", str(n), str(p))
