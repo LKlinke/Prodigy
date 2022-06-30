@@ -23,6 +23,32 @@ def test_context_injection():
     } and result.get_parameters() == {"p", "n"}
 
 
+def test_iid_predefined_distributions():
+    distributions = {
+        "geometric(p)": SympyPGF.geometric("x", "p"),
+        "binomial(n,p)": SympyPGF.binomial("x", "n", "p"),
+        "poisson(n)": SympyPGF.poisson("x", "n"),
+        "bernoulli(p)": SympyPGF.bernoulli("x", "p"),
+        "unif(n, n+10)": SympyPGF.uniform("x", "n", "n+10"),
+        "logdist(p)": SympyPGF.log("x", "p")
+    }
+
+    for distribution in distributions.keys():
+        result = prodigy.analysis.compute_discrete_distribution(
+            pgcl.parse_pgcl("""
+                    nat x;
+                    nparam n;
+                    rparam p;
+    
+                    x := 1
+                    x := iid(%s, x);
+                """ % distribution),
+            GF("1"),
+            prodigy.analysis.ForwardAnalysisConfig()
+        )
+        assert result == distributions[distribution]
+
+
 def test_iid_update():
     result = prodigy.analysis.compute_discrete_distribution(
         pgcl.parse_pgcl("""
