@@ -154,6 +154,9 @@ class TestDistributionInterface:
         assert sympy.S(gf.get_expected_value_of("p*x")) == sympy.S("p^2")
         assert gf.get_expected_value_of("p") == "p"
 
+        gf = GeneratingFunction("n^5")
+        assert gf.get_expected_value_of("n - 6 + 1") == "1"
+
     def test_normalize(self):
         assert create_random_gf().normalize().coefficient_sum() == 1
 
