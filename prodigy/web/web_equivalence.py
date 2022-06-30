@@ -99,6 +99,7 @@ def analyze_raw_code():
 
 def start_server(port: Optional[int] = 8080):
     app.logger.setLevel(logging.DEBUG)
+    app.env = 'development'
     app.run("localhost", port)
 
 
