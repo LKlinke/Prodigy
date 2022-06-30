@@ -1,5 +1,5 @@
 import logging
-from typing import Union
+from typing import Dict, List, Tuple, Union
 
 import matplotlib.pyplot as plt
 import sympy
@@ -27,10 +27,10 @@ class Plotter:
         logger.debug("Creating Histogram for %s", marginal)
         # Collect relevant data from the distribution and plot it.
         if marginal.is_finite():
-            coord_and_prob = {}
+            coord_and_prob: Dict[Tuple[int, int], sympy.Basic] = {}
             maxima = {x: 0, y: 0}
             max_prob = 0
-            colors = []
+            colors: List[List[float]] = []
 
             # collect the coordinates and probabilities. Also compute maxima of probabilities and degrees
             terms = 0
@@ -55,8 +55,9 @@ class Plotter:
                 colors.append(list(0.0 for _ in range(maxima[x] + 1)))
 
             # Fill the colors array with the previously collected data.
-            for coord in coord_and_prob.items():
-                colors[coord[1]][coord[0]] = float(coord_and_prob[coord])
+            # pylint: disable = consider-using-dict-items
+            for coord in coord_and_prob:
+                colors[coord[1]][coord[0]] = float(str(coord_and_prob[coord]))
 
             # Plot the colors array
             color_plot = plt.imshow(colors,
@@ -134,8 +135,8 @@ class Plotter:
                     "create_plot() cannot handle more than two variables!")
             if len(variables) == 2:
                 Plotter._create_2d_hist(function,
-                                        var_1=variables[0],
-                                        var_2=variables[1],
+                                        var_1=str(variables[0]),
+                                        var_2=str(variables[1]),
                                         threshold=threshold)
             if len(variables) == 1:
                 Plotter._create_histogram_for_variable(function,
@@ -155,5 +156,6 @@ class Plotter:
                                         threshold=threshold)
             else:
                 for plot_var in function.get_variables():
-                    Plotter._create_histogram_for_variable(plot_var,
+                    Plotter._create_histogram_for_variable(function,
+                                                           plot_var,
                                                            threshold=threshold)

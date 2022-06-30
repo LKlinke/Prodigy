@@ -1,11 +1,12 @@
 import logging
 from typing import Optional
 
-from flask import Flask, request, jsonify, render_template, make_response
+from flask import Flask, jsonify, make_response, render_template, request
 from probably import pgcl
-from probably.pgcl import parse_pgcl, check_program
+from probably.pgcl import check_program, parse_pgcl
 
-from prodigy.analysis import ForwardAnalysisConfig, compute_discrete_distribution
+from prodigy.analysis import (ForwardAnalysisConfig,
+                              compute_discrete_distribution)
 from prodigy.analysis.equivalence import check_equivalence
 
 app = Flask(__name__)
@@ -24,7 +25,7 @@ def checking_equivalence():
     invariant_source = request.files['invariant'].read().decode("utf-8")
     app.logger.debug("Invariant file %s", invariant_source)
     engine = ForwardAnalysisConfig.Engine.GINAC if request.form[
-                                                       'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
+        'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
     app.logger.debug("Chosen engine %s", engine)
 
     app.logger.debug("Parse first program")
@@ -48,7 +49,7 @@ def distribution_transformation():
     prog_src = request.files["program"].read().decode("utf-8")
     input_dist_str = request.form["input_dist"]
     engine = ForwardAnalysisConfig.Engine.GINAC if request.form[
-                                                       'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
+        'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
 
     app.logger.debug("Parsing the program soruce")
     program = parse_pgcl(prog_src)
@@ -62,11 +63,15 @@ def distribution_transformation():
     input_dist = config.factory.from_expr(input_dist_str)
     app.logger.debug("Input distribution created")
 
-    app.logger.info("Analysis task started for %s with input distribution %s", program, input_dist)
+    app.logger.info("Analysis task started for %s with input distribution %s",
+                    program, input_dist)
     result = compute_discrete_distribution(program, input_dist, config)
     app.logger.info("Analysis completed")
-    return jsonify({"distribution": str(result), "variables": list(result.get_variables()),
-                    "parameters": list(result.get_parameters())})
+    return jsonify({
+        "distribution": str(result),
+        "variables": list(result.get_variables()),
+        "parameters": list(result.get_parameters())
+    })
 
 
 @app.route("/playground", methods=["POST"])
@@ -76,7 +81,7 @@ def analyze_raw_code():
     prog_src = request.form['codearea']
     input_dist_str = request.form["playground_dist"]
     engine = ForwardAnalysisConfig.Engine.GINAC if request.form[
-                                                       'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
+        'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
 
     app.logger.debug("Parsing the program soruce")
     program = parse_pgcl(prog_src)
@@ -90,11 +95,15 @@ def analyze_raw_code():
     input_dist = config.factory.from_expr(input_dist_str)
     app.logger.debug("Input distribution created")
 
-    app.logger.info("Analysis task started for %s with input distribution %s", program, input_dist)
+    app.logger.info("Analysis task started for %s with input distribution %s",
+                    program, input_dist)
     result = compute_discrete_distribution(program, input_dist, config)
     app.logger.info("Analysis completed")
-    return jsonify({"distribution": str(result), "variables": list(result.get_variables()),
-                    "parameters": list(result.get_parameters())})
+    return jsonify({
+        "distribution": str(result),
+        "variables": list(result.get_variables()),
+        "parameters": list(result.get_parameters())
+    })
 
 
 def start_server(port: Optional[int] = 8080):
