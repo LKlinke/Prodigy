@@ -7,12 +7,12 @@ from typing import (Callable, Generator, Iterator, List, Set, Tuple, Union,
                     get_args)
 
 import sympy
+from probably.pgcl import BinopExpr  # type: ignore
 from probably.pgcl import (BernoulliExpr, Binop, BoolLitExpr, DistrExpr,
                            DUniformExpr, Expr, GeometricExpr, IidSampleExpr,
                            NatLitExpr, NatType, PoissonExpr, Program,
                            RealLitExpr, RealType, Unop, UnopExpr, VarExpr,
                            Walk, walk_expr)
-from probably.pgcl import BinopExpr  # type: ignore
 from probably.pgcl.parser import parse_expr
 from probably.pgcl.syntax import check_is_linear_expr  # type: ignore
 from probably.util.ref import Mut
@@ -959,9 +959,12 @@ class GeneratingFunction(Distribution):
                 condition, SympyPGF.zero()):
             return self.filter(BoolLitExpr(sympy.S(str(condition))))
 
-        elif isinstance(condition, BinopExpr) and not (sympy.S(str(condition.lhs)).free_symbols \
-                | sympy.S(str(condition.rhs)).free_symbols).issubset(self._variables | self._parameters):
-            return SympyPGF.zero(*self._variables)
+        elif isinstance(condition, BinopExpr) and not sympy.S(
+                str(condition)).free_symbols.issubset(self._variables
+                                                      | self._parameters):
+            raise ValueError(
+                f"Cannot filter based on the expression {str(condition)} because it contains unknown variables"
+            )
 
         # Modulo extractions
         elif check_is_modulus_condition(condition):
