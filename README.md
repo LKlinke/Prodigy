@@ -29,6 +29,7 @@ Now there are two options on how to use the tool. You can either use the command
 
 
 ### Webservice
-4. You can start the webservice via ``poetry run web-service``
-5. Open a browser and locate `localhost:8080`.
+4. Activate the cvirtual environment by ``poetry shell``.
+5. Type ``web-service``.
+6. Open a browser and locate `localhost:8080`.
 
