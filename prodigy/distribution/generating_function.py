@@ -903,6 +903,7 @@ class GeneratingFunction(Distribution):
             )
 
         marginal = self.copy()
+        s_var: str | VarExpr | sympy.Symbol
         if method == MarginalType.INCLUDE:
             for s_var in marginal._variables.difference(
                     map(sympy.sympify,
@@ -923,7 +924,7 @@ class GeneratingFunction(Distribution):
                 else:
                     marginal._function = marginal._function.subs(s_var, 1)
             marginal._variables = marginal._variables.difference(
-                map(sympy.S, filter(lambda v: v != "", variables)))
+                map(sympy.sympify, filter(lambda v: v != "", variables)))
 
         marginal._is_closed_form = not marginal._function.is_polynomial()
         marginal._is_finite = marginal._function.ratsimp().is_polynomial()
@@ -1025,32 +1026,36 @@ class GeneratingFunction(Distribution):
                 result = result.subs(subst_var, 1)
 
         # Do the actual update stepwise
-        def split(e: Expr) -> List[Tuple[sympy.Basic, sympy.Basic]]:
-            assert isinstance(e, (NatLitExpr, RealLitExpr, VarExpr, BinopExpr))
+        def split(split_expr: Expr) -> List[Tuple[sympy.Basic, sympy.Number]]:
+            assert isinstance(split_expr,
+                              (NatLitExpr, RealLitExpr, VarExpr, BinopExpr))
 
-            if isinstance(e, BinopExpr):
-                if e.operator == Binop.PLUS:
-                    resList = split(e.lhs)
-                    resList.extend(split(e.rhs))
-                    return resList
-                elif e.operator == Binop.MINUS:
-                    right = split(e.rhs)
+            if isinstance(split_expr, BinopExpr):
+                if split_expr.operator == Binop.PLUS:
+                    res_list = split(split_expr.lhs)
+                    res_list.extend(split(split_expr.rhs))
+                    return res_list
+                elif split_expr.operator == Binop.MINUS:
+                    right = split(split_expr.rhs)
                     (var, coeff) = right[0]
                     right[0] = (var, -coeff)
-                    resList = split(e.lhs)
-                    resList.extend(right)
-                    return resList
+                    res_list = split(split_expr.lhs)
+                    res_list.extend(right)
+                    return res_list
                 else:
-                    assert e.operator == Binop.TIMES
-                    assert isinstance(e.lhs, (NatLitExpr, RealLitExpr, VarExpr))
-                    assert isinstance(e.rhs, (NatLitExpr, RealLitExpr, VarExpr))
-                    map = sympy.S(str(e)).as_coefficients_dict()
-                    [var] = map.keys()
-                    return [(var, map[var])]
-            elif isinstance(e, VarExpr):
-                return [(sympy.S(str(e)), sympy.S(1))]
+                    assert split_expr.operator == Binop.TIMES
+                    assert isinstance(split_expr.lhs,
+                                      (NatLitExpr, RealLitExpr, VarExpr))
+                    assert isinstance(split_expr.rhs,
+                                      (NatLitExpr, RealLitExpr, VarExpr))
+                    var_coeffs = sympy.S(
+                        str(split_expr)).as_coefficients_dict()
+                    [var] = var_coeffs.keys()
+                    return [(var, var_coeffs[var])]
+            elif isinstance(split_expr, VarExpr):
+                return [(sympy.S(str(split_expr)), sympy.S(1))]
             else:
-                return [(sympy.S(1), sympy.S(str(e)))]
+                return [(sympy.S(1), sympy.S(str(split_expr)))]
 
         for (var, coeff) in split(expr):
             # if there is a constant term, just do a multiplication
@@ -1058,8 +1063,7 @@ class GeneratingFunction(Distribution):
                 if coeff < 0:
                     eq0 = GeneratingFunction(
                         result, *self._variables)._filter_constant_condition(
-                            parse_expr(
-                                f"{subst_var} <= {-coeff}"))._function
+                            parse_expr(f"{subst_var} <= {-coeff}"))._function
                     result = result - eq0
                 result = result * (subst_var**coeff)
                 if coeff < 0:
@@ -1086,7 +1090,7 @@ class GeneratingFunction(Distribution):
                 result = result.subs(var, var * subst_var**coeff)
                 if coeff < 0:
                     result = result + eq0.subs(subst_var, 1)
-        
+
         res_gf = GeneratingFunction(result,
                                     *self._variables,
                                     preciseness=self._preciseness,
