@@ -119,7 +119,7 @@ class TestDistributionInterface:
         gf = GeneratingFunction("(1-sqrt(1-x**2))/x")
         assert gf.get_probability_of(parse_expr("x <= 3")) == parse_expr("5/8")
 
-        gf = SympyPGF.zero("x")
+        gf = SympyPGF.zero("z", "y")
         assert gf.get_probability_of(
             parse_expr("not (z*y < 12)")) == parse_expr("0")
 
@@ -134,7 +134,7 @@ class TestDistributionInterface:
         assert gf.get_probability_mass() == "1"
 
     def test_expected_value_of(self):
-        gf = GeneratingFunction("(1-sqrt(1-x**2))/x")
+        gf: GeneratingFunction = GeneratingFunction("(1-sqrt(1-x**2))/x")
         assert gf.get_expected_value_of("x") == "Infinity"
 
         gf = SympyPGF.zero("x")
@@ -147,7 +147,12 @@ class TestDistributionInterface:
 
         gf = GeneratingFunction("(1-p) + p*x", 'x')
         assert gf.get_expected_value_of('x') == "p"
-        assert gf.get_expected_value_of('p*x') == "p^2"
+        assert gf.get_expected_value_of('p*x') == "p**2"
+
+        gf = SympyPGF.poisson("x", "p")
+        assert gf.get_expected_value_of("x") == "p"
+        assert sympy.S(gf.get_expected_value_of("p*x")) == sympy.S("p^2")
+        assert gf.get_expected_value_of("p") == "p"
 
     def test_normalize(self):
         assert create_random_gf().normalize().coefficient_sum() == 1
@@ -180,7 +185,7 @@ class TestDistributionInterface:
             f"Should be {{'a', 'b'}}, is {gf.get_parameters()}."
 
     def test_filter(self):
-        gf = SympyPGF.zero("x")
+        gf = SympyPGF.zero("x", "y")
         assert gf.filter(parse_expr("x*3 < 25*y")) == gf
 
         # check filter on infinite GF
@@ -192,9 +197,8 @@ class TestDistributionInterface:
         gf = GeneratingFunction("1/2*x*c + 1/4 * x**2 + 1/4")
         assert gf.filter(parse_expr("x*c < 123")) == gf
 
-        gf = GeneratingFunction("(1-sqrt(1-c**2))/c")
-        assert gf.filter(
-            parse_expr("x*z <= 10")) == SympyPGF.zero(*gf._variables)
+        gf = GeneratingFunction("(1-sqrt(1-c**2))/c", "c", "x", "z")
+        assert gf.filter(parse_expr("x*z <= 10")) == gf
 
         gf = GeneratingFunction("(c/2 + c^3/2) * (1-sqrt(1-x**2))/x")
         assert gf.filter(parse_expr("c*c <= 5")) == GeneratingFunction(
