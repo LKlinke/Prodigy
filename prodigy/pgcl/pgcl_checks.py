@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional, Union
 
 from probably.pgcl import (Binop, BinopExpr, Expr, NatLitExpr, Program, Unop,
                            UnopExpr, VarExpr)
@@ -8,10 +8,12 @@ from probably.util.ref import Mut
 from prodigy.distribution.distribution import Distribution
 
 
-def has_variable(expr: Expr, context: Union[Distribution, Program]) -> bool:
+def has_variable(expr: Expr, context: Optional[Union[Distribution,
+                                                     Program]]) -> bool:
     if isinstance(expr, UnopExpr) and expr.operator == Unop.IVERSON:
         return False
-    if isinstance(expr, VarExpr) and expr.var not in context.get_parameters():
+    if isinstance(expr, VarExpr) and (context is None or expr.var
+                                      not in context.get_parameters()):
         return True
     for child_ref in mut_expr_children(Mut.alloc(expr)):
         if has_variable(child_ref.val, context):
