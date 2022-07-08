@@ -1,10 +1,19 @@
 import functools
+import logging
 import sys
 from abc import ABC, abstractmethod
 from fractions import Fraction
-from typing import Sequence, Union
+from typing import Sequence, Union, get_args
 
-from probably.pgcl import *
+from probably.pgcl import (AsgnInstr, BernoulliExpr, BinomialExpr, Binop,
+                           BinopExpr, CategoricalExpr, ChoiceInstr, DistrExpr,
+                           DUniformExpr, ExpectationInstr, Expr, GeometricExpr,
+                           IfInstr, IidSampleExpr, Instr, LogDistExpr,
+                           LoopInstr, NatLitExpr, ObserveInstr,
+                           OptimizationQuery, OptimizationType, PlotInstr,
+                           PoissonExpr, PrintInstr, ProbabilityQueryInstr,
+                           Program, Query, RealLitExpr, SkipInstr, Unop,
+                           UnopExpr, Var, VarExpr, WhileInstr, parse_pgcl)
 
 import prodigy.analysis.equivalence.equivalence_check as equiv_check
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -109,6 +118,7 @@ class SequenceHandler(InstructionHandler):
                                                   config)  # evaluate queries on conditioned distribution
             error_prob *= "0"
             return QueryHandler.compute(instruction, distribution, error_prob, config)
+
 
         elif isinstance(instruction, LoopInstr):
             logger.info("%s gets handled", instruction)

@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+    <link href="{{ url_for('static', filename='css/style.css') }}" type="text/css" rel="stylesheet">
+    <title> Prodigy! </title>
+</head>
+<body>
+<h1>PRODIGY</h1>
+<div class="prodigy-services">
+    <div class="login-box">
+        <h2>Equivalence Check</h2>
+        <form id="equiv_check" action="http://localhost:8080/equivalence" method="post" enctype="multipart/form-data">
+            <div class="user-box">
+                <label> Invariant file: </label><br><input type="file" id="invariant" name="invariant"
+                                                           value="Invariant File">
+            </div>
+            <div class="user-box">
+                <label> While Loop file: </label><br><input type="file" id="loop" name="loop">
+            </div>
+            <label>Engine: </label>
+            <input type="radio" id="ginac" name="engine" value="ginac"><label>GiNaC</label>
+            <input type="radio" id="sympy" name="engine" value="sympy" checked="checked"><label>SymPy</label>
+            <button type="button" class="submit_button" value="submit" onclick="equivalence_request();">Check!</button>
+        </form>
+        <div class="spinner">
+            <div class="bar1"></div>
+            <div class="bar2"></div>
+            <div class="bar3"></div>
+            <div class="bar4"></div>
+            <div class="bar5"></div>
+            <div class="bar6"></div>
+            <div class="bar7"></div>
+            <div class="bar8"></div>
+            <div class="bar9"></div>
+            <div class="bar10"></div>
+            <div class="bar11"></div>
+            <div class="bar12"></div>
+        </div>
+        <h2 id="result_equiv"></h2>
+    </div>
+    <div class="login-box">
+        <h2>Program Analysis</h2>
+        <form id="distribution_transform" action="http://localhost:8080/analyze" method="post"
+              enctype="multipart/form-data">
+            <div class="user-box">
+                <label> pGCL file: </label><br><input type="file" id="program" name="program" value="Program File">
+            </div>
+            <div class="user-box">
+                <label> Initial Distribution: </label><br><input type="text" id="input_dist" name="input_dist">
+            </div>
+            <label>Engine: </label>
+            <input type="radio" id="dist_ginac" name="engine" value="ginac"><label>GiNaC</label>
+            <input type="radio" id="dist_sympy" name="engine" value="sympy" checked="checked"><label>SymPy</label>
+            <button type="button" class="submit_button" value="submit" onclick="analysis_request();">Analyze!</button>
+        </form>
+        <div class="spinner">
+            <div class="bar1"></div>
+            <div class="bar2"></div>
+            <div class="bar3"></div>
+            <div class="bar4"></div>
+            <div class="bar5"></div>
+            <div class="bar6"></div>
+            <div class="bar7"></div>
+            <div class="bar8"></div>
+            <div class="bar9"></div>
+            <div class="bar10"></div>
+            <div class="bar11"></div>
+            <div class="bar12"></div>
+        </div>
+        <textarea id="result_analysis"></textarea>
+    </div>
+    <div class="login-box">
+        <h2>Playground</h2>
+        <form id="playground" enctype="multipart/form-data">
+            <label>Write your code here:</label><br>
+            <textarea id="codearea" name="codearea"></textarea>
+            <div class="user-box">
+                <label> Initial Distribution: </label><br><input type="text" id="playground_dist"
+                                                                 name="playground_dist">
+            </div>
+            <label>Engine: </label>
+            <input type="radio" id="playground_ginac" name="engine" value="ginac"><label>GiNaC</label>
+            <input type="radio" id="playground_sympy" name="engine" value="sympy" checked="checked"><label>SymPy</label>
+            <button type="button" class="submit_button" value="submit" onclick="playground_request();">Analyze!</button>
+        </form>
+        <div class="spinner">
+            <div class="bar1"></div>
+            <div class="bar2"></div>
+            <div class="bar3"></div>
+            <div class="bar4"></div>
+            <div class="bar5"></div>
+            <div class="bar6"></div>
+            <div class="bar7"></div>
+            <div class="bar8"></div>
+            <div class="bar9"></div>
+            <div class="bar10"></div>
+            <div class="bar11"></div>
+            <div class="bar12"></div>
+        </div>
+        <textarea id="result_playground"></textarea>
+    </div>
+</div>
+<div class="footer">
+    <p>
+        &copy; Lutz Klinkenberg (lutz.klinkenberg@cs.rwth-aachen.de) -- <a href="https://github.com/LKlinke/Prodigy">GitHub</a>
+    </p>
+</div>
+</body>
+</html>

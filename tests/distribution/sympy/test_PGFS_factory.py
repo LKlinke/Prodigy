@@ -34,15 +34,14 @@ def test_log():
 
 def test_poisson():
     rate = str(rng.randint(0, 10))
-    hand = GeneratingFunction(f"exp({rate} * (variable -1))")
+    hand = GeneratingFunction(f"exp({rate} * (variable -1))", "variable")
     factory = SympyPGF.poisson("variable", str(rate))
-    equal = hand == factory
-    assert equal
+    assert hand == factory
 
 
 def test_binomial():
     n = rng.randint(0, 20)
     p = rng.random()
-    assert GeneratingFunction(
-        f"(1-{p}+{p}*variable)**{n}") == SympyPGF.binomial(
-            "variable", str(n), str(p))
+    assert GeneratingFunction(f"(1-{p}+{p}*variable)**{n}",
+                              "variable") == SympyPGF.binomial(
+                                  "variable", str(n), str(p))

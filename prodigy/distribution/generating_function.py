@@ -517,13 +517,12 @@ class GeneratingFunction(Distribution):
             "Currently only geometric expressions are supported.")
 
     def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
-
         expr = sympy.S(str(expression)).ratsimp().expand()
         if not expr.is_polynomial():
             raise NotImplementedError(
                 "Expected Value only computable for polynomial expressions.")
 
-        if len(expr.free_symbols) == 0:
+        if len(expr.free_symbols & self._variables) == 0:
             return str(expr)
         if not expr.free_symbols.issubset(
                 self._variables.union(self._parameters)):
@@ -531,9 +530,10 @@ class GeneratingFunction(Distribution):
                 f"Cannot compute expected value of {expr} because it contains unknown symbols"
             )
 
-        marginal = self.marginal(*expr.free_symbols,
+        marginal = self.marginal(*(expr.free_symbols & self._variables),
                                  method=MarginalType.INCLUDE)
-        gen_func = GeneratingFunction(expr)
+        gen_func = GeneratingFunction(expr,
+                                      *(expr.free_symbols & self._variables))
         expected_value = GeneratingFunction('0')
         for prob, state in gen_func:
             tmp = marginal.copy()
@@ -903,6 +903,7 @@ class GeneratingFunction(Distribution):
             )
 
         marginal = self.copy()
+        s_var: str | VarExpr | sympy.Symbol
         if method == MarginalType.INCLUDE:
             for s_var in marginal._variables.difference(
                     map(sympy.sympify,
@@ -923,7 +924,7 @@ class GeneratingFunction(Distribution):
                 else:
                     marginal._function = marginal._function.subs(s_var, 1)
             marginal._variables = marginal._variables.difference(
-                map(sympy.S, filter(lambda v: v != "", variables)))
+                map(sympy.sympify, filter(lambda v: v != "", variables)))
 
         marginal._is_closed_form = not marginal._function.is_polynomial()
         marginal._is_finite = marginal._function.ratsimp().is_polynomial()
@@ -958,9 +959,14 @@ class GeneratingFunction(Distribution):
                 condition, SympyPGF.zero()):
             return self.filter(BoolLitExpr(sympy.S(str(condition))))
 
-        elif isinstance(condition, BinopExpr) and not (sympy.S(str(condition.lhs)).free_symbols \
-                | sympy.S(str(condition.rhs)).free_symbols).issubset(self._variables | self._parameters):
-            return SympyPGF.zero(*self._variables)
+        elif isinstance(
+                condition,
+                BinopExpr) and not (sympy.S(str(condition.lhs)).free_symbols
+                                    | sympy.S(str(condition.rhs)).free_symbols
+                                    ) <= (self._variables | self._parameters):
+            raise ValueError(
+                f"Cannot filter based on the expression {str(condition)} because it contains unknown variables"
+            )
 
         # Modulo extractions
         elif check_is_modulus_condition(condition):
@@ -1014,9 +1020,8 @@ class GeneratingFunction(Distribution):
                 parameters.append(sympy.S(subexpr.val.var))
 
         # Check whether the expression contains the substitution variable or not
-        terms = rhs.as_coefficients_dict()
         result = self._function
-        if subst_var not in terms.keys():
+        if subst_var not in rhs.free_symbols:
             if self._is_closed_form:
                 print("\rComputing limit(linear transformation)...",
                       end='\r',
@@ -1026,40 +1031,71 @@ class GeneratingFunction(Distribution):
                 result = result.subs(subst_var, 1)
 
         # Do the actual update stepwise
-        for var in terms:
+        def split(split_expr: Expr) -> List[Tuple[sympy.Basic, sympy.Number]]:
+            assert isinstance(split_expr,
+                              (NatLitExpr, RealLitExpr, VarExpr, BinopExpr))
+
+            if isinstance(split_expr, BinopExpr):
+                if split_expr.operator == Binop.PLUS:
+                    res_list = split(split_expr.lhs)
+                    res_list.extend(split(split_expr.rhs))
+                    return res_list
+                elif split_expr.operator == Binop.MINUS:
+                    right = split(split_expr.rhs)
+                    (var, coeff) = right[0]
+                    right[0] = (var, -coeff)
+                    res_list = split(split_expr.lhs)
+                    res_list.extend(right)
+                    return res_list
+                else:
+                    assert split_expr.operator == Binop.TIMES
+                    assert isinstance(split_expr.lhs,
+                                      (NatLitExpr, RealLitExpr, VarExpr))
+                    assert isinstance(split_expr.rhs,
+                                      (NatLitExpr, RealLitExpr, VarExpr))
+                    var_coeffs = sympy.S(
+                        str(split_expr)).as_coefficients_dict()
+                    [var] = var_coeffs.keys()
+                    return [(var, var_coeffs[var])]
+            elif isinstance(split_expr, VarExpr):
+                return [(sympy.S(str(split_expr)), sympy.S(1))]
+            else:
+                return [(sympy.S(1), sympy.S(str(split_expr)))]
+
+        for (var, coeff) in split(expr):
             # if there is a constant term, just do a multiplication
             if var == 1:
-                if terms[1] < 0:
+                if coeff < 0:
                     eq0 = GeneratingFunction(
                         result, *self._variables)._filter_constant_condition(
-                            parse_expr(
-                                f"{subst_var} <= {-terms[1]}"))._function
+                            parse_expr(f"{subst_var} <= {-coeff}"))._function
                     result = result - eq0
-                result = result * (subst_var**terms[1])
-                if terms[1] < 0:
+                result = result * (subst_var**coeff)
+                if coeff < 0:
                     result = result + eq0.subs(subst_var, 1)
             elif var in parameters:
                 result = result * (subst_var**var)
             # if the variable is the substitution variable, a different update is necessary
             elif var == subst_var:
                 # TODO what if -1 < terms[var] < 0?
-                if terms[var] < 0:
+                if coeff < 0:
                     eq0 = result - GeneratingFunction(
                         result, *self._variables)._filter_constant_condition(
                             parse_expr(f"{subst_var} = 0"))._function
                     result = result - eq0
-                result = result.subs(var, subst_var**terms[var])
-                if terms[var] < 0:
+                result = result.subs(var, subst_var**coeff)
+                if coeff < 0:
                     result = result + eq0.subs(subst_var, 1)
             # otherwise we can collect the substitution in our replacement list
             else:
-                if terms[var] < 0:
+                if coeff < 0:
                     eq0 = GeneratingFunction(result, *self._variables).filter(
                         parse_expr(f"{subst_var} <= {var}"))._function
                     result = result - eq0
-                result = result.subs(var, var * subst_var**terms[var])
-                if terms[var] < 0:
+                result = result.subs(var, var * subst_var**coeff)
+                if coeff < 0:
                     result = result + eq0.subs(subst_var, 1)
+
         res_gf = GeneratingFunction(result,
                                     *self._variables,
                                     preciseness=self._preciseness,
@@ -1074,7 +1110,11 @@ class SympyPGF(CommonDistributionsFactory):
     @staticmethod
     def geometric(var: Union[str, VarExpr],
                   p: DistributionParam) -> Distribution:
-        if isinstance(p, str) and not 0 < sympy.S(p) < 1:
+        if not isinstance(p, get_args(Expr)):
+            expr = parse_expr(str(p))
+        else:
+            expr = p
+        if not has_variable(expr, None) and not 0 < sympy.S(str(p)) < 1:
             raise ValueError(
                 f"parameter of geom distr must be 0 < p <=1, was {p}")
         return GeneratingFunction(f"({p}) / (1 - (1-({p})) * {var})",
@@ -1085,8 +1125,18 @@ class SympyPGF(CommonDistributionsFactory):
     @staticmethod
     def uniform(var: Union[str, VarExpr], lower: DistributionParam,
                 upper: DistributionParam) -> Distribution:
-        if isinstance(lower, str) and isinstance(
-                upper, str) and not 0 <= sympy.S(lower) <= sympy.S(upper):
+        if not isinstance(lower, get_args(Expr)):
+            expr_l = parse_expr(str(lower))
+        else:
+            expr_l = lower
+        if not isinstance(upper, get_args(Expr)):
+            expr_u = parse_expr(str(upper))
+        else:
+            expr_u = upper
+        if not has_variable(expr_l, None) and (
+                not 0 <= sympy.S(str(lower)) or
+            (not has_variable(expr_u, None)
+             and not sympy.S(str(lower)) <= sympy.S(str(upper)))):
             raise ValueError(
                 "Distribution parameters must satisfy 0 <= a < b < oo")
         return GeneratingFunction(
@@ -1098,7 +1148,11 @@ class SympyPGF(CommonDistributionsFactory):
     @staticmethod
     def bernoulli(var: Union[str, VarExpr],
                   p: DistributionParam) -> Distribution:
-        if isinstance(p, str) and not 0 <= sympy.S(p) <= 1:
+        if not isinstance(p, get_args(Expr)):
+            expr = parse_expr(str(p))
+        else:
+            expr = p
+        if not has_variable(expr, None) and not 0 <= sympy.S(str(p)) <= 1:
             raise ValueError(
                 f"Parameter of Bernoulli Distribution must be in [0,1], but was {p}"
             )
@@ -1110,7 +1164,11 @@ class SympyPGF(CommonDistributionsFactory):
     @staticmethod
     def poisson(var: Union[str, VarExpr],
                 lam: DistributionParam) -> Distribution:
-        if isinstance(lam, str) and sympy.S(lam) < 0:
+        if not isinstance(lam, get_args(Expr)):
+            expr = parse_expr(str(lam))
+        else:
+            expr = lam
+        if not has_variable(expr, None) and sympy.S(str(lam)) < 0:
             raise ValueError(
                 f"Parameter of Poisson Distribution must be in [0, oo), but was {lam}"
             )
@@ -1121,7 +1179,11 @@ class SympyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def log(var: Union[str, VarExpr], p: DistributionParam) -> Distribution:
-        if isinstance(p, str) and not 0 <= sympy.S(p) <= 1:
+        if not isinstance(p, get_args(Expr)):
+            expr = parse_expr(str(p))
+        else:
+            expr = p
+        if not has_variable(expr, None) and not 0 <= sympy.S(str(p)) <= 1:
             raise ValueError(
                 f"Parameter of Logarithmic Distribution must be in [0,1], but was {p}"
             )
@@ -1133,11 +1195,19 @@ class SympyPGF(CommonDistributionsFactory):
     @staticmethod
     def binomial(var: Union[str, VarExpr], n: DistributionParam,
                  p: DistributionParam) -> Distribution:
-        if isinstance(p, str) and not 0 <= sympy.S(p) <= 1:
+        if not isinstance(p, get_args(Expr)):
+            expr_p = parse_expr(str(p))
+        else:
+            expr_p = p
+        if not has_variable(expr_p, None) and not 0 <= sympy.S(str(p)) <= 1:
             raise ValueError(
                 f"Parameter of Binomial Distribution must be in [0,1], but was {p}"
             )
-        if isinstance(n, str) and not 0 <= sympy.S(n):
+        if not isinstance(n, get_args(Expr)):
+            expr_n = parse_expr(str(n))
+        else:
+            expr_n = n
+        if not has_variable(expr_n, None) and not 0 <= sympy.S(str(n)):
             raise ValueError(
                 f"Parameter of Binomial Distribution must be in [0,oo), but was {n}"
             )
