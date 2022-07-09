@@ -3,18 +3,15 @@ from __future__ import annotations
 
 import functools
 import operator
-from typing import (Callable, Generator, Iterator, List, Set, Tuple, Union,
-                    get_args)
+from typing import (Callable, Generator, Iterator, List, Optional, Set, Tuple,
+                    Union, get_args)
 
 import sympy
-from probably.pgcl import BinopExpr  # type: ignore
-from probably.pgcl import (BernoulliExpr, Binop, BoolLitExpr, DistrExpr,
-                           DUniformExpr, Expr, GeometricExpr, IidSampleExpr,
-                           NatLitExpr, NatType, PoissonExpr, Program,
-                           RealLitExpr, RealType, Unop, UnopExpr, VarExpr,
-                           Walk, walk_expr)
+from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, BoolLitExpr,
+                           DistrExpr, DUniformExpr, Expr, GeometricExpr,
+                           IidSampleExpr, NatLitExpr, PoissonExpr, RealLitExpr,
+                           Unop, UnopExpr, VarExpr, Walk, walk_expr)
 from probably.pgcl.parser import parse_expr
-from probably.pgcl.syntax import check_is_linear_expr  # type: ignore
 from probably.util.ref import Mut
 from sympy.assumptions.assume import global_assumptions
 
@@ -85,50 +82,6 @@ class GeneratingFunction(Distribution):
             *self._variables)
         self._is_finite = finite if finite else self._function.ratsimp(
         ).is_polynomial(*self._variables)
-
-    def _update_modulo_expression(self,
-                                  expression: Expr) -> GeneratingFunction:
-
-        assert isinstance(expression, BinopExpr) and expression.operator == Binop.MODULO, \
-            f"This function can only be called on Modulo Expressions, got {expression}."
-
-        # Currently only unnested modulo expression are supported. Maybe update this at some time.
-        if isinstance(expression.lhs, VarExpr) and isinstance(
-                expression.rhs, NatLitExpr):
-            result = GeneratingFunction("0",
-                                        *self._variables,
-                                        preciseness=1,
-                                        closed=True,
-                                        finite=True)
-            progression_list = self._arithmetic_progression(
-                str(expression.lhs), str(expression.rhs))
-            for i in range(expression.rhs.value):
-                func = progression_list[i]
-                result += func.marginal(
-                    expression.lhs.var, method=MarginalType.EXCLUDE
-                ) * GeneratingFunction(f"{expression.lhs}**{i}")
-            return result
-        else:
-            raise NotImplementedError(
-                "Nested modulo expressions are currently not supported.")
-
-    def _update_statewise(self, expression: Expr) -> GeneratingFunction:
-        """ Updates a finite distribution by evaluating the expression for each encoded state separately. """
-
-        assert self._is_finite, f"Cannot do a statewise update for infinite Generatingfunction {self}."
-        assert isinstance(expression, BinopExpr) and isinstance(expression.lhs, VarExpr), \
-            f"Expression must be an assignment, was {expression}."
-
-        result = sympy.S(0)
-        for prob, state in self:
-            updated_state = state.copy()
-            updated_state[expression.lhs.var] = int(
-                self.evaluate(str(expression.rhs), state))
-            monomial = sympy.S(updated_state.to_monomial())
-            result += sympy.S(prob) * monomial
-        return GeneratingFunction(result,
-                                  *self._variables,
-                                  preciseness=self._preciseness)
 
     def _filter_constant_condition(self,
                                    condition: Expr) -> GeneratingFunction:
@@ -407,7 +360,9 @@ class GeneratingFunction(Distribution):
 
     # Distribution interface implementation
 
-    def update(self, expression: Expr) -> GeneratingFunction:
+    def update(self,
+               expression: Expr,
+               approximate: Optional[str | int] = None) -> GeneratingFunction:
         """ Updates the current distribution by applying the expression to itself. Currently, we are able to handle the
             following cases:
                 * Modulo operations like: <<VAR>> % <<CONSTANT>>
@@ -420,46 +375,111 @@ class GeneratingFunction(Distribution):
         assert isinstance(expression, BinopExpr) and isinstance(expression.lhs, VarExpr), \
             f"Expression must be an assignment, was {expression}."
 
-        variable: str = expression.lhs.var
-
-        # rhs is a modulo expression
-        if isinstance(expression.rhs,
-                      BinopExpr) and expression.rhs.operator == Binop.MODULO:
-            return self._update_modulo_expression(expression)
-
-        # rhs is a linear expression
-        variables = {}
-        parameters = {}
-        for var in self.get_variables():
-            variables[var] = NatType(bounds=None)
-        for param in self.get_parameters():
-            parameters[param] = RealType()
-        if check_is_linear_expr(context=Program(constants={},
-                                                variables=variables,
-                                                parameters=parameters,
-                                                declarations=[],
-                                                instructions=[]),
-                                expr=expression.rhs) is None:
-            return self.linear_transformation(variable, expression.rhs)
-
-        # rhs is a non-linear expression, self is finite
-        if self.is_finite():
-            return self._update_statewise(expression)
-
-        # rhs is non-linear, self is infinite support
-        print(f"The assignment {expression} is not computable on {self}")
-        error = sympy.S(
-            input(
-                "Continue with approximation. Enter an allowed relative error (0, 1.0):\t"
-            ))
-        if 0 < error < 1:
-            return list(
-                self.approximate(f"{(1 - error) * self.coefficient_sum()}")
-            )[-1].update(expression)
-        else:
-            raise NotImplementedError(
-                f"The assignment {expression} is currently not computable on {self}"
+        variable = expression.lhs.var
+        if sympy.S(variable) not in self._variables:
+            raise ValueError(
+                f"Cannot assign to variable {variable} because it does not exist"
             )
+
+        def evaluate(function: GeneratingFunction, expression: Expr,
+                     temp_var: str) -> Tuple[GeneratingFunction, str]:
+            if isinstance(expression, BinopExpr):
+                f = function.set_variables(
+                    *(function.get_variables()
+                      | {f"{temp_var}l", f"{temp_var}r"}))
+                f, t_1 = evaluate(
+                    f, expression.lhs, temp_var +
+                    "l")  # TODO make sure that these are always new variables
+                f, t_2 = evaluate(f, expression.rhs, temp_var + "r")
+                # TODO don't use the parser but construct a binop expression directly (efficiency), or use function parameters instead of an expression
+                if expression.operator == Binop.PLUS:
+                    f = f._update_sum(
+                        parse_expr(f"{temp_var} = {t_1} + {t_2}"))
+                elif expression.operator == Binop.TIMES:
+                    f = f.update(parse_expr(f"{temp_var} = {t_1} * {t_2}"))
+                elif expression.operator == Binop.MINUS:
+                    f = f.update(parse_expr(f"{temp_var} = {t_1} - {t_2}"))
+                else:
+                    raise ValueError(
+                        f"Unsupported binary operator: {expression.operator}")
+
+                f = f.marginal(f"{temp_var}l",
+                               f"{temp_var}r",
+                               method=MarginalType.EXCLUDE)
+                return f, temp_var
+
+            if isinstance(expression, VarExpr):
+                f = function.update(
+                    parse_expr(f"{temp_var} = {expression.var}"))
+                return f, temp_var
+
+            if isinstance(expression, (NatLitExpr, RealLitExpr)):
+                return function, str(expression.value)
+
+            else:
+                raise ValueError(
+                    f"Unsupported type of subexpression: {expression}")
+
+        result, _ = evaluate(self, expression.rhs, variable)
+        return result
+
+    def _update_sum(self, expr: BinopExpr) -> GeneratingFunction:
+        assert isinstance(
+            expr.rhs,
+            BinopExpr) and expr.rhs.operator == Binop.PLUS and isinstance(
+                expr.rhs.lhs, (VarExpr, NatLitExpr)) and isinstance(
+                    expr.rhs.rhs,
+                    (VarExpr, NatLitExpr)) and isinstance(expr.lhs, VarExpr)
+
+        update_var = sympy.S(expr.lhs.var)
+        sum_1, sum_2 = expr.rhs.lhs, expr.rhs.rhs
+        result = self._function
+
+        # we add two variables
+        if isinstance(sum_1, VarExpr) and sympy.S(
+                sum_1.var) not in self._parameters and isinstance(
+                    sum_2, VarExpr) and sympy.S(
+                        sum_2.var) not in self._parameters:
+            if sum_2.var == expr.lhs.var:
+                sum_1, sum_2 = sum_2, sum_1
+            if sum_1.var == expr.lhs.var:
+                if sum_2.var == expr.lhs.var:
+                    result = result.subs(update_var, update_var**2)
+                else:
+                    result = result.subs(sympy.S(sum_2.var), update_var)
+            else:
+                result = result.subs([
+                    (update_var, 1),
+                    (sympy.S(sum_1.var), sympy.S(sum_1.var) * update_var),
+                    (sympy.S(sum_2.var), sympy.S(sum_2.var) * update_var)
+                ])
+
+        # we add a variable and a literal / parameter
+        elif (isinstance(sum_1, VarExpr)
+              and sympy.S(sum_1.var) not in self._parameters) or (
+                  isinstance(sum_2, VarExpr)
+                  and sympy.S(sum_2.var) not in self._parameters):
+            if isinstance(sum_1, VarExpr) and sympy.S(
+                    sum_1.var) not in self._parameters:
+                var = sum_1.var
+                lit = sum_2
+            else:
+                var = sum_2.var
+                lit = sum_1
+            if not var == update_var:
+                result = result.subs([(update_var, 1),
+                                      (sympy.S(var), update_var * sympy.S(var))
+                                      ])
+            result = result * (update_var**sympy.S(str(lit)))
+
+        # we add two literals / parameters
+        else:
+            result = result.subs(update_var,
+                                 1) * (update_var**(sum_1.value + sum_2.value))
+
+        return GeneratingFunction(result,
+                                  *self._variables,
+                                  preciseness=self._preciseness)
 
     def update_iid(self, sampling_exp: IidSampleExpr,
                    variable: Union[str, VarExpr]) -> Distribution:
@@ -996,113 +1016,6 @@ class GeneratingFunction(Distribution):
         else:
             expression = self._explicit_state_unfolding(condition)
             return self.filter(expression)
-
-    def linear_transformation(
-            self, variable: str, expression: Union[Expr,
-                                                   str]) -> GeneratingFunction:
-        """
-        Computes a distribution where the `variable` is linearly transformed by `expression`.
-        """
-
-        logger.debug("linear_transformation() call")
-        expr = expression
-        if isinstance(expression, str):
-            expr = parse_expr(expression)
-
-        # Transform expression into sympy readable format
-        rhs: sympy.Expr = sympy.S(str(expression))
-        subst_var = sympy.S(variable)
-
-        parameters: List[sympy.Symbol] = []
-        for subexpr in walk_expr(Walk.DOWN, Mut.alloc(expr)):
-            if isinstance(subexpr.val, VarExpr) and sympy.S(
-                    subexpr.val.var) in self._parameters:
-                parameters.append(sympy.S(subexpr.val.var))
-
-        # Check whether the expression contains the substitution variable or not
-        result = self._function
-        if subst_var not in rhs.free_symbols:
-            if self._is_closed_form:
-                print("\rComputing limit(linear transformation)...",
-                      end='\r',
-                      flush=True)
-                result = result.limit(subst_var, 1, '-')
-            else:
-                result = result.subs(subst_var, 1)
-
-        # Do the actual update stepwise
-        def split(split_expr: Expr) -> List[Tuple[sympy.Basic, sympy.Number]]:
-            assert isinstance(split_expr,
-                              (NatLitExpr, RealLitExpr, VarExpr, BinopExpr))
-
-            if isinstance(split_expr, BinopExpr):
-                if split_expr.operator == Binop.PLUS:
-                    res_list = split(split_expr.lhs)
-                    res_list.extend(split(split_expr.rhs))
-                    return res_list
-                elif split_expr.operator == Binop.MINUS:
-                    right = split(split_expr.rhs)
-                    (var, coeff) = right[0]
-                    right[0] = (var, -coeff)
-                    res_list = split(split_expr.lhs)
-                    res_list.extend(right)
-                    return res_list
-                else:
-                    assert split_expr.operator == Binop.TIMES
-                    assert isinstance(split_expr.lhs,
-                                      (NatLitExpr, RealLitExpr, VarExpr))
-                    assert isinstance(split_expr.rhs,
-                                      (NatLitExpr, RealLitExpr, VarExpr))
-                    var_coeffs = sympy.S(
-                        str(split_expr)).as_coefficients_dict()
-                    [var] = var_coeffs.keys()
-                    return [(var, var_coeffs[var])]
-            elif isinstance(split_expr, VarExpr):
-                return [(sympy.S(str(split_expr)), sympy.S(1))]
-            else:
-                return [(sympy.S(1), sympy.S(str(split_expr)))]
-
-        for (var, coeff) in split(expr):
-            # if there is a constant term, just do a multiplication
-            if var == 1:
-                if coeff < 0:
-                    eq0 = GeneratingFunction(
-                        result, *self._variables)._filter_constant_condition(
-                            parse_expr(f"{subst_var} <= {-coeff}"))._function
-                    result = result - eq0
-                result = result * (subst_var**coeff)
-                if coeff < 0:
-                    result = result + eq0.subs(subst_var, 1)
-            elif var in parameters:
-                result = result * (subst_var**var)
-            # if the variable is the substitution variable, a different update is necessary
-            elif var == subst_var:
-                # TODO what if -1 < terms[var] < 0?
-                if coeff < 0:
-                    eq0 = result - GeneratingFunction(
-                        result, *self._variables)._filter_constant_condition(
-                            parse_expr(f"{subst_var} = 0"))._function
-                    result = result - eq0
-                result = result.subs(var, subst_var**coeff)
-                if coeff < 0:
-                    result = result + eq0.subs(subst_var, 1)
-            # otherwise we can collect the substitution in our replacement list
-            else:
-                if coeff < 0:
-                    eq0 = GeneratingFunction(result, *self._variables).filter(
-                        parse_expr(f"{subst_var} <= {var}"))._function
-                    result = result - eq0
-                result = result.subs(var, var * subst_var**coeff)
-                if coeff < 0:
-                    result = result + eq0.subs(subst_var, 1)
-
-        res_gf = GeneratingFunction(result,
-                                    *self._variables,
-                                    preciseness=self._preciseness,
-                                    closed=self._is_closed_form,
-                                    finite=self._is_finite)
-
-        return res_gf
 
 
 class SympyPGF(CommonDistributionsFactory):
