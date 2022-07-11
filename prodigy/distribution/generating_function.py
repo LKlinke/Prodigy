@@ -387,14 +387,11 @@ class GeneratingFunction(Distribution):
                 f = function.set_variables(
                     *(function.get_variables()
                       | {f"{temp_var}l", f"{temp_var}r"}))
-                f, t_1 = evaluate(
-                    f, expression.lhs, temp_var +
-                    "l")  # TODO make sure that these are always new variables
+                # TODO make sure that these are always new variables
+                f, t_1 = evaluate(f, expression.lhs, temp_var + "l")
                 f, t_2 = evaluate(f, expression.rhs, temp_var + "r")
-                # TODO don't use the parser but construct a binop expression directly (efficiency), or use function parameters instead of an expression
                 if expression.operator == Binop.PLUS:
-                    f = f._update_sum(
-                        parse_expr(f"{temp_var} = {t_1} + {t_2}"))
+                    f = f._update_sum(temp_var, t_1, t_2)
                 elif expression.operator == Binop.TIMES:
                     f = f.update(parse_expr(f"{temp_var} = {t_1} * {t_2}"))
                 elif expression.operator == Binop.MINUS:
@@ -422,7 +419,8 @@ class GeneratingFunction(Distribution):
         result, _ = evaluate(self, expression.rhs, variable)
         return result
 
-    def _update_var(self, updated_var: str, assign_var: str):
+    def _update_var(self, updated_var: str,
+                    assign_var: str) -> GeneratingFunction:
         if not updated_var == assign_var:
             result = self._function.subs([
                 (sympy.S(updated_var), 1),
@@ -435,59 +433,43 @@ class GeneratingFunction(Distribution):
         else:
             return self.copy()
 
-    def _update_sum(self, expr: BinopExpr) -> GeneratingFunction:
-        assert isinstance(
-            expr.rhs,
-            BinopExpr) and expr.rhs.operator == Binop.PLUS and isinstance(
-                expr.rhs.lhs, (VarExpr, NatLitExpr)) and isinstance(
-                    expr.rhs.rhs,
-                    (VarExpr, NatLitExpr)) and isinstance(expr.lhs, VarExpr)
-
-        update_var = sympy.S(expr.lhs.var)
-        sum_1, sum_2 = expr.rhs.lhs, expr.rhs.rhs
+    # TODO how to handle reals here?
+    def _update_sum(self, temp_var: str, first_summand: str | int,
+                    second_summand: str | int) -> GeneratingFunction:
+        update_var = sympy.S(temp_var)
+        sum_1, sum_2 = sympy.S(first_summand), sympy.S(second_summand)
         result = self._function
 
         # we add two variables
-        if isinstance(sum_1, VarExpr) and sympy.S(
-                sum_1.var) not in self._parameters and isinstance(
-                    sum_2, VarExpr) and sympy.S(
-                        sum_2.var) not in self._parameters:
-            if sum_2.var == expr.lhs.var:
+        if sum_1 in self._variables and sum_2 in self._variables:
+            if sum_2 == temp_var:
                 sum_1, sum_2 = sum_2, sum_1
-            if sum_1.var == expr.lhs.var:
-                if sum_2.var == expr.lhs.var:
+            if sum_1 == temp_var:
+                if sum_2 == temp_var:
                     result = result.subs(update_var, update_var**2)
                 else:
-                    result = result.subs(sympy.S(sum_2.var), update_var)
+                    result = result.subs(sympy.S(sum_2), update_var)
             else:
-                result = result.subs([
-                    (update_var, 1),
-                    (sympy.S(sum_1.var), sympy.S(sum_1.var) * update_var),
-                    (sympy.S(sum_2.var), sympy.S(sum_2.var) * update_var)
-                ])
+                result = result.subs([(update_var, 1),
+                                      (sum_1, sum_1 * update_var),
+                                      (sum_2, sum_2 * update_var)])
 
         # we add a variable and a literal / parameter
-        elif (isinstance(sum_1, VarExpr)
-              and sympy.S(sum_1.var) not in self._parameters) or (
-                  isinstance(sum_2, VarExpr)
-                  and sympy.S(sum_2.var) not in self._parameters):
-            if isinstance(sum_1, VarExpr) and sympy.S(
-                    sum_1.var) not in self._parameters:
-                var = sum_1.var
+        elif sum_1 in self._variables or sum_2 in self._variables:
+            if sum_1 in self._variables:
+                var = sum_1
                 lit = sum_2
             else:
-                var = sum_2.var
+                var = sum_2
                 lit = sum_1
             if not var == update_var:
                 result = result.subs([(update_var, 1),
-                                      (sympy.S(var), update_var * sympy.S(var))
-                                      ])
-            result = result * (update_var**sympy.S(str(lit)))
+                                      (var, update_var * var)])
+            result = result * (update_var**lit)
 
         # we add two literals / parameters
         else:
-            result = result.subs(update_var,
-                                 1) * (update_var**(sum_1.value + sum_2.value))
+            result = result.subs(update_var, 1) * (update_var**(sum_1 + sum_2))
 
         return GeneratingFunction(result,
                                   *self._variables,
