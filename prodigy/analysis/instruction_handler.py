@@ -47,7 +47,6 @@ def compute_discrete_distribution(
     result = condition_distribution(dist, error_prob, config)
     return result
 
-
 def condition_distribution(dist: Distribution, error_prob: Distribution, config: ForwardAnalysisConfig) -> Distribution:
     one = config.factory.one(*error_prob.get_variables())
     zero = one * "0"
