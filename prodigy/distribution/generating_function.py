@@ -409,8 +409,7 @@ class GeneratingFunction(Distribution):
                 return f, temp_var
 
             if isinstance(expression, VarExpr):
-                f = function.update(
-                    parse_expr(f"{temp_var} = {expression.var}"))
+                f = function._update_var(temp_var, expression.var)
                 return f, temp_var
 
             if isinstance(expression, (NatLitExpr, RealLitExpr)):
@@ -422,6 +421,19 @@ class GeneratingFunction(Distribution):
 
         result, _ = evaluate(self, expression.rhs, variable)
         return result
+
+    def _update_var(self, updated_var: str, assign_var: str):
+        if not updated_var == assign_var:
+            result = self._function.subs([
+                (sympy.S(updated_var), 1),
+                (sympy.S(assign_var),
+                 sympy.S(assign_var) * sympy.S(updated_var))
+            ])
+            return GeneratingFunction(result,
+                                      *self._variables,
+                                      preciseness=self._preciseness)
+        else:
+            return self.copy()
 
     def _update_sum(self, expr: BinopExpr) -> GeneratingFunction:
         assert isinstance(
