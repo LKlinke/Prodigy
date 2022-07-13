@@ -393,7 +393,7 @@ class GeneratingFunction(Distribution):
                 if expression.operator == Binop.PLUS:
                     f = f._update_sum(temp_var, t_1, t_2)
                 elif expression.operator == Binop.TIMES:
-                    f = f.update(parse_expr(f"{temp_var} = {t_1} * {t_2}"))
+                    f = f._update_product(temp_var, t_1, t_2)
                 elif expression.operator == Binop.MINUS:
                     f = f.update(parse_expr(f"{temp_var} = {t_1} - {t_2}"))
                 else:
@@ -418,6 +418,49 @@ class GeneratingFunction(Distribution):
 
         result, _ = evaluate(self, expression.rhs, variable)
         return result
+
+    # TODO handle reals
+    def _update_product(self, temp_var: str, first_factor: str,
+                        second_factor: str):
+        update_var = sympy.S(temp_var)
+        prod_1, prod_2 = sympy.S(first_factor), sympy.S(second_factor)
+        result = self._function
+
+        # we multiply two variables
+        if prod_1 in self._variables and prod_2 in self._variables:
+            if not self._is_finite:
+                # TODO handle approximation if enabled
+                raise ValueError(
+                    "Cannot perform multiplication of two variables: The generating function is infinite"
+                )
+            else:
+                for prob, state in self:
+                    term: sympy.Basic = sympy.S(prob) * sympy.S(
+                        state.to_monomial())
+                    result = result - term
+                    term = term.subs(update_var, 1) * update_var**(
+                        state[first_factor] * state[second_factor])
+                    result = result + term
+
+        # we multiply a variable with a literal / parameter
+        elif prod_1 in self._variables or prod_2 in self._variables:
+            if prod_1 in self._variables:
+                var, lit = prod_1, prod_2
+            else:
+                var, lit = prod_2, prod_1
+            if var == update_var:
+                result = result.subs(update_var, update_var**lit)
+            else:
+                result = result.subs([(update_var, 1),
+                                      (var, var * update_var**lit)])
+
+        # we multiply two literals / parameters
+        else:
+            result = result.subs(update_var, 1) * (update_var**(prod_1 * prod_2))
+
+        return GeneratingFunction(result,
+                                  *self._variables,
+                                  preciseness=self._preciseness)
 
     def _update_var(self, updated_var: str,
                     assign_var: str) -> GeneratingFunction:
