@@ -383,11 +383,12 @@ class GeneratingFunction(Distribution):
 
         def evaluate(function: GeneratingFunction, expression: Expr,
                      temp_var: str) -> Tuple[GeneratingFunction, str]:
+            # TODO handle reals in every case
             if isinstance(expression, BinopExpr):
                 f = function.set_variables(
                     *(function.get_variables()
                       | {f"{temp_var}l", f"{temp_var}r"}))
-                # TODO make sure that these are always new variables
+                # TODO make sure that these are always new variables, and legal ones ('or' is illegal for example)
                 f, t_1 = evaluate(f, expression.lhs, temp_var + "l")
                 f, t_2 = evaluate(f, expression.rhs, temp_var + "r")
                 if expression.operator == Binop.PLUS:
@@ -395,7 +396,8 @@ class GeneratingFunction(Distribution):
                 elif expression.operator == Binop.TIMES:
                     f = f._update_product(temp_var, t_1, t_2)
                 elif expression.operator == Binop.MINUS:
-                    f = f.update(parse_expr(f"{temp_var} = {t_1} - {t_2}"))
+                    f = f._update_subtraction(temp_var, t_1, t_2)
+                # TODO handle modulo, power, division
                 else:
                     raise ValueError(
                         f"Unsupported binary operator: {expression.operator}")
@@ -419,9 +421,66 @@ class GeneratingFunction(Distribution):
         result, _ = evaluate(self, expression.rhs, variable)
         return result
 
-    # TODO handle reals
+    def _update_subtraction(self, temp_var: str, sub_from: str | int,
+                            sub: str | int) -> GeneratingFunction:
+        """
+        TODO write docs for all new functions
+        """
+        update_var = sympy.S(temp_var)
+        sub_1, sub_2 = sympy.S(sub_from), sympy.S(sub)
+        result = self._function
+
+        # we subtract a variable from another variable
+        if sub_1 in self._variables and sub_2 in self._variables:
+            if sub_2 == update_var:
+                if sub_1 == update_var:
+                    result = result.subs(update_var, 1)
+                else:
+                    result = result.subs([(update_var, update_var**(-1)),
+                                          (sub_1, sub_1 * update_var)])
+            else:
+                if not sub_1 == update_var:
+                    result = result.subs([(update_var, 1),
+                                          (sub_1, sub_1 * update_var)])
+                result = result.subs(sub_2, sub_2 * update_var**(-1))
+
+        # we subtract a literal / parameter from a variable
+        elif sub_1 in self._variables:
+            if not update_var == sub_1:
+                result = result.subs([(update_var, 1),
+                                      (sub_1, sub_1 * update_var)])
+            result = result * update_var**(-sub_2)
+
+        # we subtract a variable from a literal / parameter
+        elif sub_2 in self._variables:
+            if sub_2 == update_var:
+                result = result.subs(update_var, update_var
+                                     **(-1)) * update_var**sub_1
+            else:
+                result = result.subs(update_var, 1) * update_var**sub_1
+                result = result.subs(sub_2, sub_2 * update_var**(-1))
+
+        # we subtract two literals / parameters from each other
+        else:
+            diff = sub_1 - sub_2
+            if sub_1 not in self._parameters and sub_2 not in self._parameters and diff < 0:
+                raise ValueError(
+                    f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it is negative"
+                )
+            result = result.subs(update_var, 1) * update_var**diff
+
+        gf = GeneratingFunction(result,
+                                *self._variables,
+                                preciseness=self._preciseness)
+        if gf.marginal(temp_var)._function.subs(temp_var, 0) == sympy.S('zoo'):
+            # TODO does this check work if there are parameters?
+            raise ValueError(
+                f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it can be negative"
+            )
+        return gf
+
     def _update_product(self, temp_var: str, first_factor: str,
-                        second_factor: str):
+                        second_factor: str) -> GeneratingFunction:
         update_var = sympy.S(temp_var)
         prod_1, prod_2 = sympy.S(first_factor), sympy.S(second_factor)
         result = self._function
@@ -456,7 +515,8 @@ class GeneratingFunction(Distribution):
 
         # we multiply two literals / parameters
         else:
-            result = result.subs(update_var, 1) * (update_var**(prod_1 * prod_2))
+            result = result.subs(update_var, 1) * (update_var
+                                                   **(prod_1 * prod_2))
 
         return GeneratingFunction(result,
                                   *self._variables,
@@ -476,7 +536,6 @@ class GeneratingFunction(Distribution):
         else:
             return self.copy()
 
-    # TODO how to handle reals here?
     def _update_sum(self, temp_var: str, first_summand: str | int,
                     second_summand: str | int) -> GeneratingFunction:
         update_var = sympy.S(temp_var)

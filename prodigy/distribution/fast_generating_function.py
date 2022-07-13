@@ -5,7 +5,8 @@ from typing import Generator, Iterator, Set, Tuple, Union, get_args
 import pygin  # type: ignore
 from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, DistrExpr,
                            DUniformExpr, Expr, GeometricExpr, IidSampleExpr,
-                           PoissonExpr, Unop, UnopExpr, VarExpr, walk_expr, Walk)
+                           PoissonExpr, Unop, UnopExpr, VarExpr, Walk,
+                           walk_expr)
 from probably.pgcl.parser import parse_expr
 from probably.util.ref import Mut
 
@@ -20,7 +21,6 @@ class FPS(Distribution):
     These formal powerseries are itself provided by `prodigy` a python binding to GiNaC,
     something similar to a computer algebra system implemented in C++.
     """
-
     def __init__(self, expression: str, *variables: str | VarExpr):
         self._variables = set(str(var) for var in variables)
         self._parameters = set()
@@ -68,7 +68,8 @@ class FPS(Distribution):
                                  self._parameters | other._parameters)
         else:
             raise NotImplementedError(
-                f"Multiplication of {type(self._dist)} and {type(other)} not supported.")
+                f"Multiplication of {type(self._dist)} and {type(other)} not supported."
+            )
 
     def __truediv__(self, other) -> FPS:
         if isinstance(other, (str, FPS)):
