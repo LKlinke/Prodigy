@@ -42,7 +42,7 @@ class FPS(Distribution):
 
     def __add__(self, other) -> FPS:
         if isinstance(other, (str, int)):
-            return FPS.from_dist(self._dist + str(other), self._variables, self._parameters)
+            return FPS.from_dist(self._dist + pygin.Dist(other), self._variables, self._parameters)
         elif isinstance(other, FPS):
             return FPS.from_dist(self._dist + other._dist, self._variables | other._variables,
                                  self._parameters | other._parameters)
@@ -52,7 +52,7 @@ class FPS(Distribution):
 
     def __sub__(self, other) -> FPS:
         if isinstance(other, (str, int)):
-            return FPS.from_dist(self._dist - str(other), self._variables, self._parameters)
+            return FPS.from_dist(self._dist - pygin.Dist(str(other)), self._variables, self._parameters)
         elif isinstance(other, FPS):
             return FPS.from_dist(self._dist - other._dist, self._variables | other._variables,
                                  self._parameters | other._parameters)
@@ -62,7 +62,7 @@ class FPS(Distribution):
 
     def __mul__(self, other) -> FPS:
         if isinstance(other, (str, int)):
-            return FPS.from_dist(self._dist * str(other), self._variables, self._parameters)
+            return FPS.from_dist(self._dist * pygin.Dist(str(other)), self._variables, self._parameters)
         elif isinstance(other, FPS):
             return FPS.from_dist(self._dist * other._dist, self._variables | other._variables,
                                  self._parameters | other._parameters)
@@ -72,7 +72,8 @@ class FPS(Distribution):
 
     def __truediv__(self, other) -> FPS:
         if isinstance(other, (str, FPS)):
-            return FPS.from_dist(self._dist * f"1/{str(other)}", self._variables, self._parameters)
+            return FPS.from_dist(self._dist * f"1/{str(other)}", self._variables | other._variables,
+                                 self._parameters | other._parameters)
         raise NotImplementedError(
             f"Division of {type(self._dist)} and {type(other)} not supported.")
 
@@ -280,28 +281,28 @@ class ProdigyPGF(CommonDistributionsFactory):
     def uniform(var: Union[str, VarExpr], lower: DistributionParam,
                 upper: DistributionParam) -> FPS:
         function = f"1/({upper} - {lower} + 1) * ({var}^{lower}) * (({var}^({upper} - {lower} + 1) - 1)/({var} - 1))"
-        return FPS(function)
+        return FPS(function, str(var))
 
     @staticmethod
     def bernoulli(var: Union[str, VarExpr], p: DistributionParam) -> FPS:
         function = f"({p}) * {var} + 1-({p})"
-        return FPS(function, var)
+        return FPS(function, str(var))
 
     @staticmethod
     def poisson(var: Union[str, VarExpr], lam: DistributionParam) -> FPS:
         function = f"exp(({lam}) * ({var} - 1))"
-        return FPS(function, var)
+        return FPS(function, str(var))
 
     @staticmethod
     def log(var: Union[str, VarExpr], p: DistributionParam) -> FPS:
         function = f"log(1-({p})*{var})/log(1-({p}))"
-        return FPS(function, var)
+        return FPS(function, str(var))
 
     @staticmethod
     def binomial(var: Union[str, VarExpr], n: DistributionParam,
                  p: DistributionParam) -> FPS:
         function = f"(({p})*{var} + (1-({p})))^({n})"
-        return FPS(function, var)
+        return FPS(function, str(var))
 
     @staticmethod
     def undefined(*variables: Union[str, VarExpr]) -> FPS:

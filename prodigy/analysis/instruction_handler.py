@@ -45,7 +45,7 @@ def compute_discrete_distribution(
 
     dist, error_prob = SequenceHandler.compute(prog.instructions, initial_dist,
                                                error_prob, config)
-    return condition_distribution(dist, error_prob, config) if not error_prob == "0" else dist
+    return condition_distribution(dist, error_prob, config)
 
 
 def condition_distribution(dist: Distribution, error_prob: Distribution,
