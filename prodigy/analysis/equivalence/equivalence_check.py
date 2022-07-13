@@ -50,7 +50,8 @@ def generate_equivalence_test_distribution(
     dist = config.factory.one()
     for i, variable in enumerate(program.variables):
         dist *= config.factory.from_expr(f"1/(1-p{i}*{variable})",
-                                         VarExpr(var=f"p{i}"))
+                                         VarExpr(var=f"p{i}"),
+                                         VarExpr(var=variable))
     return dist.set_variables(*program.variables.keys()).set_parameters()
 
 

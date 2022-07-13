@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import Generator, Iterator, Set, Tuple, Union, get_args
 
-import probably.util.ref
 import pygin  # type: ignore
 from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, DistrExpr,
                            DUniformExpr, Expr, GeometricExpr, IidSampleExpr,
                            PoissonExpr, Unop, UnopExpr, VarExpr, Walk,
                            walk_expr)
 from probably.pgcl.parser import parse_expr
+from probably.util.ref import Mut
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
@@ -24,43 +24,48 @@ class FPS(Distribution):
     def __init__(self, expression: str, *variables: str | VarExpr):
         self._variables = set(str(var) for var in variables)
         self._parameters = set()
-        parsed_expression = parse_expr(expression)
+        parsed_expression = parse_expr(str(expression))
 
-        for expr in walk_expr(Walk.DOWN,
-                              probably.util.ref.Mut.alloc(parsed_expression)):
-            if isinstance(expr, VarExpr):
-                self._parameters |= expr.var if expr.var not in self._variables else {}
-            self._dist = pygin.Dist(expression, list(self._parameters))
+        for expr in walk_expr(Walk.DOWN, Mut.alloc(parsed_expression)):
+            if isinstance(expr.val, VarExpr):
+                if expr.val.var not in self._variables:
+                    self._parameters.add(expr.val.var)
+        self._dist = pygin.Dist(expression, list(self._parameters))
 
     @classmethod
-    def from_dist(cls, dist: pygin.Dist) -> FPS:
-        result = FPS("0")
-        result.dist = dist
+    def from_dist(cls, dist: pygin.Dist, variables: Set[str], parameters: Set[str]):
+        result = cls("0")
+        result._dist = dist
+        result._variables = variables
+        result._parameters = parameters
         return result
 
     def __add__(self, other) -> FPS:
-        if isinstance(other, str):
-            return FPS.from_dist(self._dist + other)
+        if isinstance(other, (str, int)):
+            return FPS.from_dist(self._dist + str(other), self._variables, self._parameters)
         elif isinstance(other, FPS):
-            return FPS.from_dist(self._dist + other._dist)
+            return FPS.from_dist(self._dist + other._dist, self._variables | other._variables,
+                                 self._parameters | other._parameters)
         else:
             raise NotImplementedError(
                 f"Addition of {self._dist} and {other} not supported.")
 
     def __sub__(self, other) -> FPS:
-        if isinstance(other, str):
-            return FPS.from_dist(self._dist - other)
+        if isinstance(other, (str, int)):
+            return FPS.from_dist(self._dist - str(other), self._variables, self._parameters)
         elif isinstance(other, FPS):
-            return FPS.from_dist(self._dist - other._dist)
+            return FPS.from_dist(self._dist - other._dist, self._variables | other._variables,
+                                 self._parameters | other._parameters)
         else:
             raise NotImplementedError(
                 f"Subtraction of {self._dist} and {other} not supported.")
 
     def __mul__(self, other) -> FPS:
         if isinstance(other, (str, int)):
-            return FPS.from_dist(self._dist * str(other))
+            return FPS.from_dist(self._dist * str(other), self._variables, self._parameters)
         elif isinstance(other, FPS):
-            return FPS.from_dist(self._dist * other._dist)
+            return FPS.from_dist(self._dist * other._dist, self._variables | other._variables,
+                                 self._parameters | other._parameters)
         else:
             raise NotImplementedError(
                 f"Multiplication of {type(self._dist)} and {type(other)} not supported."
@@ -68,7 +73,7 @@ class FPS(Distribution):
 
     def __truediv__(self, other) -> FPS:
         if isinstance(other, (str, FPS)):
-            return FPS.from_dist(self._dist * f"1/{str(other)}")
+            return FPS.from_dist(self._dist * f"1/{str(other)}", self._variables, self._parameters)
         raise NotImplementedError(
             f"Division of {type(self._dist)} and {type(other)} not supported.")
 
@@ -97,7 +102,7 @@ class FPS(Distribution):
         raise NotImplementedError(__name__)
 
     def copy(self, deep: bool = True) -> Distribution:
-        return FPS.from_dist(self._dist)
+        return FPS(self._dist, *self._variables)
 
     def get_probability_of(self, condition: Union[Expr, str]):
         raise NotImplementedError(__name__)
@@ -109,7 +114,7 @@ class FPS(Distribution):
         return self._dist.E(str(expression))
 
     def normalize(self) -> FPS:
-        return FPS.from_dist(self._dist.normalize())
+        return FPS(self._dist.normalize(), *self._variables)
 
     def get_variables(self) -> Set[str]:
         return self._variables
@@ -145,23 +150,28 @@ class FPS(Distribution):
                 if condition.operator == Binop.EQ:
                     return FPS.from_dist(
                         self._dist.filterEq(str(condition.lhs),
-                                            str(condition.rhs)))
+                                            str(condition.rhs)),
+                        self._variables, self._parameters)
                 elif condition.operator == Binop.LT:
                     return FPS.from_dist(
                         self._dist.filterLess(str(condition.lhs),
-                                              str(condition.rhs)))
+                                              str(condition.rhs)),
+                        self._variables, self._parameters)
                 elif condition.operator == Binop.LEQ:
                     return FPS.from_dist(
                         self._dist.filterLeq(str(condition.lhs),
-                                             str(condition.rhs)))
+                                             str(condition.rhs)),
+                        self._variables, self._parameters)
                 elif condition.operator == Binop.GT:
                     return FPS.from_dist(
                         self._dist.filterGreater(str(condition.lhs),
-                                                 str(condition.rhs)))
+                                                 str(condition.rhs)),
+                        self._variables, self._parameters)
                 elif condition.operator == Binop.GEQ:
                     return FPS.from_dist(
                         self._dist.filterGeq(str(condition.lhs),
-                                             str(condition.rhs)))
+                                             str(condition.rhs)),
+                        self._variables, self._parameters)
         if isinstance(condition, UnopExpr):
             # unary relation
             if condition.operator == Unop.NEG:
@@ -181,7 +191,8 @@ class FPS(Distribution):
 
     def update(self, expression: Expr) -> FPS:
         return FPS.from_dist(
-            self._dist.update(str(expression.lhs), str(expression.rhs)))
+            self._dist.update(str(expression.lhs), str(expression.rhs)),
+            self._variables, self._parameters)
 
     def update_iid(self, sampling_exp: IidSampleExpr,
                    variable: Union[str, VarExpr]) -> FPS:
@@ -191,21 +202,21 @@ class FPS(Distribution):
             result = self._dist.updateIid(
                 str(variable), pygin.geometric("test", str(sample_dist.param)),
                 str(sampling_exp.variable))
-            return FPS.from_dist(result)
+            return FPS.from_dist(result, self._variables, self._parameters)
         if isinstance(sample_dist, BernoulliExpr):
             result = self._dist.updateIid(
                 str(variable),
                 pygin.Dist(
                     f"{sample_dist.param} * test + (1-{sample_dist.param})"),
                 str(sampling_exp.variable))
-            return FPS.from_dist(result)
+            return FPS.from_dist(result, self._variables, self._parameters)
 
         elif isinstance(sample_dist, PoissonExpr):
             result = self._dist.updateIid(
                 str(variable),
                 pygin.Dist(f"exp({sample_dist.param} * (test - 1))"),
                 str(sampling_exp.variable))
-            return FPS.from_dist(result)
+            return FPS.from_dist(result, self._variables, self._parameters)
 
         elif isinstance(sample_dist, DUniformExpr):
             result = self._dist.updateIid(
@@ -214,14 +225,15 @@ class FPS(Distribution):
                     f"1/(({sample_dist.end}) - ({sample_dist.start}) + 1) * test^({sample_dist.start}) "
                     f"* (test^(({sample_dist.end}) - ({sample_dist.start}) + 1) - 1) / (test - 1)"
                 ), str(sampling_exp.variable))
-            return FPS.from_dist(result)
+            return FPS.from_dist(result, self._variables, self._parameters)
 
         elif isinstance(sample_dist, get_args(Expr)) and not isinstance(
                 sample_dist, get_args(DistrExpr)):
             result = FPS.from_dist(
                 self._dist.updateIid(str(variable),
                                      pygin.Dist(str(sample_dist)),
-                                     str(sampling_exp.variable)))
+                                     str(sampling_exp.variable)),
+                self._variables, self._parameters)
             return result
         else:
             raise NotImplementedError(
@@ -230,28 +242,29 @@ class FPS(Distribution):
     def marginal(self,
                  *variables: Union[str, VarExpr],
                  method: MarginalType = MarginalType.INCLUDE) -> Distribution:
-        # TODO: Make this work with an arbitrary number of variables to marginalize. <-- Is this still a point?
-        if len(variables) > 1:
-            raise NotImplementedError(__name__)
-        if method == MarginalType.EXCLUDE:
-            result = self._dist
-            for var in variables:
-                result = result.update(str(var), "0")
-            return FPS.from_dist(result)
-        if method == MarginalType.INCLUDE:
-            for var in variables:
-                return FPS.from_dist(self._dist.marginal(str(var)))
-        raise AttributeError(
-            f"`method`-argument can only be of type {type(MarginalType)} -- was {type(method)}"
-        )
+        result = self._dist
+        remove_vars = {MarginalType.EXCLUDE: {str(var) for var in variables},
+                       MarginalType.INCLUDE: self._variables - {str(var) for var in variables}
+                       }
+        for var in remove_vars[method]:
+            result = result.update(str(var), "0")
+        return FPS.from_dist(result, self._variables - remove_vars[method], self._parameters)
 
     def set_variables(self, *variables: str) -> FPS:
-        return FPS(str(self._dist), *variables)
+        new_variables = set(variables)
+        if new_variables.intersection(self._parameters):
+            raise ValueError(f"Indeterminate(s) {new_variables.intersection(self._parameters)} cannot be parameters and"
+                             f" variables at the same time.")
+        self._parameters |= self._variables - new_variables
+        return FPS.from_dist(self._dist, new_variables, self._parameters)
 
     def set_parameters(self, *parameters: str) -> FPS:
-        result = FPS(str(self._dist), *self._variables)
-        result._parameters = {str(param) for param in parameters}
-        return result
+        new_parameters = set(parameters)
+        if new_parameters.intersection(self._variables):
+            raise ValueError(f"Indeterminate(s) {new_parameters.intersection(self._variables)} cannot be parameters and"
+                             f" variables at the same time.")
+        self._variables |= self._parameters - new_parameters
+        return FPS.from_dist(self._dist, self._variables, new_parameters)
 
     def approximate(
             self,
@@ -262,7 +275,7 @@ class FPS(Distribution):
 class ProdigyPGF(CommonDistributionsFactory):
     @staticmethod
     def geometric(var: Union[str, VarExpr], p: DistributionParam) -> FPS:
-        return FPS(str(pygin.geometric(var, str(p))))
+        return FPS.from_dist(pygin.geometric(var, str(p)), {str(var)}, {str(p)})
 
     @staticmethod
     def uniform(var: Union[str, VarExpr], lower: DistributionParam,
