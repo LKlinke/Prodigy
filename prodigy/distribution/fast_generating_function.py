@@ -6,7 +6,8 @@ import probably.util.ref
 import pygin  # type: ignore
 from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, DistrExpr,
                            DUniformExpr, Expr, GeometricExpr, IidSampleExpr,
-                           PoissonExpr, Unop, UnopExpr, VarExpr, walk_expr, Walk)
+                           PoissonExpr, Unop, UnopExpr, VarExpr, Walk,
+                           walk_expr)
 from probably.pgcl.parser import parse_expr
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
@@ -20,13 +21,13 @@ class FPS(Distribution):
     These formal powerseries are itself provided by `prodigy` a python binding to GiNaC,
     something similar to a computer algebra system implemented in C++.
     """
-
     def __init__(self, expression: str, *variables: str | VarExpr):
         self._variables = set(str(var) for var in variables)
         self._parameters = set()
         parsed_expression = parse_expr(expression)
 
-        for expr in walk_expr(Walk.DOWN, probably.util.ref.Mut.alloc(parsed_expression)):
+        for expr in walk_expr(Walk.DOWN,
+                              probably.util.ref.Mut.alloc(parsed_expression)):
             if isinstance(expr, VarExpr):
                 self._parameters |= expr.var if expr.var not in self._variables else {}
             self._dist = pygin.Dist(expression, list(self._parameters))
@@ -62,7 +63,8 @@ class FPS(Distribution):
             return FPS.from_dist(self._dist * other._dist)
         else:
             raise NotImplementedError(
-                f"Multiplication of {type(self._dist)} and {type(other)} not supported.")
+                f"Multiplication of {type(self._dist)} and {type(other)} not supported."
+            )
 
     def __truediv__(self, other) -> FPS:
         if isinstance(other, (str, FPS)):
