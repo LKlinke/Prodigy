@@ -287,9 +287,3 @@ def test_split_addend():
         monomial *= sympy.S("x" + str(i))**values[i]
     addend = probability * monomial
     assert GeneratingFunction._split_addend(addend) == (probability, monomial)
-
-
-def test_linear_transformation():
-    gf = GeneratingFunction("1/2*x*c + 1/4 * x**2 + 1/4")
-    gf = gf.linear_transformation("x", "4 * x + 7*c + 2")
-    assert gf == GeneratingFunction("1/2*x**13*c + 1/4 * x**10 + 1/4*x**2")
