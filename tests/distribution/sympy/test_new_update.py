@@ -6,6 +6,11 @@ from prodigy.distribution.generating_function import (GeneratingFunction,
                                                       SympyPGF)
 
 
+def test_literal_assignment():
+    gf = GeneratingFunction("1", "x")
+    assert gf.update(parse_expr("x = 1")) == GeneratingFunction("x")
+
+
 def test_addition():
     gf = GeneratingFunction("x^3")
     assert gf.update(parse_expr("x = 3 + 5 + 8")) == GeneratingFunction("x^16")
@@ -58,4 +63,4 @@ def test_subtraction():
         gf.update(parse_expr("m = n - l"))
     assert "Cannot assign '" in str(e) and "because it can be negative" in str(
         e)
-    #TODO test negative value detection for parameters (see TODO in generating_function.py)
+    # TODO test negative value detection for parameters (see TODO in generating_function.py)
