@@ -25,12 +25,12 @@ def test_context_injection():
 
 def test_iid_predefined_distributions():
     distributions = {
-        "geometric(p)": SympyPGF.geometric("x", "p"),
+        "geometric(p)": SympyPGF.geometric("x", "p").set_parameters("p", "n"),
         "binomial(n,p)": SympyPGF.binomial("x", "n", "p"),
-        "poisson(n)": SympyPGF.poisson("x", "n"),
-        "bernoulli(p)": SympyPGF.bernoulli("x", "p"),
-        "unif(n, n+10)": SympyPGF.uniform("x", "n", "n+10"),
-        "logdist(p)": SympyPGF.log("x", "p")
+        "poisson(n)": SympyPGF.poisson("x", "n").set_parameters("p", "n"),
+        "bernoulli(p)": SympyPGF.bernoulli("x", "p").set_parameters("p", "n"),
+        "unif(n, n+10)": SympyPGF.uniform("x", "n", "n+10").set_parameters("p", "n"),
+        "logdist(p)": SympyPGF.log("x", "p").set_parameters("p", "n")
     }
 
     for distribution in distributions.keys():
@@ -39,10 +39,9 @@ def test_iid_predefined_distributions():
                     nat x;
                     nparam n;
                     rparam p;
-    
-                    x := 1
+                    
                     x := iid(%s, x);
-                """ % distribution), GF("1"),
+                """ % distribution), GF("x"),
             prodigy.analysis.ForwardAnalysisConfig())
         assert result == distributions[distribution]
 

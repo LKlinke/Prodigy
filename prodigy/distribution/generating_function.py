@@ -10,7 +10,7 @@ import sympy
 from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, BoolLitExpr,
                            DistrExpr, DUniformExpr, Expr, GeometricExpr,
                            IidSampleExpr, NatLitExpr, PoissonExpr, RealLitExpr,
-                           Unop, UnopExpr, VarExpr, Walk, walk_expr)
+                           Unop, UnopExpr, VarExpr, Walk, walk_expr, BinomialExpr, LogDistExpr)
 from probably.pgcl.parser import parse_expr
 from probably.util.ref import Mut
 from sympy.assumptions.assume import global_assumptions
@@ -582,38 +582,13 @@ class GeneratingFunction(Distribution):
         assert isinstance(sampling_exp,
                           IidSampleExpr), "Not an IidSamplingExpression."
 
-        subst_var = sampling_exp.variable
+        subst_var = sampling_exp.variable.var
         sampling_dist = sampling_exp.sampling_dist
 
-        if isinstance(sampling_dist, GeometricExpr):
-            dist_gf = sympy.S(
-                f"({sampling_dist.param}) / (1 - (1-({sampling_dist.param})) * {variable})"
-            )
-            result = self.marginal(variable, method=MarginalType.EXCLUDE)
+        def subs(dist_gf, subst_var, variable):
+            result = self.marginal(variable, method=MarginalType.EXCLUDE) if subst_var != variable else self
             result._function = result._function.subs(
-                str(subst_var), f"{subst_var} * {dist_gf}")
-            return result
-        if isinstance(sampling_dist, BernoulliExpr):
-            dist_gf = sympy.S(
-                f"{sampling_dist.param} * {variable} + (1 - ({sampling_dist.param}))"
-            )
-            result = self.marginal(variable, method=MarginalType.EXCLUDE)
-            result._function = result._function.subs(
-                str(subst_var), f"{subst_var} * ({dist_gf})")
-            return result
-        if isinstance(sampling_dist, PoissonExpr):
-            dist_gf = sympy.S(f"exp({sampling_dist.param} * ({variable} - 1))")
-            result = self.marginal(variable, method=MarginalType.EXCLUDE)
-            result._function = result._function.subs(
-                str(subst_var), f"{subst_var} * ({dist_gf})")
-            return result
-        if isinstance(sampling_dist, DUniformExpr):
-            dist_gf = sympy.S(
-                f"1/(({sampling_dist.end}) - ({sampling_dist.start}) + 1) * {variable}**({sampling_dist.start}) * ({variable}**(({sampling_dist.end}) - ({sampling_dist.start}) + 1) - 1) / ({variable} - 1)"
-            )
-            result = self.marginal(variable, method=MarginalType.EXCLUDE)
-            result._function = result._function.subs(
-                str(subst_var), f"{subst_var} * ({dist_gf})")
+                subst_var, f"{subst_var + '*' if subst_var != variable else ''}{dist_gf}")
             return result
 
         if not isinstance(sampling_dist, get_args(DistrExpr)) and isinstance(
@@ -624,10 +599,36 @@ class GeneratingFunction(Distribution):
                 if isinstance(ref.val, VarExpr):
                     ref.val.var = variable
             dist_gf = sympy.S(str(expr.val))
-            result = self.marginal(variable, method=MarginalType.EXCLUDE)
-            result._function = result._function.subs(
-                str(subst_var), f"{subst_var} * {dist_gf}")
-            return result
+            return subs(dist_gf, subst_var, variable)
+
+        if isinstance(sampling_dist, GeometricExpr):
+            dist_gf = sympy.S(
+                f"({sampling_dist.param}) / (1 - (1-({sampling_dist.param})) * {variable})"
+            )
+            return subs(dist_gf, subst_var, variable)
+        if isinstance(sampling_dist, BinomialExpr):
+            dist_gf = sympy.S(
+                f"(1-({sampling_dist.p})+({sampling_dist.p})*{variable})**({sampling_dist.n})"
+            )
+            return subs(dist_gf, subst_var, variable)
+        if isinstance(sampling_dist, LogDistExpr):
+            dist_gf = sympy.S(
+                f"log(1-({sampling_dist.param})*{variable})/log(1-({sampling_dist.param}))"
+            )
+            return subs(dist_gf, subst_var, variable)
+        if isinstance(sampling_dist, BernoulliExpr):
+            dist_gf = sympy.S(
+                f"{sampling_dist.param} * {variable} + (1 - ({sampling_dist.param}))"
+            )
+            return subs(dist_gf, subst_var, variable)
+        if isinstance(sampling_dist, PoissonExpr):
+            dist_gf = sympy.S(f"exp({sampling_dist.param} * ({variable} - 1))")
+            return subs(dist_gf, subst_var, variable)
+        if isinstance(sampling_dist, DUniformExpr):
+            dist_gf = sympy.S(
+                f"1/(({sampling_dist.end}) - ({sampling_dist.start}) + 1) * {variable}**({sampling_dist.start}) * ({variable}**(({sampling_dist.end}) - ({sampling_dist.start}) + 1) - 1) / ({variable} - 1)"
+            )
+            return subs(dist_gf, subst_var, variable)
 
         raise NotImplementedError(
             "Currently only geometric expressions are supported.")
