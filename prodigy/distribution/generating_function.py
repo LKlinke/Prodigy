@@ -1118,7 +1118,7 @@ class SympyPGF(CommonDistributionsFactory):
     """Implements PGFs of standard distributions."""
     @staticmethod
     def geometric(var: Union[str, VarExpr],
-                  p: DistributionParam) -> Distribution:
+                  p: DistributionParam) -> GeneratingFunction:
         if not isinstance(p, get_args(Expr)):
             expr = parse_expr(str(p))
         else:
@@ -1133,7 +1133,7 @@ class SympyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def uniform(var: Union[str, VarExpr], lower: DistributionParam,
-                upper: DistributionParam) -> Distribution:
+                upper: DistributionParam) -> GeneratingFunction:
         if not isinstance(lower, get_args(Expr)):
             expr_l = parse_expr(str(lower))
         else:
@@ -1156,7 +1156,7 @@ class SympyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def bernoulli(var: Union[str, VarExpr],
-                  p: DistributionParam) -> Distribution:
+                  p: DistributionParam) -> GeneratingFunction:
         if not isinstance(p, get_args(Expr)):
             expr = parse_expr(str(p))
         else:
@@ -1172,7 +1172,7 @@ class SympyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def poisson(var: Union[str, VarExpr],
-                lam: DistributionParam) -> Distribution:
+                lam: DistributionParam) -> GeneratingFunction:
         if not isinstance(lam, get_args(Expr)):
             expr = parse_expr(str(lam))
         else:
@@ -1187,7 +1187,7 @@ class SympyPGF(CommonDistributionsFactory):
                                   finite=False)
 
     @staticmethod
-    def log(var: Union[str, VarExpr], p: DistributionParam) -> Distribution:
+    def log(var: Union[str, VarExpr], p: DistributionParam) -> GeneratingFunction:
         if not isinstance(p, get_args(Expr)):
             expr = parse_expr(str(p))
         else:
@@ -1203,7 +1203,7 @@ class SympyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def binomial(var: Union[str, VarExpr], n: DistributionParam,
-                 p: DistributionParam) -> Distribution:
+                 p: DistributionParam) -> GeneratingFunction:
         if not isinstance(p, get_args(Expr)):
             expr_p = parse_expr(str(p))
         else:
@@ -1226,7 +1226,7 @@ class SympyPGF(CommonDistributionsFactory):
                                   finite=True)
 
     @staticmethod
-    def zero(*variables: Union[str, sympy.Symbol]):
+    def zero(*variables: Union[str, sympy.Symbol]) -> GeneratingFunction:
         if variables:
             return GeneratingFunction("0",
                                       *variables,
@@ -1236,7 +1236,7 @@ class SympyPGF(CommonDistributionsFactory):
         return GeneratingFunction("0", preciseness=1, closed=True, finite=True)
 
     @staticmethod
-    def undefined(*variables: Union[str, VarExpr]) -> Distribution:
+    def undefined(*variables: Union[str, VarExpr]) -> GeneratingFunction:
         """ A distribution where actually no information about the states is given."""
         raise NotImplementedError(
             "Currently this is unclear how to represent this.")
