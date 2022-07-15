@@ -16,7 +16,7 @@ def test_literal_assignment():
 
 def test_addition():
     gf = GeneratingFunction("x^3")
-    assert gf.update(parse_expr("x = 3 + 5 + 8")) == GeneratingFunction("x^16")
+    assert gf.update(parse_expr("x = 3 + 4 + 8")) == GeneratingFunction("x^15")
     assert gf.update(parse_expr("x = x + x")) == GeneratingFunction("x^6")
 
     gf: GeneratingFunction = SympyPGF.poisson('x', 16)
@@ -86,3 +86,11 @@ def test_subtraction():
         gf.update(parse_expr("x = x - 2"))
     assert "Cannot assign '" in str(e) and "because it can be negative" in str(
         e)
+
+
+def test_fresh_variables():
+    gf = GeneratingFunction('x*xl')
+    assert gf.update(parse_expr('x = 2*3')) == GeneratingFunction('x^6*xl')
+
+    gf = GeneratingFunction('x*_0')
+    assert gf.update(parse_expr('x = 2*3')) == GeneratingFunction('x^6*_0')

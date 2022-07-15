@@ -386,12 +386,12 @@ class GeneratingFunction(Distribution):
                      temp_var: str) -> Tuple[GeneratingFunction, str]:
             # TODO handle reals in every case
             if isinstance(expression, BinopExpr):
-                f = function.set_variables(
-                    *(function.get_variables()
-                      | {f"{temp_var}l", f"{temp_var}r"}))
-                # TODO make sure that these are always new variables, and legal ones ('or' is illegal for example)
-                f, t_1 = evaluate(f, expression.lhs, temp_var + "l")
-                f, t_2 = evaluate(f, expression.rhs, temp_var + "r")
+                xl = function._get_fresh_variable()
+                xr = function._get_fresh_variable({xl})
+                f = function.set_variables(*(function.get_variables()
+                                             | {xl, xr}))
+                f, t_1 = evaluate(f, expression.lhs, xl)
+                f, t_2 = evaluate(f, expression.rhs, xr)
                 if expression.operator == Binop.PLUS:
                     f = f._update_sum(temp_var, t_1, t_2)
                 elif expression.operator == Binop.TIMES:
@@ -403,9 +403,7 @@ class GeneratingFunction(Distribution):
                     raise ValueError(
                         f"Unsupported binary operator: {expression.operator}")
 
-                f = f.marginal(f"{temp_var}l",
-                               f"{temp_var}r",
-                               method=MarginalType.EXCLUDE)
+                f = f.marginal(xl, xr, method=MarginalType.EXCLUDE)
                 return f, temp_var
 
             if isinstance(expression, VarExpr):
@@ -428,6 +426,17 @@ class GeneratingFunction(Distribution):
         else:
             result, _ = evaluate(self, expression.rhs, variable)
         return result
+
+    def _get_fresh_variable(self, exclude: Set[str] = set()) -> str:
+        """
+        Returns a str that is the name of neither an existing variable nor an existing 
+        parameter of this GF nor contained in the `exclude` parameter.
+        """
+        i = 0
+        while sympy.S(f'_{i}') in (self._variables
+                                   | self._parameters) or f'_{i}' in exclude:
+            i += 1
+        return f'_{i}'
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> GeneratingFunction:
