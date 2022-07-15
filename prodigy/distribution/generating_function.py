@@ -3,14 +3,16 @@ from __future__ import annotations
 
 import functools
 import operator
+from ast import expr
 from typing import (Callable, Generator, Iterator, List, Optional, Set, Tuple,
                     Union, get_args)
 
 import sympy
-from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, BoolLitExpr,
-                           DistrExpr, DUniformExpr, Expr, GeometricExpr,
-                           IidSampleExpr, NatLitExpr, PoissonExpr, RealLitExpr,
-                           Unop, UnopExpr, VarExpr, Walk, walk_expr, BinomialExpr, LogDistExpr)
+from probably.pgcl import (BernoulliExpr, BinomialExpr, Binop, BinopExpr,
+                           BoolLitExpr, DistrExpr, DUniformExpr, Expr,
+                           GeometricExpr, IidSampleExpr, LogDistExpr,
+                           NatLitExpr, PoissonExpr, RealLitExpr, Unop,
+                           UnopExpr, VarExpr, Walk, walk_expr)
 from probably.pgcl.parser import parse_expr
 from probably.util.ref import Mut
 from sympy.assumptions.assume import global_assumptions
@@ -418,7 +420,14 @@ class GeneratingFunction(Distribution):
                 raise ValueError(
                     f"Unsupported type of subexpression: {expression}")
 
-        result, _ = evaluate(self, expression.rhs, variable)
+        if isinstance(expression.rhs, NatLitExpr):
+            result = GeneratingFunction(
+                self._function.subs(sympy.S(variable), 1) *
+                sympy.S(variable)**expression.rhs.value,
+                *self._variables,
+                preciseness=self._preciseness)
+        else:
+            result, _ = evaluate(self, expression.rhs, variable)
         return result
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
@@ -586,9 +595,12 @@ class GeneratingFunction(Distribution):
         sampling_dist = sampling_exp.sampling_dist
 
         def subs(dist_gf, subst_var, variable):
-            result = self.marginal(variable, method=MarginalType.EXCLUDE) if subst_var != variable else self
+            result = self.marginal(
+                variable,
+                method=MarginalType.EXCLUDE) if subst_var != variable else self
             result._function = result._function.subs(
-                subst_var, f"{subst_var + '*' if subst_var != variable else ''}{dist_gf}")
+                subst_var,
+                f"{subst_var + '*' if subst_var != variable else ''}{dist_gf}")
             return result
 
         if not isinstance(sampling_dist, get_args(DistrExpr)) and isinstance(

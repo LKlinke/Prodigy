@@ -24,7 +24,7 @@ def create_random_gf(number_of_variables: int = 1, terms: int = 1):
     for i in range(terms):
         monomial = sympy.S(1)
         for var in symbols:
-            monomial *= var ** values[i]
+            monomial *= var**values[i]
         result += monomial * coeffs[i]
     return GeneratingFunction(result, *symbols)
 
@@ -286,6 +286,6 @@ def test_split_addend():
     values = [random.randint(1, 5000) for _ in range(number_of_vars)]
     monomial = sympy.S(1)
     for i in range(number_of_vars):
-        monomial *= sympy.S("x" + str(i)) ** values[i]
+        monomial *= sympy.S("x" + str(i))**values[i]
     addend = probability * monomial
     assert GeneratingFunction._split_addend(addend) == (probability, monomial)

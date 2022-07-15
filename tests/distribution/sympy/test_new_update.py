@@ -10,6 +10,9 @@ def test_literal_assignment():
     gf = GeneratingFunction("1", "x")
     assert gf.update(parse_expr("x = 1")) == GeneratingFunction("x")
 
+    gf = SympyPGF.poisson('x', 30)
+    assert gf.update(parse_expr("x = 1")) == GeneratingFunction("x")
+
 
 def test_addition():
     gf = GeneratingFunction("x^3")
@@ -33,6 +36,9 @@ def test_var_assignment():
                                                          1) == sympy.S("n^42")
     assert gf.update(parse_expr("n = n"))._function.subs(sympy.S("m"),
                                                          1) == sympy.S("n^5")
+
+    gf = GeneratingFunction('x^8', 'x', 'y')
+    assert gf.update(parse_expr('y = x')) == GeneratingFunction('y^8 * x^8')
 
 
 def test_multiplication():

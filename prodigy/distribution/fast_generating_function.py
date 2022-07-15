@@ -256,8 +256,8 @@ class FPS(Distribution):
             MarginalType.EXCLUDE: {str(var)
                                    for var in variables},
             MarginalType.INCLUDE:
-                self._variables - {str(var)
-                                   for var in variables}
+            self._variables - {str(var)
+                               for var in variables}
         }
         for var in remove_vars[method]:
             result = result.update(str(var), "0")
