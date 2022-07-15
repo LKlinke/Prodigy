@@ -735,11 +735,14 @@ class GeneratingFunction(Distribution):
 
             # update the occuring variables and parameters
             variables = self._variables.union(other._variables)
-            return GeneratingFunction(function,
-                                      *variables,
-                                      preciseness=preciseness,
-                                      closed=is_closed_form,
-                                      finite=is_finite)
+            parameters = self._parameters.union(other._parameters)
+            result = GeneratingFunction(function,
+                                        *variables,
+                                        preciseness=preciseness,
+                                        closed=is_closed_form,
+                                        finite=is_finite)
+            result._parameters = parameters
+            return result
 
         # other object is either an expression, or literal
         elif isinstance(other, (str, float, int)):
@@ -1187,7 +1190,8 @@ class SympyPGF(CommonDistributionsFactory):
                                   finite=False)
 
     @staticmethod
-    def log(var: Union[str, VarExpr], p: DistributionParam) -> GeneratingFunction:
+    def log(var: Union[str, VarExpr],
+            p: DistributionParam) -> GeneratingFunction:
         if not isinstance(p, get_args(Expr)):
             expr = parse_expr(str(p))
         else:
