@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import functools
 import operator
-from ast import expr
 from typing import (Callable, Generator, Iterator, List, Optional, Set, Tuple,
                     Union, get_args)
 
@@ -481,8 +480,8 @@ class GeneratingFunction(Distribution):
         gf = GeneratingFunction(result,
                                 *self._variables,
                                 preciseness=self._preciseness)
-        if gf.marginal(temp_var)._function.subs(temp_var, 0) == sympy.S('zoo'):
-            # TODO does this check work if there are parameters?
+        if gf.marginal(temp_var)._function.subs(temp_var,
+                                                0).has(sympy.S('zoo')):
             raise ValueError(
                 f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it can be negative"
             )

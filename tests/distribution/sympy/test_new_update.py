@@ -69,4 +69,20 @@ def test_subtraction():
         gf.update(parse_expr("m = n - l"))
     assert "Cannot assign '" in str(e) and "because it can be negative" in str(
         e)
-    # TODO test negative value detection for parameters (see TODO in generating_function.py)
+
+    gf = GeneratingFunction('p*x', 'x')
+    with raises(ValueError) as e:
+        gf.update(parse_expr("x = x - 2"))
+    assert "Cannot assign '" in str(e) and "because it can be negative" in str(
+        e)
+    with raises(ValueError) as e:
+        gf.update(parse_expr("x = x - 20"))
+    assert "Cannot assign '" in str(e) and "because it can be negative" in str(
+        e)
+    assert gf.update(parse_expr("x = x - 1")) == GeneratingFunction('p', 'x')
+
+    gf = GeneratingFunction('(1/p)*x', 'x')
+    with raises(ValueError) as e:
+        gf.update(parse_expr("x = x - 2"))
+    assert "Cannot assign '" in str(e) and "because it can be negative" in str(
+        e)
