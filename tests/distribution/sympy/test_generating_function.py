@@ -24,7 +24,7 @@ def create_random_gf(number_of_variables: int = 1, terms: int = 1):
     for i in range(terms):
         monomial = sympy.S(1)
         for var in symbols:
-            monomial *= var**values[i]
+            monomial *= var ** values[i]
         result += monomial * coeffs[i]
     return GeneratingFunction(result, *symbols)
 
@@ -155,7 +155,8 @@ class TestDistributionInterface:
         assert gf.get_expected_value_of("p") == "p"
 
         gf = GeneratingFunction("n^5")
-        assert gf.get_expected_value_of("n - 6 + 1") == "1"
+        # Linearity breaks if intermediate results are negative.
+        assert gf.get_expected_value_of("n - 7 + 1") == "0"  # This should raise an error!
 
     def test_normalize(self):
         assert create_random_gf().normalize().coefficient_sum() == 1
@@ -284,6 +285,6 @@ def test_split_addend():
     values = [random.randint(1, 5000) for _ in range(number_of_vars)]
     monomial = sympy.S(1)
     for i in range(number_of_vars):
-        monomial *= sympy.S("x" + str(i))**values[i]
+        monomial *= sympy.S("x" + str(i)) ** values[i]
     addend = probability * monomial
     assert GeneratingFunction._split_addend(addend) == (probability, monomial)
