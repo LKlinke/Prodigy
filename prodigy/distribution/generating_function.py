@@ -398,7 +398,9 @@ class GeneratingFunction(Distribution):
                     f = f._update_product(temp_var, t_1, t_2)
                 elif expression.operator == Binop.MINUS:
                     f = f._update_subtraction(temp_var, t_1, t_2)
-                # TODO handle modulo, power, division
+                elif expression.operator == Binop.MODULO:
+                    f = f._update_modulo(temp_var, t_1, t_2)
+                # TODO handle power, division
                 else:
                     raise ValueError(
                         f"Unsupported binary operator: {expression.operator}")
@@ -437,6 +439,56 @@ class GeneratingFunction(Distribution):
                                    | self._parameters) or f'_{i}' in exclude:
             i += 1
         return f'_{i}'
+
+    def _get_value_of_variable(self, var: str) -> int | None:
+        """
+        If the variable with the name `var` has a certain value `x` with a probability of 100%
+        (in other words, if this GF contains the subterm 1*`var`**`x`), returns `x`. If the str `var`
+        encodes an int, returns this int. Otherwise, returns `None`.
+        """
+        if sympy.S(var).is_Integer:
+            return int(var)
+        marginal = self.marginal(var)._function
+        length = len(sympy.Add.make_args(marginal))
+        if length > 1 or len(marginal.free_symbols & self._parameters) > 0:
+            return None
+        elif length == 0:
+            return 0
+        x: sympy.Basic = marginal.match(
+            sympy.Wild('base')**sympy.Wild(
+                'exp', self._parameters))[sympy.Wild('exp')]
+        if x.is_Integer:
+            return int(x)
+        else:
+            return None
+
+    def _update_modulo(self, temp_var: str, left: str | int,
+                       right: str | int) -> GeneratingFunction:
+        value_r = right
+        if isinstance(right, str):
+            value_r = self._get_value_of_variable(right)
+        if value_r is None:
+            # TODO can this even be implemented? If no, change to a ValueError
+            raise NotImplementedError(
+                f"Cannot compute the expression {left} % {right} because {right} is not a literal"
+            )
+
+        value_l = left
+        if isinstance(left, str):
+            value_l = self._get_value_of_variable(left)
+        if value_l is not None:
+            result = value_l % value_r
+            return self.update(parse_expr(f"{temp_var} = {result}"))
+        else:
+            update_var = sympy.Symbol(temp_var)
+            result = sympy.S(0)
+            for index, gf in enumerate(
+                    self._arithmetic_progression(left, str(value_r))):
+                result = result + sympy.simplify(gf._function).subs(update_var,
+                                                    1) * update_var**index
+            return GeneratingFunction(sympy.simplify(result),
+                                      *self._variables,
+                                      preciseness=self._preciseness)
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> GeneratingFunction:
@@ -506,7 +558,7 @@ class GeneratingFunction(Distribution):
         if prod_1 in self._variables and prod_2 in self._variables:
             if not self._is_finite:
                 # TODO handle approximation if enabled
-                raise ValueError(
+                raise NotImplementedError(
                     "Cannot perform multiplication of two variables: The generating function is infinite"
                 )
             else:

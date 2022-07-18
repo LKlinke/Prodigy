@@ -49,6 +49,8 @@ def test_multiplication():
         parse_expr("n = 5 * o")) == GeneratingFunction("n^40*m^42*o^8")
     assert gf.update(
         parse_expr("n = m * o")) == GeneratingFunction("n^336*m^42*o^8")
+    assert gf.update(
+        parse_expr("n = n * o")) == GeneratingFunction("n^40*m^42*o^8")
 
     gf = GeneratingFunction("0.5 * (n^1 + n^2)")
     assert gf.update(
@@ -87,6 +89,9 @@ def test_subtraction():
     assert "Cannot assign '" in str(e) and "because it can be negative" in str(
         e)
 
+    gf = GeneratingFunction('x^p', 'x') 
+    assert gf.update(parse_expr('x = x - p')) == SympyPGF.zero('x')
+
 
 def test_fresh_variables():
     gf = GeneratingFunction('x*xl')
@@ -94,3 +99,9 @@ def test_fresh_variables():
 
     gf = GeneratingFunction('x*_0')
     assert gf.update(parse_expr('x = 2*3')) == GeneratingFunction('x^6*_0')
+
+def test_modulo():
+    gf = GeneratingFunction('x * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
+    assert gf.update(parse_expr('x = 5 % 3')) == GeneratingFunction('x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
+    assert gf.update(parse_expr('x = 5 % (1+1+1)')) == GeneratingFunction('x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
+    #assert gf.update(parse_expr('x = y % (3+2)'))._function == sympy.S('0.3*y^4*x^4 + 0.3*y^7*x^2 + 0.4*y^8*x^3')
