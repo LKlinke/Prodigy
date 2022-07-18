@@ -1,3 +1,5 @@
+from ast import parse
+
 import sympy
 from probably.pgcl.parser import parse_expr
 from pytest import raises
@@ -39,6 +41,9 @@ def test_var_assignment():
 
     gf = GeneratingFunction('x^8', 'x', 'y')
     assert gf.update(parse_expr('y = x')) == GeneratingFunction('y^8 * x^8')
+
+    gf = GeneratingFunction('p*x + (1-p) * x^2', 'x')
+    assert gf.update(parse_expr('x = p')) == GeneratingFunction('x^p', 'x')
 
 
 def test_multiplication():
@@ -89,8 +94,11 @@ def test_subtraction():
     assert "Cannot assign '" in str(e) and "because it can be negative" in str(
         e)
 
-    gf = GeneratingFunction('x^p', 'x') 
-    assert gf.update(parse_expr('x = x - p')) == SympyPGF.zero('x')
+    gf = GeneratingFunction('x^p', 'x')
+    # TODO this fails because sympy can't assume that p is >= 0 and thus doesn simplify 'x**p*(1/x)**p' to '1'
+    # how should we handle parameters here, can we always assume that they are >= 0?
+    assert gf.update(parse_expr('x = x - p')) == SympyPGF.one('x')
+    assert gf.update(parse_expr('x = x - (p + 1)')) == GeneratingFunction('x')
 
 
 def test_fresh_variables():
@@ -100,8 +108,11 @@ def test_fresh_variables():
     gf = GeneratingFunction('x*_0')
     assert gf.update(parse_expr('x = 2*3')) == GeneratingFunction('x^6*_0')
 
+
 def test_modulo():
     gf = GeneratingFunction('x * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
-    assert gf.update(parse_expr('x = 5 % 3')) == GeneratingFunction('x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
-    assert gf.update(parse_expr('x = 5 % (1+1+1)')) == GeneratingFunction('x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
+    assert gf.update(parse_expr('x = 5 % 3')) == GeneratingFunction(
+        'x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
+    assert gf.update(parse_expr('x = 5 % (1+1+1)')) == GeneratingFunction(
+        'x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
     #assert gf.update(parse_expr('x = y % (3+2)'))._function == sympy.S('0.3*y^4*x^4 + 0.3*y^7*x^2 + 0.4*y^8*x^3')

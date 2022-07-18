@@ -484,8 +484,8 @@ class GeneratingFunction(Distribution):
             result = sympy.S(0)
             for index, gf in enumerate(
                     self._arithmetic_progression(left, str(value_r))):
-                result = result + sympy.simplify(gf._function).subs(update_var,
-                                                    1) * update_var**index
+                result = result + sympy.simplify(gf._function).subs(
+                    update_var, 1) * update_var**index
             return GeneratingFunction(sympy.simplify(result),
                                       *self._variables,
                                       preciseness=self._preciseness)
@@ -594,11 +594,16 @@ class GeneratingFunction(Distribution):
     def _update_var(self, updated_var: str,
                     assign_var: str) -> GeneratingFunction:
         if not updated_var == assign_var:
-            result = self._function.subs([
-                (sympy.S(updated_var), 1),
-                (sympy.S(assign_var),
-                 sympy.S(assign_var) * sympy.S(updated_var))
-            ])
+            if sympy.S(assign_var) in self._variables:
+                result = self._function.subs([
+                    (sympy.S(updated_var), 1),
+                    (sympy.S(assign_var),
+                     sympy.S(assign_var) * sympy.S(updated_var))
+                ])
+            else:
+                result = self._function.subs(
+                    sympy.S(updated_var),
+                    1) * sympy.S(updated_var)**sympy.S(assign_var)
             return GeneratingFunction(result,
                                       *self._variables,
                                       preciseness=self._preciseness)
