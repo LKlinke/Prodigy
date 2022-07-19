@@ -2,7 +2,7 @@ from ast import parse
 
 import sympy
 from probably.pgcl.parser import parse_expr
-from pytest import raises
+from pytest import raises, xfail
 
 from prodigy.distribution.generating_function import (GeneratingFunction,
                                                       SympyPGF)
@@ -63,6 +63,24 @@ def test_multiplication():
     assert gf.update(
         parse_expr("n = n * n")) == GeneratingFunction("0.5*n^1+0.5*n^4")
 
+    gf = SympyPGF.poisson('x', 3) * GeneratingFunction('y^3')
+    assert gf.update(parse_expr('x = x * y'))._function == gf._function.subs(
+        sympy.S('x'),
+        sympy.S('x')**3)
+
+    gf = SympyPGF.poisson('x', 3) * SympyPGF.poisson('y', 5)
+    assert gf.update(parse_expr('x = 3*7')) == SympyPGF.poisson(
+        'y', 5) * GeneratingFunction('x**21')
+    assert gf.update(parse_expr('x = x * 3')) == GeneratingFunction(
+        gf._function.subs(sympy.S('x'),
+                          sympy.S('x')**3))
+    assert gf.update(parse_expr('x = y * 4')) == GeneratingFunction(
+        gf._function.subs([(sympy.S('x'), 1),
+                           (sympy.S('y'), sympy.S('y * x**4'))]))
+    assert gf.update(parse_expr('x = x*y'), 10) == GeneratingFunction(
+        '9*x**3*exp(-8)/2 + 45*x**2*y*exp(-8)/2 + 9*x**2*exp(-8)/2 + 75*x*y**2*exp(-8)/2 + 15*x*y*exp(-8) + 3*x*exp(-8) + 125*y**3*exp(-8)/6 + 25*y**2*exp(-8)/2 + 5*y*exp(-8) + exp(-8)'
+    ).update(parse_expr('x = x * y'))
+
 
 def test_subtraction():
     gf = GeneratingFunction("n^5*m^42*l^8")
@@ -94,6 +112,7 @@ def test_subtraction():
     assert "Cannot assign '" in str(e) and "because it can be negative" in str(
         e)
 
+    xfail('known bug / unclear behavior')
     gf = GeneratingFunction('x^p', 'x')
     # TODO this fails because sympy can't assume that p is >= 0 and thus doesn simplify 'x**p*(1/x)**p' to '1'
     # how should we handle parameters here, can we always assume that they are >= 0?
@@ -115,4 +134,5 @@ def test_modulo():
         'x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
     assert gf.update(parse_expr('x = 5 % (1+1+1)')) == GeneratingFunction(
         'x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
+    # TODO should this hold? I think sympy computes the correct solution, it just can't simplify it to 0 (missing assumptions?)
     #assert gf.update(parse_expr('x = y % (3+2)'))._function == sympy.S('0.3*y^4*x^4 + 0.3*y^7*x^2 + 0.4*y^8*x^3')

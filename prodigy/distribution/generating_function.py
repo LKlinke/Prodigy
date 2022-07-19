@@ -395,7 +395,7 @@ class GeneratingFunction(Distribution):
                 if expression.operator == Binop.PLUS:
                     f = f._update_sum(temp_var, t_1, t_2)
                 elif expression.operator == Binop.TIMES:
-                    f = f._update_product(temp_var, t_1, t_2)
+                    f = f._update_product(temp_var, t_1, t_2, approximate)
                 elif expression.operator == Binop.MINUS:
                     f = f._update_subtraction(temp_var, t_1, t_2)
                 elif expression.operator == Binop.MODULO:
@@ -448,17 +448,19 @@ class GeneratingFunction(Distribution):
         """
         if sympy.S(var).is_Integer:
             return int(var)
+        if sympy.S(var) not in self._variables:
+            return None
         marginal = self.marginal(var)._function
         length = len(sympy.Add.make_args(marginal))
         if length > 1 or len(marginal.free_symbols & self._parameters) > 0:
             return None
         elif length == 0:
             return 0
-        x: sympy.Basic = marginal.match(
-            sympy.Wild('base')**sympy.Wild(
-                'exp', self._parameters))[sympy.Wild('exp')]
-        if x.is_Integer:
-            return int(x)
+        power_match: sympy.Basic = marginal.match(
+            sympy.Wild('base')**sympy.Wild('exp', self._parameters))
+        if power_match[sympy.Wild('exp')].is_Integer and isinstance(
+                power_match[sympy.Wild('base')], sympy.Symbol):
+            return int(power_match[sympy.Wild('exp')])
         else:
             return None
 
@@ -488,7 +490,9 @@ class GeneratingFunction(Distribution):
                     update_var, 1) * update_var**index
             return GeneratingFunction(sympy.simplify(result),
                                       *self._variables,
-                                      preciseness=self._preciseness)
+                                      preciseness=self._preciseness,
+                                      closed=self._is_closed_form,
+                                      finite=self._is_finite)
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> GeneratingFunction:
@@ -548,8 +552,12 @@ class GeneratingFunction(Distribution):
             )
         return gf
 
-    def _update_product(self, temp_var: str, first_factor: str,
-                        second_factor: str) -> GeneratingFunction:
+    def _update_product(
+            self,
+            temp_var: str,
+            first_factor: str,
+            second_factor: str,
+            approximate: Optional[str | int] = None) -> GeneratingFunction:
         update_var = sympy.S(temp_var)
         prod_1, prod_2 = sympy.S(first_factor), sympy.S(second_factor)
         result = self._function
@@ -557,10 +565,32 @@ class GeneratingFunction(Distribution):
         # we multiply two variables
         if prod_1 in self._variables and prod_2 in self._variables:
             if not self._is_finite:
-                # TODO handle approximation if enabled
-                raise NotImplementedError(
-                    "Cannot perform multiplication of two variables: The generating function is infinite"
-                )
+                # We don't have a problem if one of the variables has a certain value with probability 1
+                value = self._get_value_of_variable(first_factor)
+                if value is not None:
+                    return self._update_product(temp_var,
+                                                str(value),
+                                                second_factor,
+                                                approximate=None)
+                value = self._get_value_of_variable(second_factor)
+                if value is not None:
+                    return self._update_product(temp_var,
+                                                first_factor,
+                                                str(value),
+                                                approximate=None)
+
+                if approximate is None:
+                    raise ValueError(
+                        "Cannot perform multiplication of two variables: The generating function is infinite and approximation is disabled"
+                    )
+
+                *_, last = self.approximate(approximate) # FIXME this approximation is not always correct, and not even deterministic
+                print(f'{self=}')
+                print(f'{last=}')
+                return last._update_product(temp_var,
+                                            first_factor,
+                                            second_factor,
+                                            approximate=None)
             else:
                 for prob, state in self:
                     term: sympy.Basic = sympy.S(prob) * sympy.S(
@@ -589,7 +619,9 @@ class GeneratingFunction(Distribution):
 
         return GeneratingFunction(result,
                                   *self._variables,
-                                  preciseness=self._preciseness)
+                                  preciseness=self._preciseness,
+                                  closed=self._is_closed_form,
+                                  finite=self._is_finite)
 
     def _update_var(self, updated_var: str,
                     assign_var: str) -> GeneratingFunction:
@@ -606,7 +638,9 @@ class GeneratingFunction(Distribution):
                     1) * sympy.S(updated_var)**sympy.S(assign_var)
             return GeneratingFunction(result,
                                       *self._variables,
-                                      preciseness=self._preciseness)
+                                      preciseness=self._preciseness,
+                                      closed=self._is_closed_form,
+                                      finite=self._is_finite)
         else:
             return self.copy()
 
@@ -649,7 +683,9 @@ class GeneratingFunction(Distribution):
 
         return GeneratingFunction(result,
                                   *self._variables,
-                                  preciseness=self._preciseness)
+                                  preciseness=self._preciseness,
+                                  closed=self._is_closed_form,
+                                  finite=self._is_finite)
 
     def update_iid(self, sampling_exp: IidSampleExpr,
                    variable: Union[str, VarExpr]) -> Distribution:
