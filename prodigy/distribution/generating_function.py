@@ -585,8 +585,6 @@ class GeneratingFunction(Distribution):
                     )
 
                 *_, last = self.approximate(approximate) # FIXME this approximation is not always correct, and not even deterministic
-                print(f'{self=}')
-                print(f'{last=}')
                 return last._update_product(temp_var,
                                             first_factor,
                                             second_factor,
