@@ -415,7 +415,9 @@ class GeneratingFunction(Distribution):
                     f = f._update_subtraction(temp_var, t_1, t_2)
                 elif expression.operator == Binop.MODULO:
                     f = f._update_modulo(temp_var, t_1, t_2)
-                # TODO handle power, division
+                elif expression.operator == Binop.DIVIDE:
+                    f = f._update_division(temp_var, t_1, t_2)
+                # TODO handle power
                 else:
                     raise ValueError(
                         f"Unsupported binary operator: {expression.operator}")
@@ -434,10 +436,17 @@ class GeneratingFunction(Distribution):
                 raise ValueError(
                     f"Unsupported type of subexpression: {expression}")
 
+        value: int | None = None
+        if isinstance(
+                expression.rhs,
+                RealLitExpr) and expression.rhs.to_fraction().denominator == 1:
+            value = expression.rhs.to_fraction().numerator
         if isinstance(expression.rhs, NatLitExpr):
+            value = expression.rhs.value
+        if value is not None:
             result = GeneratingFunction(
                 self._function.subs(sympy.S(variable), 1) *
-                sympy.S(variable)**expression.rhs.value,
+                sympy.S(variable)**value,
                 *self._variables,
                 preciseness=self._preciseness)
         else:
@@ -459,7 +468,7 @@ class GeneratingFunction(Distribution):
     def _get_value_of_variable(self, var: str) -> int | None:
         """
         If the variable with the name `var` has a certain value `x` with a probability of 100%
-        (in other words, if this GF contains the subterm `1*var**x`), returns `x`. If the str `var`
+        (in other words, if this GF's marginal in `var` is `1*var**x`), returns `x`. If the str `var`
         encodes an int, returns this int. Otherwise, returns `None`.
         """
         if sympy.S(var).is_Integer:
@@ -479,6 +488,50 @@ class GeneratingFunction(Distribution):
             return int(power_match[sympy.Wild('exp')])
         else:
             return None
+
+    def _update_division(self, temp_var: str, numerator: str | int,
+                         denominator: str | int) -> GeneratingFunction:
+        update_var = sympy.S(temp_var)
+        div_1, div_2 = sympy.S(numerator), sympy.S(denominator)
+
+        if div_1 not in self._variables and div_2 not in self._variables:
+            result = div_1 / div_2
+            if result.is_Integer or result.free_symbols <= self._parameters:
+                return self._update_var(temp_var, str(result))
+            else:
+                raise ValueError(
+                    f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not an integer"
+                )
+        else:
+            if self.is_finite:
+                result = self._function
+                for prob, state in self:
+                    num: sympy.Basic | int = div_1
+                    if div_1 in self._variables:
+                        num = state[numerator]
+                    den: sympy.Basic | int = div_2
+                    if div_2 in self._variables:
+                        den = state[denominator]
+                    if num % den == 0:
+                        result = result - sympy.S(prob) * sympy.S(
+                            state.to_monomial())
+                        result = result + (
+                            sympy.S(prob) * sympy.S(state.to_monomial())).subs(
+                                update_var, 1) * update_var**(num / den)
+                    else:
+                        raise ValueError(
+                            f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
+                        )
+
+                return GeneratingFunction(result,
+                                          *self._variables,
+                                          preciseness=self._preciseness,
+                                          closed=self._is_closed_form,
+                                          finite=self._is_finite)
+            else:
+                # TODO is there a way to check for dividability on infinite GFs?
+                raise ValueError(
+                    "Cannot perform division on infinite generating functions")
 
     def _update_modulo(self, temp_var: str, left: str | int,
                        right: str | int) -> GeneratingFunction:

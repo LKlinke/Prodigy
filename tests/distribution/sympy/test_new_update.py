@@ -13,6 +13,9 @@ def test_literal_assignment():
     gf = SympyPGF.poisson('x', 30)
     assert gf.update(parse_expr("x = 1")) == GeneratingFunction("x")
 
+    gf = GeneratingFunction('n')
+    assert gf.update(parse_expr("n = 2")) == GeneratingFunction("n^2")
+
 
 def test_addition():
     gf = GeneratingFunction("x^3")
@@ -109,8 +112,8 @@ def test_subtraction():
 
     xfail('known bug / unclear behavior')
     gf = GeneratingFunction('x^p', 'x')
-    # TODO this fails because sympy can't assume that p is >= 0 and thus doesn simplify 'x**p*(1/x)**p' to '1'
-    # how should we handle parameters here, can we always assume that they are >= 0?
+    # TODO this fails because sympy can't assume that p is real and x >= 0 and thus doesn simplify 'x**p*(1/x)**p' to '1'
+    # how should we handle parameters and variables here, can we always assume that they are >= 0 and real?
     assert gf.update(parse_expr('x = x - p')) == SympyPGF.one('x')
     assert gf.update(parse_expr('x = x - (p + 1)')) == GeneratingFunction('x')
 
@@ -133,3 +136,19 @@ def test_modulo():
     # TODO should this hold? I think sympy computes the correct solution, it just can't simplify it to 0 (missing assumptions?)
     assert gf.update(parse_expr('x = y % (3+2)'))._function == sympy.S(
         '0.3*y^4*x^4 + 0.3*y^7*x^2 + 0.4*y^8*x^3')
+
+
+def test_division():
+    gf = GeneratingFunction('n')
+    # probably simplifies 4 / 2 to a RealLitExpr
+    assert gf.update(parse_expr('n = 4 / 2')) == GeneratingFunction('n^2')
+    assert gf.update(parse_expr('n = n / 1')) == GeneratingFunction('n')
+    with raises(ValueError) as e:
+        gf.update(parse_expr('n = n / 2'))
+    assert 'because it is not always an integer' in str(e)
+
+    gf = GeneratingFunction('n^2*m^6', 'n', 'm', 'o')
+    assert gf.update(parse_expr('o = m / n')) == GeneratingFunction('n^2*m^6*o^3')
+    with raises(ValueError) as e:
+        gf.update(parse_expr('o = n / m'))
+    assert 'because it is not always an integer' in str(e)
