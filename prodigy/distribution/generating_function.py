@@ -503,7 +503,7 @@ class GeneratingFunction(Distribution):
                     f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not an integer"
                 )
         else:
-            if self.is_finite:
+            if self.is_finite():
                 result = self._function
                 for prob, state in self:
                     num: sympy.Basic | int = div_1
@@ -512,12 +512,12 @@ class GeneratingFunction(Distribution):
                     den: sympy.Basic | int = div_2
                     if div_2 in self._variables:
                         den = state[denominator]
-                    if num % den == 0:
+                    if num % den == 0: #type: ignore
                         result = result - sympy.S(prob) * sympy.S(
                             state.to_monomial())
                         result = result + (
                             sympy.S(prob) * sympy.S(state.to_monomial())).subs(
-                                update_var, 1) * update_var**(num / den)
+                                update_var, 1) * update_var**(num / den) #type: ignore
                     else:
                         raise ValueError(
                             f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
