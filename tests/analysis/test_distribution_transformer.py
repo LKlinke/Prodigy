@@ -85,11 +85,11 @@ def test_subtraction_when_already_zero():
 
     with raises(ValueError) as e:
         result: GF = prodigy.analysis.compute_discrete_distribution(
-        pgcl.parse_pgcl("""
+            pgcl.parse_pgcl("""
             nat x
             x := x - 2*x
         """), SympyPGF.poisson("x", "3"),
-        prodigy.analysis.ForwardAnalysisConfig())
+            prodigy.analysis.ForwardAnalysisConfig())
     assert 'Cannot assign' in str(e)
 
 

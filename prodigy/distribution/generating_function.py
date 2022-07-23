@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import functools
 import operator
-from typing import (Callable, Generator, Iterator, List, Optional, Set, Tuple,
-                    Union, get_args)
+from typing import (Callable, FrozenSet, Generator, Iterator, List, Optional,
+                    Set, Tuple, Union, get_args)
 
 import sympy
 from probably.pgcl import (BernoulliExpr, BinomialExpr, Binop, BinopExpr,
@@ -361,18 +361,21 @@ class GeneratingFunction(Distribution):
 
     # Distribution interface implementation
 
-    def update(self,
-               expression: Expr,
-               approximate: Optional[str | int] = None) -> GeneratingFunction:
+    def update(
+        self,
+        expression: Expr,
+        approximate: Optional[
+            str | int] = None  # TODO approximation is basically useless
+    ) -> GeneratingFunction:
         """ Updates the current distribution by applying the expression to itself. Currently, we are able to handle the
             following cases:
                 * Modulo operations like: <<VAR>> % <<CONSTANT>>
                 * Linear transformations: <<VAR>> := f(<<VARS>>) where f is a linear function.
                 * Arbitrary Expressions where the current distribution has finite support.
-                * Approximations to arbitrary expression where the current distribution has infinite support, 
+                * Approximations to arbitrary expression where the current distribution has infinite support,
                 if approximation is enabled (see the `approximate` parameter).
 
-            Some operations are illegal and will cause this function to raise an error. These operations include subtraction 
+            Some operations are illegal and will cause this function to raise an error. These operations include subtraction
             that may cause a variable to have a negative value, division that may cause a variable to have a value that is
             not an integer (TODO), and certain operations on infinite generating functions if approximation is disabled
             (such as multiplication of two variables).
@@ -381,7 +384,7 @@ class GeneratingFunction(Distribution):
             (which will not be present in the returned result). If approximation is enabled, the `update` function will simply
             call :func:`approximate` with the supplied parameter if necessary. However, because of these intermediate variables,
             this approximation might be less precise and take longer to compute than doing it before performing the update. For
-            example, given an infinite generating function `gf`, it will probably be faster as well as produce better results to 
+            example, given an infinite generating function `gf`, it will probably be faster as well as produce better results to
             call `gf.approximate(10).update(expr, None)` than to call `gf.update(expr, 10)`.
         """
 
@@ -441,9 +444,10 @@ class GeneratingFunction(Distribution):
             result, _ = evaluate(self, expression.rhs, variable)
         return result
 
-    def _get_fresh_variable(self, exclude: Set[str] = set()) -> str:
+    def _get_fresh_variable(
+        self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
         """
-        Returns a str that is the name of neither an existing variable nor an existing 
+        Returns a str that is the name of neither an existing variable nor an existing
         parameter of this GF nor contained in the `exclude` parameter.
         """
         i = 0
@@ -468,7 +472,7 @@ class GeneratingFunction(Distribution):
             return None
         elif length == 0:
             return 0
-        power_match: sympy.Basic = marginal.match(
+        power_match = marginal.match(
             sympy.Wild('base')**sympy.Wild('exp', self._parameters))
         if power_match[sympy.Wild('exp')].is_Integer and isinstance(
                 power_match[sympy.Wild('base')], sympy.Symbol):
@@ -484,7 +488,7 @@ class GeneratingFunction(Distribution):
         is not yet supported (TODO) and will cause this function to raise an error.
         """
 
-        value_r = right
+        value_r: int | str | None = right
         if isinstance(right, str):
             value_r = self._get_value_of_variable(right)
         if value_r is None:
@@ -493,15 +497,16 @@ class GeneratingFunction(Distribution):
                 f"Cannot compute the expression {left} % {right} because {right} is not a literal"
             )
 
-        value_l = left
+        value_l: int | str | None = left
         if isinstance(left, str):
             value_l = self._get_value_of_variable(left)
         if value_l is not None:
-            result = value_l % value_r
+            result = value_l % value_r  # type: ignore
             return self.update(parse_expr(f"{temp_var} = {result}"))
         else:
             update_var = sympy.Symbol(temp_var)
             result = sympy.S(0)
+            assert isinstance(left, str)
             for index, gf in enumerate(
                     self._arithmetic_progression(left, str(value_r))):
                 result = result + sympy.simplify(gf._function).subs(
@@ -564,7 +569,8 @@ class GeneratingFunction(Distribution):
         gf = GeneratingFunction(result,
                                 *self._variables,
                                 preciseness=self._preciseness)
-        test_fun: sympy.Basic = gf.marginal(temp_var)._function.subs(temp_var, 0)
+        test_fun: sympy.Basic = gf.marginal(temp_var)._function.subs(
+            temp_var, 0)
         if test_fun.has(sympy.S('zoo')) or test_fun == sympy.nan:
             raise ValueError(
                 f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it can be negative"
