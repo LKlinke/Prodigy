@@ -1,3 +1,5 @@
+from ast import parse
+
 import sympy
 from probably.pgcl.parser import parse_expr
 from pytest import raises, xfail
@@ -145,10 +147,14 @@ def test_division():
     assert gf.update(parse_expr('n = n / 1')) == GeneratingFunction('n')
     with raises(ValueError) as e:
         gf.update(parse_expr('n = n / 2'))
-    assert 'because it is not always an integer' in str(e)
+    assert 'because it is not an integer' in str(e)
 
     gf = GeneratingFunction('n^2*m^6', 'n', 'm', 'o')
-    assert gf.update(parse_expr('o = m / n')) == GeneratingFunction('n^2*m^6*o^3')
+    assert gf.update(
+        parse_expr('o = m / n')) == GeneratingFunction('n^2*m^6*o^3')
     with raises(ValueError) as e:
         gf.update(parse_expr('o = n / m'))
-    assert 'because it is not always an integer' in str(e)
+    assert 'because it is not an integer' in str(e)
+
+    gf = SympyPGF.poisson('x', 3) * GeneratingFunction('y*z')
+    assert gf.update(parse_expr('x = z / y')) == GeneratingFunction('x*y*z')

@@ -391,6 +391,7 @@ class GeneratingFunction(Distribution):
         assert isinstance(expression, BinopExpr) and isinstance(expression.lhs, VarExpr), \
             f"Expression must be an assignment, was {expression}."
 
+        # TODO is it possible to support more infinite GFs by looking at the marginal in the variables that are manipulated?
         variable = expression.lhs.var
         if sympy.S(variable) not in self._variables:
             raise ValueError(
@@ -491,12 +492,25 @@ class GeneratingFunction(Distribution):
 
     def _update_division(self, temp_var: str, numerator: str | int,
                          denominator: str | int) -> GeneratingFunction:
+        """
+        Applies the expression `temp_var = numerator / denominator` to this generating function. Currently,
+        only finite generating functions are supported (at least mostly, TODO). If in some state of the GF,
+        the numerator is not divisible by the denominator, this function raises an error.
+        """
         update_var = sympy.S(temp_var)
         div_1, div_2 = sympy.S(numerator), sympy.S(denominator)
+        # This allows us to handle some infinite GFs (see tests):
+        value_l = self._get_value_of_variable(str(numerator))
+        if value_l is not None:
+            div_1 = sympy.S(value_l)
+        value_r = self._get_value_of_variable(str(denominator))
+        if value_r is not None:
+            div_2 = sympy.S(value_r)
 
         if div_1 not in self._variables and div_2 not in self._variables:
             result = div_1 / div_2
-            if result.is_Integer or result.free_symbols <= self._parameters:
+            if result.is_Integer or (len(result.free_symbols) != 0 and
+                                     result.free_symbols <= self._parameters):
                 return self._update_var(temp_var, str(result))
             else:
                 raise ValueError(
@@ -512,12 +526,13 @@ class GeneratingFunction(Distribution):
                     den: sympy.Basic | int = div_2
                     if div_2 in self._variables:
                         den = state[denominator]
-                    if num % den == 0: #type: ignore
+                    if num % den == 0:  #type: ignore
                         result = result - sympy.S(prob) * sympy.S(
                             state.to_monomial())
-                        result = result + (
-                            sympy.S(prob) * sympy.S(state.to_monomial())).subs(
-                                update_var, 1) * update_var**(num / den) #type: ignore
+                        result = result + (sympy.S(prob) *
+                                           sympy.S(state.to_monomial())).subs(
+                                               update_var, 1) * update_var**(
+                                                   num / den)  #type: ignore
                     else:
                         raise ValueError(
                             f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
