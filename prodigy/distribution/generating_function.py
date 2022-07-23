@@ -584,7 +584,7 @@ class GeneratingFunction(Distribution):
                         "Cannot perform multiplication of two variables: The generating function is infinite and approximation is disabled"
                     )
 
-                *_, last = self.approximate(approximate) # FIXME this approximation is not always correct, and not even deterministic
+                *_, last = self.approximate(approximate)
                 return last._update_product(temp_var,
                                             first_factor,
                                             second_factor,

@@ -77,9 +77,6 @@ def test_multiplication():
     assert gf.update(parse_expr('x = y * 4')) == GeneratingFunction(
         gf._function.subs([(sympy.S('x'), 1),
                            (sympy.S('y'), sympy.S('y * x**4'))]))
-    assert gf.update(parse_expr('x = x*y'), 10) == GeneratingFunction(
-        '9*x**3*exp(-8)/2 + 45*x**2*y*exp(-8)/2 + 9*x**2*exp(-8)/2 + 75*x*y**2*exp(-8)/2 + 15*x*y*exp(-8) + 3*x*exp(-8) + 125*y**3*exp(-8)/6 + 25*y**2*exp(-8)/2 + 5*y*exp(-8) + exp(-8)'
-    ).update(parse_expr('x = x * y'))
 
 
 def test_subtraction():
