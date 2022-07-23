@@ -564,8 +564,8 @@ class GeneratingFunction(Distribution):
         gf = GeneratingFunction(result,
                                 *self._variables,
                                 preciseness=self._preciseness)
-        if gf.marginal(temp_var)._function.subs(temp_var,
-                                                0).has(sympy.S('zoo')):
+        test_fun: sympy.Basic = gf.marginal(temp_var)._function.subs(temp_var, 0)
+        if test_fun.has(sympy.S('zoo')) or test_fun == sympy.nan:
             raise ValueError(
                 f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it can be negative"
             )
