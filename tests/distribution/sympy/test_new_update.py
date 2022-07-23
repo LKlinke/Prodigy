@@ -1,5 +1,3 @@
-from ast import parse
-
 import sympy
 from probably.pgcl.parser import parse_expr
 from pytest import raises, xfail
@@ -131,5 +129,6 @@ def test_modulo():
         'x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
     assert gf.update(parse_expr('x = 5 % (1+1+1)')) == GeneratingFunction(
         'x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
+    xfail('sympy madness / unclear behavior')
     # TODO should this hold? I think sympy computes the correct solution, it just can't simplify it to 0 (missing assumptions?)
-    #assert gf.update(parse_expr('x = y % (3+2)'))._function == sympy.S('0.3*y^4*x^4 + 0.3*y^7*x^2 + 0.4*y^8*x^3')
+    assert gf.update(parse_expr('x = y % (3+2)'))._function == sympy.S('0.3*y^4*x^4 + 0.3*y^7*x^2 + 0.4*y^8*x^3')

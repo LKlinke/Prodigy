@@ -369,8 +369,20 @@ class GeneratingFunction(Distribution):
                 * Modulo operations like: <<VAR>> % <<CONSTANT>>
                 * Linear transformations: <<VAR>> := f(<<VARS>>) where f is a linear function.
                 * Arbitrary Expressions where the current distribution has finite support.
-                * Approximations to arbitrary expression where the current distribution has infinite support.
-            ATTENTION: The latter two might take a while to compute as it is implemented in a brute force manner.
+                * Approximations to arbitrary expression where the current distribution has infinite support, 
+                if approximation is enabled (see the `approximate` parameter).
+
+            Some operations are illegal and will cause this function to raise an error. These operations include subtraction 
+            that may cause a variable to have a negative value, division that may cause a variable to have a value that is
+            not an integer (TODO), and certain operations on infinite generating functions if approximation is disabled
+            (such as multiplication of two variables).
+
+            Note that this function introduces a potentially large number of intermediate variables to the generating function
+            (which will not be present in the returned result). If approximation is enabled, the `update` function will simply
+            call :func:`approximate` with the supplied parameter if necessary. However, because of these intermediate variables,
+            this approximation might be less precise and take longer to compute than doing it before performing the update. For
+            example, given an infinite generating function `gf`, it will probably be faster as well as produce better results to 
+            call `gf.approximate(10).update(expr, None)` than to call `gf.update(expr, 10)`.
         """
 
         assert isinstance(expression, BinopExpr) and isinstance(expression.lhs, VarExpr), \
@@ -443,7 +455,7 @@ class GeneratingFunction(Distribution):
     def _get_value_of_variable(self, var: str) -> int | None:
         """
         If the variable with the name `var` has a certain value `x` with a probability of 100%
-        (in other words, if this GF contains the subterm 1*`var`**`x`), returns `x`. If the str `var`
+        (in other words, if this GF contains the subterm `1*var**x`), returns `x`. If the str `var`
         encodes an int, returns this int. Otherwise, returns `None`.
         """
         if sympy.S(var).is_Integer:
@@ -466,6 +478,12 @@ class GeneratingFunction(Distribution):
 
     def _update_modulo(self, temp_var: str, left: str | int,
                        right: str | int) -> GeneratingFunction:
+        """
+        Applies the expression `temp_var = left % right` to this generating function. The case that `right` is a
+        variable that does not have a certain value with a probability of 100% (see :func:`_get_value_of_variable`)
+        is not yet supported (TODO) and will cause this function to raise an error.
+        """
+
         value_r = right
         if isinstance(right, str):
             value_r = self._get_value_of_variable(right)
@@ -497,7 +515,8 @@ class GeneratingFunction(Distribution):
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> GeneratingFunction:
         """
-        TODO write docs for all new functions
+        Applies the espression `temp_var = sub_from - sub` to this generating function. If this
+        difference may be negative, this function will raise an error.
         """
         update_var = sympy.S(temp_var)
         sub_1, sub_2 = sympy.S(sub_from), sympy.S(sub)
@@ -558,6 +577,16 @@ class GeneratingFunction(Distribution):
             first_factor: str,
             second_factor: str,
             approximate: Optional[str | int] = None) -> GeneratingFunction:
+        """
+        Applies the update `temp_var = first_factor * second_factor` to this generating function. Multiplication
+        with real numbers is not yet supported (TODO).
+
+        If `self` is infinite and both factors are variables, this function will first try to determine whether one
+        of these variables has a certain value with a probability of 100% (see :func:`_get_value_of_variable`). If
+        yes, it will replace that variable with its value and perform the corresponding update. If no, and approximation
+        is disabled, it will throw an error. If approximation is enabled, it will approximate itself up to the specified
+        precision (see :func:`approximate`) and apply the update to this approximation.
+        """
         update_var = sympy.S(temp_var)
         prod_1, prod_2 = sympy.S(first_factor), sympy.S(second_factor)
         result = self._function
@@ -623,6 +652,10 @@ class GeneratingFunction(Distribution):
 
     def _update_var(self, updated_var: str,
                     assign_var: str) -> GeneratingFunction:
+        """
+        Applies the update `updated_var = assign_var` to this generating function.
+        `assign_var` may be a variable, parameter, or integer literal.
+        """
         if not updated_var == assign_var:
             if sympy.S(assign_var) in self._variables:
                 result = self._function.subs([
@@ -644,6 +677,10 @@ class GeneratingFunction(Distribution):
 
     def _update_sum(self, temp_var: str, first_summand: str | int,
                     second_summand: str | int) -> GeneratingFunction:
+        """
+        Applies the expression `temp_var = fist_summand + second_summand` to this generating
+        function.
+        """
         update_var = sympy.S(temp_var)
         sum_1, sum_2 = sympy.S(first_summand), sympy.S(second_summand)
         result = self._function
