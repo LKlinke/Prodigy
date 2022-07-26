@@ -808,6 +808,7 @@ class GeneratingFunction(Distribution):
             result = self.marginal(
                 variable,
                 method=MarginalType.EXCLUDE) if subst_var != variable else self
+            result = result.set_variables(*self.get_variables(), str(variable))
             result._function = result._function.subs(
                 subst_var,
                 f"{subst_var + '*' if subst_var != variable else ''}{dist_gf}")
