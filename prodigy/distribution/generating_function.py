@@ -438,12 +438,10 @@ class GeneratingFunction(Distribution):
                     f"Unsupported type of subexpression: {expression}")
 
         value: int | None = None
-        if isinstance(expression.rhs, RealLitExpr):
-            if expression.rhs.to_fraction().denominator == 1:
-                value = expression.rhs.to_fraction().numerator
-            else:
-                raise ValueError(
-                    f'Cannot assign {expression.rhs} to {variable}')
+        if isinstance(
+                expression.rhs,
+                RealLitExpr) and expression.rhs.to_fraction().denominator == 1:
+            value = expression.rhs.to_fraction().numerator
         if isinstance(expression.rhs, NatLitExpr):
             value = expression.rhs.value
         if value is not None:
@@ -730,7 +728,7 @@ class GeneratingFunction(Distribution):
                     assign_var: str) -> GeneratingFunction:
         """
         Applies the update `updated_var = assign_var` to this generating function.
-        `assign_var` may be a variable or integer literal.
+        `assign_var` may be a variable, parameter, or integer literal.
         """
         if not updated_var == assign_var:
             if sympy.S(assign_var) in self._variables:
@@ -739,12 +737,10 @@ class GeneratingFunction(Distribution):
                     (sympy.S(assign_var),
                      sympy.S(assign_var) * sympy.S(updated_var))
                 ])
-            elif sympy.S(assign_var) not in self._parameters:
+            else:
                 result = self._function.subs(
                     sympy.S(updated_var),
                     1) * sympy.S(updated_var)**sympy.S(assign_var)
-            else:
-                raise ValueError('Cannot assign a parameter to a variable')
             return GeneratingFunction(result,
                                       *self._variables,
                                       preciseness=self._preciseness,

@@ -17,13 +17,6 @@ def test_literal_assignment():
 
     gf = GeneratingFunction('n')
     assert gf.update(parse_expr("n = 2")) == GeneratingFunction("n^2")
-    with raises(ValueError) as e:
-        gf.update(parse_expr('n = 0.6'))
-    assert 'Cannot assign 0.6 to n' in str(e)
-    gf = gf.set_parameters('p')
-    with raises(ValueError) as e:
-        gf.update(parse_expr('n = p'))
-    assert 'Cannot assign a parameter to a variable' in str(e)
 
 
 def test_addition():
@@ -51,6 +44,9 @@ def test_var_assignment():
 
     gf = GeneratingFunction('x^8', 'x', 'y')
     assert gf.update(parse_expr('y = x')) == GeneratingFunction('y^8 * x^8')
+
+    gf = GeneratingFunction('p*x + (1-p) * x^2', 'x')
+    assert gf.update(parse_expr('x = p')) == GeneratingFunction('x^p', 'x')
 
 
 def test_multiplication():
@@ -115,6 +111,13 @@ def test_subtraction():
         gf.update(parse_expr("x = x - 2"))
     assert "Cannot assign '" in str(e) and "because it can be negative" in str(
         e)
+
+    xfail('known bug / unclear behavior')
+    gf = GeneratingFunction('x^p', 'x')
+    # TODO this fails because sympy can't assume that p is real and x >= 0 and thus doesn simplify 'x**p*(1/x)**p' to '1'
+    # how should we handle parameters and variables here, can we always assume that they are >= 0 and real?
+    assert gf.update(parse_expr('x = x - p')) == SympyPGF.one('x')
+    assert gf.update(parse_expr('x = x - (p + 1)')) == GeneratingFunction('x')
 
 
 def test_fresh_variables():
