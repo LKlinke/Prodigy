@@ -399,7 +399,7 @@ class GeneratingFunction(Distribution):
 
         # TODO is it possible to support more infinite GFs by looking at the marginal in the variables that are manipulated?
         variable = expression.lhs.var
-        if sympy.S(variable) not in self._variables:
+        if sympy.Symbol(variable) not in self._variables:
             raise ValueError(
                 f"Cannot assign to variable {variable} because it does not exist"
             )
@@ -467,7 +467,7 @@ class GeneratingFunction(Distribution):
         parameter of this GF nor contained in the `exclude` parameter.
         """
         i = 0
-        while sympy.S(f'_{i}') in (self._variables
+        while sympy.Symbol(f'_{i}') in (self._variables
                                    | self._parameters) or f'_{i}' in exclude:
             i += 1
         return f'_{i}'
@@ -503,7 +503,7 @@ class GeneratingFunction(Distribution):
         only finite generating functions are supported (at least mostly, TODO). If in some state of the GF,
         the numerator is not divisible by the denominator, this function raises an error.
         """
-        update_var = sympy.S(temp_var)
+        update_var = sympy.Symbol(temp_var)
         div_1, div_2 = sympy.S(numerator), sympy.S(denominator)
         # This allows us to handle some infinite GFs (see tests):
         value_l = self._get_value_of_variable(str(numerator))
@@ -597,7 +597,7 @@ class GeneratingFunction(Distribution):
         Applies the espression `temp_var = sub_from - sub` to this generating function. If this
         difference may be negative, this function will raise an error.
         """
-        update_var = sympy.S(temp_var)
+        update_var = sympy.Symbol(temp_var)
         sub_1, sub_2 = sympy.S(sub_from), sympy.S(sub)
         result = self._function
 
@@ -668,7 +668,7 @@ class GeneratingFunction(Distribution):
         is disabled, it will throw an error. If approximation is enabled, it will approximate itself up to the specified
         precision (see :func:`approximate`) and apply the update to this approximation.
         """
-        update_var = sympy.S(temp_var)
+        update_var = sympy.Symbol(temp_var)
         prod_1, prod_2 = sympy.S(first_factor), sympy.S(second_factor)
         result = self._function
 
@@ -740,14 +740,14 @@ class GeneratingFunction(Distribution):
         if not updated_var == assign_var:
             if sympy.S(assign_var) in self._variables:
                 result = self._function.subs([
-                    (sympy.S(updated_var), 1),
+                    (sympy.Symbol(updated_var), 1),
                     (sympy.S(assign_var),
-                     sympy.S(assign_var) * sympy.S(updated_var))
+                     sympy.S(assign_var) * sympy.Symbol(updated_var))
                 ])
             else:
                 result = self._function.subs(
-                    sympy.S(updated_var),
-                    1) * sympy.S(updated_var)**sympy.S(assign_var)
+                    sympy.Symbol(updated_var),
+                    1) * sympy.Symbol(updated_var)**sympy.S(assign_var)
             return GeneratingFunction(result,
                                       *self._variables,
                                       preciseness=self._preciseness,
@@ -762,7 +762,7 @@ class GeneratingFunction(Distribution):
         Applies the expression `temp_var = fist_summand + second_summand` to this generating
         function.
         """
-        update_var = sympy.S(temp_var)
+        update_var = sympy.Symbol(temp_var)
         sum_1, sum_2 = sympy.S(first_summand), sympy.S(second_summand)
         result = self._function
 
@@ -919,7 +919,7 @@ class GeneratingFunction(Distribution):
                 "A indeterminate cannot be variable and parameter at the same time."
             )
         result = self.copy()
-        result._parameters = set(sympy.S(param) for param in remove_dups)
+        result._parameters = set(sympy.Symbol(param) for param in remove_dups)
         return result
 
     def _arithmetic(self, other, op: Callable) -> GeneratingFunction:
@@ -1086,7 +1086,7 @@ class GeneratingFunction(Distribution):
         .. math:: \fraction{\delta G^`k`}{\delta `var`^`k`}
         """
         logger.debug("diff Call")
-        return GeneratingFunction(sympy.diff(self._function, sympy.S(variable),
+        return GeneratingFunction(sympy.diff(self._function, sympy.Symbol(variable),
                                              k),
                                   *self._variables,
                                   preciseness=self._preciseness)
@@ -1192,7 +1192,7 @@ class GeneratingFunction(Distribution):
         # Iterate over the variable, value pairs in the state
         for var, value in state.items():
             # Convert the variable into a sympy symbol and substitute
-            s_var = sympy.S(var)
+            s_var = sympy.Symbol(var)
             s_exp = s_exp.subs(s_var, value)
 
         # If the state did not interpret all variables in the condition, interpret the remaining variables as 0
