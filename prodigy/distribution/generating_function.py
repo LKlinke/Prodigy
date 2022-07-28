@@ -55,7 +55,13 @@ class GeneratingFunction(Distribution):
                  finite: bool = None):
 
         # Set the basic information.
-        self._function: sympy.Expr = sympy.S(str(function), rational=True)
+        self._function: sympy.Expr = sympy.S(
+            str(function),
+            rational=True,
+            locals={
+                str(v): sympy.Symbol(str(v))
+                for v in filter(lambda v: v != "", variables)
+            })
         self._preciseness = sympy.S(str(preciseness), rational=True)
 
         # Set variables and parameters
@@ -64,10 +70,10 @@ class GeneratingFunction(Distribution):
         self._parameters: Set[sympy.Symbol] = set()
         if variables:
             self._variables = self._variables.union(
-                map(lambda v: sympy.S(str(v)),
+                map(lambda v: sympy.Symbol(str(v)),
                     filter(lambda v: v != "", variables)))
             self._parameters = self._variables.difference(
-                map(lambda v: sympy.S(str(v)),
+                map(lambda v: sympy.Symbol(str(v)),
                     filter(lambda v: v != "", variables)))
             self._variables -= self._parameters
 
@@ -144,7 +150,7 @@ class GeneratingFunction(Distribution):
         # Compute the probabilities of the states _var_ = i where i ranges depending on the operator (< , <=, =).
         for i in ranges[condition.operator]:
             result += (self._function.diff(variable, i) / sympy.factorial(i)
-                       ).limit(variable, 0, '-') * sympy.S(variable)**i
+                       ).limit(variable, 0, '-') * sympy.Symbol(variable)**i
 
         return GeneratingFunction(result,
                                   *self._variables,
@@ -257,7 +263,7 @@ class GeneratingFunction(Distribution):
         """
         # pylint: disable=invalid-name
         a = sympy.S(modulus)
-        var = sympy.S(variable)
+        var = sympy.Symbol(variable)
         primitive_uroot = sympy.S(f"exp(2 * {sympy.pi} * {sympy.I}/{a})")
         result = []
         for remainder in range(a):
@@ -1239,9 +1245,10 @@ class GeneratingFunction(Distribution):
             "Creating marginal for variables %s and joint probability distribution %s",
             variables, self)
 
-        if len(variables) == 0 or not {sympy.S(str(x))
-                                       for x in variables}.issubset(
-                                           self._variables):
+        if len(variables) == 0 or not {
+                sympy.Symbol(str(x))
+                for x in variables
+        }.issubset(self._variables):
             raise ValueError(
                 f"Cannot compute marginal for variables {variables} and joint probability distribution {self}"
             )
