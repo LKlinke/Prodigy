@@ -1257,7 +1257,7 @@ class GeneratingFunction(Distribution):
         s_var: str | VarExpr | sympy.Symbol
         if method == MarginalType.INCLUDE:
             for s_var in marginal._variables.difference(
-                    map(sympy.sympify,
+                    map(sympy.Symbol,
                         map(str, filter(lambda v: v != "", variables)))):
                 if marginal._is_closed_form:
                     marginal._function = marginal._function.limit(
@@ -1265,7 +1265,7 @@ class GeneratingFunction(Distribution):
                 else:
                     marginal._function = marginal._function.subs(s_var, 1)
             marginal._variables = set(
-                map(sympy.sympify,
+                map(sympy.Symbol,
                     filter(lambda v: v != "", map(str, variables))))
         else:
             for s_var in variables:
@@ -1275,7 +1275,7 @@ class GeneratingFunction(Distribution):
                 else:
                     marginal._function = marginal._function.subs(s_var, 1)
             marginal._variables = marginal._variables.difference(
-                map(sympy.sympify, filter(lambda v: v != "", variables)))
+                map(sympy.Symbol, filter(lambda v: v != "", variables)))
 
         marginal._is_closed_form = not marginal._function.is_polynomial()
         marginal._is_finite = marginal._function.ratsimp().is_polynomial()

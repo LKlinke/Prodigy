@@ -289,3 +289,8 @@ def test_split_addend():
         monomial *= sympy.S("x" + str(i))**values[i]
     addend = probability * monomial
     assert GeneratingFunction._split_addend(addend) == (probability, monomial)
+
+def test_predefined_variable_names():
+    gf = GeneratingFunction('sum^3*x^5', 'sum', 'x')
+    assert len(gf.get_variables()) == 2
+    assert gf.marginal('sum') == GeneratingFunction('sum^3', 'sum')
