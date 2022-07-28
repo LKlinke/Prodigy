@@ -112,6 +112,12 @@ def test_subtraction():
     assert "Cannot assign '" in str(e) and "because it can be negative" in str(
         e)
 
+    gf = SympyPGF.poisson('x', 3)
+    with raises(ValueError) as e:
+        gf.update(parse_expr("x = x - 2"))
+    assert "Cannot assign '" in str(e) and "because it can be negative" in str(
+        e)
+
     xfail('known bug / unclear behavior')
     gf = GeneratingFunction('x^p', 'x')
     # TODO this fails because sympy can't assume that p is real and x >= 0 and thus doesn simplify 'x**p*(1/x)**p' to '1'
