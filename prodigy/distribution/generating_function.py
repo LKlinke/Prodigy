@@ -634,6 +634,7 @@ class GeneratingFunction(Distribution):
                 )
             result = result.subs(update_var, 1) * update_var**diff
 
+        result = sympy.expand(result)
         gf = GeneratingFunction(result,
                                 *self._variables,
                                 preciseness=self._preciseness)
