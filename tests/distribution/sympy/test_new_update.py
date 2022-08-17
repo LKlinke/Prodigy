@@ -1,5 +1,3 @@
-from ast import parse
-
 import sympy
 from probably.pgcl.parser import parse_expr
 from pytest import raises, xfail
@@ -117,6 +115,9 @@ def test_subtraction():
         gf.update(parse_expr("x = x - 2"))
     assert "Cannot assign '" in str(e) and "because it can be negative" in str(
         e)
+
+    gf = GeneratingFunction('0.4*tmp^5*c^13*n^4 + 0.6*tmp^7*c^28*n^77')
+    assert gf.update(parse_expr('n = n + (c-tmp)')) == GeneratingFunction('0.4*tmp^5*c^13*n^12 + 0.6*tmp^7*c^28*n^98')
 
     xfail('known bug / unclear behavior')
     gf = GeneratingFunction('x^p', 'x')
