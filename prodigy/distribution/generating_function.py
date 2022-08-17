@@ -819,7 +819,7 @@ class GeneratingFunction(Distribution):
             result._function = result._function.subs(
                 subst_var,
                 f"{subst_var + '*' if subst_var != variable else ''}({dist_gf})")
-            return result
+            return result.set_parameters(*self.get_parameters())
 
         if not isinstance(sampling_dist, get_args(DistrExpr)) and isinstance(
                 sampling_dist, get_args(Expr)):
