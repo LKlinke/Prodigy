@@ -80,7 +80,7 @@ class FPS(Distribution):
 
     def __truediv__(self, other) -> FPS:
         if isinstance(other, (str, FPS)):
-            return FPS.from_dist(self._dist * f"1/{str(other)}",
+            return FPS.from_dist(self._dist * pygin.Dist(f"1/{str(other)}"),
                                  self._variables | other._variables,
                                  self._parameters | other._parameters)
         raise NotImplementedError(
