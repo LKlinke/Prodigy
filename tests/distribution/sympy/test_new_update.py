@@ -117,7 +117,8 @@ def test_subtraction():
         e)
 
     gf = GeneratingFunction('0.4*tmp^5*c^13*n^4 + 0.6*tmp^7*c^28*n^77')
-    assert gf.update(parse_expr('n = n + (c-tmp)')) == GeneratingFunction('0.4*tmp^5*c^13*n^12 + 0.6*tmp^7*c^28*n^98')
+    assert gf.update(parse_expr('n = n + (c-tmp)')) == GeneratingFunction(
+        '0.4*tmp^5*c^13*n^12 + 0.6*tmp^7*c^28*n^98')
 
     xfail('known bug / unclear behavior')
     gf = GeneratingFunction('x^p', 'x')
@@ -165,3 +166,18 @@ def test_division():
 
     gf = SympyPGF.poisson('x', 3) * GeneratingFunction('y*z')
     assert gf.update(parse_expr('x = z / y')) == GeneratingFunction('x*y*z')
+
+
+def test_unilateral_approximation():
+    gf = GeneratingFunction(
+        '0.7*x**3*y**5 + 0.1*x**13*y**17 + 0.15*x**21*y**25 + 0.05*x**33*y**4')
+    *_, res = gf.approximate_unilaterally('x', '0.9')
+    assert res == GeneratingFunction(
+        '0.7*x**3*y**5 + 0.1*x**13*y**17 + 0.15*x**21*y**25 + 0.05*y**4')
+
+    gf = SympyPGF.poisson('x', 7).set_variables('x', 'y')
+    gf._function = gf._function.subs(sympy.S('x'), sympy.S('x*y'))
+    *_, res = gf.approximate_unilaterally('x', '0.9')
+    assert res.filter(parse_expr('x = 100'))._function == 0
+    assert res.filter(parse_expr('y = 100'))._function != 0
+    assert res.filter(parse_expr('x = 5')) == res.filter(parse_expr('y = 5'))

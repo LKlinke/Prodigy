@@ -467,10 +467,44 @@ class GeneratingFunction(Distribution):
         parameter of this GF nor contained in the `exclude` parameter.
         """
         i = 0
-        while sympy.Symbol(f'_{i}') in (self._variables
-                                   | self._parameters) or f'_{i}' in exclude:
+        while sympy.Symbol(f'_{i}') in (
+                self._variables
+                | self._parameters) or f'_{i}' in exclude:
             i += 1
         return f'_{i}'
+
+    def approximate_unilaterally(
+            self, variable: str, probability_mass: str
+    ) -> Generator[GeneratingFunction, None, None]:
+        mass = sympy.S(probability_mass)
+        var = sympy.Symbol(variable)
+        if var not in self._variables:
+            raise ValueError(f'Not a variable: {variable}')
+        result: sympy.Expr = self._function.subs(var, 1)
+        if mass <= 0:
+            # TODO modify preciseness
+            yield GeneratingFunction(result,
+                                     *self._variables,
+                                     preciseness=self._preciseness,
+                                     closed=self._is_closed_form,
+                                     finite=self.is_finite)
+            return
+        elif mass >= 1:
+            yield self
+            return
+        current_mass = 0
+
+        for element in self._function.series(var, n=None):
+            result = (result - element.subs(var, 1) + element)
+            yield GeneratingFunction(result,
+                                     *self._variables,
+                                     preciseness=self._preciseness)
+            prob = element
+            for x in self._variables:
+                prob = prob.subs(x, 1)
+            current_mass += prob
+            if current_mass >= mass:
+                break
 
     def _get_value_of_variable(self, var: str) -> int | None:
         """
@@ -818,7 +852,8 @@ class GeneratingFunction(Distribution):
             result = result.set_variables(*self.get_variables(), str(variable))
             result._function = result._function.subs(
                 subst_var,
-                f"{subst_var + '*' if subst_var != variable else ''}({dist_gf})")
+                f"{subst_var + '*' if subst_var != variable else ''}({dist_gf})"
+            )
             return result.set_parameters(*self.get_parameters())
 
         if not isinstance(sampling_dist, get_args(DistrExpr)) and isinstance(
@@ -1086,8 +1121,8 @@ class GeneratingFunction(Distribution):
         .. math:: \fraction{\delta G^`k`}{\delta `var`^`k`}
         """
         logger.debug("diff Call")
-        return GeneratingFunction(sympy.diff(self._function, sympy.Symbol(variable),
-                                             k),
+        return GeneratingFunction(sympy.diff(self._function,
+                                             sympy.Symbol(variable), k),
                                   *self._variables,
                                   preciseness=self._preciseness)
 
@@ -1265,8 +1300,8 @@ class GeneratingFunction(Distribution):
                 else:
                     marginal._function = marginal._function.subs(s_var, 1)
             marginal._variables = set(
-                map(sympy.Symbol,
-                    filter(lambda v: v != "", map(str, variables))))
+                map(sympy.Symbol, filter(lambda v: v != "",
+                                         map(str, variables))))
         else:
             for s_var in variables:
                 if marginal._is_closed_form:
