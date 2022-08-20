@@ -179,5 +179,6 @@ def test_unilateral_approximation():
     gf._function = gf._function.subs(sympy.S('x'), sympy.S('x*y'))
     *_, res = gf.approximate_unilaterally('x', '0.9')
     assert res.filter(parse_expr('x = 100'))._function == 0
-    assert res.filter(parse_expr('y = 100'))._function != 0
+    assert res.filter(parse_expr('y = 100'))._function == sympy.S(
+        'y**100*(7**100*exp(-7))/100!')
     assert res.filter(parse_expr('x = 5')) == res.filter(parse_expr('y = 5'))

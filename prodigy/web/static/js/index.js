@@ -5,6 +5,7 @@ $(document).ready(function () {
 function hide_results() {
     $("#result_equiv").hide();
     $("#result_analysis").hide();
+    $("#result_playground").hide();
 }
 
 function equivalence_request() {
@@ -31,7 +32,7 @@ function equivalence_request() {
         },
         error: function (response, status) {
             $(".spinner").hide();
-            $("#result_equiv").text(response.statusText).css({"color": "red"}).show();
+            $("#result_equiv").text(response.responseJSON.message).css({"color": "red"}).show();
             $(".submit_button").fadeIn();
         },
         timeout: 20000
@@ -53,12 +54,12 @@ function analysis_request() {
         type: 'POST',
         success: function (response, status) {
             $(".spinner").hide();
-            $("#result_analysis").text(response.distribution).show();
+            $("#result_analysis").val(response.distribution).css({"color": "black"}).show();
             $(".submit_button").fadeIn();
         },
         error: function (response, status) {
             $(".spinner").hide();
-            $("#result_analysis").text(response.statusText).css({"color": "red"}).show();
+            $("#result_analysis").val(response.responseJSON.message).css({"color": "red"}).show();
             $(".submit_button").fadeIn();
         },
         timeout: 20000
@@ -80,12 +81,12 @@ function playground_request() {
         type: 'POST',
         success: function (response, status) {
             $(".spinner").hide();
-            $("#result_playground").text(response.distribution).show();
+            $("#result_playground").val(response.distribution).css({"color": "black"}).show();
             $(".submit_button").fadeIn();
         },
         error: function (response, status) {
             $(".spinner").hide();
-            $("#result_playground").text(response.statusText).css({"color": "red"}).show();
+            $("#result_playground").val(response.responseJSON.message).css({"color": "red"}).show();
             $(".submit_button").fadeIn();
         },
         timeout: 20000

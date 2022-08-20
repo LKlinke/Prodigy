@@ -28,15 +28,30 @@ def checking_equivalence():
         'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
     app.logger.debug("Chosen engine %s", engine)
 
-    app.logger.debug("Parse first program")
-    loopy_prog = pgcl.parse_pgcl(loopy_source)
-    app.logger.debug("Parse second program")
-    invariant_prog = pgcl.parse_pgcl(invariant_source)
+    app.logger.debug("Parse loop-file")
+    try:
+        loopy_prog = pgcl.parse_pgcl(loopy_source)
+    except:
+        app.logger.error('Cannot parse loop file')
+        return make_response(jsonify({'message': 'Cannot parse loop file'}),
+                             500)
+    app.logger.debug("Parse invariant file")
+    try:
+        invariant_prog = pgcl.parse_pgcl(invariant_source)
+    except:
+        app.logger.error('Cannot parse invariant file')
+        return make_response(
+            jsonify({'message': 'Cannot parse invariant file'}), 500)
     app.logger.debug("Finished parsing")
 
     app.logger.info("Run equivalence check")
-    result, _ = check_equivalence(loopy_prog, invariant_prog,
-                                  ForwardAnalysisConfig(engine=engine))
+    try:
+        result, _ = check_equivalence(loopy_prog, invariant_prog,
+                                      ForwardAnalysisConfig(engine=engine))
+    except:
+        app.logger.error('Error while checking equivalence')
+        return make_response(
+            jsonify({'message': 'Error while checking equivalence'}), 500)
     app.logger.info("Equivalence check finished. Result: %s", result)
     return make_response(jsonify({'equivalent': result}), 200)
 
@@ -51,8 +66,13 @@ def distribution_transformation():
     engine = ForwardAnalysisConfig.Engine.GINAC if request.form[
         'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
 
-    app.logger.debug("Parsing the program soruce")
-    program = parse_pgcl(prog_src)
+    app.logger.debug("Parsing the program source")
+    try:
+        program = parse_pgcl(prog_src)
+    except:
+        app.logger.error('Cannot parse program source')
+        return make_response(
+            jsonify({'message': 'Cannot parse program source'}), 500)
     app.logger.debug("Parsing done. Continue with type checking")
     if check_program(program):
         make_response("Typing Errors occured", 500)
@@ -66,6 +86,7 @@ def distribution_transformation():
     app.logger.info("Analysis task started for %s with input distribution %s",
                     program, input_dist)
     result = compute_discrete_distribution(program, input_dist, config)
+    print(result)
     app.logger.info("Analysis completed")
     return jsonify({
         "distribution": str(result),

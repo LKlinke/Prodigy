@@ -25,6 +25,7 @@ h1 {
 
 .login-box {
   position: relative;
+  vertical-align: top;
   left: 30%;
   width: 400px;
   padding: 40px;

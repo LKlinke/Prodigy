@@ -391,7 +391,7 @@ class GeneratingFunction(Distribution):
             call :func:`approximate` with the supplied parameter if necessary. However, because of these intermediate variables,
             this approximation might be less precise and take longer to compute than doing it before performing the update. For
             example, given an infinite generating function `gf`, it will probably be faster as well as produce better results to
-            call `gf.approximate(10).update(expr, None)` than to call `gf.update(expr, 10)`.
+            call `*_,res = gf.approximate(10); res.update(expr, None)` than to call `gf.update(expr, 10)`.
         """
 
         assert isinstance(expression, BinopExpr) and isinstance(expression.lhs, VarExpr), \
@@ -476,6 +476,8 @@ class GeneratingFunction(Distribution):
     def approximate_unilaterally(
             self, variable: str, probability_mass: str
     ) -> Generator[GeneratingFunction, None, None]:
+        # TODO I don't think it's smart to use this, as we don't actually approximate, but
+        # only increase the probability that the variable is 0
         mass = sympy.S(probability_mass)
         var = sympy.Symbol(variable)
         if var not in self._variables:
@@ -699,7 +701,7 @@ class GeneratingFunction(Distribution):
         If `self` is infinite and both factors are variables, this function will first try to determine whether one
         of these variables has a certain value with a probability of 100% (see :func:`_get_value_of_variable`). If
         yes, it will replace that variable with its value and perform the corresponding update. If no, and approximation
-        is disabled, it will throw an error. If approximation is enabled, it will approximate itself up to the specified
+        is disabled, it will raise an error. If approximation is enabled, it will approximate itself up to the specified
         precision (see :func:`approximate`) and apply the update to this approximation.
         """
         update_var = sympy.Symbol(temp_var)
@@ -909,7 +911,7 @@ class GeneratingFunction(Distribution):
         if not expr.free_symbols.issubset(
                 self._variables.union(self._parameters)):
             raise ValueError(
-                f"Cannot compute expected value of {expr} because it contains unknown symbols"
+                f"Cannot compute expected value of {expression} because it contains unknown symbols"
             )
 
         marginal = self.marginal(*(expr.free_symbols & self._variables),
