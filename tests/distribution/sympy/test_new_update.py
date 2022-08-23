@@ -142,10 +142,13 @@ def test_modulo():
         'x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
     assert gf.update(parse_expr('x = 5 % (1+1+1)')) == GeneratingFunction(
         'x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
-    xfail('sympy madness / unclear behavior')
-    # TODO should this hold? I think sympy computes the correct solution, it just can't simplify it to 0 (missing assumptions?)
     assert gf.update(parse_expr('x = y % (3+2)'))._function == sympy.S(
-        '0.3*y^4*x^4 + 0.3*y^7*x^2 + 0.4*y^8*x^3')
+        '(3/10)*y^4*x^4 + (3/10)*y^7*x^2 + (4/10)*y^8*x^3')
+
+    gf = GeneratingFunction(
+        '0.3*a**3*b**5*c**2 + 0.2*a**6*b**9*c**55 + 0.5*a**5*b**346*c**34')
+    assert gf.update(parse_expr('a = b % c')) == GeneratingFunction(
+        '0.3*a**1*b**5*c**2 + 0.2*a**9*b**9*c**55 + 0.5*a**6*b**346*c**34')
 
 
 def test_division():

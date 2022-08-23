@@ -489,7 +489,7 @@ class GeneratingFunction(Distribution):
                                      *self._variables,
                                      preciseness=self._preciseness,
                                      closed=self._is_closed_form,
-                                     finite=self.is_finite)
+                                     finite=self._is_finite)
             return
         elif mass >= 1:
             yield self
@@ -598,34 +598,50 @@ class GeneratingFunction(Distribution):
         is not yet supported (TODO) and will cause this function to raise an error.
         """
 
-        value_r: int | str | None = right
-        if isinstance(right, str):
-            value_r = self._get_value_of_variable(right)
-        if value_r is None:
-            # TODO can this even be implemented? If no, change to a ValueError
-            raise NotImplementedError(
-                f"Cannot compute the expression {left} % {right} because {right} is not a literal"
+        if sympy.Symbol(left) in self._parameters or sympy.Symbol(
+                right) in self._parameters:
+            raise ValueError('Cannot perform modulo operation on parameters')
+
+        update_var = sympy.Symbol(temp_var)
+        result = sympy.S(0)
+
+        if self._is_finite:
+            for prob, state in self:
+                if sympy.Symbol(left) in self._variables:
+                    left_var = state[left]
+                else:
+                    left_var = sympy.S(left)
+                if sympy.Symbol(right) in self._variables:
+                    right_var = state[right]
+                else:
+                    right_var = sympy.S(right)
+                result += sympy.S(prob) * sympy.S(state.to_monomial()).subs(
+                    update_var, 1) * update_var**(left_var % right_var)
+
+        elif not sympy.S(right).is_Integer:
+            raise ValueError(
+                f'Illegal right hand side for modulo operation on infinite GF (must be an integer): {right}'
             )
 
-        value_l: int | str | None = left
-        if isinstance(left, str):
-            value_l = self._get_value_of_variable(left)
-        if value_l is not None:
-            result = value_l % value_r  # type: ignore
-            return self.update(parse_expr(f"{temp_var} = {result}"))
+        elif sympy.S(left).is_Integer:
+            assert sympy.S(right).is_Integer
+            result = sympy.S(left) % sympy.S(right)  # type: ignore
+            return self._update_var(temp_var, result)
+
         else:
-            update_var = sympy.Symbol(temp_var)
-            result = sympy.S(0)
+            assert sympy.Symbol(left) in self._variables
             assert isinstance(left, str)
             for index, gf in enumerate(
-                    self._arithmetic_progression(left, str(value_r))):
-                result = result + sympy.simplify(gf._function).subs(
-                    update_var, 1) * update_var**index
-            return GeneratingFunction(sympy.simplify(result),
-                                      *self._variables,
-                                      preciseness=self._preciseness,
-                                      closed=self._is_closed_form,
-                                      finite=self._is_finite)
+                    self._arithmetic_progression(left, str(right))):
+                # TODO this seems to compute the correct result, but it can't always be simplified to 0
+                result = result + gf._function.subs(update_var,
+                                                    1) * update_var**index
+
+        return GeneratingFunction(result,
+                                  *self._variables,
+                                  preciseness=self._preciseness,
+                                  closed=self._is_closed_form,
+                                  finite=self._is_finite)
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> GeneratingFunction:
@@ -768,7 +784,7 @@ class GeneratingFunction(Distribution):
                                   finite=self._is_finite)
 
     def _update_var(self, updated_var: str,
-                    assign_var: str) -> GeneratingFunction:
+                    assign_var: str | int) -> GeneratingFunction:
         """
         Applies the update `updated_var = assign_var` to this generating function.
         `assign_var` may be a variable, parameter, or integer literal.
