@@ -21,8 +21,14 @@ def index():
 def checking_equivalence():
     app.logger.info("Equivalence check requested")
     loopy_source = request.files['loop'].read().decode("utf-8")
+    if loopy_source == '':
+        return make_response(
+            jsonify({'message': 'No loop program source selected'}), 500)
     app.logger.debug("Loop-file %s", loopy_source)
     invariant_source = request.files['invariant'].read().decode("utf-8")
+    if invariant_source == '':
+        return make_response(
+            jsonify({'message': 'No invariant source selected'}), 500)
     app.logger.debug("Invariant file %s", invariant_source)
     engine = ForwardAnalysisConfig.Engine.GINAC if request.form[
         'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
@@ -62,7 +68,13 @@ def distribution_transformation():
 
     app.logger.debug("Collecting necessary data")
     prog_src = request.files["program"].read().decode("utf-8")
+    if prog_src == '':
+        return make_response(
+            jsonify({'message': 'No program source selected'}), 500)
     input_dist_str = request.form["input_dist"]
+    if input_dist_str == '':
+        return make_response(
+            jsonify({'message': 'Please provide an input distribution'}), 500)
     engine = ForwardAnalysisConfig.Engine.GINAC if request.form[
         'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
 
@@ -85,8 +97,12 @@ def distribution_transformation():
 
     app.logger.info("Analysis task started for %s with input distribution %s",
                     program, input_dist)
-    result = compute_discrete_distribution(program, input_dist, config)
-    print(result)
+    try:
+        result = compute_discrete_distribution(program, input_dist, config)
+    except:
+        app.logger.error('Error while computing distribution')
+        return make_response(
+            jsonify({'message': 'Error while computing distribution'}), 500)
     app.logger.info("Analysis completed")
     return jsonify({
         "distribution": str(result),
@@ -101,11 +117,19 @@ def analyze_raw_code():
     app.logger.debug("Collecting necessary data")
     prog_src = request.form['codearea']
     input_dist_str = request.form["playground_dist"]
+    if input_dist_str == '':
+        return make_response(
+            jsonify({'message': 'Please provide an input distribution'}), 500)
     engine = ForwardAnalysisConfig.Engine.GINAC if request.form[
         'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
 
     app.logger.debug("Parsing the program soruce")
-    program = parse_pgcl(prog_src)
+    try:
+        program = parse_pgcl(prog_src)
+    except:
+        app.logger.error('Cannot parse program source')
+        return make_response(
+            jsonify({'message': 'Cannot parse program source'}), 500)
     app.logger.debug("Parsing done. Continue with type checking")
     if check_program(program):
         make_response("Typing Errors occured", 500)
@@ -118,7 +142,12 @@ def analyze_raw_code():
 
     app.logger.info("Analysis task started for %s with input distribution %s",
                     program, input_dist)
-    result = compute_discrete_distribution(program, input_dist, config)
+    try:
+        result = compute_discrete_distribution(program, input_dist, config)
+    except:
+        app.logger.error('Error while computing distribution')
+        return make_response(
+            jsonify({'message': 'Error while computing distribution'}), 500)
     app.logger.info("Analysis completed")
     return jsonify({
         "distribution": str(result),
