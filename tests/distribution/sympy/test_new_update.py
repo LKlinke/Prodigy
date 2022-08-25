@@ -39,6 +39,8 @@ def test_var_assignment():
                                                          1) == sympy.S("n^42")
     assert gf.update(parse_expr("n = n"))._function.subs(sympy.S("m"),
                                                          1) == sympy.S("n^5")
+    assert gf.update(parse_expr('n = 3')) == GeneratingFunction('n**3*m**42')
+    assert gf.update(parse_expr('n = 8/2')) == GeneratingFunction('n**4*m**42')
 
     gf = GeneratingFunction('x^8', 'x', 'y')
     assert gf.update(parse_expr('y = x')) == GeneratingFunction('y^8 * x^8')
