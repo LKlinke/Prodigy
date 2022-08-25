@@ -437,14 +437,27 @@ class GeneratingFunction(Distribution):
                 return f, temp_var
 
             if isinstance(expression, (NatLitExpr, RealLitExpr)):
-                f = function._update_var(temp_var, str(expression))
-                return f, temp_var
+                return function, str(expression.value)
 
             else:
                 raise ValueError(
                     f"Unsupported type of subexpression: {expression}")
 
-        result, _ = evaluate(self, expression.rhs, variable)
+        value: int | None = None
+        if isinstance(
+                expression.rhs,
+                RealLitExpr) and expression.rhs.to_fraction().denominator == 1:
+            value = expression.rhs.to_fraction().numerator
+        if isinstance(expression.rhs, NatLitExpr):
+            value = expression.rhs.value
+        if value is not None:
+            result = GeneratingFunction(
+                self._function.subs(sympy.S(variable), 1) *
+                sympy.S(variable)**value,
+                *self._variables,
+                preciseness=self._preciseness)
+        else:
+            result, _ = evaluate(self, expression.rhs, variable)
         return result
 
     def _get_fresh_variable(
@@ -522,10 +535,9 @@ class GeneratingFunction(Distribution):
     def _update_division(self, temp_var: str, numerator: str | int,
                          denominator: str | int) -> GeneratingFunction:
         """
-        Applies the expression `temp_var = numerator / denominator` to this generating function. 
-        If in some state of the GF, the numerator is not divisible by the denominator, this 
-        function raises an error. Infinite GFs are supported if both variables have only finitely
-        many possible values.
+        Applies the expression `temp_var = numerator / denominator` to this generating function. Currently,
+        only finite generating functions are supported (at least mostly, TODO). If in some state of the GF,
+        the numerator is not divisible by the denominator, this function raises an error.
 
         Both the numerator and the denominator may not be parameters
         """
@@ -805,19 +817,16 @@ class GeneratingFunction(Distribution):
             raise ValueError('Assignment to parameters is not allowed')
 
         if not updated_var == assign_var:
-            if sympy.Symbol(assign_var) in self._variables:
+            if sympy.S(assign_var) in self._variables:
                 result = self._function.subs([
                     (sympy.Symbol(updated_var), 1),
-                    (sympy.Symbol(assign_var),
-                     sympy.Symbol(assign_var) * sympy.Symbol(updated_var))
+                    (sympy.S(assign_var),
+                     sympy.S(assign_var) * sympy.Symbol(updated_var))
                 ])
             else:
-                x = sympy.S(assign_var)
-                if not x.is_Integer:
-                    raise ValueError(f'Cannot assign {assign_var} because it is not an integer')
                 result = self._function.subs(
                     sympy.Symbol(updated_var),
-                    1) * sympy.Symbol(updated_var)**x
+                    1) * sympy.Symbol(updated_var)**sympy.S(assign_var)
             return GeneratingFunction(result,
                                       *self._variables,
                                       preciseness=self._preciseness,
