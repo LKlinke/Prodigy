@@ -2,6 +2,7 @@ import sympy
 from probably.pgcl.parser import parse_expr
 from pytest import raises, xfail
 
+from prodigy.distribution.distribution import MarginalType
 from prodigy.distribution.generating_function import (GeneratingFunction,
                                                       SympyPGF)
 
@@ -51,7 +52,7 @@ def test_var_assignment():
     with raises(ValueError) as e:
         gf = GeneratingFunction('x')
         gf.update(parse_expr('x = 0.5'))
-    #assert 'Assignment to parameters is not allowed' in str(e)
+    assert 'Cannot assign the real value 0.5 to x' in str(e)
 
 
 def test_multiplication():
@@ -87,7 +88,8 @@ def test_multiplication():
                            (sympy.S('y'), sympy.S('y * x**4'))]))
 
     gf = GeneratingFunction('x*y**4')
-    assert gf.update(parse_expr('x = 0.5*y')) == GeneratingFunction('x**2*y**4')
+    assert gf.update(
+        parse_expr('x = 0.5*y')) == GeneratingFunction('x**2*y**4')
 
 
 def test_subtraction():
@@ -184,7 +186,8 @@ def test_division():
         'x', 3) * GeneratingFunction('0.4*y**3*z**12 + 0.6*y**7*z**42')
     assert gf.update(parse_expr('y = z/y')) == SympyPGF.poisson(
         'x', 3) * GeneratingFunction('0.4*y**4*z**12 + 0.6*y**6*z**42')
-    assert gf.update(parse_expr('x = z/y')) == GeneratingFunction('0.4*y**3*z**12*x**4 + 0.6*y**7*z**42*x**6')
+    assert gf.update(parse_expr('x = z/y')) == GeneratingFunction(
+        '0.4*y**3*z**12*x**4 + 0.6*y**7*z**42*x**6')
 
 
 def test_unilateral_approximation():
@@ -202,8 +205,23 @@ def test_unilateral_approximation():
         'y**100*(7**100*exp(-7))/100!')
     assert res.filter(parse_expr('x = 5')) == res.filter(parse_expr('y = 5'))
 
+
 def test_update():
     gf = GeneratingFunction('x')
     res = gf.update(parse_expr('x = 9/2*1*2'))
     assert res == GeneratingFunction('x**9')
-    assert res.update(parse_expr('x = x*(9/2*1*2)')) == GeneratingFunction('x**81')
+    res = res.update(parse_expr('x = x*(9/2*1*2)'))
+    assert res == GeneratingFunction('x**81')
+    assert res._function.subs(sympy.Symbol('x'), 1) == sympy.S(1)
+    assert res.marginal('x',
+                        method=MarginalType.EXCLUDE) == GeneratingFunction('1')
+    assert res.update(parse_expr('x = x/9')) == GeneratingFunction('x**9')
+    assert res.update(parse_expr('x = 3')) == GeneratingFunction('x**3')
+
+    assert GeneratingFunction('x').update(
+        parse_expr('x = x*x'))._function.subs(sympy.Symbol('x'),
+                                              1) == sympy.S(1)
+    assert GeneratingFunction('x')._update_product(
+        'x', 'x', 'x')._function.subs(sympy.Symbol('x'), 1) == sympy.S(1)
+    assert GeneratingFunction('x').update(
+        parse_expr('x = x*x'))._variables == {sympy.Symbol('x')}

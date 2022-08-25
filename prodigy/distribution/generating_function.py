@@ -1,6 +1,5 @@
 # pylint: disable=protected-access
 from __future__ import annotations
-from fractions import Fraction
 
 import functools
 import operator
@@ -444,17 +443,19 @@ class GeneratingFunction(Distribution):
                     f"Unsupported type of subexpression: {expression}")
 
         value: int | None = None
-        if isinstance(                expression.rhs,                RealLitExpr):
+        if isinstance(expression.rhs, RealLitExpr):
             if expression.rhs.to_fraction().denominator == 1:
                 value = expression.rhs.to_fraction().numerator
             else:
-                raise ValueError(f'Cannot assign the real value {str(expression.rhs)} to {variable}')
+                raise ValueError(
+                    f'Cannot assign the real value {str(expression.rhs)} to {variable}'
+                )
         if isinstance(expression.rhs, NatLitExpr):
             value = expression.rhs.value
         if value is not None:
             result = GeneratingFunction(
-                self._function.subs(sympy.S(variable), 1) *
-                sympy.S(variable)**value,
+                self._function.subs(sympy.Symbol(variable), 1) *
+                sympy.Symbol(variable)**value,
                 *self._variables,
                 preciseness=self._preciseness)
         else:
@@ -746,7 +747,10 @@ class GeneratingFunction(Distribution):
         """
         update_var = sympy.Symbol(temp_var)
         # these assumptions are necessary for some simplifications in the exponent
-        update_var_with_assumptions = sympy.Symbol(temp_var, real=True, nonnegative=True)
+        # they are later eliminated again in the init of the new GF
+        update_var_with_assumptions = sympy.Symbol(temp_var,
+                                                   real=True,
+                                                   nonnegative=True)
         prod_1, prod_2 = sympy.S(first_factor), sympy.S(second_factor)
         result = self._function
 
@@ -785,8 +789,9 @@ class GeneratingFunction(Distribution):
                     term: sympy.Basic = sympy.S(prob) * sympy.S(
                         state.to_monomial())
                     result = result - term
-                    term = term.subs(update_var, 1) * update_var_with_assumptions**(
-                        state[first_factor] * state[second_factor])
+                    term = term.subs(
+                        update_var, 1) * update_var_with_assumptions**(
+                            state[first_factor] * state[second_factor])
                     result = result + term
 
         # we multiply a variable with a literal
@@ -796,10 +801,13 @@ class GeneratingFunction(Distribution):
             else:
                 var, lit = prod_2, prod_1
             if var == update_var:
-                result = result.subs(update_var, update_var_with_assumptions**lit)
+                result = result.subs(update_var,
+                                     update_var_with_assumptions**lit)
             else:
-                result = result.subs([(update_var, 1),
-                                      (var, var * update_var_with_assumptions**lit)])
+                result = result.subs([
+                    (update_var, 1),
+                    (var, var * update_var_with_assumptions**lit)
+                ])
 
         # we multiply two literals
         else:
