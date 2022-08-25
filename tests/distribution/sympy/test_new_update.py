@@ -45,8 +45,13 @@ def test_var_assignment():
 
     with raises(ValueError) as e:
         gf = GeneratingFunction('p*x + (1-p) * x^2', 'x')
-        gf.update(parse_expr('x = p')) == GeneratingFunction('x^p', 'x')
+        gf.update(parse_expr('x = p'))
     assert 'Assignment to parameters is not allowed' in str(e)
+
+    with raises(ValueError) as e:
+        gf = GeneratingFunction('x')
+        gf.update(parse_expr('x = 0.5'))
+    #assert 'Assignment to parameters is not allowed' in str(e)
 
 
 def test_multiplication():
@@ -80,6 +85,9 @@ def test_multiplication():
     assert gf.update(parse_expr('x = y * 4')) == GeneratingFunction(
         gf._function.subs([(sympy.S('x'), 1),
                            (sympy.S('y'), sympy.S('y * x**4'))]))
+
+    gf = GeneratingFunction('x*y**4')
+    assert gf.update(parse_expr('x = 0.5*y')) == GeneratingFunction('x**2*y**4')
 
 
 def test_subtraction():
@@ -193,3 +201,9 @@ def test_unilateral_approximation():
     assert res.filter(parse_expr('y = 100'))._function == sympy.S(
         'y**100*(7**100*exp(-7))/100!')
     assert res.filter(parse_expr('x = 5')) == res.filter(parse_expr('y = 5'))
+
+def test_update():
+    gf = GeneratingFunction('x')
+    res = gf.update(parse_expr('x = 9/2*1*2'))
+    assert res == GeneratingFunction('x**9')
+    assert res.update(parse_expr('x = x*(9/2*1*2)')) == GeneratingFunction('x**81')

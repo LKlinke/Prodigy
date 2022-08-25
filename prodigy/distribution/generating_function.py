@@ -1,5 +1,6 @@
 # pylint: disable=protected-access
 from __future__ import annotations
+from fractions import Fraction
 
 import functools
 import operator
@@ -397,7 +398,6 @@ class GeneratingFunction(Distribution):
         assert isinstance(expression, BinopExpr) and isinstance(expression.lhs, VarExpr), \
             f"Expression must be an assignment, was {expression}."
 
-        # TODO is it possible to support more infinite GFs by looking at the marginal in the variables that are manipulated?
         variable = expression.lhs.var
         if sympy.Symbol(variable) not in self._variables:
             raise ValueError(
@@ -444,10 +444,11 @@ class GeneratingFunction(Distribution):
                     f"Unsupported type of subexpression: {expression}")
 
         value: int | None = None
-        if isinstance(
-                expression.rhs,
-                RealLitExpr) and expression.rhs.to_fraction().denominator == 1:
-            value = expression.rhs.to_fraction().numerator
+        if isinstance(                expression.rhs,                RealLitExpr):
+            if expression.rhs.to_fraction().denominator == 1:
+                value = expression.rhs.to_fraction().numerator
+            else:
+                raise ValueError(f'Cannot assign the real value {str(expression.rhs)} to {variable}')
         if isinstance(expression.rhs, NatLitExpr):
             value = expression.rhs.value
         if value is not None:
@@ -735,8 +736,7 @@ class GeneratingFunction(Distribution):
             second_factor: str,
             approximate: Optional[str | int] = None) -> GeneratingFunction:
         """
-        Applies the update `temp_var = first_factor * second_factor` to this generating function. Multiplication
-        with real numbers is not yet supported (TODO).
+        Applies the update `temp_var = first_factor * second_factor` to this generating function.
 
         If `self` is infinite and both factors are variables, this function will first try to determine whether one
         of these variables has a certain value with a probability of 100% (see :func:`_get_value_of_variable`). If
@@ -745,8 +745,13 @@ class GeneratingFunction(Distribution):
         precision (see :func:`approximate`) and apply the update to this approximation.
         """
         update_var = sympy.Symbol(temp_var)
+        # these assumptions are necessary for some simplifications in the exponent
+        update_var_with_assumptions = sympy.Symbol(temp_var, real=True, nonnegative=True)
         prod_1, prod_2 = sympy.S(first_factor), sympy.S(second_factor)
         result = self._function
+
+        if prod_1 in self._parameters or prod_2 in self._parameters:
+            raise ValueError('Multiplication of parameters is not allowed')
 
         # we multiply two variables
         if prod_1 in self._variables and prod_2 in self._variables:
@@ -780,25 +785,25 @@ class GeneratingFunction(Distribution):
                     term: sympy.Basic = sympy.S(prob) * sympy.S(
                         state.to_monomial())
                     result = result - term
-                    term = term.subs(update_var, 1) * update_var**(
+                    term = term.subs(update_var, 1) * update_var_with_assumptions**(
                         state[first_factor] * state[second_factor])
                     result = result + term
 
-        # we multiply a variable with a literal / parameter
+        # we multiply a variable with a literal
         elif prod_1 in self._variables or prod_2 in self._variables:
             if prod_1 in self._variables:
                 var, lit = prod_1, prod_2
             else:
                 var, lit = prod_2, prod_1
             if var == update_var:
-                result = result.subs(update_var, update_var**lit)
+                result = result.subs(update_var, update_var_with_assumptions**lit)
             else:
                 result = result.subs([(update_var, 1),
-                                      (var, var * update_var**lit)])
+                                      (var, var * update_var_with_assumptions**lit)])
 
-        # we multiply two literals / parameters
+        # we multiply two literals
         else:
-            result = result.subs(update_var, 1) * (update_var
+            result = result.subs(update_var, 1) * (update_var_with_assumptions
                                                    **(prod_1 * prod_2))
 
         return GeneratingFunction(result,
