@@ -43,8 +43,10 @@ def test_var_assignment():
     gf = GeneratingFunction('x^8', 'x', 'y')
     assert gf.update(parse_expr('y = x')) == GeneratingFunction('y^8 * x^8')
 
-    gf = GeneratingFunction('p*x + (1-p) * x^2', 'x')
-    assert gf.update(parse_expr('x = p')) == GeneratingFunction('x^p', 'x')
+    with raises(ValueError) as e:
+        gf = GeneratingFunction('p*x + (1-p) * x^2', 'x')
+        gf.update(parse_expr('x = p')) == GeneratingFunction('x^p', 'x')
+    assert 'Assignment to parameters is not allowed' in str(e)
 
 
 def test_multiplication():
@@ -158,17 +160,23 @@ def test_division():
     assert gf.update(parse_expr('n = n / 1')) == GeneratingFunction('n')
     with raises(ValueError) as e:
         gf.update(parse_expr('n = n / 2'))
-    assert 'because it is not an integer' in str(e)
+    assert 'because it is not always an integer' in str(e)
 
     gf = GeneratingFunction('n^2*m^6', 'n', 'm', 'o')
     assert gf.update(
         parse_expr('o = m / n')) == GeneratingFunction('n^2*m^6*o^3')
     with raises(ValueError) as e:
         gf.update(parse_expr('o = n / m'))
-    assert 'because it is not an integer' in str(e)
+    assert 'because it is not always an integer' in str(e)
 
     gf = SympyPGF.poisson('x', 3) * GeneratingFunction('y*z')
     assert gf.update(parse_expr('x = z / y')) == GeneratingFunction('x*y*z')
+
+    gf = SympyPGF.poisson(
+        'x', 3) * GeneratingFunction('0.4*y**3*z**12 + 0.6*y**7*z**42')
+    assert gf.update(parse_expr('y = z/y')) == SympyPGF.poisson(
+        'x', 3) * GeneratingFunction('0.4*y**4*z**12 + 0.6*y**6*z**42')
+    assert gf.update(parse_expr('x = z/y')) == GeneratingFunction('0.4*y**3*z**12*x**4 + 0.6*y**7*z**42*x**6')
 
 
 def test_unilateral_approximation():

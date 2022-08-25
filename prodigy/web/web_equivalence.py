@@ -11,6 +11,8 @@ from prodigy.analysis.equivalence import check_equivalence
 
 app = Flask(__name__)
 
+# pylint: disable = bare-except
+
 
 @app.route("/")
 def index():

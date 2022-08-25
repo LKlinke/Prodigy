@@ -538,64 +538,88 @@ class GeneratingFunction(Distribution):
         Applies the expression `temp_var = numerator / denominator` to this generating function. Currently,
         only finite generating functions are supported (at least mostly, TODO). If in some state of the GF,
         the numerator is not divisible by the denominator, this function raises an error.
+
+        Both the numerator and the denominator may not be parameters
         """
         update_var = sympy.Symbol(temp_var)
         div_1, div_2 = sympy.S(numerator), sympy.S(denominator)
-        # This allows us to handle some infinite GFs (see tests):
-        value_l = self._get_value_of_variable(str(numerator))
-        if value_l is not None:
-            div_1 = sympy.S(value_l)
-        value_r = self._get_value_of_variable(str(denominator))
-        if value_r is not None:
-            div_2 = sympy.S(value_r)
 
-        if div_1 not in self._variables and div_2 not in self._variables:
-            result = div_1 / div_2
-            if result.is_Integer or (len(result.free_symbols) != 0 and
-                                     result.free_symbols <= self._parameters):
-                return self._update_var(temp_var, str(result))
-            else:
-                raise ValueError(
-                    f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not an integer"
-                )
-        else:
-            if self.is_finite():
-                result = self._function
-                for prob, state in self:
-                    num: sympy.Basic | int = div_1
-                    if div_1 in self._variables:
-                        num = state[numerator]
-                    den: sympy.Basic | int = div_2
-                    if div_2 in self._variables:
-                        den = state[denominator]
-                    if num % den == 0:  #type: ignore
-                        result = result - sympy.S(prob) * sympy.S(
-                            state.to_monomial())
-                        result = result + (sympy.S(prob) *
-                                           sympy.S(state.to_monomial())).subs(
-                                               update_var, 1) * update_var**(
-                                                   num / den)  #type: ignore
-                    else:
+        if div_1 in self._parameters or div_2 in self._parameters:
+            raise ValueError('Division containing parameters is not allowed')
+
+        marginal_l = self.marginal(
+            numerator) if div_1 in self._variables else div_1
+        marginal_r = self.marginal(
+            denominator) if div_2 in self._variables else div_2
+
+        if isinstance(marginal_l, GeneratingFunction
+                      ) and not marginal_l._is_finite or isinstance(
+                          marginal_r,
+                          GeneratingFunction) and not marginal_r._is_finite:
+            raise ValueError(
+                f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'
+            )
+
+        result = sympy.S(0)
+        # TODO it must be possible to do this in a prettier way
+        if isinstance(marginal_l, GeneratingFunction):
+            for _, state_l in marginal_l:
+                if isinstance(marginal_r, GeneratingFunction):
+                    for _, state_r in marginal_r:
+                        val_l, val_r = state_l[numerator], state_r[denominator]
+                        x = self.filter(
+                            parse_expr(
+                                f'{numerator}={val_l} & {denominator}={val_r}')
+                        )._function
+                        if val_l % val_r != 0 and x != 0:
+                            raise ValueError(
+                                f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
+                            )
+                        result += x.subs(update_var,
+                                         1) * update_var**(val_l / val_r)
+                else:
+                    val_l, val_r = state_l[numerator], div_2
+                    x = self.filter(
+                        parse_expr(f'{numerator}={val_l}'))._function
+                    if val_l % val_r != 0 and x != 0:
                         raise ValueError(
                             f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
                         )
-
-                return GeneratingFunction(result,
-                                          *self._variables,
-                                          preciseness=self._preciseness,
-                                          closed=self._is_closed_form,
-                                          finite=self._is_finite)
+                    result += x.subs(update_var,
+                                     1) * update_var**(val_l / val_r)
+        else:
+            if isinstance(marginal_r, GeneratingFunction):
+                for _, state_r in marginal_r:
+                    val_l, val_r = div_1, state_r[denominator]
+                    x = self.filter(
+                        parse_expr(f'{denominator}={val_r}'))._function
+                    if val_l % val_r != 0 and x != 0:
+                        raise ValueError(
+                            f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
+                        )
+                    result += x.subs(update_var,
+                                     1) * update_var**(val_l / val_r)
             else:
-                # TODO is there a way to check for dividability on infinite GFs?
-                raise ValueError(
-                    "Cannot perform division on infinite generating functions")
+                if div_1 % div_2 != 0:
+                    raise ValueError(
+                        f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
+                    )
+                result = self._function.subs(update_var,
+                                             1) * update_var**(div_1 / div_2)
+
+        return GeneratingFunction(result,
+                                  *self._variables,
+                                  preciseness=self._preciseness,
+                                  closed=self._is_closed_form,
+                                  finite=self._is_finite)
 
     def _update_modulo(self, temp_var: str, left: str | int,
                        right: str | int) -> GeneratingFunction:
         """
-        Applies the expression `temp_var = left % right` to this generating function. The case that `right` is a
-        variable that does not have a certain value with a probability of 100% (see :func:`_get_value_of_variable`)
-        is not yet supported (TODO) and will cause this function to raise an error.
+        Applies the expression `temp_var = left % right` to this generating function. If `self` is
+        an infinite generating function, `right` must not be a variable.
+
+        Both `left` and `right` may not be parameters.
         """
 
         if sympy.Symbol(left) in self._parameters or sympy.Symbol(
@@ -787,8 +811,11 @@ class GeneratingFunction(Distribution):
                     assign_var: str | int) -> GeneratingFunction:
         """
         Applies the update `updated_var = assign_var` to this generating function.
-        `assign_var` may be a variable, parameter, or integer literal.
+        `assign_var` may be a variable or integer literal, but not a parameter.
         """
+        if sympy.Symbol(assign_var) in self._parameters:
+            raise ValueError('Assignment to parameters is not allowed')
+
         if not updated_var == assign_var:
             if sympy.S(assign_var) in self._variables:
                 result = self._function.subs([
