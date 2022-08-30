@@ -91,6 +91,13 @@ def test_multiplication():
     assert gf.update(
         parse_expr('x = 0.5*y')) == GeneratingFunction('x**2*y**4')
 
+    gf = SympyPGF.poisson(
+        'x', 5) * GeneratingFunction('0.6*y**3*z**5 + 0.4*y**6*z**6')
+    assert gf.update(parse_expr('x = z*y')) == GeneratingFunction(
+        '0.6*x**15*y**3*z**5 + 0.4*x**36*y**6*z**6')
+    assert gf.update(parse_expr('z = x*y'))._function == sympy.S(
+        "y**3*(2*y**3*exp(5*x*z**6) + 3*exp(5*x*z**3))*exp(-5)/5")
+
 
 def test_subtraction():
     gf = GeneratingFunction("n^5*m^42*l^8")

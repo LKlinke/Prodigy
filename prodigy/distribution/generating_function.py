@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import functools
 import operator
-from typing import (Callable, FrozenSet, Generator, Iterator, List, Optional,
-                    Set, Tuple, Union, get_args)
+from typing import (Callable, FrozenSet, Generator, Iterator, List, Set, Tuple,
+                    Union, get_args)
 
 import sympy
 from probably.pgcl import (BernoulliExpr, BinomialExpr, Binop, BinopExpr,
@@ -367,12 +367,7 @@ class GeneratingFunction(Distribution):
 
     # Distribution interface implementation
 
-    def update(
-        self,
-        expression: Expr,
-        approximate: Optional[
-            str | int] = None  # TODO approximation is basically useless
-    ) -> GeneratingFunction:
+    def update(self, expression: Expr) -> GeneratingFunction:
         """ Updates the current distribution by applying the expression to itself. Currently, we are able to handle the
             following cases:
                 * Modulo operations like: <<VAR>> % <<CONSTANT>>
@@ -393,6 +388,8 @@ class GeneratingFunction(Distribution):
             example, given an infinite generating function `gf`, it will probably be faster as well as produce better results to
             call `*_,res = gf.approximate(10); res.update(expr, None)` than to call `gf.update(expr, 10)`.
         """
+
+        # TODO add some useful form of approximation support
 
         assert isinstance(expression, BinopExpr) and isinstance(expression.lhs, VarExpr), \
             f"Expression must be an assignment, was {expression}."
@@ -416,7 +413,7 @@ class GeneratingFunction(Distribution):
                 if expression.operator == Binop.PLUS:
                     f = f._update_sum(temp_var, t_1, t_2)
                 elif expression.operator == Binop.TIMES:
-                    f = f._update_product(temp_var, t_1, t_2, approximate)
+                    f = f._update_product(temp_var, t_1, t_2)
                 elif expression.operator == Binop.MINUS:
                     f = f._update_subtraction(temp_var, t_1, t_2)
                 elif expression.operator == Binop.MODULO:
@@ -510,38 +507,17 @@ class GeneratingFunction(Distribution):
             if current_mass >= mass:
                 break
 
-    def _get_value_of_variable(self, var: str) -> int | None:
-        """
-        If the variable with the name `var` has a certain value `x` with a probability of 100%
-        (in other words, if this GF's marginal in `var` is `1*var**x`), returns `x`. If the str `var`
-        encodes an int, returns this int. Otherwise, returns `None`.
-        """
-        if sympy.S(var).is_Integer:
-            return int(var)
-        if sympy.S(var) not in self._variables:
-            return None
-        marginal = self.marginal(var)._function
-        length = len(sympy.Add.make_args(marginal))
-        if length > 1 or len(marginal.free_symbols & self._parameters) > 0:
-            return None
-        elif length == 0:
-            return 0
-        power_match = marginal.match(
-            sympy.Wild('base')**sympy.Wild('exp', self._parameters))
-        if power_match[sympy.Wild('exp')].is_Integer and isinstance(
-                power_match[sympy.Wild('base')], sympy.Symbol):
-            return int(power_match[sympy.Wild('exp')])
-        else:
-            return None
-
     def _update_division(self, temp_var: str, numerator: str | int,
                          denominator: str | int) -> GeneratingFunction:
         """
         Applies the expression `temp_var = numerator / denominator` to this generating function. Currently,
-        only finite generating functions are supported (at least mostly, TODO). If in some state of the GF,
-        the numerator is not divisible by the denominator, this function raises an error.
+        only finite generating functions are supported. If in some state of the GF, the numerator is not
+        divisible by the denominator, this function raises an error.
 
-        Both the numerator and the denominator may not be parameters
+        Infinite generating functions are only supported if both sides of the division have infinite range
+        (i.e., they are either literals or have a finite marginal).
+
+        Both the numerator and the denominator may not be parameters.
         """
         update_var = sympy.Symbol(temp_var)
         div_1, div_2 = sympy.S(numerator), sympy.S(denominator)
@@ -673,7 +649,7 @@ class GeneratingFunction(Distribution):
                             sub: str | int) -> GeneratingFunction:
         """
         Applies the espression `temp_var = sub_from - sub` to this generating function. If this
-        difference may be negative, this function will raise an error.
+        difference might be negative, this function will raise an error.
         """
         update_var = sympy.Symbol(temp_var)
         sub_1, sub_2 = sympy.S(sub_from), sympy.S(sub)
@@ -730,20 +706,15 @@ class GeneratingFunction(Distribution):
             )
         return gf
 
-    def _update_product(
-            self,
-            temp_var: str,
-            first_factor: str,
-            second_factor: str,
-            approximate: Optional[str | int] = None) -> GeneratingFunction:
+    def _update_product(self, temp_var: str, first_factor: str,
+                        second_factor: str) -> GeneratingFunction:
         """
         Applies the update `temp_var = first_factor * second_factor` to this generating function.
 
-        If `self` is infinite and both factors are variables, this function will first try to determine whether one
-        of these variables has a certain value with a probability of 100% (see :func:`_get_value_of_variable`). If
-        yes, it will replace that variable with its value and perform the corresponding update. If no, and approximation
-        is disabled, it will raise an error. If approximation is enabled, it will approximate itself up to the specified
-        precision (see :func:`approximate`) and apply the update to this approximation.
+        If the generating function is infinite and both factors are variables, mutliplication is
+        only supported if at least one of the factors has finite range (i.e., a finite marginal).
+
+        Both factors may not be parameters.
         """
         update_var = sympy.Symbol(temp_var)
         # these assumptions are necessary for some simplifications in the exponent
@@ -760,30 +731,24 @@ class GeneratingFunction(Distribution):
         # we multiply two variables
         if prod_1 in self._variables and prod_2 in self._variables:
             if not self._is_finite:
-                # We don't have a problem if one of the variables has a certain value with probability 1
-                value = self._get_value_of_variable(first_factor)
-                if value is not None:
-                    return self._update_product(temp_var,
-                                                str(value),
-                                                second_factor,
-                                                approximate=None)
-                value = self._get_value_of_variable(second_factor)
-                if value is not None:
-                    return self._update_product(temp_var,
-                                                first_factor,
-                                                str(value),
-                                                approximate=None)
+                marginal_l = self.marginal(first_factor)
+                marginal_r = self.marginal(second_factor)
+                result = sympy.S(0)
 
-                if approximate is None:
+                if not marginal_l._is_finite and not marginal_r._is_finite:
                     raise ValueError(
-                        "Cannot perform multiplication of two variables: The generating function is infinite and approximation is disabled"
+                        f'Cannot perform the multiplication {first_factor} * {second_factor} because both variables have infinite range'
                     )
 
-                *_, last = self.approximate(approximate)
-                return last._update_product(temp_var,
-                                            first_factor,
-                                            second_factor,
-                                            approximate=None)
+                finite, finite_var, infinite_var = (
+                    marginal_l, first_factor,
+                    second_factor) if marginal_l._is_finite else (
+                        marginal_r, second_factor, first_factor)
+                for _, state in finite:
+                    result += self.filter(
+                        parse_expr(f'{finite_var}={state[finite_var]}')
+                    )._update_product(temp_var, state[finite_var],
+                                      infinite_var)._function
             else:
                 for prob, state in self:
                     term: sympy.Basic = sympy.S(prob) * sympy.S(
