@@ -139,13 +139,6 @@ def test_subtraction():
     assert gf.update(parse_expr('n = n + (c-tmp)')) == GeneratingFunction(
         '0.4*tmp^5*c^13*n^12 + 0.6*tmp^7*c^28*n^98')
 
-    xfail('known bug / unclear behavior')
-    gf = GeneratingFunction('x^p', 'x')
-    # TODO this fails because sympy can't assume that p is real and x >= 0 and thus doesn simplify 'x**p*(1/x)**p' to '1'
-    # how should we handle parameters and variables here, can we always assume that they are >= 0 and real?
-    assert gf.update(parse_expr('x = x - p')) == SympyPGF.one('x')
-    assert gf.update(parse_expr('x = x - (p + 1)')) == GeneratingFunction('x')
-
 
 def test_fresh_variables():
     gf = GeneratingFunction('x*xl')
