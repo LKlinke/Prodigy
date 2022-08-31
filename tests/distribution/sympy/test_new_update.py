@@ -162,6 +162,11 @@ def test_modulo():
     assert gf.update(parse_expr('a = b % c')) == GeneratingFunction(
         '0.3*a**1*b**5*c**2 + 0.2*a**9*b**9*c**55 + 0.5*a**6*b**346*c**34')
 
+    gf = GeneratingFunction(
+        '0.4*x**3*y**5 + 0.6*x**7*y**18') * SympyPGF.poisson('z', 5)
+    assert gf.update(parse_expr('z = y % x')) == GeneratingFunction(
+        '0.4*x**3*y**5*z**2 + 0.6*x**7*y**18*z**4')
+
 
 def test_division():
     gf = GeneratingFunction('n')

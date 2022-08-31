@@ -595,49 +595,61 @@ class GeneratingFunction(Distribution):
                        right: str | int) -> GeneratingFunction:
         """
         Applies the expression `temp_var = left % right` to this generating function. If `self` is
-        an infinite generating function, `right` must not be a variable.
+        an infinite generating function, `right` must be a literal or a variable with finite range.
 
         Both `left` and `right` may not be parameters.
         """
 
-        if sympy.Symbol(left) in self._parameters or sympy.Symbol(
-                right) in self._parameters:
+        # TODO this function is very inefficient and I'm not sure why (maybe because of all the filtering?)
+
+        left_sym, right_sym = sympy.Symbol(str(left)), sympy.Symbol(str(right))
+        if left_sym in self._parameters or right_sym in self._parameters:
             raise ValueError('Cannot perform modulo operation on parameters')
 
         update_var = sympy.Symbol(temp_var)
         result = sympy.S(0)
 
+        # On finite GFs, iterate over all states
         if self._is_finite:
-            for prob, state in self:
-                if sympy.Symbol(left) in self._variables:
-                    left_var = state[left]
+            for prob, state_r in self:
+                if left_sym in self._variables:
+                    left_var = state_r[left]
                 else:
                     left_var = sympy.S(left)
-                if sympy.Symbol(right) in self._variables:
-                    right_var = state[right]
+                if right_sym in self._variables:
+                    right_var = state_r[right]
                 else:
                     right_var = sympy.S(right)
-                result += sympy.S(prob) * sympy.S(state.to_monomial()).subs(
+                result += sympy.S(prob) * sympy.S(state_r.to_monomial()).subs(
                     update_var, 1) * update_var**(left_var % right_var)
 
-        elif not sympy.S(right).is_Integer:
-            raise ValueError(
-                f'Illegal right hand side for modulo operation on infinite GF (must be an integer): {right}'
-            )
+        # If the GF is infinite and right is a variable, it need to have finite range
+        elif right_sym in self._variables:
+            marginal_r = self.marginal(right)
+            if not marginal_r._is_finite:
+                raise ValueError(
+                    f'Cannot perform modulo operation with inifinite right hand side {right}'
+                )
+            for _, state_r in marginal_r:
+                result += self.filter(parse_expr(f'{right}={state_r[right]}'))._update_modulo(
+                            temp_var, left, state_r[right])._function
 
-        elif sympy.S(left).is_Integer:
-            assert sympy.S(right).is_Integer
-            result = sympy.S(left) % sympy.S(right)  # type: ignore
-            return self._update_var(temp_var, result)
+        # If left is a variable, it doesn't have to have finite range
+        elif left_sym in self._variables:
+            marginal_l = self.marginal(left)
+            if marginal_l._is_finite:
+                for _, state_l in marginal_l:
+                        result += self.filter(parse_expr(f'{left}={state_l[left]}'))._update_modulo(temp_var, state_l[left], right)._function
+            else:
+                for index, gf in enumerate(
+                        self._arithmetic_progression(left, str(right))):
+                    # TODO this seems to compute the correct result, but it can't always be simplified to 0
+                    result = result + gf._function.subs(update_var,
+                                                        1) * update_var**index
 
+        # If both are not variables, simply compute the result
         else:
-            assert sympy.Symbol(left) in self._variables
-            assert isinstance(left, str)
-            for index, gf in enumerate(
-                    self._arithmetic_progression(left, str(right))):
-                # TODO this seems to compute the correct result, but it can't always be simplified to 0
-                result = result + gf._function.subs(update_var,
-                                                    1) * update_var**index
+            return self._update_var(temp_var, int(left) % int(right))
 
         return GeneratingFunction(result,
                                   *self._variables,
@@ -791,7 +803,7 @@ class GeneratingFunction(Distribution):
         Applies the update `updated_var = assign_var` to this generating function.
         `assign_var` may be a variable or integer literal, but not a parameter.
         """
-        if sympy.Symbol(assign_var) in self._parameters:
+        if sympy.Symbol(str(assign_var)) in self._parameters:
             raise ValueError('Assignment to parameters is not allowed')
 
         if not updated_var == assign_var:
