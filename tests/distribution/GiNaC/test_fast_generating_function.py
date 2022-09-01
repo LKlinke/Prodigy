@@ -1,6 +1,6 @@
+import pygin
 import pytest
 from probably.pgcl.parser import parse_expr
-import pygin
 
 from prodigy.distribution.fast_generating_function import ProdigyPGF
 

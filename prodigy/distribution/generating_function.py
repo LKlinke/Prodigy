@@ -612,7 +612,7 @@ class GeneratingFunction(Distribution):
                 result += sympy.S(prob) * sympy.S(state_r.to_monomial()).subs(
                     update_var, 1) * update_var**(left_var % right_var)
 
-        # If the GF is infinite and right is a variable, it need to have finite range
+        # If the GF is infinite and right is a variable, it needs to have finite range
         elif right_sym in self._variables:
             marginal_r = self.marginal(right)
             if not marginal_r._is_finite:
@@ -620,15 +620,18 @@ class GeneratingFunction(Distribution):
                     f'Cannot perform modulo operation with inifinite right hand side {right}'
                 )
             for _, state_r in marginal_r:
-                result += self.filter(parse_expr(f'{right}={state_r[right]}'))._update_modulo(
-                            temp_var, left, state_r[right])._function
+                result += self.filter(
+                    parse_expr(f'{right}={state_r[right]}'))._update_modulo(
+                        temp_var, left, state_r[right])._function
 
         # If left is a variable, it doesn't have to have finite range
         elif left_sym in self._variables:
             marginal_l = self.marginal(left)
             if marginal_l._is_finite:
                 for _, state_l in marginal_l:
-                        result += self.filter(parse_expr(f'{left}={state_l[left]}'))._update_modulo(temp_var, state_l[left], right)._function
+                    result += self.filter(
+                        parse_expr(f'{left}={state_l[left]}'))._update_modulo(
+                            temp_var, state_l[left], right)._function
             else:
                 for index, gf in enumerate(
                         self._arithmetic_progression(left, str(right))):
