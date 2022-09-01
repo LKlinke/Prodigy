@@ -368,25 +368,14 @@ class GeneratingFunction(Distribution):
     # Distribution interface implementation
 
     def update(self, expression: Expr) -> GeneratingFunction:
-        """ Updates the current distribution by applying the expression to itself. Currently, we are able to handle the
-            following cases:
-                * Modulo operations like: <<VAR>> % <<CONSTANT>>
-                * Linear transformations: <<VAR>> := f(<<VARS>>) where f is a linear function.
-                * Arbitrary Expressions where the current distribution has finite support.
-                * Approximations to arbitrary expression where the current distribution has infinite support,
-                if approximation is enabled (see the `approximate` parameter).
+        """ Updates the current distribution by applying the expression to itself.
 
             Some operations are illegal and will cause this function to raise an error. These operations include subtraction
             that may cause a variable to have a negative value, division that may cause a variable to have a value that is
-            not an integer (TODO), and certain operations on infinite generating functions if approximation is disabled
-            (such as multiplication of two variables).
-
-            Note that this function introduces a potentially large number of intermediate variables to the generating function
-            (which will not be present in the returned result). If approximation is enabled, the `update` function will simply
-            call :func:`approximate` with the supplied parameter if necessary. However, because of these intermediate variables,
-            this approximation might be less precise and take longer to compute than doing it before performing the update. For
-            example, given an infinite generating function `gf`, it will probably be faster as well as produce better results to
-            call `*_,res = gf.approximate(10); res.update(expr, None)` than to call `gf.update(expr, 10)`.
+            not an integer, and certain operations on infinite generating functions if the variables involved have an infinite
+            marginal (such as multiplication of two variables).
+            
+            Parameters are not allowed in an update expression.
         """
 
         # TODO add some useful form of approximation support
