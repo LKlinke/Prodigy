@@ -39,15 +39,15 @@ def checking_equivalence():
     app.logger.debug("Parse loop-file")
     try:
         loopy_prog = pgcl.parse_pgcl(loopy_source)
-    except:
-        app.logger.error('Cannot parse loop file')
+    except Exception as e:
+        app.logger.exception(e)
         return make_response(jsonify({'message': 'Cannot parse loop file'}),
                              500)
     app.logger.debug("Parse invariant file")
     try:
         invariant_prog = pgcl.parse_pgcl(invariant_source)
-    except:
-        app.logger.error('Cannot parse invariant file')
+    except Exception as e:
+        app.logger.exception(e)
         return make_response(
             jsonify({'message': 'Cannot parse invariant file'}), 500)
     app.logger.debug("Finished parsing")
@@ -56,8 +56,8 @@ def checking_equivalence():
     try:
         result, _ = check_equivalence(loopy_prog, invariant_prog,
                                       ForwardAnalysisConfig(engine=engine))
-    except:
-        app.logger.error('Error while checking equivalence')
+    except Exception as e:
+        app.logger.exception(e)
         return make_response(
             jsonify({'message': 'Error while checking equivalence'}), 500)
     app.logger.info("Equivalence check finished. Result: %s", result)
@@ -83,13 +83,14 @@ def distribution_transformation():
     app.logger.debug("Parsing the program source")
     try:
         program = parse_pgcl(prog_src)
-    except:
-        app.logger.error('Cannot parse program source')
+    except Exception as e:
+        app.logger.exception(e)
         return make_response(
             jsonify({'message': 'Cannot parse program source'}), 500)
     app.logger.debug("Parsing done. Continue with type checking")
     if check_program(program):
-        make_response("Typing Errors occured", 500)
+        app.logger.debug("Typing Errors occured")
+        return make_response("Typing Errors occured", 500)
     app.logger.debug("Type check passed.")
 
     app.logger.debug("Create input distribution")
@@ -101,8 +102,8 @@ def distribution_transformation():
                     program, input_dist)
     try:
         result = compute_discrete_distribution(program, input_dist, config)
-    except:
-        app.logger.error('Error while computing distribution')
+    except Exception as e:
+        app.logger.exception(e)
         return make_response(
             jsonify({'message': 'Error while computing distribution'}), 500)
     app.logger.info("Analysis completed")
@@ -128,8 +129,8 @@ def analyze_raw_code():
     app.logger.debug("Parsing the program soruce")
     try:
         program = parse_pgcl(prog_src)
-    except:
-        app.logger.error('Cannot parse program source')
+    except Exception as e:
+        app.logger.exception(e)
         return make_response(
             jsonify({'message': 'Cannot parse program source'}), 500)
     app.logger.debug("Parsing done. Continue with type checking")
@@ -146,8 +147,8 @@ def analyze_raw_code():
                     program, input_dist)
     try:
         result = compute_discrete_distribution(program, input_dist, config)
-    except:
-        app.logger.error('Error while computing distribution')
+    except Exception as e:
+        app.logger.exception(e)
         return make_response(
             jsonify({'message': 'Error while computing distribution'}), 500)
     app.logger.info("Analysis completed")

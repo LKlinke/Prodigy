@@ -12,7 +12,6 @@ def test_geometric():
 
 
 def test_conditions():
-    pygin.reset_symbol_cache()
     dist = ProdigyPGF.from_expr("1/2 * x*y + 1/2*y")
     with pytest.raises(SyntaxError):
         dist.filter(parse_expr("y*x < 5"))
