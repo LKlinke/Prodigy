@@ -29,7 +29,10 @@ class FPS(Distribution):
         for expr in walk_expr(Walk.DOWN, Mut.alloc(parsed_expression)):
             if isinstance(expr.val, VarExpr):
                 if expr.val.var not in self._variables:
-                    self._parameters.add(expr.val.var)
+                    if len(variables) > 0:
+                        self._parameters.add(expr.val.var)
+                    else:
+                        self._variables.add(expr.val.var)
         self._dist = pygin.Dist(expression, list(self._parameters))
 
     @classmethod

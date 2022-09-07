@@ -1,3 +1,4 @@
+import pygin
 import pytest
 from probably.pgcl.parser import parse_expr
 

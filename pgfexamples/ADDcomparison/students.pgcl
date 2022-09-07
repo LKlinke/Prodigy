@@ -1,0 +1,93 @@
+// 4 students, 2 teachers, 2 courses
+// ADD needs 0.11s for 10 courses, 10 students, 4 teachers
+// we need ~1.4s with ginac in this simplified example already
+
+// student likes teacher
+nat likes_11
+nat likes_12
+nat likes_21
+nat likes_22
+nat likes_31
+nat likes_32
+nat likes_41
+nat likes_42
+
+// student in course
+nat sInC_11
+nat sInC_12
+nat sInC_21
+nat sInC_22
+nat sInC_31
+nat sInC_32
+nat sInC_41
+nat sInC_42
+
+nat x
+
+likes_11 := bernoulli(0.5) // TODO use a parameter?
+likes_12 := bernoulli(0.5)
+likes_21 := bernoulli(0.5)
+likes_22 := bernoulli(0.5)
+likes_31 := bernoulli(0.5)
+likes_32 := bernoulli(0.5)
+likes_41 := bernoulli(0.5)
+likes_42 := bernoulli(0.5)
+
+sInC_11 := 1
+sInC_12 := 0
+sInC_21 := 1
+sInC_22 := 1
+sInC_31 := 0
+sInC_32 := 1
+sInC_41 := 0
+sInC_42 := 0
+
+// assume that teacher 1 teaches course 1, teacher 2 course 2
+
+{
+    if(sInC_11 = 1) {
+        observe(likes_11 = 1)
+    } else{skip}
+} [0.7] {skip}
+
+{
+    if(sInC_12 = 1) {
+        observe(likes_12 = 1)
+    } else{skip}
+} [0.7] {skip}
+
+{
+    if(sInC_21 = 1) {
+        observe(likes_21 = 1)
+    } else{skip}
+} [0.7] {skip}
+
+{
+    if(sInC_22 = 1) {
+        observe(likes_22 = 1)
+    } else{skip}
+} [0.7] {skip}
+
+{
+    if(sInC_31 = 1) {
+        observe(likes_31 = 1)
+    } else{skip}
+} [0.7] {skip}
+
+{
+    if(sInC_32 = 1) {
+        observe(likes_32 = 1)
+    } else{skip}
+} [0.7] {skip}
+
+{
+    if(sInC_41 = 1) {
+        observe(likes_41 = 1)
+    } else{skip}
+} [0.7] {skip}
+
+{
+    if(sInC_42 = 1) {
+        observe(likes_42 = 1)
+    } else{skip}
+} [0.7] {skip}
