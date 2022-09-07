@@ -64,7 +64,7 @@ def main(ctx, program_file: IO, input_dist: str,
 
     # Parse and the input and do typechecking.
     program_source = program_file.read()
-    program = compiler.compile_pgcl(program_source)
+    program = compiler.parse_pgcl(program_source)
     # if isinstance(program, CheckFail):
     #    print("Error:", program)
     #    return
@@ -104,11 +104,11 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
     prog_src = program_file.read()
     inv_src = invariant_file.read()
 
-    prog = compiler.compile_pgcl(prog_src)
+    prog = compiler.parse_pgcl(prog_src)
     if isinstance(prog, CheckFail):
         raise Exception(f"Could not compile the Program. {prog}")
 
-    inv = compiler.compile_pgcl(inv_src)
+    inv = compiler.parse_pgcl(inv_src)
     if isinstance(inv, CheckFail):
         raise Exception(f"Could not compile invariant. {inv}")
 
