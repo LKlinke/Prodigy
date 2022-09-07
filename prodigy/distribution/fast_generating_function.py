@@ -80,7 +80,7 @@ class FPS(Distribution):
 
     def __truediv__(self, other) -> FPS:
         if isinstance(other, (str, FPS)):
-            return FPS.from_dist(self._dist * pygin.Dist(f"1/{str(other)}"),
+            return FPS.from_dist(self._dist * pygin.Dist(f"1/({str(other)})"),
                                  self._variables | other._variables,
                                  self._parameters | other._parameters)
         raise NotImplementedError(
@@ -108,7 +108,14 @@ class FPS(Distribution):
         return self._dist.__repr__()
 
     def __iter__(self) -> Iterator[Tuple[str, State]]:
-        raise NotImplementedError(__name__)
+        if len(self._variables) > 1:
+            raise NotImplementedError("Currently only one dimensional iteration is supported.")
+        variable = list(self._variables)[0]
+        it = self._dist.coefficient_iterator(variable)
+        i = 0
+        while it.rest() != pygin.Dist("0"):
+            yield it.next(), State({variable: i})
+            i += 1
 
     def copy(self, deep: bool = True) -> Distribution:
         return FPS(self._dist, *self._variables)
@@ -137,11 +144,14 @@ class FPS(Distribution):
                 return self.filter(condition.lhs).filter(condition.rhs)
             if condition.operator == Binop.OR:
                 filtered_left = self.filter(condition.lhs)
+                # Why do we filter the lhs condition again on filtered_left???
                 return filtered_left + self.filter(
                     condition.rhs) - filtered_left.filter(condition.lhs)
 
             # Normalize the conditional to variables on the lhs from the relation symbol.
             if isinstance(condition.rhs, VarExpr):
+                if isinstance(condition.rhs, VarExpr):
+                    raise ValueError(f"This expression is currently not supported.")
                 switch_comparison = {
                     Binop.EQ: Binop.EQ,
                     Binop.LEQ: Binop.GEQ,
