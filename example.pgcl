@@ -1,17 +1,19 @@
-nat k;
-nat flag;
-nat send;
-nat failed;
+nat a;
+nat b;
+nat c;
+nat r1;
+nat r2;
+nat r3;
 
-while (k > 0 & not failed=1) {
-    retry := 5;
-    success := 0;
-    while( not (retry <= 0 || success=1) ){
-        {success := 1} [1/2] {retry := retry-1}
-    }
-    if (success = 1){
-        k := k-1;
-    } else {
-        failed := 1
-    }
-}
+
+a := 3
+b := 4
+c := 5
+
+r1 := geometric(1/2);
+r2 := geometric(1/2);
+r3 := geometric(1/2);
+
+observe(r1 > a)
+observe(r2 > b)
+observe(r3 > c)
