@@ -5,10 +5,7 @@ from typing import Generator, Iterator, Set, Tuple, Union, get_args
 import pygin  # type: ignore
 from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, DistrExpr,
                            DUniformExpr, Expr, GeometricExpr, IidSampleExpr,
-                           PoissonExpr, Unop, UnopExpr, VarExpr, Walk,
-                           walk_expr)
-from probably.pgcl.parser import parse_expr
-from probably.util.ref import Mut
+                           PoissonExpr, Unop, UnopExpr, VarExpr)
 from sympy import sympify
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,

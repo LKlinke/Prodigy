@@ -374,7 +374,7 @@ class GeneratingFunction(Distribution):
             that may cause a variable to have a negative value, division that may cause a variable to have a value that is
             not an integer, and certain operations on infinite generating functions if the variables involved have an infinite
             marginal (such as multiplication of two variables).
-            
+
             Parameters are not allowed in an update expression.
         """
 
