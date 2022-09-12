@@ -626,6 +626,7 @@ class GeneratingFunction(Distribution):
 
         # If left is a variable, it doesn't have to have finite range
         elif left_sym in self._variables:
+            assert isinstance(left, str)
             marginal_l = self.marginal(left)
             if marginal_l._is_finite:
                 for _, state_l in marginal_l:

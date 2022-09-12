@@ -9,6 +9,7 @@ from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, DistrExpr,
                            walk_expr)
 from probably.pgcl.parser import parse_expr
 from probably.util.ref import Mut
+from sympy import sympify
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
@@ -24,15 +25,14 @@ class FPS(Distribution):
     def __init__(self, expression: str, *variables: str | VarExpr):
         self._variables = set(str(var) for var in variables)
         self._parameters = set()
-        parsed_expression = parse_expr(str(expression))
 
-        for expr in walk_expr(Walk.DOWN, Mut.alloc(parsed_expression)):
-            if isinstance(expr.val, VarExpr):
-                if expr.val.var not in self._variables:
-                    if len(variables) > 0:
-                        self._parameters.add(expr.val.var)
-                    else:
-                        self._variables.add(expr.val.var)
+        # this is a quick and dirty way to get all free symbols
+        for var in sympify(expression).free_symbols:
+            if str(var) not in self._variables:
+                if len(variables) > 0:
+                    self._parameters.add(str(var))
+                else:
+                    self._variables.add(str(var))
         self._dist = pygin.Dist(expression, list(self._parameters))
 
     @classmethod
@@ -82,7 +82,9 @@ class FPS(Distribution):
             )
 
     def __truediv__(self, other) -> FPS:
-        if isinstance(other, (str, FPS)):
+        if isinstance(other, str):
+            other = FPS(other)
+        if isinstance(other, FPS):
             return FPS.from_dist(self._dist * pygin.Dist(f"1/{str(other)}"),
                                  self._variables | other._variables,
                                  self._parameters | other._parameters)
@@ -114,7 +116,8 @@ class FPS(Distribution):
         raise NotImplementedError(__name__)
 
     def copy(self, deep: bool = True) -> Distribution:
-        return FPS(self._dist, *self._variables)
+        return FPS.from_dist(self._dist, self._variables.copy(),
+                             self._parameters.copy())
 
     def get_probability_of(self, condition: Union[Expr, str]):
         raise NotImplementedError(__name__)
@@ -196,7 +199,13 @@ class FPS(Distribution):
             f"Filtering Condition has unknown format {condition}.")
 
     def is_zero_dist(self) -> bool:
-        return self._dist.isZero()
+        res = self._dist.is_zero()
+        if res == pygin.troolean.false:
+            return False
+        elif res == pygin.troolean.true:
+            return True
+        else:
+            raise ValueError('Cannot determine whether this FPS is zero')
 
     def is_finite(self) -> bool:
         raise NotImplementedError(__name__)
@@ -335,3 +344,7 @@ class ProdigyPGF(CommonDistributionsFactory):
     @staticmethod
     def from_expr(expression: Union[str, Expr], *variables, **kwargs) -> FPS:
         return FPS(expression, *variables)
+
+    @staticmethod
+    def zero(*variables: Union[str, VarExpr]) -> FPS:
+        return FPS("0", *variables)
