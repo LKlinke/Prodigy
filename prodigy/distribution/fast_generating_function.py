@@ -134,7 +134,7 @@ class FPS(Distribution):
     def get_parameters(self) -> Set[str]:
         return self._parameters
 
-    def filter(self, condition: Union[Expr, str]) -> FPS:
+    def filter(self, condition: Expr) -> FPS:
         if isinstance(condition, BinopExpr):
             if condition.operator == Binop.AND:
                 return self.filter(condition.lhs).filter(condition.rhs)
