@@ -129,6 +129,19 @@ class TestDistributionInterface:
         assert (gf == ProdigyPGF.zero(
             *gf.get_variables())) == gf.is_zero_dist()
 
+    def test_is_finite(self):
+        gf = create_random_gf(10, 10)
+        assert gf.is_finite()
+        assert not (gf * ProdigyPGF.poisson('x', 5)).is_finite()
+        assert (gf * ProdigyPGF.poisson('x', 5) /
+                ProdigyPGF.poisson('x', 5)).is_finite()
+
+        gf = FPS("(1-sqrt(1-c^2))/c")
+        assert not gf.is_finite()
+
+        gf = FPS("1", "x")
+        assert gf.is_finite()
+
     def test_update(self):
         gf = FPS("(1-sqrt(1-c^2))/c")
         assert gf.update(BinopExpr(Binop.EQ, VarExpr('c'), BinopExpr(Binop.PLUS, VarExpr('c'), NatLitExpr(1)))) == \

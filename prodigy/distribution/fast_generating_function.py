@@ -19,8 +19,12 @@ class FPS(Distribution):
     These formal powerseries are itself provided by `prodigy` a python binding to GiNaC,
     something similar to a computer algebra system implemented in C++.
     """
-    def __init__(self, expression: str, *variables: str | VarExpr):
-        self._variables = set(str(var) for var in variables)
+    def __init__(self,
+                 expression: str,
+                 *variables: str | VarExpr,
+                 finite: bool = None):
+        self._variables = set(
+            str(var) for var in variables if not str(var) == "")
         self._parameters = set()
 
         # this is a quick and dirty way to get all free symbols
@@ -32,13 +36,27 @@ class FPS(Distribution):
                     self._variables.add(str(var))
         self._dist = pygin.Dist(expression, list(self._parameters))
 
+        if finite is not None:
+            self._finite = finite
+        else:
+            self._finite = True if self._dist.is_polynomial(
+                list(self._variables)) == pygin.troolean.true else False
+
     @classmethod
-    def from_dist(cls, dist: pygin.Dist, variables: Set[str],
-                  parameters: Set[str]):
+    def from_dist(cls,
+                  dist: pygin.Dist,
+                  variables: Set[str],
+                  parameters: Set[str],
+                  finite: bool = None):
         result = cls("0")
         result._dist = dist
         result._variables = variables
         result._parameters = parameters
+        if finite is not None:
+            result._finite = finite
+        else:
+            result._finite = True if dist.is_polynomial(
+                list(variables)) == pygin.troolean.true else False
         return result
 
     def __add__(self, other) -> FPS:
@@ -113,8 +131,8 @@ class FPS(Distribution):
         raise NotImplementedError(__name__)
 
     def copy(self, deep: bool = True) -> Distribution:
-        return FPS.from_dist(self._dist, self._variables.copy(),
-                             self._parameters.copy())
+        return FPS.from_dist(self._dist, self._variables, self._parameters,
+                             self._finite)
 
     def get_probability_of(self, condition: Union[Expr, str]):
         raise NotImplementedError(__name__)
@@ -205,12 +223,12 @@ class FPS(Distribution):
             raise ValueError('Cannot determine whether this FPS is zero')
 
     def is_finite(self) -> bool:
-        raise NotImplementedError(__name__)
+        return self._finite
 
     def update(self, expression: Expr) -> FPS:
         return FPS.from_dist(
             self._dist.update(str(expression.lhs), str(expression.rhs)),
-            self._variables, self._parameters)
+            self._variables, self._parameters, self._finite)
 
     def update_iid(self, sampling_exp: IidSampleExpr,
                    variable: Union[str, VarExpr]) -> FPS:
@@ -280,7 +298,8 @@ class FPS(Distribution):
                 f"Indeterminate(s) {new_variables.intersection(self._parameters)} cannot be parameters and"
                 f" variables at the same time.")
         self._parameters |= self._variables - new_variables
-        return FPS.from_dist(self._dist, new_variables, self._parameters)
+        return FPS.from_dist(self._dist, new_variables, self._parameters,
+                             self._finite)
 
     def set_parameters(self, *parameters: str) -> FPS:
         new_parameters = set(parameters)
@@ -289,7 +308,8 @@ class FPS(Distribution):
                 f"Indeterminate(s) {new_parameters.intersection(self._variables)} cannot be parameters and"
                 f" variables at the same time.")
         self._variables |= self._parameters - new_parameters
-        return FPS.from_dist(self._dist, self._variables, new_parameters)
+        return FPS.from_dist(self._dist, self._variables, new_parameters,
+                             self._finite)
 
     def approximate(
             self,
