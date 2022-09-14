@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Generator, Iterator, Set, Tuple, Union, get_args
+from typing import Dict, Generator, Iterator, List, Set, Tuple, Union, get_args
 
 import pygin  # type: ignore
 from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, DistrExpr,
@@ -23,8 +23,7 @@ class FPS(Distribution):
                  expression: str,
                  *variables: str | VarExpr,
                  finite: bool = None):
-        self._variables = set(
-            str(var) for var in variables if not str(var) == "")
+        self._variables = set(str(var) for var in variables if str(var) != "")
         self._parameters = set()
 
         # this is a quick and dirty way to get all free symbols
@@ -36,11 +35,8 @@ class FPS(Distribution):
                     self._variables.add(str(var))
         self._dist = pygin.Dist(expression, list(self._parameters))
 
-        if finite is not None:
-            self._finite = finite
-        else:
-            self._finite = True if self._dist.is_polynomial(
-                list(self._variables)) == pygin.troolean.true else False
+        self._finite = finite if finite is not None else self._dist.is_polynomial(
+            self._variables) == pygin.troolean.true
 
     @classmethod
     def from_dist(cls,
@@ -52,11 +48,8 @@ class FPS(Distribution):
         result._dist = dist
         result._variables = variables
         result._parameters = parameters
-        if finite is not None:
-            result._finite = finite
-        else:
-            result._finite = True if dist.is_polynomial(
-                list(variables)) == pygin.troolean.true else False
+        result._finite = finite if finite is not None else dist.is_polynomial(
+            variables) == pygin.troolean.true
         return result
 
     def __add__(self, other) -> FPS:
@@ -128,7 +121,14 @@ class FPS(Distribution):
         return self._dist.__repr__()
 
     def __iter__(self) -> Iterator[Tuple[str, State]]:
-        raise NotImplementedError(__name__)
+        if not self._finite:
+            raise NotImplementedError("Cannot iterate over infinite FPS")
+
+        terms: List[Tuple[str,
+                          Dict[str,
+                               int]]] = self._dist.get_terms(self._variables)
+        res = [(prob, State(vals)) for prob, vals in terms]
+        return res.__iter__()
 
     def copy(self, deep: bool = True) -> Distribution:
         return FPS.from_dist(self._dist, self._variables, self._parameters,

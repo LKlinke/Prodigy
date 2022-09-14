@@ -4,7 +4,7 @@ import pytest
 from probably.pgcl.ast import Binop, BinopExpr, NatLitExpr, VarExpr
 from probably.pgcl.parser import parse_expr
 
-from prodigy.distribution.distribution import MarginalType
+from prodigy.distribution.distribution import MarginalType, State
 from prodigy.distribution.fast_generating_function import FPS, ProdigyPGF
 
 
@@ -43,6 +43,38 @@ class TestDistributionInterface:
         produkt = g * h
         assert summe == FPS("x + y", "x", "y")
         assert produkt == FPS("x*y", "x", "y")
+
+    def test_iteration(self):
+        # we need to filter here because the order in FPS iteration is chaotic
+        gf = FPS("(1-sqrt(1-x^2))/x").filter(parse_expr('x <= 7'))
+        expected_terms = [("1/2", {
+            "x": 1
+        }), ("1/8", State({"x": 3})), ("1/16", {
+            "x": 5
+        }), ("5/128", {
+            "x": 7
+        }), ("7/256", {
+            "x": 9
+        }), ("21/1024", {
+            "x": 11
+        }), ("33/2048", {
+            "x": 13
+        }), ("429/32768", {
+            "x": 15
+        }), ("715/65536", {
+            "x": 17
+        }), ("2431/262144", {
+            "x": 19
+        })]
+        i = 0
+        for prob, state in gf:
+            if i >= 4:
+                break
+            if prob == "0":
+                continue
+            else:
+                assert (prob, state) in expected_terms
+                i += 1
 
     def test_copy(self):
         gf = create_random_gf(3, 5)
