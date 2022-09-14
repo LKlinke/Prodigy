@@ -14,7 +14,7 @@ is handled via a dedicated instruction handler. These handlers describe on a gen
 is changed after executing the program instruction. This is oftentimes not computable, i.e., when the input distribution
 has infinite support, or in case of while-loop instructions.
 
-.. automodule:: prodigy.analysis.forward.instruction_handler
+.. automodule:: prodigy.analysis.instruction_handler
 
 Distribution
 ############
@@ -26,7 +26,7 @@ In fact, we deliver two types of distribution backends:
 #. A `sympy` implementation of generating functions
 #. A `GiNaC` C++ implementation shipped as a `pybind11` module.
 
-.. automodule:: prodigy.analysis.forward.distribution
+.. automodule:: prodigy.distribution
 
 Analysis Configuration
 ######################
@@ -34,7 +34,7 @@ Analysis Configuration
 Sometimes, intermediate steps of the computation are desired. This and more configurations can be setup in a
 `ForwardAnalysisConfig` object. Here also different backend Engines can be chosen.
 
-.. automodule:: prodigy.analysis.forward.config
+.. automodule:: prodigy.analysis.config
 """
 from . import equivalence, optimization
 from .config import ForwardAnalysisConfig
