@@ -374,7 +374,7 @@ class GeneratingFunction(Distribution):
             that may cause a variable to have a negative value, division that may cause a variable to have a value that is
             not an integer, and certain operations on infinite generating functions if the variables involved have an infinite
             marginal (such as multiplication of two variables).
-            
+
             Parameters are not allowed in an update expression.
         """
 
@@ -626,6 +626,7 @@ class GeneratingFunction(Distribution):
 
         # If left is a variable, it doesn't have to have finite range
         elif left_sym in self._variables:
+            assert isinstance(left, str)
             marginal_l = self.marginal(left)
             if marginal_l._is_finite:
                 for _, state_l in marginal_l:
