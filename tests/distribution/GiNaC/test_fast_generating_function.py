@@ -199,6 +199,7 @@ class TestDistributionInterface:
             'y', n='10', p='1/2')
         assert gf.marginal('x') == ProdigyPGF.uniform("x", '0', '10')
         assert gf.marginal('x', 'y') == gf
+        assert gf.marginal('y') == ProdigyPGF.binomial('y', n='10', p='1/2')
         assert gf.marginal(
             'x', method=MarginalType.EXCLUDE) == ProdigyPGF.binomial('y',
                                                                      n='10',

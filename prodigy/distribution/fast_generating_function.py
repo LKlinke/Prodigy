@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Generator, Iterator, Set, Tuple, Union, get_args
+from typing import Generator, Iterator, List, Set, Tuple, Union, get_args
 
 import pygin  # type: ignore
 from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, DistrExpr,
@@ -130,7 +130,9 @@ class FPS(Distribution):
                     yield it.next(), State({variable: i})
                     i += 1
             else:
-                raise NotImplementedError("Currently only one-dimensional iteration is supported on infinite FPS")
+                raise NotImplementedError(
+                    "Currently only one-dimensional iteration is supported on infinite FPS"
+                )
         else:
             terms = self._dist.get_terms(self._variables)
             for res in [(prob, State(vals)) for prob, vals in terms]:
@@ -171,7 +173,9 @@ class FPS(Distribution):
             # Normalize the conditional to variables on the lhs from the relation symbol.
             if isinstance(condition.rhs, VarExpr):
                 if isinstance(condition.rhs, VarExpr):
-                    raise ValueError(f"This expression is currently not supported.")
+                    raise ValueError(
+                        f"The expression {str(condition)} is currently not supported."
+                    )
                 switch_comparison = {
                     Binop.EQ: Binop.EQ,
                     Binop.LEQ: Binop.GEQ,
@@ -221,6 +225,16 @@ class FPS(Distribution):
 
         raise SyntaxError(
             f"Filtering Condition has unknown format {condition}.")
+
+    def _arithmetic_progression(self, variable: str,
+                                modulus: str) -> List[FPS]:
+        """
+        Creates a list of subdistributions where at list index i, the `variable` is congruent i modulo `modulus`.
+        """
+        return [
+            FPS.from_dist(dist, self._variables, self._parameters)
+            for dist in self._dist.arithmetic_progression(variable, modulus)
+        ]
 
     def is_zero_dist(self) -> bool:
         res = self._dist.is_zero()
