@@ -149,7 +149,7 @@ class TestDistributionInterface:
         # TODO this also results in huge complex expressions which are likely correct
         #assert gf.filter(parse_expr("x % 3 = 2")) == FPS('0.1*x^5 + 0.4*x^8')
 
-        pytest.xfail('not properly implemented yet')
+        #pytest.xfail('not properly implemented yet')
         gf = FPS("(1-sqrt(1-c^2))/c", "c", "x", "z")
         assert gf.filter(parse_expr("x*z <= 10")) == gf
 

@@ -5,8 +5,9 @@ from typing import Generator, Iterator, List, Set, Tuple, Union, get_args
 import pygin  # type: ignore
 from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, BoolLitExpr,
                            DistrExpr, DUniformExpr, Expr, GeometricExpr,
-                           IidSampleExpr, PoissonExpr, Unop, UnopExpr, VarExpr)
+                           IidSampleExpr, PoissonExpr, Unop, UnopExpr, VarExpr, NatLitExpr)
 from sympy import sympify
+import functools
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
@@ -219,8 +220,11 @@ class FPS(Distribution):
                                  self._parameters,
                                  finite=True)
 
-        raise SyntaxError(
-            f"Filtering Condition has unknown format {condition}.")
+        # Worst case: infinite Generating function and  non-standard condition.
+        # Here we try marginalization and hope that the marginal is finite so we can do
+        # exhaustive search again. If this is not possible, we raise an NotComputableException
+        expression = self._explicit_state_unfolding(condition)
+        return self.filter(expression)
 
     def _filter_constant_condition(self, condition: Expr):
         # Normalize the conditional to variables on the lhs from the relation symbol.
@@ -268,6 +272,65 @@ class FPS(Distribution):
                     self._dist.filterGeq(str(condition.lhs),
                                          str(condition.rhs)), self._variables,
                     self._parameters)
+
+    def _explicit_state_unfolding(self, condition: Expr) -> BinopExpr:
+        """
+        Checks whether one side of the condition has only finitely many valuations and explicitly creates a new
+        condition which is the disjunction of each individual evaluations.
+        :param condition: The condition to unfold.
+        :return: The disjunction condition of explicitly encoded state conditions.
+        """
+        expr = pygin.Dist(str(condition.rhs))
+        syms = expr.get_symbols()
+        if not len(syms) == 0:
+            marginal = self.marginal(*syms)
+
+        # Marker to express which side of the equation has only finitely many interpretations.
+        left_side_original = True
+
+        # Check whether left hand side has only finitely many interpretations.
+        if len(syms) == 0 or not marginal.is_finite():
+            # Failed, so we have to check the right hand side
+            left_side_original = False
+            expr = pygin.Dist(str(condition.lhs))
+            syms = expr.get_symbols()
+            marginal = self.marginal(*syms)
+
+            if not marginal.is_finite():
+                # We are not able to marginalize into a finite amount of states! -> FAIL filtering.
+                raise NotImplementedError(
+                    f"Instruction {condition} is not computable on infinite generating function"
+                    f" {self._function}")
+
+        # Now we know that `expr` can be instantiated with finitely many states.
+        # We generate these explicit state.
+        state_expressions: List[BinopExpr] = []
+
+        # Compute for all states the explicit condition checking that specific valuation.
+        for _, state in marginal:
+
+            # Evaluate the current expression
+            evaluated_expr = GeneratingFunction.evaluate(str(expr), state)
+
+            # create the equalities for each variable, value pair in a given state
+            # i.e., {x:1, y:0, c:3} -> [x=1, y=0, c=3]
+            encoded_state = GeneratingFunction._state_to_equality_expression(state)
+
+            # Create the equality which assigns the original side the anticipated value.
+            other_side_expr = BinopExpr(condition.operator, condition.lhs,
+                                        NatLitExpr(int(evaluated_expr)))
+            if not left_side_original:
+                other_side_expr = BinopExpr(condition.operator,
+                                            NatLitExpr(int(evaluated_expr)),
+                                            condition.rhs)
+
+            state_expressions.append(
+                BinopExpr(Binop.AND, encoded_state, other_side_expr))
+
+        # Get all individual conditions and make one big disjunction.
+        return functools.reduce(
+            lambda left, right: BinopExpr(
+                operator=Binop.OR, lhs=left, rhs=right), state_expressions)
 
     def _arithmetic_progression(self, variable: str,
                                 modulus: str) -> List[FPS]:
