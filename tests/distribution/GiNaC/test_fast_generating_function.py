@@ -133,18 +133,23 @@ class TestDistributionInterface:
             f"Should be {{'a', 'b'}}, is {gf.get_parameters()}."
 
     def test_filter(self):
-        pytest.xfail('not properly implemented yet')
         gf = ProdigyPGF.zero("x", "y")
         assert gf.filter(parse_expr("x*3 < 25*y")) == gf
 
         # check filter on infinite GF
         gf = FPS("(1-sqrt(1-c^2))/c")
         assert gf.filter(parse_expr("c <= 5")) == FPS("c/2 + c^3/8 + c^5/16")
+        assert gf.filter(parse_expr('3+2<10')) == gf
 
         # check filter on finite GF
         gf = FPS("1/2*x*c + 1/4 * x^2 + 1/4")
         assert gf.filter(parse_expr("x*c < 123")) == gf
 
+        gf = FPS("0.1*x^5+0.2*x^6+0.3*x^7+0.4*x^8")
+        # TODO this also results in huge complex expressions which are likely correct
+        #assert gf.filter(parse_expr("x % 3 = 2")) == FPS('0.1*x^5 + 0.4*x^8')
+
+        pytest.xfail('not properly implemented yet')
         gf = FPS("(1-sqrt(1-c^2))/c", "c", "x", "z")
         assert gf.filter(parse_expr("x*z <= 10")) == gf
 

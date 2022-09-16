@@ -3,14 +3,17 @@ from __future__ import annotations
 from typing import Generator, Iterator, List, Set, Tuple, Union, get_args
 
 import pygin  # type: ignore
-from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, DistrExpr,
-                           DUniformExpr, Expr, GeometricExpr, IidSampleExpr,
-                           PoissonExpr, Unop, UnopExpr, VarExpr)
+from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, BoolLitExpr,
+                           DistrExpr, DUniformExpr, Expr, GeometricExpr,
+                           IidSampleExpr, PoissonExpr, Unop, UnopExpr, VarExpr)
 from sympy import sympify
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
                                                MarginalType, State)
+from prodigy.distribution.generating_function import GeneratingFunction
+from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
+                                      check_is_modulus_condition, has_variable)
 
 
 class FPS(Distribution):
@@ -26,7 +29,7 @@ class FPS(Distribution):
         self._variables = set(str(var) for var in variables if str(var) != "")
         self._parameters = set()
 
-        # this is a quick and dirty way to get all free symbols
+        # using sympy isn't pretty, but it's a quick and dirty way to get all free symbols
         for var in sympify(expression).free_symbols:
             if str(var) not in self._variables:
                 if len(variables) > 0:
@@ -161,60 +164,18 @@ class FPS(Distribution):
         return self._parameters
 
     def filter(self, condition: Expr) -> FPS:
+        # Boolean literals
+        if isinstance(condition, BoolLitExpr):
+            return self if condition.value else FPS("0", *self._variables)
+
         if isinstance(condition, BinopExpr):
             if condition.operator == Binop.AND:
                 return self.filter(condition.lhs).filter(condition.rhs)
             if condition.operator == Binop.OR:
                 filtered_left = self.filter(condition.lhs)
-                # Why do we filter the lhs condition again on filtered_left???
                 return filtered_left + self.filter(
-                    condition.rhs) - filtered_left.filter(condition.lhs)
+                    condition.rhs) - filtered_left.filter(condition.rhs)
 
-            # Normalize the conditional to variables on the lhs from the relation symbol.
-            if isinstance(condition.rhs, VarExpr):
-                if isinstance(condition.rhs, VarExpr):
-                    raise ValueError(
-                        f"The expression {str(condition)} is currently not supported."
-                    )
-                switch_comparison = {
-                    Binop.EQ: Binop.EQ,
-                    Binop.LEQ: Binop.GEQ,
-                    Binop.LT: Binop.GT,
-                    Binop.GEQ: Binop.LEQ,
-                    Binop.GT: Binop.LT
-                }
-                return self.filter(
-                    BinopExpr(operator=switch_comparison[condition.operator],
-                              lhs=condition.rhs,
-                              rhs=condition.lhs))
-
-            # is normalized conditional
-            if isinstance(condition.lhs, VarExpr):
-                if condition.operator == Binop.EQ:
-                    return FPS.from_dist(
-                        self._dist.filterEq(str(condition.lhs),
-                                            str(condition.rhs)),
-                        self._variables, self._parameters)
-                elif condition.operator == Binop.LT:
-                    return FPS.from_dist(
-                        self._dist.filterLess(str(condition.lhs),
-                                              str(condition.rhs)),
-                        self._variables, self._parameters)
-                elif condition.operator == Binop.LEQ:
-                    return FPS.from_dist(
-                        self._dist.filterLeq(str(condition.lhs),
-                                             str(condition.rhs)),
-                        self._variables, self._parameters)
-                elif condition.operator == Binop.GT:
-                    return FPS.from_dist(
-                        self._dist.filterGreater(str(condition.lhs),
-                                                 str(condition.rhs)),
-                        self._variables, self._parameters)
-                elif condition.operator == Binop.GEQ:
-                    return FPS.from_dist(
-                        self._dist.filterGeq(str(condition.lhs),
-                                             str(condition.rhs)),
-                        self._variables, self._parameters)
         if isinstance(condition, UnopExpr):
             # unary relation
             if condition.operator == Unop.NEG:
@@ -223,8 +184,90 @@ class FPS(Distribution):
                 f"We do not support filtering for {type(Unop.IVERSON)} expressions."
             )
 
+        if isinstance(condition, BinopExpr) and not has_variable(
+                condition, None):
+            return self.filter(BoolLitExpr(sympify(str(condition)))) # TODO somehow handle this without sympy?
+
+        if isinstance(condition, BinopExpr) and not {
+                str(sym)
+                for sym in (sympify(str(condition.lhs)).free_symbols
+                            | sympify(str(condition.rhs)).free_symbols)
+        } <= (self._variables | self._parameters):
+            raise ValueError(
+                f"Cannot filter based on the expression {str(condition)} because it contains unknown variables"
+            )
+
+        # Modulo extractions
+        if check_is_modulus_condition(condition):
+            return self._arithmetic_progression(
+                str(condition.lhs.lhs),
+                str(condition.lhs.rhs))[condition.rhs.value]
+
+        # Constant expressions
+        if check_is_constant_constraint(condition, self):
+            return self._filter_constant_condition(condition)
+
+        # all other conditions given that the Generating Function is finite (exhaustive search)
+        if self._finite:
+            res = pygin.Dist('0')
+            for prob, state in self:
+                # TODO implement condition evaluation in C++
+                if GeneratingFunction.evaluate_condition(condition, state):
+                    res += pygin.Dist(f"{prob} * {state.to_monomial()}")
+            return FPS.from_dist(res,
+                                 self._variables,
+                                 self._parameters,
+                                 finite=True)
+
         raise SyntaxError(
             f"Filtering Condition has unknown format {condition}.")
+
+    def _filter_constant_condition(self, condition: Expr):
+        # Normalize the conditional to variables on the lhs from the relation symbol.
+        if isinstance(condition.rhs, VarExpr):
+            if isinstance(condition.rhs, VarExpr):
+                raise ValueError(
+                    f"The expression {str(condition)} is currently not supported."
+                )
+            switch_comparison = {
+                Binop.EQ: Binop.EQ,
+                Binop.LEQ: Binop.GEQ,
+                Binop.LT: Binop.GT,
+                Binop.GEQ: Binop.LEQ,
+                Binop.GT: Binop.LT
+            }
+            return self._filter_constant_condition(
+                BinopExpr(operator=switch_comparison[condition.operator],
+                          lhs=condition.rhs,
+                          rhs=condition.lhs))
+
+        # is normalized conditional
+        if isinstance(condition.lhs, VarExpr):
+            if condition.operator == Binop.EQ:
+                return FPS.from_dist(
+                    self._dist.filterEq(str(condition.lhs),
+                                        str(condition.rhs)), self._variables,
+                    self._parameters)
+            elif condition.operator == Binop.LT:
+                return FPS.from_dist(
+                    self._dist.filterLess(str(condition.lhs),
+                                          str(condition.rhs)), self._variables,
+                    self._parameters)
+            elif condition.operator == Binop.LEQ:
+                return FPS.from_dist(
+                    self._dist.filterLeq(str(condition.lhs),
+                                         str(condition.rhs)), self._variables,
+                    self._parameters)
+            elif condition.operator == Binop.GT:
+                return FPS.from_dist(
+                    self._dist.filterGreater(str(condition.lhs),
+                                             str(condition.rhs)),
+                    self._variables, self._parameters)
+            elif condition.operator == Binop.GEQ:
+                return FPS.from_dist(
+                    self._dist.filterGeq(str(condition.lhs),
+                                         str(condition.rhs)), self._variables,
+                    self._parameters)
 
     def _arithmetic_progression(self, variable: str,
                                 modulus: str) -> List[FPS]:
