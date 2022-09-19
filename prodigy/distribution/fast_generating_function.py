@@ -31,12 +31,12 @@ class FPS(Distribution):
         self._parameters = set()
 
         # using sympy isn't pretty, but it's a quick and dirty way to get all free symbols
-        for var in sympify(expression).free_symbols:
-            if str(var) not in self._variables:
+        for var in pygin.find_symbols(expression):
+            if var not in self._variables:
                 if len(variables) > 0:
-                    self._parameters.add(str(var))
+                    self._parameters.add(var)
                 else:
-                    self._variables.add(str(var))
+                    self._variables.add(var)
         self._dist = pygin.Dist(expression, list(self._parameters))
 
         self._finite = finite if finite is not None else self._dist.is_polynomial(
@@ -189,11 +189,7 @@ class FPS(Distribution):
                 condition, None):
             return self.filter(BoolLitExpr(sympify(str(condition)))) # TODO somehow handle this without sympy?
 
-        if isinstance(condition, BinopExpr) and not {
-                str(sym)
-                for sym in (sympify(str(condition.lhs)).free_symbols
-                            | sympify(str(condition.rhs)).free_symbols)
-        } <= (self._variables | self._parameters):
+        if isinstance(condition, BinopExpr) and not set(pygin.find_symbols(str(condition.lhs))) | set(pygin.find_symbols(str(condition.rhs))) <= (self._variables | self._parameters):
             raise ValueError(
                 f"Cannot filter based on the expression {str(condition)} because it contains unknown variables"
             )
