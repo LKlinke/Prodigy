@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import functools
 from typing import Generator, Iterator, List, Set, Tuple, Union, get_args
 
 import pygin  # type: ignore
 from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, BoolLitExpr,
                            DistrExpr, DUniformExpr, Expr, GeometricExpr,
-                           IidSampleExpr, PoissonExpr, Unop, UnopExpr, VarExpr, NatLitExpr)
+                           IidSampleExpr, NatLitExpr, PoissonExpr, Unop,
+                           UnopExpr, VarExpr)
 from sympy import sympify
-import functools
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
@@ -185,11 +186,15 @@ class FPS(Distribution):
                 f"We do not support filtering for {type(Unop.IVERSON)} expressions."
             )
 
-        if isinstance(condition, BinopExpr) and not has_variable(
-                condition, None):
-            return self.filter(BoolLitExpr(sympify(str(condition)))) # TODO somehow handle this without sympy?
+        if isinstance(condition,
+                      BinopExpr) and not has_variable(condition, None):
+            return self.filter(BoolLitExpr(sympify(
+                str(condition))))  # TODO somehow handle this without sympy?
 
-        if isinstance(condition, BinopExpr) and not set(pygin.find_symbols(str(condition.lhs))) | set(pygin.find_symbols(str(condition.rhs))) <= (self._variables | self._parameters):
+        if isinstance(condition, BinopExpr) and not set(
+                pygin.find_symbols(str(condition.lhs))) | set(
+                    pygin.find_symbols(str(condition.rhs))) <= (
+                        self._variables | self._parameters):
             raise ValueError(
                 f"Cannot filter based on the expression {str(condition)} because it contains unknown variables"
             )
@@ -222,7 +227,7 @@ class FPS(Distribution):
         expression = self._explicit_state_unfolding(condition)
         return self.filter(expression)
 
-    def _filter_constant_condition(self, condition: Expr):
+    def _filter_constant_condition(self, condition: Expr) -> FPS:
         # Normalize the conditional to variables on the lhs from the relation symbol.
         if isinstance(condition.rhs, VarExpr):
             if isinstance(condition.rhs, VarExpr):
@@ -269,6 +274,8 @@ class FPS(Distribution):
                                          str(condition.rhs)), self._variables,
                     self._parameters)
 
+        raise ValueError("Parameter is not a constant condition")
+
     def _explicit_state_unfolding(self, condition: Expr) -> BinopExpr:
         """
         Checks whether one side of the condition has only finitely many valuations and explicitly creates a new
@@ -296,7 +303,7 @@ class FPS(Distribution):
                 # We are not able to marginalize into a finite amount of states! -> FAIL filtering.
                 raise NotImplementedError(
                     f"Instruction {condition} is not computable on infinite generating function"
-                    f" {self._function}")
+                    f" {self._dist}")
 
         # Now we know that `expr` can be instantiated with finitely many states.
         # We generate these explicit state.
@@ -306,11 +313,14 @@ class FPS(Distribution):
         for _, state in marginal:
 
             # Evaluate the current expression
+            # TODO implement evaluation in GiNaC
             evaluated_expr = GeneratingFunction.evaluate(str(expr), state)
 
             # create the equalities for each variable, value pair in a given state
             # i.e., {x:1, y:0, c:3} -> [x=1, y=0, c=3]
-            encoded_state = GeneratingFunction._state_to_equality_expression(state)
+            # TODO extract this function from the GeneratingFunction class
+            encoded_state = GeneratingFunction._state_to_equality_expression(
+                state)
 
             # Create the equality which assigns the original side the anticipated value.
             other_side_expr = BinopExpr(condition.operator, condition.lhs,
