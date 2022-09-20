@@ -830,13 +830,13 @@ class GeneratingFunction(Distribution):
 
         # we add two variables
         if sum_1 in self._variables and sum_2 in self._variables:
-            if sum_2 == temp_var:
+            if sum_2 == update_var:
                 sum_1, sum_2 = sum_2, sum_1
-            if sum_1 == temp_var:
-                if sum_2 == temp_var:
+            if sum_1 == update_var:
+                if sum_2 == update_var:
                     result = result.subs(update_var, update_var**2)
                 else:
-                    result = result.subs(sympy.S(sum_2), update_var)
+                    result = result.subs(sum_2, sum_2 * update_var)
             else:
                 result = result.subs([(update_var, 1),
                                       (sum_1, sum_1 * update_var),

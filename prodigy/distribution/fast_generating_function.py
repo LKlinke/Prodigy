@@ -6,8 +6,8 @@ from typing import Generator, Iterator, List, Set, Tuple, Union, get_args
 import pygin  # type: ignore
 from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, BoolLitExpr,
                            DistrExpr, DUniformExpr, Expr, GeometricExpr,
-                           IidSampleExpr, NatLitExpr, PoissonExpr, Unop,
-                           UnopExpr, VarExpr)
+                           IidSampleExpr, NatLitExpr, PoissonExpr, RealLitExpr,
+                           Unop, UnopExpr, VarExpr)
 from sympy import sympify
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
@@ -365,6 +365,82 @@ class FPS(Distribution):
             self._dist.update(str(expression.lhs), str(expression.rhs)),
             self._variables, self._parameters, self._finite)
 
+    def new_update(self, expression: Expr) -> FPS:
+        """ Updates the current distribution by applying the expression to itself.
+
+            Some operations are illegal and will cause this function to raise an error. These operations include subtraction
+            that may cause a variable to have a negative value, division that may cause a variable to have a value that is
+            not an integer, and certain operations on infinite generating functions if the variables involved have an infinite
+            marginal (such as multiplication of two variables).
+
+            Parameters are not allowed in an update expression.
+        """
+
+        # TODO add some useful form of approximation support
+
+        assert isinstance(expression, BinopExpr) and isinstance(expression.lhs, VarExpr), \
+            f"Expression must be an assignment, was {expression}."
+
+        variable = expression.lhs.var
+        if variable not in self._variables:
+            raise ValueError(
+                f"Cannot assign to variable {variable} because it does not exist"
+            )
+
+        def evaluate(function: FPS, expression: Expr,
+                     temp_var: str) -> Tuple[FPS, str]:
+            # TODO handle reals in every case
+            if isinstance(expression, BinopExpr):
+                xl = pygin.get_fresh_variable()
+                xr = pygin.get_fresh_variable()
+                f = function.set_variables(*(function.get_variables()
+                                             | {xl, xr}))
+                f, t_1 = evaluate(f, expression.lhs, xl)
+                f, t_2 = evaluate(f, expression.rhs, xr)
+                if expression.operator == Binop.PLUS:
+                    f = FPS.from_dist(f._dist.update_sum(temp_var, t_1, t_2),
+                                      f._variables, f._parameters, f._finite)
+                # TODO handle power etc.
+                else:
+                    raise ValueError(
+                        f"Unsupported binary operator: {expression.operator}")
+
+                f = f.marginal(xl, xr, method=MarginalType.EXCLUDE)
+                return f, temp_var
+
+            if isinstance(expression, VarExpr):
+                f = FPS.from_dist(
+                    function._dist.update_var(temp_var, expression.var),
+                    function._variables, function._parameters,
+                    function._finite)
+                return f, temp_var
+
+            if isinstance(expression, (NatLitExpr, RealLitExpr)):
+                return function, str(expression.value)
+
+            else:
+                raise ValueError(
+                    f"Unsupported type of subexpression: {expression}")
+
+        value: int | None = None
+        if isinstance(expression.rhs, RealLitExpr):
+            if expression.rhs.to_fraction().denominator == 1:
+                value = expression.rhs.to_fraction().numerator
+            else:
+                raise ValueError(
+                    f'Cannot assign the real value {str(expression.rhs)} to {variable}'
+                )
+        if isinstance(expression.rhs, NatLitExpr):
+            value = expression.rhs.value
+        if value is not None:
+            result = FPS.from_dist(
+                self.marginal(variable, method=MarginalType.EXCLUDE)._dist *
+                pygin.Dist(f'pow({variable}, {value})'), self._variables,
+                self._parameters, self._finite)
+        else:
+            result, _ = evaluate(self, expression.rhs, variable)
+        return result
+
     def update_iid(self, sampling_exp: IidSampleExpr,
                    variable: Union[str, VarExpr]) -> FPS:
 
@@ -412,7 +488,7 @@ class FPS(Distribution):
 
     def marginal(self,
                  *variables: Union[str, VarExpr],
-                 method: MarginalType = MarginalType.INCLUDE) -> Distribution:
+                 method: MarginalType = MarginalType.INCLUDE) -> FPS:
         result = self._dist
         remove_vars = {
             MarginalType.EXCLUDE: {str(var)

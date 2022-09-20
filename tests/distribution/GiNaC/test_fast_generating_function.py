@@ -199,6 +199,9 @@ class TestDistributionInterface:
             "1/6 * (1 + x + x^4 + x^9 + x^16 + x^25)")
 
     def test_marginal(self):
+        gf = FPS('x*y')
+        assert gf.marginal('x', method=MarginalType.EXCLUDE) == FPS('y')
+
         gf = ProdigyPGF.uniform("x", '0', '10') * ProdigyPGF.binomial(
             'y', n='10', p='1/2')
         assert gf.marginal('x') == ProdigyPGF.uniform("x", '0', '10')

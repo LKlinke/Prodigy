@@ -22,6 +22,7 @@ def test_addition():
     gf = GeneratingFunction("x^3")
     assert gf.update(parse_expr("x = 3 + 4 + 8")) == GeneratingFunction("x^15")
     assert gf.update(parse_expr("x = x + x")) == GeneratingFunction("x^6")
+    assert gf.update(parse_expr("x = x + 1")) == GeneratingFunction("x^4")
 
     gf: GeneratingFunction = SympyPGF.poisson('x', 16)
     assert gf.update(parse_expr("x = 3 + 5 + 8")) == GeneratingFunction("x^16")
@@ -32,6 +33,11 @@ def test_addition():
     assert gf.update(
         parse_expr("x = x + x")).filter(parse_expr("x = 30"))._function.subs(
             sympy.S("x"), 1) == sympy.S("(16^15 * exp(-16)) / 15!")
+
+    gf = GeneratingFunction("x^3 * y^5")
+    assert gf.update(
+        parse_expr("x = x + y")) == GeneratingFunction("x^8 * y^5")
+    assert gf._update_sum('x', 'x', 'y') == GeneratingFunction("x^8 * y^5")
 
 
 def test_var_assignment():
