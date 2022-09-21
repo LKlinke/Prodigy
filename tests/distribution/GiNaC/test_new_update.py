@@ -60,7 +60,6 @@ def test_var_assignment():
 
 
 def test_multiplication():
-    xfail("not yet implemented")
     gf = FPS("n^5*m^42*o^8")
     assert gf.new_update(parse_expr("n = 3 * 8")) == FPS("n^24*m^42*o^8")
     assert gf.new_update(parse_expr("n = 5 * o")) == FPS("n^40*m^42*o^8")
@@ -73,19 +72,16 @@ def test_multiplication():
 
     gf = ProdigyPGF.poisson('x', 3) * FPS('y^3')
     assert gf.new_update(
-        parse_expr('x = x * y'))._function == gf._function.subs(
-            sympy.S('x'),
-            sympy.S('x') ^ 3)
+        parse_expr('x = x * y')) == FPS("exp(3 * (x^3 - 1))") * FPS('y^3')
 
     gf = ProdigyPGF.poisson('x', 3) * ProdigyPGF.poisson('y', 5)
     assert gf.new_update(
         parse_expr('x = 3*7')) == ProdigyPGF.poisson('y', 5) * FPS('x^21')
-    assert gf.new_update(parse_expr('x = x * 3')) == FPS(
-        gf._function.subs(sympy.S('x'),
-                          sympy.S('x') ^ 3))
-    assert gf.new_update(parse_expr('x = y * 4')) == FPS(
-        gf._function.subs([(sympy.S('x'), 1),
-                           (sympy.S('y'), sympy.S('y * x^4'))]))
+    assert gf.new_update(
+        parse_expr('x = x * 3')
+    ) == FPS("exp(3 * (x^3 - 1))") * ProdigyPGF.poisson('y', 5)
+    assert gf.new_update(
+        parse_expr('x = y * 4')) == FPS("exp(5 * (x^4*y - 1))")
 
     gf = FPS('x*y^4')
     assert gf.new_update(parse_expr('x = 0.5*y')) == FPS('x^2*y^4')
@@ -93,8 +89,8 @@ def test_multiplication():
     gf = ProdigyPGF.poisson('x', 5) * FPS('0.6*y^3*z^5 + 0.4*y^6*z^6')
     assert gf.new_update(
         parse_expr('x = z*y')) == FPS('0.6*x^15*y^3*z^5 + 0.4*x^36*y^6*z^6')
-    assert gf.new_update(parse_expr('z = x*y'))._function == sympy.S(
-        "y^3*(2*y^3*exp(5*x*z^6) + 3*exp(5*x*z^3))*exp(-5)/5")
+    assert gf.new_update(parse_expr('z = x*y')) == FPS(
+        '0.6*y^3*exp(5 * (x*z^3 - 1)) + 0.4*y^6*exp(5 * (x*z^6 - 1))')
 
 
 def test_subtraction():

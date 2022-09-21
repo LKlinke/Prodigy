@@ -31,7 +31,6 @@ class FPS(Distribution):
         self._variables = set(str(var) for var in variables if str(var) != "")
         self._parameters = set()
 
-        # using sympy isn't pretty, but it's a quick and dirty way to get all free symbols
         for var in pygin.find_symbols(expression):
             if var not in self._variables:
                 if len(variables) > 0:
@@ -400,6 +399,11 @@ class FPS(Distribution):
                 if expression.operator == Binop.PLUS:
                     f = FPS.from_dist(f._dist.update_sum(temp_var, t_1, t_2),
                                       f._variables, f._parameters, f._finite)
+                elif expression.operator == Binop.TIMES:
+                    f = FPS.from_dist(
+                        f._dist.update_product(temp_var, t_1, t_2,
+                                               f._variables, f._finite),
+                        f._variables, f._parameters, f._finite)
                 # TODO handle power etc.
                 else:
                     raise ValueError(
