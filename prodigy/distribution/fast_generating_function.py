@@ -413,7 +413,11 @@ class FPS(Distribution):
                         f._dist.update_modulo(temp_var, t_1, t_2, f._variables,
                                               f._finite), f._variables,
                         f._parameters)
-                # TODO handle power etc.
+                elif expression.operator == Binop.DIVIDE:
+                    f = FPS.from_dist(
+                        f._dist.update_division(temp_var, t_1, t_2),
+                        f._variables, f._parameters)
+                # TODO handle power
                 else:
                     raise ValueError(
                         f"Unsupported binary operator: {expression.operator}")

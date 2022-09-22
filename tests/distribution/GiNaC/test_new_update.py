@@ -153,20 +153,19 @@ def test_modulo():
 
 
 def test_division():
-    xfail("not yet implemented")
     gf = FPS('n')
     # probably simplifies 4 / 2 to a RealLitExpr
     assert gf.new_update(parse_expr('n = 4 / 2')) == FPS('n^2')
     assert gf.new_update(parse_expr('n = n / 1')) == FPS('n')
     with raises(ValueError) as e:
         gf.new_update(parse_expr('n = n / 2'))
-    assert 'because it is not always an integer' in str(e)
+    assert 'numerator is not always divisible by denominator' in str(e)
 
     gf = FPS('n^2*m^6', 'n', 'm', 'o')
     assert gf.new_update(parse_expr('o = m / n')) == FPS('n^2*m^6*o^3')
     with raises(ValueError) as e:
         gf.new_update(parse_expr('o = n / m'))
-    assert 'because it is not always an integer' in str(e)
+    assert 'numerator is not always divisible by denominator' in str(e)
 
     gf = ProdigyPGF.poisson('x', 3) * FPS('y*z')
     assert gf.new_update(parse_expr('x = z / y')) == FPS('x*y*z')

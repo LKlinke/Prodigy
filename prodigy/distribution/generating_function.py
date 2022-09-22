@@ -499,11 +499,11 @@ class GeneratingFunction(Distribution):
     def _update_division(self, temp_var: str, numerator: str | int,
                          denominator: str | int) -> GeneratingFunction:
         """
-        Applies the expression `temp_var = numerator / denominator` to this generating function. Currently,
-        only finite generating functions are supported. If in some state of the GF, the numerator is not
-        divisible by the denominator, this function raises an error.
+        Applies the expression `temp_var = numerator / denominator` to this generating function.
+        If in some state of the GF, the numerator is not divisible by the denominator, this function
+        raises an error.
 
-        Infinite generating functions are only supported if both sides of the division have infinite range
+        Infinite generating functions are only supported if both sides of the division have finite range
         (i.e., they are either literals or have a finite marginal).
 
         Both the numerator and the denominator may not be parameters.
