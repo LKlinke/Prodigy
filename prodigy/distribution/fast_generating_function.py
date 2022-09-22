@@ -398,12 +398,16 @@ class FPS(Distribution):
                 f, t_2 = evaluate(f, expression.rhs, xr)
                 if expression.operator == Binop.PLUS:
                     f = FPS.from_dist(f._dist.update_sum(temp_var, t_1, t_2),
-                                      f._variables, f._parameters, f._finite)
+                                      f._variables, f._parameters)
                 elif expression.operator == Binop.TIMES:
                     f = FPS.from_dist(
                         f._dist.update_product(temp_var, t_1, t_2,
                                                f._variables, f._finite),
-                        f._variables, f._parameters, f._finite)
+                        f._variables, f._parameters)
+                elif expression.operator == Binop.MINUS:
+                    f = FPS.from_dist(
+                        f._dist.update_subtraction(temp_var, t_1, t_2),
+                        f._variables, f._parameters)
                 # TODO handle power etc.
                 else:
                     raise ValueError(

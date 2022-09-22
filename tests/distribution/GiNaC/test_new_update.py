@@ -94,38 +94,32 @@ def test_multiplication():
 
 
 def test_subtraction():
-    xfail("not yet implemented")
     gf = FPS("n^5*m^42*l^8")
     assert gf.new_update(parse_expr("m = m - 8")) == FPS("n^5*m^34*l^8")
     assert gf.new_update(parse_expr("l = l - n")) == FPS("n^5*m^42*l^3")
     assert gf.new_update(parse_expr("m = l - n")) == FPS("n^5*m^3*l^8")
     with raises(ValueError) as e:
         gf.new_update(parse_expr("m = n - l"))
-    assert "Cannot assign '" in str(e) and "because it can be negative" in str(
-        e)
+    assert "division by zero" in str(e)
 
     gf = FPS('p*x', 'x')
     with raises(ValueError) as e:
         gf.new_update(parse_expr("x = x - 2"))
-    assert "Cannot assign '" in str(e) and "because it can be negative" in str(
-        e)
+    assert "division by zero" in str(e)
     with raises(ValueError) as e:
         gf.new_update(parse_expr("x = x - 20"))
-    assert "Cannot assign '" in str(e) and "because it can be negative" in str(
-        e)
+    assert "division by zero" in str(e)
     assert gf.new_update(parse_expr("x = x - 1")) == FPS('p', 'x')
 
     gf = FPS('(1/p)*x', 'x')
     with raises(ValueError) as e:
         gf.new_update(parse_expr("x = x - 2"))
-    assert "Cannot assign '" in str(e) and "because it can be negative" in str(
-        e)
+    assert "division by zero" in str(e)
 
     gf = ProdigyPGF.poisson('x', 3)
     with raises(ValueError) as e:
         gf.new_update(parse_expr("x = x - 2"))
-    assert "Cannot assign '" in str(e) and "because it can be negative" in str(
-        e)
+    assert "division by zero" in str(e)
 
     gf = FPS('0.4*tmp^5*c^13*n^4 + 0.6*tmp^7*c^28*n^77')
     assert gf.new_update(parse_expr('n = n + (c-tmp)')) == FPS(
