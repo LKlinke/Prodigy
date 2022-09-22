@@ -127,7 +127,6 @@ def test_subtraction():
 
 
 def test_fresh_variables():
-    xfail("not yet implemented")
     gf = FPS('x*xl')
     assert gf.new_update(parse_expr('x = 2*3')) == FPS('x^6*xl')
 
@@ -136,13 +135,12 @@ def test_fresh_variables():
 
 
 def test_modulo():
-    xfail("not yet implemented")
     gf = FPS('x * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
     assert gf.new_update(
         parse_expr('x = 5 % 3')) == FPS('x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
     assert gf.new_update(parse_expr('x = 5 % (1+1+1)')) == FPS(
         'x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
-    assert gf.new_update(parse_expr('x = y % (3+2)'))._function == sympy.S(
+    assert gf.new_update(parse_expr('x = y % (3+2)'))._dist == pygin.Dist(
         '(3/10)*y^4*x^4 + (3/10)*y^7*x^2 + (4/10)*y^8*x^3')
 
     gf = FPS('0.3*a^3*b^5*c^2 + 0.2*a^6*b^9*c^55 + 0.5*a^5*b^346*c^34')

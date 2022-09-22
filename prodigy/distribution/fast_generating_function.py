@@ -408,6 +408,11 @@ class FPS(Distribution):
                     f = FPS.from_dist(
                         f._dist.update_subtraction(temp_var, t_1, t_2),
                         f._variables, f._parameters)
+                elif expression.operator == Binop.MODULO:
+                    f = FPS.from_dist(
+                        f._dist.update_modulo(temp_var, t_1, t_2, f._variables,
+                                              f._finite), f._variables,
+                        f._parameters)
                 # TODO handle power etc.
                 else:
                     raise ValueError(
