@@ -9,7 +9,7 @@ from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, BoolLitExpr,
                            DistrExpr, DUniformExpr, Expr, GeometricExpr,
                            IidSampleExpr, NatLitExpr, PoissonExpr, RealLitExpr,
                            Unop, UnopExpr, VarExpr)
-from sympy import numer, sympify
+from sympy import sympify
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
