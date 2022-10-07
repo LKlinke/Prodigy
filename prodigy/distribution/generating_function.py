@@ -367,93 +367,8 @@ class GeneratingFunction(Distribution):
 
     # Distribution interface implementation
 
-    def update(self, expression: Expr) -> GeneratingFunction:
-        """ Updates the current distribution by applying the expression to itself.
-
-            Some operations are illegal and will cause this function to raise an error. These operations include subtraction
-            that may cause a variable to have a negative value, division that may cause a variable to have a value that is
-            not an integer, and certain operations on infinite generating functions if the variables involved have an infinite
-            marginal (such as multiplication of two variables).
-
-            Parameters are not allowed in an update expression.
-        """
-
-        # TODO add some useful form of approximation support
-
-        assert isinstance(expression, BinopExpr) and isinstance(expression.lhs, VarExpr), \
-            f"Expression must be an assignment, was {expression}."
-
-        variable = expression.lhs.var
-        if sympy.Symbol(variable) not in self._variables:
-            raise ValueError(
-                f"Cannot assign to variable {variable} because it does not exist"
-            )
-
-        def evaluate(function: GeneratingFunction, expression: Expr,
-                     temp_var: str) -> Tuple[GeneratingFunction, str]:
-            # TODO handle reals in every case
-            if isinstance(expression, BinopExpr):
-                xl = function._get_fresh_variable()
-                xr = function._get_fresh_variable({xl})
-                f = function.set_variables(*(function.get_variables()
-                                             | {xl, xr}))
-                f, t_1 = evaluate(f, expression.lhs, xl)
-                f, t_2 = evaluate(f, expression.rhs, xr)
-                if expression.operator == Binop.PLUS:
-                    f = f._update_sum(temp_var, t_1, t_2)
-                elif expression.operator == Binop.TIMES:
-                    f = f._update_product(temp_var, t_1, t_2)
-                elif expression.operator == Binop.MINUS:
-                    f = f._update_subtraction(temp_var, t_1, t_2)
-                elif expression.operator == Binop.MODULO:
-                    f = f._update_modulo(temp_var, t_1, t_2)
-                elif expression.operator == Binop.DIVIDE:
-                    f = f._update_division(temp_var, t_1, t_2)
-                # TODO handle power
-                else:
-                    raise ValueError(
-                        f"Unsupported binary operator: {expression.operator}")
-
-                f = f.marginal(xl, xr, method=MarginalType.EXCLUDE)
-                return f, temp_var
-
-            if isinstance(expression, VarExpr):
-                f = function._update_var(temp_var, expression.var)
-                return f, temp_var
-
-            if isinstance(expression, (NatLitExpr, RealLitExpr)):
-                return function, str(expression.value)
-
-            else:
-                raise ValueError(
-                    f"Unsupported type of subexpression: {expression}")
-
-        value: int | None = None
-        if isinstance(expression.rhs, RealLitExpr):
-            if expression.rhs.to_fraction().denominator == 1:
-                value = expression.rhs.to_fraction().numerator
-            else:
-                raise ValueError(
-                    f'Cannot assign the real value {str(expression.rhs)} to {variable}'
-                )
-        if isinstance(expression.rhs, NatLitExpr):
-            value = expression.rhs.value
-        if value is not None:
-            result = GeneratingFunction(
-                self._function.subs(sympy.Symbol(variable), 1) *
-                sympy.Symbol(variable)**value,
-                *self._variables,
-                preciseness=self._preciseness)
-        else:
-            result, _ = evaluate(self, expression.rhs, variable)
-        return result
-
     def _get_fresh_variable(
         self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
-        """
-        Returns a str that is the name of neither an existing variable nor an existing
-        parameter of this GF nor contained in the `exclude` parameter.
-        """
         i = 0
         while sympy.Symbol(f'_{i}') in (
                 self._variables
@@ -498,16 +413,6 @@ class GeneratingFunction(Distribution):
 
     def _update_division(self, temp_var: str, numerator: str | int,
                          denominator: str | int) -> GeneratingFunction:
-        """
-        Applies the expression `temp_var = numerator / denominator` to this generating function.
-        If in some state of the GF, the numerator is not divisible by the denominator, this function
-        raises an error.
-
-        Infinite generating functions are only supported if both sides of the division have finite range
-        (i.e., they are either literals or have a finite marginal).
-
-        Both the numerator and the denominator may not be parameters.
-        """
         update_var = sympy.Symbol(temp_var)
         div_1, div_2 = sympy.S(numerator), sympy.S(denominator)
 
@@ -582,13 +487,6 @@ class GeneratingFunction(Distribution):
 
     def _update_modulo(self, temp_var: str, left: str | int,
                        right: str | int) -> GeneratingFunction:
-        """
-        Applies the expression `temp_var = left % right` to this generating function. If `self` is
-        an infinite generating function, `right` must be a literal or a variable with finite range.
-
-        Both `left` and `right` may not be parameters.
-        """
-
         # TODO this function is very inefficient and I'm not sure why (maybe because of all the filtering?)
 
         left_sym, right_sym = sympy.Symbol(str(left)), sympy.Symbol(str(right))
@@ -652,10 +550,6 @@ class GeneratingFunction(Distribution):
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> GeneratingFunction:
-        """
-        Applies the espression `temp_var = sub_from - sub` to this generating function. If this
-        difference might be negative, this function will raise an error.
-        """
         update_var = sympy.Symbol(temp_var)
         sub_1, sub_2 = sympy.S(sub_from), sympy.S(sub)
         result = self._function
@@ -713,14 +607,6 @@ class GeneratingFunction(Distribution):
 
     def _update_product(self, temp_var: str, first_factor: str,
                         second_factor: str) -> GeneratingFunction:
-        """
-        Applies the update `temp_var = first_factor * second_factor` to this generating function.
-
-        If the generating function is infinite and both factors are variables, mutliplication is
-        only supported if at least one of the factors has finite range (i.e., a finite marginal).
-
-        Both factors may not be parameters.
-        """
         update_var = sympy.Symbol(temp_var)
         # these assumptions are necessary for some simplifications in the exponent
         # they are later eliminated again in the init of the new GF
@@ -792,10 +678,6 @@ class GeneratingFunction(Distribution):
 
     def _update_var(self, updated_var: str,
                     assign_var: str | int) -> GeneratingFunction:
-        """
-        Applies the update `updated_var = assign_var` to this generating function.
-        `assign_var` may be a variable or integer literal, but not a parameter.
-        """
         if sympy.Symbol(str(assign_var)) in self._parameters:
             raise ValueError('Assignment to parameters is not allowed')
 
@@ -820,10 +702,6 @@ class GeneratingFunction(Distribution):
 
     def _update_sum(self, temp_var: str, first_summand: str | int,
                     second_summand: str | int) -> GeneratingFunction:
-        """
-        Applies the expression `temp_var = fist_summand + second_summand` to this generating
-        function.
-        """
         update_var = sympy.Symbol(temp_var)
         sum_1, sum_2 = sympy.S(first_summand), sympy.S(second_summand)
         result = self._function

@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import functools
-from typing import Generator, Iterator, List, Set, Tuple, Union, get_args
+from typing import (FrozenSet, Generator, Iterator, List, Set, Tuple, Union,
+                    get_args)
 
 import pygin  # type: ignore
 from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, BoolLitExpr,
                            DistrExpr, DUniformExpr, Expr, GeometricExpr,
                            IidSampleExpr, NatLitExpr, PoissonExpr, RealLitExpr,
                            Unop, UnopExpr, VarExpr)
-from sympy import sympify
+from sympy import numer, sympify
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
@@ -372,102 +373,51 @@ class FPS(Distribution):
             self._dist.update(str(expression.lhs), str(expression.rhs)),
             self._variables, self._parameters, self._finite)
 
-    def update(self, expression: Expr) -> FPS:
-        """ Updates the current distribution by applying the expression to itself.
+    def _get_fresh_variable(
+        self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
+        res: str = pygin.get_fresh_variable()
+        while res in exclude:
+            res = pygin.get_fresh_variable()
+        return res
 
-            Some operations are illegal and will cause this function to raise an error. These operations include subtraction
-            that may cause a variable to have a negative value, division that may cause a variable to have a value that is
-            not an integer, and certain operations on infinite generating functions if the variables involved have an infinite
-            marginal (such as multiplication of two variables).
+    def _update_var(self, updated_var: str, assign_var: str | int) -> FPS:
+        return FPS.from_dist(
+            self._dist.update_var(updated_var, str(assign_var)),
+            self._variables, self._parameters, self._finite)
 
-            Parameters are not allowed in an update expression.
-        """
+    def _update_sum(self, temp_var: str, first_summand: str | int,
+                    second_summand: str | int) -> FPS:
+        return FPS.from_dist(
+            self._dist.update_sum(temp_var, str(first_summand),
+                                  str(second_summand)), self._variables,
+            self._parameters)
 
-        # TODO add some useful form of approximation support
+    def _update_product(self, temp_var: str, first_factor: str,
+                        second_factor: str) -> FPS:
+        return FPS.from_dist(
+            self._dist.update_product(temp_var, first_factor, second_factor,
+                                      self._variables, self._finite),
+            self._variables, self._parameters)
 
-        assert isinstance(expression, BinopExpr) and isinstance(expression.lhs, VarExpr), \
-            f"Expression must be an assignment, was {expression}."
+    def _update_subtraction(self, temp_var: str, sub_from: str | int,
+                            sub: str | int) -> Distribution:
+        return FPS.from_dist(
+            self._dist.update_subtraction(temp_var, str(sub_from), str(sub)),
+            self._variables, self._parameters)
 
-        variable = expression.lhs.var
-        if variable not in self._variables:
-            raise ValueError(
-                f"Cannot assign to variable {variable} because it does not exist"
-            )
+    def _update_modulo(self, temp_var: str, left: str | int,
+                       right: str | int) -> FPS:
+        return FPS.from_dist(
+            self._dist.update_modulo(temp_var, str(left), str(right),
+                                     self._variables, self._finite),
+            self._variables, self._parameters)
 
-        # pylint: disable=protected-access
-        def evaluate(function: FPS, expression: Expr,
-                     temp_var: str) -> Tuple[FPS, str]:
-            # TODO handle reals in every case
-            if isinstance(expression, BinopExpr):
-                xl = pygin.get_fresh_variable()
-                xr = pygin.get_fresh_variable()
-                f = function.set_variables(*(function.get_variables()
-                                             | {xl, xr}))
-                f, t_1 = evaluate(f, expression.lhs, xl)
-                f, t_2 = evaluate(f, expression.rhs, xr)
-                if expression.operator == Binop.PLUS:
-                    f = FPS.from_dist(f._dist.update_sum(temp_var, t_1, t_2),
-                                      f._variables, f._parameters)
-                elif expression.operator == Binop.TIMES:
-                    f = FPS.from_dist(
-                        f._dist.update_product(temp_var, t_1, t_2,
-                                               f._variables, f._finite),
-                        f._variables, f._parameters)
-                elif expression.operator == Binop.MINUS:
-                    f = FPS.from_dist(
-                        f._dist.update_subtraction(temp_var, t_1, t_2),
-                        f._variables, f._parameters)
-                elif expression.operator == Binop.MODULO:
-                    f = FPS.from_dist(
-                        f._dist.update_modulo(temp_var, t_1, t_2, f._variables,
-                                              f._finite), f._variables,
-                        f._parameters)
-                elif expression.operator == Binop.DIVIDE:
-                    f = FPS.from_dist(
-                        f._dist.update_division(temp_var, t_1, t_2),
-                        f._variables, f._parameters)
-                # TODO handle power
-                else:
-                    raise ValueError(
-                        f"Unsupported binary operator: {expression.operator}")
-
-                f = f.marginal(xl, xr, method=MarginalType.EXCLUDE)
-                return f, temp_var
-
-            if isinstance(expression, VarExpr):
-                f = FPS.from_dist(
-                    function._dist.update_var(temp_var, expression.var),
-                    function._variables, function._parameters,
-                    function._finite)
-                return f, temp_var
-
-            if isinstance(expression, (NatLitExpr, RealLitExpr)):
-                return function, str(expression.value)
-
-            else:
-                raise ValueError(
-                    f"Unsupported type of subexpression: {expression}")
-
-        # pylint: enable=protected-access
-
-        value: int | None = None
-        if isinstance(expression.rhs, RealLitExpr):
-            if expression.rhs.to_fraction().denominator == 1:
-                value = expression.rhs.to_fraction().numerator
-            else:
-                raise ValueError(
-                    f'Cannot assign the real value {str(expression.rhs)} to {variable}'
-                )
-        if isinstance(expression.rhs, NatLitExpr):
-            value = expression.rhs.value
-        if value is not None:
-            result = FPS.from_dist(
-                self.marginal(variable, method=MarginalType.EXCLUDE)._dist *
-                pygin.Dist(f'pow({variable}, {value})'), self._variables,
-                self._parameters, self._finite)
-        else:
-            result, _ = evaluate(self, expression.rhs, variable)
-        return result
+    def _update_division(self, temp_var: str, numerator: str | int,
+                         denominator: str | int) -> FPS:
+        return FPS.from_dist(
+            self._dist.update_division(temp_var, str(numerator),
+                                       str(denominator)), self._variables,
+            self._parameters)
 
     def update_iid(self, sampling_exp: IidSampleExpr,
                    variable: Union[str, VarExpr]) -> FPS:

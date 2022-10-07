@@ -3,9 +3,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Dict, Generator, Iterator, Set, Tuple, Union
+from typing import Dict, FrozenSet, Generator, Iterator, Set, Tuple, Union
 
-from probably.pgcl import Expr, IidSampleExpr, VarExpr  # type: ignore
+from probably.pgcl import (Binop, BinopExpr, Expr, IidSampleExpr,
+                           NatLitExpr, RealLitExpr, VarExpr)
 
 
 class MarginalType(Enum):
@@ -137,9 +138,152 @@ class Distribution(ABC):
     def is_finite(self) -> bool:
         """ Returns whether the distribution has finite support."""
 
-    @abstractmethod
     def update(self, expression: Expr) -> Distribution:
-        """ Updates the distribution by the result of the expression. """
+        """ Updates the current distribution by applying the expression to itself.
+
+            Some operations are illegal and will cause this function to raise an error. These operations include subtraction
+            that may cause a variable to have a negative value, division that may cause a variable to have a value that is
+            not an integer, and certain operations on infinite generating functions if the variables involved have an infinite
+            marginal (such as multiplication of two variables).
+
+            Parameters are not allowed in an update expression.
+        """
+
+        # TODO add some useful form of approximation support
+
+        assert isinstance(expression, BinopExpr) and isinstance(expression.lhs, VarExpr), \
+            f"Expression must be an assignment, was {expression}."
+
+        variable = expression.lhs.var
+        if variable not in self.get_variables():
+            raise ValueError(
+                f"Cannot assign to variable {variable} because it does not exist"
+            )
+
+        # pylint: disable=protected-access
+        def evaluate(function: Distribution, expression: Expr,
+                     temp_var: str) -> Tuple[Distribution, str]:
+            # TODO handle reals in every case
+            if isinstance(expression, BinopExpr):
+                xl = function._get_fresh_variable()
+                xr = function._get_fresh_variable({xl})
+                f = function.set_variables(*(function.get_variables()
+                                             | {xl, xr}))
+                f, t_1 = evaluate(f, expression.lhs, xl)
+                f, t_2 = evaluate(f, expression.rhs, xr)
+                if expression.operator == Binop.PLUS:
+                    f = f._update_sum(temp_var, t_1, t_2)
+                elif expression.operator == Binop.TIMES:
+                    f = f._update_product(temp_var, t_1, t_2)
+                elif expression.operator == Binop.MINUS:
+                    f = f._update_subtraction(temp_var, t_1, t_2)
+                elif expression.operator == Binop.MODULO:
+                    f = f._update_modulo(temp_var, t_1, t_2)
+                elif expression.operator == Binop.DIVIDE:
+                    f = f._update_division(temp_var, t_1, t_2)
+                # TODO handle power
+                else:
+                    raise ValueError(
+                        f"Unsupported binary operator: {expression.operator}")
+
+                f = f.marginal(xl, xr, method=MarginalType.EXCLUDE)
+                return f, temp_var
+
+            if isinstance(expression, VarExpr):
+                f = function._update_var(temp_var, expression.var)
+                return f, temp_var
+
+            if isinstance(expression, (NatLitExpr, RealLitExpr)):
+                return function, str(expression.value)
+
+            else:
+                raise ValueError(
+                    f"Unsupported type of subexpression: {expression}")
+
+        # pylint: enable=protected-access
+
+        value: int | None = None
+        if isinstance(expression.rhs, RealLitExpr):
+            if expression.rhs.to_fraction().denominator == 1:
+                value = expression.rhs.to_fraction().numerator
+            else:
+                raise ValueError(
+                    f'Cannot assign the real value {str(expression.rhs)} to {variable}'
+                )
+        if isinstance(expression.rhs, NatLitExpr):
+            value = expression.rhs.value
+        if value is not None:
+            result = self._update_var(variable, value)
+        else:
+            result, _ = evaluate(self, expression.rhs, variable)
+        return result
+
+    @abstractmethod
+    def _get_fresh_variable(
+        self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
+        """
+        Returns a str that is the name of neither an existing variable nor an existing
+        parameter of this GF nor contained in the `exclude` parameter.
+        """
+
+    @abstractmethod
+    def _update_var(self, updated_var: str,
+                    assign_var: str | int) -> Distribution:
+        """
+        Applies the update `updated_var = assign_var` to this distribution.
+        `assign_var` may be a variable or integer literal, but not a parameter.
+        """
+
+    @abstractmethod
+    def _update_sum(self, temp_var: str, first_summand: str | int,
+                    second_summand: str | int) -> Distribution:
+        """
+        Applies the expression `temp_var = fist_summand + second_summand` to this distribution.
+        """
+
+    @abstractmethod
+    def _update_product(self, temp_var: str, first_factor: str,
+                        second_factor: str) -> Distribution:
+        """
+        Applies the update `temp_var = first_factor * second_factor` to this distribution.
+
+        If the distribution is infinite and both factors are variables, mutliplication is
+        only supported if at least one of the factors has finite range (i.e., a finite marginal).
+
+        Both factors may not be parameters.
+        """
+
+    @abstractmethod
+    def _update_subtraction(self, temp_var: str, sub_from: str | int,
+                            sub: str | int) -> Distribution:
+        """
+        Applies the espression `temp_var = sub_from - sub` to this distribution. If this
+        difference might be negative, this function will raise an error.
+        """
+
+    @abstractmethod
+    def _update_modulo(self, temp_var: str, left: str | int,
+                       right: str | int) -> Distribution:
+        """
+        Applies the expression `temp_var = left % right` to this distribution. If `self` is
+        an infinite generating function, `right` must be a literal or a variable with finite range.
+
+        Both `left` and `right` may not be parameters.
+        """
+
+    @abstractmethod
+    def _update_division(self, temp_var: str, numerator: str | int,
+                         denominator: str | int) -> Distribution:
+        """
+        Applies the expression `temp_var = numerator / denominator` to this distribution.
+        If in some state of the GF, the numerator is not divisible by the denominator, this function
+        raises an error.
+
+        Infinite distributions are only supported if both sides of the division have finite range
+        (i.e., they are either literals or have a finite marginal).
+
+        Both the numerator and the denominator may not be parameters.
+        """
 
     @abstractmethod
     def update_iid(self, sampling_exp: IidSampleExpr,
