@@ -1041,7 +1041,8 @@ class GeneratingFunction(Distribution):
         # other object is either an expression, or literal
         elif isinstance(other, (str, float, int)):
             # we try to convert this into a Generatingfunction and compute the arithmetic from there on.
-            return self._arithmetic(GeneratingFunction(str(other)), op)
+            return self._arithmetic(
+                GeneratingFunction(str(other), *self._variables), op)
         # We don't know how to do arithmetic on other types.
         else:
             raise SyntaxError(
@@ -1251,7 +1252,10 @@ class GeneratingFunction(Distribution):
     def evaluate(expression: str, state: State) -> sympy.Expr:
         """ Evaluates the expression in a given state. """
 
-        s_exp = sympy.S(expression)
+        s_exp = sympy.S(
+            expression,
+            locals={str(v): sympy.Symbol(v)
+                    for v in state.valuations})
         # Iterate over the variable, value pairs in the state
         for var, value in state.items():
             # Convert the variable into a sympy symbol and substitute

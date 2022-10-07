@@ -58,8 +58,12 @@ class FPS(Distribution):
 
     def __add__(self, other) -> FPS:
         if isinstance(other, (str, int)):
-            return FPS.from_dist(self._dist + pygin.Dist(other),
-                                 self._variables, self._parameters)
+            return FPS.from_dist(
+                self._dist + pygin.Dist(
+                    str(other),
+                    list(
+                        set(pygin.find_symbols(str(other))) -
+                        self._variables)), self._variables, self._parameters)
         elif isinstance(other, FPS):
             return FPS.from_dist(self._dist + other._dist,
                                  self._variables | other._variables,
@@ -70,8 +74,12 @@ class FPS(Distribution):
 
     def __sub__(self, other) -> FPS:
         if isinstance(other, (str, int)):
-            return FPS.from_dist(self._dist - pygin.Dist(str(other)),
-                                 self._variables, self._parameters)
+            return FPS.from_dist(
+                self._dist - pygin.Dist(
+                    str(other),
+                    list(
+                        set(pygin.find_symbols(str(other))) -
+                        self._variables)), self._variables, self._parameters)
         elif isinstance(other, FPS):
             return FPS.from_dist(self._dist - other._dist,
                                  self._variables | other._variables,
@@ -82,8 +90,12 @@ class FPS(Distribution):
 
     def __mul__(self, other) -> FPS:
         if isinstance(other, (str, int)):
-            return FPS.from_dist(self._dist * pygin.Dist(str(other)),
-                                 self._variables, self._parameters)
+            return FPS.from_dist(
+                self._dist * pygin.Dist(
+                    str(other),
+                    list(
+                        set(pygin.find_symbols(str(other))) -
+                        self._variables)), self._variables, self._parameters)
         elif isinstance(other, FPS):
             return FPS.from_dist(self._dist * other._dist,
                                  self._variables | other._variables,
@@ -229,10 +241,6 @@ class FPS(Distribution):
     def _filter_constant_condition(self, condition: Expr) -> FPS:
         # Normalize the conditional to variables on the lhs from the relation symbol.
         if isinstance(condition.rhs, VarExpr):
-            if isinstance(condition.rhs, VarExpr):
-                raise ValueError(
-                    f"The expression {str(condition)} is currently not supported."
-                )
             switch_comparison = {
                 Binop.EQ: Binop.EQ,
                 Binop.LEQ: Binop.GEQ,
@@ -359,12 +367,12 @@ class FPS(Distribution):
     def is_finite(self) -> bool:
         return self._finite
 
-    def update(self, expression: Expr) -> FPS:
+    def old_update(self, expression: Expr) -> FPS:
         return FPS.from_dist(
             self._dist.update(str(expression.lhs), str(expression.rhs)),
             self._variables, self._parameters, self._finite)
 
-    def new_update(self, expression: Expr) -> FPS:
+    def update(self, expression: Expr) -> FPS:
         """ Updates the current distribution by applying the expression to itself.
 
             Some operations are illegal and will cause this function to raise an error. These operations include subtraction
@@ -386,6 +394,7 @@ class FPS(Distribution):
                 f"Cannot assign to variable {variable} because it does not exist"
             )
 
+        # pylint: disable=protected-access
         def evaluate(function: FPS, expression: Expr,
                      temp_var: str) -> Tuple[FPS, str]:
             # TODO handle reals in every case
@@ -438,6 +447,8 @@ class FPS(Distribution):
             else:
                 raise ValueError(
                     f"Unsupported type of subexpression: {expression}")
+
+        # pylint: enable=protected-access
 
         value: int | None = None
         if isinstance(expression.rhs, RealLitExpr):
@@ -515,7 +526,7 @@ class FPS(Distribution):
                                for var in variables}
         }
         for var in remove_vars[method]:
-            result = result.update(str(var), "0")
+            result = result.update_var(str(var), "0")
         return FPS.from_dist(result, self._variables - remove_vars[method],
                              self._parameters)
 

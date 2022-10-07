@@ -16,8 +16,7 @@ def test_geometric():
 
 def test_conditions():
     dist = ProdigyPGF.from_expr("1/2 * x*y + 1/2*y", "x", "y")
-    with pytest.raises(SyntaxError):
-        dist.filter(parse_expr("y*x < 5"))
+    assert dist.filter(parse_expr("y*x < 5")) == dist
 
 
 def create_random_gf(number_of_variables: int = 1, terms: int = 1):
@@ -146,7 +145,7 @@ class TestDistributionInterface:
         assert gf.filter(parse_expr("x*c < 123")) == gf
 
         gf = FPS("0.1*x^5+0.2*x^6+0.3*x^7+0.4*x^8")
-        # TODO this also results in huge complex expressions which are likely correct
+        # TODO this also results in huge complex expressions which are likely correct but cannot be simplified
         #assert gf.filter(parse_expr("x % 3 = 2")) == FPS('0.1*x^5 + 0.4*x^8')
 
         gf = FPS("(1-sqrt(1-c^2))/c", "c", "x", "z")

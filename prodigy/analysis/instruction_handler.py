@@ -379,8 +379,8 @@ class PChoiceHandler(InstructionHandler):
             lhs_error_prob * str(instruction.prob) +
             rhs_error_prob * f"1-{instruction.prob}").set_variables(
                 *error_prob.get_variables())
-        return (lhs_block * str(
-            instruction.prob) + rhs_block * f"1-{instruction.prob}").set_variables(*distribution.get_variables()), \
+        return lhs_block * str(
+            instruction.prob) + rhs_block * f"1-({instruction.prob})", \
                res_error_prob
 
 
