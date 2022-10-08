@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+import functools
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Dict, FrozenSet, Generator, Iterator, Set, Tuple, Union
+from logging import Logger
+from typing import (Dict, FrozenSet, Generator, Iterator, List, Sequence, Set,
+                    Tuple, Type, Union)
 
-from probably.pgcl import (Binop, BinopExpr, Expr, IidSampleExpr,
-                           NatLitExpr, RealLitExpr, VarExpr)
+from probably.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, IidSampleExpr,
+                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
+from sympy import sympify
+
+from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
+                                      check_is_modulus_condition, has_variable)
 
 
 class MarginalType(Enum):
@@ -59,6 +66,11 @@ class State:
 
 class Distribution(ABC):
     """ Abstract class that models different representations of probability distributions. """
+    @staticmethod
+    @abstractmethod
+    def factory() -> Type[CommonDistributionsFactory]:
+        """Returns a factory for this subclass of distribution"""
+
     @abstractmethod
     def __add__(self, other) -> Distribution:
         """ The addition of two distributions. """
@@ -126,9 +138,183 @@ class Distribution(ABC):
     def get_parameters(self) -> Set[str]:
         """ Returns the parameters of the distribution. """
 
-    @abstractmethod
-    def filter(self, condition: Union[Expr, str]) -> Distribution:
+    def filter(self, condition: Expr) -> Distribution:
         """ Filters the distribution such that only the parts which satisfy the `condition` are left."""
+        # Boolean literals
+        if isinstance(condition, BoolLitExpr):
+            return self if condition.value else self.factory().from_expr(
+                "0", *self.get_variables())
+
+        if isinstance(condition, BinopExpr):
+            if condition.operator == Binop.AND:
+                return self.filter(condition.lhs).filter(condition.rhs)
+            if condition.operator == Binop.OR:
+                filtered_left = self.filter(condition.lhs)
+                return filtered_left + self.filter(
+                    condition.rhs) - filtered_left.filter(condition.rhs)
+
+        if isinstance(condition, UnopExpr):
+            # unary relation
+            if condition.operator == Unop.NEG:
+                return self - self.filter(condition.expr)
+            raise SyntaxError(
+                f"We do not support filtering for {type(Unop.IVERSON)} expressions."
+            )
+
+        if isinstance(condition,
+                      BinopExpr) and not has_variable(condition, None):
+            return self.filter(BoolLitExpr(sympify(
+                str(condition))))  # TODO somehow handle this without sympy?
+
+        if isinstance(condition, BinopExpr) and not self._find_symbols(
+                str(condition.lhs)) | self._find_symbols(str(
+                    condition.rhs)) <= (self.get_variables()
+                                        | self.get_parameters()):
+            raise ValueError(
+                f"Cannot filter based on the expression {str(condition)} because it contains unknown variables"
+            )
+
+        # Modulo extractions
+        if check_is_modulus_condition(condition):
+            return self._arithmetic_progression(
+                str(condition.lhs.lhs),
+                str(condition.lhs.rhs))[condition.rhs.value]
+
+        # Constant expressions
+        if check_is_constant_constraint(condition, self.get_parameters()):
+            return self._filter_constant_condition(condition)
+
+        # all other conditions given that the Generating Function is finite (exhaustive search)
+        if self.is_finite():
+            return self._exhaustive_search(condition)
+
+        # Worst case: infinite Generating function and  non-standard condition.
+        # Here we try marginalization and hope that the marginal is finite so we can do
+        # exhaustive search again. If this is not possible, we raise an NotComputableException
+        expression = self._explicit_state_unfolding(condition)
+        return self.filter(expression)
+
+    @abstractmethod
+    def _exhaustive_search(self, condition: Expr) -> Distribution:
+        """
+        Given that `self` is finite, iterates over `self` and returns the sum of all terms where
+        the condition holds.
+        """
+
+    @abstractmethod
+    def _filter_constant_condition(self, condition: Expr) -> Distribution:
+        """
+        Filters out the terms that satisfy a constant condition, i.e, (var <= 5) (var > 5) (var = 5).
+        :param condition: The condition to filter.
+        :return: The filtered generating function.
+        """
+
+    def _explicit_state_unfolding(self, condition: Expr) -> BinopExpr:
+        """
+        Checks whether one side of the condition has only finitely many valuations and explicitly creates a new
+        condition which is the disjunction of each individual evaluations.
+        :param condition: The condition to unfold.
+        :return: The disjunction condition of explicitly encoded state conditions.
+        """
+        expr: str = str(condition.rhs)
+        syms = self._find_symbols(expr)
+        if not len(syms) == 0:
+            marginal = self.marginal(*syms)
+
+        # Marker to express which side of the equation has only finitely many interpretations.
+        left_side_original = True
+
+        # Check whether left hand side has only finitely many interpretations.
+        if len(syms) == 0 or not marginal.is_finite():
+            # Failed, so we have to check the right hand side
+            left_side_original = False
+            expr = str(condition.lhs)
+            marginal = self.marginal(*self._find_symbols(expr))
+
+            if not marginal.is_finite():
+                # We are not able to marginalize into a finite amount of states! -> FAIL filtering.
+                raise NotImplementedError(
+                    f"Instruction {condition} is not computable on infinite generating function"
+                    f" {self}")
+
+        # Now we know that `expr` can be instantiated with finitely many states.
+        # We generate these explicit state.
+        state_expressions: List[BinopExpr] = []
+
+        # Compute for all states the explicit condition checking that specific valuation.
+        for _, state in marginal:
+
+            # Evaluate the current expression
+            evaluated_expr = self.evaluate(expr, state)
+
+            # create the equalities for each variable, value pair in a given state
+            # i.e., {x:1, y:0, c:3} -> [x=1, y=0, c=3]
+            encoded_state = self._state_to_equality_expression(state)
+
+            # Create the equality which assigns the original side the anticipated value.
+            other_side_expr = BinopExpr(condition.operator, condition.lhs,
+                                        NatLitExpr(int(evaluated_expr)))
+            if not left_side_original:
+                other_side_expr = BinopExpr(condition.operator,
+                                            NatLitExpr(int(evaluated_expr)),
+                                            condition.rhs)
+
+            state_expressions.append(
+                BinopExpr(Binop.AND, encoded_state, other_side_expr))
+
+        # Get all individual conditions and make one big disjunction.
+        return functools.reduce(
+            lambda left, right: BinopExpr(
+                operator=Binop.OR, lhs=left, rhs=right), state_expressions)
+
+    @abstractmethod
+    def _arithmetic_progression(self, variable: str,
+                                modulus: str) -> Sequence[Distribution]:
+        """
+        Creates a list of subdistributions where at list index i, the `variable` is congruent i modulo `modulus`.
+        """
+
+    @staticmethod
+    def _state_to_equality_expression(state: State) -> BinopExpr:
+        equalities: List[Expr] = []
+        for var, val in state.items():
+            equalities.append(
+                BinopExpr(Binop.EQ, lhs=VarExpr(var), rhs=NatLitExpr(val)))
+        return functools.reduce(
+            lambda expr1, expr2: BinopExpr(Binop.AND, expr1, expr2),
+            equalities, BoolLitExpr(value=True))
+
+    @staticmethod
+    @abstractmethod
+    def _find_symbols(expr: str) -> Set[str]:
+        "Returns a set of all free symbols in the given expression"
+
+    @staticmethod
+    @abstractmethod
+    def evaluate(expression: str, state: State):
+        """ Evaluates the expression in a given state. """
+
+    @classmethod
+    def evaluate_condition(cls, condition: BinopExpr, state: State) -> bool:
+        if not isinstance(condition, BinopExpr):
+            raise AssertionError(
+                f"Expression must be an (in-)equation, was {condition}")
+
+        lhs = str(condition.lhs)
+        rhs = str(condition.rhs)
+        op = condition.operator
+
+        if op == Binop.EQ:
+            return cls.evaluate(lhs, state) == cls.evaluate(rhs, state)
+        elif op == Binop.LEQ:
+            return cls.evaluate(lhs, state) <= cls.evaluate(rhs, state)
+        elif op == Binop.LT:
+            return cls.evaluate(lhs, state) < cls.evaluate(rhs, state)
+        elif op == Binop.GT:
+            return cls.evaluate(lhs, state) > cls.evaluate(rhs, state)
+        elif op == Binop.GEQ:
+            return cls.evaluate(lhs, state) >= cls.evaluate(rhs, state)
+        raise AssertionError(f"Unexpected condition type. {condition}")
 
     @abstractmethod
     def is_zero_dist(self) -> bool:

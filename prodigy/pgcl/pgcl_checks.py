@@ -1,22 +1,19 @@
-from typing import Optional, Union
+from typing import Optional, Set
 
-from probably.pgcl import (Binop, BinopExpr, Expr, NatLitExpr, Program, Unop,
-                           UnopExpr, VarExpr)
+from probably.pgcl import (Binop, BinopExpr, Expr, NatLitExpr, Unop, UnopExpr,
+                           VarExpr)
 from probably.pgcl.ast.walk import Walk, mut_expr_children, walk_expr
 from probably.util.ref import Mut
 
-from prodigy.distribution.distribution import Distribution
 
-
-def has_variable(expr: Expr, context: Optional[Union[Distribution,
-                                                     Program]]) -> bool:
+def has_variable(expr: Expr, params: Optional[Set[str]]) -> bool:
     if isinstance(expr, UnopExpr) and expr.operator == Unop.IVERSON:
         return False
-    if isinstance(expr, VarExpr) and (context is None or expr.var
-                                      not in context.get_parameters()):
+    if isinstance(expr, VarExpr) and (params is None
+                                      or expr.var not in params):
         return True
     for child_ref in mut_expr_children(Mut.alloc(expr)):
-        if has_variable(child_ref.val, context):
+        if has_variable(child_ref.val, params):
             return True
     return False
 
@@ -34,8 +31,8 @@ def check_is_modulus_condition(expression: Expr) -> bool:
     return False
 
 
-def check_is_constant_constraint(
-        expression: Expr, context: Union[Distribution, Program]) -> bool:
+def check_is_constant_constraint(expression: Expr,
+                                 params: Optional[Set[str]]) -> bool:
     if not isinstance(expression, BinopExpr):
         return False
     if expression.operator not in (Binop.EQ, Binop.LEQ, Binop.LT, Binop.GT,
@@ -43,12 +40,12 @@ def check_is_constant_constraint(
         return False
     if isinstance(expression.lhs, VarExpr):
         for sub_expr in walk_expr(Walk.DOWN, Mut.alloc(expression.rhs)):
-            if has_variable(sub_expr.val, context):
+            if has_variable(sub_expr.val, params):
                 return False
         return True
     elif isinstance(expression.rhs, VarExpr):
         for sub_expr in walk_expr(Walk.DOWN, Mut.alloc(expression.lhs)):
-            if has_variable(sub_expr.val, context):
+            if has_variable(sub_expr.val, params):
                 return False
         return True
     else:

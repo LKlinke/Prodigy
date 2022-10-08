@@ -1,22 +1,17 @@
 from __future__ import annotations
 
-import functools
-from typing import (FrozenSet, Generator, Iterator, List, Set, Tuple, Union,
-                    get_args)
+from typing import (FrozenSet, Generator, Iterator, List, Set, Tuple, Type,
+                    Union, get_args)
 
 import pygin  # type: ignore
-from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, BoolLitExpr,
-                           DistrExpr, DUniformExpr, Expr, GeometricExpr,
-                           IidSampleExpr, NatLitExpr, PoissonExpr, RealLitExpr,
-                           Unop, UnopExpr, VarExpr)
-from sympy import sympify
+from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, DistrExpr,
+                           DUniformExpr, Expr, GeometricExpr, IidSampleExpr,
+                           PoissonExpr, VarExpr)
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
                                                MarginalType, State)
 from prodigy.distribution.generating_function import GeneratingFunction
-from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
-                                      check_is_modulus_condition, has_variable)
 
 
 class FPS(Distribution):
@@ -56,6 +51,10 @@ class FPS(Distribution):
         result._finite = finite if finite is not None else dist.is_polynomial(
             variables) == pygin.troolean.true
         return result
+
+    @staticmethod
+    def factory() -> Type[ProdigyPGF]:
+        return ProdigyPGF
 
     def __add__(self, other) -> FPS:
         if isinstance(other, (str, int)):
@@ -177,67 +176,24 @@ class FPS(Distribution):
     def get_parameters(self) -> Set[str]:
         return self._parameters
 
-    def filter(self, condition: Expr) -> FPS:
-        # Boolean literals
-        if isinstance(condition, BoolLitExpr):
-            return self if condition.value else FPS("0", *self._variables)
+    @staticmethod
+    def _find_symbols(expr: str) -> Set[str]:
+        return set(pygin.find_symbols(expr))
 
-        if isinstance(condition, BinopExpr):
-            if condition.operator == Binop.AND:
-                return self.filter(condition.lhs).filter(condition.rhs)
-            if condition.operator == Binop.OR:
-                filtered_left = self.filter(condition.lhs)
-                return filtered_left + self.filter(
-                    condition.rhs) - filtered_left.filter(condition.rhs)
+    @staticmethod
+    def evaluate(expression: str, state: State):
+        # TODO implemement this in C++
+        return GeneratingFunction.evaluate(expression, state)
 
-        if isinstance(condition, UnopExpr):
-            # unary relation
-            if condition.operator == Unop.NEG:
-                return self - self.filter(condition.expr)
-            raise SyntaxError(
-                f"We do not support filtering for {type(Unop.IVERSON)} expressions."
-            )
-
-        if isinstance(condition,
-                      BinopExpr) and not has_variable(condition, None):
-            return self.filter(BoolLitExpr(sympify(
-                str(condition))))  # TODO somehow handle this without sympy?
-
-        if isinstance(condition, BinopExpr) and not set(
-                pygin.find_symbols(str(condition.lhs))) | set(
-                    pygin.find_symbols(str(condition.rhs))) <= (
-                        self._variables | self._parameters):
-            raise ValueError(
-                f"Cannot filter based on the expression {str(condition)} because it contains unknown variables"
-            )
-
-        # Modulo extractions
-        if check_is_modulus_condition(condition):
-            return self._arithmetic_progression(
-                str(condition.lhs.lhs),
-                str(condition.lhs.rhs))[condition.rhs.value]
-
-        # Constant expressions
-        if check_is_constant_constraint(condition, self):
-            return self._filter_constant_condition(condition)
-
-        # all other conditions given that the Generating Function is finite (exhaustive search)
-        if self._finite:
-            res = pygin.Dist('0')
-            for prob, state in self:
-                # TODO implement condition evaluation in C++
-                if GeneratingFunction.evaluate_condition(condition, state):
-                    res += pygin.Dist(f"{prob} * {state.to_monomial()}")
-            return FPS.from_dist(res,
-                                 self._variables,
-                                 self._parameters,
-                                 finite=True)
-
-        # Worst case: infinite Generating function and  non-standard condition.
-        # Here we try marginalization and hope that the marginal is finite so we can do
-        # exhaustive search again. If this is not possible, we raise an NotComputableException
-        expression = self._explicit_state_unfolding(condition)
-        return self.filter(expression)
+    def _exhaustive_search(self, condition: Expr) -> Distribution:
+        res = pygin.Dist('0')
+        for prob, state in self:
+            if self.evaluate_condition(condition, state):
+                res += pygin.Dist(f"{prob} * {state.to_monomial()}")
+        return FPS.from_dist(res,
+                             self._variables,
+                             self._parameters,
+                             finite=True)
 
     def _filter_constant_condition(self, condition: Expr) -> FPS:
         # Normalize the conditional to variables on the lhs from the relation symbol.
@@ -283,68 +239,6 @@ class FPS(Distribution):
                     self._parameters)
 
         raise ValueError("Parameter is not a constant condition")
-
-    def _explicit_state_unfolding(self, condition: Expr) -> BinopExpr:
-        """
-        Checks whether one side of the condition has only finitely many valuations and explicitly creates a new
-        condition which is the disjunction of each individual evaluations.
-        :param condition: The condition to unfold.
-        :return: The disjunction condition of explicitly encoded state conditions.
-        """
-        expr = pygin.Dist(str(condition.rhs))
-        syms = expr.get_symbols()
-        if not len(syms) == 0:
-            marginal = self.marginal(*syms)
-
-        # Marker to express which side of the equation has only finitely many interpretations.
-        left_side_original = True
-
-        # Check whether left hand side has only finitely many interpretations.
-        if len(syms) == 0 or not marginal.is_finite():
-            # Failed, so we have to check the right hand side
-            left_side_original = False
-            expr = pygin.Dist(str(condition.lhs))
-            syms = expr.get_symbols()
-            marginal = self.marginal(*syms)
-
-            if not marginal.is_finite():
-                # We are not able to marginalize into a finite amount of states! -> FAIL filtering.
-                raise NotImplementedError(
-                    f"Instruction {condition} is not computable on infinite generating function"
-                    f" {self._dist}")
-
-        # Now we know that `expr` can be instantiated with finitely many states.
-        # We generate these explicit state.
-        state_expressions: List[BinopExpr] = []
-
-        # Compute for all states the explicit condition checking that specific valuation.
-        for _, state in marginal:
-
-            # Evaluate the current expression
-            # TODO implement evaluation in GiNaC
-            evaluated_expr = GeneratingFunction.evaluate(str(expr), state)
-
-            # create the equalities for each variable, value pair in a given state
-            # i.e., {x:1, y:0, c:3} -> [x=1, y=0, c=3]
-            # TODO extract this function from the GeneratingFunction class
-            encoded_state = GeneratingFunction._state_to_equality_expression(
-                state)
-
-            # Create the equality which assigns the original side the anticipated value.
-            other_side_expr = BinopExpr(condition.operator, condition.lhs,
-                                        NatLitExpr(int(evaluated_expr)))
-            if not left_side_original:
-                other_side_expr = BinopExpr(condition.operator,
-                                            NatLitExpr(int(evaluated_expr)),
-                                            condition.rhs)
-
-            state_expressions.append(
-                BinopExpr(Binop.AND, encoded_state, other_side_expr))
-
-        # Get all individual conditions and make one big disjunction.
-        return functools.reduce(
-            lambda left, right: BinopExpr(
-                operator=Binop.OR, lhs=left, rhs=right), state_expressions)
 
     def _arithmetic_progression(self, variable: str,
                                 modulus: str) -> List[FPS]:

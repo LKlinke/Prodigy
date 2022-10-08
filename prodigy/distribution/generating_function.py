@@ -1,17 +1,16 @@
 # pylint: disable=protected-access
 from __future__ import annotations
 
-import functools
 import operator
 from typing import (Callable, FrozenSet, Generator, Iterator, List, Set, Tuple,
-                    Union, get_args)
+                    Type, Union, get_args)
 
 import sympy
 from probably.pgcl import (BernoulliExpr, BinomialExpr, Binop, BinopExpr,
-                           BoolLitExpr, DistrExpr, DUniformExpr, Expr,
-                           GeometricExpr, IidSampleExpr, LogDistExpr,
-                           NatLitExpr, PoissonExpr, RealLitExpr, Unop,
-                           UnopExpr, VarExpr, Walk, walk_expr)
+                           DistrExpr, DUniformExpr, Expr, GeometricExpr,
+                           IidSampleExpr, LogDistExpr, PoissonExpr,
+                           RealLitExpr, Unop, UnopExpr, VarExpr, Walk,
+                           walk_expr)
 from probably.pgcl.parser import parse_expr
 from probably.util.ref import Mut
 from sympy.assumptions.assume import global_assumptions
@@ -19,8 +18,7 @@ from sympy.assumptions.assume import global_assumptions
 # TODO Implement these checks in probably
 from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
-from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
-                                      check_is_modulus_condition, has_variable)
+from prodigy.pgcl.pgcl_checks import has_variable
 from prodigy.util.logger import log_setup, logging
 
 logger = log_setup(__name__, logging.DEBUG, file="GF_operations.log")
@@ -90,6 +88,10 @@ class GeneratingFunction(Distribution):
         self._is_finite = finite if finite else self._function.ratsimp(
         ).is_polynomial(*self._variables)
 
+    @staticmethod
+    def factory() -> Type[CommonDistributionsFactory]:
+        return SympyPGF
+
     def _filter_constant_condition(self,
                                    condition: Expr) -> GeneratingFunction:
         """
@@ -157,73 +159,6 @@ class GeneratingFunction(Distribution):
                                   preciseness=self._preciseness,
                                   closed=self._is_closed_form,
                                   finite=self._is_finite)
-
-    def _explicit_state_unfolding(self, condition: Expr) -> BinopExpr:
-        """
-        Checks whether one side of the condition has only finitely many valuations and explicitly creates a new
-        condition which is the disjunction of each individual evaluations.
-        :param condition: The condition to unfold.
-        :return: The disjunction condition of explicitly encoded state conditions.
-        """
-        expr: sympy.Expr = sympy.S(str(condition.rhs))
-        if not len(expr.free_symbols) == 0:
-            marginal = self.marginal(*expr.free_symbols)
-
-        # Marker to express which side of the equation has only finitely many interpretations.
-        left_side_original = True
-
-        # Check whether left hand side has only finitely many interpretations.
-        if len(expr.free_symbols) == 0 or not marginal.is_finite():
-            # Failed, so we have to check the right hand side
-            left_side_original = False
-            expr = sympy.S(str(condition.lhs))
-            marginal = self.marginal(*expr.free_symbols)
-
-            if not marginal.is_finite():
-                # We are not able to marginalize into a finite amount of states! -> FAIL filtering.
-                raise NotImplementedError(
-                    f"Instruction {condition} is not computable on infinite generating function"
-                    f" {self._function}")
-
-        # Now we know that `expr` can be instantiated with finitely many states.
-        # We generate these explicit state.
-        state_expressions: List[BinopExpr] = []
-
-        # Compute for all states the explicit condition checking that specific valuation.
-        for _, state in marginal:
-
-            # Evaluate the current expression
-            evaluated_expr = self.evaluate(str(expr), state)
-
-            # create the equalities for each variable, value pair in a given state
-            # i.e., {x:1, y:0, c:3} -> [x=1, y=0, c=3]
-            encoded_state = self._state_to_equality_expression(state)
-
-            # Create the equality which assigns the original side the anticipated value.
-            other_side_expr = BinopExpr(condition.operator, condition.lhs,
-                                        NatLitExpr(int(evaluated_expr)))
-            if not left_side_original:
-                other_side_expr = BinopExpr(condition.operator,
-                                            NatLitExpr(int(evaluated_expr)),
-                                            condition.rhs)
-
-            state_expressions.append(
-                BinopExpr(Binop.AND, encoded_state, other_side_expr))
-
-        # Get all individual conditions and make one big disjunction.
-        return functools.reduce(
-            lambda left, right: BinopExpr(
-                operator=Binop.OR, lhs=left, rhs=right), state_expressions)
-
-    @staticmethod
-    def _state_to_equality_expression(state: State) -> BinopExpr:
-        equalities: List[Expr] = []
-        for var, val in state.items():
-            equalities.append(
-                BinopExpr(Binop.EQ, lhs=VarExpr(var), rhs=NatLitExpr(val)))
-        return functools.reduce(
-            lambda expr1, expr2: BinopExpr(Binop.AND, expr1, expr2),
-            equalities, BoolLitExpr(value=True))
 
     def _mult_term_generator(self):
         """
@@ -1145,33 +1080,10 @@ class GeneratingFunction(Distribution):
             s_exp = s_exp.subs(free_var, 0)
         return s_exp
 
-    @staticmethod
-    def evaluate_condition(condition: BinopExpr, state: State) -> bool:
+    @classmethod
+    def evaluate_condition(cls, condition: BinopExpr, state: State) -> bool:
         logger.debug("evaluate_condition() call")
-        if not isinstance(condition, BinopExpr):
-            raise AssertionError(
-                f"Expression must be an (in-)equation, was {condition}")
-
-        lhs = str(condition.lhs)
-        rhs = str(condition.rhs)
-        op = condition.operator
-
-        if op == Binop.EQ:
-            return GeneratingFunction.evaluate(
-                lhs, state) == GeneratingFunction.evaluate(rhs, state)
-        elif op == Binop.LEQ:
-            return GeneratingFunction.evaluate(
-                lhs, state) <= GeneratingFunction.evaluate(rhs, state)
-        elif op == Binop.LT:
-            return GeneratingFunction.evaluate(
-                lhs, state) < GeneratingFunction.evaluate(rhs, state)
-        elif op == Binop.GT:
-            return GeneratingFunction.evaluate(
-                lhs, state) > GeneratingFunction.evaluate(rhs, state)
-        elif op == Binop.GEQ:
-            return GeneratingFunction.evaluate(
-                lhs, state) >= GeneratingFunction.evaluate(rhs, state)
-        raise AssertionError(f"Unexpected condition type. {condition}")
+        return super().evaluate_condition(condition, state)
 
     def marginal(
             self,
@@ -1233,65 +1145,24 @@ class GeneratingFunction(Distribution):
         :return: The filtered generating function.
         """
         logger.debug("filter(%s) call on %s", condition, self)
+        res = super().filter(condition)
+        assert isinstance(res, GeneratingFunction)
+        return res
 
-        # Boolean literals
-        if isinstance(condition, BoolLitExpr):
-            return self if condition.value else GeneratingFunction(
-                "0", *self._variables)
+    def _exhaustive_search(self, condition: Expr) -> GeneratingFunction:
+        res = sympy.S(0)
+        for prob, state in self:
+            if self.evaluate_condition(condition, state):
+                res += sympy.S(f"{prob} * {state.to_monomial()}")
+        return GeneratingFunction(res,
+                                  *self._variables,
+                                  preciseness=self._preciseness,
+                                  closed=False,
+                                  finite=True)
 
-        # Logical operators
-        if condition.operator == Unop.NEG:
-            result = self - self.filter(condition.expr)
-            return result
-        elif condition.operator == Binop.AND:
-            result = self.filter(condition.lhs)
-            return result.filter(condition.rhs)
-        elif condition.operator == Binop.OR:
-            filtered = self.filter(condition.lhs)
-            return filtered + self.filter(condition.rhs) - filtered.filter(
-                condition.rhs)
-
-        elif isinstance(condition, BinopExpr) and not has_variable(
-                condition, SympyPGF.zero()):
-            return self.filter(BoolLitExpr(sympy.S(str(condition))))
-
-        elif isinstance(
-                condition,
-                BinopExpr) and not (sympy.S(str(condition.lhs)).free_symbols
-                                    | sympy.S(str(condition.rhs)).free_symbols
-                                    ) <= (self._variables | self._parameters):
-            raise ValueError(
-                f"Cannot filter based on the expression {str(condition)} because it contains unknown variables"
-            )
-
-        # Modulo extractions
-        elif check_is_modulus_condition(condition):
-            return self._arithmetic_progression(
-                str(condition.lhs.lhs),
-                str(condition.lhs.rhs))[condition.rhs.value]
-
-        # Constant expressions
-        elif check_is_constant_constraint(condition, self):
-            return self._filter_constant_condition(condition)
-
-        # all other conditions given that the Generating Function is finite (exhaustive search)
-        elif self._is_finite:
-            res = sympy.S(0)
-            for prob, state in self:
-                if self.evaluate_condition(condition, state):
-                    res += sympy.S(f"{prob} * {state.to_monomial()}")
-            return GeneratingFunction(res,
-                                      *self._variables,
-                                      preciseness=self._preciseness,
-                                      closed=False,
-                                      finite=True)
-
-        # Worst case: infinite Generating function and  non-standard condition.
-        # Here we try marginalization and hope that the marginal is finite so we can do
-        # exhaustive search again. If this is not possible, we raise an NotComputableException
-        else:
-            expression = self._explicit_state_unfolding(condition)
-            return self.filter(expression)
+    @staticmethod
+    def _find_symbols(expr: str) -> Set[str]:
+        return {str(s) for s in sympy.S(expr).free_symbols}
 
 
 class SympyPGF(CommonDistributionsFactory):
