@@ -4,7 +4,6 @@ import functools
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from logging import Logger
 from typing import (Dict, FrozenSet, Generator, Iterator, List, Sequence, Set,
                     Tuple, Type, Union)
 

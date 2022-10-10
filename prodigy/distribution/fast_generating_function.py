@@ -43,7 +43,7 @@ class FPS(Distribution):
                   dist: pygin.Dist,
                   variables: Set[str],
                   parameters: Set[str],
-                  finite: bool = None):
+                  finite: bool | None = None):
         result = cls("0")
         result._dist = dist
         result._variables = variables
