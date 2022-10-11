@@ -181,9 +181,8 @@ class FPS(Distribution):
         return set(pygin.find_symbols(expr))
 
     @staticmethod
-    def evaluate(expression: str, state: State):
-        # TODO implemement this in C++
-        return GeneratingFunction.evaluate(expression, state)
+    def evaluate(expression: str, state: State) -> int:
+        return pygin.evaluate(expression, state.valuations)
 
     def _exhaustive_search(self, condition: Expr) -> Distribution:
         res = pygin.Dist('0')
