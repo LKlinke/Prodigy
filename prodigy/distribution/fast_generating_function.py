@@ -11,7 +11,6 @@ from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, DistrExpr,
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
                                                MarginalType, State)
-from prodigy.distribution.generating_function import GeneratingFunction
 
 
 class FPS(Distribution):
@@ -311,6 +310,10 @@ class FPS(Distribution):
             self._dist.update_division(temp_var, str(numerator),
                                        str(denominator)), self._variables,
             self._parameters)
+
+    def _update_power(self, temp_var: str, base: str | int,
+                      exp: str | int) -> Distribution:
+        raise NotImplementedError("exponentiation is not yet supported")
 
     def update_iid(self, sampling_exp: IidSampleExpr,
                    variable: Union[str, VarExpr]) -> FPS:

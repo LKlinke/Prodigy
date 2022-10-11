@@ -236,3 +236,21 @@ def test_update():
         'x', 'x', 'x')._function.subs(sympy.Symbol('x'), 1) == sympy.S(1)
     assert GeneratingFunction('x').update(
         parse_expr('x = x*x'))._variables == {sympy.Symbol('x')}
+
+
+def test_power():
+    gf = GeneratingFunction('x^3*y^5*z^9') * SympyPGF.poisson('a', 3)
+    assert gf.update(
+        parse_expr('z=y^x')
+    ) == GeneratingFunction("x^3*y^5*z^125") * SympyPGF.poisson('a', 3)
+    assert gf.update(
+        parse_expr('y=3^5')
+    ) == GeneratingFunction("x^3*y^243*z^9") * SympyPGF.poisson('a', 3)
+    assert gf.update(
+        parse_expr('z=x^5')
+    ) == GeneratingFunction("x^3*y^5*z^243") * SympyPGF.poisson('a', 3)
+    assert gf.update(
+        parse_expr('z=5^y')
+    ) == GeneratingFunction("x^3*y^5*z^3125") * SympyPGF.poisson('a', 3)
+    assert gf.update(
+        parse_expr('a=3^5')) == GeneratingFunction("x^3*y^5*z^9*a^243")

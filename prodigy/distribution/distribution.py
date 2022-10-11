@@ -366,7 +366,8 @@ class Distribution(ABC):
                     f = f._update_modulo(temp_var, t_1, t_2)
                 elif expression.operator == Binop.DIVIDE:
                     f = f._update_division(temp_var, t_1, t_2)
-                # TODO handle power
+                elif expression.operator == Binop.POWER:
+                    f = f._update_power(temp_var, t_1, t_2)
                 else:
                     raise ValueError(
                         f"Unsupported binary operator: {expression.operator}")
@@ -468,6 +469,16 @@ class Distribution(ABC):
         (i.e., they are either literals or have a finite marginal).
 
         Both the numerator and the denominator may not be parameters.
+        """
+
+    @abstractmethod
+    def _update_power(self, temp_var: str, base: str | int,
+                      exp: str | int) -> Distribution:
+        """
+        Applies the expression `temp_var := base^exp` to this distribution.
+
+        All variables occuring in the expression must have a finite marginal. There may not be
+        any parameters in the expression.
         """
 
     @abstractmethod

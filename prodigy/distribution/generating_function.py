@@ -678,6 +678,73 @@ class GeneratingFunction(Distribution):
                                   closed=self._is_closed_form,
                                   finite=self._is_finite)
 
+    def _update_power(self, temp_var: str, base: str | int,
+                      exp: str | int) -> Distribution:
+        update_var = sympy.Symbol(temp_var)
+        pow_1, pow_2 = sympy.S(base), sympy.S(exp)
+        res = self._function
+
+        if pow_1 in self._parameters or pow_2 in self._parameters:
+            raise ValueError(
+                "Cannot perfrom an exponentiation containing parameters")
+
+        # variable to the power of a variable
+        if pow_1 in self._variables and pow_2 in self._variables:
+            marginal_l, marginal_r = self.marginal(base), self.marginal(exp)
+
+            if not marginal_l._is_finite or not marginal_r._is_finite:
+                raise ValueError(
+                    "Can only perform exponentiation of variables if both have a finite marginal"
+                )
+
+            for _, state_l in marginal_l:
+                for _, state_r in marginal_r:
+                    x = self.filter(
+                        parse_expr(
+                            f'{base}={state_l[base]} & {exp}={state_r[exp]}')
+                    )._function
+                    res -= x
+                    res += x.subs(update_var, 1) * update_var**(state_l[base]**
+                                                                state_r[exp])
+
+        # variable to the power of a literal
+        elif pow_1 in self._variables:
+            marginal = self.marginal(base)
+
+            if not marginal._is_finite:
+                raise ValueError(
+                    "Can only perform exponentiation if the base has a finite marginal"
+                )
+
+            for _, state in marginal:
+                x = self.filter(parse_expr(f'{base}={state[base]}'))._function
+                res -= x
+                res += x.subs(update_var, 1) * update_var**(state[base]**pow_2)
+
+        # literal to the power of a variable
+        elif pow_2 in self._variables:
+            marginal = self.marginal(exp)
+
+            if not marginal._is_finite:
+                raise ValueError(
+                    "Can only perform exponentiation if the exponent has a finite marginal"
+                )
+
+            for _, state in marginal:
+                x = self.filter(parse_expr(f'{exp}={state[exp]}'))._function
+                res -= x
+                res += x.subs(update_var, 1) * update_var**(pow_1**state[exp])
+
+        # literal to the power of a literal
+        else:
+            res = res.subs(update_var, 1) * update_var**(pow_1**pow_2)
+
+        return GeneratingFunction(res,
+                                  *self._variables,
+                                  finite=self._is_finite,
+                                  preciseness=self._preciseness,
+                                  closed=self._is_closed_form)
+
     def update_iid(self, sampling_exp: IidSampleExpr,
                    variable: Union[str, VarExpr]) -> Distribution:
         assert isinstance(sampling_exp,
