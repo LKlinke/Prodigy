@@ -150,8 +150,8 @@ class FPS(Distribution):
                 )
         else:
             terms = self._dist.get_terms(self._variables)
-            for res in [(prob, State(vals)) for prob, vals in terms]:
-                yield res
+            for prob, vals in terms:
+                yield prob, State(vals)
 
     def copy(self, deep: bool = True) -> Distribution:
         return FPS.from_dist(self._dist, self._variables, self._parameters,

@@ -615,6 +615,9 @@ class GeneratingFunction(Distribution):
                     assign_var: str | int) -> GeneratingFunction:
         if sympy.Symbol(str(assign_var)) in self._parameters:
             raise ValueError('Assignment to parameters is not allowed')
+        if sympy.S(str(assign_var)).is_Symbol and sympy.S(
+                str(assign_var)) not in self._variables:
+            raise ValueError(f"Unknown symbol: {assign_var}")
 
         if not updated_var == assign_var:
             if sympy.S(assign_var) in self._variables:
