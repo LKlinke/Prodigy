@@ -190,7 +190,6 @@ class TestDistributionInterface:
                       NatLitExpr(1)))
         assert gf.update(expr) == ProdigyPGF.zero("x")
 
-        pytest.xfail('potential fix is planned')
         gf = ProdigyPGF.uniform("x", "0", "5")
         expr = BinopExpr(Binop.EQ, VarExpr('x'),
                          BinopExpr(Binop.TIMES, VarExpr('x'), VarExpr('x')))
