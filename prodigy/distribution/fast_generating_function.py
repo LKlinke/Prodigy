@@ -313,7 +313,8 @@ class FPS(Distribution):
 
     def _update_power(self, temp_var: str, base: str | int,
                       exp: str | int) -> Distribution:
-        raise NotImplementedError("exponentiation is not yet supported")
+        return FPS.from_dist(self._dist.update_power(temp_var, base, exp),
+                             self._variables, self._parameters)
 
     def update_iid(self, sampling_exp: IidSampleExpr,
                    variable: Union[str, VarExpr]) -> FPS:
