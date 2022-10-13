@@ -213,20 +213,20 @@ def test_update():
 
 
 def test_power():
-    gf = FPS('x^3*y^5*z^9') * ProdigyPGF.poisson('a', 3)
+    gf = FPS('x^3*y^5*z^9') * ProdigyPGF.poisson('w', 3)
     assert gf.update(
         parse_expr('z=y^x')) == FPS("x^3*y^5*z^125") * ProdigyPGF.poisson(
-            'a', 3)
+            'w', 3)
     assert gf.update(
         parse_expr('y=3^5')) == FPS("x^3*y^243*z^9") * ProdigyPGF.poisson(
-            'a', 3)
+            'w', 3)
     assert gf.update(
         parse_expr('z=x^5')) == FPS("x^3*y^5*z^243") * ProdigyPGF.poisson(
-            'a', 3)
+            'w', 3)
     assert gf.update(
         parse_expr('z=5^y')) == FPS("x^3*y^5*z^3125") * ProdigyPGF.poisson(
-            'a', 3)
-    assert gf.update(parse_expr('a=3^5')) == FPS("x^3*y^5*z^9*a^243")
+            'w', 3)
+    assert gf.update(parse_expr('w=3^5')) == FPS("x^3*y^5*z^9*w^243")
 
     with raises(ValueError):
-        gf.update(parse_expr('z=a^x'))
+        gf.update(parse_expr('z=w^x'))
