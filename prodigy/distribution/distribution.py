@@ -526,6 +526,12 @@ class Distribution(ABC):
         :return: The approximated (truncated) probability distribution.
         """
 
+    @abstractmethod
+    def approximate_unilaterally(
+            self, variable: str,
+            probability_mass: str | float) -> Distribution:
+        """Approximates the distribution in one variable via its series expansion"""
+
 
 class CommonDistributionsFactory(ABC):
     """ Abstract Factory Class implementing a Factory for common distributions."""

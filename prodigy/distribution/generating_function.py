@@ -312,39 +312,33 @@ class GeneratingFunction(Distribution):
         return f'_{i}'
 
     def approximate_unilaterally(
-            self, variable: str, probability_mass: str
-    ) -> Generator[GeneratingFunction, None, None]:
-        # TODO I don't think it's smart to use this, as we don't actually approximate, but
-        # only increase the probability that the variable is 0
+            self, variable: str,
+            probability_mass: str | float) -> GeneratingFunction:
         mass = sympy.S(probability_mass)
+        if mass == 0:
+            return GeneratingFunction('0',
+                                      *self._variables,
+                                      preciseness=0,
+                                      closed=True,
+                                      finite=True)
+        elif mass > sympy.S(self.get_probability_mass()):
+            raise ValueError("Given probability mass is too large")
+        elif mass < 0:
+            raise ValueError("Given probability mass must be non-negative")
         var = sympy.Symbol(variable)
         if var not in self._variables:
             raise ValueError(f'Not a variable: {variable}')
-        result: sympy.Expr = self._function.subs(var, 1)
-        if mass <= 0:
-            # TODO modify preciseness
-            yield GeneratingFunction(result,
-                                     *self._variables,
-                                     preciseness=self._preciseness,
-                                     closed=self._is_closed_form,
-                                     finite=self._is_finite)
-            return
-        elif mass >= 1:
-            yield self
-            return
-        current_mass = 0
+        result = 0
+        mass_res = 0
 
         for element in self._function.series(var, n=None):
-            result = (result - element.subs(var, 1) + element)
-            yield GeneratingFunction(result,
-                                     *self._variables,
-                                     preciseness=self._preciseness)
-            prob = element
-            for x in self._variables:
-                prob = prob.subs(x, 1)
-            current_mass += prob
-            if current_mass >= mass:
-                break
+            result += element
+            mass_res += element.subs([(sym, 1)
+                                      for sym in element.free_symbols])
+            if mass_res >= mass:
+                return GeneratingFunction(result,
+                                          *self._variables,
+                                          preciseness=mass_res)
 
     def _update_division(self, temp_var: str, numerator: str | int,
                          denominator: str | int) -> GeneratingFunction:

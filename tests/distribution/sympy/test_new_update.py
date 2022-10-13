@@ -204,17 +204,21 @@ def test_division():
 def test_unilateral_approximation():
     gf = GeneratingFunction(
         '0.7*x**3*y**5 + 0.1*x**13*y**17 + 0.15*x**21*y**25 + 0.05*x**33*y**4')
-    *_, res = gf.approximate_unilaterally('x', '0.9')
-    assert res == GeneratingFunction(
-        '0.7*x**3*y**5 + 0.1*x**13*y**17 + 0.15*x**21*y**25 + 0.05*y**4')
+    assert gf.approximate_unilaterally('x', '0.9') == GeneratingFunction(
+        '0.7*x**3*y**5 + 0.1*x**13*y**17 + 0.15*x**21*y**25')
 
     gf = SympyPGF.poisson('x', 7).set_variables('x', 'y')
     gf._function = gf._function.subs(sympy.S('x'), sympy.S('x*y'))
-    *_, res = gf.approximate_unilaterally('x', '0.9')
+    assert gf.filter(parse_expr('x = 100'))._function != 0
+    res = gf.approximate_unilaterally('x', '0.9')
     assert res.filter(parse_expr('x = 100'))._function == 0
-    assert res.filter(parse_expr('y = 100'))._function == sympy.S(
-        'y**100*(7**100*exp(-7))/100!')
     assert res.filter(parse_expr('x = 5')) == res.filter(parse_expr('y = 5'))
+
+    gf = SympyPGF.poisson('x', 7) * SympyPGF.poisson('y', 81)
+    res = gf.approximate_unilaterally('x', 0.9)
+    assert res.filter(parse_expr('x = 4')) == gf.filter(parse_expr('x = 4'))
+    assert res.filter(parse_expr('x = 400'))._function == 0
+    assert gf.filter(parse_expr('x = 400'))._function != 0
 
 
 def test_update():

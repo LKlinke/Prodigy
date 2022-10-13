@@ -402,6 +402,11 @@ class FPS(Distribution):
             threshold: Union[str, int]) -> Generator[Distribution, None, None]:
         raise NotImplementedError(__name__)
 
+    def approximate_unilaterally(
+            self, variable: str,
+            probability_mass: str | float) -> Distribution:
+        raise NotImplementedError("not yet implemented")
+
 
 class ProdigyPGF(CommonDistributionsFactory):
     @staticmethod
