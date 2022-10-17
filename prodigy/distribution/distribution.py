@@ -323,18 +323,21 @@ class Distribution(ABC):
     def is_finite(self) -> bool:
         """ Returns whether the distribution has finite support."""
 
-    def update(self, expression: Expr) -> Distribution:
+    def update(self,
+               expression: Expr,
+               approximate: str | float | None = None) -> Distribution:
         """ Updates the current distribution by applying the expression to itself.
 
             Some operations are illegal and will cause this function to raise an error. These operations include subtraction
             that may cause a variable to have a negative value, division that may cause a variable to have a value that is
             not an integer, and certain operations on infinite generating functions if the variables involved have an infinite
-            marginal (such as multiplication of two variables).
+            marginal (such as multiplication of two variables) and approximation is disabled.
+
+            The `approximate` parameter is used to determine up to which precision unilateral approximation should be performed 
+            if an update is not possible on infinite distributions.
 
             Parameters are not allowed in an update expression.
         """
-
-        # TODO add some useful form of approximation support
 
         assert isinstance(expression, BinopExpr) and isinstance(expression.lhs, VarExpr), \
             f"Expression must be an assignment, was {expression}."
@@ -359,15 +362,15 @@ class Distribution(ABC):
                 if expression.operator == Binop.PLUS:
                     f = f._update_sum(temp_var, t_1, t_2)
                 elif expression.operator == Binop.TIMES:
-                    f = f._update_product(temp_var, t_1, t_2)
+                    f = f._update_product(temp_var, t_1, t_2, approximate)
                 elif expression.operator == Binop.MINUS:
                     f = f._update_subtraction(temp_var, t_1, t_2)
                 elif expression.operator == Binop.MODULO:
-                    f = f._update_modulo(temp_var, t_1, t_2)
+                    f = f._update_modulo(temp_var, t_1, t_2, approximate)
                 elif expression.operator == Binop.DIVIDE:
-                    f = f._update_division(temp_var, t_1, t_2)
+                    f = f._update_division(temp_var, t_1, t_2, approximate)
                 elif expression.operator == Binop.POWER:
-                    f = f._update_power(temp_var, t_1, t_2)
+                    f = f._update_power(temp_var, t_1, t_2, approximate)
                 else:
                     raise ValueError(
                         f"Unsupported binary operator: {expression.operator}")
@@ -429,12 +432,14 @@ class Distribution(ABC):
 
     @abstractmethod
     def _update_product(self, temp_var: str, first_factor: str,
-                        second_factor: str) -> Distribution:
+                        second_factor: str,
+                        approximate: str | float | None) -> Distribution:
         """
         Applies the update `temp_var = first_factor * second_factor` to this distribution.
 
         If the distribution is infinite and both factors are variables, mutliplication is
-        only supported if at least one of the factors has finite range (i.e., a finite marginal).
+        only supported if at least one of the factors has finite range (i.e., a finite marginal)
+        (if approximation is disabled).
 
         Both factors may not be parameters.
         """
@@ -448,37 +453,39 @@ class Distribution(ABC):
         """
 
     @abstractmethod
-    def _update_modulo(self, temp_var: str, left: str | int,
-                       right: str | int) -> Distribution:
+    def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
+                       approximate: str | float | None) -> Distribution:
         """
         Applies the expression `temp_var = left % right` to this distribution. If `self` is
-        an infinite generating function, `right` must be a literal or a variable with finite range.
+        an infinite generating function, `right` must be a literal or a variable with finite range
+        (if approximation is disabled).
 
         Both `left` and `right` may not be parameters.
         """
 
     @abstractmethod
     def _update_division(self, temp_var: str, numerator: str | int,
-                         denominator: str | int) -> Distribution:
+                         denominator: str | int,
+                         approximate: str | float | None) -> Distribution:
         """
         Applies the expression `temp_var = numerator / denominator` to this distribution.
         If in some state of the GF, the numerator is not divisible by the denominator, this function
         raises an error.
 
         Infinite distributions are only supported if both sides of the division have finite range
-        (i.e., they are either literals or have a finite marginal).
+        (i.e., they are either literals or have a finite marginal) (if approximation is disabled).
 
         Both the numerator and the denominator may not be parameters.
         """
 
     @abstractmethod
-    def _update_power(self, temp_var: str, base: str | int,
-                      exp: str | int) -> Distribution:
+    def _update_power(self, temp_var: str, base: str | int, exp: str | int,
+                      approximate: str | float | None) -> Distribution:
         """
         Applies the expression `temp_var := base^exp` to this distribution.
 
-        All variables occuring in the expression must have a finite marginal. There may not be
-        any parameters in the expression.
+        All variables occuring in the expression must have a finite marginal (if approximation is 
+        disabled). There may not be any parameters in the expression.
         """
 
     @abstractmethod

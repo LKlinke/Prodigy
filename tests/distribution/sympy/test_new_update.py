@@ -237,7 +237,7 @@ def test_update():
         parse_expr('x = x*x'))._function.subs(sympy.Symbol('x'),
                                               1) == sympy.S(1)
     assert GeneratingFunction('x')._update_product(
-        'x', 'x', 'x')._function.subs(sympy.Symbol('x'), 1) == sympy.S(1)
+        'x', 'x', 'x', None)._function.subs(sympy.Symbol('x'), 1) == sympy.S(1)
     assert GeneratingFunction('x').update(
         parse_expr('x = x*x'))._variables == {sympy.Symbol('x')}
 

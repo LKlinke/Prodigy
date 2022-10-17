@@ -285,7 +285,8 @@ class FPS(Distribution):
             self._parameters)
 
     def _update_product(self, temp_var: str, first_factor: str,
-                        second_factor: str) -> FPS:
+                        second_factor: str,
+                        approximate: str | float | None) -> FPS:
         return FPS.from_dist(
             self._dist.update_product(temp_var, first_factor, second_factor,
                                       self._variables, self._finite),
@@ -297,22 +298,23 @@ class FPS(Distribution):
             self._dist.update_subtraction(temp_var, str(sub_from), str(sub)),
             self._variables, self._parameters)
 
-    def _update_modulo(self, temp_var: str, left: str | int,
-                       right: str | int) -> FPS:
+    def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
+                       approximate: str | float | None) -> FPS:
         return FPS.from_dist(
             self._dist.update_modulo(temp_var, str(left), str(right),
                                      self._variables, self._finite),
             self._variables, self._parameters)
 
     def _update_division(self, temp_var: str, numerator: str | int,
-                         denominator: str | int) -> FPS:
+                         denominator: str | int,
+                         approximate: str | float | None) -> FPS:
         return FPS.from_dist(
             self._dist.update_division(temp_var, str(numerator),
                                        str(denominator)), self._variables,
             self._parameters)
 
-    def _update_power(self, temp_var: str, base: str | int,
-                      exp: str | int) -> Distribution:
+    def _update_power(self, temp_var: str, base: str | int, exp: str | int,
+                      approximate: str | float | None) -> Distribution:
         return FPS.from_dist(self._dist.update_power(temp_var, base, exp),
                              self._variables, self._parameters)
 

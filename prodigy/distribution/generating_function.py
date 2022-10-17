@@ -314,6 +314,8 @@ class GeneratingFunction(Distribution):
     def approximate_unilaterally(
             self, variable: str,
             probability_mass: str | float) -> GeneratingFunction:
+        logger.debug("approximate_unilaterally(%s, %s) call on %s", variable,
+                     probability_mass, self)
         mass = sympy.S(probability_mass)
         if mass == 0:
             return GeneratingFunction('0',
@@ -328,7 +330,7 @@ class GeneratingFunction(Distribution):
         var = sympy.Symbol(variable)
         if var not in self._variables:
             raise ValueError(f'Not a variable: {variable}')
-        result = 0
+        result = sympy.S(0)
         mass_res = 0
 
         for element in self._function.series(var, n=None):
@@ -340,8 +342,11 @@ class GeneratingFunction(Distribution):
                                           *self._variables,
                                           preciseness=mass_res)
 
-    def _update_division(self, temp_var: str, numerator: str | int,
-                         denominator: str | int) -> GeneratingFunction:
+        raise Exception("unreachable")
+
+    def _update_division(
+            self, temp_var: str, numerator: str | int, denominator: str | int,
+            approximate: str | float | None) -> GeneratingFunction:
         update_var = sympy.Symbol(temp_var)
         div_1, div_2 = sympy.S(numerator), sympy.S(denominator)
 
@@ -353,13 +358,24 @@ class GeneratingFunction(Distribution):
         marginal_r = self.marginal(
             denominator) if div_2 in self._variables else div_2
 
-        if isinstance(marginal_l, GeneratingFunction
-                      ) and not marginal_l._is_finite or isinstance(
-                          marginal_r,
-                          GeneratingFunction) and not marginal_r._is_finite:
-            raise ValueError(
-                f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'
-            )
+        if isinstance(marginal_l,
+                      GeneratingFunction) and not marginal_l._is_finite:
+            if approximate is None:
+                raise ValueError(
+                    f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'
+                )
+            assert isinstance(numerator, str)
+            marginal_l = marginal_l.approximate_unilaterally(
+                numerator, approximate)
+        if isinstance(marginal_r,
+                      GeneratingFunction) and not marginal_r._is_finite:
+            if approximate is None:
+                raise ValueError(
+                    f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'
+                )
+            assert isinstance(denominator, str)
+            marginal_r = marginal_r.approximate_unilaterally(
+                denominator, approximate)
 
         result = sympy.S(0)
         # TODO it must be possible to do this in a prettier way
@@ -414,8 +430,8 @@ class GeneratingFunction(Distribution):
                                   closed=self._is_closed_form,
                                   finite=self._is_finite)
 
-    def _update_modulo(self, temp_var: str, left: str | int,
-                       right: str | int) -> GeneratingFunction:
+    def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
+                       approximate: str | float | None) -> GeneratingFunction:
         # TODO this function is very inefficient and I'm not sure why (maybe because of all the filtering?)
 
         left_sym, right_sym = sympy.Symbol(str(left)), sympy.Symbol(str(right))
@@ -441,15 +457,19 @@ class GeneratingFunction(Distribution):
 
         # If the GF is infinite and right is a variable, it needs to have finite range
         elif right_sym in self._variables:
+            assert isinstance(right, str)
             marginal_r = self.marginal(right)
             if not marginal_r._is_finite:
-                raise ValueError(
-                    f'Cannot perform modulo operation with inifinite right hand side {right}'
-                )
+                if approximate is None:
+                    raise ValueError(
+                        f'Cannot perform modulo operation with infinite right hand side {right}'
+                    )
+                marginal_r = marginal_r.approximate_unilaterally(
+                    right, approximate)
             for _, state_r in marginal_r:
                 result += self.filter(
                     parse_expr(f'{right}={state_r[right]}'))._update_modulo(
-                        temp_var, left, state_r[right])._function
+                        temp_var, left, state_r[right], None)._function
 
         # If left is a variable, it doesn't have to have finite range
         elif left_sym in self._variables:
@@ -459,7 +479,7 @@ class GeneratingFunction(Distribution):
                 for _, state_l in marginal_l:
                     result += self.filter(
                         parse_expr(f'{left}={state_l[left]}'))._update_modulo(
-                            temp_var, state_l[left], right)._function
+                            temp_var, state_l[left], right, None)._function
             else:
                 for index, gf in enumerate(
                         self._arithmetic_progression(left, str(right))):
@@ -535,7 +555,8 @@ class GeneratingFunction(Distribution):
         return gf
 
     def _update_product(self, temp_var: str, first_factor: str,
-                        second_factor: str) -> GeneratingFunction:
+                        second_factor: str,
+                        approximate: str | float | None) -> GeneratingFunction:
         update_var = sympy.Symbol(temp_var)
         # these assumptions are necessary for some simplifications in the exponent
         # they are later eliminated again in the init of the new GF
@@ -556,9 +577,13 @@ class GeneratingFunction(Distribution):
                 result = sympy.S(0)
 
                 if not marginal_l._is_finite and not marginal_r._is_finite:
-                    raise ValueError(
-                        f'Cannot perform the multiplication {first_factor} * {second_factor} because both variables have infinite range'
-                    )
+                    if approximate is None:
+                        raise ValueError(
+                            f'Cannot perform the multiplication {first_factor} * {second_factor} because both variables have infinite range'
+                        )
+                    # TODO can we choose which side to approximate in a smarter way?
+                    marginal_l = marginal_l.approximate_unilaterally(
+                        first_factor, approximate)
 
                 finite, finite_var, infinite_var = (
                     marginal_l, first_factor,
@@ -568,7 +593,7 @@ class GeneratingFunction(Distribution):
                     result += self.filter(
                         parse_expr(f'{finite_var}={state[finite_var]}')
                     )._update_product(temp_var, state[finite_var],
-                                      infinite_var)._function
+                                      infinite_var, approximate)._function
             else:
                 for prob, state in self:
                     term: sympy.Basic = sympy.S(prob) * sympy.S(
@@ -675,8 +700,8 @@ class GeneratingFunction(Distribution):
                                   closed=self._is_closed_form,
                                   finite=self._is_finite)
 
-    def _update_power(self, temp_var: str, base: str | int,
-                      exp: str | int) -> Distribution:
+    def _update_power(self, temp_var: str, base: str | int, exp: str | int,
+                      approximate: str | float | None) -> Distribution:
         update_var = sympy.Symbol(temp_var)
         pow_1, pow_2 = sympy.S(base), sympy.S(exp)
         res = self._function
@@ -687,12 +712,24 @@ class GeneratingFunction(Distribution):
 
         # variable to the power of a variable
         if pow_1 in self._variables and pow_2 in self._variables:
+            assert isinstance(base, str)
+            assert isinstance(exp, str)
             marginal_l, marginal_r = self.marginal(base), self.marginal(exp)
 
-            if not marginal_l._is_finite or not marginal_r._is_finite:
-                raise ValueError(
-                    "Can only perform exponentiation of variables if both have a finite marginal"
-                )
+            if not marginal_l._is_finite:
+                if approximate is None:
+                    raise ValueError(
+                        "Can only perform exponentiation of variables if both have a finite marginal"
+                    )
+                marginal_l = marginal_l.approximate_unilaterally(
+                    base, approximate)
+            if not marginal_r._is_finite:
+                if approximate is None:
+                    raise ValueError(
+                        "Can only perform exponentiation of variables if both have a finite marginal"
+                    )
+                marginal_r = marginal_r.approximate_unilaterally(
+                    exp, approximate)
 
             for _, state_l in marginal_l:
                 for _, state_r in marginal_r:
