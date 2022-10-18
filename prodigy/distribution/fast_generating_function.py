@@ -407,7 +407,10 @@ class FPS(Distribution):
     def approximate_unilaterally(
             self, variable: str,
             probability_mass: str | float) -> Distribution:
-        raise NotImplementedError("not yet implemented")
+        return FPS.from_dist(
+            self._dist.approximate_unilaterally(variable,
+                                                str(probability_mass)),
+            self._variables, self._parameters)
 
 
 class ProdigyPGF(CommonDistributionsFactory):
