@@ -289,8 +289,9 @@ class FPS(Distribution):
                         approximate: str | float | None) -> FPS:
         return FPS.from_dist(
             self._dist.update_product(temp_var, first_factor, second_factor,
-                                      self._variables, self._finite),
-            self._variables, self._parameters)
+                                      self._variables, self._finite,
+                                      approximate), self._variables,
+            self._parameters)
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> Distribution:
@@ -302,21 +303,23 @@ class FPS(Distribution):
                        approximate: str | float | None) -> FPS:
         return FPS.from_dist(
             self._dist.update_modulo(temp_var, str(left), str(right),
-                                     self._variables, self._finite),
-            self._variables, self._parameters)
+                                     self._variables, self._finite,
+                                     approximate), self._variables,
+            self._parameters)
 
     def _update_division(self, temp_var: str, numerator: str | int,
                          denominator: str | int,
                          approximate: str | float | None) -> FPS:
         return FPS.from_dist(
             self._dist.update_division(temp_var, str(numerator),
-                                       str(denominator)), self._variables,
-            self._parameters)
+                                       str(denominator), approximate),
+            self._variables, self._parameters)
 
     def _update_power(self, temp_var: str, base: str | int, exp: str | int,
                       approximate: str | float | None) -> Distribution:
-        return FPS.from_dist(self._dist.update_power(temp_var, base, exp),
-                             self._variables, self._parameters)
+        return FPS.from_dist(
+            self._dist.update_power(temp_var, base, exp, approximate),
+            self._variables, self._parameters)
 
     def update_iid(self, sampling_exp: IidSampleExpr,
                    variable: Union[str, VarExpr]) -> FPS:
