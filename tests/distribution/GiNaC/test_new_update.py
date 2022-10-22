@@ -200,18 +200,14 @@ def test_update():
     assert res == FPS('x^9')
     res = res.update(parse_expr('x = x*(9/2*1*2)'))
     assert res == FPS('x^81')
-    assert res._function.subs(sympy.Symbol('x'), 1) == sympy.S(1)
+    assert res._update_var('x', '0')._dist == pygin.Dist('1')
     assert res.marginal('x', method=MarginalType.EXCLUDE) == FPS('1')
     assert res.update(parse_expr('x = x/9')) == FPS('x^9')
     assert res.update(parse_expr('x = 3')) == FPS('x^3')
 
-    assert FPS('x').update(parse_expr('x = x*x'))._function.subs(
-        sympy.Symbol('x'), 1) == sympy.S(1)
-    assert FPS('x')._update_product('x', 'x',
-                                    'x')._function.subs(sympy.Symbol('x'),
-                                                        1) == sympy.S(1)
-    assert FPS('x').update(
-        parse_expr('x = x*x'))._variables == {sympy.Symbol('x')}
+    assert FPS('x').update(parse_expr('x = x*x'))._update_var('x', '0')._dist == pygin.Dist('1')
+    assert FPS('x')._update_product('x', 'x', 'x', None)._update_var('x', '0')._dist == pygin.Dist('1')
+    assert FPS('x').update(parse_expr('x = x*x')).get_variables() == {'x'}
 
 
 def test_power():
