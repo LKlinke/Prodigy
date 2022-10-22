@@ -36,14 +36,22 @@ _PGCL_GRAMMAR = """
 
     declarations: declaration* -> declarations
 
-    declaration: "bool" var                  -> bool
-               | "nat" var bounds?           -> nat
+    declaration: local_declaration | global_declaration
+
+    local_declarations: local_declaration* -> local_declarations
+
+    local_declaration: "nat" var bounds?       -> nat
+                     | "fun" var ":=" function -> fun
+
+    global_declaration: "bool" var           -> bool
                | "real" var bounds?          -> real
                | "const" var ":=" expression -> const
                | "rparam" var                -> rparam
                | "nparam" var                -> nparam
 
     bounds: "[" expression "," expression "]"
+
+    function: "{" local_declarations instructions queries "return" var "}"
 
     instructions: instruction* -> instructions
 
@@ -52,11 +60,13 @@ _PGCL_GRAMMAR = """
     instruction: "skip"                                      -> skip
                | "while" "(" expression ")" block            -> while
                | "if" "(" expression ")" block "else"? block -> if
-               | var ":=" rvalue                             -> assign
+               | assign                                      -> assign
                | block "[" expression "]" block              -> choice
                | "tick" "(" expression ")"                   -> tick
                | "observe" "(" expression ")"                -> observe
                | "loop" "(" INT ")" block                    -> loop
+
+    assign: var ":=" rvalue
 
     query: "?Ex" "[" expression "]"                          -> expectation
                | "?Pr" "[" expression "]"                    -> prquery
@@ -67,16 +77,19 @@ _PGCL_GRAMMAR = """
 
     block: "{" instruction* "}"
 
-    rvalue: "unif_d" "(" expression "," expression ")" -> duniform
-          | "unif" "(" expression "," expression ")" -> duniform
-          | "unif_c" "(" expression "," expression ")" -> cuniform
-          | "geometric" "(" expression ")" -> geometric
-          | "poisson" "(" expression ")" -> poisson
-          | "logdist" "(" expression ")" -> logdist
+    rvalue: "unif_d" "(" expression "," expression ")"   -> duniform
+          | "unif" "(" expression "," expression ")"     -> duniform
+          | "unif_c" "(" expression "," expression ")"   -> cuniform
+          | "geometric" "(" expression ")"               -> geometric
+          | "poisson" "(" expression ")"                 -> poisson
+          | "logdist" "(" expression ")"                 -> logdist
           | "binomial" "(" expression "," expression ")" -> binomial
-          | "bernoulli" "(" expression ")" -> bernoulli
-          | "iid" "(" rvalue "," var ")" -> iid
+          | "bernoulli" "(" expression ")"               -> bernoulli
+          | "iid" "(" rvalue "," var ")"                 -> iid
           | expression
+          | var "(" parameter_list? ")"                   -> function_call
+
+    parameter_list: assign | parameter_list "," assign
 
     literal: "true"  -> true
            | "false" -> false
@@ -204,6 +217,9 @@ def _parse_bounds(t: Optional[Tree]) -> Optional[Bounds]:
 
 
 def _parse_declaration(t: Tree) -> Decl:
+    assert t.data == "declaration"
+    t = _child_tree(t, 0)
+
     def var0():
         return _parse_var(_child_tree(t, 0))
 
@@ -370,8 +386,9 @@ def _parse_instr(t: Tree) -> Instr:
                        _parse_instrs(_child_tree(t, 1)),
                        _parse_instrs(_child_tree(t, 2)))
     elif t.data == 'assign':
-        return AsgnInstr(_parse_var(_child_tree(t, 0)),
-                         _parse_rvalue(_child_tree(t, 1)))
+        child = _child_tree(t, 0)
+        return AsgnInstr(_parse_var(_child_tree(child, 0)),
+                         _parse_rvalue(_child_tree(child, 1)))
     elif t.data == 'choice':
         return ChoiceInstr(_parse_expr(_child_tree(t, 1)),
                            _parse_instrs(_child_tree(t, 0)),
