@@ -1,7 +1,6 @@
 import pygin
-import sympy
 from probably.pgcl.parser import parse_expr
-from pytest import raises, xfail
+from pytest import raises
 
 from prodigy.distribution.distribution import MarginalType
 from prodigy.distribution.fast_generating_function import FPS, ProdigyPGF

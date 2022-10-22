@@ -333,7 +333,7 @@ class Distribution(ABC):
             not an integer, and certain operations on infinite generating functions if the variables involved have an infinite
             marginal (such as multiplication of two variables) and approximation is disabled.
 
-            The `approximate` parameter is used to determine up to which precision unilateral approximation should be performed 
+            The `approximate` parameter is used to determine up to which precision unilateral approximation should be performed
             if an update is not possible on infinite distributions.
 
             Parameters are not allowed in an update expression.
@@ -484,7 +484,7 @@ class Distribution(ABC):
         """
         Applies the expression `temp_var := base^exp` to this distribution.
 
-        All variables occuring in the expression must have a finite marginal (if approximation is 
+        All variables occuring in the expression must have a finite marginal (if approximation is
         disabled). There may not be any parameters in the expression.
         """
 
