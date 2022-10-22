@@ -124,6 +124,10 @@ def test_subtraction():
     assert gf.update(parse_expr('n = n + (c-tmp)')) == FPS(
         '0.4*tmp^5*c^13*n^12 + 0.6*tmp^7*c^28*n^98')
 
+    gf = FPS("(-1+p1*c)^(-1)*p0*(-1+p0*n)^(-1)*n")
+    assert gf.update(
+        parse_expr('n = n-1')) == FPS("(-1+p1*c)^(-1)*p0*(-1+p0*n)^(-1)")
+
 
 def test_fresh_variables():
     gf = FPS('x*xl')
@@ -205,8 +209,10 @@ def test_update():
     assert res.update(parse_expr('x = x/9')) == FPS('x^9')
     assert res.update(parse_expr('x = 3')) == FPS('x^3')
 
-    assert FPS('x').update(parse_expr('x = x*x'))._update_var('x', '0')._dist == pygin.Dist('1')
-    assert FPS('x')._update_product('x', 'x', 'x', None)._update_var('x', '0')._dist == pygin.Dist('1')
+    assert FPS('x').update(parse_expr('x = x*x'))._update_var(
+        'x', '0')._dist == pygin.Dist('1')
+    assert FPS('x')._update_product('x', 'x', 'x', None)._update_var(
+        'x', '0')._dist == pygin.Dist('1')
     assert FPS('x').update(parse_expr('x = x*x')).get_variables() == {'x'}
 
 
