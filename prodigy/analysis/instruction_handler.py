@@ -20,7 +20,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import (ObserveZeroEventError,
                                          VerificationError)
 from prodigy.analysis.plotter import Plotter
-from prodigy.distribution.distribution import Distribution, MarginalType
+from prodigy.distribution.distribution import Distribution, MarginalType, State
 from prodigy.distribution.generating_function import SympyPGF
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup, print_progress_bar
@@ -452,7 +452,8 @@ class WhileHandler(InstructionHandler):
                            parameters=inv_prog.parameters,
                            instructions=[instruction])
             print(f"{Style.YELLOW}Verifying invariant...{Style.RESET}")
-            answer, _ = equiv_check.check_equivalence(prog, inv_prog, config)
+            answer, result = equiv_check.check_equivalence(
+                prog, inv_prog, config)
             if answer:
                 print(Style.OKGREEN + "Invariant successfully validated!\n" +
                       Style.RESET)
@@ -464,6 +465,10 @@ class WhileHandler(InstructionHandler):
                                                distribution, error_prob,
                                                config)
             else:
+                assert isinstance(result, State)
+                print(
+                    f'{Style.OKRED}Invariant could not be verified.{Style.RESET} Counterexample: {result.valuations}'
+                )
                 raise VerificationError(
                     "Invariant could not be determined as such.")
 

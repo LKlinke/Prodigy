@@ -1,11 +1,13 @@
+from __future__ import annotations
+
 import logging
-from typing import Optional, Tuple
+from typing import Dict, Tuple
 
 from probably.pgcl import IfInstr, Program, SkipInstr, VarExpr, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instruction_handler import compute_discrete_distribution
-from prodigy.distribution.distribution import Distribution
+from prodigy.distribution.distribution import Distribution, State
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
@@ -39,7 +41,8 @@ def phi(program: Program, invariant: Program) -> Program:
 
 
 def generate_equivalence_test_distribution(
-        program: Program, config: ForwardAnalysisConfig) -> Distribution:
+        program: Program,
+        config: ForwardAnalysisConfig) -> Tuple[Distribution, Dict[str, str]]:
     """
         Generates a second-order PGF, dependent on the given variables in a program. This SOP can be used to check
         equivalences of two programs.
@@ -48,22 +51,28 @@ def generate_equivalence_test_distribution(
     """
     logger.debug("Generating test distribution.")
     dist = config.factory.one()
-    for i, variable in enumerate(program.variables):
-        dist *= config.factory.from_expr(f"1/(1-p{i}*{variable})",
-                                         VarExpr(var=f"p{i}"),
+    so_vars: Dict[str, str] = {}  # second order variables
+    for variable in program.variables:
+        new_var = dist.get_fresh_variable()
+        dist *= config.factory.from_expr(f"1/(1-{new_var}*{variable})",
+                                         VarExpr(var=new_var),
                                          VarExpr(var=variable))
-    return dist.set_variables(*program.variables.keys()).set_parameters()
+        so_vars[new_var] = variable
+    return dist.set_variables(
+        *program.variables.keys()).set_parameters(), so_vars
 
 
 def check_equivalence(program: Program, invariant: Program, config: ForwardAnalysisConfig) \
-        -> Tuple[bool, Optional[Distribution]]:
+        -> Tuple[bool, Distribution | State]:
     """
     This method uses the fact that we can sometimes determine program equivalence,
     by checking the equality of two parametrized infinite-state Distributions.
     .. param config: The configuration.
     .. param program: The While-Loop program
     .. param invariant: The loop-free invariant
-    .. returns: True, False, Unknown
+    .. returns: Whether the invariant and the program are equivalent, and either the
+        resulting distribution or a state that represents a counterexample demonstrating
+        why the given invariant is invalid
     """
 
     logger.debug("Checking equivalence.")
@@ -79,7 +88,8 @@ def check_equivalence(program: Program, invariant: Program, config: ForwardAnaly
         print(
             f"{Style.YELLOW} Generate second order generating function. {Style.RESET}"
         )
-    test_dist = generate_equivalence_test_distribution(program, config)
+    test_dist, new_vars = generate_equivalence_test_distribution(
+        program, config)
 
     # Compute the resulting distributions for both programs
     logger.debug("Compute the modified invariant...")
@@ -108,4 +118,9 @@ def check_equivalence(program: Program, invariant: Program, config: ForwardAnaly
         return True, inv_result
     else:
         logger.debug("Invariant could not be validated.")
-        return False, None
+        count_ex, _ = (modified_inv_result -
+                       inv_result).set_variables(*new_vars.keys()).get_state()
+        res = {}
+        for var in count_ex:
+            res[new_vars[var]] = count_ex[var]
+        return False, State(res)

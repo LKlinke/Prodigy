@@ -9,6 +9,7 @@ from typing import (Dict, FrozenSet, Generator, Iterator, List, Sequence, Set,
 
 from probably.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, IidSampleExpr,
                            NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
+from probably.pgcl.parser import parse_expr
 from sympy import sympify
 
 from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
@@ -109,13 +110,17 @@ class Distribution(ABC):
     def copy(self, deep: bool = True) -> Distribution:
         """ Returns a full copy of itself."""
 
-    @abstractmethod
     def get_probability_of(self, condition: Union[Expr, str]):
         """
         Returns the probability of a given `condition` or variable.
         :param condition: The condition.
         :return: The probability that the condition is satisfied.
         """
+
+        expr = condition
+        if isinstance(expr, str):
+            expr = parse_expr(expr)
+        return self.filter(expr).get_probability_mass()
 
     @abstractmethod
     def get_probability_mass(self) -> Union[Expr, str]:
@@ -353,8 +358,8 @@ class Distribution(ABC):
                      temp_var: str) -> Tuple[Distribution, str]:
             # TODO handle reals in every case
             if isinstance(expression, BinopExpr):
-                xl = function._get_fresh_variable()
-                xr = function._get_fresh_variable({xl})
+                xl = function.get_fresh_variable()
+                xr = function.get_fresh_variable({xl})
                 f = function.set_variables(*(function.get_variables()
                                              | {xl, xr}))
                 f, t_1 = evaluate(f, expression.lhs, xl)
@@ -408,7 +413,7 @@ class Distribution(ABC):
         return result
 
     @abstractmethod
-    def _get_fresh_variable(
+    def get_fresh_variable(
         self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
         """
         Returns a str that is the name of neither an existing variable nor an existing
@@ -538,6 +543,15 @@ class Distribution(ABC):
             self, variable: str,
             probability_mass: str | float) -> Distribution:
         """Approximates the distribution in one variable via its series expansion"""
+
+    def get_state(self) -> Tuple[State, str]:
+        """Returns a state of this distribution that has probability > 0, and its probability"""
+
+        for prob, state in self:
+            if prob != '0':
+                return state, prob
+
+        raise ValueError("There is no state with probability > 0")
 
 
 class CommonDistributionsFactory(ABC):

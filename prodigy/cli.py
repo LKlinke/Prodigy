@@ -17,6 +17,7 @@ from probably.pgcl import compiler
 from probably.pgcl.check import CheckFail
 
 from prodigy import analysis
+from prodigy.distribution.distribution import State
 from prodigy.util.color import Style
 
 
@@ -118,8 +119,12 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
     stop = time.perf_counter()
 
     print(
-        f"Program{f'{Style.OKRED} is not equivalent{Style.RESET}' if not equiv[0] else f'{Style.OKGREEN} is equivalent{Style.RESET}'} to invaraint"
+        f"Program{f'{Style.OKRED} is not equivalent{Style.RESET}' if not equiv[0] else f'{Style.OKGREEN} is equivalent{Style.RESET}'} to invariant"
     )
+    if not equiv[0]:
+        assert isinstance(equiv[1], State)
+        print(
+            f'{Style.OKRED}Counterexample:{Style.RESET} {equiv[1].valuations}')
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
     return equiv
 

@@ -157,11 +157,8 @@ class FPS(Distribution):
         return FPS.from_dist(self._dist, self._variables, self._parameters,
                              self._finite)
 
-    def get_probability_of(self, condition: Union[Expr, str]):
-        raise NotImplementedError(__name__)
-
     def get_probability_mass(self) -> Union[Expr, str]:
-        return self._dist.mass()
+        return self._dist.mass(self._variables & set(self._dist.get_symbols()))
 
     def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
         return self._dist.E(str(expression))
@@ -265,7 +262,7 @@ class FPS(Distribution):
             self._dist.update(str(expression.lhs), str(expression.rhs)),
             self._variables, self._parameters, self._finite)
 
-    def _get_fresh_variable(
+    def get_fresh_variable(
         self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
         res: str = pygin.get_fresh_variable()
         while res in exclude:
@@ -414,6 +411,47 @@ class FPS(Distribution):
             self._dist.approximate_unilaterally(variable,
                                                 str(probability_mass)),
             self._variables, self._parameters)
+
+    def get_state(self) -> Tuple[State, str]:
+        # TODO this implementation sucks and should be changed to the default implementation
+        # once we support iteration in multiple variables on infinite FPS
+        variables = list(self.get_variables())
+        if str(self.get_probability_mass()) == '0':
+            raise ValueError("There is no state with probability > 0")
+        if len(variables) == 0:
+            return State(), str(self.get_probability_mass())
+
+        def n_tuples(n):
+            """Generates all `n`-tuples of the natural numbers"""
+            if n < 1:
+                raise ValueError("n is too small")
+            if n == 1:
+                num = 0
+                while True:
+                    yield [num]
+                    num += 1
+            else:
+                index = 0
+                gen = n_tuples(n - 1)
+                vals = []
+                while True:
+                    while len(vals) < index + 1:
+                        # pylint: disable=stop-iteration-return
+                        vals.append(next(gen))
+                        # pylint: enable=stop-iteration-return
+                    for i in range(index, -1, -1):
+                        yield [i] + vals[index - i]
+                    index += 1
+
+        for vals in n_tuples(len(variables)):
+            s = f'{variables[0]}={vals[0]}'
+            for i in range(1, len(variables)):
+                s += f' & {variables[i]}={vals[i]}'
+            mass = str(self.get_probability_of(s))
+            if mass != '0':
+                return State(dict(zip(variables, vals))), mass
+
+        raise Exception("unreachable")
 
 
 class ProdigyPGF(CommonDistributionsFactory):

@@ -302,7 +302,7 @@ class GeneratingFunction(Distribution):
 
     # Distribution interface implementation
 
-    def _get_fresh_variable(
+    def get_fresh_variable(
         self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
         i = 0
         while sympy.Symbol(f'_{i}') in (
@@ -1140,9 +1140,6 @@ class GeneratingFunction(Distribution):
 
     def is_zero_dist(self) -> bool:
         return self._function == 0
-
-    def get_probability_of(self, condition: Union[Expr, str]):
-        return parse_expr(str(self.filter(condition).coefficient_sum()))
 
     def normalize(self) -> GeneratingFunction:
         logger.debug("normalized() call")
