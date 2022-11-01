@@ -59,7 +59,7 @@ def generate_equivalence_test_distribution(
                                          VarExpr(var=variable))
         so_vars[new_var] = variable
     return dist.set_variables(
-        *program.variables.keys()).set_parameters(), so_vars
+        *program.variables.keys(), *so_vars.keys()).set_parameters(), so_vars
 
 
 def check_equivalence(program: Program, invariant: Program, config: ForwardAnalysisConfig) \

@@ -34,6 +34,7 @@ def test_equivalence_check():
         assert isinstance(inv, Program)
         res, _ = check_equivalence(prog, inv,
                                    ForwardAnalysisConfig(engine=engine))
+        assert res
 
         prog = compile_pgcl("""
             nat x;
@@ -64,3 +65,4 @@ def test_equivalence_check():
         assert isinstance(inv, Program)
         res, _ = check_equivalence(prog, inv,
                                    ForwardAnalysisConfig(engine=engine))
+        assert res
