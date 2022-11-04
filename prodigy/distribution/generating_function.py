@@ -1274,7 +1274,7 @@ class SympyPGF(CommonDistributionsFactory):
             expr = p
         if not has_variable(expr, None) and not 0 < sympy.S(str(p)) < 1:
             raise ValueError(
-                f"parameter of geom distr must be 0 < p <=1, was {p}")
+                f"parameter of geom distr must be 0 < p <= 1, was {p}")
         return GeneratingFunction(f"({p}) / (1 - (1-({p})) * {var})",
                                   var,
                                   closed=True,

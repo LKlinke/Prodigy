@@ -117,11 +117,11 @@ class TestDistributionInterface:
 
     def test_get_probability_of(self):
         gf = GeneratingFunction("(1-sqrt(1-x**2))/x")
-        assert gf.get_probability_of(parse_expr("x <= 3")) == parse_expr("5/8")
+        assert gf.get_probability_of(parse_expr("x <= 3")) == "5/8"
 
         gf = SympyPGF.zero("z", "y")
         assert gf.get_probability_of(
-            parse_expr("not (z*y < 12)")) == parse_expr("0")
+            parse_expr("not (z*y < 12)")) == "0"
 
     def test_get_probability_mass(self):
         gf = GeneratingFunction("(1-sqrt(1-x**2))/x")
