@@ -36,9 +36,11 @@ class TestDistributionInterface:
         summe = g + h
         produkt = g * h
         assert summe.get_parameters() == {'p'}
-        assert summe == GeneratingFunction("x + y", "x", "y").set_parameters('p')
+        assert summe == GeneratingFunction("x + y", "x",
+                                           "y").set_parameters('p')
         assert produkt.get_parameters() == {'p'}
-        assert produkt == GeneratingFunction("x*y", "x", "y").set_parameters('p')
+        assert produkt == GeneratingFunction("x*y", "x",
+                                             "y").set_parameters('p')
 
         f = GeneratingFunction("x*y", "y")
         with pytest.raises(ArithmeticError):
@@ -122,8 +124,7 @@ class TestDistributionInterface:
         assert gf.get_probability_of(parse_expr("x <= 3")) == "5/8"
 
         gf = SympyPGF.zero("z", "y")
-        assert gf.get_probability_of(
-            parse_expr("not (z*y < 12)")) == "0"
+        assert gf.get_probability_of(parse_expr("not (z*y < 12)")) == "0"
 
     def test_get_probability_mass(self):
         gf = GeneratingFunction("(1-sqrt(1-x**2))/x")

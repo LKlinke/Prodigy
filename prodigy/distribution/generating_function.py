@@ -424,11 +424,12 @@ class GeneratingFunction(Distribution):
                 result = self._function.subs(update_var,
                                              1) * update_var**(div_1 / div_2)
 
-        return GeneratingFunction(result,
-                                  *self._variables,
-                                  preciseness=self._preciseness,
-                                  closed=self._is_closed_form,
-                                  finite=self._is_finite).set_parameters(*self.get_parameters())
+        return GeneratingFunction(
+            result,
+            *self._variables,
+            preciseness=self._preciseness,
+            closed=self._is_closed_form,
+            finite=self._is_finite).set_parameters(*self.get_parameters())
 
     def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
                        approximate: str | float | None) -> GeneratingFunction:
@@ -491,11 +492,12 @@ class GeneratingFunction(Distribution):
         else:
             return self._update_var(temp_var, int(left) % int(right))
 
-        return GeneratingFunction(result,
-                                  *self._variables,
-                                  preciseness=self._preciseness,
-                                  closed=self._is_closed_form,
-                                  finite=self._is_finite).set_parameters(*self.get_parameters())
+        return GeneratingFunction(
+            result,
+            *self._variables,
+            preciseness=self._preciseness,
+            closed=self._is_closed_form,
+            finite=self._is_finite).set_parameters(*self.get_parameters())
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> GeneratingFunction:
@@ -545,7 +547,8 @@ class GeneratingFunction(Distribution):
         result = sympy.expand(result)
         gf = GeneratingFunction(result,
                                 *self._variables,
-                                preciseness=self._preciseness).set_parameters(*self.get_parameters())
+                                preciseness=self._preciseness).set_parameters(
+                                    *self.get_parameters())
         test_fun: sympy.Basic = gf.marginal(temp_var)._function.subs(
             temp_var, 0)
         if test_fun.has(sympy.S('zoo')) or test_fun == sympy.nan:
@@ -624,11 +627,12 @@ class GeneratingFunction(Distribution):
             result = result.subs(update_var, 1) * (update_var_with_assumptions
                                                    **(prod_1 * prod_2))
 
-        return GeneratingFunction(result,
-                                  *self._variables,
-                                  preciseness=self._preciseness,
-                                  closed=self._is_closed_form,
-                                  finite=self._is_finite).set_parameters(*self.get_parameters())
+        return GeneratingFunction(
+            result,
+            *self._variables,
+            preciseness=self._preciseness,
+            closed=self._is_closed_form,
+            finite=self._is_finite).set_parameters(*self.get_parameters())
 
     def _update_var(self, updated_var: str,
                     assign_var: str | int) -> GeneratingFunction:
@@ -649,11 +653,12 @@ class GeneratingFunction(Distribution):
                 result = self._function.subs(
                     sympy.Symbol(updated_var),
                     1) * sympy.Symbol(updated_var)**sympy.S(assign_var)
-            return GeneratingFunction(result,
-                                      *self._variables,
-                                      preciseness=self._preciseness,
-                                      closed=self._is_closed_form,
-                                      finite=self._is_finite).set_parameters(*self.get_parameters())
+            return GeneratingFunction(
+                result,
+                *self._variables,
+                preciseness=self._preciseness,
+                closed=self._is_closed_form,
+                finite=self._is_finite).set_parameters(*self.get_parameters())
         else:
             return self.copy()
 
@@ -694,11 +699,12 @@ class GeneratingFunction(Distribution):
         else:
             result = result.subs(update_var, 1) * (update_var**(sum_1 + sum_2))
 
-        return GeneratingFunction(result,
-                                  *self._variables,
-                                  preciseness=self._preciseness,
-                                  closed=self._is_closed_form,
-                                  finite=self._is_finite).set_parameters(*self.get_parameters())
+        return GeneratingFunction(
+            result,
+            *self._variables,
+            preciseness=self._preciseness,
+            closed=self._is_closed_form,
+            finite=self._is_finite).set_parameters(*self.get_parameters())
 
     def _update_power(self, temp_var: str, base: str | int, exp: str | int,
                       approximate: str | float | None) -> Distribution:
@@ -773,11 +779,12 @@ class GeneratingFunction(Distribution):
         else:
             res = res.subs(update_var, 1) * update_var**(pow_1**pow_2)
 
-        return GeneratingFunction(res,
-                                  *self._variables,
-                                  finite=self._is_finite,
-                                  preciseness=self._preciseness,
-                                  closed=self._is_closed_form).set_parameters(*self.get_parameters())
+        return GeneratingFunction(
+            res,
+            *self._variables,
+            finite=self._is_finite,
+            preciseness=self._preciseness,
+            closed=self._is_closed_form).set_parameters(*self.get_parameters())
 
     def update_iid(self, sampling_exp: IidSampleExpr,
                    variable: Union[str, VarExpr]) -> Distribution:
@@ -872,11 +879,13 @@ class GeneratingFunction(Distribution):
             return str(expected_value._function)
 
     def copy(self, deep: bool = True) -> GeneratingFunction:
-        return GeneratingFunction(str(self._function),
+        res = GeneratingFunction(str(self._function),
                                   *self._variables,
                                   preciseness=self._preciseness,
                                   closed=self._is_closed_form,
                                   finite=self._is_finite)
+        res._parameters = self._parameters.copy()
+        return res
 
     def set_variables(self, *variables: str) -> GeneratingFunction:
         if not variables:
@@ -887,7 +896,8 @@ class GeneratingFunction(Distribution):
                                   *remove_dups,
                                   preciseness=self._preciseness,
                                   closed=self._is_closed_form,
-                                  finite=self._is_finite).set_parameters(*(self.get_parameters() - remove_dups))
+                                  finite=self._is_finite).set_parameters(
+                                      *(self.get_parameters() - remove_dups))
 
     def set_parameters(self, *parameters: str) -> GeneratingFunction:
         remove_dups = set(parameters)
