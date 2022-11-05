@@ -214,6 +214,9 @@ def test_update():
         'x', '0')._dist == pygin.Dist('1')
     assert FPS('x').update(parse_expr('x = x*x')).get_variables() == {'x'}
 
+    gf = FPS('x').set_parameters('p')
+    assert gf.update(parse_expr('x = 4')).get_parameters() == {'p'}
+
 
 def test_power():
     gf = FPS('x^3*y^5*z^9') * ProdigyPGF.poisson('w', 3)

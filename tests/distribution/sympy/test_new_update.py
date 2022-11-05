@@ -241,6 +241,9 @@ def test_update():
     assert GeneratingFunction('x').update(
         parse_expr('x = x*x'))._variables == {sympy.Symbol('x')}
 
+    gf = GeneratingFunction('x').set_parameters('p')
+    assert gf.update(parse_expr('x = 4')).get_parameters() == {'p'}
+
 
 def test_power():
     gf = GeneratingFunction('x^3*y^5*z^9') * SympyPGF.poisson('a', 3)

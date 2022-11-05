@@ -428,7 +428,7 @@ class GeneratingFunction(Distribution):
                                   *self._variables,
                                   preciseness=self._preciseness,
                                   closed=self._is_closed_form,
-                                  finite=self._is_finite)
+                                  finite=self._is_finite).set_parameters(*self.get_parameters())
 
     def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
                        approximate: str | float | None) -> GeneratingFunction:
@@ -495,7 +495,7 @@ class GeneratingFunction(Distribution):
                                   *self._variables,
                                   preciseness=self._preciseness,
                                   closed=self._is_closed_form,
-                                  finite=self._is_finite)
+                                  finite=self._is_finite).set_parameters(*self.get_parameters())
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> GeneratingFunction:
@@ -545,7 +545,7 @@ class GeneratingFunction(Distribution):
         result = sympy.expand(result)
         gf = GeneratingFunction(result,
                                 *self._variables,
-                                preciseness=self._preciseness)
+                                preciseness=self._preciseness).set_parameters(*self.get_parameters())
         test_fun: sympy.Basic = gf.marginal(temp_var)._function.subs(
             temp_var, 0)
         if test_fun.has(sympy.S('zoo')) or test_fun == sympy.nan:
@@ -628,7 +628,7 @@ class GeneratingFunction(Distribution):
                                   *self._variables,
                                   preciseness=self._preciseness,
                                   closed=self._is_closed_form,
-                                  finite=self._is_finite)
+                                  finite=self._is_finite).set_parameters(*self.get_parameters())
 
     def _update_var(self, updated_var: str,
                     assign_var: str | int) -> GeneratingFunction:
@@ -653,7 +653,7 @@ class GeneratingFunction(Distribution):
                                       *self._variables,
                                       preciseness=self._preciseness,
                                       closed=self._is_closed_form,
-                                      finite=self._is_finite)
+                                      finite=self._is_finite).set_parameters(*self.get_parameters())
         else:
             return self.copy()
 
@@ -698,7 +698,7 @@ class GeneratingFunction(Distribution):
                                   *self._variables,
                                   preciseness=self._preciseness,
                                   closed=self._is_closed_form,
-                                  finite=self._is_finite)
+                                  finite=self._is_finite).set_parameters(*self.get_parameters())
 
     def _update_power(self, temp_var: str, base: str | int, exp: str | int,
                       approximate: str | float | None) -> Distribution:
@@ -777,7 +777,7 @@ class GeneratingFunction(Distribution):
                                   *self._variables,
                                   finite=self._is_finite,
                                   preciseness=self._preciseness,
-                                  closed=self._is_closed_form)
+                                  closed=self._is_closed_form).set_parameters(*self.get_parameters())
 
     def update_iid(self, sampling_exp: IidSampleExpr,
                    variable: Union[str, VarExpr]) -> Distribution:
@@ -887,7 +887,7 @@ class GeneratingFunction(Distribution):
                                   *remove_dups,
                                   preciseness=self._preciseness,
                                   closed=self._is_closed_form,
-                                  finite=self._is_finite)
+                                  finite=self._is_finite).set_parameters(*(self.get_parameters() - remove_dups))
 
     def set_parameters(self, *parameters: str) -> GeneratingFunction:
         remove_dups = set(parameters)
