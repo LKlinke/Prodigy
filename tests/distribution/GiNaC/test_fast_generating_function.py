@@ -36,12 +36,15 @@ def create_random_gf(number_of_variables: int = 1, terms: int = 1):
 
 class TestDistributionInterface:
     def test_arithmetic(self):
-        g = FPS("x", "x")
+        g = FPS("x", "x").set_parameters('p')
         h = FPS("y", "y")
         summe = g + h
         produkt = g * h
-        assert summe == FPS("x + y", "x", "y")
-        assert produkt == FPS("x*y", "x", "y")
+        assert summe.get_parameters() == {'p'}
+        assert summe.get_variables() == {'x', 'y'}
+        assert summe == FPS("x + y", "x", "y").set_parameters('p')
+        assert produkt.get_parameters() == {'p'}
+        assert produkt == FPS("x*y", "x", "y").set_parameters('p')
 
     def test_iteration(self):
         # we need to filter here because the order in FPS iteration is chaotic

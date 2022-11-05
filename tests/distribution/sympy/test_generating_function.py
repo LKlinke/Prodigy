@@ -31,12 +31,14 @@ def create_random_gf(number_of_variables: int = 1, terms: int = 1):
 
 class TestDistributionInterface:
     def test_arithmetic(self):
-        g = GeneratingFunction("x", "x")
+        g = GeneratingFunction("x", "x").set_parameters('p')
         h = GeneratingFunction("y", "y")
         summe = g + h
         produkt = g * h
-        assert summe == GeneratingFunction("x + y", "x", "y")
-        assert produkt == GeneratingFunction("x*y", "x", "y")
+        assert summe.get_parameters() == {'p'}
+        assert summe == GeneratingFunction("x + y", "x", "y").set_parameters('p')
+        assert produkt.get_parameters() == {'p'}
+        assert produkt == GeneratingFunction("x*y", "x", "y").set_parameters('p')
 
         f = GeneratingFunction("x*y", "y")
         with pytest.raises(ArithmeticError):

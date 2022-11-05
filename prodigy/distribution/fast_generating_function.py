@@ -458,7 +458,7 @@ class ProdigyPGF(CommonDistributionsFactory):
     @staticmethod
     def geometric(var: Union[str, VarExpr], p: DistributionParam) -> FPS:
         return FPS.from_dist(pygin.geometric(var, str(p)), {str(var)},
-                             {str(p)})
+                             {*pygin.find_symbols(str(p))})
 
     @staticmethod
     def uniform(var: Union[str, VarExpr], lower: DistributionParam,
