@@ -880,10 +880,10 @@ class GeneratingFunction(Distribution):
 
     def copy(self, deep: bool = True) -> GeneratingFunction:
         res = GeneratingFunction(str(self._function),
-                                  *self._variables,
-                                  preciseness=self._preciseness,
-                                  closed=self._is_closed_form,
-                                  finite=self._is_finite)
+                                 *self._variables,
+                                 preciseness=self._preciseness,
+                                 closed=self._is_closed_form,
+                                 finite=self._is_finite)
         res._parameters = self._parameters.copy()
         return res
 

@@ -1,3 +1,4 @@
+import sympy
 from probably.pgcl.ast import Program
 from probably.pgcl.compiler import compile_pgcl
 
@@ -32,9 +33,10 @@ def test_equivalence_check():
             } else {skip}
         """)
         assert isinstance(inv, Program)
-        res, _ = check_equivalence(prog, inv,
-                                   ForwardAnalysisConfig(engine=engine))
+        res, subs = check_equivalence(prog, inv,
+                                      ForwardAnalysisConfig(engine=engine))
         assert res
+        assert subs == []
 
         prog = compile_pgcl("""
             nat x;
@@ -63,6 +65,8 @@ def test_equivalence_check():
             } else {skip}
         """)
         assert isinstance(inv, Program)
-        res, _ = check_equivalence(prog, inv,
-                                   ForwardAnalysisConfig(engine=engine))
+        res, subs = check_equivalence(prog, inv,
+                                      ForwardAnalysisConfig(engine=engine))
         assert res
+        assert len(subs) == 1
+        assert sympy.S(subs[0]['p']) == sympy.S('1/2')

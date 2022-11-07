@@ -3,7 +3,7 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from fractions import Fraction
-from typing import Sequence, Union, get_args
+from typing import Dict, List, Sequence, Union, get_args
 
 from probably.pgcl import (AsgnInstr, BernoulliExpr, BinomialExpr, Binop,
                            BinopExpr, CategoricalExpr, ChoiceInstr, DistrExpr,
@@ -455,8 +455,14 @@ class WhileHandler(InstructionHandler):
             answer, result = equiv_check.check_equivalence(
                 prog, inv_prog, config)
             if answer:
-                print(Style.OKGREEN + "Invariant successfully validated!\n" +
-                      Style.RESET)
+                assert isinstance(result, list)
+                if len(result) == 0:
+                    print(Style.OKGREEN +
+                          "Invariant successfully validated!\n" + Style.RESET)
+                else:
+                    print(
+                        f"{Style.OKGREEN}Invariant validated under the following constraints:{Style.RESET} {result}"
+                    )
                 if config.show_intermediate_steps:
                     print(Style.YELLOW +
                           "Compute the result using the invariant" +
@@ -464,13 +470,15 @@ class WhileHandler(InstructionHandler):
                 return SequenceHandler.compute(inv_prog.instructions,
                                                distribution, error_prob,
                                                config)
-            else:
+            elif answer == False:
                 assert isinstance(result, State)
                 print(
                     f'{Style.OKRED}Invariant could not be verified.{Style.RESET} Counterexample: {result.valuations}'
                 )
                 raise VerificationError(
                     "Invariant could not be determined as such.")
+
+            raise NotImplementedError()
 
     @staticmethod
     def _compute_iterations(

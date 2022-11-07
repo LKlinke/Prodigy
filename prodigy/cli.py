@@ -114,17 +114,30 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
         raise Exception(f"Could not compile invariant. {inv}")
 
     start = time.perf_counter()
-    equiv = analysis.equivalence.check_equivalence(prog, inv,
-                                                   ctx.obj['CONFIG'])
+    equiv, result = analysis.equivalence.check_equivalence(
+        prog, inv, ctx.obj['CONFIG'])
     stop = time.perf_counter()
-
-    print(
-        f"Program{f'{Style.OKRED} is not equivalent{Style.RESET}' if not equiv[0] else f'{Style.OKGREEN} is equivalent{Style.RESET}'} to invariant"
-    )
-    if not equiv[0]:
-        assert isinstance(equiv[1], State)
+    if equiv == True:
+        assert isinstance(result, list)
         print(
-            f'{Style.OKRED}Counterexample:{Style.RESET} {equiv[1].valuations}')
+            f"Program{Style.OKGREEN} is equivalent{Style.RESET} to inavariant",
+            end="")
+        if len(result) == 0:
+            print(".")
+        else:
+            print(
+                f" {Style.OKGREEN}under the following constraints:{Style.RESET} {result}."
+            )
+    elif equiv == False:
+        assert isinstance(result, State)
+        print(
+            f"Program{Style.OKRED} is not equivalent{Style.RESET} to invariant. {Style.OKRED}Counterexample:{Style.RESET} {result.valuations}"
+        )
+    else:  # equiv == None
+        print(
+            f"Program equivalence{Style.OKYELLOW} cannot be determined{Style.RESET}, but depends on {result}."
+        )
+
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
     return equiv
 
