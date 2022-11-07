@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import itertools
 import logging
-from typing import Any, Dict, List, Literal, Tuple
+from typing import Dict, List, Literal, Tuple
 
 import sympy
 from probably.pgcl import IfInstr, Program, SkipInstr, VarExpr, WhileInstr
