@@ -139,7 +139,7 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
         )
 
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
-    return equiv
+    return equiv, result
 
 
 if __name__ == "__main__":

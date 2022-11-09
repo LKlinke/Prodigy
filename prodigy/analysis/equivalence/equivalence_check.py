@@ -128,11 +128,18 @@ def check_equivalence(
     else:
         logger.debug("Invariant could not be validated.")
         diff = modified_inv_result - inv_result
-        params = program.parameters | invariant.parameters
+        params = program.parameters.keys() | invariant.parameters.keys()
 
         if len(params) > 0:
             # If there are no parameters then we know they cannot be unified
-            unify = sympy.solve(sympy.S(str(diff)), *params, dict=True)
+            solution = sympy.solve(sympy.S(str(diff)), *params, dict=True)
+            unify = []
+            for sol in solution:
+                for _, val in sol.items():
+                    if not {str(s) for s in val.free_symbols} <= params:
+                        break
+                else:
+                    unify.append(sol)
             if len(unify) > 0:
                 logger.debug(
                     "Found constraints under which the invariant can be validated: %s",
