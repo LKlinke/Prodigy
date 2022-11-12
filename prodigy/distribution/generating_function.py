@@ -1272,6 +1272,9 @@ class GeneratingFunction(Distribution):
     def _find_symbols(expr: str) -> Set[str]:
         return {str(s) for s in sympy.S(expr).free_symbols}
 
+    def get_symbols(self) -> Set[str]:
+        return {str(s) for s in self._function.free_symbols}
+
 
 class SympyPGF(CommonDistributionsFactory):
     """Implements PGFs of standard distributions."""

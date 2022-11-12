@@ -176,6 +176,9 @@ class FPS(Distribution):
     def _find_symbols(expr: str) -> Set[str]:
         return set(pygin.find_symbols(expr))
 
+    def get_symbols(self) -> Set[str]:
+        return set(self._dist.get_symbols())
+
     @staticmethod
     def evaluate(expression: str, state: State) -> int:
         return pygin.evaluate(expression, state.valuations)
@@ -416,8 +419,6 @@ class FPS(Distribution):
         # TODO this implementation sucks and should be changed to the default implementation
         # once we support iteration in multiple variables on infinite FPS
         variables = list(self.get_variables())
-        if str(self.get_probability_mass()) == '0':
-            raise ValueError("There is no state with probability > 0")
         if len(variables) == 0:
             return State(), str(self.get_probability_mass())
 

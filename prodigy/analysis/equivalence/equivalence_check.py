@@ -4,7 +4,8 @@ import logging
 from typing import Dict, List, Literal, Tuple
 
 import sympy
-from probably.pgcl import IfInstr, Program, SkipInstr, VarExpr, WhileInstr
+from probably.pgcl import (Binop, BinopExpr, BoolLitExpr, IfInstr, NatLitExpr,
+                           Program, SkipInstr, VarExpr, WhileInstr)
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instruction_handler import compute_discrete_distribution
@@ -119,18 +120,18 @@ def check_equivalence(
     logger.debug("Compare results")
     if config.show_intermediate_steps:
         print(
-            f"\n{Style.YELLOW} Compare the results. {Style.RESET} \n {modified_inv_result} == {inv_result}"
+            f"\n{Style.YELLOW} Compare the results. {Style.RESET} \n {modified_inv_result}\n==\n{inv_result}"
         )
     if modified_inv_result == inv_result:
         logger.debug("Invariant validated.")
-        empty: List[Dict[str, str]] = []  # necessary to satisfy mypy
+        empty: List[Dict[str, str]] = []  # Necessary to satisfy mypy
         return True, empty
     else:
         logger.debug("Invariant could not be validated.")
         diff = modified_inv_result - inv_result
         params = program.parameters.keys() | invariant.parameters.keys()
 
-        if len(params) > 0:
+        if len(params & diff.get_symbols()) > 0:
             # If there are no parameters then we know they cannot be unified
             solution = sympy.solve(sympy.S(str(diff)), *params, dict=True)
             unify = []
@@ -147,9 +148,65 @@ def check_equivalence(
                 return True, [{str(var): str(val)
                                for var, val in x.items()} for x in unify]
 
-        count_ex, _ = diff.set_variables(*new_vars.keys()).get_state()
-        res = {}
-        for var in count_ex:
-            res[new_vars[var]] = count_ex[var]
-        logger.debug("Found counterexample: %s", res)
-        return False, State(res)
+            # If we don't find a solution, try to prove that there is none by comparing coefficients
+            logger.debug(
+                "Could not find a solution, trying to prove that there is none"
+            )
+            if config.show_intermediate_steps:
+                print(
+                    f'{Style.YELLOW}Could not find a solution, trying to prove that there is none...{Style.RESET}'
+                )
+            inv_result_params = inv_result.set_variables(*new_vars.keys())
+            modified_inv_result_params = modified_inv_result.set_variables(
+                *new_vars.keys())
+            count = 0
+            # TODO add a break after some number of loop iterations (else we may not terminate)
+            for _, state in inv_result_params:
+                cond = BoolLitExpr(True)
+                for var, val in state.items():
+                    cond = BinopExpr(lhs=BinopExpr(lhs=VarExpr(var),
+                                                   operator=Binop.EQ,
+                                                   rhs=NatLitExpr(val)),
+                                     operator=Binop.AND,
+                                     rhs=cond)
+                mass_diff = sympy.S(
+                    str(
+                        modified_inv_result_params.filter(
+                            cond).get_probability_mass())
+                ) - sympy.S(
+                    str(inv_result_params.filter(cond).get_probability_mass()))
+                syms = {str(s) for s in mass_diff.free_symbols} & params
+                if len(syms) > 0:
+                    sol = []
+                    for el in sympy.solve(mass_diff, *syms, dict=True):
+                        for var, val in el.items():
+                            if not {str(s)
+                                    for s in val.free_symbols} <= params:
+                                break
+                        else:
+                            sol.append(el)
+                    if config.show_intermediate_steps:
+                        count += 1
+                        print(f'\rCompared {count} coefficients', end='')
+                    if len(sol) == 0:
+                        # If there are coefficients that cannot be unified, we found a counterexample
+                        logger.debug(
+                            "Found coefficients that cannot be unified: %s",
+                            state.valuations)
+                        if config.show_intermediate_steps:
+                            print()
+                        return False, state
+
+            if config.show_intermediate_steps:
+                print()
+            # We couldn't prove that the results can be unified, but we also failed to find a counterexample
+            return None, diff
+
+        else:
+            # There are no parameters, so the results can't be unified
+            count_ex, _ = diff.set_variables(*new_vars.keys()).get_state()
+            res = {}
+            for var in count_ex:
+                res[new_vars[var]] = count_ex[var]
+            logger.debug("Found counterexample: %s", res)
+            return False, State(res)

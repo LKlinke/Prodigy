@@ -293,6 +293,13 @@ class Distribution(ABC):
     def _find_symbols(expr: str) -> Set[str]:
         "Returns a set of all free symbols in the given expression"
 
+    def get_symbols(self) -> Set[str]:
+        """
+        Returns all symbols that occur in this distribution (a subset of `self.get_variables() |
+        self.get_parameters()`)
+        """
+        return self._find_symbols(str(self))
+
     @staticmethod
     @abstractmethod
     def evaluate(expression: str, state: State):
@@ -543,6 +550,18 @@ class Distribution(ABC):
             self, variable: str,
             probability_mass: str | float) -> Distribution:
         """Approximates the distribution in one variable via its series expansion"""
+
+    def approximate_until_finite(
+            self, probability_mass: str | float | int) -> Distribution:
+        """
+        Unilaterally approximates this distribution in only the variables that have an infite marginal
+        """
+
+        res = self
+        for var in self.get_variables():
+            if not res.marginal(var).is_finite():
+                res = res.approximate_unilaterally(var, probability_mass)
+        return res
 
     def get_state(self) -> Tuple[State, str]:
         """Returns a state of this distribution that has probability > 0, and its probability"""
