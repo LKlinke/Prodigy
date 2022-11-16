@@ -579,7 +579,7 @@ class CommonDistributionsFactory(ABC):
     @abstractmethod
     def geometric(var: Union[str, VarExpr],
                   p: DistributionParam) -> Distribution:
-        """ A geometric distribution with parameter `p`."""
+        """ A geometric distribution with success probability `p`, i.e., `p + p*(1-p)*x + p*(1-p)^2*x^2 + ...`."""
 
     @staticmethod
     @abstractmethod
