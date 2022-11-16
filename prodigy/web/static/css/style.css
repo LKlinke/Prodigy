@@ -19,14 +19,11 @@ h1 {
 }
 
 .prodigy-services {
-  position: absolute;
-  top: 30%;
+  display: flex;
 }
 
 .login-box {
-  position: relative;
   vertical-align: top;
-  left: 30%;
   width: 400px;
   padding: 40px;
   background: rgba(0, 0, 0, .5);
@@ -34,7 +31,8 @@ h1 {
   box-shadow: 0 15px 25px rgba(0, 0, 0, .6);
   border-radius: 10px;
   display: inline-block;
-  margin: 0 10px 0;
+  margin: 0 auto;
+  flex-shrink: 0;
 }
 
 .login-box h2 {
