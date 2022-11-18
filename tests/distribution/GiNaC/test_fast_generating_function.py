@@ -47,8 +47,7 @@ class TestDistributionInterface:
         assert produkt == FPS("x*y", "x", "y").set_parameters('p')
 
     def test_iteration(self):
-        # we need to filter here because the order in FPS iteration is chaotic
-        gf = FPS("(1-sqrt(1-x^2))/x").filter(parse_expr('x <= 7'))
+        gf = FPS("(1-sqrt(1-x^2))/x")
         expected_terms = [("1/2", {
             "x": 1
         }), ("1/8", State({"x": 3})), ("1/16", {

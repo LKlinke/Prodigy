@@ -141,8 +141,8 @@ class FPS(Distribution):
                 variable = list(self._variables)[0]
                 it = self._dist.coefficient_iterator(variable)
                 i = 0
-                while it.rest() != pygin.Dist("0"):
-                    yield it.next(), State({variable: i})
+                while True:
+                    yield str(it.next()), State({variable: i})
                     i += 1
             else:
                 # TODO this is just a placeholder until we have proper multivariate iteration
