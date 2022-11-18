@@ -32,10 +32,12 @@ def test_equivalence_check_ginac():
         } else {skip}
     """)
     assert isinstance(inv, Program)
-    res, subs = check_equivalence(prog, inv,
-                                    ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.GINAC))
+    res, subs = check_equivalence(
+        prog, inv,
+        ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.GINAC))
     assert res
     assert subs == []
+
 
 def test_equivalence_check_parameter_ginac():
     prog = compile_pgcl("""
@@ -65,11 +67,13 @@ def test_equivalence_check_parameter_ginac():
         } else {skip}
     """)
     assert isinstance(inv, Program)
-    res, subs = check_equivalence(prog, inv,
-                                    ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.GINAC))
+    res, subs = check_equivalence(
+        prog, inv,
+        ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.GINAC))
     assert res
     assert len(subs) == 1
     assert sympy.S(subs[0]['p']) == sympy.S('1/2')
+
 
 def test_equivalence_check_sympy():
     prog = compile_pgcl("""
@@ -97,10 +101,12 @@ def test_equivalence_check_sympy():
         } else {skip}
     """)
     assert isinstance(inv, Program)
-    res, subs = check_equivalence(prog, inv,
-                                    ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.SYMPY))
+    res, subs = check_equivalence(
+        prog, inv,
+        ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.SYMPY))
     assert res
     assert subs == []
+
 
 def test_equivalence_check_parameter_sympy():
     prog = compile_pgcl("""
@@ -130,8 +136,9 @@ def test_equivalence_check_parameter_sympy():
         } else {skip}
     """)
     assert isinstance(inv, Program)
-    res, subs = check_equivalence(prog, inv,
-                                    ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.SYMPY))
+    res, subs = check_equivalence(
+        prog, inv,
+        ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.SYMPY))
     assert res
     assert len(subs) == 1
     assert sympy.S(subs[0]['p']) == sympy.S('1/2')

@@ -131,8 +131,33 @@ def check_equivalence(
         diff = modified_inv_result - inv_result
         params = program.parameters.keys() | invariant.parameters.keys()
 
-        if len(params & diff.get_symbols()) > 0:
-            # If there are no parameters then we know they cannot be unified
+        def find_counterexample() -> State:
+            """
+            Under the assumption that the invariant and the program are not equivalent,
+            finds an input state where they produce different results.
+            """
+
+            cond_doesnt_hold = test_dist - test_dist.filter(
+                program.instructions[0].cond)
+            result = compute_discrete_distribution(invariant, cond_doesnt_hold,
+                                                   config)
+            if result != cond_doesnt_hold:
+                count_ex, _ = (result - cond_doesnt_hold).set_variables(
+                    *new_vars.keys()).get_state()
+            else:
+                count_ex, _ = diff.set_variables(*new_vars.keys()).get_state()
+
+            res = {}
+            for var in count_ex:
+                res[new_vars[var]] = count_ex[var]
+            logger.debug("Found counterexample: %s", res)
+            return State(res)
+
+        if len(params & diff.get_symbols()) == 0:
+            # There are no parameters, so the results can't be unified
+            return False, find_counterexample()
+        else:
+            # First we let sympy try to find a solution
             solution = sympy.solve(sympy.S(str(diff)), *params, dict=True)
             unify = []
             for sol in solution:
@@ -195,18 +220,9 @@ def check_equivalence(
                             state.valuations)
                         if config.show_intermediate_steps:
                             print()
-                        return False, state
+                        return False, find_counterexample()
 
             if config.show_intermediate_steps:
                 print()
             # We couldn't prove that the results can be unified, but we also failed to find a counterexample
             return None, diff
-
-        else:
-            # There are no parameters, so the results can't be unified
-            count_ex, _ = diff.set_variables(*new_vars.keys()).get_state()
-            res = {}
-            for var in count_ex:
-                res[new_vars[var]] = count_ex[var]
-            logger.debug("Found counterexample: %s", res)
-            return False, State(res)
