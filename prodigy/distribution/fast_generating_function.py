@@ -145,9 +145,38 @@ class FPS(Distribution):
                     yield it.next(), State({variable: i})
                     i += 1
             else:
-                raise NotImplementedError(
-                    "Currently only one-dimensional iteration is supported on infinite FPS"
-                )
+                # TODO this is just a placeholder until we have proper multivariate iteration
+                variables = list(self.get_variables())
+                def n_tuples(n):
+                    """Generates all `n`-tuples of the natural numbers"""
+                    if n < 1:
+                        raise ValueError("n is too small")
+                    if n == 1:
+                        num = 0
+                        while True:
+                            yield [num]
+                            num += 1
+                    else:
+                        index = 0
+                        gen = n_tuples(n - 1)
+                        vals = []
+                        while True:
+                            # This is absolutely unreadable, so just another reason to delete this asap
+                            while len(vals) < index + 1:
+                                # pylint: disable=stop-iteration-return
+                                vals.append(next(gen))
+                                # pylint: enable=stop-iteration-return
+                            for i in range(index, -1, -1):
+                                yield [i] + vals[index - i]
+                            index += 1
+
+                for vals in n_tuples(len(variables)):
+                    s = f'{variables[0]}={vals[0]}'
+                    for i in range(1, len(variables)):
+                        s += f' & {variables[i]}={vals[i]}'
+                    mass = str(self.get_probability_of(s))
+                    if mass != '0':
+                        yield mass, State(dict(zip(variables, vals)))
         else:
             terms = self._dist.get_terms(self._variables)
             for prob, vals in terms:
@@ -414,46 +443,6 @@ class FPS(Distribution):
             self._dist.approximate_unilaterally(variable,
                                                 str(probability_mass)),
             self._variables, self._parameters)
-
-    def get_state(self) -> Tuple[State, str]:
-        # TODO this implementation sucks and should be changed to the default implementation
-        # once we support iteration in multiple variables on infinite FPS
-        variables = list(self.get_variables())
-        if len(variables) == 0:
-            return State(), str(self.get_probability_mass())
-
-        def n_tuples(n):
-            """Generates all `n`-tuples of the natural numbers"""
-            if n < 1:
-                raise ValueError("n is too small")
-            if n == 1:
-                num = 0
-                while True:
-                    yield [num]
-                    num += 1
-            else:
-                index = 0
-                gen = n_tuples(n - 1)
-                vals = []
-                while True:
-                    while len(vals) < index + 1:
-                        # pylint: disable=stop-iteration-return
-                        vals.append(next(gen))
-                        # pylint: enable=stop-iteration-return
-                    for i in range(index, -1, -1):
-                        yield [i] + vals[index - i]
-                    index += 1
-
-        for vals in n_tuples(len(variables)):
-            s = f'{variables[0]}={vals[0]}'
-            for i in range(1, len(variables)):
-                s += f' & {variables[i]}={vals[i]}'
-            mass = str(self.get_probability_of(s))
-            if mass != '0':
-                return State(dict(zip(variables, vals))), mass
-
-        raise Exception("unreachable")
-
 
 class ProdigyPGF(CommonDistributionsFactory):
     @staticmethod
