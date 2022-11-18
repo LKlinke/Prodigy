@@ -1,0 +1,7 @@
+nat n;
+nat c;
+rparam q;
+
+while(n > 0){
+    {n := n - 1 } [1/3*q] {c := c + 1}
+}
