@@ -127,6 +127,7 @@ def check_equivalence(
         empty: List[Dict[str, str]] = []  # Necessary to satisfy mypy
         return True, empty
     else:
+        # The results are different, so we check if it's possible to unify them
         logger.debug("Invariant could not be validated.")
         diff = modified_inv_result - inv_result
         params = program.parameters.keys() | invariant.parameters.keys()
@@ -142,9 +143,13 @@ def check_equivalence(
             result = compute_discrete_distribution(invariant, cond_doesnt_hold,
                                                    config)
             if result != cond_doesnt_hold:
+                # If the invariant does anything on states where the loop
+                # condition doesn't hold, we have a counterexample
                 count_ex, _ = (result - cond_doesnt_hold).set_variables(
                     *new_vars.keys()).get_state()
             else:
+                # On states where the loop condition holds, every counterexample for
+                # Phi(I) = I is also a counterexample for the program and the invariant
                 count_ex, _ = diff.set_variables(*new_vars.keys()).get_state()
 
             res = {}
@@ -157,7 +162,8 @@ def check_equivalence(
             # There are no parameters, so the results can't be unified
             return False, find_counterexample()
         else:
-            # First we let sympy try to find a solution
+            # First we let sympy try to find a solution. We are only interested
+            # in solutions that depend on nothing but parameters
             solution = sympy.solve(sympy.S(str(diff)), *params, dict=True)
             unify = []
             for sol in solution:
@@ -173,7 +179,7 @@ def check_equivalence(
                 return True, [{str(var): str(val)
                                for var, val in x.items()} for x in unify]
 
-            # If we don't find a solution, try to prove that there is none by comparing coefficients
+            # If we don't find a solution, we try to prove that there is none by comparing coefficients
             logger.debug(
                 "Could not find a solution, trying to prove that there is none"
             )
@@ -203,6 +209,7 @@ def check_equivalence(
                 syms = {str(s) for s in mass_diff.free_symbols} & params
                 if len(syms) > 0:
                     sol = []
+                    # We are again only interested in solutions that depend wholly on parameters
                     for el in sympy.solve(mass_diff, *syms, dict=True):
                         for var, val in el.items():
                             if not {str(s)
@@ -215,11 +222,13 @@ def check_equivalence(
                         print(f'\rCompared {count} coefficients', end='')
                     if len(sol) == 0:
                         # If there are coefficients that cannot be unified, we found a counterexample
+                        # Here we assume that sympy would have found a solution if there were one
                         logger.debug(
                             "Found coefficients that cannot be unified: %s",
                             state.valuations)
                         if config.show_intermediate_steps:
                             print()
+                        # TODO it's probably more efficient not to call find_counterexample here, as we already have a state that is a potential counterexample
                         return False, find_counterexample()
 
             if config.show_intermediate_steps:
