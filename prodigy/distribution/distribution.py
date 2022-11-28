@@ -145,13 +145,15 @@ class Distribution(ABC):
     def filter_state(self, state: State) -> Distribution:
         """ Filters the distribution such that only the specified state is left """
 
-        cond = BoolLitExpr(value=True)
-        for var, val in state.items():
-            cond = BinopExpr(
-                Binop.AND, cond,
-                BinopExpr(Binop.EQ, VarExpr(var=var), NatLitExpr(value=val)))
+        if not state.valuations.keys() <= self.get_variables():
+            raise ValueError("Unknown variable in state")
 
-        return self.filter(cond)
+        res = self
+        for var, val in state.items():
+            res = res._filter_constant_condition(
+                BinopExpr(Binop.EQ, lhs=VarExpr(var), rhs=NatLitExpr(val)))
+
+        return res
 
     def filter(self, condition: Expr) -> Distribution:
         """ Filters the distribution such that only the parts which satisfy the `condition` are left."""
