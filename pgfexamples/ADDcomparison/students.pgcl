@@ -1,6 +1,6 @@
 // 4 students, 2 teachers, 2 courses
 // ADD needs 0.11s for 10 courses, 10 students, 4 teachers
-// we need ~1.4s with ginac in this simplified example already
+// we need ~1.4s with GiNaC in this simplified example already
 
 // student likes teacher
 nat likes_11

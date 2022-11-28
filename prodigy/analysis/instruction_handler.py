@@ -3,7 +3,7 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from fractions import Fraction
-from typing import Dict, List, Sequence, Union, get_args
+from typing import Sequence, Union, get_args
 
 from probably.pgcl import (AsgnInstr, BernoulliExpr, BinomialExpr, Binop,
                            BinopExpr, CategoricalExpr, ChoiceInstr, DistrExpr,
@@ -470,7 +470,7 @@ class WhileHandler(InstructionHandler):
                 return SequenceHandler.compute(inv_prog.instructions,
                                                distribution, error_prob,
                                                config)
-            elif answer == False:
+            elif answer is False:
                 assert isinstance(result, State)
                 print(
                     f'{Style.OKRED}Invariant could not be verified.{Style.RESET} Counterexample: {result.valuations}'

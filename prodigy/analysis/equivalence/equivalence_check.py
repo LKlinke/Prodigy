@@ -4,8 +4,7 @@ import logging
 from typing import Dict, List, Literal, Tuple
 
 import sympy
-from probably.pgcl import (Binop, BinopExpr, BoolLitExpr, IfInstr, NatLitExpr,
-                           Program, SkipInstr, VarExpr, WhileInstr)
+from probably.pgcl import IfInstr, Program, SkipInstr, VarExpr, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instruction_handler import compute_discrete_distribution
@@ -20,7 +19,7 @@ def phi(program: Program, invariant: Program) -> Program:
     """
         The characteristic loop functional. It unrolls a loop exactly once.
 
-        .. returns: A new program object equivaelnt to one loop unrolling of :param: program.
+        .. returns: A new program object equivalent to one loop unrolling of :param: program.
     """
     assert isinstance(
         program.instructions[0],
@@ -116,12 +115,38 @@ def check_equivalence(
         )
     inv_result = compute_discrete_distribution(invariant, test_dist, config)
     logger.debug("invariant result:\t%s", inv_result)
+
     # Compare them and check whether they are equal.
+    return _compute_result(program, invariant, config, test_dist, new_vars,
+                           inv_result, modified_inv_result)
+
+
+def _compute_result(
+    program: Program,
+    invariant: Program,
+    config: ForwardAnalysisConfig,
+    test_dist: Distribution | None = None,
+    new_vars: Dict[str, str] | None = None,
+    inv_result: Distribution | None = None,
+    modified_inv_result: Distribution | None = None
+) -> Tuple[Literal[True], List[Dict[str, str]]] | Tuple[
+        Literal[False], State] | Tuple[None, Distribution]:
+    if test_dist is None or new_vars is None:
+        test_dist, new_vars = generate_equivalence_test_distribution(
+            program, config)
+    if inv_result is None:
+        inv_result = compute_discrete_distribution(invariant, test_dist,
+                                                   config)
+    if modified_inv_result is None:
+        modified_inv_result = compute_discrete_distribution(
+            phi(program, invariant), test_dist, config)
+
     logger.debug("Compare results")
     if config.show_intermediate_steps:
         print(
             f"\n{Style.YELLOW} Compare the results. {Style.RESET} \n {modified_inv_result}\n==\n{inv_result}"
         )
+
     if modified_inv_result == inv_result:
         logger.debug("Invariant validated.")
         empty: List[Dict[str, str]] = []  # Necessary to satisfy mypy
@@ -129,38 +154,18 @@ def check_equivalence(
     else:
         # The results are different, so we check if it's possible to unify them
         logger.debug("Invariant could not be validated.")
-        diff = modified_inv_result - inv_result
+        diff = (modified_inv_result -
+                inv_result).set_variables(*new_vars.keys())
         params = program.parameters.keys() | invariant.parameters.keys()
 
-        def find_counterexample() -> State:
-            """
-            Under the assumption that the invariant and the program are not equivalent,
-            finds an input state where they produce different results.
-            """
-
-            cond_doesnt_hold = test_dist - test_dist.filter(
-                program.instructions[0].cond)
-            result = compute_discrete_distribution(invariant, cond_doesnt_hold,
-                                                   config)
-            if result != cond_doesnt_hold:
-                # If the invariant does anything on states where the loop
-                # condition doesn't hold, we have a counterexample
-                count_ex, _ = (result - cond_doesnt_hold).set_variables(
-                    *new_vars.keys()).get_state()
-            else:
-                # On states where the loop condition holds, every counterexample for
-                # Phi(I) = I is also a counterexample for the program and the invariant
-                count_ex, _ = diff.set_variables(*new_vars.keys()).get_state()
-
+        if len(params & diff.get_symbols()) == 0:
+            # There are no parameters, so the results can't be unified
+            count_ex, _ = diff.get_state()
             res = {}
             for var in count_ex:
                 res[new_vars[var]] = count_ex[var]
             logger.debug("Found counterexample: %s", res)
-            return State(res)
-
-        if len(params & diff.get_symbols()) == 0:
-            # There are no parameters, so the results can't be unified
-            return False, find_counterexample()
+            return False, State(res)
         else:
             # First we let sympy try to find a solution. We are only interested
             # in solutions that depend on nothing but parameters
@@ -191,21 +196,23 @@ def check_equivalence(
             modified_inv_result_params = modified_inv_result.set_variables(
                 *new_vars.keys())
             count = 0
-            # TODO add a break after some number of loop iterations (else we may not terminate)
-            for _, state in inv_result_params:
-                cond = BoolLitExpr(True)
-                for var, val in state.items():
-                    cond = BinopExpr(lhs=BinopExpr(lhs=VarExpr(var),
-                                                   operator=Binop.EQ,
-                                                   rhs=NatLitExpr(val)),
-                                     operator=Binop.AND,
-                                     rhs=cond)
+            finite = diff.is_finite()
+            threshold = 1000  # TODO find a good value for the threshold
+            # There needs to be at least one solution that can be used to make ALL coefficients equal to 0
+            # It doesn't suffice if each coefficient can be made equal to 0 but with different parameter assignments
+            all_solutions = None
+            for _, state in diff:
+                count += 1
+                if not finite and count > threshold:
+                    break
+
                 mass_diff = sympy.S(
                     str(
-                        modified_inv_result_params.filter(
-                            cond).get_probability_mass())
-                ) - sympy.S(
-                    str(inv_result_params.filter(cond).get_probability_mass()))
+                        modified_inv_result_params.filter_state(
+                            state).get_probability_mass())) - sympy.S(
+                                str(
+                                    inv_result_params.filter_state(
+                                        state).get_probability_mass()))
                 syms = {str(s) for s in mass_diff.free_symbols} & params
                 if len(syms) > 0:
                     sol = []
@@ -218,9 +225,17 @@ def check_equivalence(
                         else:
                             sol.append(el)
                     if config.show_intermediate_steps:
-                        count += 1
                         print(f'\rCompared {count} coefficients', end='')
-                    if len(sol) == 0:
+
+                    # We are only interested in solutions that can also be used for all other coefficients
+                    if all_solutions is None:
+                        all_solutions = sol
+                    else:
+                        for s in all_solutions.copy():
+                            if s not in sol:
+                                all_solutions.remove(s)
+
+                    if len(all_solutions) == 0:
                         # If there are coefficients that cannot be unified, we found a counterexample
                         # Here we assume that sympy would have found a solution if there were one
                         logger.debug(
@@ -228,8 +243,7 @@ def check_equivalence(
                             state.valuations)
                         if config.show_intermediate_steps:
                             print()
-                        # TODO it's probably more efficient not to call find_counterexample here, as we already have a state that is a potential counterexample
-                        return False, find_counterexample()
+                        return False, state
 
             if config.show_intermediate_steps:
                 print()

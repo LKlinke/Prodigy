@@ -49,8 +49,8 @@ class GeneratingFunction(Distribution):
                  function: Union[str, sympy.Expr],
                  *variables: Union[str, sympy.Symbol],
                  preciseness: float = 1.0,
-                 closed: bool = None,
-                 finite: bool = None):
+                 closed: bool | None = None,
+                 finite: bool | None = None):
 
         # Set the basic information.
         self._function: sympy.Expr = sympy.S(

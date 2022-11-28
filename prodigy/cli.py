@@ -117,7 +117,7 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
     equiv, result = analysis.equivalence.check_equivalence(
         prog, inv, ctx.obj['CONFIG'])
     stop = time.perf_counter()
-    if equiv == True:
+    if equiv is True:
         assert isinstance(result, list)
         print(
             f"Program{Style.OKGREEN} is equivalent{Style.RESET} to inavariant",
@@ -128,7 +128,7 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
             print(
                 f" {Style.OKGREEN}under the following constraints:{Style.RESET} {result}."
             )
-    elif equiv == False:
+    elif equiv is False:
         assert isinstance(result, State)
         print(
             f"Program{Style.OKRED} is not equivalent{Style.RESET} to invariant. {Style.OKRED}Counterexample:{Style.RESET} {result.valuations}"

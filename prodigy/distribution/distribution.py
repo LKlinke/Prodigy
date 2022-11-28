@@ -142,6 +142,17 @@ class Distribution(ABC):
     def get_parameters(self) -> Set[str]:
         """ Returns the parameters of the distribution. """
 
+    def filter_state(self, state: State) -> Distribution:
+        """ Filters the distribution such that only the specified state is left """
+
+        cond = BoolLitExpr(value=True)
+        for var, val in state.items():
+            cond = BinopExpr(
+                Binop.AND, cond,
+                BinopExpr(Binop.EQ, VarExpr(var=var), NatLitExpr(value=val)))
+
+        return self.filter(cond)
+
     def filter(self, condition: Expr) -> Distribution:
         """ Filters the distribution such that only the parts which satisfy the `condition` are left."""
         # Boolean literals

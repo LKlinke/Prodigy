@@ -22,7 +22,7 @@ class FPS(Distribution):
     def __init__(self,
                  expression: str,
                  *variables: str | VarExpr,
-                 finite: bool = None):
+                 finite: bool | None = None):
         self._variables = set(str(var) for var in variables if str(var) != "")
         self._parameters = set()
 
@@ -147,6 +147,7 @@ class FPS(Distribution):
             else:
                 # TODO this is just a placeholder until we have proper multivariate iteration
                 variables = list(self.get_variables())
+
                 def n_tuples(n):
                     """Generates all `n`-tuples of the natural numbers"""
                     if n < 1:
@@ -443,6 +444,7 @@ class FPS(Distribution):
             self._dist.approximate_unilaterally(variable,
                                                 str(probability_mass)),
             self._variables, self._parameters)
+
 
 class ProdigyPGF(CommonDistributionsFactory):
     @staticmethod
