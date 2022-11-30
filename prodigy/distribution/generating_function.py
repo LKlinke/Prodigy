@@ -1210,12 +1210,12 @@ class GeneratingFunction(Distribution):
             "Creating marginal for variables %s and joint probability distribution %s",
             variables, self)
 
-        if len(variables) == 0 or not {
-                sympy.Symbol(str(x))
-                for x in variables
-        }.issubset(self._variables):
+        if len(variables) == 0:
+            raise ValueError("No variables where provided")
+        elif not {sympy.Symbol(str(x))
+                  for x in variables}.issubset(self._variables):
             raise ValueError(
-                f"Cannot compute marginal for variables {variables} and joint probability distribution {self}"
+                f"Cannot compute marginal for variables {variables} and joint probability distribution {self} because some of the variables are unknown"
             )
 
         marginal = self.copy()

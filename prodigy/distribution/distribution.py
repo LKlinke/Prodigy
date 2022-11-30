@@ -14,6 +14,7 @@ from sympy import sympify
 
 from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
                                       check_is_modulus_condition, has_variable)
+from prodigy.pgcl.pgcl_operations import state_to_equality_expression
 
 
 class MarginalType(Enum):
@@ -253,6 +254,7 @@ class Distribution(ABC):
                 raise NotImplementedError(
                     f"Instruction {condition} is not computable on infinite generating function"
                     f" {self}")
+        assert isinstance(marginal, Distribution)
 
         # Now we know that `expr` can be instantiated with finitely many states.
         # We generate these explicit state.
@@ -266,7 +268,7 @@ class Distribution(ABC):
 
             # create the equalities for each variable, value pair in a given state
             # i.e., {x:1, y:0, c:3} -> [x=1, y=0, c=3]
-            encoded_state = self._state_to_equality_expression(state)
+            encoded_state = state_to_equality_expression(state.valuations)
 
             # Create the equality which assigns the original side the anticipated value.
             other_side_expr = BinopExpr(condition.operator, condition.lhs,
@@ -290,16 +292,6 @@ class Distribution(ABC):
         """
         Creates a list of subdistributions where at list index i, the `variable` is congruent i modulo `modulus`.
         """
-
-    @staticmethod
-    def _state_to_equality_expression(state: State) -> BinopExpr:
-        equalities: List[Expr] = []
-        for var, val in state.items():
-            equalities.append(
-                BinopExpr(Binop.EQ, lhs=VarExpr(var), rhs=NatLitExpr(val)))
-        return functools.reduce(
-            lambda expr1, expr2: BinopExpr(Binop.AND, expr1, expr2),
-            equalities, BoolLitExpr(value=True))
 
     @staticmethod
     @abstractmethod
