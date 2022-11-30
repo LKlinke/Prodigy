@@ -214,6 +214,10 @@ def _compute_result(
                                     inv_result_params.filter_state(
                                         state).get_probability_mass()))
                 syms = {str(s) for s in mass_diff.free_symbols} & params
+
+                if config.show_intermediate_steps:
+                    print(f'\rCompared {count} coefficients', end='')
+
                 if len(syms) > 0:
                     sol = []
                     # We are again only interested in solutions that depend wholly on parameters
@@ -224,8 +228,6 @@ def _compute_result(
                                 break
                         else:
                             sol.append(el)
-                    if config.show_intermediate_steps:
-                        print(f'\rCompared {count} coefficients', end='')
 
                     # We are only interested in solutions that can also be used for all other coefficients
                     if all_solutions is None:
@@ -244,6 +246,9 @@ def _compute_result(
                         if config.show_intermediate_steps:
                             print()
                         return False, state
+                elif mass_diff != 0:
+                    # If there are no symbols and the difference of the coefficients isn't 0, the results aren't unifiable
+                    return False, state
 
             if config.show_intermediate_steps:
                 print()
