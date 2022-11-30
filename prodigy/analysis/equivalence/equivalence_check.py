@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Literal, Tuple
+from typing import Any, Dict, List, Literal, Set, Tuple
 
 import sympy
 from probably.pgcl import IfInstr, Program, SkipInstr, VarExpr, WhileInstr
@@ -169,14 +169,7 @@ def _compute_result(
         else:
             # First we let sympy try to find a solution. We are only interested
             # in solutions that depend on nothing but parameters
-            solution = sympy.solve(sympy.S(str(diff)), *params, dict=True)
-            unify = []
-            for sol in solution:
-                for _, val in sol.items():
-                    if not {str(s) for s in val.free_symbols} <= params:
-                        break
-                else:
-                    unify.append(sol)
+            unify = _solve(sympy.S(str(diff)), params)
             if len(unify) > 0:
                 logger.debug(
                     "Found constraints under which the invariant can be validated: %s",
@@ -219,15 +212,8 @@ def _compute_result(
                     print(f'\rCompared {count} coefficients', end='')
 
                 if len(syms) > 0:
-                    sol = []
                     # We are again only interested in solutions that depend wholly on parameters
-                    for el in sympy.solve(mass_diff, *syms, dict=True):
-                        for var, val in el.items():
-                            if not {str(s)
-                                    for s in val.free_symbols} <= params:
-                                break
-                        else:
-                            sol.append(el)
+                    sol = _solve(mass_diff, syms)
 
                     # We are only interested in solutions that can also be used for all other coefficients
                     if all_solutions is None:
@@ -248,9 +234,29 @@ def _compute_result(
                         return False, state
                 elif mass_diff != 0:
                     # If there are no symbols and the difference of the coefficients isn't 0, the results aren't unifiable
+                    if config.show_intermediate_steps:
+                        print()
                     return False, state
 
             if config.show_intermediate_steps:
                 print()
             # We couldn't prove that the results can be unified, but we also failed to find a counterexample
             return None, diff
+
+
+def _solve(expr: Any, params: Set[str]) -> List[Dict[Any, Any]]:
+    """
+    Solves a sympy expression for 0 and filters out any solutions that contain
+    a symbol that is not in the provided parameters
+    """
+
+    assert len(params) > 0
+    sol = []
+    for el in sympy.solve(expr, *params, dict=True):
+        for _, val in el.items():
+            if not {str(s) for s in val.free_symbols} <= params:
+                break
+        else:
+            sol.append(el)
+
+    return sol

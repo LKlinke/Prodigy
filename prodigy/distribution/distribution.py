@@ -151,8 +151,11 @@ class Distribution(ABC):
 
         res = self
         for var, val in state.items():
+            #pylint: disable=protected-access
+            # this accesses the same type which is fine
             res = res._filter_constant_condition(
                 BinopExpr(Binop.EQ, lhs=VarExpr(var), rhs=NatLitExpr(val)))
+            #pylint: enable=protected-access
 
         return res
 

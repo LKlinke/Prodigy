@@ -21,4 +21,4 @@ max-line-length=120
 extension-pkg-allow-list=pygin
 
 [MISCELLANEOUS]
-notes=FIXME,XXX,TODO
+notes=FIXME,XXX,TODO,BUG
