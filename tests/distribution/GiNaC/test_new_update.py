@@ -96,22 +96,22 @@ def test_subtraction():
     assert gf.update(parse_expr("m = m - 8")) == FPS("n^5*m^34*l^8")
     assert gf.update(parse_expr("l = l - n")) == FPS("n^5*m^42*l^3")
     assert gf.update(parse_expr("m = l - n")) == FPS("n^5*m^3*l^8")
-    with raises(ValueError, match="because it can be negative"):
+    with raises(ValueError, match="can be negative"):
         gf.update(parse_expr("m = n - l"))
 
     gf = FPS('p*x', 'x')
-    with raises(ValueError, match="because it can be negative"):
+    with raises(ValueError, match="can be negative"):
         gf.update(parse_expr("x = x - 2"))
-    with raises(ValueError, match="because it can be negative"):
+    with raises(ValueError, match="can be negative"):
         gf.update(parse_expr("x = x - 20"))
     assert gf.update(parse_expr("x = x - 1")) == FPS('p', 'x')
 
     gf = FPS('(1/p)*x', 'x')
-    with raises(ValueError, match="because it can be negative"):
+    with raises(ValueError, match="can be negative"):
         gf.update(parse_expr("x = x - 2"))
 
     gf = ProdigyPGF.poisson('x', 3)
-    with raises(ValueError, match="because it can be negative"):
+    with raises(ValueError, match="can be negative"):
         gf.update(parse_expr("x = x - 2"))
 
     gf = FPS('0.4*tmp^5*c^13*n^4 + 0.6*tmp^7*c^28*n^77')
@@ -121,6 +121,10 @@ def test_subtraction():
     gf = FPS("(-1+p1*c)^(-1)*p0*(-1+p0*n)^(-1)*n")
     assert gf.update(
         parse_expr('n = n-1')) == FPS("(-1+p1*c)^(-1)*p0*(-1+p0*n)^(-1)")
+
+    gf = ProdigyPGF.geometric('x', '1/2') * FPS("y^5")
+    with raises(ValueError, match="can be negative"):
+        gf.update(parse_expr("x = x - y"))
 
 
 def test_fresh_variables():

@@ -328,19 +328,21 @@ class FPS(Distribution):
                             sub: str | int) -> Distribution:
         res = self._dist.update_subtraction(temp_var, str(sub_from), str(sub))
 
-        # TODO this should be implemented in GiNaC, which might not be possible
-        test = sympify(str(res))
-        if self.is_finite():
-            for var in self._variables - {temp_var}:
-                test = test.subs(sympify(var), 1)
-        else:
-            for var in self._variables - {temp_var}:
-                test = test.limit(sympify(var), 1)
-        test = test.subs(sympify(temp_var), 0)
-        if test.has(sympify("zoo")) or test == nan:
-            raise ValueError(
-                f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it can be negative"
-            )
+        vars = self.get_variables()
+        if sub_from in vars and sub in vars and not self.is_finite():
+            # TODO this should be implemented in GiNaC, which might not be possible
+            test = sympify(str(res))
+            if self.is_finite():
+                for var in self._variables - {temp_var}:
+                    test = test.subs(sympify(var), 1)
+            else:
+                for var in self._variables - {temp_var}:
+                    test = test.limit(sympify(var), 1)
+            test = test.subs(sympify(temp_var), 0)
+            if test.has(sympify("zoo")) or test == nan:
+                raise ValueError(
+                    f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it can be negative"
+                )
 
         return FPS.from_dist(res, self._variables, self._parameters)
 
