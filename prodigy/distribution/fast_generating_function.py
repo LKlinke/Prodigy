@@ -7,6 +7,7 @@ import pygin  # type: ignore
 from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, DistrExpr,
                            DUniformExpr, Expr, GeometricExpr, IidSampleExpr,
                            PoissonExpr, VarExpr)
+from sympy import nan, sympify
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
@@ -325,9 +326,23 @@ class FPS(Distribution):
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> Distribution:
-        return FPS.from_dist(
-            self._dist.update_subtraction(temp_var, str(sub_from), str(sub)),
-            self._variables, self._parameters)
+        res = self._dist.update_subtraction(temp_var, str(sub_from), str(sub))
+
+        # TODO this should be implemented in GiNaC, which might not be possible
+        test = sympify(str(res))
+        if self.is_finite():
+            for var in self._variables - {temp_var}:
+                test = test.subs(sympify(var), 1)
+        else:
+            for var in self._variables - {temp_var}:
+                test = test.limit(sympify(var), 1)
+        test = test.subs(sympify(temp_var), 0)
+        if test.has(sympify("zoo")) or test == nan:
+            raise ValueError(
+                f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it can be negative"
+            )
+
+        return FPS.from_dist(res, self._variables, self._parameters)
 
     def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
                        approximate: str | float | None) -> FPS:
