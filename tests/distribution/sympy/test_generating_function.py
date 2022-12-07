@@ -261,11 +261,11 @@ class TestDistributionInterface:
         gf = GeneratingFunction("(1-sqrt(1-c**2))/c")
         with pytest.raises(ValueError) as e:
             gf.marginal('x', method=MarginalType.INCLUDE)
-        assert "Cannot compute marginal for" in str(e)
+        assert "Unknown variable(s): {x}" in str(e)
 
         with pytest.raises(ValueError) as e:
             gf.marginal('x', method=MarginalType.EXCLUDE)
-        assert "Cannot compute marginal for" in str(e)
+        assert "Unknown variable(s): {x}" in str(e)
 
     def test_set_variables(self):
         gf = create_random_gf(3, 5)

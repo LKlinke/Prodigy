@@ -398,7 +398,8 @@ class ITEHandler(InstructionHandler):
         zero = error_prob * "0"
         if config.show_intermediate_steps:
             print(
-                f"\n{Style.YELLOW}Filter:{Style.RESET} {instruction.cond} \t {Style.GREEN}Result:{Style.RESET} {sat_part}"
+                f"\n{Style.YELLOW}Filter:{Style.RESET} {instruction.cond} \t "\
+                    f"{Style.GREEN}Result:{Style.RESET} {sat_part}"
             )
             print(
                 f"\n{Style.YELLOW} If-branch: ({instruction.cond}){Style.RESET}"

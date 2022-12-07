@@ -348,13 +348,13 @@ class Distribution(ABC):
                approximate: str | float | None = None) -> Distribution:
         """ Updates the current distribution by applying the expression to itself.
 
-            Some operations are illegal and will cause this function to raise an error. These operations include subtraction
-            that may cause a variable to have a negative value, division that may cause a variable to have a value that is
-            not an integer, and certain operations on infinite generating functions if the variables involved have an infinite
-            marginal (such as multiplication of two variables) and approximation is disabled.
+            Some operations are illegal and will cause this function to raise an error. These operations include
+            subtraction that may cause a variable to have a negative value, division that may cause a variable to have a
+            value that is not an integer, and certain operations on infinite generating functions if the variables
+            involved have an infinite marginal (such as multiplication of two variables) and approximation is disabled.
 
-            The `approximate` parameter is used to determine up to which precision unilateral approximation should be performed
-            if an update is not possible on infinite distributions.
+            The `approximate` parameter is used to determine up to which precision unilateral approximation should be
+            performed if an update is not possible on infinite distributions.
 
             Parameters are not allowed in an update expression.
         """

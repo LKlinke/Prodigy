@@ -38,7 +38,8 @@ def cli(ctx, engine: str, intermediate_results: bool, no_simplification: bool,
     ctx.ensure_object(dict)
     ctx.obj['CONFIG'] = \
         analysis.ForwardAnalysisConfig(
-            engine=analysis.ForwardAnalysisConfig.Engine.GINAC if engine == 'ginac' else analysis.ForwardAnalysisConfig.Engine.SYMPY,
+            engine=analysis.ForwardAnalysisConfig.Engine.GINAC if engine == 'ginac'
+                else analysis.ForwardAnalysisConfig.Engine.SYMPY,
             show_intermediate_steps=intermediate_results,
             use_simplification=not no_simplification,
             use_latex=use_latex
@@ -131,7 +132,8 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
     elif equiv is False:
         assert isinstance(result, State)
         print(
-            f"Program{Style.OKRED} is not equivalent{Style.RESET} to invariant. {Style.OKRED}Counterexample:{Style.RESET} {result.valuations}"
+            f"Program{Style.OKRED} is not equivalent{Style.RESET} to invariant. "\
+                f"{Style.OKRED}Counterexample:{Style.RESET} {result.valuations}"
         )
     else:  # equiv == None
         print(

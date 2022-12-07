@@ -103,11 +103,15 @@ class Plotter:
                 terms += 1
             axis = plt.subplot()
             my_cmap = plt.cm.get_cmap("Blues")
-            colors = my_cmap([x / max(data) for x in data])
             scalar_mappable = ScalarMappable(cmap=my_cmap,
                                              norm=plt.Normalize(0, max(data)))
             scalar_mappable.set_array([])
-            axis.bar(ind, data, 1, linewidth=.5, ec=(0, 0, 0), color=colors)
+            axis.bar(ind,
+                     data,
+                     1,
+                     linewidth=.5,
+                     ec=(0, 0, 0),
+                     color=my_cmap([x / max(data) for x in data]))
             axis.set_xlabel(f"{var}")
             axis.set_xticks(ind)
             axis.set_ylabel(f'Probability p({var})')

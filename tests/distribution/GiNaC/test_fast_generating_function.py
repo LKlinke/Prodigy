@@ -212,6 +212,10 @@ class TestDistributionInterface:
                                                                      n='10',
                                                                      p='1/2')
 
+        gf = ProdigyPGF.geometric('x', '1/3') * ProdigyPGF.geometric(
+            'y', '4/5')
+        assert gf.marginal('x') == ProdigyPGF.geometric('x', '1/3')
+
     def test_set_variables(self):
         gf = create_random_gf(3, 5)
         gf = gf.set_variables("a", "b", "c")

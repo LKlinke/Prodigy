@@ -117,29 +117,17 @@ def check_equivalence(
     logger.debug("invariant result:\t%s", inv_result)
 
     # Compare them and check whether they are equal.
-    return _compute_result(program, invariant, config, test_dist, new_vars,
-                           inv_result, modified_inv_result)
+    return _compute_result(
+        inv_result, modified_inv_result, config, new_vars,
+        program.parameters.keys() | invariant.parameters.keys())
 
 
 def _compute_result(
-    program: Program,
-    invariant: Program,
-    config: ForwardAnalysisConfig,
-    test_dist: Distribution | None = None,
-    new_vars: Dict[str, str] | None = None,
-    inv_result: Distribution | None = None,
-    modified_inv_result: Distribution | None = None
+    inv_result: Distribution, modified_inv_result: Distribution,
+    config: ForwardAnalysisConfig, new_vars: Dict[str, str], params: Set[str]
 ) -> Tuple[Literal[True], List[Dict[str, str]]] | Tuple[
         Literal[False], State] | Tuple[None, Distribution]:
-    if test_dist is None or new_vars is None:
-        test_dist, new_vars = generate_equivalence_test_distribution(
-            program, config)
-    if inv_result is None:
-        inv_result = compute_discrete_distribution(invariant, test_dist,
-                                                   config)
-    if modified_inv_result is None:
-        modified_inv_result = compute_discrete_distribution(
-            phi(program, invariant), test_dist, config)
+    """Evaluates whether the invariant result and the modified invariant result are equal / unifiable"""
 
     logger.debug("Compare results")
     if config.show_intermediate_steps:
@@ -156,7 +144,6 @@ def _compute_result(
         logger.debug("Invariant could not be validated.")
         diff = (modified_inv_result -
                 inv_result).set_variables(*new_vars.keys())
-        params = program.parameters.keys() | invariant.parameters.keys()
 
         if len(params & diff.get_symbols()) == 0:
             # There are no parameters, so the results can't be unified
@@ -208,9 +195,6 @@ def _compute_result(
                                         state).get_probability_mass()))
                 syms = {str(s) for s in mass_diff.free_symbols} & params
 
-                if config.show_intermediate_steps:
-                    print(f'\rCompared {count} coefficients', end='')
-
                 if len(syms) > 0:
                     # We are again only interested in solutions that depend wholly on parameters
                     sol = _solve(mass_diff, syms)
@@ -233,7 +217,7 @@ def _compute_result(
                             print()
                         return False, state
                 elif mass_diff != 0:
-                    # If there are no symbols and the difference of the coefficients isn't 0, the results aren't unifiable
+                    # If there are no symbols and the difference of the coefficients isn't 0, there is no solution
                     if config.show_intermediate_steps:
                         print()
                     return False, state

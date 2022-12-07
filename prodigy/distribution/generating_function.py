@@ -390,7 +390,8 @@ class GeneratingFunction(Distribution):
                         )._function
                         if val_l % val_r != 0 and x != 0:
                             raise ValueError(
-                                f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
+                                f"Cannot assign {numerator} / {denominator} to {temp_var} "\
+                                    "because it is not always an integer"
                             )
                         result += x.subs(update_var,
                                          1) * update_var**(val_l / val_r)
@@ -400,7 +401,8 @@ class GeneratingFunction(Distribution):
                         parse_expr(f'{numerator}={val_l}'))._function
                     if val_l % val_r != 0 and x != 0:
                         raise ValueError(
-                            f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
+                            f"Cannot assign {numerator} / {denominator} to {temp_var} "\
+                                "because it is not always an integer"
                         )
                     result += x.subs(update_var,
                                      1) * update_var**(val_l / val_r)
@@ -412,7 +414,8 @@ class GeneratingFunction(Distribution):
                         parse_expr(f'{denominator}={val_r}'))._function
                     if val_l % val_r != 0 and x != 0:
                         raise ValueError(
-                            f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
+                            f"Cannot assign {numerator} / {denominator} to {temp_var} "\
+                                "because it is not always an integer"
                         )
                     result += x.subs(update_var,
                                      1) * update_var**(val_l / val_r)
@@ -582,7 +585,8 @@ class GeneratingFunction(Distribution):
                 if not marginal_l._is_finite and not marginal_r._is_finite:
                     if approximate is None:
                         raise ValueError(
-                            f'Cannot perform the multiplication {first_factor} * {second_factor} because both variables have infinite range'
+                            f'Cannot perform the multiplication {first_factor} * {second_factor} '\
+                                'because both variables have infinite range'
                         )
                     # TODO can we choose which side to approximate in a smarter way?
                     marginal_l = marginal_l.approximate_unilaterally(
@@ -840,7 +844,8 @@ class GeneratingFunction(Distribution):
             return subs(dist_gf, subst_var, variable)
         if isinstance(sampling_dist, DUniformExpr):
             dist_gf = sympy.S(
-                f"1/(({sampling_dist.end}) - ({sampling_dist.start}) + 1) * {variable}**({sampling_dist.start}) * ({variable}**(({sampling_dist.end}) - ({sampling_dist.start}) + 1) - 1) / ({variable} - 1)"
+                f"1/(({sampling_dist.end}) - ({sampling_dist.start}) + 1) * {variable}**({sampling_dist.start}) "\
+                    f"* ({variable}**(({sampling_dist.end}) - ({sampling_dist.start}) + 1) - 1) / ({variable} - 1)"
             )
             return subs(dist_gf, subst_var, variable)
 
@@ -922,7 +927,8 @@ class GeneratingFunction(Distribution):
                     other._parameters) or self._parameters.intersection(
                         other._variables):
                 raise ArithmeticError(
-                    f"Name clash for parameters and variables in {self._variables=} {other._variables=} \t {self._parameters=} {other._parameters=}"
+                    "Name clash for parameters and variables in "\
+                        f"{self._variables=} {other._variables=} \t {self._parameters=} {other._parameters=}"
                 )
 
             # collect the meta information.
@@ -1215,7 +1221,7 @@ class GeneratingFunction(Distribution):
         if not {sympy.Symbol(str(x))
                 for x in variables}.issubset(self._variables):
             raise ValueError(
-                f"Cannot compute marginal for variables {variables} and joint probability distribution {self} because some of the variables are unknown"
+                f"Unknown variable(s): { {sympy.Symbol(str(x)) for x in variables} - self._variables}"
             )
 
         marginal = self.copy()
@@ -1311,7 +1317,8 @@ class SympyPGF(CommonDistributionsFactory):
             raise ValueError(
                 "Distribution parameters must satisfy 0 <= a < b < oo")
         return GeneratingFunction(
-            f"1/(({upper}) - ({lower}) + 1) * {var}**({lower}) * ({var}**(({upper}) - ({lower}) + 1) - 1) / ({var} - 1)",
+            f"1/(({upper}) - ({lower}) + 1) * {var}**({lower}) * ({var}**(({upper}) - ({lower}) + 1) - 1) "\
+                f"/ ({var} - 1)",
             var,
             closed=True,
             finite=True)

@@ -33,10 +33,8 @@ def check_is_modulus_condition(expression: Expr) -> bool:
 
 def check_is_constant_constraint(expression: Expr,
                                  params: Optional[Set[str]]) -> bool:
-    if not isinstance(expression, BinopExpr):
-        return False
-    if expression.operator not in (Binop.EQ, Binop.LEQ, Binop.LT, Binop.GT,
-                                   Binop.GEQ):
+    if not isinstance(expression, BinopExpr) or expression.operator not in (
+            Binop.EQ, Binop.LEQ, Binop.LT, Binop.GT, Binop.GEQ):
         return False
     if isinstance(expression.lhs, VarExpr):
         for sub_expr in walk_expr(Walk.DOWN, Mut.alloc(expression.rhs)):
