@@ -94,12 +94,6 @@ class GeneratingFunction(Distribution):
 
     def _filter_constant_condition(self,
                                    condition: Expr) -> GeneratingFunction:
-        """
-        Filters out the terms that satisfy a constant condition, i.e, (var <= 5) (var > 5) (var = 5).
-        :param condition: The condition to filter.
-        :return: The filtered generating function.
-        """
-
         # Normalize the condition into the format _var_ (< | <= | =) const. I.e., having the variable on the lhs.
         if isinstance(condition.rhs,
                       VarExpr) and condition.rhs.var not in self._variables:
@@ -196,7 +190,6 @@ class GeneratingFunction(Distribution):
         """
         Creates a list of subdistributions where at list index i, the `variable` is congruent i modulo `modulus`.
         """
-        # pylint: disable=invalid-name
         a = sympy.S(modulus)
         var = sympy.Symbol(variable)
         primitive_uroot = sympy.S(f"exp(2 * {sympy.pi} * {sympy.I}/{a})")
@@ -234,7 +227,9 @@ class GeneratingFunction(Distribution):
         r"""
         This method assumes that the addend is given in terms of :math:`\alpha \times X^{\sigma}`, where
         :math:`\alpha \in [0,1], \sigma \in \mathbb{N}^k`.
+
         :param addend: the addend to split into its factor and monomial.
+
         :return: a tuple (factor, monomial)
         """
         if addend.free_symbols == set():
@@ -272,7 +267,9 @@ class GeneratingFunction(Distribution):
     def _probability_of_state(self, state: State) -> sympy.Expr:
         """
         Determines the probability of a single program state encoded by a monomial (discrete only).
+
         :param state: The queried program state.
+
         :return: The probability for that state.
         """
         logger.debug("probability_of(%s) call", state)
@@ -1073,8 +1070,11 @@ class GeneratingFunction(Distribution):
     def _diff(self, variable, k):
         r"""
         Partial `k`-th derivative of the generating function with respect to variable `variable`.
+
         :param variable: The variable in which the generating function gets differentiated.
+
         :param k: The order of the partial derivative.
+
         :return: The `k`-th partial derivative of the generating function in `variable`
 
         .. math:: \fraction{\delta G^`k`}{\delta `var`^`k`}
@@ -1091,9 +1091,11 @@ class GeneratingFunction(Distribution):
         threshold: Union[str,
                          int]) -> Generator[GeneratingFunction, None, None]:
         """
-            Generate an approximation of a generating function, until `threshold` percent or terms of the probability
-            mass is caputred.
+        Generate an approximation of a generating function, until `threshold` percent or terms of the probability
+        mass is captured.
+
         :param threshold: The probability percentage threshold of the probability mass of the distribution.
+
         :return: A Generating Function generator.
         """
         logger.debug("expand_until() call")
@@ -1171,6 +1173,7 @@ class GeneratingFunction(Distribution):
     def is_finite(self):
         """
         Checks whether the generating function is finite.
+
         :return: True if the GF is a polynomial, False otherwise.
         """
         return self._is_finite
@@ -1203,15 +1206,6 @@ class GeneratingFunction(Distribution):
             self,
             *variables: Union[str, VarExpr],
             method: MarginalType = MarginalType.INCLUDE) -> GeneratingFunction:
-        """
-        Computes the marginal distribution for the given variables (MarginalType.Include),
-        or for all but the given variables (MarginalType.Exclude).
-        :param method: The method of marginalization.
-        :param variables: A list of variables for which the marginal distribution should be computed.
-        If this list is empty or contains symbols that are not known variables of this distribution,
-        this function will raise an exception.
-        :return: The marginal distribution.
-        """
         logger.debug(
             "Creating marginal for variables %s and joint probability distribution %s",
             variables, self)
@@ -1254,10 +1248,6 @@ class GeneratingFunction(Distribution):
         return marginal
 
     def filter(self, condition: Expr) -> GeneratingFunction:
-        """
-        Filters out the terms of the generating function that satisfy the expression `expression`.
-        :return: The filtered generating function.
-        """
         logger.debug("filter(%s) call on %s", condition, self)
         res = super().filter(condition)
         assert isinstance(res, GeneratingFunction)

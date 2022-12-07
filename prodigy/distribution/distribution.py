@@ -28,7 +28,10 @@ DistributionParam = Union[str, Expr]
 
 @dataclass
 class State:
+    """Describes a state of a distribution, i.e., an assignment of variables to values"""
+
     valuations: Dict[str, int] = field(default_factory=dict)
+    """The variable assignment of this state"""
 
     def __iter__(self):
         return self.valuations.__iter__()
@@ -50,9 +53,16 @@ class State:
         return False
 
     def items(self):
+        """Provides a view on all (variable, value) pairs"""
         return self.valuations.items()
 
     def to_monomial(self) -> str:
+        """
+        Provides a string representation of this state in the form of a polynomial. If the state is empty, returns an
+        empty string.
+        
+        For example, the variable assignment `{x: 3, y: 6}` gives rise to the string `x^3*y^6`.
+        """
         if self.valuations:
             result = "*"
             addends = []
@@ -114,7 +124,9 @@ class Distribution(ABC):
     def get_probability_of(self, condition: Union[Expr, str]):
         """
         Returns the probability of a given `condition` or variable.
+
         :param condition: The condition.
+
         :return: The probability that the condition is satisfied.
         """
 
@@ -144,7 +156,11 @@ class Distribution(ABC):
         """ Returns the parameters of the distribution. """
 
     def filter_state(self, state: State) -> Distribution:
-        """ Filters the distribution such that only the specified state is left """
+        """ 
+        Filters the distribution such that only the specified state is left. If the state does not contain
+        assignments for all variables of the distribution, the resulting distribution contains all extensions of the
+        state.
+        """
 
         if not state.valuations.keys() <= self.get_variables():
             raise ValueError("Unknown variable in state")
@@ -225,16 +241,20 @@ class Distribution(ABC):
     @abstractmethod
     def _filter_constant_condition(self, condition: Expr) -> Distribution:
         """
-        Filters out the terms that satisfy a constant condition, i.e, (var <= 5) (var > 5) (var = 5).
+        Filters out the terms that satisfy a constant condition, e.g., (var <= 5) (var > 5) (var = 5).
+
         :param condition: The condition to filter.
-        :return: The filtered generating function.
+
+        :return: The filtered distribution.
         """
 
     def _explicit_state_unfolding(self, condition: Expr) -> BinopExpr:
         """
         Checks whether one side of the condition has only finitely many valuations and explicitly creates a new
         condition which is the disjunction of each individual evaluations.
+
         :param condition: The condition to unfold.
+
         :return: The disjunction condition of explicitly encoded state conditions.
         """
         expr: str = str(condition.rhs)
@@ -299,12 +319,12 @@ class Distribution(ABC):
     @staticmethod
     @abstractmethod
     def _find_symbols(expr: str) -> Set[str]:
-        "Returns a set of all free symbols in the given expression"
+        "Returns a set of all free symbols in the given expression."
 
     def get_symbols(self) -> Set[str]:
         """
         Returns all symbols that occur in this distribution (a subset of `self.get_variables() |
-        self.get_parameters()`)
+        self.get_parameters()`).
         """
         return self._find_symbols(str(self))
 
@@ -315,6 +335,8 @@ class Distribution(ABC):
 
     @classmethod
     def evaluate_condition(cls, condition: BinopExpr, state: State) -> bool:
+        """Evaluates whether the condition holds in the specified state."""
+
         if not isinstance(condition, BinopExpr):
             raise AssertionError(
                 f"Expression must be an (in-)equation, was {condition}")
@@ -432,7 +454,7 @@ class Distribution(ABC):
         self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
         """
         Returns a str that is the name of neither an existing variable nor an existing
-        parameter of this GF nor contained in the `exclude` parameter.
+        parameter of this distribution nor contained in the `exclude` parameter.
         """
 
     @abstractmethod
@@ -440,7 +462,7 @@ class Distribution(ABC):
                     assign_var: str | int) -> Distribution:
         """
         Applies the update `updated_var = assign_var` to this distribution.
-        `assign_var` may be a variable or integer literal, but not a parameter.
+        `assign_var` may be a variable or integer literal.
         """
 
     @abstractmethod
@@ -457,18 +479,16 @@ class Distribution(ABC):
         """
         Applies the update `temp_var = first_factor * second_factor` to this distribution.
 
-        If the distribution is infinite and both factors are variables, mutliplication is
+        If the distribution is infinite and both factors are variables, multiplication is
         only supported if at least one of the factors has finite range (i.e., a finite marginal)
-        (if approximation is disabled).
-
-        Both factors may not be parameters.
+        if approximation is disabled.
         """
 
     @abstractmethod
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> Distribution:
         """
-        Applies the espression `temp_var = sub_from - sub` to this distribution. If this
+        Applies the expression `temp_var = sub_from - sub` to this distribution. If this
         difference might be negative, this function will raise an error.
         """
 
@@ -477,10 +497,7 @@ class Distribution(ABC):
                        approximate: str | float | None) -> Distribution:
         """
         Applies the expression `temp_var = left % right` to this distribution. If `self` is
-        an infinite generating function, `right` must be a literal or a variable with finite range
-        (if approximation is disabled).
-
-        Both `left` and `right` may not be parameters.
+        infinite, `right` must be a literal or a variable with finite range if approximation is disabled.
         """
 
     @abstractmethod
@@ -493,9 +510,7 @@ class Distribution(ABC):
         raises an error.
 
         Infinite distributions are only supported if both sides of the division have finite range
-        (i.e., they are either literals or have a finite marginal) (if approximation is disabled).
-
-        Both the numerator and the denominator may not be parameters.
+        (i.e., they are either literals or have a finite marginal) if approximation is disabled.
         """
 
     @abstractmethod
@@ -504,8 +519,7 @@ class Distribution(ABC):
         """
         Applies the expression `temp_var := base^exp` to this distribution.
 
-        All variables occuring in the expression must have a finite marginal (if approximation is
-        disabled). There may not be any parameters in the expression.
+        All variables occuring in the expression must have a finite marginal if approximation is disabled.
         """
 
     @abstractmethod
@@ -520,10 +534,13 @@ class Distribution(ABC):
         """
         Computes the marginal distribution for the given variables (MarginalType.Include),
         or for all but the given variables (MarginalType.Exclude).
+
+        :param variables: A list of variables for which the marginal distribution should be computed. If this list is
+            empty or contains symbols that are not known variables of this distribution, this function will raise an
+            exception.
+
         :param method: The method of marginalization.
-        :param variables: A list of variables for which the marginal distribution should be computed.
-        If this list is empty or contains symbols that are not known variables of this distribution,
-        this function will raise an exception.
+
         :return: The marginal distribution.
         """
 
@@ -531,16 +548,20 @@ class Distribution(ABC):
     def set_variables(self, *variables: str) -> Distribution:
         """
         Sets the free variables in a distribution.
+
         :param variables: The variables.
-        :return:  The distribution with free variables `variables`
+
+        :return: The distribution with free variables `variables`.
         """
 
     @abstractmethod
     def set_parameters(self, *parameters: str) -> Distribution:
         """
         Sets the parameters in a distribution.
+
         :param parameters: The parameters.
-        :return: The Distribution with parameters `parameters`
+
+        :return: The distribution with parameters `parameters`.
         """
 
     @abstractmethod
@@ -548,8 +569,10 @@ class Distribution(ABC):
             self,
             threshold: Union[str, int]) -> Generator[Distribution, None, None]:
         """
-        Computes the approximation until the given threshold is reached. (Might not terminate)
-        :param threshold: The threshold either as a maximum number of states, or a certain probability mass.
+        Computes the approximation until the given threshold is reached (might not terminate).
+
+        :param threshold: The threshold either as a maximum number of states (str), or a certain probability mass (int).
+
         :return: The approximated (truncated) probability distribution.
         """
 
@@ -557,13 +580,14 @@ class Distribution(ABC):
     def approximate_unilaterally(
             self, variable: str,
             probability_mass: str | float) -> Distribution:
-        """Approximates the distribution in one variable via its series expansion"""
+        """
+        Approximates the distribution in one variable via its series expansion, up until the specified probability
+        mass is reached.
+        """
 
     def approximate_until_finite(
-            self, probability_mass: str | float | int) -> Distribution:
-        """
-        Unilaterally approximates this distribution in only the variables that have an infite marginal
-        """
+            self, probability_mass: str | float) -> Distribution:
+        """Unilaterally approximates this distribution in only the variables that have an infinite marginal."""
 
         res = self
         for var in self.get_variables():
@@ -605,7 +629,7 @@ class CommonDistributionsFactory(ABC):
     @abstractmethod
     def poisson(var: Union[str, VarExpr],
                 lam: DistributionParam) -> Distribution:
-        """ A poisson distribution with parameter `lamb`da."""
+        """ A poisson distribution with parameter `lam`."""
 
     @staticmethod
     @abstractmethod

@@ -4,9 +4,6 @@
 =================
 
 .. autofunction:: prodigy.util.dedup_list
-
-.. automodule:: prodigy.util.ref
-.. automodule:: prodigy.util.lark_expr_parser
 """
 
 from typing import List, TypeVar

@@ -19,7 +19,7 @@ has infinite support, or in case of while-loop instructions.
 Distribution
 ############
 
-Distributions are the core objects to transform by a probabilistic program. This class specifies a generaic interface
+Distributions are the core objects to transform by a probabilistic program. This class specifies a generic interface
 with desired convenience methods needed, in order to abstract away from an actual distribution encoding.
 In fact, we deliver two types of distribution backends:
 

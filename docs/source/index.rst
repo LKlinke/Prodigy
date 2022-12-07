@@ -29,16 +29,9 @@ Features:
 API Documentation
 -----------------
 
-.. note::
-
-    You want a quickstart? Jump over to the :doc:`the pGCL module documentation <pgcl>`!
-
 .. toctree::
 
-    pgcl
-    pysmt
     analysis
-    util
 
 
 Command-Line Interface
