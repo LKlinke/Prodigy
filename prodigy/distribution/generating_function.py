@@ -337,7 +337,8 @@ class GeneratingFunction(Distribution):
             if mass_res >= mass:
                 return GeneratingFunction(result,
                                           *self._variables,
-                                          preciseness=mass_res)
+                                          preciseness=mass_res *
+                                          self._preciseness)
 
         raise Exception("unreachable")
 
@@ -873,7 +874,10 @@ class GeneratingFunction(Distribution):
                 for _ in range(val):
                     tmp = tmp._diff(var, 1) * GeneratingFunction(var)
                 tmp = tmp._limit(var, "1")
-            expected_value += GeneratingFunction(prob) * tmp
+            summand = GeneratingFunction(prob) * tmp
+            if len(summand._function.free_symbols) == 0 and summand._function < 0:
+                raise ValueError()
+            expected_value += summand
         if expected_value._function == sympy.S('oo'):
             return str(RealLitExpr.infinity())
         else:
