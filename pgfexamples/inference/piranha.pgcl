@@ -1,0 +1,10 @@
+nat piranha
+nat fish_taken_is_piranha
+piranha := bernoulli(1/2)
+if (piranha = 1) {
+    fish_taken_is_piranha := 1
+} else {
+    fish_taken_is_piranha := bernoulli(1/2)
+}
+observe(fish_taken_is_piranha = 1)
+?Pr[piranha = 1]
