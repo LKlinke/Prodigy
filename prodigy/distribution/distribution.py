@@ -10,7 +10,6 @@ from typing import (Dict, FrozenSet, Generator, Iterator, List, Sequence, Set,
 from probably.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, IidSampleExpr,
                            NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
 from probably.pgcl.parser import parse_expr
-from sympy import sympify
 
 from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
                                       check_is_modulus_condition, has_variable)
@@ -32,7 +31,6 @@ class State:
 
     valuations: Dict[str, int] = field(default_factory=dict)
     """The variable assignment of this state"""
-
     def __iter__(self):
         return self.valuations.__iter__()
 
@@ -60,7 +58,7 @@ class State:
         """
         Provides a string representation of this state in the form of a polynomial. If the state is empty, returns an
         empty string.
-        
+
         For example, the variable assignment `{x: 3, y: 6}` gives rise to the string `x^3*y^6`.
         """
         if self.valuations:
@@ -156,7 +154,7 @@ class Distribution(ABC):
         """ Returns the parameters of the distribution. """
 
     def filter_state(self, state: State) -> Distribution:
-        """ 
+        """
         Filters the distribution such that only the specified state is left. If the state does not contain
         assignments for all variables of the distribution, the resulting distribution contains all extensions of the
         state.
@@ -200,8 +198,8 @@ class Distribution(ABC):
 
         if isinstance(condition,
                       BinopExpr) and not has_variable(condition, None):
-            return self.filter(BoolLitExpr(sympify(
-                str(condition))))  # TODO somehow handle this without sympy?
+            return self.filter(
+                BoolLitExpr(self.evaluate_condition(condition, State())))
 
         if isinstance(condition, BinopExpr) and not self._find_symbols(
                 str(condition.lhs)) | self._find_symbols(str(

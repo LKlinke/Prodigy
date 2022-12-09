@@ -375,7 +375,6 @@ class GeneratingFunction(Distribution):
                 denominator, approximate)
 
         result = sympy.S(0)
-        # TODO it must be possible to do this in a prettier way
         if isinstance(marginal_l, GeneratingFunction):
             for _, state_l in marginal_l:
                 if isinstance(marginal_r, GeneratingFunction):

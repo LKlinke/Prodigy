@@ -12,7 +12,7 @@ init-import=no
 ignored-modules=
 
 [BASIC]
-good-names=T,i,t,op,fn,R,M,ii,g,pc,tf,k,p,x,y,n,f,gf,xl,xr,e,it,s,el,eq,a
+good-names=T,i,t,op,fn,R,M,ii,g,pc,tf,k,p,x,y,n,f,gf,xl,xr,e,it,s,el,eq,a,m
 
 [FORMAT]
 max-line-length=120

@@ -7,6 +7,11 @@ from probably.util.ref import Mut
 
 
 def has_variable(expr: Expr, params: Optional[Set[str]]) -> bool:
+    """
+    Evaluates whether the given expression contains a variable. Symbols in the
+    `params` set are not considered variables.
+    """
+
     if isinstance(expr, UnopExpr) and expr.operator == Unop.IVERSON:
         return False
     if isinstance(expr, VarExpr) and (params is None
