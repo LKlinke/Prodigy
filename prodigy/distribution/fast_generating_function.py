@@ -469,12 +469,12 @@ class ProdigyPGF(CommonDistributionsFactory):
     def uniform(var: Union[str, VarExpr], lower: DistributionParam,
                 upper: DistributionParam) -> FPS:
         function = f"1/({upper} - {lower} + 1) * ({var}^{lower}) * (({var}^({upper} - {lower} + 1) - 1)/({var} - 1))"
-        return FPS(function, str(var))
+        return FPS(function, str(var), finite=True)
 
     @staticmethod
     def bernoulli(var: Union[str, VarExpr], p: DistributionParam) -> FPS:
         function = f"({p}) * {var} + 1-({p})"
-        return FPS(function, str(var))
+        return FPS(function, str(var), finite=True)
 
     @staticmethod
     def poisson(var: Union[str, VarExpr], lam: DistributionParam) -> FPS:
@@ -498,7 +498,7 @@ class ProdigyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def one(*variables: Union[str, VarExpr]) -> FPS:
-        return FPS("1", *variables)
+        return FPS("1", *variables, finite=True)
 
     @staticmethod
     def from_expr(expression: Union[str, Expr], *variables, **kwargs) -> FPS:
@@ -506,4 +506,4 @@ class ProdigyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def zero(*variables: Union[str, VarExpr]) -> FPS:
-        return FPS("0", *variables)
+        return FPS("0", *variables, finite=True)
