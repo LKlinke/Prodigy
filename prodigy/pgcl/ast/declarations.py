@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Union
+from typing import Any, List, Set, Union
 
 import attr
 
 from .ast import Node, Var
 from .expressions import Expr
+from .instructions import Instr
 from .types import BoolType, NatType, RealType, Type
 
 
@@ -73,5 +74,52 @@ class ParameterDecl(DeclClass):
         raise ValueError(f"invalid type: {self.typ}")
 
 
-Decl = Union[VarDecl, ConstDecl, ParameterDecl]
+@attr.s
+class FunctionDecl(DeclClass):
+    """
+    A function declaration with a name and a function corresponding to that
+    name.
+    """
+
+    var: Var = attr.ib()
+    """The function's name."""
+
+    body: Function = attr.ib()
+
+    def __str__(self) -> str:
+        return f"fun {self.var} := {self.body};"
+
+
+@attr.s
+class Function(Node):
+    """
+    A function is similar to a :class:`~probably.pgcl.ast.Program`, but more
+    limited and with a `return` statement at the end.
+    """
+
+    declarations: List[VarDecl] = attr.ib()
+    variables: Set[Var] = attr.ib()
+    instructions: List[Instr] = attr.ib()
+    returns: Expr = attr.ib()
+
+    @staticmethod
+    def from_parse(declarations: List[VarDecl], instructions: List[Instr],
+                   returns: Expr) -> Function:
+        variables = set()
+
+        for decl in declarations:
+            assert isinstance(decl, VarDecl)
+            assert isinstance(decl.typ, NatType)
+            variables.add(decl.var)
+
+        return Function(declarations, variables, instructions, returns)
+
+    def __str__(self):
+        instrs: List[Any] = list(self.declarations)
+        instrs.extend(self.instructions)
+        res = "\n".join(map(str, instrs))
+        return f"{{\n{res}\nreturn {str(self.returns)};\n}}"
+
+
+Decl = Union[VarDecl, ConstDecl, ParameterDecl, FunctionDecl]
 """Union type for all declaration objects. See :class:`DeclClass` for use with isinstance."""

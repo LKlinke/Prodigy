@@ -40,18 +40,18 @@ _PGCL_GRAMMAR = """
 
     local_declarations: local_declaration* -> local_declarations
 
-    local_declaration: "nat" var bounds?       -> nat
-                     | "fun" var ":=" function -> fun
+    local_declaration: "nat" var bounds? -> nat
 
     global_declaration: "bool" var           -> bool
                | "real" var bounds?          -> real
                | "const" var ":=" expression -> const
                | "rparam" var                -> rparam
                | "nparam" var                -> nparam
+               | "fun" var ":=" function     -> fun
 
     bounds: "[" expression "," expression "]"
 
-    function: "{" local_declarations instructions queries "return" var "}"
+    function: "{" local_declarations instructions "return" rvalue "}"
 
     instructions: instruction* -> instructions
 
@@ -60,13 +60,11 @@ _PGCL_GRAMMAR = """
     instruction: "skip"                                      -> skip
                | "while" "(" expression ")" block            -> while
                | "if" "(" expression ")" block "else"? block -> if
-               | assign                                      -> assign
+               | var ":=" rvalue                             -> assign
                | block "[" expression "]" block              -> choice
                | "tick" "(" expression ")"                   -> tick
                | "observe" "(" expression ")"                -> observe
                | "loop" "(" INT ")" block                    -> loop
-
-    assign: var ":=" rvalue
 
     query: "?Ex" "[" expression "]"                          -> expectation
                | "?Pr" "[" expression "]"                    -> prquery
@@ -87,9 +85,11 @@ _PGCL_GRAMMAR = """
           | "bernoulli" "(" expression ")"               -> bernoulli
           | "iid" "(" rvalue "," var ")"                 -> iid
           | expression
-          | var "(" parameter_list? ")"                   -> function_call
+          | var "(" parameter_list? ")"                  -> function_call
 
-    parameter_list: assign | parameter_list "," assign
+    parameter_list: param_assign | parameter_list "," param_assign
+
+    param_assign: var ":=" rvalue
 
     literal: "true"  -> true
            | "false" -> false
@@ -216,9 +216,17 @@ def _parse_bounds(t: Optional[Tree]) -> Optional[Bounds]:
                   _parse_expr(_child_tree(t, 1)))
 
 
+def _parse_function(t: Tree) -> Function:
+    assert t.data == 'function'
+    declarations = _parse_local_declarations(_child_tree(t, 0))
+    instructions = _parse_instrs(_child_tree(t, 1))
+    returns = _parse_rvalue(_child_tree(t, 2))
+    return Function.from_parse(declarations, instructions, returns)
+
+
 def _parse_declaration(t: Tree) -> Decl:
-    assert t.data == "declaration"
-    t = _child_tree(t, 0)
+    if t.data == "declaration":
+        t = _child_tree(t, 0)
 
     def var0():
         return _parse_var(_child_tree(t, 0))
@@ -240,6 +248,8 @@ def _parse_declaration(t: Tree) -> Decl:
         return ParameterDecl(var0(), RealType())
     elif t.data == "nparam":
         return ParameterDecl(var0(), NatType(bounds=None))
+    elif t.data == "fun":
+        return FunctionDecl(var0(), _parse_function(_child_tree(t, 1)))
     else:
         raise Exception(f'invalid AST: {t.data}')
 
@@ -247,6 +257,18 @@ def _parse_declaration(t: Tree) -> Decl:
 def _parse_declarations(t: Tree) -> List[Decl]:
     assert t.data == "declarations"
     return [_parse_declaration(_as_tree(d)) for d in t.children]
+
+
+def _parse_local_declarations(t: Tree) -> List[VarDecl]:
+    assert t.data == "local_declarations"
+
+    decls: List[VarDecl] = []
+    for child in t.children:
+        decl = _parse_declaration(_as_tree(child))
+        assert isinstance(decl, VarDecl)
+        decls.append(decl)
+
+    return decls
 
 
 def _parse_expr(t: Tree) -> Expr:
@@ -337,6 +359,19 @@ def _parse_distribution(t: Tree) -> Expr:
     return constructor(*params)
 
 
+def _parse_function_call(t: Tree) -> FunctionCallExpr:
+    assert t.data == "function_call"
+
+    function_name = _parse_var(_child_tree(t, 0))
+    params = {}
+    for assignment in t.find_data("param_assign"):
+        var = _parse_var(_child_tree(assignment, 0))
+        val = _parse_expr(_child_tree(assignment, 1))
+        params[var] = val
+
+    return FunctionCallExpr(function_name, params)
+
+
 def _parse_rvalue(t: Tree) -> Expr:
     if t.data in distributions:
         return _parse_distribution(t)
@@ -344,6 +379,9 @@ def _parse_rvalue(t: Tree) -> Expr:
     elif t.data == "iid":
         return IidSampleExpr(_parse_rvalue(_child_tree(t, 0)),
                              VarExpr(_parse_var(_child_tree(t, 1))))
+
+    elif t.data == "function_call":
+        return _parse_function_call(t)
 
     # otherwise we have an expression, but it may contain _LikelyExprs, which we
     # need to parse.
@@ -386,9 +424,8 @@ def _parse_instr(t: Tree) -> Instr:
                        _parse_instrs(_child_tree(t, 1)),
                        _parse_instrs(_child_tree(t, 2)))
     elif t.data == 'assign':
-        child = _child_tree(t, 0)
-        return AsgnInstr(_parse_var(_child_tree(child, 0)),
-                         _parse_rvalue(_child_tree(child, 1)))
+        return AsgnInstr(_parse_var(_child_tree(t, 0)),
+                         _parse_rvalue(_child_tree(t, 1)))
     elif t.data == 'choice':
         return ChoiceInstr(_parse_expr(_child_tree(t, 1)),
                            _parse_instrs(_child_tree(t, 0)),
@@ -500,7 +537,7 @@ def parse_pgcl(code: str) -> Program:
     .. doctest::
 
         >>> parse_pgcl("x := y")
-        Program(variables={}, constants={}, parameters={}, instructions=[AsgnInstr(lhs='x', rhs=VarExpr('y'))])
+        Program(variables={}, constants={}, parameters={}, functions={}, instructions=[AsgnInstr(lhs='x', rhs=VarExpr('y'))])
 
         >>> parse_pgcl("x := unif(5, 17)").instructions[0]
         AsgnInstr(lhs='x', rhs=DUniformExpr(start=NatLitExpr(5), end=NatLitExpr(17)))

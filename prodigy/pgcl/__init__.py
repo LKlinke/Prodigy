@@ -31,7 +31,7 @@ It is also possible to calculate weakest pre-expectations of programs (see :mod:
     ...     {c := unif(1,10)} [0.8] {f:=true}
     ... }'''
     >>> compile_pgcl(code)
-    Program(variables={'f': BoolType(), 'c': NatType(bounds=None)}, constants={}, parameters={}, instructions=[SkipInstr(), WhileInstr(cond=BinopExpr(operator=Binop.AND, lhs=BinopExpr(operator=Binop.LT, lhs=VarExpr('c'), rhs=NatLitExpr(10)), rhs=VarExpr('f')), body=[ChoiceInstr(prob=RealLitExpr("0.8"), lhs=[AsgnInstr(lhs='c', rhs=DUniformExpr(start=NatLitExpr(1), end=NatLitExpr(10)))], rhs=[AsgnInstr(lhs='f', rhs=BoolLitExpr(True))])])])
+    Program(variables={'f': BoolType(), 'c': NatType(bounds=None)}, constants={}, parameters={}, functions={}, instructions=[SkipInstr(), WhileInstr(cond=BinopExpr(operator=Binop.AND, lhs=BinopExpr(operator=Binop.LT, lhs=VarExpr('c'), rhs=NatLitExpr(10)), rhs=VarExpr('f')), body=[ChoiceInstr(prob=RealLitExpr("0.8"), lhs=[AsgnInstr(lhs='c', rhs=DUniformExpr(start=NatLitExpr(1), end=NatLitExpr(10)))], rhs=[AsgnInstr(lhs='f', rhs=BoolLitExpr(True))])])])
 
 For more details on what syntax is accepted for pGCL programs, you can view the :ref:`formal grammar used for the pGCL parser <pgcl_grammar>`.
 

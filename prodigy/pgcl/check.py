@@ -79,7 +79,7 @@ def get_type(program: Program,
 
         >>> from .ast import *
         >>> nat = NatLitExpr(10)
-        >>> program = Program(list(), dict(), dict(), dict(), list())
+        >>> program = Program(list(), dict(), dict(), dict(), dict(), list())
 
         >>> get_type(program, BinopExpr(Binop.TIMES, nat, nat))
         NatType(bounds=None)
@@ -158,7 +158,8 @@ def get_type(program: Program,
 
         if check and expr.operator in [
                 Binop.LEQ, Binop.LT, Binop.GEQ, Binop.GT, Binop.EQ, Binop.PLUS,
-                Binop.MINUS, Binop.TIMES, Binop.MODULO, Binop.POWER, Binop.DIVIDE
+                Binop.MINUS, Binop.TIMES, Binop.MODULO, Binop.POWER,
+                Binop.DIVIDE
         ]:
             rhs_typ = get_type(program, expr.rhs, check=check)
             if isinstance(rhs_typ, CheckFail):
@@ -177,7 +178,8 @@ def get_type(program: Program,
 
         # binops that take numeric operands and return a numeric value
         if expr.operator in [
-                Binop.PLUS, Binop.MINUS, Binop.TIMES, Binop.MODULO, Binop.POWER, Binop.DIVIDE
+                Binop.PLUS, Binop.MINUS, Binop.TIMES, Binop.MODULO,
+                Binop.POWER, Binop.DIVIDE
         ]:
             # intentionally lose the bounds on NatType (see NatType documentation)
             if isinstance(lhs_typ, NatType) and lhs_typ.bounds is not None:
@@ -546,7 +548,7 @@ def check_expression(program, expr: Expr) -> Optional[CheckFail]:
 
     .. doctest::
 
-        >>> program = Program(list(), dict(), dict(), dict(), list())
+        >>> program = Program(list(), dict(), dict(), dict(), dict(), list())
         >>> check_expression(program, RealLitExpr("1.0"))
         CheckFail(location=..., message='A program expression may not return a probability.')
     """

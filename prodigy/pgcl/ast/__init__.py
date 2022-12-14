@@ -35,6 +35,8 @@ Declarations
 .. autoclass:: VarDecl
 .. autoclass:: ConstDecl
 .. autoclass:: ParameterDecl
+.. autoclass:: FunctionDecl
+.. autoclass:: Function
 
 
 .. _expressions:
@@ -76,6 +78,7 @@ mapping of states to *expected values*: :math:`\Sigma \to \mathbb{R}`.
 .. autoclass:: CategoricalExpr
 .. autoclass:: SubstExpr
 .. autoclass:: TickExpr
+.. autoclass:: FunctionCallExpr
 
 Instructions
 ############
@@ -118,13 +121,15 @@ Otherwise use corresponding Union types instead.
 """
 
 from .ast import Node, Var
-from .declarations import ConstDecl, Decl, ParameterDecl, VarDecl
+from .declarations import (ConstDecl, Decl, Function, FunctionDecl,
+                           ParameterDecl, VarDecl)
 from .expressions import (BernoulliExpr, BinomialExpr, Binop, BinopExpr,
                           BoolLitExpr, CategoricalExpr, CUniformExpr,
                           DistrExpr, DUniformExpr, Expr, ExprClass,
-                          GeometricExpr, IidSampleExpr, LogDistExpr,
-                          NatLitExpr, PoissonExpr, RealLitExpr, SubstExpr,
-                          TickExpr, Unop, UnopExpr, VarExpr, expr_str_parens)
+                          FunctionCallExpr, GeometricExpr, IidSampleExpr,
+                          LogDistExpr, NatLitExpr, PoissonExpr, RealLitExpr,
+                          SubstExpr, TickExpr, Unop, UnopExpr, VarExpr,
+                          expr_str_parens)
 from .instructions import (AsgnInstr, ChoiceInstr, ExpectationInstr, IfInstr,
                            Instr, InstrClass, LoopInstr, ObserveInstr,
                            OptimizationQuery, OptimizationType, PlotInstr,

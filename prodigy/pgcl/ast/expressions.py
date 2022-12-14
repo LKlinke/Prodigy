@@ -487,6 +487,28 @@ class TickExpr(ExprClass):
         return f"tick({self.expr})"
 
 
+@attr.s
+class FunctionCallExpr(ExprClass):
+    """
+    Performs the body of the corresponding function and then samples a value
+    from the resulting distribution (according to the function's `return`
+    statement).
+    """
+
+    function: Var = attr.ib()
+    """The name of the function that is called."""
+
+    input_distr: Dict[Var, Expr] = attr.ib()
+    """
+    An input distribution over the variables of the function. If a variable
+    isn't present, it defaults to 0.
+    """
+    def __str__(self):
+        params = ', '.join(
+            [f"{var} := {expr}" for var, expr in self.input_distr.items()])
+        return f"{self.function}({params});"
+
+
 def expr_str_parens(expr: ExprClass) -> str:
     """Wrap parentheses around an expression, but not for simple expressions."""
     if isinstance(expr,
@@ -501,5 +523,6 @@ DistrExpr = Union[DUniformExpr, CUniformExpr, BernoulliExpr, GeometricExpr,
 """ A type combining all sampling expressions"""
 
 Expr = Union[VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr,
-             BinopExpr, CategoricalExpr, SubstExpr, TickExpr, DistrExpr]
+             BinopExpr, CategoricalExpr, SubstExpr, TickExpr, DistrExpr,
+             FunctionCallExpr]
 """Union type for all expression objects. See :class:`ExprClass` for use with isinstance."""

@@ -6,7 +6,8 @@ from typing import Any, Dict, List
 import attr
 
 from .ast import Var
-from .declarations import ConstDecl, Decl, ParameterDecl, VarDecl
+from .declarations import (ConstDecl, Decl, Function, FunctionDecl,
+                           ParameterDecl, VarDecl)
 from .expressions import Expr
 from .instructions import Instr
 from .types import Type
@@ -39,6 +40,8 @@ class Program:
         Only valid if the declarations are well-typed.
     """
 
+    functions: Dict[Var, Function] = attr.ib()
+
     instructions: List[Instr] = attr.ib()
 
     @staticmethod
@@ -48,6 +51,7 @@ class Program:
         variables: Dict[Var, Type] = {}
         constants: Dict[Var, Expr] = {}
         parameters: Dict[Var, Type] = {}
+        functions: Dict[Var, Function] = {}
 
         for decl in declarations:
             if isinstance(decl, VarDecl):
@@ -56,9 +60,11 @@ class Program:
                 constants[decl.var] = decl.value
             elif isinstance(decl, ParameterDecl):
                 parameters[decl.var] = decl.typ
+            elif isinstance(decl, FunctionDecl):
+                functions[decl.var] = decl.body
 
         return Program(declarations, variables, constants, parameters,
-                       instructions)
+                       functions, instructions)
 
     def add_variable(self, var: Var, typ: Type):
         """
@@ -83,12 +89,13 @@ class Program:
             >>> from probably.pgcl.parser import parse_pgcl
             >>> program = parse_pgcl("nat x; nat y; while (x < 2) {}")
             >>> program.to_skeleton()
-            Program(variables={'x': NatType(bounds=None), 'y': NatType(bounds=None)}, constants={}, parameters={}, instructions=[])
+            Program(variables={'x': NatType(bounds=None), 'y': NatType(bounds=None)}, constants={}, parameters={}, functions={}, instructions=[])
         """
         return Program(declarations=copy.copy(self.declarations),
                        parameters=copy.copy(self.parameters),
                        variables=copy.copy(self.variables),
                        constants=copy.copy(self.constants),
+                       functions=copy.copy(self.functions),
                        instructions=[])
 
     def __str__(self) -> str:
