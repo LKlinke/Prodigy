@@ -366,7 +366,7 @@ def _parse_function_call(t: Tree) -> FunctionCallExpr:
     params = {}
     for assignment in t.find_data("param_assign"):
         var = _parse_var(_child_tree(assignment, 0))
-        val = _parse_expr(_child_tree(assignment, 1))
+        val = _parse_rvalue(_child_tree(assignment, 1))
         params[var] = val
 
     return FunctionCallExpr(function_name, params)

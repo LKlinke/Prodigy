@@ -9,5 +9,5 @@ def test_basic_function():
             return x;
         }
         nat x;
-        x := f();
+        x := f(x := 10);
     """)
