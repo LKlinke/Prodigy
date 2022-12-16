@@ -36,22 +36,17 @@ _PGCL_GRAMMAR = """
 
     declarations: declaration* -> declarations
 
-    declaration: local_declaration | global_declaration
-
-    local_declarations: local_declaration* -> local_declarations
-
-    local_declaration: "nat" var bounds? -> nat
-
-    global_declaration: "bool" var           -> bool
+    declaration: "bool" var                  -> bool
                | "real" var bounds?          -> real
                | "const" var ":=" expression -> const
                | "rparam" var                -> rparam
                | "nparam" var                -> nparam
                | "fun" var ":=" function     -> fun
+               | "nat" var bounds?           -> nat
 
     bounds: "[" expression "," expression "]"
 
-    function: "{" local_declarations instructions "return" rvalue "}"
+    function: "{" declarations instructions "return" rvalue "}"
 
     instructions: instruction* -> instructions
 
@@ -222,16 +217,18 @@ def _parse_bounds(t: Optional[Tree]) -> Optional[Bounds]:
 
 def _parse_function(t: Tree) -> Function:
     assert t.data == 'function'
-    declarations = _parse_local_declarations(_child_tree(t, 0))
+    declarations = _parse_declarations(_child_tree(t, 0))
+    var_decls: List[VarDecl] = []  # necessary to satisfy mypy
+    for decl in declarations:
+        if not isinstance(decl, VarDecl):
+            raise SyntaxError("Only VarDecls are allowed in functions")
+        var_decls.append(decl)
     instructions = _parse_instrs(_child_tree(t, 1))
     returns = _parse_rvalue(_child_tree(t, 2))
-    return Function.from_parse(declarations, instructions, returns)
+    return Function.from_parse(var_decls, instructions, returns)
 
 
 def _parse_declaration(t: Tree) -> Decl:
-    if t.data == "declaration":
-        t = _child_tree(t, 0)
-
     def var0():
         return _parse_var(_child_tree(t, 0))
 
@@ -264,18 +261,6 @@ def _parse_declaration(t: Tree) -> Decl:
 def _parse_declarations(t: Tree) -> List[Decl]:
     assert t.data == "declarations"
     return [_parse_declaration(_as_tree(d)) for d in t.children]
-
-
-def _parse_local_declarations(t: Tree) -> List[VarDecl]:
-    assert t.data == "local_declarations"
-
-    decls: List[VarDecl] = []
-    for child in t.children:
-        decl = _parse_declaration(_as_tree(child))
-        assert isinstance(decl, VarDecl)
-        decls.append(decl)
-
-    return decls
 
 
 def _parse_expr(t: Tree) -> Expr:

@@ -10,7 +10,7 @@ from .declarations import (ConstDecl, Decl, Function, FunctionDecl,
                            ParameterDecl, VarDecl)
 from .expressions import Expr
 from .instructions import Instr
-from .types import Type
+from .types import NatType, Type
 
 
 @attr.s
@@ -65,6 +65,18 @@ class Program:
 
         return Program(declarations, variables, constants, parameters,
                        functions, instructions)
+
+    @staticmethod
+    def from_function(function: Function) -> Program:
+        """Create a shallow copy of the function as a program"""
+        return Program(
+            function.declarations.copy(),  # type: ignore
+            {var: NatType(bounds=None)
+             for var in function.variables},
+            {},
+            {},
+            {},
+            function.instructions.copy())
 
     def add_variable(self, var: Var, typ: Type):
         """

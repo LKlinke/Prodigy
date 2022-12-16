@@ -109,7 +109,6 @@ class Function(Node):
 
         for decl in declarations:
             assert isinstance(decl, VarDecl)
-            assert isinstance(decl.typ, NatType)
             variables.add(decl.var)
 
         return Function(declarations, variables, instructions, returns)

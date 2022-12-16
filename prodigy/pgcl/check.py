@@ -10,6 +10,8 @@ from typing import (Dict, Iterable, List, Optional, Tuple, TypeVar, Union,
 
 import attr
 
+from probably.pgcl.ast.declarations import Function, FunctionDecl
+from probably.pgcl.ast.expressions import FunctionCallExpr
 from probably.util.ref import Mut
 
 from .ast import (AsgnInstr, BernoulliExpr, BinomialExpr, Binop, BinopExpr,
@@ -67,6 +69,7 @@ class CheckFail:
         return output
 
 
+# pylint: disable = too-many-statements
 def get_type(program: Program,
              expr: Expr,
              check=True) -> Union[Type, CheckFail]:
@@ -122,13 +125,12 @@ def get_type(program: Program,
             # Currently, all unary operators take boolean operands
             assert expr.operator in [Unop.NEG, Unop.IVERSON]
 
-            operand_typ = get_type(program, expr.expr, check=check)
-            if isinstance(operand_typ, CheckFail):
-                return operand_typ
+            typ = get_type(program, expr.expr, check=check)
+            if isinstance(typ, CheckFail):
+                return typ
 
-            if not is_compatible(BoolType(), operand_typ):
-                return CheckFail.expected_type_got(expr.expr, BoolType(),
-                                                   operand_typ)
+            if not is_compatible(BoolType(), typ):
+                return CheckFail.expected_type_got(expr.expr, BoolType(), typ)
 
         if expr.operator == Unop.NEG:
             return BoolType()
@@ -141,12 +143,12 @@ def get_type(program: Program,
         if expr.operator in [Binop.OR, Binop.AND]:
             if check:
                 for operand in [expr.lhs, expr.rhs]:
-                    operand_typ = get_type(program, operand, check=check)
-                    if isinstance(operand_typ, CheckFail):
-                        return operand_typ
-                    if not is_compatible(BoolType(), operand_typ):
+                    typ = get_type(program, operand, check=check)
+                    if isinstance(typ, CheckFail):
+                        return typ
+                    if not is_compatible(BoolType(), typ):
                         return CheckFail.expected_type_got(
-                            operand, BoolType(), operand_typ)
+                            operand, BoolType(), typ)
             return BoolType()
 
         # the rest of binops take numeric operands, so check those
@@ -211,7 +213,22 @@ def get_type(program: Program,
             return CheckFail.expected_type_got(expr.expr, NatType(None), typ)
         return typ
 
+    if isinstance(expr, FunctionCallExpr):
+        if check:
+            for _, return_expr in expr.input_distr.items():
+                typ = get_type(program, return_expr)
+                if isinstance(typ, CheckFail):
+                    return typ
+                if not isinstance(typ, NatType):
+                    return CheckFail.expected_type_got(return_expr,
+                                                       NatType(bounds=None),
+                                                       typ)
+        return NatType(bounds=None)
+
     raise Exception("unreachable")
+
+
+# pylint: enable = too-many-statements
 
 
 def _check_distribution_arguments(
@@ -365,6 +382,10 @@ def _check_declaration_list(program: Program) -> Optional[CheckFail]:
             return CheckFail(decl,
                              "Already declared variable/constant before.")
         declared[decl.var] = decl
+        if isinstance(decl, FunctionDecl):
+            res = check_function(decl.body)
+            if isinstance(res, CheckFail):
+                return res
     return None
 
 
@@ -566,4 +587,30 @@ def check_expectation(program, expr: Expr) -> Optional[CheckFail]:
     expr_type = get_type(program, expr, check=True)
     if isinstance(expr_type, CheckFail):
         return expr_type
+    return None
+
+
+def check_function(function: Function) -> Optional[CheckFail]:
+    """
+    Check a function for type-safety. Functions currently may only contain and
+    return integers.
+    """
+
+    for decl in function.declarations:
+        if decl.typ != NatType(bounds=None):
+            return CheckFail(
+                location=decl,
+                message=
+                "Only variables of type NatType are allowed in functions")
+
+    as_prog = Program.from_function(function)
+    res = check_program(as_prog)
+    if isinstance(res, CheckFail):
+        return res
+
+    typ = get_type(as_prog, function.returns)
+    if not isinstance(typ, NatType):
+        return CheckFail(location=function.returns,
+                         message="Functions may only return integers")
+
     return None

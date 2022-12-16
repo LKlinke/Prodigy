@@ -31,7 +31,7 @@ def test_basic_function():
     ]
 
 
-def text_illegal_names():
+def test_illegal_names():
     with raises(SyntaxError, match='Illegal function name: poisson'):
         parse_pgcl("""
             fun poisson := {
@@ -41,4 +41,38 @@ def text_illegal_names():
             }
             nat x;
             x := poisson(x := 10);
+        """)
+
+
+def test_wrong_declaration_type():
+    with raises(SyntaxError, match="Only VarDecls are allowed in functions"):
+        parse_pgcl("""
+            fun f := {
+                rparam x;
+                return 10;
+            }
+            nat x;
+            x := f(x := 10);
+        """)
+
+    with raises(SyntaxError, match="Only VarDecls are allowed in functions"):
+        parse_pgcl("""
+            fun f := {
+                fun g := {
+                    return 42;
+                };
+                return 10;
+            }
+            nat x;
+            x := f(x := 10);
+        """)
+
+    with raises(SyntaxError, match="Only VarDecls are allowed in functions"):
+        parse_pgcl("""
+            fun f := {
+                const g := 10;
+                return g;
+            }
+            nat x;
+            x := f(x := 10);
         """)
