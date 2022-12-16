@@ -117,8 +117,8 @@ class Function(Node):
     def __str__(self):
         instrs: List[Any] = list(self.declarations)
         instrs.extend(self.instructions)
-        res = "\n".join(map(str, instrs))
-        return f"{{\n{res}\nreturn {str(self.returns)};\n}}"
+        res = "\n\t".join(map(str, instrs))
+        return f"{{\n\t{res}\n\treturn {str(self.returns)};\n}}"
 
 
 Decl = Union[VarDecl, ConstDecl, ParameterDecl, FunctionDecl]

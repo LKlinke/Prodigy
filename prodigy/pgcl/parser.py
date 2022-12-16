@@ -113,6 +113,10 @@ _PGCL_GRAMMAR = """
 """
 
 _illegal_variable_names = {"true", "false"}
+_illegal_function_names = {
+    'unif_d', 'unif_c', 'unif', 'geometric', 'poisson', 'logdist', 'binomial',
+    'bernoulli', 'iid'
+}
 
 _OPERATOR_TABLE = [[infixl("or", "||")], [infixl("and", "&")],
                    [
@@ -249,7 +253,10 @@ def _parse_declaration(t: Tree) -> Decl:
     elif t.data == "nparam":
         return ParameterDecl(var0(), NatType(bounds=None))
     elif t.data == "fun":
-        return FunctionDecl(var0(), _parse_function(_child_tree(t, 1)))
+        name = var0()
+        if name in _illegal_function_names:
+            raise SyntaxError(f"Illegal function name: {name}")
+        return FunctionDecl(name, _parse_function(_child_tree(t, 1)))
     else:
         raise Exception(f'invalid AST: {t.data}')
 
