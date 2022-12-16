@@ -160,7 +160,9 @@ class TestDistributionInterface:
         gf = GeneratingFunction("n^5")
         # Linearity breaks if intermediate results are negative.
         with pytest.raises(ValueError):
-            gf.get_expected_value_of("n - 7 + 1")  # This should raise an error!
+            gf.get_expected_value_of("n - 7 + 1")
+        with pytest.raises(ValueError):
+            gf.get_expected_value_of("n - 7 + 7")
 
     def test_normalize(self):
         assert create_random_gf().normalize().coefficient_sum() == 1

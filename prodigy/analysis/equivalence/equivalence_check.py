@@ -38,7 +38,8 @@ def phi(program: Program, invariant: Program) -> Program:
                    variables=invariant.variables,
                    constants=invariant.constants,
                    parameters=invariant.parameters,
-                   instructions=[guarded_instr])
+                   instructions=[guarded_instr],
+                   functions=invariant.functions)
 
 
 def generate_equivalence_test_distribution(
