@@ -78,3 +78,17 @@ def test_function_calls():
     """)
     assert isinstance(prog, CheckFail)
     assert prog.message == 'Expected value of type NatType(bounds=None), got RealType().'
+
+
+def test_wrong_assignment():
+    prog = compile_pgcl("""
+        fun f := {
+            nat x;
+            x := 10;
+            return x;
+        }
+        bool x;
+        x := f(x := 10);
+    """)
+    assert isinstance(prog, CheckFail)
+    assert prog.message == "Expected value of type BoolType(), got NatType(bounds=None)."

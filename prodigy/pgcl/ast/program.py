@@ -68,7 +68,10 @@ class Program:
 
     @staticmethod
     def from_function(function: Function) -> Program:
-        """Create a shallow copy of the function as a program"""
+        """
+        Create a shallow copy of the function as a program. All variables are
+        assigned the type NatType.
+        """
         return Program(
             function.declarations.copy(),  # type: ignore
             {var: NatType(bounds=None)
