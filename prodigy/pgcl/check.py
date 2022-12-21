@@ -215,10 +215,14 @@ def get_type(program: Program,
 
     if isinstance(expr, FunctionCallExpr):
         if check:
-            for _, return_expr in expr.input_distr.items():
+            for var, return_expr in expr.input_distr.items():
                 typ = get_type(program, return_expr)
                 if isinstance(typ, CheckFail):
                     return typ
+                if var not in program.variables:
+                    return CheckFail(
+                        expr,
+                        f"Unknown variable in function parameters: {var}")
                 if not isinstance(typ, NatType):
                     return CheckFail.expected_type_got(return_expr,
                                                        NatType(bounds=None),

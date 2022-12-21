@@ -92,3 +92,17 @@ def test_wrong_assignment():
     """)
     assert isinstance(prog, CheckFail)
     assert prog.message == "Expected value of type BoolType(), got NatType(bounds=None)."
+
+
+def test_wrong_input_distribution():
+    prog = compile_pgcl("""
+        fun f := {
+            nat x;
+            x := 10;
+            return x;
+        }
+        nat x;
+        x := f(y := 10);
+    """)
+    assert isinstance(prog, CheckFail)
+    assert prog.message == "Unknown variable in function parameters: y"
