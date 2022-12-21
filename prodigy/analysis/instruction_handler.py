@@ -7,13 +7,14 @@ from typing import Sequence, Union, get_args
 
 from probably.pgcl import (AsgnInstr, BernoulliExpr, BinomialExpr, Binop,
                            BinopExpr, CategoricalExpr, ChoiceInstr, DistrExpr,
-                           DUniformExpr, ExpectationInstr, Expr, GeometricExpr,
-                           IfInstr, IidSampleExpr, Instr, LogDistExpr,
-                           LoopInstr, NatLitExpr, ObserveInstr,
-                           OptimizationQuery, OptimizationType, PlotInstr,
-                           PoissonExpr, PrintInstr, ProbabilityQueryInstr,
-                           Program, Query, RealLitExpr, SkipInstr, Unop,
-                           UnopExpr, Var, VarExpr, WhileInstr, parse_pgcl)
+                           DUniformExpr, ExpectationInstr, Expr,
+                           FunctionCallExpr, GeometricExpr, IfInstr,
+                           IidSampleExpr, Instr, LogDistExpr, LoopInstr,
+                           NatLitExpr, ObserveInstr, OptimizationQuery,
+                           OptimizationType, PlotInstr, PoissonExpr,
+                           PrintInstr, ProbabilityQueryInstr, Program, Query,
+                           RealLitExpr, SkipInstr, Unop, UnopExpr, Var,
+                           VarExpr, WhileInstr, parse_pgcl)
 
 import prodigy.analysis.equivalence.equivalence_check as equiv_check
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -43,8 +44,9 @@ def compute_discrete_distribution(
     initial_dist = dist.set_variables(*variables).set_parameters(*parameters)
     error_prob = config.factory.one(*variables) * 0
 
-    dist, error_prob = SequenceHandler.compute(prog.instructions, initial_dist,
-                                               error_prob, config)
+    dist, error_prob = SequenceHandler.compute(prog.instructions, prog,
+                                               initial_dist, error_prob,
+                                               config)
     return condition_distribution(dist, error_prob, config)
 
 
@@ -64,9 +66,9 @@ class InstructionHandler(ABC):
     @staticmethod
     @abstractmethod
     def compute(
-            instruction: Union[Instr,
-                               Sequence[Instr]], distribution: Distribution,
-            error_prob: Distribution, config: ForwardAnalysisConfig
+            instruction: Union[Instr, Sequence[Instr]], program: Program,
+            distribution: Distribution, error_prob: Distribution,
+            config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
         """Computes the updated distribution after executing the instruction `instruction` on input `distribution`"""
 
@@ -75,6 +77,7 @@ class SequenceHandler(InstructionHandler):
     @staticmethod
     def compute(
         instruction: Union[Instr, Sequence[Instr]],
+        program: Program,
         distribution: Distribution,
         error_prob: Distribution,
         config=ForwardAnalysisConfig()
@@ -82,7 +85,8 @@ class SequenceHandler(InstructionHandler):
         def _show_steps(inp: tuple[Distribution, Distribution],
                         instr: Instr) -> tuple[Distribution, Distribution]:
             dist, error_prob = inp
-            res = SequenceHandler.compute(instr, dist, error_prob, config)
+            res = SequenceHandler.compute(instr, program, dist, error_prob,
+                                          config)
             if isinstance(instr, (WhileInstr, IfInstr, LoopInstr)):
                 print("\n")
             output = f"\n{Style.BLUE}Instruction:{Style.RESET} {instr}\t {Style.GREEN}Result:{Style.RESET} {res}"
@@ -93,7 +97,8 @@ class SequenceHandler(InstructionHandler):
                 inp: tuple[Distribution, Distribution],
                 instr: Instr) -> tuple[Distribution, Distribution]:
             dist, error_prob = inp
-            return SequenceHandler.compute(instr, dist, error_prob, config)
+            return SequenceHandler.compute(instr, program, dist, error_prob,
+                                           config)
 
         if isinstance(instruction, list):
             func = _show_steps if config.show_intermediate_steps else _dont_show_steps
@@ -105,24 +110,24 @@ class SequenceHandler(InstructionHandler):
 
         elif isinstance(instruction, WhileInstr):
             logger.info("%s gets handled", instruction)
-            return WhileHandler.compute(instruction, distribution, error_prob,
-                                        config)
+            return WhileHandler.compute(instruction, program, distribution,
+                                        error_prob, config)
 
         elif isinstance(instruction, IfInstr):
-            return ITEHandler.compute(instruction, distribution, error_prob,
-                                      config)
+            return ITEHandler.compute(instruction, program, distribution,
+                                      error_prob, config)
 
         elif isinstance(instruction, AsgnInstr):
-            return AssignmentHandler.compute(instruction, distribution,
-                                             error_prob, config)
+            return AssignmentHandler.compute(instruction, program,
+                                             distribution, error_prob, config)
 
         elif isinstance(instruction, ChoiceInstr):
-            return PChoiceHandler.compute(instruction, distribution,
+            return PChoiceHandler.compute(instruction, program, distribution,
                                           error_prob, config)
 
         elif isinstance(instruction, ObserveInstr):
             logger.info("%s gets handled", instruction)
-            return ObserveHandler.compute(instruction, distribution,
+            return ObserveHandler.compute(instruction, program, distribution,
                                           error_prob, config)
 
         elif isinstance(instruction, get_args(Query)):
@@ -131,13 +136,13 @@ class SequenceHandler(InstructionHandler):
                 distribution, error_prob,
                 config)  # evaluate queries on conditioned distribution
             error_prob *= "0"
-            return QueryHandler.compute(instruction, distribution, error_prob,
-                                        config)
+            return QueryHandler.compute(instruction, program, distribution,
+                                        error_prob, config)
 
         elif isinstance(instruction, LoopInstr):
             logger.info("%s gets handled", instruction)
-            return LoopHandler.compute(instruction, distribution, error_prob,
-                                       config)
+            return LoopHandler.compute(instruction, program, distribution,
+                                       error_prob, config)
 
         raise TypeError("illegal instruction")
 
@@ -145,7 +150,7 @@ class SequenceHandler(InstructionHandler):
 class QueryHandler(InstructionHandler):
     @staticmethod
     def compute(
-            instruction: Instr, distribution: Distribution,
+            instruction: Instr, program: Program, distribution: Distribution,
             error_prob: Distribution, config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
         _assume(instruction, get_args(Query), 'QueryHandler')
@@ -263,7 +268,7 @@ class SampleHandler(InstructionHandler):
     @staticmethod
     @abstractmethod
     def compute(
-            instruction: Instr, distribution: Distribution,
+            instruction: Instr, program: Program, distribution: Distribution,
             error_prob: Distribution, config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
         _assume(instruction, AsgnInstr, 'SampleHandler')
@@ -322,17 +327,45 @@ class SampleHandler(InstructionHandler):
         raise Exception("Unknown distribution type!")
 
 
+class FunctionHandler(InstructionHandler):
+    @staticmethod
+    def compute(
+            instruction: Instr, program: Program, distribution: Distribution,
+            error_prob: Distribution, config: ForwardAnalysisConfig
+    ) -> tuple[Distribution, Distribution]:
+        _assume(instruction, AsgnInstr, 'FunctionCallHandler')
+        assert isinstance(instruction.rhs, FunctionCallExpr)
+
+        function = program.functions[instruction.rhs.function]
+        input_distr = distribution.marginal(
+            *(distribution.get_variables() -
+              function.variables)).set_variables(
+                  *(distribution.get_variables() | function.variables))
+        for var, val in instruction.rhs.input_distr.items():
+            input_distr *= distribution.evaluate_expression(val, var)
+
+        returned = compute_discrete_distribution(
+            Program.from_function(function), input_distr,
+            config).evaluate_expression(function.returns, instruction.lhs)
+        return distribution.marginal(
+            instruction.lhs, MarginalType.EXCLUDE) * returned, error_prob
+
+
 class AssignmentHandler(InstructionHandler):
     @staticmethod
     def compute(
-            instruction: Instr, distribution: Distribution,
+            instruction: Instr, program: Program, distribution: Distribution,
             error_prob: Distribution, config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
         _assume(instruction, AsgnInstr, 'AssignmentHandler')
 
         if isinstance(instruction.rhs, get_args(DistrExpr)):
-            return SampleHandler.compute(instruction, distribution, error_prob,
-                                         config)
+            return SampleHandler.compute(instruction, program, distribution,
+                                         error_prob, config)
+
+        if isinstance(instruction.rhs, FunctionCallExpr):
+            return FunctionHandler.compute(instruction, program, distribution,
+                                           error_prob, config)
 
         if not isinstance(instruction.rhs, get_args(Expr)):
             raise SyntaxError(
@@ -349,7 +382,7 @@ class AssignmentHandler(InstructionHandler):
 class ObserveHandler(InstructionHandler):
     @staticmethod
     def compute(
-            instruction: Instr, distribution: Distribution,
+            instruction: Instr, program: Program, distribution: Distribution,
             error_prob: Distribution, config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
         _assume(instruction, ObserveInstr, 'ObserverHandler')
@@ -365,15 +398,15 @@ class ObserveHandler(InstructionHandler):
 class PChoiceHandler(InstructionHandler):
     @staticmethod
     def compute(
-            instruction: Instr, distribution: Distribution,
+            instruction: Instr, program: Program, distribution: Distribution,
             error_prob: Distribution, config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
         _assume(instruction, ChoiceInstr, 'PChoiceHandlerGF')
 
         lhs_block, lhs_error_prob = SequenceHandler.compute(
-            instruction.lhs, distribution, error_prob)
+            instruction.lhs, program, distribution, error_prob)
         rhs_block, rhs_error_prob = SequenceHandler.compute(
-            instruction.rhs, distribution, error_prob)
+            instruction.rhs, program, distribution, error_prob)
         logger.info("Combining PChoice branches.\n%s", instruction)
         res_error_prob = (
             lhs_error_prob * str(instruction.prob) +
@@ -387,7 +420,7 @@ class PChoiceHandler(InstructionHandler):
 class ITEHandler(InstructionHandler):
     @staticmethod
     def compute(
-            instruction: Instr, distribution: Distribution,
+            instruction: Instr, program: Program, distribution: Distribution,
             error_prob: Distribution, config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
         _assume(instruction, IfInstr, 'ITEHandler')
@@ -405,16 +438,16 @@ class ITEHandler(InstructionHandler):
                 f"\n{Style.YELLOW} If-branch: ({instruction.cond}){Style.RESET}"
             )
             if_branch, if_error_prob = SequenceHandler.compute(
-                instruction.true, sat_part, zero, config)
+                instruction.true, program, sat_part, zero, config)
             print(f"\n{Style.YELLOW} Else-branch:{Style.RESET}")
             else_branch, else_error_prob = SequenceHandler.compute(
-                instruction.false, non_sat_part, zero, config)
+                instruction.false, program, non_sat_part, zero, config)
             print(f"\n{Style.YELLOW}Combined:{Style.RESET}")
         else:
             if_branch, if_error_prob = SequenceHandler.compute(
-                instruction.true, sat_part, zero, config)
+                instruction.true, program, sat_part, zero, config)
             else_branch, else_error_prob = SequenceHandler.compute(
-                instruction.false, non_sat_part, zero, config)
+                instruction.false, program, non_sat_part, zero, config)
         result = if_branch + else_branch
         res_error_prob = error_prob + if_error_prob + else_error_prob
         logger.info("Combining if-branches.\n%s", instruction)
@@ -424,7 +457,7 @@ class ITEHandler(InstructionHandler):
 class LoopHandler(InstructionHandler):
     @staticmethod
     def compute(
-            instruction: Instr, distribution: Distribution,
+            instruction: Instr, program: Program, distribution: Distribution,
             error_prob: Distribution, config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
         _assume(instruction, LoopInstr, 'LoopHandler')
@@ -432,14 +465,14 @@ class LoopHandler(InstructionHandler):
             logger.info("Computing iteration %d out of %d", i + 1,
                         instruction.iterations.value)
             distribution, error_prob = SequenceHandler.compute(
-                instruction.body, distribution, error_prob, config)
+                instruction.body, program, distribution, error_prob, config)
         return distribution, error_prob
 
 
 class WhileHandler(InstructionHandler):
     @staticmethod
     def _analyze_with_invariant(
-            instruction: Instr, distribution: Distribution,
+            instruction: Instr, program: Program, distribution: Distribution,
             error_prob: Distribution, config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
         inv_filepath = input("Invariant file:\t")
@@ -468,7 +501,7 @@ class WhileHandler(InstructionHandler):
                     print(Style.YELLOW +
                           "Compute the result using the invariant" +
                           Style.RESET)
-                return SequenceHandler.compute(inv_prog.instructions,
+                return SequenceHandler.compute(inv_prog.instructions, program,
                                                distribution, error_prob,
                                                config)
             elif answer is False:
@@ -483,7 +516,7 @@ class WhileHandler(InstructionHandler):
 
     @staticmethod
     def _compute_iterations(
-            instruction: Instr, distribution: Distribution,
+            instruction: Instr, program: Program, distribution: Distribution,
             error_prob: Distribution, config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
         max_iter = int(input("Specify a maximum iteration limit: "))
@@ -492,7 +525,7 @@ class WhileHandler(InstructionHandler):
         for i in range(max_iter + 1):
             print_progress_bar(i, max_iter, length=50)
             iterated_part, error_prob = SequenceHandler.compute(
-                instruction.body, sat_part, error_prob, config)
+                instruction.body, program, sat_part, error_prob, config)
             iterated_sat = iterated_part.filter(instruction.cond)
             iterated_non_sat = iterated_part - iterated_sat
             if iterated_non_sat == SympyPGF.zero(
@@ -507,7 +540,7 @@ class WhileHandler(InstructionHandler):
 
     @staticmethod
     def _compute_until_threshold(
-            instruction: Instr, distribution: Distribution,
+            instruction: Instr, program: Program, distribution: Distribution,
             error_prob: Distribution, config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
         captured_probability_threshold = float(
@@ -521,7 +554,7 @@ class WhileHandler(InstructionHandler):
                 (Fraction(captured_part.get_probability_mass()) /
                  captured_probability_threshold)) * 100))
             iterated_part, error_prob = SequenceHandler.compute(
-                instruction.body, sat_part, error_prob, config)
+                instruction.body, program, sat_part, error_prob, config)
             iterated_sat = iterated_part.filter(instruction.cond)
             iterated_non_sat = iterated_part - iterated_sat
             non_sat_part += iterated_non_sat
@@ -536,7 +569,7 @@ class WhileHandler(InstructionHandler):
 
     @staticmethod
     def compute(
-            instruction: Instr, distribution: Distribution,
+            instruction: Instr, program: Program, distribution: Distribution,
             error_prob: Distribution, config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
 
@@ -552,13 +585,13 @@ class WhileHandler(InstructionHandler):
             logger.info("User chose %s", user_choice)
             if user_choice == "1":
                 return WhileHandler._analyze_with_invariant(
-                    instruction, distribution, error_prob, config)
+                    instruction, program, distribution, error_prob, config)
             if user_choice == "2":
                 return WhileHandler._compute_iterations(
-                    instruction, distribution, error_prob, config)
+                    instruction, program, distribution, error_prob, config)
             if user_choice == "3":
                 return WhileHandler._compute_until_threshold(
-                    instruction, distribution, error_prob, config)
+                    instruction, program, distribution, error_prob, config)
             if user_choice == "q":
                 sys.exit()
             print(f"Invalid input: {user_choice}")

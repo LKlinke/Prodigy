@@ -355,6 +355,20 @@ class Distribution(ABC):
             return cls.evaluate(lhs, state) >= cls.evaluate(rhs, state)
         raise AssertionError(f"Unexpected condition type. {condition}")
 
+    def evaluate_expression(self,
+                            expression: Expr,
+                            new_var: str | None = None) -> Distribution:
+        """
+        Creates a new distribution with a single variable that represents all
+        possible results of the given expression.
+        """
+
+        if new_var is None:
+            new_var = self.get_fresh_variable()
+        return self.set_variables(*self.get_variables(), new_var).update(
+            BinopExpr(Binop.EQ, VarExpr(new_var),
+                      expression)).marginal(new_var)
+
     @abstractmethod
     def is_zero_dist(self) -> bool:
         """ Returns whether the distribution encodes the 0 distribution."""

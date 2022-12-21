@@ -875,7 +875,8 @@ class GeneratingFunction(Distribution):
                     tmp = tmp._diff(var, 1) * GeneratingFunction(var)
                 tmp = tmp._limit(var, "1")
             summand = GeneratingFunction(prob) * tmp
-            if len(summand._function.free_symbols) == 0 and summand._function < 0:
+            if len(summand._function.free_symbols
+                   ) == 0 and summand._function < 0:
                 raise ValueError()
             expected_value += summand
         if expected_value._function == sympy.S('oo'):
