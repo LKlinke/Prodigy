@@ -345,7 +345,7 @@ class FunctionHandler(InstructionHandler):
             input_distr *= distribution.evaluate_expression(val, var)
 
         returned = compute_discrete_distribution(
-            Program.from_function(function), input_distr,
+            Program.from_function(function, program), input_distr,
             config).evaluate_expression(function.returns, instruction.lhs)
         return distribution.marginal(
             instruction.lhs, MarginalType.EXCLUDE) * returned, error_prob
