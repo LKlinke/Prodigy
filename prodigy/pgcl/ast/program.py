@@ -67,7 +67,8 @@ class Program:
                        functions, instructions)
 
     @staticmethod
-    def from_function(function: Function) -> Program:
+    def from_function(function: Function,
+                      context: Program | None = None) -> Program:
         """
         Create a shallow copy of the function as a program. All variables are
         assigned the type NatType.
@@ -76,8 +77,8 @@ class Program:
             function.declarations.copy(),  # type: ignore
             {var: NatType(bounds=None)
              for var in function.variables},
-            {},
-            {},
+            {} if context is None else context.constants.copy(),
+            {} if context is None else context.parameters.copy(),
             {},
             function.instructions.copy())
 

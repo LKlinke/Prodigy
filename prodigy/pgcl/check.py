@@ -383,7 +383,7 @@ def _check_declaration_list(program: Program) -> Optional[CheckFail]:
                              "Already declared variable/constant before.")
         declared[decl.var] = decl
         if isinstance(decl, FunctionDecl):
-            res = check_function(decl.body)
+            res = check_function(decl.body, program)
             if isinstance(res, CheckFail):
                 return res
     return None
@@ -590,7 +590,8 @@ def check_expectation(program, expr: Expr) -> Optional[CheckFail]:
     return None
 
 
-def check_function(function: Function) -> Optional[CheckFail]:
+def check_function(function: Function,
+                   context: Program) -> Optional[CheckFail]:
     """
     Check a function for type-safety. Functions currently may only contain and
     return integers.
@@ -603,7 +604,7 @@ def check_function(function: Function) -> Optional[CheckFail]:
                 message=
                 "Only variables of type NatType are allowed in functions")
 
-    as_prog = Program.from_function(function)
+    as_prog = Program.from_function(function, context)
     res = check_program(as_prog)
     if isinstance(res, CheckFail):
         return res
