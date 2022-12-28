@@ -509,6 +509,14 @@ class FunctionCallExpr(ExprClass):
         return f"{self.function}({params});"
 
 
+@attr.s
+class InferExpr(ExprClass):
+    function: FunctionCallExpr = attr.ib()
+    """The function call to infer a distribution from"""
+    def __str__(self):
+        return f"infer {{ {function} }}"
+
+
 def expr_str_parens(expr: ExprClass) -> str:
     """Wrap parentheses around an expression, but not for simple expressions."""
     if isinstance(expr,
@@ -524,5 +532,5 @@ DistrExpr = Union[DUniformExpr, CUniformExpr, BernoulliExpr, GeometricExpr,
 
 Expr = Union[VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr,
              BinopExpr, CategoricalExpr, SubstExpr, TickExpr, DistrExpr,
-             FunctionCallExpr]
+             FunctionCallExpr, InferExpr]
 """Union type for all expression objects. See :class:`ExprClass` for use with isinstance."""

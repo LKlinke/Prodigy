@@ -58,5 +58,10 @@ class RealType(TypeClass):
     """Real numbers, used for probabilities."""
 
 
-Type = Union[BoolType, NatType, RealType]
+@attr.s
+class DistributionType(TypeClass):
+    """Distribution type, used for storing the distributions defined in infer expressions."""
+
+
+Type = Union[BoolType, NatType, RealType, DistributionType]
 """Union type for all type objects. See :class:`TypeClass` for use with isinstance."""

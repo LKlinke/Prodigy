@@ -68,10 +68,21 @@ class Program:
 
     @staticmethod
     def from_function(function: Function,
-                      context: Program | None = None) -> Program:
+                      context: Program | None = None,
+                      copy_functions: bool = False) -> Program:
         """
         Create a shallow copy of the function as a program. All variables are
         assigned the type NatType.
+
+        Args:
+            function:
+            context: An optional context program that determines the constants
+                and parameters that can be used in the function. The variables
+                of the context program are ignored, meaning functions can only
+                access their own local variables.
+            copy_functions: Whether to copy the functions from the context
+                program. This effectively enables / disables nested function
+                calls.
         """
         return Program(
             function.declarations.copy(),  # type: ignore
@@ -79,7 +90,8 @@ class Program:
              for var in function.variables},
             {} if context is None else context.constants.copy(),
             {} if context is None else context.parameters.copy(),
-            {},
+            {} if context is None or not copy_functions else
+            context.functions.copy(),
             function.instructions.copy())
 
     def add_variable(self, var: Var, typ: Type):

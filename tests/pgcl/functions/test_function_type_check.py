@@ -66,7 +66,7 @@ def test_variable_types():
     assert prog.message == "Only variables of type NatType are allowed in functions"
 
 
-def test_function_calls():
+def test_parameter_type():
     prog = compile_pgcl("""
         fun f := {
             nat x;
@@ -106,3 +106,17 @@ def test_wrong_input_distribution():
     """)
     assert isinstance(prog, CheckFail)
     assert prog.message == "Unknown variable in function parameters: y"
+
+
+def test_outside_variables():
+    prog = compile_pgcl("""
+        fun f := {
+            y := geometric(p);
+            return y;
+        }
+        nat x;
+        nat y;
+        x := f();
+    """)
+    assert isinstance(prog, CheckFail)
+    assert prog.message == "y is not a variable."

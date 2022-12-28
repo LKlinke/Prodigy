@@ -26,6 +26,8 @@ import attr
 from lark import Lark, Tree
 
 from probably.pgcl.ast import *
+from probably.pgcl.ast.expressions import InferExpr
+from probably.pgcl.ast.types import DistributionType
 from probably.pgcl.ast.walk import Walk, walk_expr
 from probably.util.lark_expr_parser import (atom, build_expr_parser, infixl,
                                             infixr, prefix)
@@ -43,6 +45,7 @@ _PGCL_GRAMMAR = """
                | "nparam" var                -> nparam
                | "fun" var ":=" function     -> fun
                | "nat" var bounds?           -> nat
+               | "dist" var                  -> dist
 
     bounds: "[" expression "," expression "]"
 
@@ -80,7 +83,10 @@ _PGCL_GRAMMAR = """
           | "bernoulli" "(" expression ")"               -> bernoulli
           | "iid" "(" rvalue "," var ")"                 -> iid
           | expression
-          | var "(" parameter_list? ")"                  -> function_call
+          | function_call                                -> function_call
+          | "infer" "{" function_call "}"                -> infer
+
+    function_call: var "(" parameter_list? ")"
 
     parameter_list: param_assign | parameter_list "," param_assign
 
@@ -254,6 +260,8 @@ def _parse_declaration(t: Tree) -> Decl:
         if name in _illegal_function_names:
             raise SyntaxError(f"Illegal function name: {name}")
         return FunctionDecl(name, _parse_function(_child_tree(t, 1)))
+    elif t.data == "dist":
+        return VarDecl(var0(), DistributionType())
     else:
         raise Exception(f'invalid AST: {t.data}')
 
@@ -373,7 +381,12 @@ def _parse_rvalue(t: Tree) -> Expr:
                              VarExpr(_parse_var(_child_tree(t, 1))))
 
     elif t.data == "function_call":
-        return _parse_function_call(t)
+        assert len(t.children) == 1
+        return _parse_function_call(_child_tree(t, 0))
+
+    elif t.data == "infer":
+        assert len(t.children) == 1
+        return InferExpr(_parse_function_call(_child_tree(t, 0)))
 
     # otherwise we have an expression, but it may contain _LikelyExprs, which we
     # need to parse.
