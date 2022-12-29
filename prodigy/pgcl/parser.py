@@ -20,7 +20,7 @@ we collect all `LikelyExpr` and flatten them into a single
 import textwrap
 from decimal import Decimal
 from fractions import Fraction
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import attr
 from lark import Lark, Tree
@@ -73,15 +73,7 @@ _PGCL_GRAMMAR = """
 
     block: "{" instruction* "}"
 
-    rvalue: "unif_d" "(" expression "," expression ")"   -> duniform
-          | "unif" "(" expression "," expression ")"     -> duniform
-          | "unif_c" "(" expression "," expression ")"   -> cuniform
-          | "geometric" "(" expression ")"               -> geometric
-          | "poisson" "(" expression ")"                 -> poisson
-          | "logdist" "(" expression ")"                 -> logdist
-          | "binomial" "(" expression "," expression ")" -> binomial
-          | "bernoulli" "(" expression ")"               -> bernoulli
-          | "iid" "(" rvalue "," var ")"                 -> iid
+    rvalue: "iid" "(" rvalue "," var ")"                 -> iid
           | expression
           | function_call                                -> function_call
           | "infer" "{" function_call "}"                -> infer
@@ -168,18 +160,6 @@ def _doc_parser_grammar():
 
 
 _doc_parser_grammar.__doc__ = "The Lark grammar for pGCL::\n" + _PGCL_GRAMMAR + "\n\nThis function only exists for documentation purposes and should never be called in code."
-
-# All known distribution types. Dictionary entry contains the token name as key.
-# Also the value of a given gey is a tuple consisting of the number of parameters and the Class name (constructor call)
-distributions: Dict[str, Tuple[int, Callable]] = {
-    "duniform": (2, DUniformExpr),
-    "cuniform": (2, CUniformExpr),
-    "geometric": (1, GeometricExpr),
-    "poisson": (1, PoissonExpr),
-    "logdist": (1, LogDistExpr),
-    "bernoulli": (1, BernoulliExpr),
-    "binomial": (2, BinomialExpr)
-}
 
 
 @attr.s
@@ -359,16 +339,6 @@ def _parse_literal(t: Tree) -> Expr:
         raise Exception(f'invalid AST: {t.data}')
 
 
-def _parse_distribution(t: Tree) -> Expr:
-    assert t.data in distributions
-    param_count, constructor = distributions[t.data]
-    params = []
-    for i in range(param_count):
-        param = _parse_expr(_child_tree(t, i))
-        params.append(param)
-    return constructor(*params)
-
-
 def _parse_function_call(t: Tree) -> FunctionCallExpr:
     assert t.data == "function_call"
 
@@ -387,14 +357,7 @@ def _parse_function_call(t: Tree) -> FunctionCallExpr:
 
 
 def _parse_rvalue(t: Tree) -> Expr:
-    if t.data in distributions:
-        return _parse_distribution(t)
-
-    elif t.data == "iid":
-        return IidSampleExpr(_parse_rvalue(_child_tree(t, 0)),
-                             VarExpr(_parse_var(_child_tree(t, 1))))
-
-    elif t.data == "function_call":
+    if t.data == "function_call":
         assert len(t.children) == 1
         return _parse_function_call(_child_tree(t, 0))
 
@@ -559,7 +522,7 @@ def parse_pgcl(code: str) -> Program:
         Program(variables={}, constants={}, parameters={}, functions={}, instructions=[AsgnInstr(lhs='x', rhs=VarExpr('y'))])
 
         >>> parse_pgcl("x := unif(5, 17)").instructions[0]
-        AsgnInstr(lhs='x', rhs=DUniformExpr(start=NatLitExpr(5), end=NatLitExpr(17)))
+        AsgnInstr(lhs='x', rhs=FunctionCallExpr(function='unif', params=([NatLitExpr(5), NatLitExpr(17)], {})))
 
         >>> parse_pgcl("x := x : 1/3 + y : 2/3").instructions[0]
         AsgnInstr(lhs='x', rhs=CategoricalExpr(exprs=[(VarExpr('x'), RealLitExpr("1/3")), (VarExpr('y'), RealLitExpr("2/3"))]))

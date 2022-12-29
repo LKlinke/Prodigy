@@ -3,26 +3,27 @@
 Type Checking
 -------------
 """
+from __future__ import annotations
 
-import logging
-from typing import (Dict, Iterable, List, Optional, Set, Tuple, TypeVar, Union,
-                    get_args)
+from typing import Dict, Iterable, List, Optional, Set, TypeVar, Union
 
 import attr
+# mypy complains here, but this isn't actually wrong
+# the next version of frozendict will likely fix this issue
+# https://github.com/Marco-Sulla/python-frozendict/issues/62
+from frozendict import frozendict
 
-from probably.pgcl.ast.declarations import Function, FunctionDecl
+from probably.pgcl.ast.declarations import Function, FunctionDecl, VarDecl
 from probably.pgcl.ast.expressions import FunctionCallExpr
 from probably.util.ref import Mut
 
-from .ast import (AsgnInstr, BernoulliExpr, BinomialExpr, Binop, BinopExpr,
-                  BoolLitExpr, BoolType, CategoricalExpr, ChoiceInstr,
-                  CUniformExpr, Decl, DistrExpr, DUniformExpr,
-                  ExpectationInstr, Expr, GeometricExpr, IfInstr,
-                  IidSampleExpr, Instr, LogDistExpr, LoopInstr, NatLitExpr,
-                  NatType, Node, ObserveInstr, OptimizationQuery, PlotInstr,
-                  PoissonExpr, PrintInstr, ProbabilityQueryInstr, Program,
-                  RealLitExpr, RealType, SkipInstr, TickExpr, TickInstr, Type,
-                  Unop, UnopExpr, Var, VarExpr, WhileInstr)
+from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
+                  CategoricalExpr, ChoiceInstr, Decl, ExpectationInstr, Expr,
+                  IfInstr, Instr, LoopInstr, NatLitExpr, NatType, Node,
+                  ObserveInstr, OptimizationQuery, PlotInstr, PrintInstr,
+                  ProbabilityQueryInstr, Program, RealLitExpr, RealType,
+                  SkipInstr, TickExpr, TickInstr, Type, Unop, UnopExpr, Var,
+                  VarExpr, WhileInstr)
 from .ast.walk import Walk, walk_expr
 
 _T = TypeVar('_T')
@@ -69,44 +70,71 @@ class CheckFail:
         return output
 
 
-def _check_function_call(program: Program,
-                         expr: FunctionCallExpr) -> Optional[CheckFail]:
-    function = program.functions[expr.function]
-    if len(expr.params[0]) > len(function.declarations):
+sample_predefined_functions: Dict[Var, List[VarDecl]] = frozendict({
+    'unif_d': [VarDecl('start', NatType(None)),
+               VarDecl('end', NatType(None))],
+    'unif': [VarDecl('start', NatType(None)),
+             VarDecl('end', NatType(None))],
+    'geometric': [VarDecl('p', RealType())],
+    'bernoulli': [VarDecl('p', RealType())],
+    'poisson': [VarDecl('p', NatType(None))],
+    'logdist': [VarDecl('p', RealType())],
+    'binomial': [VarDecl('n', NatType(None)),
+                 VarDecl('p', RealType())],
+    'iid': [VarDecl('dist', NatType(None))]
+})
+
+
+def _check_function_call(
+        program: Program, expr: FunctionCallExpr,
+        predefined_functions: Dict[Var, List[VarDecl]]) -> Optional[CheckFail]:
+    param_list: List[VarDecl]
+    if expr.function in program.functions:
+        param_list = program.functions[expr.function].declarations
+    else:
+        if expr.function not in predefined_functions:
+            return CheckFail(expr, f"Unknown function: {expr.function}")
+        param_list = predefined_functions[expr.function]
+
+    if len(expr.params[0]) > len(param_list):
         return CheckFail(expr, "Too many parameters")
 
     covered_names: Set[Var] = set()
-    for decl, param_expr in zip(function.declarations, expr.params[0]):
-        typ = get_type(program, param_expr)
+    for decl, param_expr in zip(param_list, expr.params[0]):
+        typ = get_type(program, param_expr, True, predefined_functions)
         if isinstance(typ, CheckFail):
             return typ
-        if not isinstance(typ, NatType):
-            return CheckFail.expected_type_got(param_expr,
-                                               NatType(bounds=None), typ)
+        if not is_compatible(decl.typ, typ):
+            return CheckFail.expected_type_got(param_expr, decl.typ, typ)
         covered_names.add(decl.var)
 
+    param_dict = {decl.var: decl.typ for decl in param_list}
     for var, param_expr in expr.params[1].items():
-        if var not in function.variables:
+        if var not in param_dict:
             return CheckFail(
-                expr, f"Unknown variable in function parameters: {var}")
+                expr, f"Unknown variable in named function parameters: {var}")
         if var in covered_names:
             return CheckFail(
                 expr, f"Variable {var} is covered by multiple parameters")
-        typ = get_type(program, param_expr)
+        typ = get_type(program, param_expr, True, predefined_functions)
         if isinstance(typ, CheckFail):
             return typ
-        if not isinstance(typ, NatType):
-            return CheckFail.expected_type_got(param_expr,
-                                               NatType(bounds=None), typ)
+        if not is_compatible(param_dict[var], typ):
+            return CheckFail.expected_type_got(param_expr, param_dict[var],
+                                               typ)
         covered_names.add(var)
 
     return None
 
 
 # pylint: disable = too-many-statements
-def get_type(program: Program,
-             expr: Expr,
-             check=True) -> Union[Type, CheckFail]:
+def get_type(
+    program: Program,
+    expr: Expr,
+    check=True,
+    predefined_functions: Dict[Var,
+                               List[VarDecl]] = sample_predefined_functions
+) -> Union[Type, CheckFail]:
     """
     Get the type of the expression or expectation.
 
@@ -143,7 +171,9 @@ def get_type(program: Program,
         constant_type = program.constants.get(expr.var)
         if constant_type is None:
             return CheckFail(expr, "variable is not declared")
-        return get_type(program, constant_type)
+        return get_type(program,
+                        constant_type,
+                        predefined_functions=predefined_functions)
 
     if isinstance(expr, BoolLitExpr):
         return BoolType()
@@ -159,7 +189,7 @@ def get_type(program: Program,
             # Currently, all unary operators take boolean operands
             assert expr.operator in [Unop.NEG, Unop.IVERSON]
 
-            typ = get_type(program, expr.expr, check=check)
+            typ = get_type(program, expr.expr, check, predefined_functions)
             if isinstance(typ, CheckFail):
                 return typ
 
@@ -177,7 +207,8 @@ def get_type(program: Program,
         if expr.operator in [Binop.OR, Binop.AND]:
             if check:
                 for operand in [expr.lhs, expr.rhs]:
-                    typ = get_type(program, operand, check=check)
+                    typ = get_type(program, operand, check,
+                                   predefined_functions)
                     if isinstance(typ, CheckFail):
                         return typ
                     if not is_compatible(BoolType(), typ):
@@ -186,7 +217,7 @@ def get_type(program: Program,
             return BoolType()
 
         # the rest of binops take numeric operands, so check those
-        lhs_typ = get_type(program, expr.lhs, check=check)
+        lhs_typ = get_type(program, expr.lhs, check, predefined_functions)
         if isinstance(lhs_typ, CheckFail):
             return lhs_typ
         if not isinstance(lhs_typ, (NatType, RealType)):
@@ -197,7 +228,7 @@ def get_type(program: Program,
                 Binop.MINUS, Binop.TIMES, Binop.MODULO, Binop.POWER,
                 Binop.DIVIDE
         ]:
-            rhs_typ = get_type(program, expr.rhs, check=check)
+            rhs_typ = get_type(program, expr.rhs, check, predefined_functions)
             if isinstance(rhs_typ, CheckFail):
                 return rhs_typ
             if not isinstance(rhs_typ, (NatType, RealType)):
@@ -222,17 +253,15 @@ def get_type(program: Program,
                 return NatType(bounds=None)
             return lhs_typ
 
-    if isinstance(expr, get_args(DistrExpr)):
-        return _get_distribution_type(program, expr, check)
-
     if isinstance(expr, CategoricalExpr):
         first_expr = expr.exprs[0][0]
-        typ = get_type(program, first_expr, check=check)
+        typ = get_type(program, first_expr, check, predefined_functions)
         if isinstance(typ, CheckFail):
             return typ
         if check:
             for other_expr, _other_prob in expr.exprs[1:]:
-                other_typ = get_type(program, other_expr, check=check)
+                other_typ = get_type(program, other_expr, check,
+                                     predefined_functions)
                 if isinstance(other_typ, CheckFail):
                     return other_typ
                 if not is_compatible(typ, other_typ):
@@ -240,7 +269,7 @@ def get_type(program: Program,
         return typ
 
     if isinstance(expr, TickExpr):
-        typ = get_type(program, expr.expr, check=check)
+        typ = get_type(program, expr.expr, check, predefined_functions)
         if isinstance(typ, CheckFail):
             return typ
         if check and not is_compatible(NatType(bounds=None), typ):
@@ -249,7 +278,7 @@ def get_type(program: Program,
 
     if isinstance(expr, FunctionCallExpr):
         if check:
-            valid = _check_function_call(program, expr)
+            valid = _check_function_call(program, expr, predefined_functions)
             if isinstance(valid, CheckFail):
                 return valid
         return NatType(bounds=None)
@@ -258,71 +287,6 @@ def get_type(program: Program,
 
 
 # pylint: enable = too-many-statements
-
-
-def _check_distribution_arguments(
-        prog: Program, expected_type: Type,
-        *parameters: Tuple[Type, Expr]) -> Union[Type, CheckFail]:
-    for expected_param_type, param_expr in parameters:
-        param_type = get_type(prog, param_expr)
-        if isinstance(param_type, CheckFail):
-            return param_type
-        elif not is_compatible(expected_param_type, param_type):
-            return CheckFail.expected_type_got(param_expr, expected_param_type,
-                                               param_type)
-    return expected_type
-
-
-def _get_distribution_type(prog: Program,
-                           expr: Expr,
-                           check: bool = True) -> Union[Type, CheckFail]:
-    assert isinstance(
-        expr, get_args(DistrExpr)
-    ), f"Expression must be a distribution expression, was {type(expr)}."
-
-    if isinstance(expr, DUniformExpr):
-        return _check_distribution_arguments(
-            prog, NatType(bounds=None), (NatType(bounds=None), expr.start),
-            (NatType(bounds=None), expr.end))
-    elif isinstance(expr, CUniformExpr):
-        raise NotImplementedError(
-            "Currently continuous distributions are not supported.")
-
-    elif isinstance(expr, GeometricExpr):
-        return _check_distribution_arguments(prog, NatType(bounds=None),
-                                             (RealType(), expr.param))
-
-    elif isinstance(expr, BernoulliExpr):
-        return _check_distribution_arguments(prog, NatType(bounds=None),
-                                             (RealType(), expr.param))
-
-    elif isinstance(expr, PoissonExpr):
-        return _check_distribution_arguments(
-            prog, NatType(bounds=None), (NatType(bounds=None), expr.param))
-
-    elif isinstance(expr, LogDistExpr):
-        return _check_distribution_arguments(prog, NatType(bounds=None),
-                                             (RealType(), expr.param))
-
-    elif isinstance(expr, BinomialExpr):
-        return _check_distribution_arguments(prog, NatType(bounds=None),
-                                             (NatType(bounds=None), expr.n),
-                                             (RealType(), expr.p))
-    if isinstance(expr, IidSampleExpr):
-        if isinstance(expr.sampling_dist, get_args(DistrExpr)):
-            return _get_distribution_type(prog, expr.sampling_dist, check)
-        else:
-            # we cannot check whether the sampling distribution as given by the program is actually a PGF
-            if check:
-                safe = check_expression(prog, expr.sampling_dist)
-                if isinstance(safe, CheckFail):
-                    return safe
-            logging.getLogger("probably").warning(
-                "Probably does not check whether expressions used in DistrExprs are actually valid PGFs (%s).",
-                expr)
-            return NatType(bounds=None)
-
-    raise Exception("unreachable")
 
 
 def is_compatible(lhs: Type, rhs: Type) -> bool:
@@ -394,7 +358,9 @@ def _check_constant_declarations(program: Program) -> Optional[CheckFail]:
     return None
 
 
-def _check_declaration_list(program: Program) -> Optional[CheckFail]:
+def _check_declaration_list(
+        program: Program,
+        predefined_functions: Dict[Var, List[VarDecl]]) -> Optional[CheckFail]:
     """
     Check that all variables/constants are defined at most once.
 
@@ -402,7 +368,7 @@ def _check_declaration_list(program: Program) -> Optional[CheckFail]:
 
         >>> from .parser import parse_pgcl
         >>> program = parse_pgcl("const x := 1; const x := 1")
-        >>> _check_declaration_list(program)
+        >>> _check_declaration_list(program, {})
         CheckFail(location=..., message='Already declared variable/constant before.')
     """
     declared: Dict[Var, Decl] = {}
@@ -412,24 +378,32 @@ def _check_declaration_list(program: Program) -> Optional[CheckFail]:
                              "Already declared variable/constant before.")
         declared[decl.var] = decl
         if isinstance(decl, FunctionDecl):
-            res = check_function(decl.body, program)
+            res = check_function(decl.body, program, predefined_functions)
             if isinstance(res, CheckFail):
                 return res
     return None
 
 
-def _check_instrs(program: Program,
-                  *instrs: List[Instr]) -> Optional[CheckFail]:
+def _check_instrs(
+        program: Program, *instrs: List[Instr],
+        predefined_functions: Dict[Var, List[VarDecl]]) -> Optional[CheckFail]:
     for instrs_list in instrs:
         for instr in instrs_list:
-            res = check_instr(program, instr)
+            res = check_instr(program,
+                              instr,
+                              predefined_functions=predefined_functions)
             if isinstance(res, CheckFail):
                 return res
     return None
 
 
 # pylint: disable = too-many-statements
-def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
+def check_instr(
+    program: Program,
+    instr: Instr,
+    predefined_functions: Dict[Var,
+                               List[VarDecl]] = sample_predefined_functions
+) -> Optional[CheckFail]:
     """
     Check a single instruction for type-safety.
 
@@ -458,28 +432,40 @@ def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
         return None
 
     if isinstance(instr, WhileInstr):
-        cond_type = get_type(program, instr.cond)
+        cond_type = get_type(program,
+                             instr.cond,
+                             predefined_functions=predefined_functions)
         if isinstance(cond_type, CheckFail):
             return cond_type
         if not is_compatible(BoolType(), cond_type):
             return CheckFail.expected_type_got(instr.cond, BoolType(),
                                                cond_type)
-        return _check_instrs(program, instr.body)
+        return _check_instrs(program,
+                             instr.body,
+                             predefined_functions=predefined_functions)
 
     if isinstance(instr, IfInstr):
-        cond_type = get_type(program, instr.cond)
+        cond_type = get_type(program,
+                             instr.cond,
+                             predefined_functions=predefined_functions)
         if isinstance(cond_type, CheckFail):
             return cond_type
         if not is_compatible(BoolType(), cond_type):
             return CheckFail.expected_type_got(instr.cond, BoolType(),
                                                cond_type)
-        return _check_instrs(program, instr.true, instr.false)
+        return _check_instrs(program,
+                             instr.true,
+                             instr.false,
+                             predefined_functions=predefined_functions)
 
     if isinstance(instr, AsgnInstr):
         lhs_type = program.variables.get(instr.lhs)
         if lhs_type is None:
             return CheckFail(instr, f'{instr.lhs} is not a variable.')
-        rhs_type = get_type(program, instr.rhs, check=True)
+        rhs_type = get_type(program,
+                            instr.rhs,
+                            check=True,
+                            predefined_functions=predefined_functions)
         if isinstance(rhs_type, CheckFail):
             return rhs_type
         if not is_compatible(lhs_type, rhs_type):
@@ -487,16 +473,24 @@ def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
         return None
 
     if isinstance(instr, ChoiceInstr):
-        prob_type = get_type(program, instr.prob, check=True)
+        prob_type = get_type(program,
+                             instr.prob,
+                             check=True,
+                             predefined_functions=predefined_functions)
         if isinstance(prob_type, CheckFail):
             return prob_type
         if not is_compatible(RealType(), prob_type):
             return CheckFail.expected_type_got(instr.prob, RealType(),
                                                prob_type)
-        return _check_instrs(program, instr.lhs, instr.rhs)
+        return _check_instrs(program,
+                             instr.lhs,
+                             instr.rhs,
+                             predefined_functions=predefined_functions)
 
     if isinstance(instr, ObserveInstr):
-        cond_type = get_type(program, instr.cond)
+        cond_type = get_type(program,
+                             instr.cond,
+                             predefined_functions=predefined_functions)
         if isinstance(cond_type, CheckFail):
             return cond_type
         if not is_compatible(BoolType(), cond_type):
@@ -505,7 +499,9 @@ def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
         return None
 
     if isinstance(instr, ProbabilityQueryInstr):
-        cond_type = get_type(program, instr.expr)
+        cond_type = get_type(program,
+                             instr.expr,
+                             predefined_functions=predefined_functions)
         if isinstance(cond_type, CheckFail):
             return cond_type
         if not (is_compatible(BoolType(), cond_type)
@@ -515,7 +511,10 @@ def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
         return None
 
     if isinstance(instr, ExpectationInstr):
-        expr_type = get_type(program, instr.expr, check=True)
+        expr_type = get_type(program,
+                             instr.expr,
+                             check=True,
+                             predefined_functions=predefined_functions)
         if isinstance(expr_type, CheckFail):
             return expr_type
         return None
@@ -524,7 +523,10 @@ def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
         return None
 
     if isinstance(instr, OptimizationQuery):
-        expr_type = get_type(program, instr.expr, check=True)
+        expr_type = get_type(program,
+                             instr.expr,
+                             check=True,
+                             predefined_functions=predefined_functions)
         if isinstance(expr_type, CheckFail):
             return expr_type
         if instr.parameter not in program.parameters:
@@ -535,22 +537,34 @@ def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
         return None
 
     if isinstance(instr, PlotInstr):
-        var_1_type = get_type(program, instr.var_1, check=True)
+        var_1_type = get_type(program,
+                              instr.var_1,
+                              check=True,
+                              predefined_functions=predefined_functions)
         if isinstance(var_1_type, CheckFail):
             return var_1_type
         if instr.var_2:
-            var_2_type = get_type(program, instr.var_2, check=True)
+            var_2_type = get_type(program,
+                                  instr.var_2,
+                                  check=True,
+                                  predefined_functions=predefined_functions)
             if isinstance(var_2_type, CheckFail):
                 return var_2_type
         if instr.prob:
-            prob_type = get_type(program, instr.prob, check=True)
+            prob_type = get_type(program,
+                                 instr.prob,
+                                 check=True,
+                                 predefined_functions=predefined_functions)
             if isinstance(prob_type, CheckFail):
                 return prob_type
             if not is_compatible(RealType(), prob_type):
                 return CheckFail.expected_type_got(instr.prob, RealType(),
                                                    prob_type)
         if instr.term_count:
-            int_type = get_type(program, instr.term_count, check=True)
+            int_type = get_type(program,
+                                instr.term_count,
+                                check=True,
+                                predefined_functions=predefined_functions)
             if isinstance(int_type, CheckFail):
                 return int_type
             if not is_compatible(NatType(bounds=None), int_type):
@@ -559,16 +573,24 @@ def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
         return None
 
     if isinstance(instr, LoopInstr):
-        int_type = get_type(program, instr.iterations, check=True)
+        int_type = get_type(program,
+                            instr.iterations,
+                            check=True,
+                            predefined_functions=predefined_functions)
         if isinstance(int_type, CheckFail):
             return int_type
         if not is_compatible(NatType(bounds=None), int_type):
             return CheckFail.expected_type_got(instr.iterations, NatType(None),
                                                int_type)
-        return _check_instrs(program, instr.body)
+        return _check_instrs(program,
+                             instr.body,
+                             predefined_functions=predefined_functions)
 
     if isinstance(instr, TickInstr):
-        typ = get_type(program, instr.expr, check=True)
+        typ = get_type(program,
+                       instr.expr,
+                       check=True,
+                       predefined_functions=predefined_functions)
         if isinstance(typ, CheckFail):
             return typ
         if not is_compatible(NatType(bounds=None), typ):
@@ -581,18 +603,29 @@ def check_instr(program: Program, instr: Instr) -> Optional[CheckFail]:
 # pylint: enable = too-many-statements
 
 
-def check_program(program: Program) -> Optional[CheckFail]:
+def check_program(
+    program: Program,
+    predefined_functions: Dict[Var,
+                               List[VarDecl]] = sample_predefined_functions
+) -> Optional[CheckFail]:
     """Check a program for type-safety."""
     check_result = _check_constant_declarations(program)
     if check_result is not None:
         return check_result
-    check_result = _check_declaration_list(program)
+    check_result = _check_declaration_list(program, predefined_functions)
     if check_result is not None:
         return check_result
-    return _check_instrs(program, program.instructions)
+    return _check_instrs(program,
+                         program.instructions,
+                         predefined_functions=predefined_functions)
 
 
-def check_expression(program, expr: Expr) -> Optional[CheckFail]:
+def check_expression(
+    program,
+    expr: Expr,
+    predefined_functions: Dict[Var,
+                               List[VarDecl]] = sample_predefined_functions
+) -> Optional[CheckFail]:
     """
     Check an expression for type-safety.
 
@@ -602,7 +635,10 @@ def check_expression(program, expr: Expr) -> Optional[CheckFail]:
         >>> check_expression(program, RealLitExpr("1.0"))
         CheckFail(location=..., message='A program expression may not return a probability.')
     """
-    expr_type = get_type(program, expr, check=True)
+    expr_type = get_type(program,
+                         expr,
+                         check=True,
+                         predefined_functions=predefined_functions)
     if isinstance(expr_type, CheckFail):
         return expr_type
     if isinstance(expr_type, RealType):
@@ -611,16 +647,28 @@ def check_expression(program, expr: Expr) -> Optional[CheckFail]:
     return None
 
 
-def check_expectation(program, expr: Expr) -> Optional[CheckFail]:
+def check_expectation(
+    program,
+    expr: Expr,
+    predefined_functions: Dict[Var,
+                               List[VarDecl]] = sample_predefined_functions
+) -> Optional[CheckFail]:
     """Check an expectation for type-safety."""
-    expr_type = get_type(program, expr, check=True)
+    expr_type = get_type(program,
+                         expr,
+                         check=True,
+                         predefined_functions=predefined_functions)
     if isinstance(expr_type, CheckFail):
         return expr_type
     return None
 
 
-def check_function(function: Function,
-                   context: Program) -> Optional[CheckFail]:
+def check_function(
+    function: Function,
+    context: Program,
+    predefined_functions: Dict[Var,
+                               List[VarDecl]] = sample_predefined_functions
+) -> Optional[CheckFail]:
     """
     Check a function for type-safety. Functions currently may only contain and
     return integers.
@@ -634,11 +682,16 @@ def check_function(function: Function,
                 "Only variables of type NatType are allowed in functions")
 
     as_prog = Program.from_function(function, context)
-    res = check_program(as_prog)
+    res = check_program(as_prog, predefined_functions)
     if isinstance(res, CheckFail):
         return res
 
-    typ = get_type(as_prog, function.returns)
+    typ = get_type(as_prog,
+                   function.returns,
+                   check=True,
+                   predefined_functions=predefined_functions)
+    if isinstance(typ, CheckFail):
+        return typ
     if not isinstance(typ, NatType):
         return CheckFail(location=function.returns,
                          message="Functions may only return integers")

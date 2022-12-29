@@ -123,11 +123,8 @@ Otherwise use corresponding Union types instead.
 from .ast import Node, Var
 from .declarations import (ConstDecl, Decl, Function, FunctionDecl,
                            ParameterDecl, VarDecl)
-from .expressions import (BernoulliExpr, BinomialExpr, Binop, BinopExpr,
-                          BoolLitExpr, CategoricalExpr, CUniformExpr,
-                          DistrExpr, DUniformExpr, Expr, ExprClass,
-                          FunctionCallExpr, GeometricExpr, IidSampleExpr,
-                          LogDistExpr, NatLitExpr, PoissonExpr, RealLitExpr,
+from .expressions import (Binop, BinopExpr, BoolLitExpr, CategoricalExpr, Expr,
+                          ExprClass, FunctionCallExpr, NatLitExpr, RealLitExpr,
                           SubstExpr, TickExpr, Unop, UnopExpr, VarExpr,
                           expr_str_parens)
 from .instructions import (AsgnInstr, ChoiceInstr, ExpectationInstr, IfInstr,

@@ -106,7 +106,7 @@ def test_wrong_input_distribution():
         x := f(y := 10);
     """)
     assert isinstance(prog, CheckFail)
-    assert prog.message == "Unknown variable in function parameters: y"
+    assert prog.message == "Unknown variable in named function parameters: y"
 
 
 def test_outside_variables():

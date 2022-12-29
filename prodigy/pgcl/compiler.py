@@ -11,20 +11,24 @@ Variable/constant substituion is implemented in :mod:`probably.pgcl.substitute`.
 If you want them, linearity checks live in :mod:`probably.pgcl.syntax`.
 """
 
-from typing import Union
+from typing import Dict, List, Union
 
 from probably.pgcl import substitute
 from probably.util.ref import Mut
 
-from .ast import Expr, Program
+from .ast import Expr, Program, Var, VarDecl
 from .check import (CheckFail, check_expectation, check_expression,
-                    check_program)
+                    check_program, sample_predefined_functions)
 from .parser import parse_expectation, parse_expr, parse_pgcl
 
 
-def compile_pgcl(code: str,
-                 *,
-                 substitute_constants=True) -> Union[Program, CheckFail]:
+def compile_pgcl(
+    code: str,
+    *,
+    substitute_constants=True,
+    predefined_functions: Dict[Var,
+                               List[VarDecl]] = sample_predefined_functions
+) -> Union[Program, CheckFail]:
     """
     Parse and type-check a pGCL program.
 
@@ -43,16 +47,20 @@ def compile_pgcl(code: str,
     program = parse_pgcl(code)
     if substitute_constants:
         substitute.substitute_constants(program)
-    check_result = check_program(program)
+    check_result = check_program(program, predefined_functions)
     if check_result is not None:
         return check_result
     return program
 
 
-def compile_expr(program: Program,
-                 code: str,
-                 *,
-                 substitute_constants=True) -> Union[Expr, CheckFail]:
+def compile_expr(
+    program: Program,
+    code: str,
+    *,
+    substitute_constants=True,
+    predefined_functions: Dict[Var,
+                               List[VarDecl]] = sample_predefined_functions
+) -> Union[Expr, CheckFail]:
     """
     Parse and type-check an expression.
 
@@ -62,7 +70,7 @@ def compile_expr(program: Program,
         substitute_constants: Whether constant substitution is done on the expression, defaults to `True`.
     """
     expr = parse_expr(code)
-    check_result = check_expression(program, expr)
+    check_result = check_expression(program, expr, predefined_functions)
     if check_result is not None:
         return check_result
     if substitute_constants:
@@ -72,10 +80,14 @@ def compile_expr(program: Program,
     return expr
 
 
-def compile_expectation(program: Program,
-                        code: str,
-                        *,
-                        substitute_constants=True) -> Union[Expr, CheckFail]:
+def compile_expectation(
+    program: Program,
+    code: str,
+    *,
+    substitute_constants=True,
+    predefined_functions: Dict[Var,
+                               List[VarDecl]] = sample_predefined_functions
+) -> Union[Expr, CheckFail]:
     """
     Parse and type-check an expectation.
 
@@ -85,7 +97,7 @@ def compile_expectation(program: Program,
         substitute_constants: Whether constant substitution is done on the expectation, defaults to `True`.
     """
     expr = parse_expectation(code)
-    check_result = check_expectation(program, expr)
+    check_result = check_expectation(program, expr, predefined_functions)
     if check_result is not None:
         return check_result
     if substitute_constants:

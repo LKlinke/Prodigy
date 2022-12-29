@@ -19,14 +19,17 @@ def test_all_distributions():
     exprs = [instr.rhs for instr in program.instructions]
 
     assert exprs == [
-        DUniformExpr(NatLitExpr(1), NatLitExpr(2)),
-        DUniformExpr(NatLitExpr(1), NatLitExpr(2)),
-        CUniformExpr(NatLitExpr(1), NatLitExpr(2)),
-        GeometricExpr(NatLitExpr(1)),
-        PoissonExpr(NatLitExpr(1)),
-        LogDistExpr(NatLitExpr(1)),
-        BernoulliExpr(NatLitExpr(1)),
-        BinomialExpr(NatLitExpr(1), NatLitExpr(2))
+        FunctionCallExpr('unif_d',
+                         ([NatLitExpr(1), NatLitExpr(2)], {})),
+        FunctionCallExpr('unif', ([NatLitExpr(1), NatLitExpr(2)], {})),
+        FunctionCallExpr('unif_c',
+                         ([NatLitExpr(1), NatLitExpr(2)], {})),
+        FunctionCallExpr('geometric', ([NatLitExpr(1)], {})),
+        FunctionCallExpr('poisson', ([NatLitExpr(1)], {})),
+        FunctionCallExpr('logdist', ([NatLitExpr(1)], {})),
+        FunctionCallExpr('bernoulli', ([NatLitExpr(1)], {})),
+        FunctionCallExpr('binomial',
+                         ([NatLitExpr(1), NatLitExpr(2)], {}))
     ]
 
 

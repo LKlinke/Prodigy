@@ -280,130 +280,11 @@ class BinopExpr(ExprClass):
         return f'{expr_str_parens(self.lhs)} {self.operator} {expr_str_parens(self.rhs)}'
 
 
-@attr.s
-class DUniformExpr(ExprClass):
-    """
-    Chooses a random integer within the (inclusive) interval.
-
-    As *monadic expressions* (see :ref:`expressions`), uniform choice
-    expressions are only allowed as the right-hand side of an assignment
-    statement and not somewhere in a nested expression.
-    """
-    start: Expr = attr.ib()
-    end: Expr = attr.ib()
-
-    def distribution(self) -> List[Tuple[RealLitExpr, NatLitExpr]]:
-        r"""
-        Return the distribution of possible values as a list along with
-        probabilities. For the uniform distribution, all probabilites are equal
-        to :math:`\frac{1}{\text{end} - \text{start} + 1}`.
-        """
-        if isinstance(self.start, NatLitExpr) and isinstance(
-                self.end, NatLitExpr):
-            width = self.end.value - self.start.value + 1
-            prob = RealLitExpr(Fraction(1, width))
-            return [(prob, NatLitExpr(i))
-                    for i in range(self.start.value, self.end.value + 1)]
-        else:
-            raise NotImplementedError("Parameters not implemented yet.")
-
-    def __str__(self) -> str:
-        return f'unif({expr_str_parens(self.start)}, {expr_str_parens(self.end)})'
-
-
 def _check_categorical_exprs(_self: CategoricalExpr, _attribute: Any,
                              value: List[Tuple[Expr, RealLitExpr]]):
     probabilities = (prob.to_fraction() for _, prob in value)
     if sum(probabilities) != 1:
         raise ValueError("Probabilities need to sum up to 1!")
-
-
-@attr.s
-class CUniformExpr(ExprClass):
-    """
-    Chooses a random real number within the (inclusive) interval.
-
-    As *monadic expressions* (see :ref:`expressions`), uniform choice
-    expressions are only allowed as the right-hand side of an assignment
-    statement and not somewhere in a nested expression.
-    """
-    start: Expr = attr.ib()
-    end: Expr = attr.ib()
-
-    def __str__(self) -> str:
-        return f'unif({expr_str_parens(self.start)}, {expr_str_parens(self.end)})'
-
-
-@attr.s
-class BernoulliExpr(ExprClass):
-    """
-    Chooses a random bernoulli distributed integer.
-
-    As *monadic expressions* (see :ref:`expressions`), geometric choice
-    expressions are only allowed as the right-hand side of an assignment
-    statement and not somewhere in a nested expression.
-    """
-    param: Expr = attr.ib()
-
-    def __str__(self) -> str:
-        return f'bernoulli({expr_str_parens(self.param)})'
-
-
-@attr.s
-class GeometricExpr(ExprClass):
-    """
-    Chooses a random geometrically distributed integer.
-
-    As *monadic expressions* (see :ref:`expressions`), geometric choice
-    expressions are only allowed as the right-hand side of an assignment
-    statement and not somewhere in a nested expression.
-    """
-    param: Expr = attr.ib()
-
-    def __str__(self) -> str:
-        return f'geometric({expr_str_parens(self.param)})'
-
-
-@attr.s
-class PoissonExpr(ExprClass):
-    """
-    Chooses a random poisson distributed integer.
-
-    As *monadic expressions* (see :ref:`expressions`), geometric choice
-    expressions are only allowed as the right-hand side of an assignment
-    statement and not somewhere in a nested expression.
-    """
-    param: Expr = attr.ib()
-
-    def __str__(self) -> str:
-        return f'poisson({expr_str_parens(self.param)})'
-
-
-@attr.s
-class LogDistExpr(ExprClass):
-    """
-    Chooses a random logarithmically distributed integer.
-    """
-    param: Expr = attr.ib()
-
-    def __str__(self) -> str:
-        return f'logdist({expr_str_parens(self.param)})'
-
-
-@attr.s
-class BinomialExpr(ExprClass):
-    """
-    Chooses a random logarithmically distributed integer.
-
-    As *monadic expressions* (see :ref:`expressions`), geometric choice
-    expressions are only allowed as the right-hand side of an assignment
-    statement and not somewhere in a nested expression.
-    """
-    n: Expr = attr.ib()
-    p: Expr = attr.ib()
-
-    def __str__(self) -> str:
-        return f'binomial({expr_str_parens(self.n)}, {expr_str_parens(self.p)})'
 
 
 @attr.s
@@ -527,11 +408,7 @@ def expr_str_parens(expr: ExprClass) -> str:
         return f'({expr})'
 
 
-DistrExpr = Union[DUniformExpr, CUniformExpr, BernoulliExpr, GeometricExpr,
-                  PoissonExpr, LogDistExpr, BinomialExpr, IidSampleExpr]
-""" A type combining all sampling expressions"""
-
 Expr = Union[VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr,
-             BinopExpr, CategoricalExpr, SubstExpr, TickExpr, DistrExpr,
+             BinopExpr, CategoricalExpr, SubstExpr, TickExpr, IidSampleExpr,
              FunctionCallExpr, InferExpr]
 """Union type for all expression objects. See :class:`ExprClass` for use with isinstance."""
