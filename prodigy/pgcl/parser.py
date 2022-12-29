@@ -98,7 +98,7 @@ _PGCL_GRAMMAR = """
     positional_param: rvalue
 
     named_params: named_param 
-                | parameter_list "," named_param
+                | named_params "," named_param
 
     named_param: var ":=" rvalue
 

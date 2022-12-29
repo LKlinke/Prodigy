@@ -160,3 +160,28 @@ def test_positional_and_named_parameters():
             'x': NatLitExpr(7),
             'y': NatLitExpr(0)
         }
+
+    prog = parse_pgcl("""
+        fun f := {
+            nat x;
+            nat y;
+            nat z;
+            nat a;
+            nat b;
+            nat c;
+            x := 10;
+            return x;
+        }
+        nat x;
+        x := f(7, 8, 9, 10, 42);
+    """)
+    assert prog.instructions[0].rhs.params[0] == [NatLitExpr(7), NatLitExpr(8), NatLitExpr(9), NatLitExpr(10), NatLitExpr(42)]
+    assert prog.functions['f'].params_to_dict(
+        prog.instructions[0].rhs.params) == {
+            'x': NatLitExpr(7),
+            'y': NatLitExpr(8),
+            'z': NatLitExpr(9),
+            'a': NatLitExpr(10),
+            'b': NatLitExpr(42),
+            'c': NatLitExpr(0)
+        }
