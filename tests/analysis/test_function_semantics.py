@@ -13,7 +13,7 @@ def test_basic_function():
             return y;
         }
         nat x;
-        x := f(x := 5);
+        x := f(y := 5);
     """)
     res = compute_discrete_distribution(
         prog, FPS('1'),
@@ -36,17 +36,3 @@ def test_parameter():
         prog, FPS('1'),
         ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.GINAC))
     assert res == ProdigyPGF.geometric('x', 'p')
-
-
-def test_outside_variables():
-    prog = compile_pgcl("""
-        fun f := {
-            y := geometric(p);
-            return y;
-        }
-        nat x;
-        nat y;
-        x := f();
-    """)
-    assert isinstance(prog, CheckFail)
-    assert prog.message == "y is not a variable."
