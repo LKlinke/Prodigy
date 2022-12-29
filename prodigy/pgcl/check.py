@@ -5,7 +5,7 @@ Type Checking
 """
 
 import logging
-from typing import (Dict, Iterable, List, Optional, Tuple, TypeVar, Union,
+from typing import (Dict, Iterable, List, Optional, Set, Tuple, TypeVar, Union,
                     get_args)
 
 import attr
@@ -67,6 +67,40 @@ class CheckFail:
                 return step
             output.append(step)
         return output
+
+
+def _check_function_call(program: Program,
+                         expr: FunctionCallExpr) -> Optional[CheckFail]:
+    function = program.functions[expr.function]
+    if len(expr.params[0]) > len(function.declarations):
+        return CheckFail(expr, "Too many parameters")
+
+    covered_names: Set[Var] = set()
+    for decl, param_expr in zip(function.declarations, expr.params[0]):
+        typ = get_type(program, param_expr)
+        if isinstance(typ, CheckFail):
+            return typ
+        if not isinstance(typ, NatType):
+            return CheckFail.expected_type_got(param_expr,
+                                               NatType(bounds=None), typ)
+        covered_names.add(decl.var)
+
+    for var, param_expr in expr.params[1].items():
+        if var not in function.variables:
+            return CheckFail(
+                expr, f"Unknown variable in function parameters: {var}")
+        if var in covered_names:
+            return CheckFail(
+                expr, f"Variable {var} is covered by multiple parameters")
+        typ = get_type(program, param_expr)
+        if isinstance(typ, CheckFail):
+            return typ
+        if not isinstance(typ, NatType):
+            return CheckFail.expected_type_got(param_expr,
+                                               NatType(bounds=None), typ)
+        covered_names.add(var)
+
+    return None
 
 
 # pylint: disable = too-many-statements
@@ -215,18 +249,9 @@ def get_type(program: Program,
 
     if isinstance(expr, FunctionCallExpr):
         if check:
-            for var, return_expr in expr.input_distr.items():
-                typ = get_type(program, return_expr)
-                if isinstance(typ, CheckFail):
-                    return typ
-                if var not in program.variables:
-                    return CheckFail(
-                        expr,
-                        f"Unknown variable in function parameters: {var}")
-                if not isinstance(typ, NatType):
-                    return CheckFail.expected_type_got(return_expr,
-                                                       NatType(bounds=None),
-                                                       typ)
+            valid = _check_function_call(program, expr)
+            if isinstance(valid, CheckFail):
+                return valid
         return NatType(bounds=None)
 
     raise Exception("unreachable")

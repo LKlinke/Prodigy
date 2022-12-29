@@ -14,5 +14,8 @@ def test_basic_inference():
     assert prog.declarations == [VarDecl('d', DistributionType())]
     assert prog.instructions == [
         AsgnInstr(lhs='d',
-                  rhs=InferExpr(FunctionCallExpr('f', {'x': NatLitExpr(10)})))
+                  rhs=InferExpr(
+                      FunctionCallExpr('f', ([], {
+                          'x': NatLitExpr(10)
+                      }))))
     ]

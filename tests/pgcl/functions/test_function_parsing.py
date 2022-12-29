@@ -17,7 +17,6 @@ def test_basic_function():
         nat x;
         x := f(x := 10);
     """)
-
     decl = prog.declarations[0]
     assert isinstance(decl, FunctionDecl)
     fun = decl.body
@@ -26,8 +25,28 @@ def test_basic_function():
     assert fun.returns == VarExpr(var='x')
     assert prog.instructions == [
         AsgnInstr(lhs='x',
-                  rhs=FunctionCallExpr(function='f',
-                                       input_distr={'x': NatLitExpr(10)}))
+                  rhs=FunctionCallExpr('f', ([], {
+                      'x': NatLitExpr(10)
+                  })))
+    ]
+
+    prog = parse_pgcl("""
+        fun f := {
+            nat x;
+            x := 10;
+            return x;
+        }
+        nat x;
+        x := f(10);
+    """)
+    decl = prog.declarations[0]
+    assert isinstance(decl, FunctionDecl)
+    fun = decl.body
+    assert fun.declarations == [VarDecl(var='x', typ=NatType(bounds=None))]
+    assert fun.instructions == [AsgnInstr(lhs='x', rhs=NatLitExpr(10))]
+    assert fun.returns == VarExpr(var='x')
+    assert prog.instructions == [
+        AsgnInstr(lhs='x', rhs=FunctionCallExpr('f', ([NatLitExpr(10)], {})))
     ]
 
 
@@ -76,3 +95,68 @@ def test_wrong_declaration_type():
             nat x;
             x := f(x := 10);
         """)
+
+
+def test_positional_and_named_parameters():
+    prog = parse_pgcl("""
+        fun f := {
+            nat x;
+            nat y;
+            x := 10;
+            return x;
+        }
+        nat x;
+        x := f(5, y := 10);
+    """)
+    assert prog.instructions == [
+        AsgnInstr(lhs='x',
+                  rhs=FunctionCallExpr('f', ([NatLitExpr(5)], {
+                      'y': NatLitExpr(10)
+                  })))
+    ]
+    assert prog.functions['f'].params_to_dict(
+        prog.instructions[0].rhs.params) == {
+            'x': NatLitExpr(5),
+            'y': NatLitExpr(10)
+        }
+
+    prog = parse_pgcl("""
+        fun f := {
+            nat x;
+            nat y;
+            x := 10;
+            return x;
+        }
+        nat x;
+        x := f(y := 10);
+    """)
+    assert prog.instructions == [
+        AsgnInstr(lhs='x',
+                  rhs=FunctionCallExpr('f', ([], {
+                      'y': NatLitExpr(10)
+                  })))
+    ]
+    assert prog.functions['f'].params_to_dict(
+        prog.instructions[0].rhs.params) == {
+            'x': NatLitExpr(0),
+            'y': NatLitExpr(10)
+        }
+
+    prog = parse_pgcl("""
+        fun f := {
+            nat x;
+            nat y;
+            x := 10;
+            return x;
+        }
+        nat x;
+        x := f(7);
+    """)
+    assert prog.instructions == [
+        AsgnInstr(lhs='x', rhs=FunctionCallExpr('f', ([NatLitExpr(7)], {})))
+    ]
+    assert prog.functions['f'].params_to_dict(
+        prog.instructions[0].rhs.params) == {
+            'x': NatLitExpr(7),
+            'y': NatLitExpr(0)
+        }

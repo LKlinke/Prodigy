@@ -498,14 +498,15 @@ class FunctionCallExpr(ExprClass):
     function: Var = attr.ib()
     """The name of the function that is called."""
 
-    input_distr: Dict[Var, Expr] = attr.ib()
+    params: Tuple[List[Expr], Dict[Var, Expr]] = attr.ib()
     """
-    An input distribution over the variables of the function. If a variable
-    isn't present, it defaults to 0.
+    The parameters of the function call. First come the positional parameters,
+    then the named ones.
     """
     def __str__(self):
         params = ', '.join(
-            [f"{var} := {expr}" for var, expr in self.input_distr.items()])
+            self.params[0] +
+            [f'{var} := {expr}' for var, expr in self.params[1].items()])
         return f"{self.function}({params});"
 
 
@@ -514,7 +515,7 @@ class InferExpr(ExprClass):
     function: FunctionCallExpr = attr.ib()
     """The function call to infer a distribution from"""
     def __str__(self):
-        return f"infer {{ {function} }}"
+        return f"infer {{ {self.function} }}"
 
 
 def expr_str_parens(expr: ExprClass) -> str:

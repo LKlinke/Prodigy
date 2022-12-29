@@ -102,6 +102,7 @@ def test_wrong_input_distribution():
             return x;
         }
         nat x;
+        nat y;
         x := f(y := 10);
     """)
     assert isinstance(prog, CheckFail)

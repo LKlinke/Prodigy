@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any, List, Set, Union
+from typing import Any, Dict, List, Set, Tuple, Union
 
 import attr
 
 from .ast import Node, Var
-from .expressions import Expr
+from .expressions import Expr, NatLitExpr
 from .instructions import Instr
 from .types import BoolType, NatType, RealType, Type
 
@@ -112,6 +112,28 @@ class Function(Node):
             variables.add(decl.var)
 
         return Function(declarations, variables, instructions, returns)
+
+    def params_to_dict(
+            self, params: Tuple[List[Expr], Dict[Var,
+                                                 Expr]]) -> Dict[Var, Expr]:
+        """
+        Converts a tuple of positional and named parameters as given by a
+        :class:`~probably.pgcl.ast.FunctionCallExpr` to a dict that maps each
+        variable name of this function to an initial value. Variables that are
+        not contained in the given parameters are mapped to 0.
+
+        In other words, converts the positional and named parameters to only
+        named parameters.
+        """
+        res = params[1].copy()
+        assert len(params[0]) <= len(
+            self.declarations), "too many positional parameters"
+        for index, expr in enumerate(params[0]):
+            var = self.declarations[index].var
+            assert var not in res, f"{var} is defined as a positional and as a named parameter"
+            res[var] = expr
+        res.update({var: NatLitExpr(0) for var in self.variables - res.keys()})
+        return res
 
     def __str__(self):
         instrs: List[Any] = list(self.declarations)

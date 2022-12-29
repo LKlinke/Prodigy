@@ -88,9 +88,19 @@ _PGCL_GRAMMAR = """
 
     function_call: var "(" parameter_list? ")"
 
-    parameter_list: param_assign | parameter_list "," param_assign
+    parameter_list: positional_params "," named_params 
+                  | positional_params 
+                  | named_params
 
-    param_assign: var ":=" rvalue
+    positional_params: positional_param
+                     | positional_params "," positional_param
+
+    positional_param: rvalue
+
+    named_params: named_param 
+                | parameter_list "," named_param
+
+    named_param: var ":=" rvalue
 
     literal: "true"  -> true
            | "false" -> false
@@ -363,11 +373,15 @@ def _parse_function_call(t: Tree) -> FunctionCallExpr:
     assert t.data == "function_call"
 
     function_name = _parse_var(_child_tree(t, 0))
-    params = {}
-    for assignment in t.find_data("param_assign"):
+    params: Tuple[List[Expr], Dict[Var, Expr]] = ([], {})
+    for expr in t.find_data("positional_param"):
+        assert len(expr.children) == 1
+        params[0].append(_parse_rvalue(_child_tree(expr, 0)))
+    for assignment in t.find_data("named_param"):
+        assert len(assignment.children) == 2
         var = _parse_var(_child_tree(assignment, 0))
         val = _parse_rvalue(_child_tree(assignment, 1))
-        params[var] = val
+        params[1][var] = val
 
     return FunctionCallExpr(function_name, params)
 
