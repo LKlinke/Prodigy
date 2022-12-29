@@ -1,8 +1,11 @@
+from fractions import Fraction
+
 from pytest import raises
 
 from probably.pgcl import parse_pgcl
 from probably.pgcl.ast.declarations import FunctionDecl, VarDecl
-from probably.pgcl.ast.expressions import FunctionCallExpr, NatLitExpr, VarExpr
+from probably.pgcl.ast.expressions import (CategoricalExpr, FunctionCallExpr,
+                                           NatLitExpr, RealLitExpr, VarExpr)
 from probably.pgcl.ast.instructions import AsgnInstr
 from probably.pgcl.ast.types import NatType
 
@@ -175,7 +178,13 @@ def test_positional_and_named_parameters():
         nat x;
         x := f(7, 8, 9, 10, 42);
     """)
-    assert prog.instructions[0].rhs.params[0] == [NatLitExpr(7), NatLitExpr(8), NatLitExpr(9), NatLitExpr(10), NatLitExpr(42)]
+    assert prog.instructions[0].rhs.params[0] == [
+        NatLitExpr(7),
+        NatLitExpr(8),
+        NatLitExpr(9),
+        NatLitExpr(10),
+        NatLitExpr(42)
+    ]
     assert prog.functions['f'].params_to_dict(
         prog.instructions[0].rhs.params) == {
             'x': NatLitExpr(7),
@@ -184,4 +193,33 @@ def test_positional_and_named_parameters():
             'a': NatLitExpr(10),
             'b': NatLitExpr(42),
             'c': NatLitExpr(0)
+        }
+
+
+def test_likely_expr():
+    prog = parse_pgcl("""
+        fun f := {
+            nat x;
+            nat y;
+            x := 10;
+            return x;
+        }
+        nat x;
+        x := f(7 : 6/10 + 42: 4/10);
+    """)
+    assert prog.instructions == [
+        AsgnInstr(lhs='x',
+                  rhs=FunctionCallExpr('f', ([
+                      CategoricalExpr(
+                          [(NatLitExpr(7), RealLitExpr(Fraction(6, 10))),
+                           (NatLitExpr(42), RealLitExpr(Fraction(4, 10)))])
+                  ], {})))
+    ]
+    assert prog.functions['f'].params_to_dict(
+        prog.instructions[0].rhs.params) == {
+            'x':
+            CategoricalExpr([(NatLitExpr(7), RealLitExpr(Fraction(6, 10))),
+                             (NatLitExpr(42), RealLitExpr(Fraction(4, 10)))]),
+            'y':
+            NatLitExpr(0)
         }
