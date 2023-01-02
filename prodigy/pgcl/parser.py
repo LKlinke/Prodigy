@@ -26,7 +26,7 @@ import attr
 from lark import Lark, Tree
 
 from probably.pgcl.ast import *
-from probably.pgcl.ast.expressions import InferExpr
+from probably.pgcl.ast.expressions import InferExpr, SampleExpr
 from probably.pgcl.ast.types import DistributionType
 from probably.pgcl.ast.walk import Walk, walk_expr
 from probably.util.lark_expr_parser import (atom, build_expr_parser, infixl,
@@ -74,8 +74,9 @@ _PGCL_GRAMMAR = """
     block: "{" instruction* "}"
 
     rvalue: expression
-          | function_call                                -> function_call
-          | "infer" "{" function_call "}"                -> infer
+          | function_call                 -> function_call
+          | "infer" "{" function_call "}" -> infer
+          | "sample" "{" var "}"          -> sample
 
     function_call: var "(" parameter_list? ")"
 
@@ -384,6 +385,10 @@ def _parse_rvalue(t: Tree) -> Expr:
     elif t.data == "infer":
         assert len(t.children) == 1
         return InferExpr(_parse_function_call(_child_tree(t, 0)))
+
+    elif t.data == "sample":
+        assert len(t.children) == 1
+        return SampleExpr(_parse_var(_child_tree(t, 0)))
 
     # otherwise we have an expression, but it may contain _LikelyExprs, which we
     # need to parse.

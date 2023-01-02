@@ -387,6 +387,14 @@ class InferExpr(ExprClass):
         return f"infer {{ {self.function} }}"
 
 
+@attr.s
+class SampleExpr(ExprClass):
+    dist: Var = attr.ib()
+    """The distribution from which to sample a value"""
+    def __str__(self):
+        return f"sample {{ {self.dist} }}"
+
+
 def expr_str_parens(expr: ExprClass) -> str:
     """Wrap parentheses around an expression, but not for simple expressions."""
     if isinstance(expr,
@@ -398,5 +406,5 @@ def expr_str_parens(expr: ExprClass) -> str:
 
 Expr = Union[VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr,
              BinopExpr, CategoricalExpr, SubstExpr, TickExpr, FunctionCallExpr,
-             InferExpr]
+             InferExpr, SampleExpr]
 """Union type for all expression objects. See :class:`ExprClass` for use with isinstance."""

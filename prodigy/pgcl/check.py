@@ -14,7 +14,8 @@ import attr
 from frozendict import frozendict
 
 from probably.pgcl.ast.declarations import Function, FunctionDecl, VarDecl
-from probably.pgcl.ast.expressions import FunctionCallExpr, InferExpr
+from probably.pgcl.ast.expressions import (FunctionCallExpr, InferExpr,
+                                           SampleExpr)
 from probably.pgcl.ast.types import DistributionType
 from probably.util.ref import Mut
 
@@ -292,6 +293,16 @@ def get_type(
             if isinstance(valid, CheckFail):
                 return valid
         return DistributionType()
+
+    if isinstance(expr, SampleExpr):
+        if check:
+            if expr.dist not in program.variables:
+                return CheckFail(expr, f"Unknown variable: {expr.dist}")
+            typ = program.variables[expr.dist]
+            if not isinstance(typ, DistributionType):
+                return CheckFail.expected_type_got(expr, DistributionType(),
+                                                   typ)
+        return NatType(None)
 
     raise Exception("unreachable")
 
