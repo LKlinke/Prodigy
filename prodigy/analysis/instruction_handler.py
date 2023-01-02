@@ -5,16 +5,15 @@ from abc import ABC, abstractmethod
 from fractions import Fraction
 from typing import Sequence, Union, get_args
 
-from probably.pgcl import (AsgnInstr, BernoulliExpr, BinomialExpr, Binop,
-                           BinopExpr, CategoricalExpr, ChoiceInstr, DistrExpr,
-                           DUniformExpr, ExpectationInstr, Expr,
-                           FunctionCallExpr, GeometricExpr, IfInstr,
-                           IidSampleExpr, Instr, LogDistExpr, LoopInstr,
+from probably.pgcl import (AsgnInstr, Binop, BinopExpr, CategoricalExpr,
+                           ChoiceInstr, ExpectationInstr, Expr,
+                           FunctionCallExpr, IfInstr, Instr, LoopInstr,
                            NatLitExpr, ObserveInstr, OptimizationQuery,
-                           OptimizationType, PlotInstr, PoissonExpr,
-                           PrintInstr, ProbabilityQueryInstr, Program, Query,
-                           RealLitExpr, SkipInstr, Unop, UnopExpr, Var,
-                           VarExpr, WhileInstr, parse_pgcl)
+                           OptimizationType, PlotInstr, PrintInstr,
+                           ProbabilityQueryInstr, Program, Query, RealLitExpr,
+                           SkipInstr, Unop, UnopExpr, Var, VarExpr, WhileInstr,
+                           parse_pgcl)
+from probably.pgcl.check import sample_predefined_functions as distr_functions
 
 import prodigy.analysis.equivalence.equivalence_check as equiv_check
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -272,57 +271,50 @@ class SampleHandler(InstructionHandler):
             error_prob: Distribution, config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
         _assume(instruction, AsgnInstr, 'SampleHandler')
-        assert isinstance(instruction.rhs, get_args(DistrExpr)), f"The Instruction handled by a SampleHandler" \
-                                                                 f" must be of type DistrExpr, got {type(instruction)}"
+        assert isinstance(instruction.rhs, FunctionCallExpr), "The Instruction handled by a SampleHandler must be of" \
+                                                                 f" type FunctionCallExpr, got {type(instruction)}"
+        assert instruction.rhs.function in distr_functions, f"Not a pre-defined function: {instruction.rhs.function}"
 
         logger.info("Computing distribution sampling update.\n%s", instruction)
         variable: Var = instruction.lhs
         marginal = distribution.marginal(variable, method=MarginalType.EXCLUDE)
         factory = config.factory
-
-        # rhs is a categorical expression (explicit finite distr)
-        if isinstance(instruction.rhs, CategoricalExpr):
-            raise NotImplementedError(
-                "Categorical expression are currently not supported.")
+        distr = instruction.rhs.function
 
         # rhs is a uniform distribution
-        if isinstance(instruction.rhs, DUniformExpr):
-            return marginal * factory.uniform(variable, instruction.rhs.start,
-                                              instruction.rhs.end), \
-                   error_prob
-
-        # rhs is geometric distribution
-        if isinstance(instruction.rhs, GeometricExpr):
-            return marginal * factory.geometric(variable,
-                                                instruction.rhs.param), \
-                   error_prob
+        if distr in {"unif_d", "unif"}:
+            start, end = instruction.rhs.params[0]
+            return marginal * factory.uniform(variable, start, end), error_prob
 
         # rhs is binomial distribution
-        if isinstance(instruction.rhs, BinomialExpr):
-            return marginal * factory.binomial(variable, instruction.rhs.n,
-                                               instruction.rhs.p), \
-                   error_prob
-
-        # rhs is poisson distribution
-        if isinstance(instruction.rhs, PoissonExpr):
-            return marginal * factory.poisson(variable, instruction.rhs.param), \
-                   error_prob
-
-        # rhs is bernoulli distribution
-        if isinstance(instruction.rhs, BernoulliExpr):
-            return marginal * factory.bernoulli(variable,
-                                                instruction.rhs.param), \
-                   error_prob
-
-        # rhs is logarithmic distribution
-        if isinstance(instruction.rhs, LogDistExpr):
-            return marginal * factory.log(variable, instruction.rhs.param), \
-                   error_prob
+        if distr == "binomial":
+            n, p = instruction.rhs.params[0]
+            return marginal * factory.binomial(variable, n, p), error_prob
 
         # rhs is an iid sampling expression
-        if isinstance(instruction.rhs, IidSampleExpr):
-            return distribution.update_iid(instruction.rhs, instruction.lhs), \
+        if distr == "iid":
+            dist, count = instruction.rhs.params[0]
+            return distribution.update_iid(dist, count, instruction.lhs), \
                    error_prob
+
+        # all remaining distributions have only one parameter
+        [param] = instruction.rhs.params[0]
+
+        # rhs is geometric distribution
+        if distr == "geometric":
+            return marginal * factory.geometric(variable, param), error_prob
+
+        # rhs is poisson distribution
+        if distr == "poisson":
+            return marginal * factory.poisson(variable, param), error_prob
+
+        # rhs is bernoulli distribution
+        if distr == "bernoulli":
+            return marginal * factory.bernoulli(variable, param), error_prob
+
+        # rhs is logarithmic distribution
+        if distr == "logdist":
+            return marginal * factory.log(variable, param), error_prob
 
         raise Exception("Unknown distribution type!")
 
@@ -335,6 +327,10 @@ class FunctionHandler(InstructionHandler):
     ) -> tuple[Distribution, Distribution]:
         _assume(instruction, AsgnInstr, 'FunctionCallHandler')
         assert isinstance(instruction.rhs, FunctionCallExpr)
+
+        if instruction.rhs.function in distr_functions:
+            return SampleHandler.compute(instruction, program, distribution,
+                                         error_prob, config)
 
         function = program.functions[instruction.rhs.function]
         input_distr = distribution.marginal(
@@ -360,9 +356,10 @@ class AssignmentHandler(InstructionHandler):
     ) -> tuple[Distribution, Distribution]:
         _assume(instruction, AsgnInstr, 'AssignmentHandler')
 
-        if isinstance(instruction.rhs, get_args(DistrExpr)):
-            return SampleHandler.compute(instruction, program, distribution,
-                                         error_prob, config)
+        # rhs is a categorical expression (explicit finite distr)
+        if isinstance(instruction.rhs, CategoricalExpr):
+            raise NotImplementedError(
+                "Categorical expression are currently not supported.")
 
         if isinstance(instruction.rhs, FunctionCallExpr):
             return FunctionHandler.compute(instruction, program, distribution,

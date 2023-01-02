@@ -7,8 +7,8 @@ from enum import Enum, auto
 from typing import (Dict, FrozenSet, Generator, Iterator, List, Sequence, Set,
                     Tuple, Type, Union)
 
-from probably.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, IidSampleExpr,
-                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
+from probably.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr,
+                           RealLitExpr, Unop, UnopExpr, VarExpr)
 from probably.pgcl.parser import parse_expr
 
 from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
@@ -535,7 +535,7 @@ class Distribution(ABC):
         """
 
     @abstractmethod
-    def update_iid(self, sampling_exp: IidSampleExpr,
+    def update_iid(self, sampling_dist: Expr, count: VarExpr,
                    variable: Union[str, VarExpr]) -> 'Distribution':
         """ Updates the distribution by the the iid-sampling rules. """
 

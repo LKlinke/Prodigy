@@ -6,9 +6,7 @@ from typing import (Callable, FrozenSet, Generator, Iterator, List, Set, Tuple,
                     Type, Union, get_args)
 
 import sympy
-from probably.pgcl import (BernoulliExpr, BinomialExpr, Binop, BinopExpr,
-                           DistrExpr, DUniformExpr, Expr, GeometricExpr,
-                           IidSampleExpr, LogDistExpr, PoissonExpr,
+from probably.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
                            RealLitExpr, Unop, UnopExpr, VarExpr, Walk,
                            walk_expr)
 from probably.pgcl.parser import parse_expr
@@ -787,13 +785,10 @@ class GeneratingFunction(Distribution):
             preciseness=self._preciseness,
             closed=self._is_closed_form).set_parameters(*self.get_parameters())
 
-    def update_iid(self, sampling_exp: IidSampleExpr,
+    def update_iid(self, sampling_dist: Expr, count: VarExpr,
                    variable: Union[str, VarExpr]) -> Distribution:
-        assert isinstance(sampling_exp,
-                          IidSampleExpr), "Not an IidSamplingExpression."
 
-        subst_var = sampling_exp.variable.var
-        sampling_dist = sampling_exp.sampling_dist
+        subst_var = count.var
 
         def subs(dist_gf, subst_var, variable):
             result = self.marginal(
@@ -806,48 +801,46 @@ class GeneratingFunction(Distribution):
             )
             return result.set_parameters(*self.get_parameters())
 
-        if not isinstance(sampling_dist, get_args(DistrExpr)) and isinstance(
-                sampling_dist, get_args(Expr)):
+        if not isinstance(sampling_dist, FunctionCallExpr):
             # create distribution in correct variable:
             expr = Mut.alloc(sampling_dist)
             for ref in walk_expr(Walk.DOWN, expr):
                 if isinstance(ref.val, VarExpr):
                     ref.val.var = variable
+                elif isinstance(ref.val, FunctionCallExpr):
+                    raise ValueError(
+                        "Cannot handle nested user-defined functions in iid parameters"
+                    )
             dist_gf = sympy.S(str(expr.val))
             return subs(dist_gf, subst_var, variable)
 
-        if isinstance(sampling_dist, GeometricExpr):
+        if sampling_dist.function == "binomial":
+            n, p = sampling_dist.params[0]
+            dist_gf = sympy.S(f"(1-({p})+({p})*{variable})**({n})")
+            return subs(dist_gf, subst_var, variable)
+        if sampling_dist.function in {"unif", "unif_d"}:
+            start, end = sampling_dist.params[0]
             dist_gf = sympy.S(
-                f"({sampling_dist.param}) / (1 - (1-({sampling_dist.param})) * {variable})"
+                f"1/(({end}) - ({start}) + 1) * {variable}**({start}) "\
+                    f"* ({variable}**(({end}) - ({start}) + 1) - 1) / ({variable} - 1)"
             )
             return subs(dist_gf, subst_var, variable)
-        if isinstance(sampling_dist, BinomialExpr):
-            dist_gf = sympy.S(
-                f"(1-({sampling_dist.p})+({sampling_dist.p})*{variable})**({sampling_dist.n})"
-            )
+        # All remaining distributions have only one parameter
+        [param] = sampling_dist.params[0]
+        if sampling_dist.function == "geometric":
+            dist_gf = sympy.S(f"({param}) / (1 - (1-({param})) * {variable})")
             return subs(dist_gf, subst_var, variable)
-        if isinstance(sampling_dist, LogDistExpr):
-            dist_gf = sympy.S(
-                f"log(1-({sampling_dist.param})*{variable})/log(1-({sampling_dist.param}))"
-            )
+        if sampling_dist.function == "logdist":
+            dist_gf = sympy.S(f"log(1-({param})*{variable})/log(1-({param}))")
             return subs(dist_gf, subst_var, variable)
-        if isinstance(sampling_dist, BernoulliExpr):
-            dist_gf = sympy.S(
-                f"{sampling_dist.param} * {variable} + (1 - ({sampling_dist.param}))"
-            )
+        if sampling_dist.function == "bernoulli":
+            dist_gf = sympy.S(f"{param} * {variable} + (1 - ({param}))")
             return subs(dist_gf, subst_var, variable)
-        if isinstance(sampling_dist, PoissonExpr):
-            dist_gf = sympy.S(f"exp({sampling_dist.param} * ({variable} - 1))")
-            return subs(dist_gf, subst_var, variable)
-        if isinstance(sampling_dist, DUniformExpr):
-            dist_gf = sympy.S(
-                f"1/(({sampling_dist.end}) - ({sampling_dist.start}) + 1) * {variable}**({sampling_dist.start}) "\
-                    f"* ({variable}**(({sampling_dist.end}) - ({sampling_dist.start}) + 1) - 1) / ({variable} - 1)"
-            )
+        if sampling_dist.function == "poisson":
+            dist_gf = sympy.S(f"exp({param} * ({variable} - 1))")
             return subs(dist_gf, subst_var, variable)
 
-        raise NotImplementedError(
-            "Currently only geometric expressions are supported.")
+        raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
 
     def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
         expr = sympy.S(str(expression)).ratsimp().expand()

@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from typing import (FrozenSet, Generator, Iterator, List, Set, Tuple, Type,
-                    Union, get_args)
+                    Union)
 
 import pygin  # type: ignore
-from probably.pgcl import (BernoulliExpr, Binop, BinopExpr, DistrExpr,
-                           DUniformExpr, Expr, GeometricExpr, IidSampleExpr,
-                           PoissonExpr, VarExpr)
+from probably.pgcl import Binop, BinopExpr, Expr, FunctionCallExpr, VarExpr
 from sympy import nan, sympify
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
@@ -364,50 +362,45 @@ class FPS(Distribution):
             self._dist.update_power(temp_var, base, exp, approximate),
             self._variables, self._parameters)
 
-    def update_iid(self, sampling_exp: IidSampleExpr,
+    def update_iid(self, sampling_dist: Expr, count: VarExpr,
                    variable: Union[str, VarExpr]) -> FPS:
-
-        sample_dist = sampling_exp.sampling_dist
-        if isinstance(sample_dist, GeometricExpr):
-            result = self._dist.updateIid(
-                str(variable), pygin.geometric("test", str(sample_dist.param)),
-                str(sampling_exp.variable))
-            return FPS.from_dist(result, self._variables, self._parameters)
-        if isinstance(sample_dist, BernoulliExpr):
-            result = self._dist.updateIid(
-                str(variable),
-                pygin.Dist(
-                    f"{sample_dist.param} * test + (1-{sample_dist.param})"),
-                str(sampling_exp.variable))
-            return FPS.from_dist(result, self._variables, self._parameters)
-
-        elif isinstance(sample_dist, PoissonExpr):
-            result = self._dist.updateIid(
-                str(variable),
-                pygin.Dist(f"exp({sample_dist.param} * (test - 1))"),
-                str(sampling_exp.variable))
-            return FPS.from_dist(result, self._variables, self._parameters)
-
-        elif isinstance(sample_dist, DUniformExpr):
-            result = self._dist.updateIid(
-                str(variable),
-                pygin.Dist(
-                    f"1/(({sample_dist.end}) - ({sample_dist.start}) + 1) * test^({sample_dist.start}) "
-                    f"* (test^(({sample_dist.end}) - ({sample_dist.start}) + 1) - 1) / (test - 1)"
-                ), str(sampling_exp.variable))
-            return FPS.from_dist(result, self._variables, self._parameters)
-
-        elif isinstance(sample_dist, get_args(Expr)) and not isinstance(
-                sample_dist, get_args(DistrExpr)):
+        if not isinstance(sampling_dist, FunctionCallExpr):
             result = FPS.from_dist(
                 self._dist.updateIid(str(variable),
-                                     pygin.Dist(str(sample_dist)),
-                                     str(sampling_exp.variable)),
-                self._variables, self._parameters)
+                                     pygin.Dist(str(sampling_dist)),
+                                     str(count)), self._variables,
+                self._parameters)
             return result
-        else:
-            raise NotImplementedError(
-                "Iid Distribution type currently not supported.")
+
+        if sampling_dist.function in {"unif", "unif_d"}:
+            start, end = sampling_dist.params[0]
+            result = self._dist.updateIid(
+                str(variable),
+                pygin.Dist(
+                    f"1/(({end}) - ({start}) + 1) * test^({start}) "
+                    f"* (test^(({end}) - ({start}) + 1) - 1) / (test - 1)"),
+                str(count))
+            return FPS.from_dist(result, self._variables, self._parameters)
+
+        [param] = sampling_dist.params[0]
+        if sampling_dist.function == "geometric":
+            result = self._dist.updateIid(str(variable),
+                                          pygin.geometric("test", str(param)),
+                                          str(count))
+            return FPS.from_dist(result, self._variables, self._parameters)
+        if sampling_dist.function == "bernoulli":
+            result = self._dist.updateIid(
+                str(variable), pygin.Dist(f"{param} * test + (1-{param})"),
+                str(count))
+            return FPS.from_dist(result, self._variables, self._parameters)
+
+        if sampling_dist.function == "poisson":
+            result = self._dist.updateIid(
+                str(variable), pygin.Dist(f"exp({param} * (test - 1))"),
+                str(count))
+            return FPS.from_dist(result, self._variables, self._parameters)
+
+        raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
 
     def marginal(self,
                  *variables: Union[str, VarExpr],
