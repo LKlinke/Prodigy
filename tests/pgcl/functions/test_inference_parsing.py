@@ -9,9 +9,13 @@ from probably.pgcl.parser import parse_pgcl
 def test_basic_inference():
     prog = parse_pgcl("""
         dist d;
+        fun f := {
+            nat x;
+            return 7;
+        }
         d := infer { f(x := 10) };
     """)
-    assert prog.declarations == [VarDecl('d', DistributionType())]
+    assert prog.declarations[0] == VarDecl('d', DistributionType())
     assert prog.instructions == [
         AsgnInstr(lhs='d',
                   rhs=InferExpr(

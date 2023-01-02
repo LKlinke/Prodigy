@@ -14,7 +14,8 @@ import attr
 from frozendict import frozendict
 
 from probably.pgcl.ast.declarations import Function, FunctionDecl, VarDecl
-from probably.pgcl.ast.expressions import FunctionCallExpr
+from probably.pgcl.ast.expressions import FunctionCallExpr, InferExpr
+from probably.pgcl.ast.types import DistributionType
 from probably.util.ref import Mut
 
 from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
@@ -283,6 +284,14 @@ def get_type(
             if isinstance(valid, CheckFail):
                 return valid
         return NatType(bounds=None)
+
+    if isinstance(expr, InferExpr):
+        if check:
+            valid = _check_function_call(program, expr.function,
+                                         predefined_functions)
+            if isinstance(valid, CheckFail):
+                return valid
+        return DistributionType()
 
     raise Exception("unreachable")
 
