@@ -374,9 +374,9 @@ class FunctionCallExpr(ExprClass):
     """
     def __str__(self):
         params = ', '.join(
-            self.params[0] +
+            [str(p) for p in self.params[0]] +
             [f'{var} := {expr}' for var, expr in self.params[1].items()])
-        return f"{self.function}({params});"
+        return f"{self.function}({params})"
 
 
 @attr.s
