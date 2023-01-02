@@ -223,3 +223,19 @@ def test_likely_expr():
             'y':
             NatLitExpr(0)
         }
+
+
+def test_nested_params():
+    prog = parse_pgcl("""
+        x := f(g(h), y);
+    """)
+    assert prog.instructions == [
+        AsgnInstr(lhs='x',
+                  rhs=FunctionCallExpr(function="f",
+                                       params=([
+                                           FunctionCallExpr(
+                                               function="g",
+                                               params=([VarExpr("h")], {})),
+                                           VarExpr("y")
+                                       ], {})))
+    ]

@@ -343,10 +343,31 @@ def _parse_function_call(t: Tree) -> FunctionCallExpr:
 
     function_name = _parse_var(_child_tree(t, 0))
     params: Tuple[List[Expr], Dict[Var, Expr]] = ([], {})
-    for expr in t.find_data("positional_param"):
+
+    def walk_params(data):
+        if len(t.children) <= 1:
+            return []
+        param_list = _child_tree(t, 1)
+        assert param_list.data == "parameter_list"
+        datas = f"{data}s"
+        child = None
+        for param_type in param_list.children:
+            assert isinstance(param_type, Tree)
+            if param_type.data == datas:
+                child = param_type
+                break
+        if child is None:
+            return []
+        res = []
+        while len(child.children) > 1:
+            res = [_child_tree(child, 1)] + res
+            child = _child_tree(child, 0)
+        return [_child_tree(child, 0)] + res
+
+    for expr in walk_params("positional_param"):
         assert len(expr.children) == 1
         params[0].append(_parse_rvalue(_child_tree(expr, 0)))
-    for assignment in t.find_data("named_param"):
+    for assignment in walk_params("named_param"):
         assert len(assignment.children) == 2
         var = _parse_var(_child_tree(assignment, 0))
         val = _parse_rvalue(_child_tree(assignment, 1))
