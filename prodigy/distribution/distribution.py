@@ -399,7 +399,7 @@ class Distribution(ABC):
         variable = expression.lhs.var
         if variable not in self.get_variables():
             raise ValueError(
-                f"Cannot assign to variable {variable} because it does not exist"
+                f"Cannot assign {expression.rhs} to variable {variable} because it does not exist"
             )
 
         # pylint: disable=protected-access

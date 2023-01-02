@@ -343,7 +343,7 @@ class FunctionHandler(InstructionHandler):
             Program.from_function(function, program), input_distr,
             config).evaluate_expression(function.returns, instruction.lhs)
         return distribution.marginal(
-            instruction.lhs, MarginalType.EXCLUDE) * returned, error_prob
+            instruction.lhs, method=MarginalType.EXCLUDE) * returned, error_prob
 
 
 class AssignmentHandler(InstructionHandler):
