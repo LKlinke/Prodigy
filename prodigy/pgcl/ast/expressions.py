@@ -288,18 +288,6 @@ def _check_categorical_exprs(_self: CategoricalExpr, _attribute: Any,
 
 
 @attr.s
-class IidSampleExpr(ExprClass):
-    """ Independently sampling from identical distributions
-
-    We assume the sampling distribution to be encoded as a PGF (this is not checked by probably)."""
-    sampling_dist: Expr = attr.ib()
-    variable: VarExpr = attr.ib()
-
-    def __str__(self) -> str:
-        return f"iid({self.sampling_dist}, {self.variable})"
-
-
-@attr.s
 class CategoricalExpr(ExprClass):
     """
     Chooses one of a list of expressions to evaluate, where each expression has
@@ -409,6 +397,6 @@ def expr_str_parens(expr: ExprClass) -> str:
 
 
 Expr = Union[VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr,
-             BinopExpr, CategoricalExpr, SubstExpr, TickExpr, IidSampleExpr,
-             FunctionCallExpr, InferExpr]
+             BinopExpr, CategoricalExpr, SubstExpr, TickExpr, FunctionCallExpr,
+             InferExpr]
 """Union type for all expression objects. See :class:`ExprClass` for use with isinstance."""

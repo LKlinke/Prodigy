@@ -73,8 +73,7 @@ _PGCL_GRAMMAR = """
 
     block: "{" instruction* "}"
 
-    rvalue: "iid" "(" rvalue "," var ")"                 -> iid
-          | expression
+    rvalue: expression
           | function_call                                -> function_call
           | "infer" "{" function_call "}"                -> infer
 
