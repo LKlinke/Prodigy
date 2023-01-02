@@ -126,7 +126,7 @@ from .declarations import (ConstDecl, Decl, Function, FunctionDecl,
 from .expressions import (Binop, BinopExpr, BoolLitExpr, CategoricalExpr, Expr,
                           ExprClass, FunctionCallExpr, NatLitExpr, RealLitExpr,
                           SubstExpr, TickExpr, Unop, UnopExpr, VarExpr,
-                          expr_str_parens)
+                          expr_str_parens, InferExpr, SampleExpr)
 from .instructions import (AsgnInstr, ChoiceInstr, ExpectationInstr, IfInstr,
                            Instr, InstrClass, LoopInstr, ObserveInstr,
                            OptimizationQuery, OptimizationType, PlotInstr,
