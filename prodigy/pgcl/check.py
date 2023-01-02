@@ -81,7 +81,8 @@ sample_predefined_functions: Dict[Var, List[VarDecl]] = frozendict({
     'logdist': [VarDecl('p', RealType())],
     'binomial': [VarDecl('n', NatType(None)),
                  VarDecl('p', RealType())],
-    'iid': [VarDecl('dist', NatType(None))]
+    'iid': [VarDecl('dist', NatType(None)),
+            VarDecl('var', NatType(None))]
 })
 
 
