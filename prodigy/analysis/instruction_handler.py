@@ -333,10 +333,8 @@ class FunctionHandler(InstructionHandler):
                                          error_prob, config)
 
         function = program.functions[instruction.rhs.function]
-        input_distr = distribution.marginal(
-            *(distribution.get_variables() -
-              function.variables)).set_variables(
-                  *(distribution.get_variables() | function.variables))
+        input_distr = config.factory.one().set_parameters(
+            *distribution.get_parameters())
         for var, val in function.params_to_dict(
                 instruction.rhs.params).items():
             input_distr *= distribution.evaluate_expression(val, var)
