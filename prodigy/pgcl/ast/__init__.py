@@ -124,9 +124,9 @@ from .ast import Node, Var
 from .declarations import (ConstDecl, Decl, Function, FunctionDecl,
                            ParameterDecl, VarDecl)
 from .expressions import (Binop, BinopExpr, BoolLitExpr, CategoricalExpr, Expr,
-                          ExprClass, FunctionCallExpr, NatLitExpr, RealLitExpr,
-                          SubstExpr, TickExpr, Unop, UnopExpr, VarExpr,
-                          expr_str_parens, InferExpr, SampleExpr)
+                          ExprClass, FunctionCallExpr, InferExpr, NatLitExpr,
+                          RealLitExpr, SampleExpr, SubstExpr, TickExpr, Unop,
+                          UnopExpr, VarExpr, expr_str_parens)
 from .instructions import (AsgnInstr, ChoiceInstr, ExpectationInstr, IfInstr,
                            Instr, InstrClass, LoopInstr, ObserveInstr,
                            OptimizationQuery, OptimizationType, PlotInstr,

@@ -8,7 +8,7 @@ import attr
 from .ast import Node, Var
 from .expressions import Expr, NatLitExpr
 from .instructions import Instr
-from .types import BoolType, NatType, RealType, Type
+from .types import BoolType, DistributionType, NatType, RealType, Type
 
 
 class DeclClass(Node):
@@ -42,6 +42,8 @@ class VarDecl(DeclClass):
             return res + ";"
         elif isinstance(self.typ, RealType):
             return f"real {self.var};"
+        elif isinstance(self.typ, DistributionType):
+            return f"dist {self.var};"
         raise ValueError(f"invalid type: {self.typ}")
 
 
