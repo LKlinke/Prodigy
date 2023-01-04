@@ -170,10 +170,6 @@ def get_type(
         if parameter_type is not None:
             return parameter_type
 
-        # or a function?
-        if expr.var in program.functions:
-            return NatType(None)
-
         # it must be a constant
         constant_type = program.constants.get(expr.var)
         if constant_type is None:
