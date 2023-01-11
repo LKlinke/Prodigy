@@ -144,6 +144,29 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
     return equiv, result
 
 
+@cli.command('independent_vars')
+@click.pass_context
+@click.argument('program_file', type=click.File('r'))
+def independent_vars(ctx, program_file: IO):
+    """
+    Outputs an under-approximatation of the pairwise stochastic independence relation.
+    :param program_file: the program file of interest
+    :return:
+    """
+    prog_src = program_file.read()
+
+    prog = compiler.parse_pgcl(prog_src)
+    if isinstance(prog, CheckFail):
+        raise Exception(f"Could not compile the Program. {prog}")
+
+    start = time.perf_counter()
+    rel = analysis.static.independent_vars(prog, ctx.obj['CONFIG'])
+    stop = time.perf_counter()
+    print(rel)
+
+    print(f"CPU-time elapsed: {stop - start:04f} seconds")
+    return rel
+
 if __name__ == "__main__":
     # execute only if run as a script
     cli()  # pylint: disable=no-value-for-parameter
