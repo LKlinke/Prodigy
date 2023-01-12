@@ -5,6 +5,9 @@ do
   if [[ $file == *_invariant.pgcl ]]
   then
     echo ""
+  elif [[ $file == skip_*.pgcl ]]
+  then
+    echo "Skipped"
   else
     echo "Run example ${file}"
     printf "\e[32mResult:\t\e[m"
