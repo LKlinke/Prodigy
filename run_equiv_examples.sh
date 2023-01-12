@@ -2,10 +2,11 @@
 
 for file in pgfexamples/equivalence/*
 do
+  echo "${file}"
   if [[ $file == *_invariant.pgcl ]]
   then
     echo ""
-  elif [[ $file == skip_*.pgcl ]]
+  elif [[ $file == */skip_*.pgcl ]]
   then
     echo "Skipped"
   else
