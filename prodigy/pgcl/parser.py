@@ -27,6 +27,7 @@ from lark import Lark, Tree
 
 from probably.pgcl.ast import *
 from probably.pgcl.ast.expressions import InferExpr, SampleExpr
+from probably.pgcl.ast.instructions import QueryInstr
 from probably.pgcl.ast.types import DistributionType
 from probably.pgcl.ast.walk import Walk, walk_expr
 from probably.util.lark_expr_parser import (atom, build_expr_parser, infixl,
@@ -63,6 +64,7 @@ _PGCL_GRAMMAR = """
                | "tick" "(" expression ")"                   -> tick
                | "observe" "(" expression ")"                -> observe
                | "loop" "(" INT ")" block                    -> loop
+               | "query" "{" instructions "}"                -> query
 
     query: "?Ex" "[" expression "]"                          -> expectation
                | "?Pr" "[" expression "]"                    -> prquery
@@ -445,6 +447,8 @@ def _parse_instr(t: Tree) -> Instr:
         assert isinstance(t.children[0], str)
         return LoopInstr(NatLitExpr(value=int(t.children[0])),
                          _parse_instrs(_child_tree(t, 1)))
+    elif t.data == 'query':
+        return QueryInstr(_parse_instrs(_child_tree(t, 0)))
     else:
         raise Exception(f'invalid AST: {t.data}')
 

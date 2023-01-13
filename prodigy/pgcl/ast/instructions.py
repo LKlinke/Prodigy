@@ -195,6 +195,15 @@ class PlotInstr(InstrClass):
         return f"!Plot[{output}]"
 
 
+@attr.s
+class QueryInstr(InstrClass):
+    instrs: List[Instr] = attr.ib()
+
+    def __str__(self) -> str:
+        newline = "\n"
+        return f"query {{{newline}{f';{newline}'.join(map(str, self.instrs))}{newline}}}"
+
+
 Query = Union[ProbabilityQueryInstr, ExpectationInstr, PlotInstr, PrintInstr,
               OptimizationQuery]
 """Union type for all query objects. See :class:`QueryInstr` for use with isinstance."""

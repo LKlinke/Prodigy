@@ -131,7 +131,7 @@ from .instructions import (AsgnInstr, ChoiceInstr, ExpectationInstr, IfInstr,
                            Instr, InstrClass, LoopInstr, ObserveInstr,
                            OptimizationQuery, OptimizationType, PlotInstr,
                            PrintInstr, ProbabilityQueryInstr, Query, SkipInstr,
-                           TickInstr, WhileInstr)
+                           TickInstr, WhileInstr, QueryInstr)
 from .program import Program
 from .types import BoolType, Bounds, NatType, RealType, Type
 from .walk import *
