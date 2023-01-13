@@ -19,10 +19,10 @@ To install Prodigy, follow these steps:
 3. Install [Poetry](https://python-poetry.org/docs/#installation).
 4. Clone or download the Prodigy repository, open a command prompt in its root folder, and type `poetry install`. This should automatically install all required dependencies.
 
-If no errors occured, you have successfully installed Prodigy.
+If no errors occurred, you have successfully installed Prodigy.
 Now there are two options on how to use the tool. You can either use the command-line interface (CLI) or use the webservice frontend. The next section (_Basic Usage_) details how to achieve both of these things.
 
-### Troubleshhoting
+### Troubleshooting
 
 If you run into trouble during installation, this subsection might be of help. It lists some common problems that might occur during installation of Prodigy and how you can (hopefully) solve them.
 
