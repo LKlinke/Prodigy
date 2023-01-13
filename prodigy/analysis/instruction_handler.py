@@ -3,7 +3,7 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from fractions import Fraction
-from typing import Sequence, Union, get_args
+from typing import Dict, Sequence, Union, get_args
 
 from probably.pgcl import (AsgnInstr, Binop, BinopExpr, CategoricalExpr,
                            ChoiceInstr, ExpectationInstr, Expr,
@@ -333,17 +333,32 @@ class FunctionHandler(InstructionHandler):
                                          error_prob, config)
 
         function = program.functions[instruction.rhs.function]
-        input_distr = config.factory.one().set_parameters(
-            *distribution.get_parameters())
+        input_distr = distribution.set_variables(*distribution.get_variables(),
+                                                 *function.variables)
+
+        new_names: Dict[str, str] = {}
         for var, val in function.params_to_dict(
                 instruction.rhs.params).items():
-            input_distr *= distribution.evaluate_expression(val, var)
+            new_name = input_distr.get_fresh_variable()
+            new_names[new_name] = var
+            # TODO add a more efficient add_variable function for cases like this?
+            input_distr = input_distr.set_variables(
+                new_name, *input_distr.get_variables()).update(
+                    BinopExpr(Binop.EQ, VarExpr(new_name), val))
+        for new, old in new_names.items():
+            input_distr = input_distr.update(
+                BinopExpr(Binop.EQ, VarExpr(old), VarExpr(new)))
+        input_distr = input_distr.marginal(*new_names.values()).set_variables(
+            *function.variables)
+        print(input_distr)
 
         returned = compute_discrete_distribution(
             Program.from_function(function, program), input_distr,
             config).evaluate_expression(function.returns, instruction.lhs)
+        print(returned)
         return distribution.marginal(
-            instruction.lhs, method=MarginalType.EXCLUDE) * returned, error_prob
+            instruction.lhs,
+            method=MarginalType.EXCLUDE) * returned, error_prob
 
 
 class AssignmentHandler(InstructionHandler):

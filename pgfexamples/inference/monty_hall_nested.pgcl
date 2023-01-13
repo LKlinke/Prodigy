@@ -1,0 +1,29 @@
+nat prize;
+nat player;
+nat door;
+
+fun choose_door := {
+  nat pr;
+  nat pl;
+  nat x;
+  x:=unif(1,3);
+  observe(not (pr = x || pl = x))
+  return x;
+}
+
+fun other_door := {
+  nat pl;
+  nat do;
+  nat other;
+
+  other := unif(1,3);
+  observe(not (other = pl || other = do));
+  return other;
+}
+
+prize := unif(1,3);
+player := unif(1,3);
+door := choose_door(prize, player);
+// switch?
+player := other_door(player, door);
+?Pr[player = prize]
