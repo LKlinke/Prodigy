@@ -350,12 +350,10 @@ class FunctionHandler(InstructionHandler):
                 BinopExpr(Binop.EQ, VarExpr(old), VarExpr(new)))
         input_distr = input_distr.marginal(*new_names.values()).set_variables(
             *function.variables)
-        print(input_distr)
 
         returned = compute_discrete_distribution(
             Program.from_function(function, program), input_distr,
             config).evaluate_expression(function.returns, instruction.lhs)
-        print(returned)
         return distribution.marginal(
             instruction.lhs,
             method=MarginalType.EXCLUDE) * returned, error_prob
