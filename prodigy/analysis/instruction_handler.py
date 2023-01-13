@@ -10,9 +10,9 @@ from probably.pgcl import (AsgnInstr, Binop, BinopExpr, CategoricalExpr,
                            FunctionCallExpr, IfInstr, Instr, LoopInstr,
                            NatLitExpr, ObserveInstr, OptimizationQuery,
                            OptimizationType, PlotInstr, PrintInstr,
-                           ProbabilityQueryInstr, Program, Query, RealLitExpr,
-                           SkipInstr, Unop, UnopExpr, Var, VarExpr, WhileInstr,
-                           parse_pgcl)
+                           ProbabilityQueryInstr, Program, Query, QueryInstr,
+                           RealLitExpr, SkipInstr, Unop, UnopExpr, Var,
+                           VarExpr, WhileInstr, parse_pgcl)
 from probably.pgcl.check import sample_predefined_functions as distr_functions
 
 import prodigy.analysis.equivalence.equivalence_check as equiv_check
@@ -142,6 +142,11 @@ class SequenceHandler(InstructionHandler):
             logger.info("%s gets handled", instruction)
             return LoopHandler.compute(instruction, program, distribution,
                                        error_prob, config)
+
+        elif isinstance(instruction, QueryInstr):
+            logger.info("entering query block")
+            return QueryBlockHandler.compute(instruction, program,
+                                             distribution, error_prob, config)
 
         raise TypeError("illegal instruction")
 
@@ -604,3 +609,45 @@ class WhileHandler(InstructionHandler):
             if user_choice == "q":
                 sys.exit()
             print(f"Invalid input: {user_choice}")
+
+
+class QueryBlockHandler(InstructionHandler):
+    @staticmethod
+    def compute(
+            instruction: Union[Instr, Sequence[Instr]], program: Program,
+            distribution: Distribution, error_prob: Distribution,
+            config: ForwardAnalysisConfig
+    ) -> tuple[Distribution, Distribution]:
+        _assume(instruction, QueryInstr, "QueryBlockHandler")
+        instrs = instruction.instrs # type: ignore
+        assert len(instrs) == 2
+        assert isinstance(instrs[0], AsgnInstr)
+        assert isinstance(instrs[1], ObserveInstr)
+        assert distribution.is_finite()
+        assert error_prob.is_zero_dist(
+        )  # this means the sum of all probabilities used below is 1 respectively
+
+        dist, _ = AssignmentHandler.compute(instrs[0], program, distribution,
+                                            error_prob, config)
+        marginal = dist.marginal(instrs[0].lhs)
+        assert marginal.is_finite()
+
+        # this assumes that the updated variable is independent from the rest of the distribution
+        zero: Distribution = config.factory.one(*dist.get_variables()) * '0'
+        for rest_prob, rest_state in dist.marginal(
+                instrs[0].lhs, method=MarginalType.EXCLUDE):
+            if rest_prob == "0":
+                continue
+            new = zero
+            for me_prob, me_state in marginal:
+                if me_prob == "0":
+                    continue
+                state = rest_state.extend(me_state)
+                if dist.evaluate_condition(instrs[1].cond, state):
+                    new += dist.filter_state(state)
+            new /= str(new.get_probability_mass())
+            new *= rest_prob
+            dist -= dist.filter_state(rest_state)
+            dist += new
+
+        return dist, error_prob

@@ -72,6 +72,15 @@ class State:
     def copy(self):
         return State(valuations=self.valuations.copy())
 
+    def extend(self, other: State):
+        res = self.copy()
+        for var, val in other.items():
+            if var not in res.valuations:
+                res[var] = val
+            else:
+                raise ValueError(f"Variable {var} already has a value")
+        return res
+
 
 class Distribution(ABC):
     """ Abstract class that models different representations of probability distributions. """
@@ -332,12 +341,16 @@ class Distribution(ABC):
         """ Evaluates the expression in a given state. """
 
     @classmethod
-    def evaluate_condition(cls, condition: BinopExpr, state: State) -> bool:
+    def evaluate_condition(cls, condition: BinopExpr | UnopExpr,
+                           state: State) -> bool:
         """Evaluates whether the condition holds in the specified state."""
 
+        if isinstance(condition, UnopExpr) and condition.operator == Unop.NEG:
+            return not cls.evaluate_condition(condition.expr, state)
         if not isinstance(condition, BinopExpr):
             raise AssertionError(
-                f"Expression must be an (in-)equation, was {condition}")
+                f"Expression must be an (in-)equation or negation, was {condition}"
+            )
 
         lhs = str(condition.lhs)
         rhs = str(condition.rhs)
@@ -353,6 +366,14 @@ class Distribution(ABC):
             return cls.evaluate(lhs, state) > cls.evaluate(rhs, state)
         elif op == Binop.GEQ:
             return cls.evaluate(lhs, state) >= cls.evaluate(rhs, state)
+        elif op == Binop.OR:
+            return cls.evaluate_condition(condition.lhs,
+                                          state) or cls.evaluate_condition(
+                                              condition.rhs, state)
+        elif op == Binop.AND:
+            return cls.evaluate_condition(condition.lhs,
+                                          state) and cls.evaluate_condition(
+                                              condition.rhs, state)
         raise AssertionError(f"Unexpected condition type. {condition}")
 
     def evaluate_expression(self,
