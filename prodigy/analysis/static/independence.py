@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Iterable, List, Set, Tuple
+from typing import Iterable, List, Set, Tuple
 
 from probably.pgcl import (AsgnInstr, BernoulliExpr, Binop, BinopExpr,
                            BoolLitExpr, ChoiceInstr, ExpectationInstr, IfInstr,
@@ -11,7 +11,7 @@ from probably.pgcl import (AsgnInstr, BernoulliExpr, Binop, BinopExpr,
 from probably.pgcl.ast.walk import Walk, walk_instrs
 
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.static.utils import _vars_of_expr, _written_vars
+from prodigy.analysis.static.utils import _ancestors_and_descendants_every_node, _vars_of_expr, _written_vars
 from prodigy.util.logger import log_setup
 
 logger = log_setup(__name__, logging.DEBUG)
@@ -55,7 +55,7 @@ def _statement_handling(statement: Instr,
         # we would need a connection of the form <--> between both sides, but it should not be simply undirected
         # quite difficult without fresh variable and adding a variable at this point is not propagating
         logger.error("choice not supported here")
-    elif isinstance(statement, LoopInstr):  # no theory for
+    elif isinstance(statement, LoopInstr):  # no theory for it
         logger.error("loop not supported")
     elif isinstance(statement, ObserveInstr):  # not possible for pairwise
         logger.error("observe not supported")
@@ -94,7 +94,7 @@ def _preprocess(program: Program) -> Program:
             # generate fresh var name
             i = 0
             while 'choicetmp' + str(i) in new_program.variables.keys():
-                i+=1
+                i += 1
             fresh_var_name = 'choicetmp' + str(i)
 
             # add it
@@ -134,14 +134,26 @@ def independent_vars(program: Program,
 
     # preprocessing
     # choice transformation is here to have fresh variable in the set of program.variables
+    logger.debug("preprocessing")
     mod_program = _preprocess(program)
 
-    logger.debug("start.")
-
+    logger.debug("building graph")
     # build edge set
     graph = build_dependence_graph(mod_program)
-    print(graph)  # TODO
+    logger.debug(" graph: %s", str(graph))
 
-    logger.debug(" result:\t%s", "")
+    result = _dsep(graph, mod_program.variables)
+    logger.debug(" result: %s", str(result))
 
-    return {set()}
+    return result
+
+
+def _dsep(graph: Iterable[Tuple[Var, Var]],
+          program_variables: Iterable[Var]) -> Set[Set[Var, Var]]:
+    """Does the pairwise d-separation of the graph (directed) by intersecting the ancestors."""
+    ancestors, _ = _ancestors_and_descendants_every_node(graph, program_variables)
+    return {
+        frozenset({x, y})
+        for x in program_variables for y in program_variables
+        if len(ancestors[x].intersection(ancestors[y])) == 0
+    }
