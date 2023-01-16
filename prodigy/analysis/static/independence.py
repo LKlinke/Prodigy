@@ -3,11 +3,9 @@ from __future__ import annotations
 import logging
 from typing import Iterable, List, Set, Tuple
 
-from probably.pgcl import (AsgnInstr, BernoulliExpr, Binop, BinopExpr,
-                           BoolLitExpr, ChoiceInstr, ExpectationInstr, IfInstr,
-                           Instr, LoopInstr, NatLitExpr, NatType, ObserveInstr,
-                           Program, SkipInstr, TickInstr, Var, VarExpr,
-                           WhileInstr, parse_pgcl)
+from probably.pgcl import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, ChoiceInstr, ExpectationInstr, FunctionCallExpr,
+                           IfInstr, Instr, LoopInstr, NatLitExpr, NatType, ObserveInstr, Program, SkipInstr, TickInstr,
+                           Var, VarExpr, WhileInstr, parse_pgcl)
 from probably.pgcl.ast.walk import Walk, walk_instrs
 
 from prodigy.analysis.static.utils import _ancestors_and_descendants_every_node, _vars_of_expr, _written_vars
@@ -100,7 +98,7 @@ def _preprocess(program: Program) -> Program:
             new_program.add_variable(fresh_var_name, NatType(None))
 
             sampling = AsgnInstr(lhs=fresh_var_name,
-                                 rhs=BernoulliExpr(param=instr_ref.val.prob))
+                                 rhs=FunctionCallExpr(function='bernoulli', params=([instr_ref.val.prob],{})))
 
             cond = BinopExpr(lhs=VarExpr(fresh_var_name),
                              operator=Binop.EQ,
