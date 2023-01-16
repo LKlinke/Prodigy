@@ -139,7 +139,10 @@ def independent_vars(program: Program) -> Set[Set[Var, Var]]:
     graph = build_dependence_graph(mod_program)
     logger.debug(" graph: %s", str(graph))
 
-    result = _dsep(graph, mod_program.variables)
+    # Filter out params as they are unchangeable
+    mod_graph = filter(lambda x: x[0] not in mod_program.parameters, graph)
+
+    result = _dsep(mod_graph, mod_program.variables)
     logger.debug(" result: %s", str(result))
 
     return result
