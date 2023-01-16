@@ -10,7 +10,6 @@ from probably.pgcl import (AsgnInstr, BernoulliExpr, Binop, BinopExpr,
                            WhileInstr, parse_pgcl)
 from probably.pgcl.ast.walk import Walk, walk_instrs
 
-from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.static.utils import _ancestors_and_descendants_every_node, _vars_of_expr, _written_vars
 from prodigy.util.logger import log_setup
 
@@ -121,13 +120,11 @@ def _preprocess(program: Program) -> Program:
     return new_program
 
 
-def independent_vars(program: Program,
-                     config: ForwardAnalysisConfig) -> Set[Set[Var, Var]]:
+def independent_vars(program: Program) -> Set[Set[Var, Var]]:
     """
     This method under-approximates the pairwise stochastic independence relation using the d-separation on a simple
     dependence graph.
 
-    .. param config: Some configuration.
     .. param program: The program
     .. returns: Set of variable pairs which are surely independent.
     """
@@ -151,7 +148,8 @@ def independent_vars(program: Program,
 def _dsep(graph: Iterable[Tuple[Var, Var]],
           program_variables: Iterable[Var]) -> Set[Set[Var, Var]]:
     """Does the pairwise d-separation of the graph (directed) by intersecting the ancestors."""
-    ancestors, _ = _ancestors_and_descendants_every_node(graph, program_variables)
+    ancestors, _ = _ancestors_and_descendants_every_node(
+        graph, program_variables)
     return {
         frozenset({x, y})
         for x in program_variables for y in program_variables

@@ -15,10 +15,9 @@ def test_independence_fully_isolated():
     """)
     assert isinstance(prog, Program)
 
-    res = independent_vars(
-        prog,
-        ForwardAnalysisConfig())
-    assert res == {frozenset({'x','y'})}
+    res = independent_vars(prog)
+    assert res == {frozenset({'x', 'y'})}
+
 
 def test_independence_tri_copy():
     prog = compile_pgcl("""
@@ -32,10 +31,9 @@ def test_independence_tri_copy():
     """)
     assert isinstance(prog, Program)
 
-    res = independent_vars(
-        prog,
-        ForwardAnalysisConfig())
+    res = independent_vars(prog)
     assert res == set()
+
 
 def test_independence_dist_param():
     prog = compile_pgcl("""
@@ -47,7 +45,5 @@ def test_independence_dist_param():
     """)
     assert isinstance(prog, Program)
 
-    res = independent_vars(
-        prog,
-        ForwardAnalysisConfig())
+    res = independent_vars(prog)
     assert res == set()

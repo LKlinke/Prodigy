@@ -149,7 +149,7 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
 @click.argument('program_file', type=click.File('r'))
 def independent_vars(ctx, program_file: IO):
     """
-    Outputs an under-approximatation of the pairwise stochastic independence relation.
+    Outputs an under-approximation of the pairwise stochastic independence relation.
     :param program_file: the program file of interest
     :return:
     """
@@ -160,7 +160,7 @@ def independent_vars(ctx, program_file: IO):
         raise Exception(f"Could not compile the Program. {prog}")
 
     start = time.perf_counter()
-    rel = analysis.static.independent_vars(prog, ctx.obj['CONFIG'])
+    rel = analysis.static.independent_vars(prog)
     stop = time.perf_counter()
     print(rel)
 
