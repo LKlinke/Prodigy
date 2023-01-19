@@ -209,5 +209,5 @@ Query = Union[ProbabilityQueryInstr, ExpectationInstr, PlotInstr, PrintInstr,
 """Union type for all query objects. See :class:`QueryInstr` for use with isinstance."""
 
 Instr = Union[SkipInstr, WhileInstr, IfInstr, AsgnInstr, ChoiceInstr,
-              LoopInstr, TickInstr, ObserveInstr, Query]
+              LoopInstr, TickInstr, ObserveInstr, QueryInstr, Query]
 """Union type for all instruction objects. See :class:`InstrClass` for use with isinstance."""

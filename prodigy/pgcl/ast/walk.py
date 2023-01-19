@@ -66,14 +66,33 @@ class Walk(Enum):
             yield root
 
 
+def _mut_iterable_children(iterable_ref: Mut[Iterable]) -> Iterable[Mut[Expr]]:
+    """Get refs to the top-level Exprs found in an iterable"""
+    iterable = iterable_ref.val
+    if isinstance(iterable, str):
+        return
+    if isinstance(iterable, dict):
+        for child in Mut.dict_values(iterable):
+            if isinstance(child.val, ExprClass):
+                yield child
+            elif isinstance(child.val, Iterable):
+                yield from _mut_iterable_children(child)
+    # this case also handles dict keys
+    for child in Mut.iterate(iterable_ref):
+        if isinstance(child.val, ExprClass):
+            yield child  # type: ignore
+        elif isinstance(child.val, Iterable):
+            yield from _mut_iterable_children(child)
+
+
 def mut_expr_children(node_ref: Mut[Expr]) -> Iterable[Mut[Expr]]:
     """Get refs to all direct children of an expr."""
     node = node_ref.val
     for ref in Mut.dict_values(node.__dict__):
-        if not isinstance(ref.val, ExprClass):
-            continue
-
-        yield ref
+        if isinstance(ref.val, ExprClass):
+            yield ref
+        elif isinstance(ref.val, Iterable):
+            yield from _mut_iterable_children(ref)
 
 
 def walk_expr(walk: Walk, expr_ref: Mut[Expr]) -> Iterable[Mut[Expr]]:
