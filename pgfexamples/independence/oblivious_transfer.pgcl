@@ -1,0 +1,48 @@
+nat r0;
+nat r1;
+nat d;
+nat rd;
+nat r1d;
+nat e;
+nat f0;
+nat f1;
+nat mc;
+nat m0;
+nat m1;
+nat f1c;
+nat c;
+
+#secrets
+c := 0;
+m0 := 1;
+m1 := 2;
+
+
+r0 := unif(0, 7);
+r1 := unif(0, 7);
+d := bernoulli(0.5);
+if (d=0) {
+    rd := r0;
+    r1d := r1;
+} else {
+    rd := r1;
+    r1d := r0;
+}
+e := c+d;
+if (e = 0) {
+    f0 := m0 + r0; # we just ignore bitwise
+    f1 := m1 + r1;
+} else {
+    f0 := m0 + r1;
+    f1 := m1 + r0;
+}
+if (c=0) {
+    mc := f0 + rd;
+    f1c := m1 + r1d;
+} else {
+    mc := f1 + rd;
+    f1c := m0 + r1d;
+}
+
+#choice bit ist nicht in d, r0, r1 und rd
+#e höngt nicht von rn (S’s view) und mn ab
