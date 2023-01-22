@@ -111,15 +111,40 @@ class Mut(Generic[M]):
             yield value_ref
 
     @staticmethod
-    def iterate(
-            reference: Union["Mut[M]",
-                             "Mut[Iterable[M]]"]) -> Iterable["Mut[M]"]:
+    def tuple(values: Tuple[M, ...]) -> Iterable["Mut[M]"]:
         """
-        If this is a reference to an iterable of elements, apply :meth:`list`.
-        Otherwise return only the reference itself.
+        A Mut reference to each value in the tuple. Note that tuples are immutable,
+        meaning assignment to its items will result in an exception.
 
-        Note that this turns unordered datastructures such as sets into an
-        ordered list.
+        .. doctest::
+
+            >>> my_tuple = ('hello', 42, 3.14)
+            >>> refs = list(Mut.tuple(my_tuple))
+            >>> [mut.val for mut in refs]
+            ['hello', 42, 3.14]
+            >>> refs[1].val = 43
+            Traceback (most recent call last):
+                ...
+            TypeError: 'tuple' object does not support item assignment
+        """
+
+        for i in range(len(values)):
+
+            def getter(ii=i):
+                return values[ii]
+
+            def setter(new_value: M, ii=i):
+                # this always raises an exception, which is what we want here
+                values[ii] = new_value  # type: ignore
+
+            yield Mut(getter, setter)
+
+    @staticmethod
+    def iterate(
+            reference: Union["Mut[M]", "Mut[List[M]]"]) -> Iterable["Mut[M]"]:
+        """
+        If this is a reference to a list of elements, apply :meth:`list`.
+        Otherwise return only the reference itself.
 
         .. doctest::
 
@@ -128,15 +153,9 @@ class Mut(Generic[M]):
 
             >>> list(Mut.iterate(Mut.alloc(['a', 'b'])))
             [Mut(val='a'), Mut(val='b')]
-
-            >>> sorted(Mut.iterate(Mut.alloc({'a', 'b'})), key=lambda x: x.val)
-            [Mut(val='a'), Mut(val='b')]
-
-            >>> [mut.val for mut in Mut.iterate(Mut.alloc('hello'))]
-            ['h', 'e', 'l', 'l', 'o']
         """
-        if isinstance(reference.val, Iterable):
-            yield from Mut.list(list(reference.val))
+        if isinstance(reference.val, list):
+            yield from Mut.list(reference.val)
         else:
             # mypy can't yet infer the type of reference based on the isinstance check above
             res: "Mut[M]" = reference  # type:ignore
