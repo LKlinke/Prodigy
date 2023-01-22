@@ -620,12 +620,9 @@ def check_instr(
         return None
 
     if isinstance(instr, QueryInstr):
-        failed = _check_instrs(program,
-                           instr.instrs,
-                           predefined_functions=predefined_functions)
-        if isinstance(failed, CheckFail):
-            return failed
-        return None
+        return _check_instrs(program,
+                             instr.instrs,
+                             predefined_functions=predefined_functions)
 
     raise Exception("unreachable")
 
