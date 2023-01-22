@@ -20,7 +20,7 @@ nat I0;
 nat I1;
 nat I2;
 
-I1 := 1;
+I0 := 1;
 
 q00 := bernoulli(1/2);
 q01 := bernoulli(1/2);

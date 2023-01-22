@@ -1,7 +1,6 @@
 from probably.pgcl.ast import Program
 from probably.pgcl.compiler import compile_pgcl
 
-from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.static import independent_vars
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Iterable, List, Set, Tuple
 
 from probably.pgcl import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, ChoiceInstr, ExpectationInstr, FunctionCallExpr,
@@ -8,7 +9,7 @@ from probably.pgcl import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, ChoiceInstr
                            Var, VarExpr, WhileInstr, parse_pgcl)
 from probably.pgcl.ast.walk import Walk, walk_instrs
 
-from prodigy.analysis.static.utils import _ancestors_and_descendants_every_node, _vars_of_expr, _written_vars
+from prodigy.analysis.static.utils import _ancestors_every_node, _vars_of_expr, _written_vars
 from prodigy.util.logger import log_setup
 
 logger = log_setup(__name__, logging.DEBUG)
@@ -98,7 +99,9 @@ def _preprocess(program: Program) -> Program:
             new_program.add_variable(fresh_var_name, NatType(None))
 
             sampling = AsgnInstr(lhs=fresh_var_name,
-                                 rhs=FunctionCallExpr(function='bernoulli', params=([instr_ref.val.prob],{})))
+                                 rhs=FunctionCallExpr(
+                                     function='bernoulli',
+                                     params=([instr_ref.val.prob], {})))
 
             cond = BinopExpr(lhs=VarExpr(fresh_var_name),
                              operator=Binop.EQ,
@@ -130,18 +133,27 @@ def independent_vars(program: Program) -> Set[Set[Var, Var]]:
     # preprocessing
     # choice transformation is here to have fresh variable in the set of program.variables
     logger.debug("preprocessing")
+    prep_start = time.perf_counter()
     mod_program = _preprocess(program)
+    prep_end = time.perf_counter()
 
     logger.debug("building graph")
     # build edge set
+    graph_start = time.perf_counter()
     graph = build_dependence_graph(mod_program)
     logger.debug(" graph: %s", str(graph))
 
     # Filter out params as they are unchangeable
     mod_graph = filter(lambda x: x[0] not in mod_program.parameters, graph)
+    graph_end = time.perf_counter()
 
+    dsep_start = time.perf_counter()
     result = _dsep(mod_graph, mod_program.variables)
+    dsep_end = time.perf_counter()
     logger.debug(" result: %s", str(result))
+    logger.debug(
+        f" prep: {prep_end - prep_start:04f}, graph: {graph_end - graph_start:04f}, dsep: "
+        f"{dsep_end - dsep_start:04f}")
 
     return result
 
@@ -149,8 +161,7 @@ def independent_vars(program: Program) -> Set[Set[Var, Var]]:
 def _dsep(graph: Iterable[Tuple[Var, Var]],
           program_variables: Iterable[Var]) -> Set[Set[Var, Var]]:
     """Does the pairwise d-separation of the graph (directed) by intersecting the ancestors."""
-    ancestors, _ = _ancestors_and_descendants_every_node(
-        graph, program_variables)
+    ancestors = _ancestors_every_node(graph, program_variables)
     return {
         frozenset({x, y})
         for x in program_variables for y in program_variables
