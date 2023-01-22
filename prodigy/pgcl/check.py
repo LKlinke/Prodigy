@@ -16,6 +16,7 @@ from frozendict import frozendict
 from probably.pgcl.ast.declarations import Function, FunctionDecl, VarDecl
 from probably.pgcl.ast.expressions import (FunctionCallExpr, InferExpr,
                                            SampleExpr)
+from probably.pgcl.ast.instructions import QueryInstr
 from probably.pgcl.ast.types import DistributionType
 from probably.util.ref import Mut
 
@@ -616,6 +617,14 @@ def check_instr(
             return typ
         if not is_compatible(NatType(bounds=None), typ):
             return CheckFail.expected_type_got(instr.expr, NatType(None), typ)
+        return None
+
+    if isinstance(instr, QueryInstr):
+        failed = _check_instrs(program,
+                           instr.instrs,
+                           predefined_functions=predefined_functions)
+        if isinstance(failed, CheckFail):
+            return failed
         return None
 
     raise Exception("unreachable")

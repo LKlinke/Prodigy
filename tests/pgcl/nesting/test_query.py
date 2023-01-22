@@ -1,9 +1,9 @@
 from probably.pgcl.ast.instructions import QueryInstr
-from probably.pgcl.parser import parse_pgcl
+from probably.pgcl.compiler import compile_pgcl
 
 
 def test_basic_query():
-    prog = parse_pgcl("""
+    prog = compile_pgcl("""
         nat x
         query {
             x := unif(0,10)
