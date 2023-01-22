@@ -67,7 +67,12 @@ function analysis_request() {
         success: function (response, status) {
             try {
                 $(".spinner").hide();
-                $("#result_analysis").val(response.distribution).css({"color": "black"}).show();
+                if(response.output != "") {
+                    $("#result_analysis").val(response.output + "\n" + response.distribution).css({"color": "black"}).show();
+                }
+                else {
+                    $("#result_analysis").val(out).css({"color": "black"}).show();
+                }
             } finally {
                 $(".submit_button").fadeIn();
             }
@@ -100,7 +105,12 @@ function playground_request() {
         success: function (response, status) {
             try {
                 $(".spinner").hide();
-                $("#result_playground").val(response.distribution).css({"color": "black"}).show();
+                if(response.output != "") {
+                    $("#result_playground").val(response.output + "\n" + response.distribution).css({"color": "black"}).show();
+                }
+                else {
+                    $("#result_playground").val(out).css({"color": "black"}).show();
+                }
             } finally {
                 $(".submit_button").fadeIn();
             }

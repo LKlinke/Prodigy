@@ -1,4 +1,6 @@
 import logging
+import sys
+from io import StringIO
 from typing import Optional
 
 from flask import Flask, jsonify, make_response, render_template, request
@@ -21,14 +23,21 @@ def index():
 
 @app.route("/equivalence", methods=["POST"])
 def checking_equivalence():
+    old_stdout = sys.stdout
+    sys.stdout = my_stdout = StringIO()
+
     app.logger.info("Equivalence check requested")
     loopy_source = request.files['loop'].read().decode("utf-8")
     if loopy_source == '':
+        sys.stdout = old_stdout
+        print(my_stdout.getvalue())
         return make_response(
             jsonify({'message': 'No loop program source selected'}), 500)
     app.logger.debug("Loop-file %s", loopy_source)
     invariant_source = request.files['invariant'].read().decode("utf-8")
     if invariant_source == '':
+        sys.stdout = old_stdout
+        print(my_stdout.getvalue())
         return make_response(
             jsonify({'message': 'No invariant source selected'}), 500)
     app.logger.debug("Invariant file %s", invariant_source)
@@ -41,6 +50,8 @@ def checking_equivalence():
         loopy_prog = pgcl.parse_pgcl(loopy_source)
     except Exception as e:
         app.logger.exception(e)
+        sys.stdout = old_stdout
+        print(my_stdout.getvalue())
         return make_response(jsonify({'message': 'Cannot parse loop file'}),
                              500)
     app.logger.debug("Parse invariant file")
@@ -48,6 +59,8 @@ def checking_equivalence():
         invariant_prog = pgcl.parse_pgcl(invariant_source)
     except Exception as e:
         app.logger.exception(e)
+        sys.stdout = old_stdout
+        print(my_stdout.getvalue())
         return make_response(
             jsonify({'message': 'Cannot parse invariant file'}), 500)
     app.logger.debug("Finished parsing")
@@ -58,14 +71,27 @@ def checking_equivalence():
                                       ForwardAnalysisConfig(engine=engine))
     except Exception as e:
         app.logger.exception(e)
+        sys.stdout = old_stdout
+        print(my_stdout.getvalue())
         return make_response(
             jsonify({'message': 'Error while checking equivalence'}), 500)
     app.logger.info("Equivalence check finished. Result: %s", result)
-    return make_response(jsonify({'equivalent': result}), 200)
+
+    sys.stdout = old_stdout
+    print(my_stdout.getvalue())
+
+    return make_response(
+        jsonify({
+            'output': my_stdout.getvalue(),
+            'equivalent': result
+        }), 200)
 
 
 @app.route("/analyze", methods=["POST"])
 def distribution_transformation():
+    old_stdout = sys.stdout
+    sys.stdout = my_stdout = StringIO()
+
     app.logger.info("Distribution transformation requested")
 
     app.logger.debug("Collecting necessary data")
@@ -107,7 +133,12 @@ def distribution_transformation():
         return make_response(
             jsonify({'message': 'Error while computing distribution'}), 500)
     app.logger.info("Analysis completed")
+
+    sys.stdout = old_stdout
+    print(my_stdout.getvalue())
+
     return jsonify({
+        "output": my_stdout.getvalue(),
         "distribution": str(result),
         "variables": list(result.get_variables()),
         "parameters": list(result.get_parameters())
@@ -116,6 +147,9 @@ def distribution_transformation():
 
 @app.route("/playground", methods=["POST"])
 def analyze_raw_code():
+    old_stdout = sys.stdout
+    sys.stdout = my_stdout = StringIO()
+
     app.logger.info("Received a playground request")
     app.logger.debug("Collecting necessary data")
     prog_src = request.form['codearea']
@@ -152,7 +186,12 @@ def analyze_raw_code():
         return make_response(
             jsonify({'message': 'Error while computing distribution'}), 500)
     app.logger.info("Analysis completed")
+
+    sys.stdout = old_stdout
+    print(my_stdout.getvalue())
+
     return jsonify({
+        "output": my_stdout.getvalue(),
         "distribution": str(result),
         "variables": list(result.get_variables()),
         "parameters": list(result.get_parameters())
