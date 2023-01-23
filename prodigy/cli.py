@@ -10,6 +10,7 @@ If you use `poetry` and do not have prodigy installed globally, you can use `poe
 
 import logging
 import time
+from itertools import combinations
 from typing import IO
 
 import click
@@ -147,11 +148,14 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
 @cli.command('independent_vars')
 @click.pass_context
 @click.argument('program_file', type=click.File('r'))
-def independent_vars(ctx, program_file: IO):
+@click.option('--compute-exact', is_flag=True, required=False, default=False)
+def independent_vars(ctx, program_file: IO, compute_exact: bool):
     """
-    Outputs an under-approximation of the pairwise stochastic independence relation.
+    Outputs an under-approximation or the actual result of the pairwise stochastic independence relation.
+
     :param program_file: the program file of interest
-    :return:
+    :param compute_exact: if True, also compute and return the actual stochastic independencies
+    :return: under-approximation or the actual relation
     """
     prog_src = program_file.read()
 
@@ -160,12 +164,39 @@ def independent_vars(ctx, program_file: IO):
         raise Exception(f"Could not compile the Program. {prog}")
 
     start = time.perf_counter()
-    rel = analysis.static.independent_vars(prog)
+    indep_rel = analysis.static.independent_vars(prog)
     stop = time.perf_counter()
-    print(rel)
-
+    print(Style.OKBLUE + "Under-approximation: \t" + str(indep_rel) +
+          Style.RESET)
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
-    return rel
+
+    if compute_exact:
+        underapprox_rel = indep_rel
+        indep_rel = set()
+        start = time.perf_counter()
+        config = ctx.obj['CONFIG']
+        dist = config.factory.one(*prog.variables.keys())
+
+        dist = analysis.compute_discrete_distribution(prog, dist, config)
+
+        marginal_cache = {}
+        for var in prog.variables:
+            marginal_cache[var] = dist.marginal(var)
+
+        for v_1, v_2 in combinations(prog.variables, 2):
+            common = dist.marginal(v_1, v_2)
+            if common == marginal_cache[v_1] * marginal_cache[v_2]:
+                indep_rel.add(frozenset({v_1, v_2}))
+        stop = time.perf_counter()
+        difference = indep_rel - underapprox_rel
+        print(Style.OKBLUE + "Exact result: \t\t" + str(indep_rel) +
+              Style.RESET)
+        print(Style.OKBLUE + "Difference: \t\t" + str(difference) +
+              Style.RESET)
+        print(f"CPU-time elapsed: {stop - start:04f} seconds")
+
+    return indep_rel
+
 
 if __name__ == "__main__":
     # execute only if run as a script
