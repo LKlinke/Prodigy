@@ -619,7 +619,7 @@ class QueryBlockHandler(InstructionHandler):
             config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
         _assume(instruction, QueryInstr, "QueryBlockHandler")
-        instrs = instruction.instrs # type: ignore
+        instrs = instruction.instrs  # type: ignore
         assert len(instrs) == 2
         assert isinstance(instrs[0], AsgnInstr)
         assert isinstance(instrs[1], ObserveInstr)
