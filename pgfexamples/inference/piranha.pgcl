@@ -17,4 +17,5 @@ observe(fish_taken_is_piranha = 1)
 // What is the probability that at the beginning of this experiment,
 // you have added a piranha instead of a goldfish into the tank?
 ?Pr[piranha = 1]
+#!Plot[piranha, \infty]
 
