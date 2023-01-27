@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import logging
 import time
+from copy import deepcopy
 from typing import Iterable, List, Set, Tuple
 
 from probably.pgcl import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, ChoiceInstr, ExpectationInstr, FunctionCallExpr,
                            IfInstr, Instr, LoopInstr, NatLitExpr, NatType, ObserveInstr, Program, SkipInstr, TickInstr,
-                           Var, VarExpr, WhileInstr, parse_pgcl)
+                           Var, VarExpr, WhileInstr)
 from probably.pgcl.ast.walk import Walk, walk_instrs
 
 from prodigy.analysis.static.utils import _ancestors_every_node, _vars_of_expr, _written_vars
@@ -80,9 +81,8 @@ def build_dependence_graph(program: Program) -> Set[Tuple[Var, Var]]:
 
 def _preprocess(program: Program) -> Program:
     """Preprocesses the program code to be compatible with further methods."""
-    # deep copy program, takes some milliseconds, sorry for the runtime and this dumb solution
-    original_program_code = str(program)
-    new_program = parse_pgcl(original_program_code)
+    # deep copy program for not introducing side effects
+    new_program = deepcopy(program)
 
     # transform choice to sampling and if-then-else
     # Due to list of lines instead of fully inductive structure, tedious to replace one line with two lines in-place
