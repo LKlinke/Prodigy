@@ -76,7 +76,6 @@ _PGCL_GRAMMAR = """
     block: "{" instruction* "}"
 
     rvalue: expression
-          | function_call                 -> function_call
           | "infer" "{" function_call "}" -> infer
           | "sample" "{" var "}"          -> sample
 
@@ -142,7 +141,8 @@ _OPERATOR_TABLE = [[infixl("or", "||")], [infixl("and", "&")],
                        atom("parens", '"(" expression ")"'),
                        atom("iverson", '"[" expression "]"'),
                        atom("literal", "literal"),
-                       atom("var", "var")
+                       atom("var", "var"),
+                       atom("function_call", "function_call")
                    ]]
 """
 The order of the operators corresponds to their precedence (earlier operators have lower precedence).
@@ -275,6 +275,8 @@ def _parse_expr(t: Tree) -> Expr:
     elif t.data == 'var':
         name = _parse_var(_child_tree(t, 0))
         return VarExpr(name)
+    elif t.data == 'function_call':
+        return _parse_function_call(_child_tree(t, 0))
     elif t.data == 'or':
         return BinopExpr(Binop.OR, expr0(), expr1())
     elif t.data == 'and':
@@ -380,11 +382,7 @@ def _parse_function_call(t: Tree) -> FunctionCallExpr:
 
 
 def _parse_rvalue(t: Tree) -> Expr:
-    if t.data == "function_call":
-        assert len(t.children) == 1
-        return _parse_function_call(_child_tree(t, 0))
-
-    elif t.data == "infer":
+    if t.data == "infer":
         assert len(t.children) == 1
         return InferExpr(_parse_function_call(_child_tree(t, 0)))
 

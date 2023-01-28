@@ -4,10 +4,12 @@ from pytest import raises
 
 from probably.pgcl import parse_pgcl
 from probably.pgcl.ast.declarations import FunctionDecl, VarDecl
-from probably.pgcl.ast.expressions import (CategoricalExpr, FunctionCallExpr,
-                                           NatLitExpr, RealLitExpr, VarExpr)
+from probably.pgcl.ast.expressions import (Binop, BinopExpr, CategoricalExpr,
+                                           FunctionCallExpr, NatLitExpr,
+                                           RealLitExpr, VarExpr)
 from probably.pgcl.ast.instructions import AsgnInstr
 from probably.pgcl.ast.types import NatType
+from probably.pgcl.parser import parse_expr
 
 
 def test_basic_function():
@@ -239,3 +241,9 @@ def test_nested_params():
                                            VarExpr("y")
                                        ], {})))
     ]
+
+
+def test_expression():
+    expr = parse_expr("x * sin(x)")
+    assert expr == BinopExpr(Binop.TIMES, VarExpr("x"),
+                             FunctionCallExpr("sin", ([VarExpr("x")], {})))

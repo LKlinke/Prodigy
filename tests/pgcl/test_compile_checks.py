@@ -9,9 +9,6 @@ def test_uniform_checks():
     program = compile_pgcl("nat x; x := unif(13, 6.0);")
     assert isinstance(program, CheckFail)
 
-    with pytest.raises(UnexpectedCharacters) as excinfo:
-        compile_pgcl("nat x; x := x + unif(13, 6);")
-
 
 def test_categorical_confusion():
     res = compile_pgcl("bool x; nat y; x := x : 0.5 + y : 0.5;")
