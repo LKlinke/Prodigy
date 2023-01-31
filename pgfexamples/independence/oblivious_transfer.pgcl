@@ -1,3 +1,5 @@
+# 3 bit messages, no real bitwise XOR used, inspirited by Barthe et al., A Probabilistic Separation Logic
+
 nat r0;
 nat r1;
 nat d;
@@ -12,7 +14,7 @@ nat m1;
 nat f1c;
 nat c;
 
-#secrets
+# secrets/exemplary inputs, value irrelevant for the under-approximation as long as independent
 c := 0;
 m0 := 1;
 m1 := 2;
@@ -21,6 +23,7 @@ m1 := 2;
 r0 := unif(0, 7);
 r1 := unif(0, 7);
 d := bernoulli(0.5);
+# choose the random string according to blinding bit
 if (d=0) {
     rd := r0;
     r1d := r1;
@@ -28,7 +31,9 @@ if (d=0) {
     rd := r1;
     r1d := r0;
 }
-e := c+d;
+# blind the choice
+e := (c + d) % 2;
+# blind the message
 if (e = 0) {
     f0 := m0 + r0; # we just ignore bitwise
     f1 := m1 + r1;
@@ -36,6 +41,7 @@ if (e = 0) {
     f0 := m0 + r1;
     f1 := m1 + r0;
 }
+# decryption
 if (c=0) {
     mc := f0 + rd;
     f1c := m1 + r1d;
@@ -44,5 +50,3 @@ if (c=0) {
     f1c := m0 + r1d;
 }
 
-#choice bit ist nicht in d, r0, r1 und rd
-#e höngt nicht von rn (S’s view) und mn ab
