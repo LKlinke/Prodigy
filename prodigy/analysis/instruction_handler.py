@@ -498,7 +498,8 @@ class WhileHandler(InstructionHandler):
                            variables=inv_prog.variables,
                            constants=inv_prog.constants,
                            parameters=inv_prog.parameters,
-                           instructions=[instruction])
+                           instructions=[instruction],
+                           functions=inv_prog.functions)
             print(f"{Style.YELLOW}Verifying invariant...{Style.RESET}")
             answer, result = equiv_check.check_equivalence(
                 prog, inv_prog, config)
