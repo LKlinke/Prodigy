@@ -1,0 +1,8 @@
+def main(){
+    // we're using continuous distributions here, which aren't supported by pGCL
+    x := uniform(0,30);
+    y := uniform(0,30);
+
+    // approx. pi/4 = 0.78539816339...
+    return z := x^2 + y^2 <= 900;
+}

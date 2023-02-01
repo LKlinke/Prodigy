@@ -1,0 +1,18 @@
+def main() {
+    m := array(6);
+    m[0] = uniformInt(1,6);
+
+    for i in [0..5) {
+        x := uniformInt(1,6);
+
+        // we assume that we are in the punishment case
+        if x < m[i] {
+            m[i+1] = x;
+        } else {
+            m[i+1] = m[i];
+        }
+    }
+
+    // 4067/2592
+    return Expectation(m[5]);
+}

@@ -22,4 +22,3 @@ if (fail=1) {
 
 ?Opt[cipher=4, p, MAX]
 !Print
-

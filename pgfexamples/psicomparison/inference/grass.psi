@@ -1,0 +1,28 @@
+def main() {
+    cloudy := bernoulli(1/2);
+
+    if cloudy == 1 {
+        rain := bernoulli(4/5);
+        sprinkler := bernoulli(1/10);
+    } else {
+        rain := bernoulli(1/5);
+        sprinkler := bernoulli(1/2);
+    }
+
+    temp1 := bernoulli(7/10);
+    if temp1 == 1 && rain == 1 {
+        wetRoof := 1;
+    } else {
+        wetRoof := 0;
+    }
+    temp2 := bernoulli(9/10);
+    temp3 := bernoulli(9/10);
+    if (temp2 == 1 && rain == 1) || (temp3 == 1 && sprinkler == 1) {
+        wetGrass := 1;
+    } else {
+        wetGrass := 0;
+    }
+
+    observe(wetGrass == 1);
+    return Expectation(rain); // expected: δ(509/719)[r]
+}
