@@ -1,5 +1,4 @@
 def main(){
-    // we're using continuous distributions here, which aren't supported by pGCL
     x := uniformInt(0,30);
     y := uniformInt(0,30);
 
