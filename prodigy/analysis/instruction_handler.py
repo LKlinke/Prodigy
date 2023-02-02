@@ -495,19 +495,19 @@ class WhileHandler(InstructionHandler):
             inv_prog = parse_pgcl(inv_src)
 
             prog = Program(declarations=[],
-                           variables=inv_prog.variables,
-                           constants=inv_prog.constants,
-                           parameters=inv_prog.parameters,
+                           variables=program.variables,
+                           constants=program.constants,
+                           parameters=program.parameters,
                            instructions=[instruction],
-                           functions=inv_prog.functions)
+                           functions=program.functions)
             print(f"{Style.YELLOW}Verifying invariant...{Style.RESET}")
             answer, result = equiv_check.check_equivalence(
                 prog, inv_prog, config)
             if answer:
                 assert isinstance(result, list)
                 if len(result) == 0:
-                    print(Style.OKGREEN +
-                          "Invariant successfully validated!\n" + Style.RESET)
+                    print(Style.OKGREEN + "Invariant successfully validated!" +
+                          Style.RESET)
                 else:
                     print(
                         f"{Style.OKGREEN}Invariant validated under the following constraints:{Style.RESET} {result}"
@@ -527,7 +527,14 @@ class WhileHandler(InstructionHandler):
                 raise VerificationError(
                     "Invariant could not be determined as such.")
 
-            raise NotImplementedError()
+            else:
+                assert answer is None
+                assert isinstance(result, Distribution)
+                print(
+                    f'{Style.OKRED}Could not determine whether invariant is valid.{Style.RESET} Phi(I) - I: {result}'
+                )
+                raise VerificationError(
+                    "Could not determine whether invariant is valid.")
 
     @staticmethod
     def _compute_iterations(

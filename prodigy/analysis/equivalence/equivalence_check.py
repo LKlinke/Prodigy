@@ -140,93 +140,89 @@ def _compute_result(
         logger.debug("Invariant validated.")
         empty: List[Dict[str, str]] = []  # Necessary to satisfy mypy
         return True, empty
-    else:
-        # The results are different, so we check if it's possible to unify them
-        logger.debug("Invariant could not be validated.")
-        diff = (modified_inv_result -
-                inv_result).set_variables(*new_vars.keys())
 
-        if len(params & diff.get_symbols()) == 0:
-            # There are no parameters, so the results can't be unified
-            count_ex, _ = diff.get_state()
-            res = {}
-            for var in count_ex:
-                res[new_vars[var]] = count_ex[var]
-            logger.debug("Found counterexample: %s", res)
-            return False, State(res)
-        else:
-            # First we let sympy try to find a solution. We are only interested
-            # in solutions that depend on nothing but parameters
-            unify = _solve(sympy.S(str(diff)), params)
-            if len(unify) > 0:
-                logger.debug(
-                    "Found constraints under which the invariant can be validated: %s",
-                    unify)
-                return True, [{str(var): str(val)
-                               for var, val in x.items()} for x in unify]
+    # The results are different, so we check if it's possible to unify them
+    logger.debug("Invariant could not be validated.")
+    diff = (modified_inv_result - inv_result).set_variables(*new_vars.keys())
 
-            # If we don't find a solution, we try to prove that there is none by comparing coefficients
-            logger.debug(
-                "Could not find a solution, trying to prove that there is none"
-            )
-            if config.show_intermediate_steps:
-                print(
-                    f'{Style.YELLOW}Could not find a solution, trying to prove that there is none...{Style.RESET}'
-                )
-            inv_result_params = inv_result.set_variables(*new_vars.keys())
-            modified_inv_result_params = modified_inv_result.set_variables(
-                *new_vars.keys())
-            count = 0
-            finite = diff.is_finite()
-            threshold = 1000  # TODO find a good value for the threshold
-            # There needs to be at least one solution that can be used to make ALL coefficients equal to 0
-            # It doesn't suffice if each coefficient can be made equal to 0 but with different parameter assignments
-            all_solutions = None
-            for _, state in diff:
-                count += 1
-                if not finite and count > threshold:
-                    break
+    if len(params & diff.get_symbols()) == 0:
+        # There are no parameters, so the results can't be unified
+        count_ex, _ = diff.get_state()
+        res = {}
+        for var in count_ex:
+            res[new_vars[var]] = count_ex[var]
+        logger.debug("Found counterexample: %s", res)
+        return False, State(res)
 
-                mass_diff = sympy.S(
-                    str(
-                        modified_inv_result_params.filter_state(
-                            state).get_probability_mass())) - sympy.S(
-                                str(
-                                    inv_result_params.filter_state(
-                                        state).get_probability_mass()))
-                syms = {str(s) for s in mass_diff.free_symbols} & params
+    # First we let sympy try to find a solution. We are only interested
+    # in solutions that depend on nothing but parameters
+    unify = _solve(sympy.S(str(diff)), params)
+    if len(unify) > 0:
+        logger.debug(
+            "Found constraints under which the invariant can be validated: %s",
+            unify)
+        return True, [{str(var): str(val)
+                       for var, val in x.items()} for x in unify]
 
-                if len(syms) > 0:
-                    # We are again only interested in solutions that depend wholly on parameters
-                    sol = _solve(mass_diff, syms)
+    # If we don't find a solution, we try to prove that there is none by comparing coefficients
+    logger.debug(
+        "Could not find a solution, trying to prove that there is none")
+    if config.show_intermediate_steps:
+        print(
+            f'{Style.YELLOW}Could not find a solution, trying to prove that there is none...{Style.RESET}'
+        )
+    inv_result_params = inv_result.set_variables(*new_vars.keys())
+    modified_inv_result_params = modified_inv_result.set_variables(
+        *new_vars.keys())
+    count = 0
+    finite = diff.is_finite()
+    threshold = 1000  # TODO find a good value for the threshold
+    # There needs to be at least one solution that can be used to make ALL coefficients equal to 0
+    # It doesn't suffice if each coefficient can be made equal to 0 but with different parameter assignments
+    all_solutions = None
+    for _, state in diff:
+        count += 1
+        if not finite and count > threshold:
+            break
 
-                    # We are only interested in solutions that can also be used for all other coefficients
-                    if all_solutions is None:
-                        all_solutions = sol
-                    else:
-                        for s in all_solutions.copy():
-                            if s not in sol:
-                                all_solutions.remove(s)
+        mass_diff = sympy.S(
+            str(
+                modified_inv_result_params.filter_state(
+                    state).get_probability_mass())
+        ) - sympy.S(
+            str(inv_result_params.filter_state(state).get_probability_mass()))
+        syms = {str(s) for s in mass_diff.free_symbols} & params
 
-                    if len(all_solutions) == 0:
-                        # If there are coefficients that cannot be unified, we found a counterexample
-                        # Here we assume that sympy would have found a solution if there were one
-                        logger.debug(
-                            "Found coefficients that cannot be unified: %s",
-                            state.valuations)
-                        if config.show_intermediate_steps:
-                            print()
-                        return False, state
-                elif mass_diff != 0:
-                    # If there are no symbols and the difference of the coefficients isn't 0, there is no solution
-                    if config.show_intermediate_steps:
-                        print()
-                    return False, state
+        if len(syms) > 0:
+            # We are again only interested in solutions that depend wholly on parameters
+            sol = _solve(mass_diff, syms)
 
+            # We are only interested in solutions that can also be used for all other coefficients
+            if all_solutions is None:
+                all_solutions = sol
+            else:
+                for s in all_solutions.copy():
+                    if s not in sol:
+                        all_solutions.remove(s)
+
+            if len(all_solutions) == 0:
+                # If there are coefficients that cannot be unified, we found a counterexample
+                # Here we assume that sympy would have found a solution if there were one
+                logger.debug("Found coefficients that cannot be unified: %s",
+                             state.valuations)
+                if config.show_intermediate_steps:
+                    print()
+                return False, state
+        elif mass_diff != 0:
+            # If there are no symbols and the difference of the coefficients isn't 0, there is no solution
             if config.show_intermediate_steps:
                 print()
-            # We couldn't prove that the results can be unified, but we also failed to find a counterexample
-            return None, diff
+            return False, state
+
+    if config.show_intermediate_steps:
+        print()
+    # We couldn't prove that the results can be unified, but we also failed to find a counterexample
+    return None, diff
 
 
 def _solve(expr: Any, params: Set[str]) -> List[Dict[Any, Any]]:

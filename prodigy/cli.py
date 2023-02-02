@@ -135,7 +135,8 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
             f"Program{Style.OKRED} is not equivalent{Style.RESET} to invariant. "\
                 f"{Style.OKRED}Counterexample:{Style.RESET} {result.valuations}"
         )
-    else:  # equiv == None
+    else:
+        assert equiv is None
         print(
             f"Program equivalence{Style.OKYELLOW} cannot be determined{Style.RESET}, but depends on {result}."
         )
