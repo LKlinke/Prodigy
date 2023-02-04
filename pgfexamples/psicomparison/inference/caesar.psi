@@ -1,0 +1,15 @@
+def main(p: ℝ){
+  key := uniformInt(0,5);
+  randomChar := uniformInt(0,5);
+  fail := flip(p);
+  cipher := (randomChar + key);
+
+  if 5 < cipher {
+   cipher = cipher - 5;
+  }
+
+  if fail != 1{
+    observe(cipher=4)
+  }
+  return (key, randomChar, fail, cipher)
+}
