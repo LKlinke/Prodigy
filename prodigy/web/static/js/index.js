@@ -71,7 +71,7 @@ function analysis_request() {
                     $("#result_analysis").val(response.output + "\n" + response.distribution).css({"color": "black"}).show();
                 }
                 else {
-                    $("#result_analysis").val(out).css({"color": "black"}).show();
+                    $("#result_analysis").val(response.distribution).css({"color": "black"}).show();
                 }
             } finally {
                 $(".submit_button").fadeIn();
@@ -109,7 +109,7 @@ function playground_request() {
                     $("#result_playground").val(response.output + "\n" + response.distribution).css({"color": "black"}).show();
                 }
                 else {
-                    $("#result_playground").val(out).css({"color": "black"}).show();
+                    $("#result_playground").val(response.distribution).css({"color": "black"}).show();
                 }
             } finally {
                 $(".submit_button").fadeIn();
