@@ -1,0 +1,12 @@
+nat n;
+nat m;
+nat tmp;
+
+while (0 < n) {
+ tmp := unif(1,6);
+ m := m + tmp;
+ tmp := 0;
+ n := n-1
+}
+observe(m^3 < 1500)
+
