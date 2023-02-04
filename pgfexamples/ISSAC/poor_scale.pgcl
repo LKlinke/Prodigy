@@ -1,0 +1,7 @@
+nat n;
+nat x;
+
+x:=geometric(1/2);
+if (x > 1000){
+  skip;
+} else { x:=0}
