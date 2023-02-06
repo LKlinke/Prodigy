@@ -74,13 +74,11 @@ class InstructionHandler(ABC):
 
 class SequenceHandler(InstructionHandler):
     @staticmethod
-    def compute(
-        instruction: Union[Instr, Sequence[Instr]],
-        program: Program,
-        distribution: Distribution,
-        error_prob: Distribution,
-        config=ForwardAnalysisConfig()
-    ) -> tuple[Distribution, Distribution]:
+    def compute(instruction: Union[Instr, Sequence[Instr]],
+                program: Program,
+                distribution: Distribution,
+                error_prob: Distribution,
+                config=None) -> tuple[Distribution, Distribution]:
         def _show_steps(inp: tuple[Distribution, Distribution],
                         instr: Instr) -> tuple[Distribution, Distribution]:
             dist, error_prob = inp
@@ -418,9 +416,9 @@ class PChoiceHandler(InstructionHandler):
         _assume(instruction, ChoiceInstr, 'PChoiceHandlerGF')
 
         lhs_block, lhs_error_prob = SequenceHandler.compute(
-            instruction.lhs, program, distribution, error_prob)
+            instruction.lhs, program, distribution, error_prob, config)
         rhs_block, rhs_error_prob = SequenceHandler.compute(
-            instruction.rhs, program, distribution, error_prob)
+            instruction.rhs, program, distribution, error_prob, config)
         logger.info("Combining PChoice branches.\n%s", instruction)
         res_error_prob = (
             lhs_error_prob * str(instruction.prob) +
