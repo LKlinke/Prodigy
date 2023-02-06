@@ -9,5 +9,3 @@ def main(){
   observe(d=5);
   return (x, d);
 }
-
-

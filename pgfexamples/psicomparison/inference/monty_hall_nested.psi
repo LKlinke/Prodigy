@@ -1,0 +1,15 @@
+def main() {
+    prize := uniformInt(1,3);
+    player := uniformInt(1,3);
+    door := sample(infer((){
+        do := uniformInt(1,3);
+        observe(prize != do && player != do);
+        return do;
+    }));
+    switch := sample(infer((){
+        sw := uniformInt(1,3);
+        observe(sw != player && sw != door);
+        return sw;
+    }));
+    return switch == prize;
+}

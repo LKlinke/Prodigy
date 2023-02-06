@@ -1,0 +1,16 @@
+def max(x, y) {
+    if x > y {
+        res := x;
+    } else {
+        res := y;
+    }
+    return res;
+}
+
+def main() {
+    a := bernoulli(1/2);
+    b := bernoulli(1/2);
+    r := max(a, b);
+
+    return r;
+}

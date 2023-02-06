@@ -1,0 +1,11 @@
+def main(p:ℝ) {
+    aliceDunnit := bernoulli(0.3);
+    if aliceDunnit == 1 {
+        withGun := bernoulli(p);
+    } else {
+        withGun := bernoulli(0.8);
+    }
+
+    observe(withGun == 1);
+    return aliceDunnit == 1;
+}
