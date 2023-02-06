@@ -108,11 +108,11 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
 
     prog = compiler.parse_pgcl(prog_src)
     if isinstance(prog, CheckFail):
-        raise Exception(f"Could not compile the Program. {prog}")
+        raise ValueError(f"Could not compile the Program. {prog}")
 
     inv = compiler.parse_pgcl(inv_src)
     if isinstance(inv, CheckFail):
-        raise Exception(f"Could not compile invariant. {inv}")
+        raise ValueError(f"Could not compile invariant. {inv}")
 
     start = time.perf_counter()
     equiv, result = analysis.equivalence.check_equivalence(

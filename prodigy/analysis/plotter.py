@@ -132,7 +132,7 @@ class Plotter:
              threshold: Union[str, int]) -> None:
         """ Shows the histogram of the marginal distribution of the specified variable(s). """
         if function.get_parameters():
-            raise Exception("Cannot Plot parametrized functions.")
+            raise ValueError("Cannot Plot parametrized functions.")
         if variables:
             if len(variables) > 2:
                 raise NotImplementedError(
@@ -148,7 +148,7 @@ class Plotter:
                                                        threshold=threshold)
         else:
             if len(function.get_variables()) > 2:
-                raise Exception(
+                raise ValueError(
                     "Multivariate distributions need to specify the variable to plot"
                 )
 

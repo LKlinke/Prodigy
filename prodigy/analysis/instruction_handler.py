@@ -321,7 +321,7 @@ class SampleHandler(InstructionHandler):
         if distr == "logdist":
             return marginal * factory.log(variable, param), error_prob
 
-        raise Exception("Unknown distribution type!")
+        raise ValueError("Unknown distribution type!")
 
 
 class FunctionHandler(InstructionHandler):

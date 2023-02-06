@@ -338,7 +338,7 @@ class GeneratingFunction(Distribution):
                                           preciseness=mass_res *
                                           self._preciseness)
 
-        raise Exception("unreachable")
+        raise NotImplementedError("unreachable")
 
     def _update_division(
             self, temp_var: str, numerator: str | int, denominator: str | int,
@@ -1015,7 +1015,7 @@ class GeneratingFunction(Distribution):
             return True
         # when both generating functions have infinite support we can only try to check whether we can eliminate
         # common terms and check whether the result is finite. If so we can do a coefficient-wise pass again.
-        difference = (self._function - other._function)
+        difference = self._function - other._function
         if difference.is_polynomial():
             return all(
                 map(lambda x: x > 0,
