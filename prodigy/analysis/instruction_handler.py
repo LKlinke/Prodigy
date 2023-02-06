@@ -74,11 +74,13 @@ class InstructionHandler(ABC):
 
 class SequenceHandler(InstructionHandler):
     @staticmethod
-    def compute(instruction: Union[Instr, Sequence[Instr]],
-                program: Program,
-                distribution: Distribution,
-                error_prob: Distribution,
-                config=None) -> tuple[Distribution, Distribution]:
+    def compute(
+        instruction: Union[Instr, Sequence[Instr]],
+        program: Program,
+        distribution: Distribution,
+        error_prob: Distribution,
+        config=ForwardAnalysisConfig()
+    ) -> tuple[Distribution, Distribution]:
         def _show_steps(inp: tuple[Distribution, Distribution],
                         instr: Instr) -> tuple[Distribution, Distribution]:
             dist, error_prob = inp
