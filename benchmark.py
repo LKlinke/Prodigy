@@ -26,4 +26,4 @@ print(f"{Style.OKCYAN}max:{Style.RESET} {max(times)} seconds")
 print(f"{Style.OKCYAN}average:{Style.RESET} {sum(times) / count} seconds")
 
 print()
-print(f"{Style.OKCYAN}Output:{Style.RESET}\n{result.decode('unicode-escape')}")
+print(f"{Style.OKCYAN}Output:{Style.RESET}\n{result.decode()}")
