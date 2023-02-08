@@ -3,7 +3,9 @@ nat c;
 nat tmp;
 rparam p;
 
-tmp := iid(geometric(p), n);
-c := c + tmp
-n := 0
-tmp := 0
+if (n > 0){
+    tmp := iid(geometric(p), n);
+    c := c + tmp
+    n := 0
+    tmp := 0
+} else {skip}
