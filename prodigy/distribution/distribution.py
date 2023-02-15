@@ -154,6 +154,8 @@ class Distribution(ABC):
     def normalize(self) -> Distribution:
         """ Normalizes the probability mass of the distribution."""
 
+    so_vars: Set[str] = set()
+
     @abstractmethod
     def get_variables(self) -> Set[str]:
         """Returns the free variables of the distribution. """

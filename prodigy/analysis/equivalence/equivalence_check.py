@@ -7,7 +7,7 @@ import sympy
 from probably.pgcl import IfInstr, Program, SkipInstr, VarExpr, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.instruction_handler import compute_discrete_distribution
+from prodigy.analysis.instruction_handler import SequenceHandler
 from prodigy.distribution.distribution import Distribution, State
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
@@ -99,6 +99,7 @@ def check_equivalence(
         )
     test_dist, new_vars = generate_equivalence_test_distribution(
         program, config)
+    test_dist.so_vars = set(new_vars.keys())
 
     # Compute the resulting distributions for both programs
     logger.debug("Compute the modified invariant...")
@@ -106,24 +107,44 @@ def check_equivalence(
         print(
             f"\n{Style.YELLOW} Compute the result of the modified invariant. {Style.RESET}"
         )
-    modified_inv_result = compute_discrete_distribution(
-        modified_inv, test_dist, config)
+    modified_inv_result, modified_inv_error = SequenceHandler.compute(
+        modified_inv.instructions, modified_inv, test_dist,
+        config.factory.one(*modified_inv.variables) * 0, config,
+        set(new_vars.keys()))
     logger.debug("modified invariant result:\t%s", modified_inv_result)
     logger.debug("Compute the invariant...")
     if config.show_intermediate_steps:
         print(
             f"\n{Style.YELLOW} Compute the result of the invariant. {Style.RESET}"
         )
-    inv_result = compute_discrete_distribution(invariant, test_dist, config)
+    inv_result, inv_error = SequenceHandler.compute(
+        invariant.instructions, invariant, test_dist,
+        config.factory.one(*invariant.variables) * 0, config,
+        set(new_vars.keys()))
     logger.debug("invariant result:\t%s", inv_result)
 
     # Compare them and check whether they are equal.
-    return _compute_result(
+    eq, res = _are_equal(
         inv_result, modified_inv_result, config, new_vars,
         program.parameters.keys() | invariant.parameters.keys())
+    if eq is False or eq is None:
+        return eq, res  # type: ignore
+    eq_err, res_err = _are_equal(
+        inv_error, modified_inv_error, config, new_vars,
+        program.parameters.keys() | invariant.parameters.keys())
+    if eq_err is False or eq_err is None:
+        return eq_err, res_err  # type: ignore
+    if res == []:
+        return True, res_err  # type: ignore
+    elif res_err == []:
+        return True, res  # type: ignore
+    else:
+        return True, [x for x in res if x in res_err] + [{
+            "possibly": "more"
+        }]  # type: ignore
 
 
-def _compute_result(
+def _are_equal(
     inv_result: Distribution, modified_inv_result: Distribution,
     config: ForwardAnalysisConfig, new_vars: Dict[str, str], params: Set[str]
 ) -> Tuple[Literal[True], List[Dict[str, str]]] | Tuple[
