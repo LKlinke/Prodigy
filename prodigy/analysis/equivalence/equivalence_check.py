@@ -99,7 +99,6 @@ def check_equivalence(
         )
     test_dist, new_vars = generate_equivalence_test_distribution(
         program, config)
-    test_dist.so_vars = set(new_vars.keys())
 
     # Compute the resulting distributions for both programs
     logger.debug("Compute the modified invariant...")
