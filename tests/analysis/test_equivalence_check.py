@@ -142,6 +142,3 @@ def test_equivalence_check_parameter_sympy():
     assert res
     assert len(subs) == 1
     assert sympy.S(subs[0]['p']) == sympy.S('1/2')
-
-
-test_equivalence_check_parameter_sympy()
