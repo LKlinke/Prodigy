@@ -123,14 +123,15 @@ def check_equivalence(
     logger.debug("invariant result:\t%s", inv_result)
 
     # Compare them and check whether they are equal.
-    eq, res = _are_equal(
-        inv_result, modified_inv_result, config, new_vars,
-        program.parameters.keys() | invariant.parameters.keys())
+    params = program.parameters.keys() | invariant.parameters.keys()
+    eq, res = _are_equal(inv_result.set_parameters(*params),
+                         modified_inv_result.set_parameters(*params), config,
+                         new_vars, params)
     if eq is False or eq is None:
         return eq, res  # type: ignore
-    eq_err, res_err = _are_equal(
-        inv_error, modified_inv_error, config, new_vars,
-        program.parameters.keys() | invariant.parameters.keys())
+    eq_err, res_err = _are_equal(inv_error.set_parameters(*params),
+                                 modified_inv_error.set_parameters(*params),
+                                 config, new_vars, params)
     if eq_err is False or eq_err is None:
         return eq_err, res_err  # type: ignore
     if res == []:
