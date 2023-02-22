@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import logging
 from typing import Any, Dict, List, Literal, Set, Tuple
 
@@ -136,12 +137,18 @@ def check_equivalence(
         return eq_err, res_err  # type: ignore
     if res == []:
         return True, res_err  # type: ignore
-    elif res_err == []:
+    if res_err == []:
         return True, res  # type: ignore
-    else:
-        return True, [x for x in res if x in res_err] + [{
-            "possibly": "more"
-        }]  # type: ignore
+
+    res_both = []
+    for sol, sol_err in itertools.product(res, res_err):
+        to_be_solved = []
+        for var, constr in sol.items() | sol_err.items():
+            to_be_solved.append(sympy.S(f'({var}) - ({constr})'))
+        res_both += sympy.solve(to_be_solved, dict=True)
+    if len(res_both) == 0:
+        return False, State()  # TODO how to generate a counterexample here?
+    return True, res_both
 
 
 def _are_equal(
