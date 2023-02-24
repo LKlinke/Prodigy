@@ -3,7 +3,7 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from fractions import Fraction
-from typing import Dict, Sequence, Set, Union, get_args
+from typing import Dict, List, Sequence, Set, Tuple, Union, get_args
 
 from probably.pgcl import (AsgnInstr, Binop, BinopExpr, CategoricalExpr,
                            ChoiceInstr, ExpectationInstr, Expr,
@@ -22,6 +22,7 @@ from prodigy.analysis.exceptions import (ObserveZeroEventError,
 from prodigy.analysis.plotter import Plotter
 from prodigy.distribution.distribution import Distribution, MarginalType, State
 from prodigy.distribution.generating_function import SympyPGF
+from prodigy.util import input_manager
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup, print_progress_bar
 
@@ -260,8 +261,7 @@ class QueryHandler(InstructionHandler):
             while True:
                 Plotter.plot(dist, *variables, threshold=str(p))
                 p = p + inc if p + inc < 1 else 1
-                cont = input(f"Continue with p={p}? [Y/n]")
-                if cont.lower() == 'n':
+                if input_manager.reader.read_yn(f"Continue with p={p}?"):
                     break
         return dist
 
@@ -540,7 +540,7 @@ class WhileHandler(InstructionHandler):
             config: ForwardAnalysisConfig,
             so_vars: Set[str] | None = None
     ) -> tuple[Distribution, Distribution]:
-        inv_filepath = input("Invariant file:\t")
+        inv_filepath = input_manager.reader.read_file('Invariant file: ')
         with open(inv_filepath, 'r', encoding="utf-8") as inv_file:
             inv_src = inv_file.read()
             inv_prog = parse_pgcl(inv_src)
@@ -592,7 +592,9 @@ class WhileHandler(InstructionHandler):
             instruction: Instr, program: Program, distribution: Distribution,
             error_prob: Distribution, config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
-        max_iter = int(input("Specify a maximum iteration limit: "))
+        max_iter = int(
+            input_manager.reader.read_text(
+                "Specify a maximum iteration limit: "))
         sat_part = distribution.filter(instruction.cond)
         non_sat_part = distribution - sat_part
         for i in range(max_iter + 1):
@@ -616,8 +618,8 @@ class WhileHandler(InstructionHandler):
             instruction: Instr, program: Program, distribution: Distribution,
             error_prob: Distribution, config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
-        captured_probability_threshold = float(
-            input("Enter the probability threshold: "))
+        captured_probability_threshold = input_manager.reader.read_float(
+            "Enter the probability threshold: ")
         sat_part = distribution.filter(instruction.cond)
         non_sat_part = distribution - sat_part
         captured_part = non_sat_part + error_prob
@@ -652,27 +654,30 @@ class WhileHandler(InstructionHandler):
 
         _assume(instruction, WhileInstr, 'WhileHandler')
 
-        while True:
-            user_choice = input(
-                "While Instruction has only limited support. Choose an option:\n"
-                "[1]: Solve using invariants (Checks whether the invariant over-approximates the loop)\n"
-                "[2]: Fix a maximum number of iterations (This results in an under-approximation)\n"
-                "[3]: Analyse until a certain probability mass is captured (might not terminate!)\n"
-                "[q]: Quit.\n")
-            logger.info("User chose %s", user_choice)
-            if user_choice == "1":
-                return WhileHandler._analyze_with_invariant(
-                    instruction, program, distribution, error_prob, config,
-                    so_vars)
-            if user_choice == "2":
-                return WhileHandler._compute_iterations(
-                    instruction, program, distribution, error_prob, config)
-            if user_choice == "3":
-                return WhileHandler._compute_until_threshold(
-                    instruction, program, distribution, error_prob, config)
-            if user_choice == "q":
-                sys.exit()
-            print(f"Invalid input: {user_choice}")
+        options: List[str | Tuple[str, str]] = [
+            "Solve using invariants (Checks whether the invariant over-approximates the loop)",
+            "Fix a maximum number of iterations (This results in an under-approximation)",
+            "Analyse until a certain probability mass is captured (might not terminate!)",
+            ('q', 'Quit')
+        ]
+        user_choice = input_manager.reader.read_option(
+            *options,
+            prompt=
+            "While Instruction has only limited support. Choose an option:")
+        logger.info("User chose %s", options[user_choice])
+        if user_choice == 0:
+            return WhileHandler._analyze_with_invariant(
+                instruction, program, distribution, error_prob, config,
+                so_vars)
+        elif user_choice == 1:
+            return WhileHandler._compute_iterations(instruction, program,
+                                                    distribution, error_prob,
+                                                    config)
+        elif user_choice == 2:
+            return WhileHandler._compute_until_threshold(
+                instruction, program, distribution, error_prob, config)
+        else:
+            sys.exit()
 
 
 class QueryBlockHandler(InstructionHandler):
