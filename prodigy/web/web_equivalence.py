@@ -1,7 +1,7 @@
 import logging
 import sys
 from io import StringIO
-from typing import Optional
+from typing import List, Optional, Tuple
 
 from flask import Flask, jsonify, make_response, render_template, request
 from probably import pgcl
@@ -10,10 +10,35 @@ from probably.pgcl import check_program, parse_pgcl
 from prodigy.analysis import (ForwardAnalysisConfig,
                               compute_discrete_distribution)
 from prodigy.analysis.equivalence import check_equivalence
+from prodigy.util import input_manager
+import easygui as gui
 
 app = Flask(__name__)
-
 # pylint: disable = broad-except
+
+
+class WebInputManager(input_manager.InputManager):
+    def read_text(self, prompt: str | None = None) -> str:
+        return gui.enterbox(prompt)
+
+    def read_option(self, *options: str | Tuple[str, str], prompt: str | None = None) -> int:
+        choices: List[str] = list(map(lambda item: item if isinstance(item, str) else item[1], list(options)))
+        chosen = gui.choicebox(prompt, choices=choices)
+        if not isinstance(chosen, str):
+            raise ValueError(f"Unknown choice: {chosen}")
+        return choices.index(chosen)
+
+    def read_file(self, prompt: str | None = None, must_exist=True) -> str:
+        if must_exist:
+            return gui.fileopenbox(prompt)
+        else:
+            return gui.enterbox(prompt)
+
+    def read_yn(self, prompt: str | None = None) -> bool:
+        return gui.ynbox(prompt)
+    
+    def read_int(self, prompt: str | None = None) -> int:
+        return gui.integerbox(prompt)
 
 
 @app.route("/")
@@ -66,14 +91,17 @@ def checking_equivalence():
 
     finally:
         sys.stdout = old_stdout
-        print("Console output:")
-        print(my_stdout.getvalue())
+        out = my_stdout.getvalue()
+        if len(out) > 0:
+            print("Console output:")
+            print(out)
 
 
 @app.route("/analyze", methods=["POST"])
 def distribution_transformation():
     old_stdout = sys.stdout
     sys.stdout = my_stdout = StringIO()
+    input_manager.reader = WebInputManager()
 
     try:
         app.logger.info("Distribution transformation requested")
@@ -124,8 +152,10 @@ def distribution_transformation():
 
     finally:
         sys.stdout = old_stdout
-        print("Console output:")
-        print(my_stdout.getvalue())
+        out = my_stdout.getvalue()
+        if len(out) > 0:
+            print("Console output:")
+            print(out)
 
 
 @app.route("/playground", methods=["POST"])
@@ -177,8 +207,10 @@ def analyze_raw_code():
 
     finally:
         sys.stdout = old_stdout
-        print("Console output:")
-        print(my_stdout.getvalue())
+        out = my_stdout.getvalue()
+        if len(out) > 0:
+            print("Console output:")
+            print(out)
 
 
 def start_server(port: Optional[int] = 8080):

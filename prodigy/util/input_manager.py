@@ -45,7 +45,7 @@ class InputManager(ABC):
                 float(res)
                 break
             except ValueError:
-                res = self.read_text('Not an int, please try again: ')
+                res = self.read_text('Not a float, please try again: ')
         return float(res)
 
 

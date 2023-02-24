@@ -592,9 +592,8 @@ class WhileHandler(InstructionHandler):
             instruction: Instr, program: Program, distribution: Distribution,
             error_prob: Distribution, config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
-        max_iter = int(
-            input_manager.reader.read_text(
-                "Specify a maximum iteration limit: "))
+        max_iter = input_manager.reader.read_int(
+                "Specify a maximum iteration limit: ")
         sat_part = distribution.filter(instruction.cond)
         non_sat_part = distribution - sat_part
         for i in range(max_iter + 1):
