@@ -1,5 +1,5 @@
 #!/bin/zsh
-for file in dep_bern dueling_cowboys geometric geometric_parameter n_geometric n_geometric_parameterrandom_walk random_walk_parameter trivial_iid
+for file in dep_bern dueling_cowboys geometric geometric_parameter n_geometric n_geometric_parameter random_walk random_walk_parameter trivial_iid
 do
   echo $file
   for i in {1..20}
