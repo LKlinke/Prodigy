@@ -32,6 +32,7 @@ If you run into trouble during installation, this subsection might be of help. I
   - `pkg-config`
   - `build-essential` (includes `make`, `g++`, `gcc`, and more)
   - `python3-dev` (called `python3-devel` on some other package managers such as `yam`)
+ - Prodigy also requires [Tk](https://tkdocs.com/tutorial/install.html), which comes with most Python installations, but not all.
 
 ## Basic Usage
 ### CLI
