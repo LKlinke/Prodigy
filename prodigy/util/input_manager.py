@@ -106,7 +106,7 @@ class GraphicalInputManager(InputManager):
         return gui.ynbox(prompt)
 
     def read_int(self, prompt: str | None = None) -> int:
-        return gui.integerbox(prompt)
+        return gui.integerbox(prompt, upperbound = 1024)
 
 
 reader = DefaultInputManager()
