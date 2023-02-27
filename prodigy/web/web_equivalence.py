@@ -1,9 +1,8 @@
 import logging
 import sys
 from io import StringIO
-from typing import List, Optional, Tuple
+from typing import Optional
 
-import easygui as gui  # type: ignore
 from flask import Flask, jsonify, make_response, render_template, request
 from probably import pgcl
 from probably.pgcl import check_program, parse_pgcl
@@ -17,34 +16,6 @@ app = Flask(__name__)
 # pylint: disable = broad-except
 
 
-class WebInputManager(input_manager.InputManager):
-    def read_text(self, prompt: str | None = None) -> str:
-        return gui.enterbox(prompt)
-
-    def read_option(self,
-                    *options: str | Tuple[str, str],
-                    prompt: str | None = None) -> int:
-        choices: List[str] = list(
-            map(lambda item: item if isinstance(item, str) else item[1],
-                list(options)))
-        chosen = gui.choicebox(prompt, choices=choices)
-        if not isinstance(chosen, str):
-            raise ValueError(f"Unknown choice: {chosen}")
-        return choices.index(chosen)
-
-    def read_file(self, prompt: str | None = None, must_exist=True) -> str:
-        if must_exist:
-            return gui.fileopenbox(prompt)
-        else:
-            return gui.enterbox(prompt)
-
-    def read_yn(self, prompt: str | None = None) -> bool:
-        return gui.ynbox(prompt)
-
-    def read_int(self, prompt: str | None = None) -> int:
-        return gui.integerbox(prompt)
-
-
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -54,7 +25,7 @@ def index():
 def checking_equivalence():
     old_stdout = sys.stdout
     sys.stdout = my_stdout = StringIO()
-    input_manager.reader = WebInputManager()
+    input_manager.reader = input_manager.GraphicalInputManager()
 
     try:
         app.logger.info("Equivalence check requested")
@@ -107,7 +78,7 @@ def checking_equivalence():
 def distribution_transformation():
     old_stdout = sys.stdout
     sys.stdout = my_stdout = StringIO()
-    input_manager.reader = WebInputManager()
+    input_manager.reader = input_manager.GraphicalInputManager()
 
     try:
         app.logger.info("Distribution transformation requested")
@@ -169,7 +140,7 @@ def distribution_transformation():
 def analyze_raw_code():
     old_stdout = sys.stdout
     sys.stdout = my_stdout = StringIO()
-    input_manager.reader = WebInputManager()
+    input_manager.reader = input_manager.GraphicalInputManager()
 
     try:
         app.logger.info("Received a playground request")

@@ -1,6 +1,8 @@
 import os
 from abc import ABC, abstractmethod
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
+
+import easygui as gui  # type: ignore
 
 
 class InputManager(ABC):
@@ -77,6 +79,34 @@ class DefaultInputManager(InputManager):
         while not chosen in option_to_index:
             chosen = self.read_text('Invalid input, please try again: ')
         return option_to_index[chosen]
+
+
+class GraphicalInputManager(InputManager):
+    def read_text(self, prompt: str | None = None) -> str:
+        return gui.enterbox(prompt)
+
+    def read_option(self,
+                    *options: str | Tuple[str, str],
+                    prompt: str | None = None) -> int:
+        choices: List[str] = list(
+            map(lambda item: item if isinstance(item, str) else item[1],
+                list(options)))
+        chosen = gui.choicebox(prompt, choices=choices)
+        if not isinstance(chosen, str):
+            raise ValueError(f"Unknown choice: {chosen}")
+        return choices.index(chosen)
+
+    def read_file(self, prompt: str | None = None, must_exist=True) -> str:
+        if must_exist:
+            return gui.fileopenbox(prompt)
+        else:
+            return gui.enterbox(prompt)
+
+    def read_yn(self, prompt: str | None = None) -> bool:
+        return gui.ynbox(prompt)
+
+    def read_int(self, prompt: str | None = None) -> int:
+        return gui.integerbox(prompt)
 
 
 reader = DefaultInputManager()
