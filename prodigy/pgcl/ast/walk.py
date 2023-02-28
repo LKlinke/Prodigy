@@ -33,6 +33,8 @@ This framework allows easy and flexible traversal of ASTs while also changing di
 This makes it hard to forget calling a recursive traversal call, which could easily happen if every single traversal was implemented manually.
 """
 
+from __future__ import annotations
+
 from enum import Enum, auto
 from typing import Callable, Dict, Iterable, List, TypeVar
 
