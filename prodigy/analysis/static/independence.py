@@ -5,12 +5,15 @@ import time
 from copy import deepcopy
 from typing import Iterable, List, Set, Tuple
 
-from probably.pgcl import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, ChoiceInstr, ExpectationInstr, FunctionCallExpr,
-                           IfInstr, Instr, LoopInstr, NatLitExpr, NatType, ObserveInstr, Program, SkipInstr, TickInstr,
-                           Var, VarExpr, WhileInstr)
+from probably.pgcl import (AsgnInstr, Binop, BinopExpr, BoolLitExpr,
+                           ChoiceInstr, ExpectationInstr, FunctionCallExpr,
+                           IfInstr, Instr, LoopInstr, NatLitExpr, NatType,
+                           ObserveInstr, Program, SkipInstr, TickInstr, Var,
+                           VarExpr, WhileInstr)
 from probably.pgcl.ast.walk import Walk, walk_instrs
 
-from prodigy.analysis.static.utils import _ancestors_every_node, _vars_of_expr, _written_vars
+from prodigy.analysis.static.utils import (_ancestors_every_node,
+                                           _vars_of_expr, _written_vars)
 from prodigy.util.logger import log_setup
 
 logger = log_setup(__name__, logging.DEBUG)
@@ -121,7 +124,7 @@ def _preprocess(program: Program) -> Program:
     return new_program
 
 
-def independent_vars(program: Program) -> Set[Set[Var, Var]]:
+def independent_vars(program: Program) -> Set[frozenset[Var]]:
     """
     This method under-approximates the pairwise stochastic independence relation using the d-separation on a simple
     dependence graph.
@@ -151,15 +154,14 @@ def independent_vars(program: Program) -> Set[Set[Var, Var]]:
     result = _dsep(mod_graph, mod_program.variables)
     dsep_end = time.perf_counter()
     logger.debug(" result: %s", str(result))
-    logger.debug(
-        f" prep: {prep_end - prep_start:04f}, graph: {graph_end - graph_start:04f}, dsep: "
-        f"{dsep_end - dsep_start:04f}")
+    logger.debug(" prep: %.4f, graph: %.4f, dsep: %.4f", prep_end - prep_start,
+                 graph_end - graph_start, dsep_end - dsep_start)
 
     return result
 
 
 def _dsep(graph: Iterable[Tuple[Var, Var]],
-          program_variables: Iterable[Var]) -> Set[Set[Var, Var]]:
+          program_variables: Iterable[Var]) -> Set[frozenset[Var]]:
     """Does the pairwise d-separation of the graph (directed) by intersecting the ancestors."""
     ancestors = _ancestors_every_node(graph, program_variables)
     return {

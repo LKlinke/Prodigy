@@ -7,14 +7,12 @@ from abc import ABC, abstractmethod
 from fractions import Fraction
 from typing import Dict, Sequence, Set, Union, get_args
 
-from probably.pgcl import (AsgnInstr, Binop, BinopExpr, CategoricalExpr,
-                           ChoiceInstr, ExpectationInstr, Expr,
-                           FunctionCallExpr, IfInstr, Instr, LoopInstr,
-                           NatLitExpr, ObserveInstr, OptimizationQuery,
-                           OptimizationType, PlotInstr, PrintInstr,
-                           ProbabilityQueryInstr, Program, Query, QueryInstr,
-                           RealLitExpr, SkipInstr, Unop, UnopExpr, Var,
-                           VarExpr, WhileInstr, parse_pgcl)
+from probably.pgcl import (
+    AsgnInstr, Binop, BinopExpr, CategoricalExpr, ChoiceInstr,
+    ExpectationInstr, Expr, FunctionCallExpr, IfInstr, Instr, LoopInstr,
+    NatLitExpr, ObserveInstr, OptimizationQuery, OptimizationType, PlotInstr,
+    PrintInstr, ProbabilityQueryInstr, Program, Query, QueryInstr, RealLitExpr,
+    SkipInstr, Unop, UnopExpr, Var, VarExpr, WhileInstr, parse_pgcl)
 from probably.pgcl.check import sample_predefined_functions as distr_functions
 
 import prodigy.analysis.equivalence.equivalence_check as equiv_check

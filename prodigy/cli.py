@@ -11,10 +11,10 @@ If you use `poetry` and do not have prodigy installed globally, you can use `poe
 import logging
 import time
 from itertools import combinations
-from typing import IO
+from typing import IO, Set
 
 import click
-from probably.pgcl import compiler
+from probably.pgcl import Var, compiler
 from probably.pgcl.check import CheckFail
 
 from prodigy import analysis
@@ -162,10 +162,10 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
 
     prog = compiler.parse_pgcl(prog_src)
     if isinstance(prog, CheckFail):
-        raise Exception(f"Could not compile the Program. {prog}")
+        raise ValueError(f"Could not compile the Program. {prog}")
 
     start = time.perf_counter()
-    indep_rel = analysis.static.independent_vars(prog)
+    indep_rel: Set[frozenset[Var]] = analysis.static.independent_vars(prog)
     stop = time.perf_counter()
     print(Style.OKBLUE + "Under-approximation: \t" + str(indep_rel) +
           Style.RESET)

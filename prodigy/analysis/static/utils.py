@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Dict, Iterable, List, Set, Tuple
 
-import networkx as nx
-
-from probably.pgcl import (AsgnInstr, Expr, Instr, Unop, UnopExpr, Var, VarExpr, Walk, WhileInstr, mut_expr_children,
+import networkx as nx  # type: ignore
+from probably.pgcl import (AsgnInstr, Expr, Instr, Unop, UnopExpr, Var,
+                           VarExpr, Walk, WhileInstr, mut_expr_children,
                            walk_instrs)
 from probably.util.ref import Mut
 
