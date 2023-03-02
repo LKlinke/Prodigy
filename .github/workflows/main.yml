@@ -45,24 +45,40 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+        with:
+          python-version: 3.9
       - name: Run linter
         run: make lint
   mypy:
     runs-on: ubuntu-latest
     needs: [build]
     steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+        with:
+          python-version: 3.9
       - name: Run mypy
         run: make mypy
   tests:
     runs-on: ubuntu-latest
     needs: [build]
     steps:
-    - name: Run unit tests
-      run: make test
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+        with:
+          python-version: 3.9
+      - name: Run unit tests
+        run: make test
   docs:
     runs-on: ubuntu-latest
     needs: [build]
     steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+        with:
+          python-version: 3.9
       - name: Build docs
         run: make docs
       - name: Deploy docs
