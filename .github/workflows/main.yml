@@ -35,9 +35,8 @@ jobs:
           restore-keys: ${{ runner.os }}-pre-commit-
       - name: Install Poetry
         run: |
-          curl -fsS -o get-poetry.py https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py
-          python get-poetry.py -y
-          echo "$HOME/.poetry/bin" >> $GITHUB_PATH
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Install GiNaC
         run: sudo apt-get install -y libginac-dev
       - name: Install dependencies
