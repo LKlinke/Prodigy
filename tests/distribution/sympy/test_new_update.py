@@ -105,7 +105,11 @@ def test_multiplication():
         '0.6*x**15*y**3*z**5 + 0.4*x**36*y**6*z**6')
     assert gf.update(parse_expr('z = x*y'))._function == _parse_to_sympy(
         "0.6*y**3*exp(5 * (x*z**3-1)) + 0.4*y**6*exp(5*(x*z**6-1))")
-
+    
+    gf = GeneratingFunction('x**6')
+    assert gf.update(parse_expr('x = x * (1/3)')) == GeneratingFunction('x**2')
+    with raises(ValueError):
+        gf.update(parse_expr('x = x*(1/4)'))
 
 def test_subtraction():
     gf = GeneratingFunction("n^5*m^42*l^8")
@@ -144,7 +148,13 @@ def test_subtraction():
     gf = GeneratingFunction('0.4*tmp^5*c^13*n^4 + 0.6*tmp^7*c^28*n^77')
     assert gf.update(parse_expr('n = n + (c-tmp)')) == GeneratingFunction(
         '0.4*tmp^5*c^13*n^12 + 0.6*tmp^7*c^28*n^98')
-
+    
+    gf = GeneratingFunction('x^4')
+    assert gf.update(parse_expr('x = x - 2.0')) == GeneratingFunction(parse_expr('x^2'))
+    assert gf.update(parse_expr('x = x - (2/1)')) == GeneratingFunction(parse_expr('x^2'))
+    with raises(ValueError):
+        gf.update(parse_expr('x = x - (1/2)'))
+    
 
 def test_fresh_variables():
     gf = GeneratingFunction('x*xl')
