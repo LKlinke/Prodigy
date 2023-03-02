@@ -8,7 +8,7 @@ import sympy
 from probably.pgcl import IfInstr, Program, SkipInstr, VarExpr, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.instruction_handler import SequenceHandler
+from prodigy.analysis.instruction_handler import ProgramInfo, SequenceHandler
 from prodigy.distribution.distribution import Distribution, State
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
@@ -108,9 +108,10 @@ def check_equivalence(
             f"\n{Style.YELLOW} Compute the result of the modified invariant. {Style.RESET}"
         )
     modified_inv_result, modified_inv_error = SequenceHandler.compute(
-        modified_inv.instructions, modified_inv, test_dist,
-        config.factory.one(*modified_inv.variables) * 0, config,
-        set(new_vars.keys()))
+        modified_inv.instructions,
+        ProgramInfo(modified_inv, so_vars=frozenset(new_vars.keys())),
+        test_dist,
+        config.factory.one(*modified_inv.variables) * 0, config)
     logger.debug("modified invariant result:\t%s", modified_inv_result)
     logger.debug("Compute the invariant...")
     if config.show_intermediate_steps:
@@ -118,9 +119,9 @@ def check_equivalence(
             f"\n{Style.YELLOW} Compute the result of the invariant. {Style.RESET}"
         )
     inv_result, inv_error = SequenceHandler.compute(
-        invariant.instructions, invariant, test_dist,
-        config.factory.one(*invariant.variables) * 0, config,
-        set(new_vars.keys()))
+        invariant.instructions,
+        ProgramInfo(invariant, so_vars=frozenset(new_vars.keys())), test_dist,
+        config.factory.one(*invariant.variables) * 0, config)
     logger.debug("invariant result:\t%s", inv_result)
 
     # Compare them and check whether they are equal.

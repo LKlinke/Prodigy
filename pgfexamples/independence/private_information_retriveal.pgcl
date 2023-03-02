@@ -1,0 +1,67 @@
+# 3 bit, bitwise, inspirited by Barthe et al., A Probabilistic Separation Logic
+
+nat q00;
+nat q01;
+nat q02;
+nat q10;
+nat q11;
+nat q12;
+nat D0;
+nat D1;
+nat D2;
+nat a00;
+nat a01;
+nat a02;
+nat a10;
+nat a11;
+nat a12;
+nat r0;
+nat r1;
+nat v;
+nat I0;
+nat I1;
+nat I2;
+
+I0 := 1;
+
+q00 := bernoulli(1/2);
+q01 := bernoulli(1/2);
+q02 := bernoulli(1/2);
+q10 := (q00 + I0) % 2;
+q11 := (q01 + I1) % 2;
+q12 := (q02 + I2) % 2;
+if (q00 = 1) {
+    a00 := D0;
+} else {
+    skip;
+}
+if (q10 = 1) {
+    a10 := D0;
+} else {
+    skip;
+}
+if (q01 = 1) {
+    a01 := D1;
+} else {
+    skip;
+}
+if (q11 = 1) {
+    a11 := D1;
+} else {
+    skip;
+}
+if (q02 = 1) {
+    a02 := D2;
+} else {
+    skip;
+}
+if (q12 = 1) {
+    a12 := D2;
+} else {
+    skip;
+}
+
+r0 := (a00 + a01 + a02) % 2;
+r1 := (a10 + a11 + a12) % 2;
+
+v := r0 * r1;

@@ -604,7 +604,7 @@ class Distribution(ABC):
         """
         Computes the approximation until the given threshold is reached (might not terminate).
 
-        :param threshold: The threshold either as a maximum number of states (str), or a certain probability mass (int).
+        :param threshold: The threshold either as a maximum number of states (int), or a certain probability mass (str).
 
         :return: The approximated (truncated) probability distribution.
         """
