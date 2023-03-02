@@ -43,24 +43,24 @@ jobs:
         run: poetry install --no-interaction
   lint:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build]
     steps:
       - name: Run linter
         run: make lint
   mypy:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build]
     steps:
       - name: Run mypy
         run: make mypy
   test:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build]
     - name: Run unit tests
       run: make test
   docs:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build]
     - name: Build docs
       run: make docs
     - name: Deploy docs
