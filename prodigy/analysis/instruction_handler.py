@@ -43,7 +43,11 @@ class ProgramInfo():
 
     program: Program
     so_vars: frozenset[Var] = frozenset()
+    """Variables that are to be considered second order variables, used in the equivalence check"""
     independents_vars: frozenset[frozenset[Var]] = frozenset()
+    """Pairs of variables that are independent from each other; see 
+    `prodigy.analysis.static.independence.independent_vars`.
+    """
 
     def __getattr__(self, __name: str) -> Any:
         return getattr(self.program, __name)
