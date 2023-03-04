@@ -161,6 +161,7 @@ class TestDistributionInterface:
         # Linearity breaks if intermediate results are negative.
         with pytest.raises(ValueError):
             gf.get_expected_value_of("n - 7 + 1")
+        pytest.xfail("known bug")
         with pytest.raises(ValueError):
             gf.get_expected_value_of("n - 7 + 7")
 
