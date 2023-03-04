@@ -8,7 +8,10 @@ import sympy
 from probably.pgcl import IfInstr, Program, SkipInstr, VarExpr, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
+# pylint: disable = cyclic-import
+# I don't see how this can be resolved without combining this module with instruction handler
 from prodigy.analysis.instruction_handler import ProgramInfo, SequenceHandler
+# pylint: enable = cyclic-import
 from prodigy.distribution.distribution import Distribution, State
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
