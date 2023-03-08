@@ -142,6 +142,9 @@ def test_subtraction():
     with raises(ValueError):
         gf.update(parse_expr('x = x - (1/2)'))
 
+    with raises(ValueError, match='Intermediate result 7 - 5 is negative'):
+        gf.update(parse_expr('x = 5 - 7 + 3'))
+
 
 def test_fresh_variables():
     gf = FPS('x*xl')

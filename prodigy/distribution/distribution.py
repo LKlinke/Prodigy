@@ -470,7 +470,12 @@ class Distribution(ABC):
                     elif expression.operator == Binop.TIMES:
                         return f, t_1 * t_2
                     elif expression.operator == Binop.MINUS:
-                        return f, t_1 - t_2
+                        res = t_1 - t_2
+                        if res < 0:
+                            raise ValueError(
+                                f'Intermediate result {t_1} - {t_2} is negative'
+                            )
+                        return f, res
                     elif expression.operator == Binop.MODULO:
                         return f, t_1 % t_2
                     elif expression.operator == Binop.DIVIDE:
