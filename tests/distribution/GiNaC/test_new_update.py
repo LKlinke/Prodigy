@@ -137,12 +137,13 @@ def test_subtraction():
         gf.update(parse_expr("x = x - y"))
 
     gf = FPS('x^4')
-    assert gf.update(parse_expr('x = x - 2.0')) == FPS(parse_expr('x^2'))
-    assert gf.update(parse_expr('x = x - (2/1)')) == FPS(parse_expr('x^2'))
+    assert gf.update(parse_expr('x = x - 2.0')) == FPS('x^2')
+    assert gf.update(parse_expr('x = x - (2/1)')) == FPS('x^2')
     with raises(ValueError):
         gf.update(parse_expr('x = x - (1/2)'))
+    assert gf.update(parse_expr('x = 9/6 - 1/2')) == FPS('x')
 
-    with raises(ValueError, match='Intermediate result 7 - 5 is negative'):
+    with raises(ValueError, match='Intermediate result 5 - 7 is negative'):
         gf.update(parse_expr('x = 5 - 7 + 3'))
 
 

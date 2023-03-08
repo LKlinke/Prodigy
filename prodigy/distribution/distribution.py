@@ -445,7 +445,8 @@ class Distribution(ABC):
                         f = f._update_product_with_fraction(
                             temp_var, t_1, t_2, approximate)
                     elif expression.operator == Binop.MINUS:
-                        f = f._update_subtraction(temp_var, t_1, t_2)
+                        f = f._update_subtraction_with_fraction(
+                            temp_var, t_1, t_2)
                     elif expression.operator == Binop.MODULO:
                         f = f._update_modulo(temp_var, t_1, t_2, approximate)
                     elif expression.operator == Binop.DIVIDE:
@@ -572,6 +573,20 @@ class Distribution(ABC):
             assert not isinstance(t_1, Fraction) and not isinstance(
                 t_2, Fraction)
             return self._update_product(temp_var, t_1, t_2, approximate)
+
+    def _update_subtraction_with_fraction(
+            self, temp_var: str, t_1: str | int | Fraction,
+            t_2: str | int | Fraction) -> Distribution:
+        if isinstance(t_1, Fraction) and isinstance(t_2, Fraction):
+            res = t_1 - t_2
+            if res.denominator == 1 and res.numerator >= 0:
+                return self._update_var(temp_var, res.numerator)
+            raise ValueError(
+                f'Cannot perform subtraction {t_1} - {t_2} because result is no non-negative integer'
+            )
+        if isinstance(t_1, Fraction) or isinstance(t_2, Fraction):
+            raise ValueError('Cannot subtract an integer and a fraction')
+        return self._update_subtraction(temp_var, t_1, t_2)
 
     # pylint: enable=protected-access
 
