@@ -41,8 +41,8 @@ def test_addition():
         parse_expr("x = x + y")) == GeneratingFunction("x^8 * y^5")
     assert gf._update_sum('x', 'x', 'y') == GeneratingFunction("x^8 * y^5")
 
-    with raises(ValueError, match='because the result is not an integer'):
-        gf.update(parse_expr('x = 1/3 + 1/3 + 1/3'))
+    assert gf.update(
+        parse_expr('x = 1/3 + 1/3 + 1/3')) == GeneratingFunction('x*y^5')
     assert gf.update(
         parse_expr('x = 1/2 + 1/2')) == GeneratingFunction('x * y^5')
 
@@ -62,10 +62,9 @@ def test_var_assignment():
         gf.update(parse_expr('x = p'))
     assert 'Assignment to parameters is not allowed' in str(e)
 
-    with raises(ValueError) as e:
+    with raises(ValueError, match='Result of update is not an integer'):
         gf = GeneratingFunction('x')
         gf.update(parse_expr('x = 0.5'))
-    assert 'Cannot assign the real value 0.5 to x' in str(e)
 
 
 def test_multiplication():

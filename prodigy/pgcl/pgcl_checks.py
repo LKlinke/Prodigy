@@ -6,7 +6,7 @@ from probably.pgcl.ast.walk import Walk, mut_expr_children, walk_expr
 from probably.util.ref import Mut
 
 
-def has_variable(expr: Expr, params: Optional[Set[str]]) -> bool:
+def has_variable(expr: Expr, params: Optional[Set[str]] = None) -> bool:
     """
     Evaluates whether the given expression contains a variable. Symbols in the
     `params` set are not considered variables.
@@ -37,7 +37,7 @@ def check_is_modulus_condition(expression: Expr) -> bool:
 
 
 def check_is_constant_constraint(expression: Expr,
-                                 params: Optional[Set[str]]) -> bool:
+                                 params: Optional[Set[str]] = None) -> bool:
     if not isinstance(expression, BinopExpr) or expression.operator not in (
             Binop.EQ, Binop.LEQ, Binop.LT, Binop.GT, Binop.GEQ):
         return False

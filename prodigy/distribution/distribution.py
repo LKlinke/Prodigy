@@ -398,7 +398,7 @@ class Distribution(ABC):
     def is_finite(self) -> bool:
         """ Returns whether the distribution has finite support."""
 
-    # pylint: disable=protected-access
+    # pylint: disable=protected-access, too-many-statements
 
     def update(self,
                expression: Expr,
@@ -426,38 +426,70 @@ class Distribution(ABC):
             )
 
         def evaluate(
-                function: Distribution, expression: Expr,
-                temp_var: str) -> Tuple[Distribution, str | int | Fraction]:
+                function: Distribution, expression: Expr, temp_var: str | None
+        ) -> Tuple[Distribution, str | int | Fraction]:
             # TODO handle reals in every case
             if isinstance(expression, BinopExpr):
-                xl = function.get_fresh_variable()
-                xr = function.get_fresh_variable({xl})
-                f = function.set_variables(*(function.get_variables()
-                                             | {xl, xr}))
-                f, t_1 = evaluate(f, expression.lhs, xl)
-                f, t_2 = evaluate(f, expression.rhs, xr)
+                if has_variable(expression):
+                    assert temp_var is not None
+                    xl = function.get_fresh_variable()
+                    xr = function.get_fresh_variable({xl})
+                    f = function.set_variables(*(function.get_variables()
+                                                 | {xl, xr}))
+                    f, t_1 = evaluate(f, expression.lhs, xl)
+                    f, t_2 = evaluate(f, expression.rhs, xr)
 
-                if expression.operator == Binop.PLUS:
-                    f = f._update_sum_with_fraction(temp_var, t_1, t_2)
-                elif expression.operator == Binop.TIMES:
-                    f = f._update_product_with_fraction(
-                        temp_var, t_1, t_2, approximate)
-                elif expression.operator == Binop.MINUS:
-                    f = f._update_subtraction(temp_var, t_1, t_2)
-                elif expression.operator == Binop.MODULO:
-                    f = f._update_modulo(temp_var, t_1, t_2, approximate)
-                elif expression.operator == Binop.DIVIDE:
-                    f = f._update_division(temp_var, t_1, t_2, approximate)
-                elif expression.operator == Binop.POWER:
-                    f = f._update_power(temp_var, t_1, t_2, approximate)
+                    if expression.operator == Binop.PLUS:
+                        f = f._update_sum_with_fraction(temp_var, t_1, t_2)
+                    elif expression.operator == Binop.TIMES:
+                        f = f._update_product_with_fraction(
+                            temp_var, t_1, t_2, approximate)
+                    elif expression.operator == Binop.MINUS:
+                        f = f._update_subtraction(temp_var, t_1, t_2)
+                    elif expression.operator == Binop.MODULO:
+                        f = f._update_modulo(temp_var, t_1, t_2, approximate)
+                    elif expression.operator == Binop.DIVIDE:
+                        f = f._update_division(temp_var, t_1, t_2, approximate)
+                    elif expression.operator == Binop.POWER:
+                        f = f._update_power(temp_var, t_1, t_2, approximate)
+                    else:
+                        raise ValueError(
+                            f"Unsupported binary operator: {expression.operator}"
+                        )
+
+                    f = f.marginal(xl, xr, method=MarginalType.EXCLUDE)
+                    return f, temp_var
+
                 else:
-                    raise ValueError(
-                        f"Unsupported binary operator: {expression.operator}")
-
-                f = f.marginal(xl, xr, method=MarginalType.EXCLUDE)
-                return f, temp_var
+                    f, t_1 = evaluate(function, expression.lhs, None)
+                    f, t_2 = evaluate(function, expression.rhs, None)
+                    assert not isinstance(t_1, str) and not isinstance(
+                        t_2, str)
+                    if expression.operator == Binop.PLUS:
+                        return f, t_1 + t_2
+                    elif expression.operator == Binop.TIMES:
+                        return f, t_1 * t_2
+                    elif expression.operator == Binop.MINUS:
+                        return f, t_1 - t_2
+                    elif expression.operator == Binop.MODULO:
+                        return f, t_1 % t_2
+                    elif expression.operator == Binop.DIVIDE:
+                        res = Fraction(t_1 / t_2)
+                        if res.denominator == 1:
+                            return f, res.numerator
+                        return f, res
+                    elif expression.operator == Binop.POWER:
+                        res = Fraction(t_1**t_2)
+                        if res.denominator == 1:
+                            return f, res.numerator
+                        return f, res
+                    else:
+                        raise ValueError(
+                            f"Unsupported binary operator: {expression.operator}"
+                        )
 
             if isinstance(expression, VarExpr):
+                assert temp_var is not None
                 f = function._update_var(temp_var, expression.var)
                 return f, temp_var
 
@@ -474,21 +506,19 @@ class Distribution(ABC):
                 raise ValueError(
                     f"Unsupported type of subexpression: {expression}")
 
-        value: int | None = None
-        if isinstance(expression.rhs, RealLitExpr):
-            if expression.rhs.to_fraction().denominator == 1:
-                value = expression.rhs.to_fraction().numerator
+        result, value = evaluate(self, expression.rhs, variable)
+        if isinstance(value, Fraction):
+            if value.denominator == 1:
+                value = value.numerator
             else:
-                raise ValueError(
-                    f'Cannot assign the real value {str(expression.rhs)} to {variable}'
-                )
-        if isinstance(expression.rhs, NatLitExpr):
-            value = expression.rhs.value
-        if value is not None:
-            result = self._update_var(variable, value)
+                raise ValueError('Result of update is not an integer')
+        if isinstance(value, int):
+            result = result._update_var(variable, value)
         else:
-            result, _ = evaluate(self, expression.rhs, variable)
+            assert variable == value
         return result
+
+    # pylint: enable=too-many-statements
 
     def _update_sum_with_fraction(self, temp_var: str,
                                   t_1: str | int | Fraction,

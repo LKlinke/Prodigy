@@ -358,8 +358,9 @@ class FPS(Distribution):
     def _update_power(self, temp_var: str, base: str | int, exp: str | int,
                       approximate: str | float | None) -> Distribution:
         return FPS.from_dist(
-            self._dist.update_power(temp_var, base, exp, approximate),
-            self._variables, self._parameters)
+            self._dist.update_power(temp_var, str(base), str(exp),
+                                    approximate), self._variables,
+            self._parameters)
 
     def update_iid(self, sampling_dist: Expr, count: VarExpr,
                    variable: Union[str, VarExpr]) -> FPS:
