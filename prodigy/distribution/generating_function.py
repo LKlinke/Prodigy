@@ -632,8 +632,8 @@ class GeneratingFunction(Distribution):
             )
         return gf
 
-    def _update_product(self, temp_var: str, first_factor: str,
-                        second_factor: str,
+    def _update_product(self, temp_var: str, first_factor: str | int,
+                        second_factor: str | int,
                         approximate: str | float | None) -> GeneratingFunction:
         # certain simplifications are only possible if we assume the symbols to be nonnegative
         update_var_with_assumptions = _sympy_symbol(temp_var, nonnegative=True)
@@ -647,6 +647,8 @@ class GeneratingFunction(Distribution):
 
         # we multiply two variables
         if prod_1 in self._variables and prod_2 in self._variables:
+            assert isinstance(first_factor, str) and isinstance(
+                second_factor, str)
             if not self._is_finite:
                 marginal_l = self.marginal(first_factor)
                 marginal_r = self.marginal(second_factor)

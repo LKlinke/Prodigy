@@ -113,8 +113,10 @@ def test_multiplication():
     
     gf = GeneratingFunction('x**6')
     assert gf.update(parse_expr('x = x * (1/3)')) == GeneratingFunction('x**2')
+    assert gf.update(parse_expr('x = (1/2) * x')) == GeneratingFunction('x**3')
     with raises(ValueError):
         gf.update(parse_expr('x = x*(1/4)'))
+    assert gf.update(parse_expr('x = 6 * (1/3)')) == GeneratingFunction('x^2')
 
 
 def test_subtraction():

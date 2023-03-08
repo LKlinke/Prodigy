@@ -312,14 +312,14 @@ class FPS(Distribution):
                                   str(second_summand)), self._variables,
             self._parameters)
 
-    def _update_product(self, temp_var: str, first_factor: str,
-                        second_factor: str,
+    def _update_product(self, temp_var: str, first_factor: str | int,
+                        second_factor: str | int,
                         approximate: str | float | None) -> FPS:
         return FPS.from_dist(
-            self._dist.update_product(temp_var, first_factor, second_factor,
-                                      self._variables, self._finite,
-                                      approximate), self._variables,
-            self._parameters)
+            self._dist.update_product(temp_var, str(first_factor),
+                                      str(second_factor), self._variables,
+                                      self._finite, approximate),
+            self._variables, self._parameters)
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> Distribution:

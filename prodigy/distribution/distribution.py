@@ -435,6 +435,7 @@ class Distribution(ABC):
                                              | {xl, xr}))
                 f, t_1 = evaluate(f, expression.lhs, xl)
                 f, t_2 = evaluate(f, expression.rhs, xr)
+
                 if expression.operator == Binop.PLUS:
                     if isinstance(t_1, Fraction) and isinstance(t_2, Fraction):
                         res = t_1 + t_2
@@ -451,8 +452,38 @@ class Distribution(ABC):
                         )
                     else:
                         f = f._update_sum(temp_var, t_1, t_2)
+
                 elif expression.operator == Binop.TIMES:
-                    f = f._update_product(temp_var, t_1, t_2, approximate)
+                    types = (type(t_1), type(t_2))
+                    if types in {(Fraction, Fraction), (Fraction, int),
+                                 (int, Fraction)}:
+                        res = t_1 * t_2  # type: ignore
+                        assert isinstance(res, Fraction)
+                        if res.denominator == 1:
+                            f = f._update_var(temp_var, res.numerator)
+                        else:
+                            raise ValueError(
+                                f'Cannot perform multiplication {t_1} * {t_2} because the result is not an integer'
+                            )
+                    elif str in types and Fraction in types:
+                        if types == (str, Fraction):
+                            string, fraction = t_1, t_2
+                        else:
+                            assert types == (Fraction, str)
+                            string, fraction = t_2, t_1
+                        assert isinstance(fraction, Fraction) and isinstance(
+                            string, str), str(fraction)
+                        f = f._update_product(temp_var, string,
+                                              fraction.numerator,
+                                              approximate)._update_division(
+                                                  temp_var, temp_var,
+                                                  fraction.denominator,
+                                                  approximate)
+                    else:
+                        assert not isinstance(
+                            t_1, Fraction) and not isinstance(t_2, Fraction)
+                        f = f._update_product(temp_var, t_1, t_2, approximate)
+
                 elif expression.operator == Binop.MINUS:
                     f = f._update_subtraction(temp_var, t_1, t_2)
                 elif expression.operator == Binop.MODULO:
@@ -527,8 +558,8 @@ class Distribution(ABC):
         """
 
     @abstractmethod
-    def _update_product(self, temp_var: str, first_factor: str,
-                        second_factor: str,
+    def _update_product(self, temp_var: str, first_factor: str | int,
+                        second_factor: str | int,
                         approximate: str | float | None) -> Distribution:
         """
         Applies the update `temp_var = first_factor * second_factor` to this distribution.
