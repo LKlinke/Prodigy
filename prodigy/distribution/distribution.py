@@ -4,6 +4,7 @@ import functools
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from fractions import Fraction
 from typing import (Dict, FrozenSet, Generator, Iterator, List, Sequence, Set,
                     Tuple, Type, Union)
 
@@ -423,8 +424,9 @@ class Distribution(ABC):
             )
 
         # pylint: disable=protected-access
-        def evaluate(function: Distribution, expression: Expr,
-                     temp_var: str) -> Tuple[Distribution, str]:
+        def evaluate(
+                function: Distribution, expression: Expr,
+                temp_var: str) -> Tuple[Distribution, str | int | Fraction]:
             # TODO handle reals in every case
             if isinstance(expression, BinopExpr):
                 xl = function.get_fresh_variable()
@@ -434,7 +436,21 @@ class Distribution(ABC):
                 f, t_1 = evaluate(f, expression.lhs, xl)
                 f, t_2 = evaluate(f, expression.rhs, xr)
                 if expression.operator == Binop.PLUS:
-                    f = f._update_sum(temp_var, t_1, t_2)
+                    if isinstance(t_1, Fraction) and isinstance(t_2, Fraction):
+                        res = t_1 + t_2
+                        if res.denominator == 1:
+                            f = f._update_var(temp_var, res.numerator)
+                        else:
+                            raise ValueError(
+                                f'Cannot add fractions {t_1} and {t_2} because the result is not an integer'
+                            )
+                    elif isinstance(t_1, Fraction) or isinstance(
+                            t_2, Fraction):
+                        raise ValueError(
+                            f'Cannot add an integer and a fraction: {t_1} + {t_2}'
+                        )
+                    else:
+                        f = f._update_sum(temp_var, t_1, t_2)
                 elif expression.operator == Binop.TIMES:
                     f = f._update_product(temp_var, t_1, t_2, approximate)
                 elif expression.operator == Binop.MINUS:
@@ -456,8 +472,14 @@ class Distribution(ABC):
                 f = function._update_var(temp_var, expression.var)
                 return f, temp_var
 
-            if isinstance(expression, (NatLitExpr, RealLitExpr)):
-                return function, str(expression.value)
+            if isinstance(expression, NatLitExpr):
+                return function, expression.value
+
+            if isinstance(expression, RealLitExpr):
+                frac = expression.to_fraction()
+                if frac.denominator == 1:
+                    return function, frac.numerator
+                return function, frac
 
             else:
                 raise ValueError(

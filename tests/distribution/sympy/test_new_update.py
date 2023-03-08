@@ -41,6 +41,11 @@ def test_addition():
         parse_expr("x = x + y")) == GeneratingFunction("x^8 * y^5")
     assert gf._update_sum('x', 'x', 'y') == GeneratingFunction("x^8 * y^5")
 
+    with raises(ValueError, match='because the result is not an integer'):
+        gf.update(parse_expr('x = 1/3 + 1/3 + 1/3'))
+    assert gf.update(
+        parse_expr('x = 1/2 + 1/2')) == GeneratingFunction('x * y^5')
+
 
 def test_var_assignment():
     gf = GeneratingFunction("n^5*m^42")
@@ -111,6 +116,7 @@ def test_multiplication():
     with raises(ValueError):
         gf.update(parse_expr('x = x*(1/4)'))
 
+
 def test_subtraction():
     gf = GeneratingFunction("n^5*m^42*l^8")
     assert gf.update(
@@ -148,13 +154,15 @@ def test_subtraction():
     gf = GeneratingFunction('0.4*tmp^5*c^13*n^4 + 0.6*tmp^7*c^28*n^77')
     assert gf.update(parse_expr('n = n + (c-tmp)')) == GeneratingFunction(
         '0.4*tmp^5*c^13*n^12 + 0.6*tmp^7*c^28*n^98')
-    
+
     gf = GeneratingFunction('x^4')
-    assert gf.update(parse_expr('x = x - 2.0')) == GeneratingFunction(parse_expr('x^2'))
-    assert gf.update(parse_expr('x = x - (2/1)')) == GeneratingFunction(parse_expr('x^2'))
+    assert gf.update(parse_expr('x = x - 2.0')) == GeneratingFunction(
+        parse_expr('x^2'))
+    assert gf.update(parse_expr('x = x - (2/1)')) == GeneratingFunction(
+        parse_expr('x^2'))
     with raises(ValueError):
         gf.update(parse_expr('x = x - (1/2)'))
-    
+
 
 def test_fresh_variables():
     gf = GeneratingFunction('x*xl')

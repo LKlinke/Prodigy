@@ -37,6 +37,11 @@ def test_addition():
 
     gf = FPS("x^3 * y^5")
     assert gf.update(parse_expr("x = x + y")) == FPS("x^8 * y^5")
+    assert gf._update_sum('x', 'x', 'y') == FPS("x^8 * y^5")
+
+    with raises(ValueError, match='because the result is not an integer'):
+        gf.update(parse_expr('x = 1/3 + 1/3 + 1/3'))
+    assert gf.update(parse_expr('x = 1/2 + 1/2')) == FPS('x * y^5')
 
 
 def test_var_assignment():
@@ -89,7 +94,7 @@ def test_multiplication():
         parse_expr('x = z*y')) == FPS('0.6*x^15*y^3*z^5 + 0.4*x^36*y^6*z^6')
     assert gf.update(parse_expr('z = x*y')) == FPS(
         '0.6*y^3*exp(5 * (x*z^3 - 1)) + 0.4*y^6*exp(5 * (x*z^6 - 1))')
-    
+
     gf = FPS('x^6')
     assert gf.update(parse_expr('x = x * (1/3)')) == FPS('x^2')
     with raises(ValueError):
