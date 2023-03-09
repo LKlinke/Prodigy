@@ -448,7 +448,8 @@ class Distribution(ABC):
                         f = f._update_subtraction_with_fraction(
                             temp_var, t_1, t_2)
                     elif expression.operator == Binop.MODULO:
-                        f = f._update_modulo(temp_var, t_1, t_2, approximate)
+                        f = f._update_modulo_with_fraction(
+                            temp_var, t_1, t_2, approximate)
                     elif expression.operator == Binop.DIVIDE:
                         f = f._update_division(temp_var, t_1, t_2, approximate)
                     elif expression.operator == Binop.POWER:
@@ -508,9 +509,8 @@ class Distribution(ABC):
                     return function, frac.numerator
                 return function, frac
 
-            else:
-                raise ValueError(
-                    f"Unsupported type of subexpression: {expression}")
+            raise ValueError(
+                f"Unsupported type of subexpression: {expression}")
 
         result, value = evaluate(self, expression.rhs, variable)
         if isinstance(value, Fraction):
@@ -533,15 +533,13 @@ class Distribution(ABC):
             res = t_1 + t_2
             if res.denominator == 1:
                 return self._update_var(temp_var, res.numerator)
-            else:
-                raise ValueError(
-                    f'Cannot add fractions {t_1} and {t_2} because the result is not an integer'
-                )
-        elif isinstance(t_1, Fraction) or isinstance(t_2, Fraction):
+            raise ValueError(
+                f'Cannot add fractions {t_1} and {t_2} because the result is not an integer'
+            )
+        if isinstance(t_1, Fraction) or isinstance(t_2, Fraction):
             raise ValueError(
                 f'Cannot add an integer and a fraction: {t_1} + {t_2}')
-        else:
-            return self._update_sum(temp_var, t_1, t_2)
+        return self._update_sum(temp_var, t_1, t_2)
 
     def _update_product_with_fraction(
             self, temp_var: str, t_1: str | int | Fraction,
@@ -553,11 +551,11 @@ class Distribution(ABC):
             assert isinstance(res, Fraction)
             if res.denominator == 1:
                 return self._update_var(temp_var, res.numerator)
-            else:
-                raise ValueError(
-                    f'Cannot perform multiplication {t_1} * {t_2} because the result is not an integer'
-                )
-        elif str in types and Fraction in types:
+            raise ValueError(
+                f'Cannot perform multiplication {t_1} * {t_2} because the result is not an integer'
+            )
+
+        if str in types and Fraction in types:
             if types == (str, Fraction):
                 string, fraction = t_1, t_2
             else:
@@ -569,10 +567,9 @@ class Distribution(ABC):
                                         approximate)._update_division(
                                             temp_var, temp_var,
                                             fraction.denominator, approximate)
-        else:
-            assert not isinstance(t_1, Fraction) and not isinstance(
-                t_2, Fraction)
-            return self._update_product(temp_var, t_1, t_2, approximate)
+
+        assert not isinstance(t_1, Fraction) and not isinstance(t_2, Fraction)
+        return self._update_product(temp_var, t_1, t_2, approximate)
 
     def _update_subtraction_with_fraction(
             self, temp_var: str, t_1: str | int | Fraction,
@@ -582,11 +579,32 @@ class Distribution(ABC):
             if res.denominator == 1 and res.numerator >= 0:
                 return self._update_var(temp_var, res.numerator)
             raise ValueError(
-                f'Cannot perform subtraction {t_1} - {t_2} because result is no non-negative integer'
+                f'Cannot perform subtraction {t_1} - {t_2} because the result is no non-negative integer'
             )
         if isinstance(t_1, Fraction) or isinstance(t_2, Fraction):
             raise ValueError('Cannot subtract an integer and a fraction')
         return self._update_subtraction(temp_var, t_1, t_2)
+
+    def _update_modulo_with_fraction(
+            self, temp_var: str, t_1: str | int | Fraction,
+            t_2: str | int | Fraction,
+            approximate: str | float | None) -> Distribution:
+        types = (type(t_1), type(t_2))
+        if types in {(Fraction, int), (int, Fraction), (Fraction, Fraction)}:
+            res = t_1 % t_2  # type: ignore
+            assert isinstance(res, Fraction)
+            if res.denominator == 1:
+                return self._update_var(temp_var, res.numerator)
+            raise ValueError(
+                f'Cannot perform modulo update {t_1} % {t_2} because the result is not an integer'
+            )
+
+        if str in types and Fraction in types:
+            # TODO
+            raise NotImplementedError()
+
+        assert not isinstance(t_1, Fraction) and not isinstance(t_2, Fraction)
+        return self._update_modulo(temp_var, t_1, t_2, approximate)
 
     # pylint: enable=protected-access
 
