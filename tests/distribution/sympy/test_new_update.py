@@ -1,3 +1,5 @@
+from fractions import Fraction
+
 import sympy
 from probably.pgcl.parser import parse_expr
 from pytest import raises
@@ -193,6 +195,20 @@ def test_modulo():
         '0.4*x**3*y**5 + 0.6*x**7*y**18') * SympyPGF.poisson('z', 5)
     assert gf.update(parse_expr('z = y % x')) == GeneratingFunction(
         '0.4*x**3*y**5*z**2 + 0.6*x**7*y**18*z**4')
+
+    gf = GeneratingFunction('x^5')
+    assert gf.update(parse_expr('x = (1/2) % (1/2)')) == GeneratingFunction(
+        '1', 'x')
+    assert gf.update(parse_expr('x = x % (25/3)')) == gf
+    assert gf.update(parse_expr('x = x % (1/2)')) == GeneratingFunction(
+        '1', 'x')
+    with raises(ValueError,
+                match='because the result is not always an integer'):
+        gf.update(parse_expr('x = (2/3) % x'))
+    with raises(ValueError, match='is not an integer'):
+        gf.update(parse_expr('x = (2/3) % 4'))
+    with raises(ValueError, match='is not an integer'):
+        gf._update_modulo_with_fraction('x', Fraction(2, 3), 4, None)
 
 
 def test_division():

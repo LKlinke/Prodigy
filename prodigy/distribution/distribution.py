@@ -464,22 +464,33 @@ class Distribution(ABC):
 
                 else:
                     f, t_1 = evaluate(function, expression.lhs, None)
-                    f, t_2 = evaluate(function, expression.rhs, None)
+                    f, t_2 = evaluate(f, expression.rhs, None)
                     assert not isinstance(t_1, str) and not isinstance(
                         t_2, str)
                     if expression.operator == Binop.PLUS:
-                        return f, t_1 + t_2
+                        res = t_1 + t_2
+                        if isinstance(res, Fraction) and res.denominator == 1:
+                            return f, res.numerator
+                        return f, res
                     elif expression.operator == Binop.TIMES:
-                        return f, t_1 * t_2
+                        res = t_1 * t_2
+                        if isinstance(res, Fraction) and res.denominator == 1:
+                            return f, res.numerator
+                        return f, res
                     elif expression.operator == Binop.MINUS:
                         res = t_1 - t_2
                         if res < 0:
                             raise ValueError(
                                 f'Intermediate result {t_1} - {t_2} is negative'
                             )
+                        if isinstance(res, Fraction) and res.denominator == 1:
+                            return f, res.numerator
                         return f, res
                     elif expression.operator == Binop.MODULO:
-                        return f, t_1 % t_2
+                        res = t_1 % t_2
+                        if isinstance(res, Fraction) and res.denominator == 1:
+                            return f, res.numerator
+                        return f, res
                     elif expression.operator == Binop.DIVIDE:
                         res = Fraction(t_1 / t_2)
                         if res.denominator == 1:
@@ -514,10 +525,7 @@ class Distribution(ABC):
 
         result, value = evaluate(self, expression.rhs, variable)
         if isinstance(value, Fraction):
-            if value.denominator == 1:
-                value = value.numerator
-            else:
-                raise ValueError('Result of update is not an integer')
+            raise ValueError('Result of update is not an integer')
         if isinstance(value, int):
             result = result._update_var(variable, value)
         else:
@@ -591,7 +599,8 @@ class Distribution(ABC):
             approximate: str | float | None) -> Distribution:
         types = (type(t_1), type(t_2))
         if types in {(Fraction, int), (int, Fraction), (Fraction, Fraction)}:
-            res = t_1 % t_2  # type: ignore
+            assert not isinstance(t_1, str) and not isinstance(t_2, str)
+            res = t_1 % t_2
             assert isinstance(res, Fraction)
             if res.denominator == 1:
                 return self._update_var(temp_var, res.numerator)
@@ -599,9 +608,36 @@ class Distribution(ABC):
                 f'Cannot perform modulo update {t_1} % {t_2} because the result is not an integer'
             )
 
-        if str in types and Fraction in types:
-            # TODO
-            raise NotImplementedError()
+        if isinstance(t_1, str) and isinstance(t_2, Fraction):
+            unchanged = self._filter_constant_condition(
+                BinopExpr(Binop.LEQ, VarExpr(t_1), NatLitExpr(int(t_2))))
+            if unchanged == self:
+                return self
+            changed = self - unchanged
+            changed_marginal = changed.marginal(t_1)
+            if not changed_marginal.is_finite():
+                if approximate is not None:
+                    changed = changed.approximate_unilaterally(
+                        t_1, approximate)
+                    changed_marginal = changed.marginal(t_1)
+                    assert changed_marginal.is_finite()
+                else:
+                    raise ValueError(
+                        f'Cannot determine whether {t_1} % {t_2} is always an integer'
+                    )
+            for _, state in changed_marginal:
+                if not state[t_1] % t_2 == 0:
+                    raise ValueError(
+                        f'Cannot perform update {temp_var} := {t_1} % {t_2} because the result is not always an integer'
+                    )
+            changed = changed._update_var(temp_var, 0)
+            return unchanged + changed
+
+        if isinstance(t_1, Fraction):
+            assert isinstance(t_2, str)
+            raise ValueError(
+                f'Cannot perform update {temp_var} := {t_1} % {t_2} because the result is not always an integer'
+            )
 
         assert not isinstance(t_1, Fraction) and not isinstance(t_2, Fraction)
         return self._update_modulo(temp_var, t_1, t_2, approximate)
