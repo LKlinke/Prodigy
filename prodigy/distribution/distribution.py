@@ -451,7 +451,8 @@ class Distribution(ABC):
                         f = f._update_modulo_with_fraction(
                             temp_var, t_1, t_2, approximate)
                     elif expression.operator == Binop.DIVIDE:
-                        f = f._update_division(temp_var, t_1, t_2, approximate)
+                        f = f._update_division_with_fraction(
+                            temp_var, t_1, t_2, approximate)
                     elif expression.operator == Binop.POWER:
                         f = f._update_power(temp_var, t_1, t_2, approximate)
                     else:
@@ -569,8 +570,7 @@ class Distribution(ABC):
             else:
                 assert types == (Fraction, str)
                 string, fraction = t_2, t_1
-            assert isinstance(fraction, Fraction) and isinstance(
-                string, str), str(fraction)
+            assert isinstance(fraction, Fraction) and isinstance(string, str)
             return self._update_product(temp_var, string, fraction.numerator,
                                         approximate)._update_division(
                                             temp_var, temp_var,
@@ -605,10 +605,11 @@ class Distribution(ABC):
             if res.denominator == 1:
                 return self._update_var(temp_var, res.numerator)
             raise ValueError(
-                f'Cannot perform modulo update {t_1} % {t_2} because the result is not an integer'
+                f'Cannot perform modulo update {temp_var} := {t_1} % {t_2} because the result is not an integer'
             )
 
-        if isinstance(t_1, str) and isinstance(t_2, Fraction):
+        if isinstance(t_2, Fraction):
+            assert isinstance(t_1, str)
             unchanged = self._filter_constant_condition(
                 BinopExpr(Binop.LEQ, VarExpr(t_1), NatLitExpr(int(t_2))))
             if unchanged == self:
@@ -641,6 +642,44 @@ class Distribution(ABC):
 
         assert not isinstance(t_1, Fraction) and not isinstance(t_2, Fraction)
         return self._update_modulo(temp_var, t_1, t_2, approximate)
+
+    def _update_division_with_fraction(
+            self, temp_var: str, t_1: str | int | Fraction,
+            t_2: str | int | Fraction,
+            approximate: str | float | None) -> Distribution:
+        types = (type(t_1), type(t_2))
+        if types in {(Fraction, int), (int, Fraction), (Fraction, Fraction)}:
+            assert not isinstance(t_1, str) and not isinstance(t_2, str)
+            res = t_1 / t_2
+            assert isinstance(res, Fraction)
+            if res.denominator == 1:
+                return self._update_var(temp_var, res.numerator)
+            raise ValueError(
+                f'Cannot perform division update {temp_var} := {t_1} / {t_2} because the result is not an integer'
+            )
+
+        if isinstance(t_2, Fraction):
+            assert isinstance(t_1, str)
+            if t_2.numerator == 1:
+                return self._update_product(temp_var, t_1, t_2.denominator,
+                                            approximate)
+            return self._update_product_with_fraction(
+                temp_var, t_1, Fraction(t_2.denominator, t_2.numerator),
+                approximate)
+
+        if isinstance(t_1, Fraction):
+            assert isinstance(t_2, str)
+            if str(
+                    self.get_probability_of(
+                        BinopExpr(Binop.EQ, VarExpr(t_2),
+                                  NatLitExpr(0)))) != '0':
+                raise ZeroDivisionError(f'Variable {t_2} can be 0')
+            raise ValueError(
+                "Division of fraction and integer / variable doesn't result in an integer"
+            )
+
+        assert not isinstance(t_1, Fraction) and not isinstance(t_2, Fraction)
+        return self._update_division(temp_var, t_1, t_2, approximate)
 
     # pylint: enable=protected-access
 

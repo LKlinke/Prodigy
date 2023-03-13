@@ -186,6 +186,12 @@ def test_modulo():
     with raises(ValueError, match='is not an integer'):
         gf._update_modulo_with_fraction('x', Fraction(2, 3), 4, None)
 
+    gf = ProdigyPGF.poisson('x', 3) * FPS('y^5')
+    assert gf.update(parse_expr('y = y % (25/3)')) == gf
+
+    gf = FPS('x^9')
+    assert gf.update(parse_expr('x = x % (7/2)')) == FPS('x^2')
+
 
 def test_division():
     gf = FPS('n')
@@ -210,6 +216,18 @@ def test_division():
         'x', 3) * FPS('0.4*y^4*z^12 + 0.6*y^6*z^42')
     assert gf.update(
         parse_expr('x = z/y')) == FPS('0.4*y^3*z^12*x^4 + 0.6*y^7*z^42*x^6')
+
+    gf = FPS('x^5')
+    assert gf.update(parse_expr('x = (5/3)/(5/3)')) == FPS('x')
+    assert gf.update(parse_expr('x = x / (1/5)')) == FPS('x^25')
+    with raises(ValueError, match='not always divisible'):
+        gf.update(parse_expr('x = x / (2/5)'))
+    gf = FPS('x^4')
+    assert gf.update(parse_expr('x = x / (2/5)')) == FPS('x^10')
+    assert gf.update(parse_expr('x = (20/5) / x')) == FPS('x')
+    gf = ProdigyPGF.geometric('x', '0.5')
+    with raises(ZeroDivisionError):
+        gf.update(parse_expr('x = (1/2)/x'))
 
 
 def test_unilateral_approximation():
