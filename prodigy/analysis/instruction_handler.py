@@ -48,7 +48,6 @@ class ProgramInfo():
     """Pairs of variables that are independent from each other; see 
     `prodigy.analysis.static.independence.independent_vars`.
     """
-
     def __getattr__(self, __name: str) -> Any:
         return getattr(self.program, __name)
 
