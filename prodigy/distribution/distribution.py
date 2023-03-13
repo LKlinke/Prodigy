@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import operator
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -626,18 +627,23 @@ class Distribution(ABC):
                     raise ValueError(
                         f'Cannot determine whether {t_1} % {t_2} is always an integer'
                     )
+            summands = []
             for _, state in changed_marginal:
-                if not state[t_1] % t_2 == 0:
+                res = Fraction(state[t_1] % t_2)
+                if not res.denominator == 1:
                     raise ValueError(
                         f'Cannot perform update {temp_var} := {t_1} % {t_2} because the result is not always an integer'
                     )
-            changed = changed._update_var(temp_var, 0)
-            return unchanged + changed
+                summands.append(
+                    changed.filter_state(state)._update_var(
+                        temp_var, res.numerator))
+            return functools.reduce(operator.add, summands, unchanged)
 
         if isinstance(t_1, Fraction):
             assert isinstance(t_2, str)
+            # fraction modulo integer is never an integer
             raise ValueError(
-                f'Cannot perform update {temp_var} := {t_1} % {t_2} because the result is not always an integer'
+                "Modulo of fraction and integer / variable doesn't result in an integer"
             )
 
         assert not isinstance(t_1, Fraction) and not isinstance(t_2, Fraction)
@@ -674,6 +680,7 @@ class Distribution(ABC):
                         BinopExpr(Binop.EQ, VarExpr(t_2),
                                   NatLitExpr(0)))) != '0':
                 raise ZeroDivisionError(f'Variable {t_2} can be 0')
+            # fraction divided by integer is never an integer
             raise ValueError(
                 "Division of fraction and integer / variable doesn't result in an integer"
             )

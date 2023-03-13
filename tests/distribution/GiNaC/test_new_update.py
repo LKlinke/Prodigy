@@ -178,8 +178,11 @@ def test_modulo():
     assert gf.update(parse_expr('x = (1/2) % (1/2)')) == FPS('1', 'x')
     assert gf.update(parse_expr('x = x % (25/3)')) == gf
     assert gf.update(parse_expr('x = x % (1/2)')) == FPS('1', 'x')
-    with raises(ValueError,
-                match='because the result is not always an integer'):
+    with raises(
+            ValueError,
+            match=
+            "Modulo of fraction and integer / variable doesn't result in an integer"
+    ):
         gf.update(parse_expr('x = (2/3) % x'))
     with raises(ValueError, match='is not an integer'):
         gf.update(parse_expr('x = (2/3) % 4'))
