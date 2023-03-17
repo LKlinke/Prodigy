@@ -401,6 +401,36 @@ class Distribution(ABC):
 
     # pylint: disable=protected-access, too-many-statements
 
+    @staticmethod
+    def _nth_rooth(number: int, root: int) -> int:
+        """
+            Returns the n-th root of the given number if it is an integer and raises an exception otherwise.
+            
+            Even using fractions, Python apparently only computes roots numerically (e.g., 
+            `125**Fraction(1,3)`  -> `4.9999999`), which is why we need this function.
+            """
+
+        assert number >= 0 and root >= 0
+        lower, upper, curr = 0, number, number // 2
+
+        while True:
+            val = curr**root
+            val1 = (curr + 1)**root
+            gt, lt = val > number, val < number
+            if not gt and not lt:
+                return curr
+            elif val1 == number:
+                return curr + 1
+            elif gt:
+                upper = curr
+            elif val1 > number:
+                assert lt
+                raise ValueError(f'{root}. root of {number} is not an integer')
+            else:
+                assert lt
+                lower = curr
+            curr = (lower + upper) // 2
+
     def update(self,
                expression: Expr,
                approximate: str | float | None = None) -> Distribution:
@@ -455,7 +485,8 @@ class Distribution(ABC):
                         f = f._update_division_with_fraction(
                             temp_var, t_1, t_2, approximate)
                     elif expression.operator == Binop.POWER:
-                        f = f._update_power(temp_var, t_1, t_2, approximate)
+                        f = f._update_power_with_fraction(
+                            temp_var, t_1, t_2, approximate)
                     else:
                         raise ValueError(
                             f"Unsupported binary operator: {expression.operator}"
@@ -499,7 +530,11 @@ class Distribution(ABC):
                             return f, res.numerator
                         return f, res
                     elif expression.operator == Binop.POWER:
-                        res = Fraction(t_1**t_2)
+                        if isinstance(t_1, int) and isinstance(t_2, Fraction):
+                            res = self._nth_rooth(t_1**t_2.numerator,
+                                                  t_2.denominator)
+                        else:
+                            res = Fraction(t_1**t_2)
                         if res.denominator == 1:
                             return f, res.numerator
                         return f, res
@@ -687,6 +722,40 @@ class Distribution(ABC):
 
         assert not isinstance(t_1, Fraction) and not isinstance(t_2, Fraction)
         return self._update_division(temp_var, t_1, t_2, approximate)
+
+    def _update_power_with_fraction(
+            self, temp_var: str, t_1: str | int | Fraction,
+            t_2: str | int | Fraction,
+            approximate: str | float | None) -> Distribution:
+        if isinstance(t_1, int) and isinstance(t_2, Fraction):
+            return self._update_var(
+                temp_var, self._nth_rooth(t_1**t_2.numerator, t_2.denominator))
+
+        if isinstance(t_1, Fraction):
+            # TODO is it even possible to get an integer as a result here?
+            raise ValueError(
+                'A fraction to the power of an integer never results in an integer'
+            )
+
+        if isinstance(t_2, Fraction):
+            assert isinstance(t_1, str)
+            dist = self.factory().from_expr('0', *self.get_variables())
+            marginal = self.marginal(t_1)
+            if not marginal.is_finite():
+                if approximate is None:
+                    raise ValueError(f'{t_1} has infinite marginal')
+                marginal = marginal.approximate_unilaterally(t_1, approximate)
+            for _, state in marginal:
+                value = self._nth_rooth(state[t_1]**t_2.numerator,
+                                        t_2.denominator)
+                dist += self._filter_constant_condition(
+                    BinopExpr(Binop.EQ, VarExpr(t_1),
+                              NatLitExpr(state[t_1])))._update_var(
+                                  temp_var, value)
+            return dist
+
+        assert not isinstance(t_1, Fraction) and not isinstance(t_2, Fraction)
+        return self._update_power(temp_var, t_1, t_2, approximate)
 
     # pylint: enable=protected-access
 

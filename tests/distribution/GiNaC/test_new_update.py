@@ -290,3 +290,10 @@ def test_power():
 
     with raises(ValueError):
         gf.update(parse_expr('z=w^x'))
+
+    gf = FPS('1/3*x^4+1/3*x^9+1/3*x^16')
+    assert gf.update(
+        parse_expr('x = x^(1/2)')) == FPS('1/3*x^2+1/3*x^3+1/3*x^4')
+    assert gf.update(parse_expr('x = 125^(1/3)')) == FPS('x^5')
+    gf = FPS('x^125')
+    assert gf.update(parse_expr('x = x^(1/3)')) == FPS('x^5')

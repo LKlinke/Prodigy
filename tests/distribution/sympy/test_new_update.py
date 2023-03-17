@@ -322,3 +322,10 @@ def test_power():
     ) == GeneratingFunction("x^3*y^5*z^3125") * SympyPGF.poisson('a', 3)
     assert gf.update(
         parse_expr('a=3^5')) == GeneratingFunction("x^3*y^5*z^9*a^243")
+
+    gf = GeneratingFunction('1/3*x^4+1/3*x^9+1/3*x^16')
+    assert gf.update(parse_expr('x = x^(1/2)')) == GeneratingFunction(
+        '1/3*x^2+1/3*x^3+1/3*x^4')
+    assert gf.update(parse_expr('x = 125^(1/3)')) == GeneratingFunction('x^5')
+    gf = GeneratingFunction('x^125')
+    assert gf.update(parse_expr('x = x^(1/3)')) == GeneratingFunction('x^5')
