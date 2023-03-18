@@ -323,9 +323,8 @@ class Distribution(ABC):
         Creates a list of subdistributions where at list index i, the `variable` is congruent i modulo `modulus`.
         """
 
-    @staticmethod
     @abstractmethod
-    def _find_symbols(expr: str) -> Set[str]:
+    def _find_symbols(self, expr: str) -> Set[str]:
         "Returns a set of all free symbols in the given expression."
 
     def get_symbols(self) -> Set[str]:

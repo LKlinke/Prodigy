@@ -303,6 +303,11 @@ def test_predefined_variable_names():
     gf = GeneratingFunction('sum^3*x^5', 'sum', 'x')
     assert len(gf.get_variables()) == 2
     assert gf.marginal('sum') == GeneratingFunction('sum^3', 'sum')
-    pytest.xfail('known issue, low priority')
     assert gf.update(parse_expr('sum = sum + 1')) == GeneratingFunction(
         'sum^4*x^5', 'sum', 'x')
+
+    assert SympyPGF.bernoulli('sum', '1/2') == GeneratingFunction(
+        '1/2+1/2*sum', 'sum')
+    gf = GeneratingFunction('sum*x', 'x')
+    assert len(gf.get_parameters()) == 1
+    assert gf.update(parse_expr('x = 2')) == GeneratingFunction('sum*x^2', 'x')

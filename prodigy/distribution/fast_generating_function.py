@@ -201,8 +201,7 @@ class FPS(Distribution):
     def get_parameters(self) -> Set[str]:
         return self._parameters
 
-    @staticmethod
-    def _find_symbols(expr: str) -> Set[str]:
+    def _find_symbols(self, expr: str) -> Set[str]:
         return set(pygin.find_symbols(expr))
 
     def get_symbols(self) -> Set[str]:
