@@ -327,5 +327,7 @@ def test_power():
     assert gf.update(parse_expr('x = x^(1/2)')) == GeneratingFunction(
         '1/3*x^2+1/3*x^3+1/3*x^4')
     assert gf.update(parse_expr('x = 125^(1/3)')) == GeneratingFunction('x^5')
+    assert gf.update(parse_expr('x = x^0')) == GeneratingFunction('x')
+    assert gf.update(parse_expr('x = 0^12')) == GeneratingFunction('1', 'x')
     gf = GeneratingFunction('x^125')
     assert gf.update(parse_expr('x = x^(1/3)')) == GeneratingFunction('x^5')

@@ -295,5 +295,7 @@ def test_power():
     assert gf.update(
         parse_expr('x = x^(1/2)')) == FPS('1/3*x^2+1/3*x^3+1/3*x^4')
     assert gf.update(parse_expr('x = 125^(1/3)')) == FPS('x^5')
+    assert gf.update(parse_expr('x = x^0')) == FPS('x')
+    assert gf.update(parse_expr('x = 0^12')) == FPS('1', 'x')
     gf = FPS('x^125')
     assert gf.update(parse_expr('x = x^(1/3)')) == FPS('x^5')
