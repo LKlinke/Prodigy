@@ -4,7 +4,9 @@ from pytest import raises
 
 from prodigy.distribution.distribution import MarginalType
 from prodigy.distribution.generating_function import (GeneratingFunction,
-                                                      SympyPGF)
+                                                      SympyPGF,
+                                                      _parse_to_sympy,
+                                                      _sympy_symbol)
 
 
 def test_literal_assignment():
@@ -32,7 +34,7 @@ def test_addition():
         parse_expr("x % 2 = 1")) == SympyPGF.zero("x")
     assert gf.update(
         parse_expr("x = x + x")).filter(parse_expr("x = 30"))._function.subs(
-            sympy.S("x"), 1) == sympy.S("(16^15 * exp(-16)) / 15!")
+            _sympy_symbol('x'), 1) == sympy.S("(16^15 * exp(-16)) / 15!")
 
     gf = GeneratingFunction("x^3 * y^5")
     assert gf.update(
@@ -42,10 +44,10 @@ def test_addition():
 
 def test_var_assignment():
     gf = GeneratingFunction("n^5*m^42")
-    assert gf.update(parse_expr("n = m"))._function.subs(sympy.S("m"),
-                                                         1) == sympy.S("n^42")
-    assert gf.update(parse_expr("n = n"))._function.subs(sympy.S("m"),
-                                                         1) == sympy.S("n^5")
+    assert gf.update(parse_expr("n = m"))._function.subs(
+        _sympy_symbol("m"), 1) == _parse_to_sympy("n^42")
+    assert gf.update(parse_expr("n = n"))._function.subs(
+        _sympy_symbol("m"), 1) == _parse_to_sympy("n^5")
 
     gf = GeneratingFunction('x^8', 'x', 'y')
     assert gf.update(parse_expr('y = x')) == GeneratingFunction('y^8 * x^8')
@@ -80,18 +82,18 @@ def test_multiplication():
 
     gf = SympyPGF.poisson('x', 3) * GeneratingFunction('y^3')
     assert gf.update(parse_expr('x = x * y'))._function == gf._function.subs(
-        sympy.S('x'),
-        sympy.S('x')**3)
+        _sympy_symbol('x'),
+        _sympy_symbol('x')**3)
 
     gf = SympyPGF.poisson('x', 3) * SympyPGF.poisson('y', 5)
     assert gf.update(parse_expr('x = 3*7')) == SympyPGF.poisson(
         'y', 5) * GeneratingFunction('x**21')
     assert gf.update(parse_expr('x = x * 3')) == GeneratingFunction(
-        gf._function.subs(sympy.S('x'),
-                          sympy.S('x')**3))
+        gf._function.subs(_sympy_symbol('x'),
+                          _sympy_symbol('x')**3))
     assert gf.update(parse_expr('x = y * 4')) == GeneratingFunction(
-        gf._function.subs([(sympy.S('x'), 1),
-                           (sympy.S('y'), sympy.S('y * x**4'))]))
+        gf._function.subs([(_sympy_symbol('x'), 1),
+                           (_sympy_symbol('y'), _parse_to_sympy('y * x**4'))]))
 
     gf = GeneratingFunction('x*y**4')
     assert gf.update(
@@ -101,8 +103,8 @@ def test_multiplication():
         'x', 5) * GeneratingFunction('0.6*y**3*z**5 + 0.4*y**6*z**6')
     assert gf.update(parse_expr('x = z*y')) == GeneratingFunction(
         '0.6*x**15*y**3*z**5 + 0.4*x**36*y**6*z**6')
-    assert gf.update(parse_expr('z = x*y'))._function == sympy.S(
-        "y**3*(2*y**3*exp(5*x*z**6) + 3*exp(5*x*z**3))*exp(-5)/5")
+    assert gf.update(parse_expr('z = x*y'))._function == _parse_to_sympy(
+        "0.6*y**3*exp(5 * (x*z**3-1)) + 0.4*y**6*exp(5*(x*z**6-1))")
 
 
 def test_subtraction():
@@ -158,7 +160,7 @@ def test_modulo():
         'x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
     assert gf.update(parse_expr('x = 5 % (1+1+1)')) == GeneratingFunction(
         'x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
-    assert gf.update(parse_expr('x = y % (3+2)'))._function == sympy.S(
+    assert gf.update(parse_expr('x = y % (3+2)'))._function == _parse_to_sympy(
         '(3/10)*y^4*x^4 + (3/10)*y^7*x^2 + (4/10)*y^8*x^3')
 
     gf = GeneratingFunction(
@@ -206,7 +208,8 @@ def test_unilateral_approximation():
         '0.7*x**3*y**5 + 0.1*x**13*y**17 + 0.15*x**21*y**25')
 
     gf = SympyPGF.poisson('x', 7).set_variables('x', 'y')
-    gf._function = gf._function.subs(sympy.S('x'), sympy.S('x*y'))
+    gf._function = gf._function.subs(_sympy_symbol('x'),
+                                     _parse_to_sympy('x*y'))
     assert gf.filter(parse_expr('x = 100'))._function != 0
     res = gf.approximate_unilaterally('x', '0.9')
     assert res.filter(parse_expr('x = 100'))._function == 0
@@ -225,19 +228,21 @@ def test_update():
     assert res == GeneratingFunction('x**9')
     res = res.update(parse_expr('x = x*(9/2*1*2)'))
     assert res == GeneratingFunction('x**81')
-    assert res._function.subs(sympy.Symbol('x'), 1) == sympy.S(1)
+    assert res._function.subs(_sympy_symbol('x'), 1) == sympy.S(1)
     assert res.marginal('x',
                         method=MarginalType.EXCLUDE) == GeneratingFunction('1')
     assert res.update(parse_expr('x = x/9')) == GeneratingFunction('x**9')
     assert res.update(parse_expr('x = 3')) == GeneratingFunction('x**3')
 
     assert GeneratingFunction('x').update(
-        parse_expr('x = x*x'))._function.subs(sympy.Symbol('x'),
+        parse_expr('x = x*x'))._function.subs(_sympy_symbol('x'),
                                               1) == sympy.S(1)
-    assert GeneratingFunction('x')._update_product(
-        'x', 'x', 'x', None)._function.subs(sympy.Symbol('x'), 1) == sympy.S(1)
+    assert GeneratingFunction('x')._update_product('x', 'x', 'x',
+                                                   None)._function.subs(
+                                                       _sympy_symbol('x'),
+                                                       1) == sympy.S(1)
     assert GeneratingFunction('x').update(
-        parse_expr('x = x*x'))._variables == {sympy.Symbol('x')}
+        parse_expr('x = x*x'))._variables == {_sympy_symbol('x')}
 
     gf = GeneratingFunction('x').set_parameters('p')
     assert gf.update(parse_expr('x = 4')).get_parameters() == {'p'}

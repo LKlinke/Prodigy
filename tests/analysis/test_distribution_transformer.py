@@ -50,7 +50,7 @@ def test_iid_predefined_distributions():
                     x := iid(%s, x);
                 """ % distribution), GF("x"),
             prodigy.analysis.ForwardAnalysisConfig())
-        assert result == distributions[distribution]
+        assert result == distributions[distribution], distribution
 
 
 def test_iid_update():

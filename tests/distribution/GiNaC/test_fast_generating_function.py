@@ -1,5 +1,6 @@
 import random
 
+import pygin
 import pytest
 from probably.pgcl.ast import Binop, BinopExpr, NatLitExpr, VarExpr
 from probably.pgcl.parser import parse_expr
@@ -220,3 +221,18 @@ class TestDistributionInterface:
         gf = create_random_gf(3, 5)
         gf = gf.set_variables("a", "b", "c")
         assert all([x in gf.get_variables() for x in {'a', 'b', 'c'}])
+
+
+def test_predefined_variable_names():
+    gf = FPS('sum^3*x^5')
+    assert len(gf.get_variables()) == 2
+    assert gf.marginal('sum') == FPS('sum^3', 'sum')
+    assert gf.update(parse_expr('sum = sum + 1')) == FPS(
+        'sum^4*x^5', 'sum', 'x')
+
+    assert ProdigyPGF.bernoulli('sum', '1/2') == FPS('1/2+1/2*sum', 'sum')
+
+    pygin.reset_symbol_cache()
+    gf = FPS('sum*x', 'x')
+    assert len(gf.get_parameters()) == 1
+    assert gf.update(parse_expr('x = 2')) == FPS('sum*x^2', 'x')

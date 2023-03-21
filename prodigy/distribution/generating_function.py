@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import operator
-from typing import (Callable, Dict, FrozenSet, Generator, Iterator, List, Set,
+from fractions import Fraction
+from typing import (Any, Callable, FrozenSet, Generator, Iterator, List, Set,
                     Tuple, Type, Union, get_args)
 
 import sympy
 from probably.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
-                           RealLitExpr, Unop, UnopExpr, VarExpr, Walk,
-                           walk_expr)
+                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr,
+                           Walk, walk_expr)
 from probably.pgcl.parser import parse_expr
 from probably.util.ref import Mut
 from sympy.assumptions.assume import global_assumptions
@@ -31,6 +32,98 @@ def _term_generator(function: sympy.Poly):
         poly -= poly.EC() * poly.EM().as_expr()
 
 
+def _parse_to_sympy(expr: Any, rational=True, nonnegative=True) -> Any:
+    """
+    Parses something to a sympy expression. Can convert a probably expression
+    faster than passing it as a string to sympy. Also will correctly determine if
+    something is a symbol or a function (e.g., if we have a variable called `exp` or
+    `log`). All symbols are given the assumptions that they are rational and nonnegative
+    unless specified otherwise.
+    """
+
+    # first we cover some cases that we can handle faster than by parsing a string
+    if getattr(expr, '__sympy__', None):
+        return expr
+    if isinstance(expr, (float, bool, Fraction)):
+        return sympy.S(expr, rational=True)
+
+    s: sympy.Expr
+
+    def get_function(name: str):
+        functions = {'sum': sum}
+        if name in functions:
+            return functions[name]
+        return getattr(sympy, name)
+
+    if isinstance(expr, get_args(Expr)):
+
+        def probably_to_sympy(prob_expr: Expr) -> sympy.Expr:
+            if isinstance(prob_expr, VarExpr):
+                return _sympy_symbol(prob_expr.var, rational, nonnegative)
+            if isinstance(prob_expr, NatLitExpr):
+                return sympy.Integer(prob_expr.value)
+            if isinstance(prob_expr, RealLitExpr):
+                frac = prob_expr.to_fraction()
+                return sympy.Rational(frac.numerator, frac.denominator)
+            if isinstance(prob_expr, FunctionCallExpr):
+                if len(prob_expr.params[1]) != 0:
+                    raise ValueError(
+                        f'Cannot parse function with named parameters: {prob_expr}'
+                    )
+                return get_function(prob_expr.function)(
+                    *map(probably_to_sympy, prob_expr.params[0]))
+            if isinstance(prob_expr, BinopExpr):
+                op = prob_expr.operator
+                if op == Binop.DIVIDE:
+                    return probably_to_sympy(
+                        prob_expr.lhs) / probably_to_sympy(prob_expr.rhs)
+                if op == Binop.MINUS:
+                    return probably_to_sympy(
+                        prob_expr.lhs) - probably_to_sympy(prob_expr.rhs)
+                if op == Binop.TIMES:
+                    return probably_to_sympy(
+                        prob_expr.lhs) * probably_to_sympy(prob_expr.rhs)
+                if op == Binop.POWER:
+                    return probably_to_sympy(prob_expr.lhs)**probably_to_sympy(
+                        prob_expr.rhs)
+                if op == Binop.MODULO:
+                    return probably_to_sympy(
+                        prob_expr.lhs) % probably_to_sympy(prob_expr.rhs)
+                if op == Binop.PLUS:
+                    return probably_to_sympy(
+                        prob_expr.lhs) + probably_to_sympy(prob_expr.rhs)
+                raise ValueError(f'Unsupported operand: {op}')
+            raise ValueError(f'Unsupported expression type: {prob_expr}')
+
+        s = probably_to_sympy(expr)
+
+    else:
+        s = sympy.parse_expr(
+            str(expr),
+            transformations=sympy.parsing.sympy_parser.standard_transformations
+            + (sympy.parsing.sympy_parser.convert_xor,
+               sympy.parsing.sympy_parser.rationalize),
+            global_dict={
+                'Symbol': lambda x: _sympy_symbol(x, rational, nonnegative),
+                'Function': get_function,
+                'Integer': sympy.Integer,
+                'Float': sympy.Float,
+                'Rational': sympy.Rational
+            })
+
+    return s
+
+
+def _sympy_symbol(name: Any, rational=True, nonnegative=True) -> sympy.Symbol:
+    """
+    Creates a rational and nonnegative sympy Symbol.
+    
+    Note that `sympy.Symbol('x') == sympy.Symbol('x', rational=True, nonnegative=True)`
+    is false.
+    """
+    return sympy.Symbol(name, rational=rational, nonnegative=nonnegative)
+
+
 class GeneratingFunction(Distribution):
     """
     This class represents a generating function. It wraps the sympy library.
@@ -44,21 +137,15 @@ class GeneratingFunction(Distribution):
     # ==================================== CONSTRUCTORS ====================================
 
     def __init__(self,
-                 function: Union[str, sympy.Expr],
+                 function: Union[str, sympy.Expr, Expr],
                  *variables: Union[str, sympy.Symbol],
                  preciseness: float = 1.0,
                  closed: bool | None = None,
                  finite: bool | None = None):
 
         # Set the basic information.
-        self._function: sympy.Expr = sympy.S(
-            str(function),
-            rational=True,
-            locals={
-                str(v): sympy.Symbol(str(v))
-                for v in filter(lambda v: v != "", variables)
-            })
-        self._preciseness = sympy.S(str(preciseness), rational=True)
+        self._function: sympy.Expr = _parse_to_sympy(function)
+        self._preciseness = _parse_to_sympy(str(preciseness))
 
         # Set variables and parameters
         self._variables: Set[
@@ -66,18 +153,12 @@ class GeneratingFunction(Distribution):
         self._parameters: Set[sympy.Symbol] = set()
         if variables:
             self._variables = self._variables.union(
-                map(lambda v: sympy.Symbol(str(v)),
+                map(lambda v: _sympy_symbol(str(v)),
                     filter(lambda v: v != "", variables)))
             self._parameters = self._variables.difference(
-                map(lambda v: sympy.Symbol(str(v)),
+                map(lambda v: _sympy_symbol(str(v)),
                     filter(lambda v: v != "", variables)))
             self._variables -= self._parameters
-
-        self._locals: Dict[str, sympy.Symbol] = {
-            str(var): var
-            for var in self._variables
-        }
-        self._locals.update({str(param): param for param in self._parameters})
 
         # pylint: disable = too-many-function-args
         for var in self._variables:
@@ -138,9 +219,9 @@ class GeneratingFunction(Distribution):
                               rhs=condition.lhs))
 
         # Now we have an expression of the form _var_ (< | <=, =) _const_.
-        variable = str(condition.lhs)
+        variable = _sympy_symbol(str(condition.lhs))
         constant = condition.rhs.value
-        result = sympy.S(0)
+        result = _parse_to_sympy(0)
         ranges = {
             Binop.LT: range(constant),
             Binop.LEQ: range(constant + 1),
@@ -150,7 +231,7 @@ class GeneratingFunction(Distribution):
         # Compute the probabilities of the states _var_ = i where i ranges depending on the operator (< , <=, =).
         for i in ranges[condition.operator]:
             result += (self._function.diff(variable, i) / sympy.factorial(i)
-                       ).limit(variable, 0, '-') * sympy.Symbol(variable)**i
+                       ).limit(variable, 0, '-') * variable**i
 
         return GeneratingFunction(result,
                                   *self._variables,
@@ -182,9 +263,13 @@ class GeneratingFunction(Distribution):
                 state = {}
                 if monomial == 1:
                     for var in self._variables:
-                        state[var] = 0
+                        state[var.name] = 0
                 else:
-                    state = monomial.as_expr().as_powers_dict()
+                    state = {
+                        str(var): val
+                        for var, val in
+                        monomial.as_expr().as_powers_dict().items()
+                    }
                 yield self._probability_of_state(state), monomial.as_expr()
             logger.debug("\t>Terms generated until total degree of %d", i)
             i += 1
@@ -194,8 +279,8 @@ class GeneratingFunction(Distribution):
         """
         Creates a list of subdistributions where at list index i, the `variable` is congruent i modulo `modulus`.
         """
-        a = sympy.S(modulus, locals=self._locals)
-        var = sympy.Symbol(variable)
+        a = _parse_to_sympy(modulus)
+        var = _sympy_symbol(variable)
         primitive_uroot = sympy.exp(2 * sympy.pi * sympy.I / a)
         result = []
         for remainder in range(a):
@@ -217,12 +302,11 @@ class GeneratingFunction(Distribution):
         func = self._function
         if self._is_closed_form:
             print("\rComputing limit...", end="\r", flush=True)
-            func = func.limit(sympy.Symbol(variable),
-                              sympy.S(value, locals=self._locals), "-")
-            # func = func.subs(sympy.S(variable), sympy.S(value))
+            func = func.limit(_sympy_symbol(variable), _parse_to_sympy(value),
+                              "-")
+            # func = func.subs(_parse_to_sympy(variable), _parse_to_sympy(value))
         else:
-            func = func.subs(sympy.Symbol(variable),
-                             sympy.S(value, locals=self._locals))
+            func = func.subs(_sympy_symbol(variable), _parse_to_sympy(value))
         return GeneratingFunction(func,
                                   preciseness=self._preciseness,
                                   closed=self._is_closed_form,
@@ -239,10 +323,10 @@ class GeneratingFunction(Distribution):
         :return: a tuple (factor, monomial)
         """
         if addend.free_symbols == set():
-            return addend, sympy.S(1)
+            return addend, _parse_to_sympy(1)
         else:
             factor_powers = addend.as_powers_dict()
-            result = (sympy.S(1), sympy.S(1))
+            result = (_parse_to_sympy(1), _parse_to_sympy(1))
             for factor in factor_powers:
                 if factor in addend.free_symbols:
                     result = (result[0],
@@ -290,15 +374,15 @@ class GeneratingFunction(Distribution):
         if self._is_closed_form or not self._is_finite:
             result = self._function
             for variable, value in complete_state.items():
-                result = result.diff(variable, value)
+                result = result.diff(_sympy_symbol(variable), value)
                 result /= sympy.factorial(value)
-                result = result.limit(variable, 0, "-")
+                result = result.limit(_sympy_symbol(variable), 0, "-")
             return result
         # Otherwise use poly module and simply extract the correct coefficient from it
         else:
-            monomial = sympy.S(1)
+            monomial = _parse_to_sympy(1)
             for variable, value in complete_state.items():
-                monomial *= sympy.Symbol(variable)**value
+                monomial *= _sympy_symbol(variable)**value
             probability = self._function.as_poly(
                 *self._variables).coeff_monomial(monomial)
             return probability if probability else sympy.core.numbers.Zero()
@@ -308,7 +392,7 @@ class GeneratingFunction(Distribution):
     def get_fresh_variable(
         self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
         i = 0
-        while sympy.Symbol(f'_{i}') in (
+        while _sympy_symbol(f'_{i}') in (
                 self._variables
                 | self._parameters) or f'_{i}' in exclude:
             i += 1
@@ -319,21 +403,21 @@ class GeneratingFunction(Distribution):
             probability_mass: str | float) -> GeneratingFunction:
         logger.debug("approximate_unilaterally(%s, %s) call on %s", variable,
                      probability_mass, self)
-        mass = sympy.S(probability_mass, locals=self._locals)
+        mass = _parse_to_sympy(probability_mass)
         if mass == 0:
             return GeneratingFunction('0',
                                       *self._variables,
                                       preciseness=0,
                                       closed=True,
                                       finite=True)
-        elif mass > sympy.S(self.get_probability_mass(), locals=self._locals):
+        elif mass > _parse_to_sympy(self.get_probability_mass()):
             raise ValueError("Given probability mass is too large")
         elif mass < 0:
             raise ValueError("Given probability mass must be non-negative")
-        var = sympy.Symbol(variable)
+        var = _sympy_symbol(variable)
         if var not in self._variables:
             raise ValueError(f'Not a variable: {variable}')
-        result = sympy.S(0)
+        result = _parse_to_sympy(0)
         mass_res = 0
 
         for element in self._function.series(var, n=None):
@@ -351,9 +435,8 @@ class GeneratingFunction(Distribution):
     def _update_division(
             self, temp_var: str, numerator: str | int, denominator: str | int,
             approximate: str | float | None) -> GeneratingFunction:
-        update_var = sympy.Symbol(temp_var)
-        div_1, div_2 = sympy.S(numerator, locals=self._locals), sympy.S(
-            denominator, locals=self._locals)
+        update_var = _sympy_symbol(temp_var)
+        div_1, div_2 = _parse_to_sympy(numerator), _parse_to_sympy(denominator)
 
         if div_1 in self._parameters or div_2 in self._parameters:
             raise ValueError('Division containing parameters is not allowed')
@@ -382,7 +465,7 @@ class GeneratingFunction(Distribution):
             marginal_r = marginal_r.approximate_unilaterally(
                 denominator, approximate)
 
-        result = sympy.S(0)
+        result = _parse_to_sympy(0)
         if isinstance(marginal_l, GeneratingFunction):
             for _, state_l in marginal_l:
                 if isinstance(marginal_r, GeneratingFunction):
@@ -442,12 +525,13 @@ class GeneratingFunction(Distribution):
                        approximate: str | float | None) -> GeneratingFunction:
         # TODO this function is very inefficient and I'm not sure why (maybe because of all the filtering?)
 
-        left_sym, right_sym = sympy.Symbol(str(left)), sympy.Symbol(str(right))
+        left_sym, right_sym = _sympy_symbol(str(left)), _sympy_symbol(
+            str(right))
         if left_sym in self._parameters or right_sym in self._parameters:
             raise ValueError('Cannot perform modulo operation on parameters')
 
-        update_var = sympy.Symbol(temp_var)
-        result = sympy.S(0)
+        update_var = _sympy_symbol(temp_var)
+        result = _parse_to_sympy(0)
 
         # On finite GFs, iterate over all states
         if self._is_finite:
@@ -455,13 +539,13 @@ class GeneratingFunction(Distribution):
                 if left_sym in self._variables:
                     left_var = state_r[left]
                 else:
-                    left_var = sympy.S(left)
+                    left_var = _parse_to_sympy(left)
                 if right_sym in self._variables:
                     right_var = state_r[right]
                 else:
-                    right_var = sympy.S(right)
-                result += sympy.S(prob, locals=self._locals) * sympy.S(
-                    state_r.to_monomial(), locals=self._locals).subs(
+                    right_var = _parse_to_sympy(right)
+                result += _parse_to_sympy(prob) * _parse_to_sympy(
+                    state_r.to_monomial()).subs(
                         update_var, 1) * update_var**(left_var % right_var)
 
         # If the GF is infinite and right is a variable, it needs to have finite range
@@ -509,9 +593,8 @@ class GeneratingFunction(Distribution):
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> GeneratingFunction:
-        update_var = sympy.Symbol(temp_var)
-        sub_1, sub_2 = sympy.S(sub_from, locals=self._locals), sympy.S(
-            sub, locals=self._locals)
+        update_var = _sympy_symbol(temp_var)
+        sub_1, sub_2 = _parse_to_sympy(sub_from), _parse_to_sympy(sub)
         result = self._function
 
         # we subtract a variable from another variable
@@ -559,7 +642,7 @@ class GeneratingFunction(Distribution):
                                 preciseness=self._preciseness).set_parameters(
                                     *self.get_parameters())
         test_fun: sympy.Basic = gf.marginal(temp_var)._function.subs(
-            temp_var, 0)
+            update_var, 0)
         if test_fun.has(sympy.S('zoo')) or test_fun == sympy.nan:
             raise ValueError(
                 f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it can be negative"
@@ -569,14 +652,9 @@ class GeneratingFunction(Distribution):
     def _update_product(self, temp_var: str, first_factor: str,
                         second_factor: str,
                         approximate: str | float | None) -> GeneratingFunction:
-        update_var = sympy.Symbol(temp_var)
-        # these assumptions are necessary for some simplifications in the exponent
-        # they are later eliminated again in the init of the new GF
-        update_var_with_assumptions = sympy.Symbol(temp_var,
-                                                   real=True,
-                                                   nonnegative=True)
-        prod_1, prod_2 = sympy.S(first_factor, locals=self._locals), sympy.S(
-            second_factor, locals=self._locals)
+        update_var = _sympy_symbol(temp_var)
+        prod_1, prod_2 = _parse_to_sympy(first_factor), _parse_to_sympy(
+            second_factor)
         result = self._function
 
         if prod_1 in self._parameters or prod_2 in self._parameters:
@@ -587,7 +665,7 @@ class GeneratingFunction(Distribution):
             if not self._is_finite:
                 marginal_l = self.marginal(first_factor)
                 marginal_r = self.marginal(second_factor)
-                result = sympy.S(0)
+                result = _parse_to_sympy(0)
 
                 if not marginal_l._is_finite and not marginal_r._is_finite:
                     if approximate is None:
@@ -610,13 +688,11 @@ class GeneratingFunction(Distribution):
                                       infinite_var, approximate)._function
             else:
                 for prob, state in self:
-                    term: sympy.Basic = sympy.S(
-                        prob, locals=self._locals) * sympy.S(
-                            state.to_monomial(), locals=self._locals)
+                    term: sympy.Basic = _parse_to_sympy(
+                        prob) * _parse_to_sympy(state.to_monomial())
                     result = result - term
-                    term = term.subs(
-                        update_var, 1) * update_var_with_assumptions**(
-                            state[first_factor] * state[second_factor])
+                    term = term.subs(update_var, 1) * update_var**(
+                        state[first_factor] * state[second_factor])
                     result = result + term
 
         # we multiply a variable with a literal
@@ -626,17 +702,14 @@ class GeneratingFunction(Distribution):
             else:
                 var, lit = prod_2, prod_1
             if var == update_var:
-                result = result.subs(update_var,
-                                     update_var_with_assumptions**lit)
+                result = result.subs(update_var, update_var**lit)
             else:
-                result = result.subs([
-                    (update_var, 1),
-                    (var, var * update_var_with_assumptions**lit)
-                ])
+                result = result.subs([(update_var, 1),
+                                      (var, var * update_var**lit)])
 
         # we multiply two literals
         else:
-            result = result.subs(update_var, 1) * (update_var_with_assumptions
+            result = result.subs(update_var, 1) * (update_var
                                                    **(prod_1 * prod_2))
 
         return GeneratingFunction(
@@ -648,25 +721,23 @@ class GeneratingFunction(Distribution):
 
     def _update_var(self, updated_var: str,
                     assign_var: str | int) -> GeneratingFunction:
-        if sympy.Symbol(str(assign_var)) in self._parameters:
+        if _sympy_symbol(str(assign_var)) in self._parameters:
             raise ValueError('Assignment to parameters is not allowed')
-        if sympy.S(str(assign_var), locals=self._locals).is_Symbol and sympy.S(
-                str(assign_var), locals=self._locals) not in self._variables:
+        if _parse_to_sympy(str(assign_var)).is_Symbol and _parse_to_sympy(
+                str(assign_var)) not in self._variables:
             raise ValueError(f"Unknown symbol: {assign_var}")
 
         if not updated_var == assign_var:
-            if sympy.S(assign_var, locals=self._locals) in self._variables:
+            if _parse_to_sympy(assign_var) in self._variables:
                 result = self._function.subs([
-                    (sympy.Symbol(updated_var), 1),
-                    (sympy.S(assign_var, locals=self._locals),
-                     sympy.S(assign_var, locals=self._locals) *
-                     sympy.Symbol(updated_var))
+                    (_sympy_symbol(updated_var), 1),
+                    (_parse_to_sympy(assign_var),
+                     _parse_to_sympy(assign_var) * _sympy_symbol(updated_var))
                 ])
             else:
                 result = self._function.subs(
-                    sympy.Symbol(updated_var),
-                    1) * sympy.Symbol(updated_var)**sympy.S(
-                        assign_var, locals=self._locals)
+                    _sympy_symbol(updated_var), 1) * _sympy_symbol(
+                        updated_var)**_parse_to_sympy(assign_var)
             return GeneratingFunction(
                 result,
                 *self._variables,
@@ -678,9 +749,9 @@ class GeneratingFunction(Distribution):
 
     def _update_sum(self, temp_var: str, first_summand: str | int,
                     second_summand: str | int) -> GeneratingFunction:
-        update_var = sympy.Symbol(temp_var)
-        sum_1, sum_2 = sympy.S(first_summand, locals=self._locals), sympy.S(
-            second_summand, locals=self._locals)
+        update_var = _sympy_symbol(temp_var)
+        sum_1, sum_2 = _parse_to_sympy(first_summand), _parse_to_sympy(
+            second_summand)
         result = self._function
 
         # we add two variables
@@ -723,9 +794,8 @@ class GeneratingFunction(Distribution):
 
     def _update_power(self, temp_var: str, base: str | int, exp: str | int,
                       approximate: str | float | None) -> Distribution:
-        update_var = sympy.Symbol(temp_var)
-        pow_1, pow_2 = sympy.S(base, locals=self._locals), sympy.S(
-            exp, locals=self._locals)
+        update_var = _sympy_symbol(temp_var)
+        pow_1, pow_2 = _parse_to_sympy(base), _parse_to_sympy(exp)
         res = self._function
 
         if pow_1 in self._parameters or pow_2 in self._parameters:
@@ -812,10 +882,13 @@ class GeneratingFunction(Distribution):
                 variable,
                 method=MarginalType.EXCLUDE) if subst_var != variable else self
             result = result.set_variables(*self.get_variables(), str(variable))
-            result._function = result._function.subs(
-                subst_var,
-                f"{subst_var + '*' if subst_var != variable else ''}({dist_gf})"
-            )
+            if subst_var == variable:
+                result._function = result._function.subs(
+                    _sympy_symbol(subst_var), dist_gf)
+            else:
+                result._function = result._function.subs(
+                    _sympy_symbol(subst_var),
+                    _sympy_symbol(subst_var) * dist_gf)
             return result.set_parameters(*self.get_parameters())
 
         if not isinstance(sampling_dist, FunctionCallExpr):
@@ -828,44 +901,42 @@ class GeneratingFunction(Distribution):
                     raise ValueError(
                         "Cannot handle nested user-defined functions in iid parameters"
                     )
-            dist_gf = sympy.S(str(expr.val), locals=self._locals)
+            dist_gf = _parse_to_sympy(str(expr.val))
             return subs(dist_gf, subst_var, variable)
 
         if sampling_dist.function == "binomial":
             n, p = sampling_dist.params[0]
-            dist_gf = sympy.S(f"(1-({p})+({p})*{variable})**({n})",
-                              locals=self._locals)
+            dist_gf = _parse_to_sympy(f"(1-({p})+({p})*{variable})**({n})")
             return subs(dist_gf, subst_var, variable)
         if sampling_dist.function in {"unif", "unif_d"}:
             start, end = sampling_dist.params[0]
-            dist_gf = sympy.S(
+            dist_gf = _parse_to_sympy(
                 f"1/(({end}) - ({start}) + 1) * {variable}**({start}) "\
-                    f"* ({variable}**(({end}) - ({start}) + 1) - 1) / ({variable} - 1)", locals=self._locals
+                    f"* ({variable}**(({end}) - ({start}) + 1) - 1) / ({variable} - 1)"
             )
             return subs(dist_gf, subst_var, variable)
         # All remaining distributions have only one parameter
         [param] = sampling_dist.params[0]
         if sampling_dist.function == "geometric":
-            dist_gf = sympy.S(f"({param}) / (1 - (1-({param})) * {variable})",
-                              locals=self._locals)
+            dist_gf = _parse_to_sympy(
+                f"({param}) / (1 - (1-({param})) * {variable})")
             return subs(dist_gf, subst_var, variable)
         if sampling_dist.function == "logdist":
-            dist_gf = sympy.S(f"log(1-({param})*{variable})/log(1-({param}))",
-                              locals=self._locals)
+            dist_gf = _parse_to_sympy(
+                f"log(1-({param})*{variable})/log(1-({param}))")
             return subs(dist_gf, subst_var, variable)
         if sampling_dist.function == "bernoulli":
-            dist_gf = sympy.S(f"{param} * {variable} + (1 - ({param}))",
-                              locals=self._locals)
+            dist_gf = _parse_to_sympy(
+                f"{param} * {variable} + (1 - ({param}))")
             return subs(dist_gf, subst_var, variable)
         if sampling_dist.function == "poisson":
-            dist_gf = sympy.S(f"exp({param} * ({variable} - 1))",
-                              locals=self._locals)
+            dist_gf = _parse_to_sympy(f"exp({param} * ({variable} - 1))")
             return subs(dist_gf, subst_var, variable)
 
         raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
 
     def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
-        expr = sympy.S(str(expression), locals=self._locals).ratsimp().expand()
+        expr = _parse_to_sympy(str(expression)).ratsimp().expand()
         if not expr.is_polynomial():
             raise NotImplementedError(
                 "Expected Value only computable for polynomial expressions.")
@@ -878,33 +949,39 @@ class GeneratingFunction(Distribution):
                 f"Cannot compute expected value of {expression} because it contains unknown symbols"
             )
 
-        marginal = self.marginal(*(expr.free_symbols & self._variables),
-                                 method=MarginalType.INCLUDE)
+        # we cannot assume that every symbol is nonnegative because we're no longer using normal GFs
+        # thus, we remove the nonnegativity assumption from every symbol in the marginal
+        marginal = self.marginal(
+            *(expr.free_symbols & self._variables),
+            method=MarginalType.INCLUDE)._function.replace(
+                lambda expr: expr.is_Symbol,
+                lambda expr: sympy.Symbol(expr.name, rational=True))
         gen_func = GeneratingFunction(expr,
                                       *(expr.free_symbols & self._variables))
-        expected_value = GeneratingFunction('0')
+        expected_value = _parse_to_sympy(0)
         for prob, state in gen_func:
-            tmp = marginal.copy()
+            tmp = marginal
             for var, val in state.items():
+                var_sym = sympy.Symbol(var, rational=True)
                 for _ in range(val):
-                    tmp = tmp._diff(var, 1) * GeneratingFunction(var)
-                tmp = tmp._limit(var, "1")
-            summand = GeneratingFunction(prob) * tmp
-            if len(summand._function.free_symbols
-                   ) == 0 and summand._function < 0:
-                raise ValueError()
+                    tmp = tmp.diff(var_sym, 1) * var_sym
+                tmp = tmp.limit(var_sym, 1, '-')
+            summand: sympy.Expr = _parse_to_sympy(prob, nonnegative=None) * tmp
+            if len(summand.free_symbols) == 0 and summand < 0:
+                raise ValueError(f'Intermediate result is negative: {summand}')
             expected_value += summand
-        if expected_value._function == sympy.S('oo'):
+        if expected_value == sympy.S('oo'):
             return str(RealLitExpr.infinity())
         else:
-            return str(expected_value._function)
+            return str(expected_value)
 
     def copy(self, deep: bool = True) -> GeneratingFunction:
-        res = GeneratingFunction(str(self._function),
-                                 *self._variables,
-                                 preciseness=self._preciseness,
-                                 closed=self._is_closed_form,
-                                 finite=self._is_finite)
+        res = GeneratingFunction(
+            str(self._function),  # TODO remove str?
+            *self._variables,
+            preciseness=self._preciseness,
+            closed=self._is_closed_form,
+            finite=self._is_finite)
         res._parameters = self._parameters.copy()
         return res
 
@@ -927,7 +1004,7 @@ class GeneratingFunction(Distribution):
                 "A indeterminate cannot be variable and parameter at the same time."
             )
         result = self.copy()
-        result._parameters = set(sympy.Symbol(param) for param in remove_dups)
+        result._parameters = set(_sympy_symbol(param) for param in remove_dups)
         return result
 
     def _arithmetic(self, other, op: Callable) -> GeneratingFunction:
@@ -1027,14 +1104,12 @@ class GeneratingFunction(Distribution):
         # if one of the generating functions is finite, we can check the relation coefficient-wise.
         if self._is_finite:
             for prob, state in self:
-                if sympy.S(prob, locals=self._locals
-                           ) > other._probability_of_state(state):
+                if _parse_to_sympy(prob) > other._probability_of_state(state):
                     return False
             return True
         if other._is_finite:
             for prob, state in other:
-                if self._probability_of_state(state) > sympy.S(
-                        prob, locals=self._locals):
+                if self._probability_of_state(state) > _parse_to_sympy(prob):
                     return False
             return True
         # when both generating functions have infinite support we can only try to check whether we can eliminate
@@ -1076,7 +1151,8 @@ class GeneratingFunction(Distribution):
                     logger.warning(
                         "Empty Polynomial, introducing auxilliary variable to create polynomial."
                     )
-                    func = self._function.as_poly(sympy.S("empty_generator"))
+                    func = self._function.as_poly(
+                        _parse_to_sympy("empty_generator"))
                 else:
                     func = self._function.as_poly(*self._variables)
             return map(
@@ -1102,7 +1178,7 @@ class GeneratingFunction(Distribution):
         """
         logger.debug("diff Call")
         return GeneratingFunction(sympy.diff(self._function,
-                                             sympy.Symbol(variable), k),
+                                             _sympy_symbol(variable), k),
                                   *self._variables,
                                   preciseness=self._preciseness)
 
@@ -1120,17 +1196,16 @@ class GeneratingFunction(Distribution):
         :return: A Generating Function generator.
         """
         logger.debug("expand_until() call")
-        approx = sympy.S("0")
-        precision = sympy.S(0)
+        approx = _parse_to_sympy("0")
+        precision = _parse_to_sympy(0)
 
         if isinstance(threshold, int):
             assert threshold > 0, "Expanding to less than 0 terms is not valid."
             for n, (prob, state) in enumerate(self):
                 if n >= threshold:
                     break
-                s_prob = sympy.S(prob, locals=self._locals)
-                approx += s_prob * sympy.S(state.to_monomial(),
-                                           locals=self._locals)
+                s_prob = _parse_to_sympy(prob)
+                approx += s_prob * _parse_to_sympy(state.to_monomial())
                 precision += s_prob
                 yield GeneratingFunction(approx,
                                          *self._variables,
@@ -1139,16 +1214,15 @@ class GeneratingFunction(Distribution):
                                          finite=True)
 
         elif isinstance(threshold, str):
-            s_threshold = sympy.S(threshold, locals=self._locals)
+            s_threshold = _parse_to_sympy(threshold)
             assert s_threshold < self.coefficient_sum(), \
                 f"Threshold cannot be larger than total coefficient sum! Threshold:" \
                 f" {s_threshold}, CSum {self.coefficient_sum()}"
             for prob, state in self:
-                if precision >= sympy.S(threshold, locals=self._locals):
+                if precision >= _parse_to_sympy(threshold):
                     break
-                s_prob = sympy.S(prob, locals=self._locals)
-                approx += s_prob * sympy.S(state.to_monomial(),
-                                           locals=self._locals)
+                s_prob = _parse_to_sympy(prob)
+                approx += s_prob * _parse_to_sympy(state.to_monomial())
                 precision += s_prob
                 yield GeneratingFunction(str(approx.expand()),
                                          *self._variables,
@@ -1205,14 +1279,11 @@ class GeneratingFunction(Distribution):
     def evaluate(expression: str, state: State) -> sympy.Expr:
         """ Evaluates the expression in a given state. """
 
-        s_exp = sympy.S(
-            expression,
-            locals={str(v): sympy.Symbol(v)
-                    for v in state.valuations})
+        s_exp = _parse_to_sympy(expression)
         # Iterate over the variable, value pairs in the state
         for var, value in state.items():
             # Convert the variable into a sympy symbol and substitute
-            s_var = sympy.Symbol(var)
+            s_var = _sympy_symbol(var)
             s_exp = s_exp.subs(s_var, value)
 
         # If the state did not interpret all variables in the condition, interpret the remaining variables as 0
@@ -1235,35 +1306,32 @@ class GeneratingFunction(Distribution):
 
         if len(variables) == 0:
             raise ValueError("No variables where provided")
-        if not {sympy.Symbol(str(x))
+        if not {_sympy_symbol(str(x))
                 for x in variables}.issubset(self._variables):
             raise ValueError(
-                f"Unknown variable(s): { {sympy.Symbol(str(x)) for x in variables} - self._variables}"
+                f"Unknown variable(s): { {_sympy_symbol(str(x)) for x in variables} - self._variables}"
             )
 
+        marginal_vars = set(
+            map(_sympy_symbol, filter(lambda v: v != '', map(str, variables))))
         marginal = self.copy()
         s_var: str | VarExpr | sympy.Symbol
         if method == MarginalType.INCLUDE:
-            for s_var in marginal._variables.difference(
-                    map(sympy.Symbol,
-                        map(str, filter(lambda v: v != "", variables)))):
+            for s_var in marginal._variables.difference(marginal_vars):
                 if marginal._is_closed_form:
                     marginal._function = marginal._function.limit(
                         s_var, 1, "-")
                 else:
                     marginal._function = marginal._function.subs(s_var, 1)
-            marginal._variables = set(
-                map(sympy.Symbol, filter(lambda v: v != "",
-                                         map(str, variables))))
+            marginal._variables = marginal_vars
         else:
-            for s_var in variables:
+            for s_var in marginal_vars:
                 if marginal._is_closed_form:
                     marginal._function = marginal._function.limit(
                         s_var, 1, "-")
                 else:
                     marginal._function = marginal._function.subs(s_var, 1)
-            marginal._variables = marginal._variables.difference(
-                map(sympy.Symbol, filter(lambda v: v != "", variables)))
+            marginal._variables = marginal._variables.difference(marginal_vars)
 
         marginal._is_closed_form = not marginal._function.is_polynomial()
         marginal._is_finite = marginal._function.ratsimp().is_polynomial()
@@ -1277,11 +1345,10 @@ class GeneratingFunction(Distribution):
         return res
 
     def _exhaustive_search(self, condition: Expr) -> GeneratingFunction:
-        res = sympy.S(0)
+        res = _parse_to_sympy(0)
         for prob, state in self:
             if self.evaluate_condition(condition, state):
-                res += sympy.S(f"{prob} * {state.to_monomial()}",
-                               locals=self._locals)
+                res += _parse_to_sympy(f"{prob} * {state.to_monomial()}")
         return GeneratingFunction(res,
                                   *self._variables,
                                   preciseness=self._preciseness,
@@ -1289,10 +1356,7 @@ class GeneratingFunction(Distribution):
                                   finite=True)
 
     def _find_symbols(self, expr: str) -> Set[str]:
-        return {
-            str(s)
-            for s in sympy.S(expr, locals=self._locals).free_symbols
-        }
+        return {str(s) for s in _parse_to_sympy(expr).free_symbols}
 
     def get_symbols(self) -> Set[str]:
         return {str(s) for s in self._function.free_symbols}
@@ -1307,7 +1371,8 @@ class SympyPGF(CommonDistributionsFactory):
             expr = parse_expr(str(p))
         else:
             expr = p
-        if not has_variable(expr, None) and not 0 < sympy.S(str(p)) < 1:
+        if not has_variable(expr,
+                            None) and not 0 < _parse_to_sympy(str(p)) < 1:
             raise ValueError(
                 f"parameter of geom distr must be 0 < p <= 1, was {p}")
         return GeneratingFunction(f"({p}) / (1 - (1-({p})) * {var})",
@@ -1327,9 +1392,9 @@ class SympyPGF(CommonDistributionsFactory):
         else:
             expr_u = upper
         if not has_variable(expr_l, None) and (
-                not 0 <= sympy.S(str(lower)) or
-            (not has_variable(expr_u, None)
-             and not sympy.S(str(lower)) <= sympy.S(str(upper)))):
+                not 0 <= _parse_to_sympy(str(lower)) or
+            (not has_variable(expr_u, None) and
+             not _parse_to_sympy(str(lower)) <= _parse_to_sympy(str(upper)))):
             raise ValueError(
                 "Distribution parameters must satisfy 0 <= a < b < oo")
         return GeneratingFunction(
@@ -1346,7 +1411,8 @@ class SympyPGF(CommonDistributionsFactory):
             expr = parse_expr(str(p))
         else:
             expr = p
-        if not has_variable(expr, None) and not 0 <= sympy.S(str(p)) <= 1:
+        if not has_variable(expr,
+                            None) and not 0 <= _parse_to_sympy(str(p)) <= 1:
             raise ValueError(
                 f"Parameter of Bernoulli Distribution must be in [0,1], but was {p}"
             )
@@ -1362,7 +1428,7 @@ class SympyPGF(CommonDistributionsFactory):
             expr = parse_expr(str(lam))
         else:
             expr = lam
-        if not has_variable(expr, None) and sympy.S(str(lam)) < 0:
+        if not has_variable(expr, None) and _parse_to_sympy(str(lam)) < 0:
             raise ValueError(
                 f"Parameter of Poisson Distribution must be in [0, oo), but was {lam}"
             )
@@ -1378,7 +1444,8 @@ class SympyPGF(CommonDistributionsFactory):
             expr = parse_expr(str(p))
         else:
             expr = p
-        if not has_variable(expr, None) and not 0 <= sympy.S(str(p)) <= 1:
+        if not has_variable(expr,
+                            None) and not 0 <= _parse_to_sympy(str(p)) <= 1:
             raise ValueError(
                 f"Parameter of Logarithmic Distribution must be in [0,1], but was {p}"
             )
@@ -1394,7 +1461,8 @@ class SympyPGF(CommonDistributionsFactory):
             expr_p = parse_expr(str(p))
         else:
             expr_p = p
-        if not has_variable(expr_p, None) and not 0 <= sympy.S(str(p)) <= 1:
+        if not has_variable(expr_p,
+                            None) and not 0 <= _parse_to_sympy(str(p)) <= 1:
             raise ValueError(
                 f"Parameter of Binomial Distribution must be in [0,1], but was {p}"
             )
@@ -1402,7 +1470,7 @@ class SympyPGF(CommonDistributionsFactory):
             expr_n = parse_expr(str(n))
         else:
             expr_n = n
-        if not has_variable(expr_n, None) and not 0 <= sympy.S(str(n)):
+        if not has_variable(expr_n, None) and not 0 <= _parse_to_sympy(str(n)):
             raise ValueError(
                 f"Parameter of Binomial Distribution must be in [0,oo), but was {n}"
             )
