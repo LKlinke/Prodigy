@@ -299,15 +299,17 @@ def test_split_addend():
     assert GeneratingFunction._split_addend(addend) == (probability, monomial)
 
 
-def test_predefined_variable_names():
-    gf = GeneratingFunction('sum^3*x^5')
+@pytest.mark.parametrize("name", ['sum', 'exp', 'sign', 'ln', 'log', 'sqrt'])
+def test_predefined_variable_names(name):
+    gf = GeneratingFunction(f'{name}^3*x^5')
     assert len(gf.get_variables()) == 2
-    assert gf.marginal('sum') == GeneratingFunction('sum^3')
-    assert gf.update(
-        parse_expr('sum = sum + 1')) == GeneratingFunction('sum^4*x^5')
+    assert gf.marginal(name) == GeneratingFunction(f'{name}^3')
+    assert gf.update(parse_expr(f'{name} = {name} + 1')) == GeneratingFunction(
+        f'{name}^4*x^5')
 
-    assert SympyPGF.bernoulli('sum', '1/2') == GeneratingFunction(
-        '1/2+1/2*sum')
-    gf = GeneratingFunction('sum*x', 'x')
+    assert SympyPGF.bernoulli(name,
+                              '1/2') == GeneratingFunction(f'1/2+1/2*{name}')
+    gf = GeneratingFunction(f'{name}*x', 'x')
     assert len(gf.get_parameters()) == 1
-    assert gf.update(parse_expr('x = 2')) == GeneratingFunction('sum*x^2', 'x')
+    assert gf.update(parse_expr('x = 2')) == GeneratingFunction(
+        f'{name}*x^2', 'x')
