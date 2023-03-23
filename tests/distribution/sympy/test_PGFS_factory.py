@@ -27,7 +27,7 @@ def test_geometric(probability):
                           for i, j in itertools.product(range(10), range(10))])
 def test_uniform(start, end):
     assert GeneratingFunction(f"variable**{start} / ({end} - {start}+1) *"
-                              f"(variable ** ({end} - {start} + 1) - 1) / (variable - 1)") == \
+                              f"(variable ** ({end} - {start} + 1) - 1) / (variable - 1)", 'variable') == \
            SympyPGF.uniform("variable", str(start), str(end))
 
 
