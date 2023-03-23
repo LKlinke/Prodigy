@@ -439,7 +439,7 @@ class ObserveHandler(InstructionHandler):
         unsat_part = distribution - sat_part
         so_vars = prog_info.so_vars
         if so_vars is None or len(so_vars) == 0:
-            unsat_prob = unsat_part.get_probability_mass()
+            unsat_prob: Distribution | str = unsat_part.get_probability_mass()
         else:
             unsat_prob = unsat_part.marginal(*so_vars)
         res_error_prob = error_prob + unsat_prob
