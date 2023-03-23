@@ -128,7 +128,7 @@ class Distribution(ABC):
     def copy(self, deep: bool = True) -> Distribution:
         """ Returns a full copy of itself."""
 
-    def get_probability_of(self, condition: Union[Expr, str]):
+    def get_probability_of(self, condition: Union[Expr, str]) -> str:
         """
         Returns the probability of a given `condition` or variable.
 
@@ -143,7 +143,7 @@ class Distribution(ABC):
         return self.filter(expr).get_probability_mass()
 
     @abstractmethod
-    def get_probability_mass(self) -> Union[Expr, str]:
+    def get_probability_mass(self) -> str:
         """ Returns the probability mass of the distribution. """
 
     @abstractmethod

@@ -145,7 +145,7 @@ class GeneratingFunction(Distribution):
 
         # Set the basic information.
         self._function: sympy.Expr = _parse_to_sympy(function)
-        self._preciseness = _parse_to_sympy(str(preciseness))
+        self._preciseness = preciseness
 
         # Set variables and parameters
         self._variables: Set[
@@ -221,7 +221,7 @@ class GeneratingFunction(Distribution):
         # Now we have an expression of the form _var_ (< | <=, =) _const_.
         variable = _sympy_symbol(str(condition.lhs))
         constant = condition.rhs.value
-        result = _parse_to_sympy(0)
+        result = 0
         ranges = {
             Binop.LT: range(constant),
             Binop.LEQ: range(constant + 1),
@@ -308,10 +308,10 @@ class GeneratingFunction(Distribution):
         :return: a tuple (factor, monomial)
         """
         if addend.free_symbols == set():
-            return addend, _parse_to_sympy(1)
+            return addend, sympy.Integer(1)
         else:
             factor_powers = addend.as_powers_dict()
-            result = (_parse_to_sympy(1), _parse_to_sympy(1))
+            result = (sympy.Integer(1), sympy.Integer(1))
             for factor in factor_powers:
                 if factor in addend.free_symbols:
                     result = (result[0],
@@ -365,7 +365,7 @@ class GeneratingFunction(Distribution):
             return result
         # Otherwise use poly module and simply extract the correct coefficient from it
         else:
-            monomial = _parse_to_sympy(1)
+            monomial = 1
             for variable, value in complete_state.items():
                 monomial *= _sympy_symbol(variable)**value
             probability = self._function.as_poly(
@@ -395,14 +395,14 @@ class GeneratingFunction(Distribution):
                                       preciseness=0,
                                       closed=True,
                                       finite=True)
-        elif mass > _parse_to_sympy(self.get_probability_mass()):
+        elif mass > self.coefficient_sum():
             raise ValueError("Given probability mass is too large")
         elif mass < 0:
             raise ValueError("Given probability mass must be non-negative")
         var = _sympy_symbol(variable)
         if var not in self._variables:
             raise ValueError(f'Not a variable: {variable}')
-        result = _parse_to_sympy(0)
+        result = 0
         mass_res = 0
 
         for element in self._function.series(var, n=None):
@@ -450,7 +450,7 @@ class GeneratingFunction(Distribution):
             marginal_r = marginal_r.approximate_unilaterally(
                 denominator, approximate)
 
-        result = _parse_to_sympy(0)
+        result = 0
         if isinstance(marginal_l, GeneratingFunction):
             for _, state_l in marginal_l:
                 if isinstance(marginal_r, GeneratingFunction):
@@ -516,11 +516,11 @@ class GeneratingFunction(Distribution):
             raise ValueError('Cannot perform modulo operation on parameters')
 
         update_var = _sympy_symbol(temp_var)
-        result = _parse_to_sympy(0)
+        result = 0
 
         # On finite GFs, iterate over all states
         if self._is_finite:
-            for prob, state_r in self:
+            for prob, state_r in self._iter_expr_state():
                 if left_sym in self._variables:
                     left_var = state_r[left]
                 else:
@@ -529,9 +529,8 @@ class GeneratingFunction(Distribution):
                     right_var = state_r[right]
                 else:
                     right_var = _parse_to_sympy(right)
-                result += _parse_to_sympy(prob) * _parse_to_sympy(
-                    state_r.to_monomial()).subs(
-                        update_var, 1) * update_var**(left_var % right_var)
+                result += prob * _parse_to_sympy(state_r.to_monomial()).subs(
+                    update_var, 1) * update_var**(left_var % right_var)
 
         # If the GF is infinite and right is a variable, it needs to have finite range
         elif right_sym in self._variables:
@@ -650,7 +649,7 @@ class GeneratingFunction(Distribution):
             if not self._is_finite:
                 marginal_l = self.marginal(first_factor)
                 marginal_r = self.marginal(second_factor)
-                result = _parse_to_sympy(0)
+                result = sympy.Integer(0)
 
                 if not marginal_l._is_finite and not marginal_r._is_finite:
                     if approximate is None:
@@ -672,9 +671,9 @@ class GeneratingFunction(Distribution):
                     )._update_product(temp_var, state[finite_var],
                                       infinite_var, approximate)._function
             else:
-                for prob, state in self:
-                    term: sympy.Basic = _parse_to_sympy(
-                        prob) * _parse_to_sympy(state.to_monomial())
+                for prob, state_expr in self._iter_expr_expr():
+                    state = self._monomial_to_state(state_expr)
+                    term: sympy.Basic = prob * state_expr
                     result = result - term
                     term = term.subs(update_var, 1) * update_var**(
                         state[first_factor] * state[second_factor])
@@ -1088,13 +1087,13 @@ class GeneratingFunction(Distribution):
 
         # if one of the generating functions is finite, we can check the relation coefficient-wise.
         if self._is_finite:
-            for prob, state in self:
-                if _parse_to_sympy(prob) > other._probability_of_state(state):
+            for prob, state in self._iter_expr_state():
+                if prob > other._probability_of_state(state):
                     return False
             return True
         if other._is_finite:
-            for prob, state in other:
-                if self._probability_of_state(state) > _parse_to_sympy(prob):
+            for prob, state in other._iter_expr_state():
+                if self._probability_of_state(state) > prob:
                     return False
             return True
         # when both generating functions have infinite support we can only try to check whether we can eliminate
@@ -1127,6 +1126,18 @@ class GeneratingFunction(Distribution):
             k-tuples, for which the coefficient might be zero (this we do not know upfront).
         """
         logger.debug("iterating over %s...", self)
+        return map(
+            lambda term: (str(term[0]), self._monomial_to_state(term[1])),
+            self._iter_expr_expr())
+
+    def _iter_expr_state(self) -> Iterator[Tuple[sympy.Expr, State]]:
+        """Iterates over self and yields the (coefficient, state) pairs as a sympy expression and a `State`"""
+        return map(lambda term: (term[0], self._monomial_to_state(term[1])),
+                   self._iter_expr_expr())
+
+    def _iter_expr_expr(self) -> Iterator[Tuple[sympy.Expr, sympy.Expr]]:
+        """Iterates over self and yields the (coefficient, state) pairs as sympy expressions"""
+
         if self._is_finite:
             if self._is_closed_form:
                 func = self._function.expand().ratsimp().as_poly(
@@ -1140,14 +1151,10 @@ class GeneratingFunction(Distribution):
                         _parse_to_sympy("empty_generator"))
                 else:
                     func = self._function.as_poly(*self._variables)
-            return map(
-                lambda term: (str(term[0]), self._monomial_to_state(term[1])),
-                _term_generator(func))
+            return _term_generator(func)
         else:
             logger.debug("Multivariate Taylor expansion might take a while...")
-            return map(
-                lambda term: (str(term[0]), self._monomial_to_state(term[1])),
-                self._mult_term_generator())
+            return self._mult_term_generator()
 
     # FIXME: It's not nice to have different behaviour depending on the variable type of `threshold`.
     def approximate(
@@ -1168,12 +1175,11 @@ class GeneratingFunction(Distribution):
 
         if isinstance(threshold, int):
             assert threshold > 0, "Expanding to less than 0 terms is not valid."
-            for n, (prob, state) in enumerate(self):
+            for n, (prob, state) in enumerate(self._iter_expr_expr()):
                 if n >= threshold:
                     break
-                s_prob = _parse_to_sympy(prob)
-                approx += s_prob * _parse_to_sympy(state.to_monomial())
-                precision += s_prob
+                approx += prob * state
+                precision += prob
                 yield GeneratingFunction(approx,
                                          *self._variables,
                                          preciseness=precision,
@@ -1185,11 +1191,10 @@ class GeneratingFunction(Distribution):
             assert s_threshold < self.coefficient_sum(), \
                 f"Threshold cannot be larger than total coefficient sum! Threshold:" \
                 f" {s_threshold}, CSum {self.coefficient_sum()}"
-            for prob, state in self:
+            for s_prob, state in self._iter_expr_expr():
                 if precision >= _parse_to_sympy(threshold):
                     break
-                s_prob = _parse_to_sympy(prob)
-                approx += s_prob * _parse_to_sympy(state.to_monomial())
+                approx += s_prob * state
                 precision += s_prob
                 yield GeneratingFunction(str(approx.expand()),
                                          *self._variables,
@@ -1313,9 +1318,10 @@ class GeneratingFunction(Distribution):
 
     def _exhaustive_search(self, condition: Expr) -> GeneratingFunction:
         res = _parse_to_sympy(0)
-        for prob, state in self:
-            if self.evaluate_condition(condition, state):
-                res += _parse_to_sympy(f"{prob} * {state.to_monomial()}")
+        for prob, state in self._iter_expr_expr():
+            if self.evaluate_condition(condition,
+                                       self._monomial_to_state(state)):
+                res += prob * state
         return GeneratingFunction(res,
                                   *self._variables,
                                   preciseness=self._preciseness,
