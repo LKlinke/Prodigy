@@ -223,16 +223,17 @@ class TestDistributionInterface:
         assert all([x in gf.get_variables() for x in {'a', 'b', 'c'}])
 
 
-def test_predefined_variable_names():
-    gf = FPS('sum^3*x^5')
+@pytest.mark.parametrize("name", ['sum', 'exp', 'sign', 'ln', 'log', 'sqrt'])
+def test_predefined_variable_names(name):
+    gf = FPS(f'{name}^3*x^5')
     assert len(gf.get_variables()) == 2
-    assert gf.marginal('sum') == FPS('sum^3', 'sum')
-    assert gf.update(parse_expr('sum = sum + 1')) == FPS(
-        'sum^4*x^5', 'sum', 'x')
+    assert gf.marginal(name) == FPS(f'{name}^3')
+    assert gf.update(
+        parse_expr(f'{name} = {name} + 1')) == FPS(f'{name}^4*x^5')
 
-    assert ProdigyPGF.bernoulli('sum', '1/2') == FPS('1/2+1/2*sum', 'sum')
+    assert ProdigyPGF.bernoulli(name, '1/2') == FPS(f'1/2+1/2*{name}')
 
     pygin.reset_symbol_cache()
-    gf = FPS('sum*x', 'x')
+    gf = FPS(f'{name}*x', 'x')
     assert len(gf.get_parameters()) == 1
-    assert gf.update(parse_expr('x = 2')) == FPS('sum*x^2', 'x')
+    assert gf.update(parse_expr('x = 2')) == FPS(f'{name}*x^2', 'x')
