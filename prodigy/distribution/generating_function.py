@@ -297,21 +297,6 @@ class GeneratingFunction(Distribution):
                                    finite=self._is_finite))
         return result
 
-    def _limit(self, variable: Union[str, sympy.Symbol],
-               value: Union[str, sympy.Expr]) -> GeneratingFunction:
-        func = self._function
-        if self._is_closed_form:
-            print("\rComputing limit...", end="\r", flush=True)
-            func = func.limit(_sympy_symbol(variable), _parse_to_sympy(value),
-                              "-")
-            # func = func.subs(_parse_to_sympy(variable), _parse_to_sympy(value))
-        else:
-            func = func.subs(_sympy_symbol(variable), _parse_to_sympy(value))
-        return GeneratingFunction(func,
-                                  preciseness=self._preciseness,
-                                  closed=self._is_closed_form,
-                                  finite=func.ratsimp().is_polynomial())
-
     @staticmethod
     def _split_addend(addend: sympy.Expr) -> Tuple[sympy.Expr, sympy.Expr]:
         r"""
@@ -1163,24 +1148,6 @@ class GeneratingFunction(Distribution):
             return map(
                 lambda term: (str(term[0]), self._monomial_to_state(term[1])),
                 self._mult_term_generator())
-
-    def _diff(self, variable, k):
-        r"""
-        Partial `k`-th derivative of the generating function with respect to variable `variable`.
-
-        :param variable: The variable in which the generating function gets differentiated.
-
-        :param k: The order of the partial derivative.
-
-        :return: The `k`-th partial derivative of the generating function in `variable`
-
-        .. math:: \fraction{\delta G^`k`}{\delta `var`^`k`}
-        """
-        logger.debug("diff Call")
-        return GeneratingFunction(sympy.diff(self._function,
-                                             _sympy_symbol(variable), k),
-                                  *self._variables,
-                                  preciseness=self._preciseness)
 
     # FIXME: It's not nice to have different behaviour depending on the variable type of `threshold`.
     def approximate(
