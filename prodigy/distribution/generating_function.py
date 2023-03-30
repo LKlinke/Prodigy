@@ -32,7 +32,10 @@ def _term_generator(function: sympy.Poly):
         poly -= poly.EC() * poly.EM().as_expr()
 
 
-def _parse_to_sympy(expr: Any, rational=True, nonnegative=True) -> Any:
+def _parse_to_sympy(expr: Any,
+                    rational=True,
+                    nonnegative=True,
+                    **kwargs) -> sympy.Expr:
     """
     Parses something to a sympy expression. Can convert a probably expression
     faster than passing it as a string to sympy. Also will correctly determine if
@@ -45,7 +48,7 @@ def _parse_to_sympy(expr: Any, rational=True, nonnegative=True) -> Any:
     if getattr(expr, '__sympy__', None):
         return expr
     if isinstance(expr, (float, bool, Fraction)):
-        return sympy.S(expr, rational=True)
+        return sympy.S(expr, rational=True, **kwargs)
 
     s: sympy.Expr
 
@@ -59,7 +62,8 @@ def _parse_to_sympy(expr: Any, rational=True, nonnegative=True) -> Any:
 
         def probably_to_sympy(prob_expr: Expr) -> sympy.Expr:
             if isinstance(prob_expr, VarExpr):
-                return _sympy_symbol(prob_expr.var, rational, nonnegative)
+                return _sympy_symbol(prob_expr.var, rational, nonnegative,
+                                     **kwargs)
             if isinstance(prob_expr, NatLitExpr):
                 return sympy.Integer(prob_expr.value)
             if isinstance(prob_expr, RealLitExpr):
@@ -104,24 +108,35 @@ def _parse_to_sympy(expr: Any, rational=True, nonnegative=True) -> Any:
             + (sympy.parsing.sympy_parser.convert_xor,
                sympy.parsing.sympy_parser.rationalize),
             global_dict={
-                'Symbol': lambda x: _sympy_symbol(x, rational, nonnegative),
-                'Function': get_function,
-                'Integer': sympy.Integer,
-                'Float': sympy.Float,
-                'Rational': sympy.Rational
+                'Symbol':
+                lambda x: _sympy_symbol(x, rational, nonnegative, **kwargs),
+                'Function':
+                get_function,
+                'Integer':
+                sympy.Integer,
+                'Float':
+                sympy.Float,
+                'Rational':
+                sympy.Rational
             })
 
     return s
 
 
-def _sympy_symbol(name: Any, rational=True, nonnegative=True) -> sympy.Symbol:
+def _sympy_symbol(name: Any,
+                  rational=True,
+                  nonnegative=True,
+                  **kwargs) -> sympy.Symbol:
     """
     Creates a rational and nonnegative sympy Symbol.
     
     Note that `sympy.Symbol('x') == sympy.Symbol('x', rational=True, nonnegative=True)`
     is false.
     """
-    return sympy.Symbol(name, rational=rational, nonnegative=nonnegative)
+    return sympy.Symbol(name,
+                        rational=rational,
+                        nonnegative=nonnegative,
+                        **kwargs)
 
 
 class GeneratingFunction(Distribution):
@@ -283,9 +298,9 @@ class GeneratingFunction(Distribution):
         var = _sympy_symbol(variable)
         primitive_uroot = sympy.exp(2 * sympy.pi * sympy.I / a)
         result = []
-        for remainder in range(a):
+        for remainder in range(a):  # type: ignore
             psum = 0
-            for m in range(a):
+            for m in range(a):  # type: ignore
                 psum += primitive_uroot**(-m *
                                           remainder) * self._function.subs(
                                               var, (primitive_uroot**m) * var)
@@ -889,32 +904,29 @@ class GeneratingFunction(Distribution):
             return subs(dist_gf, subst_var, variable)
 
         if sampling_dist.function == "binomial":
-            n, p = sampling_dist.params[0]
-            dist_gf = _parse_to_sympy(f"(1-({p})+({p})*{variable})**({n})")
+            n, p = map(_parse_to_sympy, sampling_dist.params[0])
+            dist_gf = (1 - p + p * _sympy_symbol(variable))**n
             return subs(dist_gf, subst_var, variable)
         if sampling_dist.function in {"unif", "unif_d"}:
-            start, end = sampling_dist.params[0]
-            dist_gf = _parse_to_sympy(
-                f"1/(({end}) - ({start}) + 1) * {variable}**({start}) "\
-                    f"* ({variable}**(({end}) - ({start}) + 1) - 1) / ({variable} - 1)"
-            )
+            start, end = map(_parse_to_sympy, sampling_dist.params[0])
+            var = _sympy_symbol(variable)
+            dist_gf = 1 / (end - start + 1) * var**start * (
+                var**(end - start + 1) - 1) / (var - 1)
             return subs(dist_gf, subst_var, variable)
         # All remaining distributions have only one parameter
-        [param] = sampling_dist.params[0]
+        [param] = map(_parse_to_sympy, sampling_dist.params[0])
         if sampling_dist.function == "geometric":
-            dist_gf = _parse_to_sympy(
-                f"({param}) / (1 - (1-({param})) * {variable})")
+            dist_gf = param / (1 - (1 - param) * _sympy_symbol(variable))
             return subs(dist_gf, subst_var, variable)
         if sampling_dist.function == "logdist":
-            dist_gf = _parse_to_sympy(
-                f"log(1-({param})*{variable})/log(1-({param}))")
+            dist_gf = sympy.log(1 - param *
+                                _sympy_symbol(variable)) / sympy.log(1 - param)
             return subs(dist_gf, subst_var, variable)
         if sampling_dist.function == "bernoulli":
-            dist_gf = _parse_to_sympy(
-                f"{param} * {variable} + (1 - ({param}))")
+            dist_gf = param * _sympy_symbol(variable) + (1 - param)
             return subs(dist_gf, subst_var, variable)
         if sampling_dist.function == "poisson":
-            dist_gf = _parse_to_sympy(f"exp({param} * ({variable} - 1))")
+            dist_gf = sympy.exp(param * (_sympy_symbol(variable) - 1))
             return subs(dist_gf, subst_var, variable)
 
         raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
@@ -938,11 +950,11 @@ class GeneratingFunction(Distribution):
         marginal = self.marginal(
             *(expr.free_symbols & self._variables),
             method=MarginalType.INCLUDE)._function.replace(
-                lambda expr: expr.is_Symbol,
-                lambda expr: sympy.Symbol(expr.name, rational=True))
+                lambda expr: expr.is_Symbol, lambda expr: sympy.Symbol(
+                    expr.name, rational=True, nonnegative=None))
         gen_func = GeneratingFunction(expr,
                                       *(expr.free_symbols & self._variables))
-        expected_value = _parse_to_sympy(0)
+        expected_value = sympy.Integer(0)
         for prob, state in gen_func:
             tmp = marginal
             for var, val in state.items():
@@ -1170,8 +1182,8 @@ class GeneratingFunction(Distribution):
         :return: A Generating Function generator.
         """
         logger.debug("expand_until() call")
-        approx = _parse_to_sympy("0")
-        precision = _parse_to_sympy(0)
+        approx = sympy.Integer(0)
+        precision = sympy.Integer(0)
 
         if isinstance(threshold, int):
             assert threshold > 0, "Expanding to less than 0 terms is not valid."
@@ -1317,7 +1329,7 @@ class GeneratingFunction(Distribution):
         return res
 
     def _exhaustive_search(self, condition: Expr) -> GeneratingFunction:
-        res = _parse_to_sympy(0)
+        res = sympy.Integer(0)
         for prob, state in self._iter_expr_expr():
             if self.evaluate_condition(condition,
                                        self._monomial_to_state(state)):
@@ -1344,8 +1356,7 @@ class SympyPGF(CommonDistributionsFactory):
             expr = parse_expr(str(p))
         else:
             expr = p
-        if not has_variable(expr,
-                            None) and not 0 < _parse_to_sympy(str(p)) < 1:
+        if not has_variable(expr, None) and not 0 < _parse_to_sympy(p) < 1:
             raise ValueError(
                 f"parameter of geom distr must be 0 < p <= 1, was {p}")
         return GeneratingFunction(f"({p}) / (1 - (1-({p})) * {var})",
@@ -1365,9 +1376,9 @@ class SympyPGF(CommonDistributionsFactory):
         else:
             expr_u = upper
         if not has_variable(expr_l, None) and (
-                not 0 <= _parse_to_sympy(str(lower)) or
-            (not has_variable(expr_u, None) and
-             not _parse_to_sympy(str(lower)) <= _parse_to_sympy(str(upper)))):
+                not 0 <= _parse_to_sympy(lower) or
+            (not has_variable(expr_u, None)
+             and not _parse_to_sympy(lower) <= _parse_to_sympy(upper))):
             raise ValueError(
                 "Distribution parameters must satisfy 0 <= a < b < oo")
         return GeneratingFunction(
@@ -1384,8 +1395,7 @@ class SympyPGF(CommonDistributionsFactory):
             expr = parse_expr(str(p))
         else:
             expr = p
-        if not has_variable(expr,
-                            None) and not 0 <= _parse_to_sympy(str(p)) <= 1:
+        if not has_variable(expr, None) and not 0 <= _parse_to_sympy(p) <= 1:
             raise ValueError(
                 f"Parameter of Bernoulli Distribution must be in [0,1], but was {p}"
             )
@@ -1401,7 +1411,7 @@ class SympyPGF(CommonDistributionsFactory):
             expr = parse_expr(str(lam))
         else:
             expr = lam
-        if not has_variable(expr, None) and _parse_to_sympy(str(lam)) < 0:
+        if not has_variable(expr, None) and _parse_to_sympy(lam) < 0:
             raise ValueError(
                 f"Parameter of Poisson Distribution must be in [0, oo), but was {lam}"
             )
@@ -1417,8 +1427,7 @@ class SympyPGF(CommonDistributionsFactory):
             expr = parse_expr(str(p))
         else:
             expr = p
-        if not has_variable(expr,
-                            None) and not 0 <= _parse_to_sympy(str(p)) <= 1:
+        if not has_variable(expr, None) and not 0 <= _parse_to_sympy(p) <= 1:
             raise ValueError(
                 f"Parameter of Logarithmic Distribution must be in [0,1], but was {p}"
             )
@@ -1434,8 +1443,7 @@ class SympyPGF(CommonDistributionsFactory):
             expr_p = parse_expr(str(p))
         else:
             expr_p = p
-        if not has_variable(expr_p,
-                            None) and not 0 <= _parse_to_sympy(str(p)) <= 1:
+        if not has_variable(expr_p, None) and not 0 <= _parse_to_sympy(p) <= 1:
             raise ValueError(
                 f"Parameter of Binomial Distribution must be in [0,1], but was {p}"
             )
@@ -1443,7 +1451,7 @@ class SympyPGF(CommonDistributionsFactory):
             expr_n = parse_expr(str(n))
         else:
             expr_n = n
-        if not has_variable(expr_n, None) and not 0 <= _parse_to_sympy(str(n)):
+        if not has_variable(expr_n, None) and not 0 <= _parse_to_sympy(n):
             raise ValueError(
                 f"Parameter of Binomial Distribution must be in [0,oo), but was {n}"
             )
