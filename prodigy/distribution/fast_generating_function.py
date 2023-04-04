@@ -372,7 +372,7 @@ class FPS(Distribution):
             return result
 
         if sampling_dist.function in {"unif", "unif_d"}:
-            start, end = sampling_dist.params[0]
+            [start, end] = sampling_dist.params[0]
             result = self._dist.updateIid(
                 str(variable),
                 pygin.Dist(
@@ -381,21 +381,38 @@ class FPS(Distribution):
                 str(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
+        if sampling_dist.function == "binomial":
+            [n, p] = sampling_dist.params[0]
+            result = self._dist.updateIid(
+                str(variable),
+                pygin.Dist(f'(1 - ({p}) + ({p}) * {variable})^({n})'),
+                str(count))
+            return FPS.from_dist(result, self._variables, self._parameters)
+
         [param] = sampling_dist.params[0]
         if sampling_dist.function == "geometric":
-            result = self._dist.updateIid(str(variable),
-                                          pygin.geometric("test", str(param)),
-                                          str(count))
+            result = self._dist.updateIid(
+                str(variable), pygin.geometric(str(variable), str(param)),
+                str(count))
             return FPS.from_dist(result, self._variables, self._parameters)
+
         if sampling_dist.function == "bernoulli":
             result = self._dist.updateIid(
-                str(variable), pygin.Dist(f"{param} * test + (1-{param})"),
-                str(count))
+                str(variable),
+                pygin.Dist(f"{param} * {variable} + (1-{param})"), str(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
         if sampling_dist.function == "poisson":
             result = self._dist.updateIid(
-                str(variable), pygin.Dist(f"exp({param} * (test - 1))"),
+                str(variable), pygin.Dist(f"exp({param} * ({variable} - 1))"),
+                str(count))
+            return FPS.from_dist(result, self._variables, self._parameters)
+
+        if sampling_dist.function == 'logdist':
+            result = self._dist.updateIid(
+                str(variable),
+                pygin.Dist(
+                    f'log(1 - ({param}) * {variable}) / log(1 - ({param}))'),
                 str(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 

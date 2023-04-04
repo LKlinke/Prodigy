@@ -1,11 +1,16 @@
-from probably.pgcl.compiler import CheckFail, compile_pgcl
+import pytest
+from probably.pgcl.compiler import compile_pgcl
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instruction_handler import compute_discrete_distribution
 from prodigy.distribution.fast_generating_function import FPS, ProdigyPGF
+from prodigy.distribution.generating_function import SympyPGF
 
 
-def test_basic_function():
+@pytest.mark.parametrize('engine,factory',
+                         [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
+                          (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
+def test_basic_function(engine, factory):
     prog = compile_pgcl("""
         fun f := {
             nat y;
@@ -15,13 +20,15 @@ def test_basic_function():
         nat x;
         x := f(y := 5);
     """)
-    res = compute_discrete_distribution(
-        prog, FPS('1'),
-        ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.GINAC))
-    assert res == FPS("x^42")
+    res = compute_discrete_distribution(prog, factory.one(),
+                                        ForwardAnalysisConfig(engine=engine))
+    assert res == factory.from_expr("x^42")
 
 
-def test_parameter():
+@pytest.mark.parametrize('engine,factory',
+                         [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
+                          (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
+def test_parameter(engine, factory):
     prog = compile_pgcl("""
         fun f := {
             nat y;
@@ -32,7 +39,6 @@ def test_parameter():
         rparam p;
         x := f();
     """)
-    res = compute_discrete_distribution(
-        prog, FPS('1'),
-        ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.GINAC))
-    assert res == ProdigyPGF.geometric('x', 'p')
+    res = compute_discrete_distribution(prog, factory.one(),
+                                        ForwardAnalysisConfig(engine=engine))
+    assert res == factory.geometric('x', 'p')
