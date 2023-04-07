@@ -200,6 +200,17 @@ class Binop(Enum):
         """Is this operator associative?"""
         return self in [Binop.OR, Binop.AND, Binop.PLUS, Binop.TIMES]
 
+    def returns_boolean(self) -> bool:
+        """Is the result of this operator a boolean (if not, it's a number)?"""
+        return self in [
+            Binop.OR, Binop.AND, Binop.LEQ, Binop.LT, Binop.GT, Binop.GEQ,
+            Binop.EQ
+        ]
+
+    def on_booleans(self) -> bool:
+        """Are the expected parameters of this operator booleans (e.g., `AND`; if not, they're numbers)?"""
+        return self in [Binop.OR, Binop.AND]
+
     def __repr__(self) -> str:
         # pylint: disable=no-member
         return f'Binop.{self._name_}'
