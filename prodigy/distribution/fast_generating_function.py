@@ -7,6 +7,7 @@ import pygin  # type: ignore
 from probably.pgcl import Binop, BinopExpr, Expr, FunctionCallExpr, VarExpr
 from sympy import nan, sympify
 
+from prodigy.distribution.assumptions import Assumption
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
                                                MarginalType, State)
@@ -182,7 +183,7 @@ class FPS(Distribution):
             for prob, vals in terms:
                 yield prob, State(vals)
 
-    def copy(self, deep: bool = True) -> Distribution:
+    def copy(self, deep: bool = True) -> FPS:
         return FPS.from_dist(self._dist, self._variables, self._parameters,
                              self._finite)
 
@@ -201,7 +202,11 @@ class FPS(Distribution):
     def get_parameters(self) -> Set[str]:
         return self._parameters
 
-    def _find_symbols(self, expr: str) -> Set[str]:
+    def get_assumptions(self) -> Set[Assumption]:
+        return set()
+
+    @staticmethod
+    def _find_symbols(expr: str) -> Set[str]:
         return set(pygin.find_symbols(expr))
 
     def get_symbols(self) -> Set[str]:
@@ -454,6 +459,9 @@ class FPS(Distribution):
         self._variables |= self._parameters - new_parameters
         return FPS.from_dist(self._dist, self._variables, new_parameters,
                              self._finite)
+
+    def set_assumptions(self, *assumptions: Assumption) -> FPS:
+        return self.copy()
 
     def approximate(
             self,

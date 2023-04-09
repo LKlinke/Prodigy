@@ -13,6 +13,7 @@ from probably.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr,
                            RealLitExpr, Unop, UnopExpr, VarExpr)
 from probably.pgcl.parser import parse_expr
 
+from prodigy.distribution.assumptions import Assumption, from_condition
 from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
                                       check_is_modulus_condition, has_variable)
 from prodigy.pgcl.pgcl_operations import state_to_equality_expression
@@ -164,6 +165,35 @@ class Distribution(ABC):
     def get_parameters(self) -> Set[str]:
         """ Returns the parameters of the distribution. """
 
+    @abstractmethod
+    def get_assumptions(self) -> Set[Assumption]:
+        """ Returns the assumptions that hold for this distribution. """
+
+    def assumptions_hold(self, *assumptions: Assumption) -> bool:
+        """
+        Returns whether it could be determined that all given assumptions are implied by the assumptions
+        that are known to hold.
+        """
+        for query in assumptions:
+            is_implied = False
+            for holds in self.get_assumptions():
+                if holds.implies(query):
+                    is_implied = True
+                    break
+            if not is_implied:
+                return False
+        return True
+
+    def update_assumptions(
+            self, updated_var: str,
+            update: VarExpr | NatLitExpr | BinopExpr) -> Set[Assumption]:
+        """Returns all assumptions that hold after the specified update is applied."""
+        res = set()
+        assumptions = self.get_assumptions()
+        for assumption in assumptions:
+            res |= assumption.apply_update(updated_var, update, *assumptions)
+        return res
+
     def filter_state(self, state: State) -> Distribution:
         """
         Filters the distribution such that only the specified state is left. If the state does not contain
@@ -224,11 +254,13 @@ class Distribution(ABC):
         if check_is_modulus_condition(condition):
             return self._arithmetic_progression(
                 str(condition.lhs.lhs),
-                str(condition.lhs.rhs))[condition.rhs.value]
+                str(condition.lhs.rhs))[condition.rhs.value].add_assumptions(
+                    *from_condition(condition))
 
         # Constant expressions
         if check_is_constant_constraint(condition, self.get_parameters()):
-            return self._filter_constant_condition(condition)
+            return self._filter_constant_condition(condition).add_assumptions(
+                *from_condition(condition))
 
         # all other conditions given that the Generating Function is finite (exhaustive search)
         if self.is_finite():
@@ -404,13 +436,13 @@ class Distribution(ABC):
     @staticmethod
     def _nth_rooth(number: int, root: int) -> int:
         """
-            Returns the n-th root of the given number if it is an integer and raises an exception otherwise.
-            
-            Even using fractions, Python apparently only computes roots numerically (e.g., 
-            `125**Fraction(1,3)`  -> `4.9999999`), which is why we need this function.
-            """
+        Returns the n-th root of the given number if it is an integer and raises an exception otherwise.
+        
+        Even using fractions, Python apparently only computes roots numerically (e.g., 
+        `125**Fraction(1,3)`  -> `4.9999999`), which is why we need this function.
+        """
 
-        assert number >= 0 and root >= 0
+        assert number >= 0 and root > 0
         lower, upper, curr = 0, number, number // 2
 
         while True:
@@ -459,7 +491,6 @@ class Distribution(ABC):
         def evaluate(
                 function: Distribution, expression: Expr, temp_var: str | None
         ) -> Tuple[Distribution, str | int | Fraction]:
-            # TODO handle reals in every case
             if isinstance(expression, BinopExpr):
                 if has_variable(expression):
                     assert temp_var is not None
@@ -873,6 +904,13 @@ class Distribution(ABC):
 
         :return: The distribution with parameters `parameters`.
         """
+
+    @abstractmethod
+    def set_assumptions(self, *assumptions: Assumption) -> Distribution:
+        pass
+
+    def add_assumptions(self, *assumptions: Assumption) -> Distribution:
+        return self.set_assumptions(*self.get_assumptions(), *assumptions)
 
     @abstractmethod
     def approximate(

@@ -97,6 +97,11 @@ def test_multiplication():
 
     gf = FPS('x^6')
     assert gf.update(parse_expr('x = x * (1/3)')) == FPS('x^2')
+    with raises(ValueError):
+        gf.update(parse_expr('x = x*(1/4)'))
+
+    gf = FPS('x^6')
+    assert gf.update(parse_expr('x = x * (1/3)')) == FPS('x^2')
     assert gf.update(parse_expr('x = (1/2) * x')) == FPS('x^3')
     with raises(ValueError):
         gf.update(parse_expr('x = x*(1/4)'))

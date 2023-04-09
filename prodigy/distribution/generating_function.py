@@ -17,6 +17,7 @@ from sympy.assumptions.assume import global_assumptions
 # TODO Implement these checks in probably
 from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
+from prodigy.distribution.assumptions import Assumption, Divisible
 from prodigy.pgcl.pgcl_checks import has_variable
 from prodigy.util.logger import log_setup, logging
 
@@ -158,6 +159,8 @@ class GeneratingFunction(Distribution):
                 map(lambda v: _sympy_symbol(str(v)),
                     filter(lambda v: v != "", variables)))
             self._variables -= self._parameters
+
+        self._assumptions: Set[Assumption] = set()
 
         # pylint: disable = too-many-function-args
         for var in self._variables:
@@ -425,6 +428,15 @@ class GeneratingFunction(Distribution):
         if div_1 in self._parameters or div_2 in self._parameters:
             raise ValueError('Division containing parameters is not allowed')
 
+        if div_1 in self._variables and div_2 not in self._variables and self.assumptions_hold(
+                Divisible(str(numerator), int(denominator))):
+            return GeneratingFunction(
+                self._function.subs(div_1, div_1**(1 / div_2)),
+                *self._variables,
+                preciseness=self._preciseness,
+                closed=self._is_closed_form,
+                finite=self._is_finite).set_parameters(*self.get_parameters())
+
         marginal_l = self.marginal(
             numerator) if div_1 in self._variables else div_1
         marginal_r = self.marginal(
@@ -683,12 +695,18 @@ class GeneratingFunction(Distribution):
                             state[first_factor] * state[second_factor])
                     result = result + term
 
+            assumptions = self.update_assumptions(
+                temp_var,
+                BinopExpr(Binop.TIMES, VarExpr(str(first_factor)),
+                          VarExpr(str(second_factor))))
+
         # we multiply a variable with a literal
         elif prod_1 in self._variables or prod_2 in self._variables:
             if prod_1 in self._variables:
                 var, lit = prod_1, prod_2
             else:
                 var, lit = prod_2, prod_1
+            assert isinstance(var, sympy.Symbol)
             if var == update_var:
                 result = result.subs(update_var,
                                      update_var_with_assumptions**lit)
@@ -698,10 +716,19 @@ class GeneratingFunction(Distribution):
                     (var, var * update_var_with_assumptions**lit)
                 ])
 
+            assumptions = self.update_assumptions(
+                temp_var,
+                BinopExpr(Binop.TIMES, VarExpr(var.name),
+                          NatLitExpr(int(lit))))
+
         # we multiply two literals
         else:
             result = result.subs(update_var, 1) * (update_var_with_assumptions
                                                    **(prod_1 * prod_2))
+            assumptions = self.update_assumptions(
+                temp_var,
+                BinopExpr(Binop.TIMES, NatLitExpr(int(first_factor)),
+                          NatLitExpr(int(second_factor))))
 
         return GeneratingFunction(
             # remove the nonnegativity assumption from all symbols
@@ -710,7 +737,8 @@ class GeneratingFunction(Distribution):
             *self._variables,
             preciseness=self._preciseness,
             closed=self._is_closed_form,
-            finite=self._is_finite).set_parameters(*self.get_parameters())
+            finite=self._is_finite).set_parameters(
+                *self.get_parameters()).set_assumptions(*assumptions)
 
     def _update_var(self, updated_var: str,
                     assign_var: str | int) -> GeneratingFunction:
@@ -727,16 +755,21 @@ class GeneratingFunction(Distribution):
                     (_parse_to_sympy(assign_var),
                      _parse_to_sympy(assign_var) * _sympy_symbol(updated_var))
                 ])
+                assumptions = self.update_assumptions(updated_var,
+                                                      VarExpr(str(assign_var)))
             else:
                 result = self._function.subs(
                     _sympy_symbol(updated_var), 1) * _sympy_symbol(
                         updated_var)**_parse_to_sympy(assign_var)
+                assumptions = self.update_assumptions(
+                    updated_var, NatLitExpr(int(assign_var)))
             return GeneratingFunction(
                 result,
                 *self._variables,
                 preciseness=self._preciseness,
                 closed=self._is_closed_form,
-                finite=self._is_finite).set_parameters(*self.get_parameters())
+                finite=self._is_finite).set_parameters(
+                    *self.get_parameters()).set_assumptions(*assumptions)
         else:
             return self.copy()
 
@@ -968,6 +1001,7 @@ class GeneratingFunction(Distribution):
             closed=self._is_closed_form,
             finite=self._is_finite)
         res._parameters = self._parameters.copy()
+        res._assumptions = self._assumptions.copy()
         return res
 
     def set_variables(self, *variables: str) -> GeneratingFunction:
@@ -975,12 +1009,14 @@ class GeneratingFunction(Distribution):
             raise ValueError(
                 "The free-variables of a distribution cannot be empty!")
         remove_dups = set(variables)
-        return GeneratingFunction(self._function,
-                                  *remove_dups,
-                                  preciseness=self._preciseness,
-                                  closed=self._is_closed_form,
-                                  finite=self._is_finite).set_parameters(
-                                      *(self.get_parameters() - remove_dups))
+        return GeneratingFunction(
+            self._function,
+            *remove_dups,
+            preciseness=self._preciseness,
+            closed=self._is_closed_form,
+            finite=self._is_finite).set_parameters(
+                *(self.get_parameters() -
+                  remove_dups)).set_assumptions(*self._assumptions)
 
     def set_parameters(self, *parameters: str) -> GeneratingFunction:
         remove_dups = set(parameters)
@@ -990,7 +1026,13 @@ class GeneratingFunction(Distribution):
             )
         result = self.copy()
         result._parameters = set(_sympy_symbol(param) for param in remove_dups)
+        result._assumptions = self._assumptions.copy()
         return result
+
+    def set_assumptions(self, *assumptions: Assumption) -> GeneratingFunction:
+        res = self.copy()
+        res._assumptions = set(assumptions)
+        return res
 
     def _arithmetic(self, other, op: Callable) -> GeneratingFunction:
         """
@@ -1225,6 +1267,9 @@ class GeneratingFunction(Distribution):
 
     def get_variables(self) -> Set[str]:
         return set(map(str, self._variables))
+
+    def get_assumptions(self) -> Set[Assumption]:
+        return self._assumptions.copy()
 
     def is_zero_dist(self) -> bool:
         return self._function == 0
