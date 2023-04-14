@@ -305,6 +305,30 @@ class FPS(Distribution):
             res = pygin.get_fresh_variable()
         return res
 
+    @staticmethod
+    def _nth_root(number: int, root: int) -> int:
+        # TODO implement in C++
+        assert number >= 0 and root > 0
+        lower, upper, curr = 0, number, number // 2
+
+        while True:
+            val = curr**root
+            val1 = (curr + 1)**root
+            gt, lt = val > number, val < number
+            if not gt and not lt:
+                return curr
+            elif val1 == number:
+                return curr + 1
+            elif gt:
+                upper = curr
+            elif val1 > number:
+                assert lt
+                raise ValueError(f'{root}. root of {number} is not an integer')
+            else:
+                assert lt
+                lower = curr
+            curr = (lower + upper) // 2
+
     def _update_var(self, updated_var: str, assign_var: str | int) -> FPS:
         return FPS.from_dist(
             self._dist.update_var(updated_var, str(assign_var)),

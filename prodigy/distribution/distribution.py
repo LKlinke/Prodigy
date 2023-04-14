@@ -174,10 +174,11 @@ class Distribution(ABC):
         Returns whether it could be determined that all given assumptions are implied by the assumptions
         that are known to hold.
         """
-        for query in assumptions:
+        hold = self.get_assumptions()
+        for assumption in assumptions:
             is_implied = False
-            for holds in self.get_assumptions():
-                if holds.implies(query):
+            for holds in hold:
+                if holds.implies(assumption):
                     is_implied = True
                     break
             if not is_implied:
@@ -433,35 +434,15 @@ class Distribution(ABC):
 
     # pylint: disable=protected-access, too-many-statements
 
+    @abstractmethod
     @staticmethod
-    def _nth_rooth(number: int, root: int) -> int:
+    def _nth_root(number: int, root: int) -> int:
         """
         Returns the n-th root of the given number if it is an integer and raises an exception otherwise.
         
         Even using fractions, Python apparently only computes roots numerically (e.g., 
         `125**Fraction(1,3)`  -> `4.9999999`), which is why we need this function.
         """
-
-        assert number >= 0 and root > 0
-        lower, upper, curr = 0, number, number // 2
-
-        while True:
-            val = curr**root
-            val1 = (curr + 1)**root
-            gt, lt = val > number, val < number
-            if not gt and not lt:
-                return curr
-            elif val1 == number:
-                return curr + 1
-            elif gt:
-                upper = curr
-            elif val1 > number:
-                assert lt
-                raise ValueError(f'{root}. root of {number} is not an integer')
-            else:
-                assert lt
-                lower = curr
-            curr = (lower + upper) // 2
 
     def update(self,
                expression: Expr,
@@ -562,8 +543,8 @@ class Distribution(ABC):
                         return f, res
                     elif expression.operator == Binop.POWER:
                         if isinstance(t_1, int) and isinstance(t_2, Fraction):
-                            res = self._nth_rooth(t_1**t_2.numerator,
-                                                  t_2.denominator)
+                            res = self._nth_root(t_1**t_2.numerator,
+                                                 t_2.denominator)
                         else:
                             res = Fraction(t_1**t_2)
                         if res.denominator == 1:
@@ -760,7 +741,7 @@ class Distribution(ABC):
             approximate: str | float | None) -> Distribution:
         if isinstance(t_1, int) and isinstance(t_2, Fraction):
             return self._update_var(
-                temp_var, self._nth_rooth(t_1**t_2.numerator, t_2.denominator))
+                temp_var, self._nth_root(t_1**t_2.numerator, t_2.denominator))
 
         if isinstance(t_1, Fraction):
             # TODO is it even possible to get an integer as a result here?
@@ -777,8 +758,8 @@ class Distribution(ABC):
                     raise ValueError(f'{t_1} has infinite marginal')
                 marginal = marginal.approximate_unilaterally(t_1, approximate)
             for _, state in marginal:
-                value = self._nth_rooth(state[t_1]**t_2.numerator,
-                                        t_2.denominator)
+                value = self._nth_root(state[t_1]**t_2.numerator,
+                                       t_2.denominator)
                 dist += self._filter_constant_condition(
                     BinopExpr(Binop.EQ, VarExpr(t_1),
                               NatLitExpr(state[t_1])))._update_var(

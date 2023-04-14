@@ -419,6 +419,13 @@ class GeneratingFunction(Distribution):
 
         raise NotImplementedError("unreachable")
 
+    @staticmethod
+    def _nth_root(number: int, root: int) -> int:
+        res, exact = sympy.integer_nthroot(number, root)
+        if exact:
+            return int(res)
+        raise ValueError()
+
     def _update_division(
             self, temp_var: str, numerator: str | int, denominator: str | int,
             approximate: str | float | None) -> GeneratingFunction:
