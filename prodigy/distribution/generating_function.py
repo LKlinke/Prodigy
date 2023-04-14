@@ -37,11 +37,10 @@ def _parse_to_sympy(expr: Any,
                     nonnegative=True,
                     **kwargs) -> sympy.Expr:
     """
-    Parses something to a sympy expression. Can convert a probably expression
-    faster than passing it as a string to sympy. Also will correctly determine if
-    something is a symbol or a function (e.g., if we have a variable called `exp` or
-    `log`). All symbols are given the assumptions that they are rational and nonnegative
-    unless specified otherwise.
+    Parses something (`float`s, `bool`s, `Fraction`s, `probably.Expr`s, anything that can be converted to a valid
+    string) to a sympy expression. Can convert a probably expression faster than passing it as a string to sympy.
+    Also will correctly determine if something is a symbol or a function (e.g., if we have a variable called `exp` or
+    `log`). All symbols are given the assumptions that they are rational and nonnegative unless specified otherwise.
     """
 
     # first we cover some cases that we can handle faster than by parsing a string
@@ -131,7 +130,8 @@ def _sympy_symbol(name: Any,
     Creates a rational and nonnegative sympy Symbol.
     
     Note that `sympy.Symbol('x') == sympy.Symbol('x', rational=True, nonnegative=True)`
-    is false.
+    evaluates to false, as variables with the same name but different domains are not considered
+    equal by sympy.
     """
     return sympy.Symbol(name,
                         rational=rational,
