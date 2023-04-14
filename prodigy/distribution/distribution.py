@@ -434,8 +434,8 @@ class Distribution(ABC):
 
     # pylint: disable=protected-access, too-many-statements
 
-    @abstractmethod
     @staticmethod
+    @abstractmethod
     def _nth_root(number: int, root: int) -> int:
         """
         Returns the n-th root of the given number if it is an integer and raises an exception otherwise.
