@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Set, Tuple
 
-from probably.pgcl import Binop, BinopExpr, NatLitExpr, VarExpr
+from probably.pgcl import Binop, BinopExpr, NatLitExpr, RealLitExpr, VarExpr
 
 
 class Assumption(ABC):
@@ -24,14 +24,13 @@ class Assumption(ABC):
         All assumptions given via the `others` parameter are also assumed to have held before the update.
 
         It is assumed that the given update is simple, i.e., it is either a `VarExpr`, a `NatLitExpr`,
-        or a `BinopExpr` combining these two.
+        or a `BinopExpr` combining these two or a `RealLitExpr`.
         """
-        if __debug__:
-            if isinstance(update, BinopExpr):
-                assert not update.operator.returns_boolean()
-                assert isinstance(update.lhs,
-                                  (VarExpr, NatLitExpr)) and isinstance(
-                                      update.rhs, (NatLitExpr, VarExpr))
+        if __debug__ and isinstance(update, BinopExpr):
+            assert not update.operator.returns_boolean()
+            assert isinstance(
+                update.lhs, (VarExpr, NatLitExpr, RealLitExpr)) and isinstance(
+                    update.rhs, (NatLitExpr, VarExpr, RealLitExpr))
         return self._apply_update(updated_var, update, *others)
 
     @abstractmethod

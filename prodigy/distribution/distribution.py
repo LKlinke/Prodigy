@@ -483,22 +483,21 @@ class Distribution(ABC):
                     f, t_2 = evaluate(f, expression.rhs, xr)
 
                     if expression.operator == Binop.PLUS:
-                        f = f._update_sum_with_fraction(temp_var, t_1, t_2)
+                        f = f._update_sum_full(temp_var, t_1, t_2)
                     elif expression.operator == Binop.TIMES:
-                        f = f._update_product_with_fraction(
-                            temp_var, t_1, t_2, approximate)
+                        f = f._update_product_full(temp_var, t_1, t_2,
+                                                   approximate)
                     elif expression.operator == Binop.MINUS:
-                        f = f._update_subtraction_with_fraction(
-                            temp_var, t_1, t_2)
+                        f = f._update_subtraction_full(temp_var, t_1, t_2)
                     elif expression.operator == Binop.MODULO:
-                        f = f._update_modulo_with_fraction(
-                            temp_var, t_1, t_2, approximate)
+                        f = f._update_modulo_full(temp_var, t_1, t_2,
+                                                  approximate)
                     elif expression.operator == Binop.DIVIDE:
-                        f = f._update_division_with_fraction(
-                            temp_var, t_1, t_2, approximate)
+                        f = f._update_division_full(temp_var, t_1, t_2,
+                                                    approximate)
                     elif expression.operator == Binop.POWER:
-                        f = f._update_power_with_fraction(
-                            temp_var, t_1, t_2, approximate)
+                        f = f._update_power_full(temp_var, t_1, t_2,
+                                                 approximate)
                     else:
                         raise ValueError(
                             f"Unsupported binary operator: {expression.operator}"
@@ -557,7 +556,7 @@ class Distribution(ABC):
 
             if isinstance(expression, VarExpr):
                 assert temp_var is not None
-                f = function._update_var(temp_var, expression.var)
+                f = function._update_var_full(temp_var, expression.var)
                 return f, temp_var
 
             if isinstance(expression, NatLitExpr):
@@ -576,38 +575,50 @@ class Distribution(ABC):
         if isinstance(value, Fraction):
             raise ValueError('Result of update is not an integer')
         if isinstance(value, int):
-            result = result._update_var(variable, value)
+            result = result._update_var_full(variable, value)
         else:
             assert variable == value
         return result
 
     # pylint: enable=too-many-statements
 
-    def _update_sum_with_fraction(self, temp_var: str,
-                                  t_1: str | int | Fraction,
-                                  t_2: str | int | Fraction) -> Distribution:
+    @staticmethod
+    def _build_update(op: Binop, t_1: str | int, t_2: str | int) -> BinopExpr:
+        if isinstance(t_1, int):
+            lhs = NatLitExpr(t_1)
+        else:
+            lhs = VarExpr(t_1)
+        if isinstance(t_2, int):
+            rhs = NatLitExpr(t_2)
+        else:
+            rhs = VarExpr(t_2)
+        return BinopExpr(op, lhs, rhs)
+
+    def _update_sum_full(self, temp_var: str, t_1: str | int | Fraction,
+                         t_2: str | int | Fraction) -> Distribution:
         if isinstance(t_1, Fraction) and isinstance(t_2, Fraction):
             res = t_1 + t_2
             if res.denominator == 1:
-                return self._update_var(temp_var, res.numerator)
+                return self._update_var_full(temp_var, res.numerator)
             raise ValueError(
                 f'Cannot add fractions {t_1} and {t_2} because the result is not an integer'
             )
         if isinstance(t_1, Fraction) or isinstance(t_2, Fraction):
             raise ValueError(
                 f'Cannot add an integer and a fraction: {t_1} + {t_2}')
-        return self._update_sum(temp_var, t_1, t_2)
+        return self._update_sum(
+            temp_var, t_1, t_2).set_assumptions(*self.update_assumptions(
+                temp_var, self._build_update(Binop.PLUS, t_1, t_2)))
 
-    def _update_product_with_fraction(
-            self, temp_var: str, t_1: str | int | Fraction,
-            t_2: str | int | Fraction,
-            approximate: str | float | None) -> Distribution:
+    def _update_product_full(self, temp_var: str, t_1: str | int | Fraction,
+                             t_2: str | int | Fraction,
+                             approximate: str | float | None) -> Distribution:
         types = (type(t_1), type(t_2))
         if types in {(Fraction, Fraction), (Fraction, int), (int, Fraction)}:
             res = t_1 * t_2  # type: ignore
             assert isinstance(res, Fraction)
             if res.denominator == 1:
-                return self._update_var(temp_var, res.numerator)
+                return self._update_var_full(temp_var, res.numerator)
             raise ValueError(
                 f'Cannot perform multiplication {t_1} * {t_2} because the result is not an integer'
             )
@@ -619,39 +630,44 @@ class Distribution(ABC):
                 assert types == (Fraction, str)
                 string, fraction = t_2, t_1
             assert isinstance(fraction, Fraction) and isinstance(string, str)
-            return self._update_product(temp_var, string, fraction.numerator,
-                                        approximate)._update_division(
-                                            temp_var, temp_var,
-                                            fraction.denominator, approximate)
+            return self._update_product_full(
+                temp_var, string, fraction.numerator,
+                approximate)._update_division_full(temp_var, temp_var,
+                                                   fraction.denominator,
+                                                   approximate)
 
         assert not isinstance(t_1, Fraction) and not isinstance(t_2, Fraction)
-        return self._update_product(temp_var, t_1, t_2, approximate)
+        return self._update_product(
+            temp_var, t_1, t_2,
+            approximate).set_assumptions(*self.update_assumptions(
+                temp_var, self._build_update(Binop.TIMES, t_1, t_2)))
 
-    def _update_subtraction_with_fraction(
-            self, temp_var: str, t_1: str | int | Fraction,
-            t_2: str | int | Fraction) -> Distribution:
+    def _update_subtraction_full(self, temp_var: str,
+                                 t_1: str | int | Fraction,
+                                 t_2: str | int | Fraction) -> Distribution:
         if isinstance(t_1, Fraction) and isinstance(t_2, Fraction):
             res = t_1 - t_2
             if res.denominator == 1 and res.numerator >= 0:
-                return self._update_var(temp_var, res.numerator)
+                return self._update_var_full(temp_var, res.numerator)
             raise ValueError(
                 f'Cannot perform subtraction {t_1} - {t_2} because the result is no non-negative integer'
             )
         if isinstance(t_1, Fraction) or isinstance(t_2, Fraction):
             raise ValueError('Cannot subtract an integer and a fraction')
-        return self._update_subtraction(temp_var, t_1, t_2)
+        return self._update_subtraction(
+            temp_var, t_1, t_2).set_assumptions(*self.update_assumptions(
+                temp_var, self._build_update(Binop.MINUS, t_1, t_2)))
 
-    def _update_modulo_with_fraction(
-            self, temp_var: str, t_1: str | int | Fraction,
-            t_2: str | int | Fraction,
-            approximate: str | float | None) -> Distribution:
+    def _update_modulo_full(self, temp_var: str, t_1: str | int | Fraction,
+                            t_2: str | int | Fraction,
+                            approximate: str | float | None) -> Distribution:
         types = (type(t_1), type(t_2))
         if types in {(Fraction, int), (int, Fraction), (Fraction, Fraction)}:
             assert not isinstance(t_1, str) and not isinstance(t_2, str)
             res = t_1 % t_2
             assert isinstance(res, Fraction)
             if res.denominator == 1:
-                return self._update_var(temp_var, res.numerator)
+                return self._update_var_full(temp_var, res.numerator)
             raise ValueError(
                 f'Cannot perform modulo update {temp_var} := {t_1} % {t_2} because the result is not an integer'
             )
@@ -682,7 +698,7 @@ class Distribution(ABC):
                         f'Cannot perform update {temp_var} := {t_1} % {t_2} because the result is not always an integer'
                     )
                 summands.append(
-                    changed.filter_state(state)._update_var(
+                    changed.filter_state(state)._update_var_full(
                         temp_var, res.numerator))
             return functools.reduce(operator.add, summands, unchanged)
 
@@ -694,19 +710,21 @@ class Distribution(ABC):
             )
 
         assert not isinstance(t_1, Fraction) and not isinstance(t_2, Fraction)
-        return self._update_modulo(temp_var, t_1, t_2, approximate)
+        return self._update_modulo(
+            temp_var, t_1, t_2,
+            approximate).set_assumptions(*self.update_assumptions(
+                temp_var, self._build_update(Binop.MODULO, t_1, t_2)))
 
-    def _update_division_with_fraction(
-            self, temp_var: str, t_1: str | int | Fraction,
-            t_2: str | int | Fraction,
-            approximate: str | float | None) -> Distribution:
+    def _update_division_full(self, temp_var: str, t_1: str | int | Fraction,
+                              t_2: str | int | Fraction,
+                              approximate: str | float | None) -> Distribution:
         types = (type(t_1), type(t_2))
         if types in {(Fraction, int), (int, Fraction), (Fraction, Fraction)}:
             assert not isinstance(t_1, str) and not isinstance(t_2, str)
             res = t_1 / t_2
             assert isinstance(res, Fraction)
             if res.denominator == 1:
-                return self._update_var(temp_var, res.numerator)
+                return self._update_var_full(temp_var, res.numerator)
             raise ValueError(
                 f'Cannot perform division update {temp_var} := {t_1} / {t_2} because the result is not an integer'
             )
@@ -714,9 +732,9 @@ class Distribution(ABC):
         if isinstance(t_2, Fraction):
             assert isinstance(t_1, str)
             if t_2.numerator == 1:
-                return self._update_product(temp_var, t_1, t_2.denominator,
-                                            approximate)
-            return self._update_product_with_fraction(
+                return self._update_product_full(temp_var, t_1,
+                                                 t_2.denominator, approximate)
+            return self._update_product_full(
                 temp_var, t_1, Fraction(t_2.denominator, t_2.numerator),
                 approximate)
 
@@ -733,41 +751,51 @@ class Distribution(ABC):
             )
 
         assert not isinstance(t_1, Fraction) and not isinstance(t_2, Fraction)
-        return self._update_division(temp_var, t_1, t_2, approximate)
+        return self._update_division(
+            temp_var, t_1, t_2,
+            approximate).set_assumptions(*self.update_assumptions(
+                temp_var, self._build_update(Binop.DIVIDE, t_1, t_2)))
 
-    def _update_power_with_fraction(
-            self, temp_var: str, t_1: str | int | Fraction,
-            t_2: str | int | Fraction,
-            approximate: str | float | None) -> Distribution:
+    def _update_power_full(self, temp_var: str, t_1: str | int | Fraction,
+                           t_2: str | int | Fraction,
+                           approximate: str | float | None) -> Distribution:
         if isinstance(t_1, int) and isinstance(t_2, Fraction):
-            return self._update_var(
+            return self._update_var_full(
                 temp_var, self._nth_root(t_1**t_2.numerator, t_2.denominator))
 
         if isinstance(t_1, Fraction):
-            # TODO is it even possible to get an integer as a result here?
+            # TODO is it possible to get an integer as a result here? What about Fraction^Fraction?
             raise ValueError(
                 'A fraction to the power of an integer never results in an integer'
             )
 
         if isinstance(t_2, Fraction):
             assert isinstance(t_1, str)
-            dist = self.factory().from_expr('0', *self.get_variables())
-            marginal = self.marginal(t_1)
-            if not marginal.is_finite():
-                if approximate is None:
-                    raise ValueError(f'{t_1} has infinite marginal')
-                marginal = marginal.approximate_unilaterally(t_1, approximate)
-            for _, state in marginal:
-                value = self._nth_root(state[t_1]**t_2.numerator,
-                                       t_2.denominator)
-                dist += self._filter_constant_condition(
-                    BinopExpr(Binop.EQ, VarExpr(t_1),
-                              NatLitExpr(state[t_1])))._update_var(
-                                  temp_var, value)
-            return dist
+            res = self._update_power_full(temp_var, t_1, t_2.numerator,
+                                          approximate)
+            assumptions = res.update_assumptions(
+                temp_var,
+                BinopExpr(Binop.POWER, VarExpr(temp_var),
+                          RealLitExpr(Fraction(1, t_2.denominator))))
+            res = res._update_root(temp_var, temp_var, t_2.denominator,
+                                   approximate)
+            res = res.set_assumptions(*assumptions)
+            return res
 
         assert not isinstance(t_1, Fraction) and not isinstance(t_2, Fraction)
-        return self._update_power(temp_var, t_1, t_2, approximate)
+        return self._update_power(
+            temp_var, t_1, t_2,
+            approximate).set_assumptions(*self.update_assumptions(
+                temp_var, self._build_update(Binop.POWER, t_1, t_2)))
+
+    def _update_var_full(self, temp_var: str, t_1: str | int) -> Distribution:
+        if isinstance(t_1, str):
+            update = VarExpr(t_1)
+        else:
+            update = NatLitExpr(t_1)
+        return self._update_var(
+            temp_var,
+            t_1).set_assumptions(*self.update_assumptions(temp_var, update))
 
     # pylint: enable=protected-access
 
@@ -840,6 +868,16 @@ class Distribution(ABC):
                       approximate: str | float | None) -> Distribution:
         """
         Applies the expression `temp_var := base^exp` to this distribution.
+
+        All variables occuring in the expression must have a finite marginal if approximation is disabled.
+        """
+
+    @abstractmethod
+    def _update_root(self, temp_var: str, radicand: str | int,
+                     index: str | int,
+                     approximate: str | float | None) -> Distribution:
+        """
+        Applies the expression `temp_var := radicand^(1/index)` to this distribution.
 
         All variables occuring in the expression must have a finite marginal if approximation is disabled.
         """

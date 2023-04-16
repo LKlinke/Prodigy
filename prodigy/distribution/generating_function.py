@@ -8,8 +8,8 @@ from typing import (Any, Callable, FrozenSet, Generator, Iterator, List, Set,
 
 import sympy
 from probably.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
-                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr,
-                           Walk, walk_expr)
+                           RealLitExpr, Unop, UnopExpr, VarExpr, Walk,
+                           walk_expr)
 from probably.pgcl.parser import parse_expr
 from probably.util.ref import Mut
 from sympy.assumptions.assume import global_assumptions
@@ -472,6 +472,7 @@ class GeneratingFunction(Distribution):
         if isinstance(marginal_l, GeneratingFunction):
             for _, state_l in marginal_l:
                 if isinstance(marginal_r, GeneratingFunction):
+                    # we divide a variable by a variable
                     for _, state_r in marginal_r:
                         val_l, val_r = state_l[numerator], state_r[denominator]
                         x = self.filter(
@@ -486,6 +487,7 @@ class GeneratingFunction(Distribution):
                         result += x.subs(update_var,
                                          1) * update_var**(val_l / val_r)
                 else:
+                    # we divide a variable by an integer
                     val_l, val_r = state_l[numerator], div_2
                     x = self.filter(
                         parse_expr(f'{numerator}={val_l}'))._function
@@ -498,6 +500,7 @@ class GeneratingFunction(Distribution):
                                      1) * update_var**(val_l / val_r)
         else:
             if isinstance(marginal_r, GeneratingFunction):
+                # we divide an integer by a variable
                 for _, state_r in marginal_r:
                     val_l, val_r = div_1, state_r[denominator]
                     x = self.filter(
@@ -510,6 +513,7 @@ class GeneratingFunction(Distribution):
                     result += x.subs(update_var,
                                      1) * update_var**(val_l / val_r)
             else:
+                # we divide two integers
                 if div_1 % div_2 != 0:
                     raise ValueError(
                         f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
@@ -702,11 +706,6 @@ class GeneratingFunction(Distribution):
                             state[first_factor] * state[second_factor])
                     result = result + term
 
-            assumptions = self.update_assumptions(
-                temp_var,
-                BinopExpr(Binop.TIMES, VarExpr(str(first_factor)),
-                          VarExpr(str(second_factor))))
-
         # we multiply a variable with a literal
         elif prod_1 in self._variables or prod_2 in self._variables:
             if prod_1 in self._variables:
@@ -723,19 +722,10 @@ class GeneratingFunction(Distribution):
                     (var, var * update_var_with_assumptions**lit)
                 ])
 
-            assumptions = self.update_assumptions(
-                temp_var,
-                BinopExpr(Binop.TIMES, VarExpr(var.name),
-                          NatLitExpr(int(lit))))
-
         # we multiply two literals
         else:
             result = result.subs(update_var, 1) * (update_var_with_assumptions
                                                    **(prod_1 * prod_2))
-            assumptions = self.update_assumptions(
-                temp_var,
-                BinopExpr(Binop.TIMES, NatLitExpr(int(first_factor)),
-                          NatLitExpr(int(second_factor))))
 
         return GeneratingFunction(
             # remove the nonnegativity assumption from all symbols
@@ -744,8 +734,7 @@ class GeneratingFunction(Distribution):
             *self._variables,
             preciseness=self._preciseness,
             closed=self._is_closed_form,
-            finite=self._is_finite).set_parameters(
-                *self.get_parameters()).set_assumptions(*assumptions)
+            finite=self._is_finite).set_parameters(*self.get_parameters())
 
     def _update_var(self, updated_var: str,
                     assign_var: str | int) -> GeneratingFunction:
@@ -762,21 +751,16 @@ class GeneratingFunction(Distribution):
                     (_parse_to_sympy(assign_var),
                      _parse_to_sympy(assign_var) * _sympy_symbol(updated_var))
                 ])
-                assumptions = self.update_assumptions(updated_var,
-                                                      VarExpr(str(assign_var)))
             else:
                 result = self._function.subs(
                     _sympy_symbol(updated_var), 1) * _sympy_symbol(
                         updated_var)**_parse_to_sympy(assign_var)
-                assumptions = self.update_assumptions(
-                    updated_var, NatLitExpr(int(assign_var)))
             return GeneratingFunction(
                 result,
                 *self._variables,
                 preciseness=self._preciseness,
                 closed=self._is_closed_form,
-                finite=self._is_finite).set_parameters(
-                    *self.get_parameters()).set_assumptions(*assumptions)
+                finite=self._is_finite).set_parameters(*self.get_parameters())
         else:
             return self.copy()
 
@@ -904,6 +888,12 @@ class GeneratingFunction(Distribution):
             finite=self._is_finite,
             preciseness=self._preciseness,
             closed=self._is_closed_form).set_parameters(*self.get_parameters())
+
+    def _update_root(self, temp_var: str, radicand: str | int,
+                     index: str | int,
+                     approximate: str | float | None) -> GeneratingFunction:
+        # TODO implement
+        raise NotImplementedError()
 
     def update_iid(self, sampling_dist: Expr, count: VarExpr,
                    variable: Union[str, VarExpr]) -> Distribution:

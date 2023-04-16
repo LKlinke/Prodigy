@@ -192,7 +192,7 @@ def test_modulo():
     with raises(ValueError, match='is not an integer'):
         gf.update(parse_expr('x = (2/3) % 4'))
     with raises(ValueError, match='is not an integer'):
-        gf._update_modulo_with_fraction('x', Fraction(2, 3), 4, None)
+        gf._update_modulo_full('x', Fraction(2, 3), 4, None)
 
     gf = ProdigyPGF.poisson('x', 3) * FPS('y^5')
     assert gf.update(parse_expr('y = y % (25/3)')) == gf
