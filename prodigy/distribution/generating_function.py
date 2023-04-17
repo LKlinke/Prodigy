@@ -9,7 +9,7 @@ from typing import (Any, Callable, FrozenSet, Generator, Iterator, List, Set,
 import sympy
 from probably.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
                            RealLitExpr, Unop, UnopExpr, VarExpr, Walk,
-                           walk_expr)
+                           walk_expr, NatLitExpr)
 from probably.pgcl.parser import parse_expr
 from probably.util.ref import Mut
 from sympy.assumptions.assume import global_assumptions
