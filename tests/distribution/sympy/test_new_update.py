@@ -111,7 +111,7 @@ def test_multiplication():
         '0.6*x**15*y**3*z**5 + 0.4*x**36*y**6*z**6')
     assert gf.update(parse_expr('z = x*y'))._function == _parse_to_sympy(
         "0.6*y**3*exp(5 * (x*z**3-1)) + 0.4*y**6*exp(5*(x*z**6-1))")
-    
+
     gf = GeneratingFunction('x**6')
     assert gf.update(parse_expr('x = x * (1/3)')) == GeneratingFunction('x**2')
     assert gf.update(parse_expr('x = (1/2) * x')) == GeneratingFunction('x**3')

@@ -8,8 +8,8 @@ from typing import (Any, Callable, FrozenSet, Generator, Iterator, List, Set,
 
 import sympy
 from probably.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
-                           RealLitExpr, Unop, UnopExpr, VarExpr, Walk,
-                           walk_expr, NatLitExpr)
+                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr,
+                           Walk, walk_expr)
 from probably.pgcl.parser import parse_expr
 from probably.util.ref import Mut
 from sympy.assumptions.assume import global_assumptions
@@ -892,8 +892,46 @@ class GeneratingFunction(Distribution):
     def _update_root(self, temp_var: str, radicand: str | int,
                      index: str | int,
                      approximate: str | float | None) -> GeneratingFunction:
-        # TODO implement
-        raise NotImplementedError()
+        number, root = _parse_to_sympy(radicand), _parse_to_sympy(index)
+        updated_var = _sympy_symbol(temp_var)
+        if number in self._parameters or root in self._parameters:
+            raise ValueError("Cannot perform update using parameters")
+
+        if number in self._variables or root in self._variables:
+            variables = set()
+            if number in self._variables:
+                variables.add(str(radicand))
+            if root in self._variables:
+                variables.add(str(index))
+            marginal: Distribution = self.marginal(*variables)
+            if not marginal.is_finite():
+                if approximate is None:
+                    raise ValueError(
+                        'Cannot perform root update using variables with infinite range'
+                    )
+                marginal = marginal.approximate_until_finite(approximate)
+            result = sympy.Integer(0)
+            for _, state in marginal:
+                value = self._nth_root(
+                    state[str(radicand)] if str(radicand) in variables else
+                    int(radicand), state[str(index)]
+                    if str(index) in variables else int(index))
+                filtered = self.filter_state(state)
+                assert isinstance(filtered, GeneratingFunction)
+                result += filtered._function.subs(updated_var,
+                                                  1) * updated_var**value
+
+        else:
+            result = self._function.subs(updated_var,
+                                         1) * updated_var**self._nth_root(
+                                             int(radicand), int(index))
+
+        return GeneratingFunction(
+            result,
+            *self._variables,
+            finite=self._is_finite,
+            preciseness=self._preciseness,
+            closed=self._is_closed_form).set_parameters(*self.get_parameters())
 
     def update_iid(self, sampling_dist: Expr, count: VarExpr,
                    variable: Union[str, VarExpr]) -> Distribution:
