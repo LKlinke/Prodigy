@@ -373,8 +373,10 @@ class FPS(Distribution):
 
     def _update_root(self, temp_var: str, radicand: str | int,
                      index: str | int, approximate: str | float | None) -> FPS:
-        # TODO implement
-        raise NotImplementedError()
+        return FPS.from_dist(
+            self._dist.update_root(temp_var, str(radicand), str(index),
+                                   approximate), self._variables,
+            self._parameters)
 
     def update_iid(self, sampling_dist: Expr, count: VarExpr,
                    variable: Union[str, VarExpr]) -> FPS:
