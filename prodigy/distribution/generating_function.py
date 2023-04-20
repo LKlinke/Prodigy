@@ -32,10 +32,7 @@ def _term_generator(function: sympy.Poly):
         poly -= poly.EC() * poly.EM().as_expr()
 
 
-def _parse_to_sympy(expr: Any,
-                    rational=True,
-                    nonnegative=True,
-                    **kwargs) -> sympy.Expr:
+def _parse_to_sympy(expr: Any, rational=True, **kwargs) -> sympy.Expr:
     """
     Parses something (`float`s, `bool`s, `Fraction`s, `probably.Expr`s, anything that can be converted to a valid
     string) to a sympy expression. Can convert a probably expression faster than passing it as a string to sympy.
@@ -61,8 +58,7 @@ def _parse_to_sympy(expr: Any,
 
         def probably_to_sympy(prob_expr: Expr) -> sympy.Expr:
             if isinstance(prob_expr, VarExpr):
-                return _sympy_symbol(prob_expr.var, rational, nonnegative,
-                                     **kwargs)
+                return _sympy_symbol(prob_expr.var, rational, **kwargs)
             if isinstance(prob_expr, NatLitExpr):
                 return sympy.Integer(prob_expr.value)
             if isinstance(prob_expr, RealLitExpr):
@@ -107,25 +103,17 @@ def _parse_to_sympy(expr: Any,
             + (sympy.parsing.sympy_parser.convert_xor,
                sympy.parsing.sympy_parser.rationalize),
             global_dict={
-                'Symbol':
-                lambda x: _sympy_symbol(x, rational, nonnegative, **kwargs),
-                'Function':
-                get_function,
-                'Integer':
-                sympy.Integer,
-                'Float':
-                sympy.Float,
-                'Rational':
-                sympy.Rational
+                'Symbol': lambda x: _sympy_symbol(x, rational, **kwargs),
+                'Function': get_function,
+                'Integer': sympy.Integer,
+                'Float': sympy.Float,
+                'Rational': sympy.Rational
             })
 
     return s
 
 
-def _sympy_symbol(name: Any,
-                  rational=True,
-                  nonnegative=True,
-                  **kwargs) -> sympy.Symbol:
+def _sympy_symbol(name: Any, rational=True, **kwargs) -> sympy.Symbol:
     """
     Creates a rational and nonnegative sympy Symbol.
     
@@ -133,10 +121,7 @@ def _sympy_symbol(name: Any,
     evaluates to false, as variables with the same name but different domains are not considered
     equal by sympy.
     """
-    return sympy.Symbol(name,
-                        rational=rational,
-                        nonnegative=nonnegative,
-                        **kwargs)
+    return sympy.Symbol(name, rational=rational, **kwargs)
 
 
 class GeneratingFunction(Distribution):
@@ -651,6 +636,8 @@ class GeneratingFunction(Distribution):
     def _update_product(self, temp_var: str, first_factor: str,
                         second_factor: str,
                         approximate: str | float | None) -> GeneratingFunction:
+        # certain simplifications are only possible if we assume the symbols to be nonnegative
+        update_var_with_assumptions = _sympy_symbol(temp_var, nonnegative=True)
         update_var = _sympy_symbol(temp_var)
         prod_1, prod_2 = _parse_to_sympy(first_factor), _parse_to_sympy(
             second_factor)
@@ -690,8 +677,9 @@ class GeneratingFunction(Distribution):
                     state = self._monomial_to_state(state_expr)
                     term: sympy.Basic = prob * state_expr
                     result = result - term
-                    term = term.subs(update_var, 1) * update_var**(
-                        state[first_factor] * state[second_factor])
+                    term = term.subs(
+                        update_var, 1) * update_var_with_assumptions**(
+                            state[first_factor] * state[second_factor])
                     result = result + term
 
         # we multiply a variable with a literal
@@ -701,18 +689,23 @@ class GeneratingFunction(Distribution):
             else:
                 var, lit = prod_2, prod_1
             if var == update_var:
-                result = result.subs(update_var, update_var**lit)
+                result = result.subs(update_var,
+                                     update_var_with_assumptions**lit)
             else:
-                result = result.subs([(update_var, 1),
-                                      (var, var * update_var**lit)])
+                result = result.subs([
+                    (update_var, 1),
+                    (var, var * update_var_with_assumptions**lit)
+                ])
 
         # we multiply two literals
         else:
-            result = result.subs(update_var, 1) * (update_var
+            result = result.subs(update_var, 1) * (update_var_with_assumptions
                                                    **(prod_1 * prod_2))
 
         return GeneratingFunction(
-            result,
+            # remove the nonnegativity assumption from all symbols
+            result.replace(lambda expr: expr.is_Symbol,
+                           lambda expr: _sympy_symbol(expr.name)),
             *self._variables,
             preciseness=self._preciseness,
             closed=self._is_closed_form,
@@ -945,24 +938,19 @@ class GeneratingFunction(Distribution):
                 f"Cannot compute expected value of {expression} because it contains unknown symbols"
             )
 
-        # we cannot assume that every symbol is nonnegative because we're no longer using normal GFs
-        # thus, we remove the nonnegativity assumption from every symbol in the marginal
-        marginal = self.marginal(
-            *(expr.free_symbols & self._variables),
-            method=MarginalType.INCLUDE)._function.replace(
-                lambda expr: expr.is_Symbol, lambda expr: sympy.Symbol(
-                    expr.name, rational=True, nonnegative=None))
+        marginal = self.marginal(*(expr.free_symbols & self._variables),
+                                 method=MarginalType.INCLUDE)._function
         gen_func = GeneratingFunction(expr,
                                       *(expr.free_symbols & self._variables))
         expected_value = sympy.Integer(0)
         for prob, state in gen_func:
             tmp = marginal
             for var, val in state.items():
-                var_sym = sympy.Symbol(var, rational=True)
+                var_sym = _sympy_symbol(var)
                 for _ in range(val):
                     tmp = tmp.diff(var_sym, 1) * var_sym
                 tmp = tmp.limit(var_sym, 1, '-')
-            summand: sympy.Expr = _parse_to_sympy(prob, nonnegative=None) * tmp
+            summand: sympy.Expr = _parse_to_sympy(prob) * tmp
             if len(summand.free_symbols) == 0 and summand < 0:
                 raise ValueError(f'Intermediate result is negative: {summand}')
             expected_value += summand
