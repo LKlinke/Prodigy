@@ -817,7 +817,7 @@ class GeneratingFunction(Distribution):
 
         if pow_1 in self._parameters or pow_2 in self._parameters:
             raise ValueError(
-                "Cannot perfrom an exponentiation containing parameters")
+                "Cannot perform an exponentiation containing parameters")
 
         # variable to the power of a variable
         if pow_1 in self._variables and pow_2 in self._variables:
@@ -1112,7 +1112,7 @@ class GeneratingFunction(Distribution):
                     function = function.expand()
                     logger.debug("Canceling result: %s", function)
 
-            # update the occuring variables and parameters
+            # update the occurring variables and parameters
             variables = self._variables.union(other._variables)
             parameters = self._parameters.union(other._parameters)
             result = GeneratingFunction(function,
@@ -1125,7 +1125,7 @@ class GeneratingFunction(Distribution):
 
         # other object is either an expression, or literal
         elif isinstance(other, (str, float, int)):
-            # we try to convert this into a Generatingfunction and compute the arithmetic from there on.
+            # we try to convert this into a GeneratingFunction and compute the arithmetic from there on.
             return self._arithmetic(
                 GeneratingFunction(str(other), *self._variables), op)
         # We don't know how to do arithmetic on other types.
@@ -1223,7 +1223,7 @@ class GeneratingFunction(Distribution):
             else:
                 if not self._variables:
                     logger.warning(
-                        "Empty Polynomial, introducing auxilliary variable to create polynomial."
+                        "Empty Polynomial, introducing auxiliary variable to create polynomial."
                     )
                     func = self._function.as_poly(
                         _parse_to_sympy("empty_generator"))
@@ -1234,7 +1234,7 @@ class GeneratingFunction(Distribution):
             logger.debug("Multivariate Taylor expansion might take a while...")
             return self._mult_term_generator()
 
-    # FIXME: It's not nice to have different behaviour depending on the variable type of `threshold`.
+    # FIXME: It's not nice to have different behavior depending on the variable type of `threshold`.
     def approximate(
         self,
         threshold: Union[str,

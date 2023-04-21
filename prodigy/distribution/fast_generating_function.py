@@ -16,7 +16,7 @@ from prodigy.distribution.distribution import (CommonDistributionsFactory,
 class FPS(Distribution):
     """
     This class models a probability distribution in terms of a formal power series.
-    These formal powerseries are itself provided by `prodigy` a python binding to GiNaC,
+    These formal power series are itself provided by `prodigy` a python binding to GiNaC,
     something similar to a computer algebra system implemented in C++.
     """
     def __init__(self,

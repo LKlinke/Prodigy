@@ -874,7 +874,7 @@ class Distribution(ABC):
         """
         Applies the expression `temp_var := base^exp` to this distribution.
 
-        All variables occuring in the expression must have a finite marginal if approximation is disabled.
+        All variables occurring in the expression must have a finite marginal if approximation is disabled.
         """
 
     @abstractmethod
@@ -884,7 +884,7 @@ class Distribution(ABC):
         """
         Applies the expression `temp_var := radicand^(1/index)` to this distribution.
 
-        All variables occuring in the expression must have a finite marginal if approximation is disabled.
+        All variables occurring in the expression must have a finite marginal if approximation is disabled.
         """
 
     @abstractmethod
