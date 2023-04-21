@@ -765,6 +765,10 @@ class Distribution(ABC):
                 temp_var, self._nth_root(t_1**t_2.numerator, t_2.denominator))
 
         if isinstance(t_1, Fraction):
+            if t_2 == 0:
+                return self._update_var_full(temp_var, 1)
+            if t_1 == 0:
+                return self._update_var_full(temp_var, 0)
             # TODO is it possible to get an integer as a result here? What about Fraction^Fraction?
             raise ValueError(
                 'A fraction to the power of an integer never results in an integer'
