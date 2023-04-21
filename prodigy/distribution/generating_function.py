@@ -437,8 +437,14 @@ class GeneratingFunction(Distribution):
 
         if div_1 in self._variables and div_2 not in self._variables and self.assumptions_hold(
                 Divisible(str(numerator), int(denominator))):
+            if update_var == div_1:
+                res = self._function.subs(div_1, div_1**(1 / div_2))
+            else:
+                res = self._function.subs([(update_var, 1),
+                                           (div_1,
+                                            div_1 * update_var**(1 / div_2))])
             return GeneratingFunction(
-                self._function.subs(div_1, div_1**(1 / div_2)),
+                res,
                 *self._variables,
                 preciseness=self._preciseness,
                 closed=self._is_closed_form,
