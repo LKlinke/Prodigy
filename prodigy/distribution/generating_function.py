@@ -960,7 +960,7 @@ class GeneratingFunction(Distribution):
 
     def copy(self, deep: bool = True) -> GeneratingFunction:
         res = GeneratingFunction(
-            str(self._function),  # TODO remove str?
+            self._function,
             *self._variables,
             preciseness=self._preciseness,
             closed=self._is_closed_form,
