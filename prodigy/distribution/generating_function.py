@@ -32,12 +32,12 @@ def _term_generator(function: sympy.Poly):
         poly -= poly.EC() * poly.EM().as_expr()
 
 
-def _parse_to_sympy(expr: Any, rational=True, **kwargs) -> sympy.Expr:
+def _parse_to_sympy(expr: Any, real=True, **kwargs) -> sympy.Expr:
     """
     Parses something (`float`s, `bool`s, `Fraction`s, `probably.Expr`s, anything that can be converted to a valid
     string) to a sympy expression. Can convert a probably expression faster than passing it as a string to sympy.
     Also will correctly determine if something is a symbol or a function (e.g., if we have a variable called `exp` or
-    `log`). All symbols are given the assumptions that they are rational and nonnegative unless specified otherwise.
+    `log`). All symbols are given the assumptions that they are real unless specified otherwise.
     """
 
     # first we cover some cases that we can handle faster than by parsing a string
@@ -58,7 +58,7 @@ def _parse_to_sympy(expr: Any, rational=True, **kwargs) -> sympy.Expr:
 
         def probably_to_sympy(prob_expr: Expr) -> sympy.Expr:
             if isinstance(prob_expr, VarExpr):
-                return _sympy_symbol(prob_expr.var, rational, **kwargs)
+                return _sympy_symbol(prob_expr.var, real, **kwargs)
             if isinstance(prob_expr, NatLitExpr):
                 return sympy.Integer(prob_expr.value)
             if isinstance(prob_expr, RealLitExpr):
@@ -103,7 +103,7 @@ def _parse_to_sympy(expr: Any, rational=True, **kwargs) -> sympy.Expr:
             + (sympy.parsing.sympy_parser.convert_xor,
                sympy.parsing.sympy_parser.rationalize),
             global_dict={
-                'Symbol': lambda x: _sympy_symbol(x, rational, **kwargs),
+                'Symbol': lambda x: _sympy_symbol(x, real, **kwargs),
                 'Function': get_function,
                 'Integer': sympy.Integer,
                 'Float': sympy.Float,
@@ -113,15 +113,14 @@ def _parse_to_sympy(expr: Any, rational=True, **kwargs) -> sympy.Expr:
     return s
 
 
-def _sympy_symbol(name: Any, rational=True, **kwargs) -> sympy.Symbol:
+def _sympy_symbol(name: Any, real=True, **kwargs) -> sympy.Symbol:
     """
-    Creates a rational and nonnegative sympy Symbol.
+    Creates a real sympy Symbol.
     
-    Note that `sympy.Symbol('x') == sympy.Symbol('x', rational=True, nonnegative=True)`
-    evaluates to false, as variables with the same name but different domains are not considered
-    equal by sympy.
+    Note that `sympy.Symbol('x') == sympy.Symbol('x', real=True)` evaluates to false, as variables
+    with the same name but different domains are not considered equal by sympy.
     """
-    return sympy.Symbol(name, rational=rational, **kwargs)
+    return sympy.Symbol(name, real=real, **kwargs)
 
 
 class GeneratingFunction(Distribution):
