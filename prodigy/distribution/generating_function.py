@@ -1035,12 +1035,11 @@ class GeneratingFunction(Distribution):
             return str(expected_value)
 
     def copy(self, deep: bool = True) -> GeneratingFunction:
-        res = GeneratingFunction(
-            self._function,
-            *self._variables,
-            preciseness=self._preciseness,
-            closed=self._is_closed_form,
-            finite=self._is_finite)
+        res = GeneratingFunction(self._function,
+                                 *self._variables,
+                                 preciseness=self._preciseness,
+                                 closed=self._is_closed_form,
+                                 finite=self._is_finite)
         res._parameters = self._parameters.copy()
         res._assumptions = self._assumptions.copy()
         return res

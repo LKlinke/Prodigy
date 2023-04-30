@@ -7,7 +7,7 @@ import pygin  # type: ignore
 from probably.pgcl import Binop, BinopExpr, Expr, FunctionCallExpr, VarExpr
 from sympy import nan, sympify
 
-from prodigy.distribution.assumptions import Assumption
+from prodigy.distribution.assumptions import Assumption, Divisible
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
                                                MarginalType, State)
@@ -203,7 +203,14 @@ class FPS(Distribution):
         return self._parameters
 
     def get_assumptions(self) -> Set[Assumption]:
-        return set()
+        res: Set[Assumption] = set()
+        for assumption in self._dist.get_assumptions():
+            if isinstance(assumption, pygin.Divisible):
+                res.add(Divisible(assumption.get_lhs(), assumption.get_rhs()))
+            else:
+                raise ValueError(
+                    f"Unknown assumption type: {type(assumption)}")
+        return res
 
     @staticmethod
     def _find_symbols(expr: str) -> Set[str]:
@@ -472,7 +479,15 @@ class FPS(Distribution):
                              self._finite)
 
     def set_assumptions(self, *assumptions: Assumption) -> FPS:
-        return self.copy()
+        new = []
+        for assumption in assumptions:
+            if isinstance(assumption, Divisible):
+                new.append(pygin.Divisible(assumption.lhs, assumption.rhs))
+            else:
+                raise ValueError(
+                    f"Unknown assumption type: {type(assumption)}")
+        return FPS.from_dist(self._dist.set_assumptions(new),
+                             self._variables.copy(), self._parameters.copy())
 
     def approximate(
             self,
