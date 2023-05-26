@@ -13,14 +13,14 @@ from prodigy.analysis.optimization.gf_optimizer import GFOptimizer
 from prodigy.distribution.fast_generating_function import ProdigyPGF
 from prodigy.distribution.generating_function import (GeneratingFunction,
                                                       SympyPGF)
-
-from ..distribution.distribution import CommonDistributionsFactory
 from .exceptions import ConfigurationError
+from ..distribution.distribution import CommonDistributionsFactory
 
 
 @attr.s
 class ForwardAnalysisConfig:
     """Global configurable options for forward analysis."""
+
     class Engine(Enum):
         """
         This enumeration specifies the type of backend used for distribution encodings and mathematical operations.
@@ -30,6 +30,9 @@ class ForwardAnalysisConfig:
 
     show_intermediate_steps: bool = attr.ib(default=False)
     """Enables the printing of results after each instruction."""
+
+    step_wise: bool = attr.ib(default=False)
+    """Enables step-by-step computation"""
 
     use_simplification: bool = attr.ib(default=False)
     """Enables simplification heuristics for expressions."""

@@ -116,6 +116,8 @@ class SequenceHandler(InstructionHandler):
                 print("\n")
             output = f"\n{Style.BLUE}Instruction:{Style.RESET} {instr}\t {Style.GREEN}Result:{Style.RESET} {res}"
             print(output, prog_info.so_vars)
+            if config.step_wise:
+                input("Next step [Enter]")
             return res
 
         def _dont_show_steps(

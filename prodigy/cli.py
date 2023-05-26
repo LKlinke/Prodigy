@@ -29,19 +29,24 @@ from prodigy.util.color import Style
               is_flag=True,
               required=False,
               default=False)
+@click.option("--stepwise",
+              is_flag=True,
+              required=False,
+              default=False)
 @click.option('--no-simplification',
               is_flag=True,
               required=False,
               default=False)
 @click.option('--use-latex', is_flag=True, required=False, default=False)
-def cli(ctx, engine: str, intermediate_results: bool, no_simplification: bool,
+def cli(ctx, engine: str, intermediate_results: bool, stepwise: bool, no_simplification: bool,
         use_latex: bool):
     ctx.ensure_object(dict)
     ctx.obj['CONFIG'] = \
         analysis.ForwardAnalysisConfig(
             engine=analysis.ForwardAnalysisConfig.Engine.GINAC if engine == 'ginac'
-                else analysis.ForwardAnalysisConfig.Engine.SYMPY,
+            else analysis.ForwardAnalysisConfig.Engine.SYMPY,
             show_intermediate_steps=intermediate_results,
+            step_wise=stepwise,
             use_simplification=not no_simplification,
             use_latex=use_latex
         )
