@@ -1,0 +1,9 @@
+nat x;
+nat y;
+
+{abort}[1/2]{
+    x := bernoulli(1/2)
+    y := bernoulli(1/2)
+    observe(x=0 || y =0)
+}
+?Pr[y=0]
