@@ -39,7 +39,7 @@ from prodigy.util.color import Style
               default=False)
 @click.option('--use-latex', is_flag=True, required=False, default=False)
 def cli(ctx, engine: str, intermediate_results: bool, stepwise: bool, no_simplification: bool,
-        use_latex: bool):
+        use_latex: bool):  # pylint disable=too-many-arguments
     ctx.ensure_object(dict)
     ctx.obj['CONFIG'] = \
         analysis.ForwardAnalysisConfig(
