@@ -57,6 +57,7 @@ _PGCL_GRAMMAR = """
     queries: query* -> queries
 
     instruction: "skip"                                      -> skip
+               | "abort"                                     -> abort
                | "while" "(" expression ")" block            -> while
                | "if" "(" expression ")" block "else"? block -> if
                | var ":=" rvalue                             -> assign
@@ -151,7 +152,6 @@ See also: :module:`probably.util.lark_expr_parser`
 
 _PGCL_GRAMMAR += "\n" + textwrap.indent(
     build_expr_parser(_OPERATOR_TABLE, "expression"), '    ')
-
 _PARSER = Lark(_PGCL_GRAMMAR)
 
 
