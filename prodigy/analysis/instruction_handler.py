@@ -14,7 +14,7 @@ from probably.pgcl import (AsgnInstr, Binop, BinopExpr, CategoricalExpr,
                            NatLitExpr, ObserveInstr, OptimizationQuery,
                            OptimizationType, PlotInstr, PrintInstr,
                            ProbabilityQueryInstr, Program, Query, QueryInstr,
-                           RealLitExpr, SkipInstr, Unop, UnopExpr, Var,
+                           RealLitExpr, SkipInstr, AbortInstr, Unop, UnopExpr, Var,
                            VarExpr, WhileInstr, parse_pgcl)
 from probably.pgcl.check import sample_predefined_functions as distr_functions
 
@@ -134,6 +134,9 @@ class SequenceHandler(InstructionHandler):
 
         elif isinstance(instruction, SkipInstr):
             return distribution, error_prob
+
+        elif isinstance(instruction, AbortInstr):
+            return distribution.factory().undefined(*distribution.get_variables()), error_prob
 
         elif isinstance(instruction, WhileInstr):
             logger.info("%s gets handled", instruction)
