@@ -22,6 +22,7 @@ from prodigy.distribution.distribution import State
 from prodigy.util.color import Style
 
 
+# pylint: disable-msg=too-many-arguments
 @click.group()
 @click.pass_context
 @click.option('--engine', type=str, required=False, default='')
@@ -39,7 +40,7 @@ from prodigy.util.color import Style
               default=False)
 @click.option('--use-latex', is_flag=True, required=False, default=False)
 def cli(ctx, engine: str, intermediate_results: bool, stepwise: bool, no_simplification: bool,
-        use_latex: bool):  # pylint disable=too-many-arguments
+        use_latex: bool):
     ctx.ensure_object(dict)
     ctx.obj['CONFIG'] = \
         analysis.ForwardAnalysisConfig(
@@ -51,6 +52,8 @@ def cli(ctx, engine: str, intermediate_results: bool, stepwise: bool, no_simplif
             use_latex=use_latex
         )
 
+
+# pylint: enable-msg=too-many-arguments
 
 @cli.command('main')
 @click.pass_context
