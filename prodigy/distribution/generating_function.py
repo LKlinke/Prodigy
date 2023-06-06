@@ -1460,8 +1460,7 @@ class SympyPGF(CommonDistributionsFactory):
     @staticmethod
     def undefined(*variables: Union[str, VarExpr]) -> GeneratingFunction:
         """ A distribution where actually no information about the states is given."""
-        raise NotImplementedError(
-            "Currently this is unclear how to represent this.")
+        return GeneratingFunction("0", *variables, preciseness=1, closed=True, finite=True)
 
     @staticmethod
     def one(*variables: Union[str, VarExpr]) -> Distribution:

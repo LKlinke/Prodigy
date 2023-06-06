@@ -503,7 +503,7 @@ class ProdigyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def undefined(*variables: Union[str, VarExpr]) -> FPS:
-        raise NotImplementedError(__name__)
+        return FPS("0", *variables, finite=True)
 
     @staticmethod
     def one(*variables: Union[str, VarExpr]) -> FPS:
