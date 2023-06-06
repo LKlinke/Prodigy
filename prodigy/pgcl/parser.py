@@ -27,7 +27,7 @@ from lark import Lark, Tree
 
 from probably.pgcl.ast import *
 from probably.pgcl.ast.expressions import InferExpr, SampleExpr
-from probably.pgcl.ast.instructions import QueryInstr
+from probably.pgcl.ast.instructions import QueryInstr, AbortInstr
 from probably.pgcl.ast.types import DistributionType
 from probably.pgcl.ast.walk import Walk, walk_expr
 from probably.util.lark_expr_parser import (atom, build_expr_parser, infixl,
@@ -423,6 +423,8 @@ def _parse_rvalue(t: Tree) -> Expr:
 def _parse_instr(t: Tree) -> Instr:
     if t.data == 'skip':
         return SkipInstr()
+    elif t.data == 'abort':
+        return AbortInstr()
     elif t.data == 'while':
         return WhileInstr(_parse_expr(_child_tree(t, 0)),
                           _parse_instrs(_child_tree(t, 1)))

@@ -51,6 +51,11 @@ class SkipInstr(InstrClass):
     def __str__(self) -> str:
         return "skip;"
 
+@attr.s
+class AbortInstr(InstrClass):
+    """The abort instruction is syntactic sugar for non-termination."""
+    def __str__(self) -> str:
+        return "abort;"
 
 @attr.s
 class WhileInstr(InstrClass):
@@ -208,6 +213,6 @@ Query = Union[ProbabilityQueryInstr, ExpectationInstr, PlotInstr, PrintInstr,
               OptimizationQuery]
 """Union type for all query objects. See :class:`QueryInstr` for use with isinstance."""
 
-Instr = Union[SkipInstr, WhileInstr, IfInstr, AsgnInstr, ChoiceInstr,
+Instr = Union[SkipInstr, AbortInstr, WhileInstr, IfInstr, AsgnInstr, ChoiceInstr,
               LoopInstr, TickInstr, ObserveInstr, QueryInstr, Query]
 """Union type for all instruction objects. See :class:`InstrClass` for use with isinstance."""
