@@ -72,7 +72,7 @@ def compute_discrete_distribution(
     dist, error_prob = SequenceHandler.compute(prog_info.instructions,
                                                prog_info, initial_dist,
                                                error_prob, config)
-    return condition_distribution(dist, error_prob, config)
+    return condition_distribution(dist, error_prob, config) if config.normalize else dist
 
 
 def condition_distribution(dist: Distribution, error_prob: Distribution,

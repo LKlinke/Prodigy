@@ -43,6 +43,9 @@ class ForwardAnalysisConfig:
     engine: Engine = attr.ib(default=Engine.SYMPY)
     """Selects the distribution backend."""
 
+    normalize: bool = attr.ib(default=True)
+    """Switch to compute the normalized distribution"""
+
     @property
     def optimizer(self) -> Type[Optimizer]:
         if self.engine == ForwardAnalysisConfig.Engine.SYMPY:
