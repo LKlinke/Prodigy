@@ -39,8 +39,9 @@ from prodigy.util.color import Style
               required=False,
               default=False)
 @click.option('--use-latex', is_flag=True, required=False, default=False)
+@click.option("--no-normalize", is_flag=True, required=False, default=False)
 def cli(ctx, engine: str, intermediate_results: bool, stepwise: bool, no_simplification: bool,
-        use_latex: bool):
+        use_latex: bool, no_normalize: bool):
     ctx.ensure_object(dict)
     ctx.obj['CONFIG'] = \
         analysis.ForwardAnalysisConfig(
@@ -49,7 +50,8 @@ def cli(ctx, engine: str, intermediate_results: bool, stepwise: bool, no_simplif
             show_intermediate_steps=intermediate_results,
             step_wise=stepwise,
             use_simplification=not no_simplification,
-            use_latex=use_latex
+            use_latex=use_latex,
+            normalize=not no_normalize
         )
 
 

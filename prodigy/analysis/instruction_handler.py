@@ -110,15 +110,15 @@ class SequenceHandler(InstructionHandler):
         def _show_steps(inp: tuple[Distribution, Distribution],
                         instr: Instr) -> tuple[Distribution, Distribution]:
             dist, error_prob = inp
-            res = SequenceHandler.compute(instr, prog_info, dist, error_prob,
-                                          config)
+            res, error_prob = SequenceHandler.compute(instr, prog_info, dist, error_prob,
+                                                      config)
             if isinstance(instr, (WhileInstr, IfInstr, LoopInstr)):
                 print("\n")
             output = f"\n{Style.BLUE}Instruction:{Style.RESET} {instr}\t {Style.GREEN}Result:{Style.RESET} {res}"
             print(output, prog_info.so_vars)
             if config.step_wise:
                 input("Next step [Enter]")
-            return res
+            return res, error_prob
 
         def _dont_show_steps(
                 inp: tuple[Distribution, Distribution],
@@ -162,10 +162,11 @@ class SequenceHandler(InstructionHandler):
 
         elif isinstance(instruction, get_args(Query)):
             logger.info("%s gets handled", instruction)
-            distribution = condition_distribution(
-                distribution, error_prob,
-                config)  # evaluate queries on conditioned distribution
-            error_prob *= "0"
+            if config.normalize:
+                distribution = condition_distribution(
+                    distribution, error_prob,
+                    config)  # evaluate queries on conditioned distribution
+                error_prob *= "0"
             return QueryHandler.compute(instruction, prog_info, distribution,
                                         error_prob, config)
 
@@ -590,8 +591,8 @@ class WhileHandler(InstructionHandler):
         max_iter = int(input("Specify a maximum iteration limit: "))
         sat_part = distribution.filter(instruction.cond)
         non_sat_part = distribution - sat_part
-        for i in range(max_iter + 1):
-            print_progress_bar(i, max_iter, length=50)
+        for i in range(max_iter):
+            print_progress_bar(i + 1, max_iter, length=50)
             iterated_part, error_prob = SequenceHandler.compute(
                 instruction.body, prog_info, sat_part, error_prob, config)
             iterated_sat = iterated_part.filter(instruction.cond)
