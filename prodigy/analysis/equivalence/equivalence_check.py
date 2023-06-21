@@ -5,7 +5,7 @@ import logging
 from typing import Any, Dict, List, Literal, Set, Tuple
 
 import sympy
-from probably.pgcl import IfInstr, Program, SkipInstr, VarExpr, WhileInstr
+from probably.pgcl import IfInstr, Program, SkipInstr, VarExpr, WhileInstr, BoolType
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 # pylint: disable = cyclic-import
@@ -60,9 +60,14 @@ def generate_equivalence_test_distribution(
     so_vars: Dict[str, str] = {}  # second order variables
     for variable in program.variables:
         new_var = dist.get_fresh_variable()
-        dist *= config.factory.from_expr(f"1/(1-{new_var}*{variable})",
-                                         VarExpr(var=new_var),
-                                         VarExpr(var=variable))
+        if isinstance(program.variables[variable], BoolType):
+            dist *= config.factory.from_expr(f"(1+{new_var} * {variable})",
+                                             VarExpr(var=new_var),
+                                             VarExpr(var=variable))
+        else:
+            dist *= config.factory.from_expr(f"1/(1-{new_var}*{variable})",
+                                             VarExpr(var=new_var),
+                                             VarExpr(var=variable))
         so_vars[new_var] = variable
     return dist.set_variables(*program.variables.keys(),
                               *so_vars.keys()).set_parameters(), so_vars
