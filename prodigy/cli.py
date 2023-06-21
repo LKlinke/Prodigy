@@ -95,10 +95,10 @@ def main(ctx, program_file: IO, input_dist: str,
                                         preciseness=1.0)
 
     start = time.perf_counter()
-    dist = analysis.compute_discrete_distribution(program, dist, config)
+    dist, error_prob = analysis.compute_discrete_distribution(program, dist, config)
     stop = time.perf_counter()
 
-    print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + str(dist) +
+    print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + "(" + str(dist) + ", " + str(error_prob) + ")" +
           Style.RESET)
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
 
@@ -188,7 +188,7 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
         config = ctx.obj['CONFIG']
         dist = config.factory.one(*prog.variables.keys())
 
-        dist = analysis.compute_discrete_distribution(prog, dist, config)
+        dist, error_prob = analysis.compute_discrete_distribution(prog, dist, config)
 
         marginal_cache = {}
         for var in prog.variables:
