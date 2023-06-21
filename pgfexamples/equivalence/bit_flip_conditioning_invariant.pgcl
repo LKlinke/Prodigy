@@ -1,0 +1,32 @@
+bool b1
+bool b2
+bool b3
+bool b4
+nat i
+nat temp
+
+if (not ((b1 = 0) & (b2 = 0))) {
+    if (b3 = 0 & b4 = 0){
+        temp := 1
+        temp := iid(7/13 * (3*i^3-16*i)/(i^2+8*i-16), temp)
+        i := i + temp
+        {skip}[13/28]{observe(false)}
+    } else {
+        if (b3 = 0 || b4 = 0) {
+            temp := 1
+            temp := iid(7/3 * (i^2 -4*i)/(i^2+8*i-16), temp)
+            i := i + temp
+            {skip}[2/7]{observe(false)}
+        } else {
+            temp := 1
+            temp := iid((7*i^2)/(16-i^2-8*i), temp)
+            i := i + temp
+            {skip}[2/7]{observe(false)}
+        }
+    }
+    b1 := 0
+    b2 := 0
+    b3 := 0
+    b4 := 0
+    temp := 0
+} else {skip}
