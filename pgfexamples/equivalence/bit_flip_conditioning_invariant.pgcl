@@ -16,7 +16,7 @@ if (not ((b1 = 0) & (b2 = 0))) {
             temp := 1
             temp := iid(7/3 * (i^2 -4*i)/(i^2+8*i-16), temp)
             i := i + temp
-            {skip}[2/7]{observe(false)}
+            {skip}[3/7]{observe(false)}
         } else {
             temp := 1
             temp := iid((7*i^2)/(16-i^2-8*i), temp)
