@@ -60,7 +60,7 @@ def _assume(instruction: Instr, instr_type, clsname: str):
 
 def compute_discrete_distribution(
         program: Program | ProgramInfo, dist: Distribution,
-        config: ForwardAnalysisConfig) -> Distribution:
+        config: ForwardAnalysisConfig) -> tuple[Distribution, Distribution]:
     # Inject the context from the parsed program into the initial distribution.
     prog_info = program if isinstance(program,
                                       ProgramInfo) else ProgramInfo(program)
@@ -68,22 +68,23 @@ def compute_discrete_distribution(
     parameters = set(prog_info.parameters.keys()).union(dist.get_parameters())
     initial_dist = dist.set_variables(*variables).set_parameters(*parameters)
     error_prob = config.factory.one(*variables) * 0
-
     dist, error_prob = SequenceHandler.compute(prog_info.instructions,
                                                prog_info, initial_dist,
                                                error_prob, config)
-    return condition_distribution(dist, error_prob, config) if config.normalize else dist
+    if config.normalize:
+        dist, error_prob = condition_distribution(dist, error_prob, config)
+    return dist, error_prob
 
 
 def condition_distribution(dist: Distribution, error_prob: Distribution,
-                           config: ForwardAnalysisConfig) -> Distribution:
+                           config: ForwardAnalysisConfig) -> tuple[Distribution, Distribution]:
     one = config.factory.one(*error_prob.get_variables())
     zero = one * "0"
     if dist == zero and error_prob == one:
         raise ObserveZeroEventError(
             "Undefined semantics: Probability of observing a valid run is 0.")
     result = dist / (one - error_prob)
-    return result
+    return result, error_prob
 
 
 class InstructionHandler(ABC):
@@ -163,7 +164,7 @@ class SequenceHandler(InstructionHandler):
         elif isinstance(instruction, get_args(Query)):
             logger.info("%s gets handled", instruction)
             if config.normalize:
-                distribution = condition_distribution(
+                distribution, error_prob = condition_distribution(
                     distribution, error_prob,
                     config)  # evaluate queries on conditioned distribution
                 error_prob *= "0"
@@ -395,8 +396,8 @@ class FunctionHandler(InstructionHandler):
             replace(prog_info,
                     program=Program.from_function(function,
                                                   prog_info.program)),
-            input_distr, config).evaluate_expression(function.returns,
-                                                     instruction.lhs)
+            input_distr, config)[0].evaluate_expression(function.returns,
+                                                        instruction.lhs)
         return distribution.marginal(
             instruction.lhs,
             method=MarginalType.EXCLUDE) * returned, error_prob

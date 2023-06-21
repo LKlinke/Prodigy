@@ -21,7 +21,7 @@ def test_context_injection(engine, factory):
         nparam n;
         """)
     gf = factory.from_expr("z^3")
-    result = prodigy.analysis.compute_discrete_distribution(
+    result, error_prob = prodigy.analysis.compute_discrete_distribution(
         program, gf, prodigy.analysis.ForwardAnalysisConfig(engine=engine))
     assert result.get_variables() == {
         "x", "y", "z"
@@ -43,7 +43,7 @@ def test_iid_predefined_distributions(engine, factory):
     }
 
     for distribution in distributions.keys():
-        result = prodigy.analysis.compute_discrete_distribution(
+        result, error_prob = prodigy.analysis.compute_discrete_distribution(
             pgcl.parse_pgcl("""
                     nat x;
                     nparam n;
@@ -59,7 +59,7 @@ def test_iid_predefined_distributions(engine, factory):
                          [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
                           (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_iid_update(engine, factory):
-    result = prodigy.analysis.compute_discrete_distribution(
+    result, error_prob = prodigy.analysis.compute_discrete_distribution(
         pgcl.parse_pgcl("""
             nat x;
             rparam p;
@@ -76,7 +76,7 @@ def test_iid_update(engine, factory):
                           (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_subtraction_when_already_zero(engine, factory):
     with raises(ValueError, match='negative') as e:
-        result = prodigy.analysis.compute_discrete_distribution(
+        result, error_prob = prodigy.analysis.compute_discrete_distribution(
             pgcl.parse_pgcl("""
         nat x;
         x := 0;
@@ -84,7 +84,7 @@ def test_subtraction_when_already_zero(engine, factory):
         """), factory.from_expr("x^5"),
             prodigy.analysis.ForwardAnalysisConfig(engine=engine))
 
-    result = prodigy.analysis.compute_discrete_distribution(
+    result, error_prob = prodigy.analysis.compute_discrete_distribution(
         pgcl.parse_pgcl("""
     nat x;
     x := 0;
@@ -94,7 +94,7 @@ def test_subtraction_when_already_zero(engine, factory):
     assert result == factory.from_expr("1", "x")
 
     with raises(ValueError) as e:
-        result = prodigy.analysis.compute_discrete_distribution(
+        result, error_prob = prodigy.analysis.compute_discrete_distribution(
             pgcl.parse_pgcl("""
             nat x
             x := x - 2*x
@@ -109,7 +109,7 @@ def test_subtraction_when_already_zero(engine, factory):
 def test_addition_assignment(engine, factory):
     rand_inc = random.randint(0, 100)
     rand_init = random.randint(0, 100)
-    result = prodigy.analysis.compute_discrete_distribution(
+    result, error_prob = prodigy.analysis.compute_discrete_distribution(
         pgcl.parse_pgcl(f"""
         nat x;
         x := x+{rand_inc};
@@ -124,7 +124,7 @@ def test_addition_assignment(engine, factory):
 def test_multiplication_assignment(engine, factory):
     rand_factor = random.randint(0, 100)
     rand_init = random.randint(0, 100)
-    result = prodigy.analysis.compute_discrete_distribution(
+    result, error_prob = prodigy.analysis.compute_discrete_distribution(
         pgcl.parse_pgcl(f"""
         nat x;
         x := x*{rand_factor};
@@ -132,7 +132,7 @@ def test_multiplication_assignment(engine, factory):
         prodigy.analysis.ForwardAnalysisConfig(engine=engine))
     assert result == factory.from_expr(f"x^{rand_init * rand_factor}", "x")
 
-    result = prodigy.analysis.compute_discrete_distribution(
+    result, error_prob = prodigy.analysis.compute_discrete_distribution(
         pgcl.parse_pgcl(f"""
         nat x;
         x := x*0.5;
@@ -145,7 +145,7 @@ def test_multiplication_assignment(engine, factory):
                          [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
                           (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_ite_statement(engine, factory):
-    result = prodigy.analysis.compute_discrete_distribution(
+    result, error_prob = prodigy.analysis.compute_discrete_distribution(
         pgcl.parse_pgcl("""
         nat x;
         nat y;

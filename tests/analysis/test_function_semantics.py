@@ -3,7 +3,7 @@ from probably.pgcl.compiler import compile_pgcl
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instruction_handler import compute_discrete_distribution
-from prodigy.distribution.fast_generating_function import FPS, ProdigyPGF
+from prodigy.distribution.fast_generating_function import ProdigyPGF
 from prodigy.distribution.generating_function import SympyPGF
 
 
@@ -20,8 +20,8 @@ def test_basic_function(engine, factory):
         nat x;
         x := f(y := 5);
     """)
-    res = compute_discrete_distribution(prog, factory.one(),
-                                        ForwardAnalysisConfig(engine=engine))
+    res, error_prob = compute_discrete_distribution(prog, factory.one(),
+                                                    ForwardAnalysisConfig(engine=engine))
     assert res == factory.from_expr("x^42")
 
 
@@ -39,6 +39,6 @@ def test_parameter(engine, factory):
         rparam p;
         x := f();
     """)
-    res = compute_discrete_distribution(prog, factory.one(),
-                                        ForwardAnalysisConfig(engine=engine))
+    res, error_prob = compute_discrete_distribution(prog, factory.one(),
+                                                    ForwardAnalysisConfig(engine=engine))
     assert res == factory.geometric('x', 'p')
