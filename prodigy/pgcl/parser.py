@@ -120,7 +120,7 @@ _PGCL_GRAMMAR = """
 _illegal_variable_names = {"true", "false"}
 _illegal_function_names = {
     'unif_d', 'unif_c', 'unif', 'geometric', 'poisson', 'logdist', 'binomial',
-    'bernoulli', 'iid'
+    'bernoulli', 'iid', 'sample_pgf'
 }
 
 _OPERATOR_TABLE = [[infixl("or", "||")], [infixl("and", "&")],
