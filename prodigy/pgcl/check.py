@@ -85,7 +85,9 @@ sample_predefined_functions: Dict[Var, List[VarDecl]] = frozendict({
     'binomial': [VarDecl('n', NatType(None)),
                  VarDecl('p', RealType())],
     'iid': [VarDecl('dist', NatType(None)),
-            VarDecl('var', NatType(None))]
+            VarDecl('var', NatType(None))],
+    'sample_pgf': [VarDecl("dist", NatType(None)),
+                   VarDecl("var", NatType(None))]
 })
 
 
