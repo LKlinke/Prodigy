@@ -1,0 +1,44 @@
+bool b1
+bool b2
+bool b3
+bool b4
+nat i
+nat temp
+rparam a
+rparam b
+rparam c
+
+if (not ((b1 = 0) & (b2 = 0))) {
+    {b1:=0}[p]{b1:=1}
+    {b2:=0}[p]{b2:=1}
+    observe( (b1 = 0 & b3 = 0) || (b1 = 1 & b3 = 1) || (b2 = 0 & b4 = 0) || (b2 = 1 & b4 = 1) )
+    b3 := b1
+    b4 := b2
+    i := i+1
+    temp := 0
+    if (not ((b1 = 0) & (b2 = 0))) {
+        if (b3 = 0 & b4 = 0){
+            temp := i
+            i := sample_pgf(((i*p^2 - i^2*p^2 + 3*i^2*p^3 - 3*i^3*p^3 - 2*i^2*p^4 + 9*i^3*p^4 - 9*i^3*p^5 + 3*i^3*p^6)) / (i^2*p^4-3*i^2*p^3+3*i^2*p^2-i^2*p+i*p-i+1) * (p^2-3*p+3) / (p^2*(3*p^2-9*p+7)),i)
+            i := i + temp
+            {skip}[p^2*(3*p^2-9*p+7) / (p^2-3*p+3)]{observe(false)}
+        } else {
+            if (b3 = 0 || b4 = 0) {
+                temp := i
+                i := sample_pgf(i * (p^2-i*p^2+2*i*p^3-i*p^4) / (i^2*p^4-3*i^2*p^3+3*i^2*p^2-i^2*p+i*p-i+1) * (p^2-3*p+3) / ((2-p)*p), i)
+                i := i + temp
+                {skip}[(2-p)*p/(p^2-3*p+3)]{observe(false)}
+            } else {
+                temp := i
+                i := sample_pgf(2*i^2*(1-p)*p^3 / (i^2*p^4-3*i^2*p^3+3*i^2*p^2-i^2*p+i*p-i+1) * (p^2-3*p+3)/(2*(1-p)*p), i)
+                i := i + temp
+                {skip}[2*(1-p)*p/(p^2-3*p+3)]{observe(false)}
+            }
+        }
+        b1 := 0
+        b2 := 0
+        b3 := 0
+        b4 := 0
+        temp := 0
+    } else {skip}
+} else {skip}
