@@ -335,7 +335,17 @@ class SampleHandler(InstructionHandler):
         if distr == "iid":
             dist, count = instruction.rhs.params[0]
             return distribution.update_iid(dist, count, instruction.lhs), \
-                   error_prob
+                error_prob
+
+        if distr == "sample_pgf":
+            dist_expr = instruction.rhs.params[0][0]
+            dist_vars = instruction.rhs.params[0][1:]
+            if len(dist_vars) > 1:
+                raise NotImplementedError("Sampling from multi-variate distributions is currently not supported.")
+            if dist_vars[0].var != variable:
+                raise NotImplementedError("Sampling form a conditional distribution is currently not supported.")
+            sampled_dist = factory.from_expr(dist_expr, *dist_vars)
+            return marginal * sampled_dist, error_prob
 
         # all remaining distributions have only one parameter
         [param] = instruction.rhs.params[0]
