@@ -69,6 +69,7 @@ def generate_equivalence_test_distribution(
                                              VarExpr(var=new_var),
                                              VarExpr(var=variable))
         so_vars[new_var] = variable
+    logger.debug("Test distribution is %s with second order variables %s", dist, so_vars)
     return dist.set_variables(*program.variables.keys(),
                               *so_vars.keys()).set_parameters(), so_vars
 
@@ -269,8 +270,11 @@ def _solve(expr: Any, params: Set[str]) -> List[Dict[Any, Any]]:
     """
 
     assert len(params) > 0
+    logger.debug("Computing solutions of %s using sympy:", expr)
     sol = []
-    for el in sympy.solve(expr, *params, dict=True):
+    possible_solutions = sympy.solve(expr, *params, dict=True)
+    logger.debug("Possible solutions are %s", possible_solutions)
+    for el in possible_solutions:
         for _, val in el.items():
             if not {str(s) for s in val.free_symbols} <= params:
                 break
