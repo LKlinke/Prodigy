@@ -511,7 +511,7 @@ class ProdigyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def from_expr(expression: Union[str, Expr], *variables, **kwargs) -> FPS:
-        return FPS(expression, *variables)
+        return FPS(str(expression), *variables)
 
     @staticmethod
     def zero(*variables: Union[str, VarExpr]) -> FPS:
