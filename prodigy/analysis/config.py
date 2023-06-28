@@ -20,7 +20,6 @@ from ..distribution.distribution import CommonDistributionsFactory
 @attr.s
 class ForwardAnalysisConfig:
     """Global configurable options for forward analysis."""
-
     class Engine(Enum):
         """
         This enumeration specifies the type of backend used for distribution encodings and mathematical operations.

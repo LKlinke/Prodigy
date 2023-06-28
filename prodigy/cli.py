@@ -30,18 +30,15 @@ from prodigy.util.color import Style
               is_flag=True,
               required=False,
               default=False)
-@click.option("--stepwise",
-              is_flag=True,
-              required=False,
-              default=False)
+@click.option("--stepwise", is_flag=True, required=False, default=False)
 @click.option('--no-simplification',
               is_flag=True,
               required=False,
               default=False)
 @click.option('--use-latex', is_flag=True, required=False, default=False)
 @click.option("--no-normalize", is_flag=True, required=False, default=False)
-def cli(ctx, engine: str, intermediate_results: bool, stepwise: bool, no_simplification: bool,
-        use_latex: bool, no_normalize: bool):
+def cli(ctx, engine: str, intermediate_results: bool, stepwise: bool,
+        no_simplification: bool, use_latex: bool, no_normalize: bool):
     ctx.ensure_object(dict)
     ctx.obj['CONFIG'] = \
         analysis.ForwardAnalysisConfig(
@@ -56,6 +53,7 @@ def cli(ctx, engine: str, intermediate_results: bool, stepwise: bool, no_simplif
 
 
 # pylint: enable-msg=too-many-arguments
+
 
 @cli.command('main')
 @click.pass_context
@@ -95,11 +93,12 @@ def main(ctx, program_file: IO, input_dist: str,
                                         preciseness=1.0)
 
     start = time.perf_counter()
-    dist, error_prob = analysis.compute_discrete_distribution(program, dist, config)
+    dist, error_prob = analysis.compute_discrete_distribution(
+        program, dist, config)
     stop = time.perf_counter()
 
-    print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + "(" + str(dist) + ", " + str(error_prob) + ")" +
-          Style.RESET)
+    print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + "(" + str(dist) +
+          ", " + str(error_prob) + ")" + Style.RESET)
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
 
 
@@ -188,7 +187,8 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
         config = ctx.obj['CONFIG']
         dist = config.factory.one(*prog.variables.keys())
 
-        dist, error_prob = analysis.compute_discrete_distribution(prog, dist, config)
+        dist, _ = analysis.compute_discrete_distribution(
+            prog, dist, config)
 
         marginal_cache = {}
         for var in prog.variables:

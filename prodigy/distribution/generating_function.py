@@ -959,12 +959,11 @@ class GeneratingFunction(Distribution):
             return str(expected_value)
 
     def copy(self, deep: bool = True) -> GeneratingFunction:
-        res = GeneratingFunction(
-            self._function,
-            *self._variables,
-            preciseness=self._preciseness,
-            closed=self._is_closed_form,
-            finite=self._is_finite)
+        res = GeneratingFunction(self._function,
+                                 *self._variables,
+                                 preciseness=self._preciseness,
+                                 closed=self._is_closed_form,
+                                 finite=self._is_finite)
         res._parameters = self._parameters.copy()
         return res
 
@@ -1460,7 +1459,11 @@ class SympyPGF(CommonDistributionsFactory):
     @staticmethod
     def undefined(*variables: Union[str, VarExpr]) -> GeneratingFunction:
         """ A distribution where actually no information about the states is given."""
-        return GeneratingFunction("0", *variables, preciseness=1, closed=True, finite=True)
+        return GeneratingFunction("0",
+                                  *variables,
+                                  preciseness=1,
+                                  closed=True,
+                                  finite=True)
 
     @staticmethod
     def one(*variables: Union[str, VarExpr]) -> Distribution:

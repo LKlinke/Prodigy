@@ -8,13 +8,13 @@ from dataclasses import dataclass, replace
 from fractions import Fraction
 from typing import Any, Dict, Sequence, Union, get_args
 
-from probably.pgcl import (AsgnInstr, Binop, BinopExpr, CategoricalExpr,
-                           ChoiceInstr, ExpectationInstr, Expr,
-                           FunctionCallExpr, IfInstr, Instr, LoopInstr,
+from probably.pgcl import (AbortInstr, AsgnInstr, Binop, BinopExpr,
+                           CategoricalExpr, ChoiceInstr, ExpectationInstr,
+                           Expr, FunctionCallExpr, IfInstr, Instr, LoopInstr,
                            NatLitExpr, ObserveInstr, OptimizationQuery,
                            OptimizationType, PlotInstr, PrintInstr,
                            ProbabilityQueryInstr, Program, Query, QueryInstr,
-                           RealLitExpr, SkipInstr, AbortInstr, Unop, UnopExpr, Var,
+                           RealLitExpr, SkipInstr, Unop, UnopExpr, Var,
                            VarExpr, WhileInstr, parse_pgcl)
 from probably.pgcl.check import sample_predefined_functions as distr_functions
 
@@ -76,8 +76,9 @@ def compute_discrete_distribution(
     return dist, error_prob
 
 
-def condition_distribution(dist: Distribution, error_prob: Distribution,
-                           config: ForwardAnalysisConfig) -> tuple[Distribution, Distribution]:
+def condition_distribution(
+        dist: Distribution, error_prob: Distribution,
+        config: ForwardAnalysisConfig) -> tuple[Distribution, Distribution]:
     one = config.factory.one(*error_prob.get_variables())
     zero = one * "0"
     if dist == zero and error_prob == one:
@@ -111,8 +112,8 @@ class SequenceHandler(InstructionHandler):
         def _show_steps(inp: tuple[Distribution, Distribution],
                         instr: Instr) -> tuple[Distribution, Distribution]:
             dist, error_prob = inp
-            res, error_prob = SequenceHandler.compute(instr, prog_info, dist, error_prob,
-                                                      config)
+            res, error_prob = SequenceHandler.compute(instr, prog_info, dist,
+                                                      error_prob, config)
             if isinstance(instr, (WhileInstr, IfInstr, LoopInstr)):
                 print("\n")
             output = f"\n{Style.BLUE}Instruction:{Style.RESET} {instr}\t {Style.GREEN}Result:{Style.RESET} {res}"
@@ -137,7 +138,8 @@ class SequenceHandler(InstructionHandler):
             return distribution, error_prob
 
         elif isinstance(instruction, AbortInstr):
-            return distribution.factory().undefined(*distribution.get_variables()), error_prob
+            return distribution.factory().undefined(
+                *distribution.get_variables()), error_prob
 
         elif isinstance(instruction, WhileInstr):
             logger.info("%s gets handled", instruction)
@@ -341,9 +343,13 @@ class SampleHandler(InstructionHandler):
             dist_expr = instruction.rhs.params[0][0]
             dist_vars = instruction.rhs.params[0][1:]
             if len(dist_vars) > 1:
-                raise NotImplementedError("Sampling from multi-variate distributions is currently not supported.")
+                raise NotImplementedError(
+                    "Sampling from multi-variate distributions is currently not supported."
+                )
             if dist_vars[0].var != variable:
-                raise NotImplementedError("Sampling form a conditional distribution is currently not supported.")
+                raise NotImplementedError(
+                    "Sampling form a conditional distribution is currently not supported."
+                )
             sampled_dist = factory.from_expr(dist_expr, *dist_vars)
             return marginal * sampled_dist, error_prob
 
@@ -406,8 +412,8 @@ class FunctionHandler(InstructionHandler):
             replace(prog_info,
                     program=Program.from_function(function,
                                                   prog_info.program)),
-            input_distr, config)[0].evaluate_expression(function.returns,
-                                                        instruction.lhs)
+            input_distr,
+            config)[0].evaluate_expression(function.returns, instruction.lhs)
         return distribution.marginal(
             instruction.lhs,
             method=MarginalType.EXCLUDE) * returned, error_prob

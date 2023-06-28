@@ -5,7 +5,8 @@ import logging
 from typing import Any, Dict, List, Literal, Set, Tuple
 
 import sympy
-from probably.pgcl import IfInstr, Program, SkipInstr, VarExpr, WhileInstr, BoolType
+from probably.pgcl import (BoolType, IfInstr, Program, SkipInstr, VarExpr,
+                           WhileInstr)
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 # pylint: disable = cyclic-import
@@ -69,7 +70,8 @@ def generate_equivalence_test_distribution(
                                              VarExpr(var=new_var),
                                              VarExpr(var=variable))
         so_vars[new_var] = variable
-    logger.debug("Test distribution is %s with second order variables %s", dist, so_vars)
+    logger.debug("Test distribution is %s with second order variables %s",
+                 dist, so_vars)
     return dist.set_variables(*program.variables.keys(),
                               *so_vars.keys()).set_parameters(), so_vars
 
@@ -151,11 +153,16 @@ def check_equivalence(
         return True, res  # type: ignore
 
     res_both = []
+    logger.debug('Check, whether individual solutions are compatible')
     for sol, sol_err in itertools.product(res, res_err):
         to_be_solved = []
         for var, constr in sol.items() | sol_err.items():
             to_be_solved.append(sympy.S(f'({var}) - ({constr})'))
-        res_both += sympy.solve(to_be_solved, dict=True)
+        logger.debug("Solving the equation system: %s", to_be_solved)
+        res_both += sympy.solve(
+            to_be_solved, dict=True) if len(to_be_solved) > 1 else sympy.solve(
+            to_be_solved[0], dict=True)
+        logger.debug("Current partial solution space: %s", res_both)
     if len(res_both) == 0:
         return False, State()  # TODO how to generate a counterexample here?
     return True, res_both

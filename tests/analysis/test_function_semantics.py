@@ -20,8 +20,8 @@ def test_basic_function(engine, factory):
         nat x;
         x := f(y := 5);
     """)
-    res, error_prob = compute_discrete_distribution(prog, factory.one(),
-                                                    ForwardAnalysisConfig(engine=engine))
+    res, error_prob = compute_discrete_distribution(
+        prog, factory.one(), ForwardAnalysisConfig(engine=engine))
     assert res == factory.from_expr("x^42")
 
 
@@ -39,6 +39,6 @@ def test_parameter(engine, factory):
         rparam p;
         x := f();
     """)
-    res, error_prob = compute_discrete_distribution(prog, factory.one(),
-                                                    ForwardAnalysisConfig(engine=engine))
+    res, error_prob = compute_discrete_distribution(
+        prog, factory.one(), ForwardAnalysisConfig(engine=engine))
     assert res == factory.geometric('x', 'p')

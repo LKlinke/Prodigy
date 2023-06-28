@@ -57,7 +57,8 @@ class Plotter:
             # Fill the colors array with the previously collected data.
             # pylint: disable = consider-using-dict-items
             for coord in coord_and_prob:
-                colors[coord[1]][coord[0]] = float(str(coord_and_prob[coord].evalf()))
+                colors[coord[1]][coord[0]] = float(
+                    str(coord_and_prob[coord].evalf()))
 
             # Plot the colors array
             color_plot = plt.imshow(colors,
