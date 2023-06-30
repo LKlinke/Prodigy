@@ -2,8 +2,14 @@ nat n;
 nat m;
 
 if ((0 < n ) & (0 < m)){
-    # Probably no clodes-form exists
-    # For the symmetric case of m=n \sum_k=1^n \left\[{2n-k} \choose {n} - {2n-k-1} \choose {n}\right\] \cdot 2^{k-2n} \cdot \left(x^{2n-k} + y^{2n-k}\right)
-    # should be the probability distribution for reaching state (0,k) or (k,0) respectively. I guess no closed form exists for this expression.
+    # The "closed-form" solution for this program is
+    #
+    #
+    # Sum[Binomial[a + b - i - 1, b - 1] 2^(i - a - b)*n^i, {i, 1, a}] +
+    # Sum[Binomial[a + b - j - 1, a - 1] 2^(j - a - b)*m^j, {j, 1, b}]
+    #
+    #
+    # which does not admit a nice closed-form.
+
     skip
 } else {skip}
