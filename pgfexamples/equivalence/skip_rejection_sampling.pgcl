@@ -1,5 +1,5 @@
 nat c;
 
-while ( not (c%2=0)){
+while (c%2=0){
   c := geometric(1/2)
 }
