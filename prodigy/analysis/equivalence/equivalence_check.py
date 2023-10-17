@@ -122,7 +122,7 @@ def check_equivalence(
         modified_inv.instructions,
         ProgramInfo(modified_inv, so_vars=frozenset(new_vars.keys())),
         test_dist,
-        config.factory.one(*modified_inv.variables) * 0, config)
+        config.factory.one(*(modified_inv.variables | new_vars.keys())) * 0, config)
     logger.debug("modified invariant result:\t%s", modified_inv_result)
     logger.debug("Compute the invariant...")
     if config.show_intermediate_steps:
@@ -132,7 +132,7 @@ def check_equivalence(
     inv_result, inv_error = SequenceHandler.compute(
         invariant.instructions,
         ProgramInfo(invariant, so_vars=frozenset(new_vars.keys())), test_dist,
-        config.factory.one(*invariant.variables) * 0, config)
+        config.factory.one(*(modified_inv.variables | new_vars.keys())) * 0, config)
     logger.debug("invariant result:\t%s", inv_result)
 
     # Compare them and check whether they are equal.

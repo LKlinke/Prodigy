@@ -483,10 +483,11 @@ class PChoiceHandler(InstructionHandler):
         rhs_block, rhs_error_prob = SequenceHandler.compute(
             instruction.rhs, prog_info, distribution, error_prob, config)
         logger.info("Combining PChoice branches.\n%s", instruction)
+        new_prob = lhs_error_prob * str(instruction.prob) + rhs_error_prob * f"1-({instruction.prob})"
         res_error_prob = (
-            lhs_error_prob * str(instruction.prob) +
-            rhs_error_prob * f"1-{instruction.prob}").set_variables(
-                *error_prob.get_variables())
+                lhs_error_prob * str(instruction.prob) +
+                rhs_error_prob * f"1-({instruction.prob})").set_variables(
+            *error_prob.get_variables())
         return lhs_block * str(
             instruction.prob) + rhs_block * f"1-({instruction.prob})", \
                res_error_prob

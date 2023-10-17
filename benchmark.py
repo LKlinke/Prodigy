@@ -16,8 +16,8 @@ times = []
 for i in range(count):
     print(f"\ron iteration {i + 1}/{count}...", end="")
     # Choose timing behavior by commenting out
-    # psi_timings = True
-    psi_timings = False
+    psi_timings = True
+    # psi_timings = False
     if psi_timings:
         result = subprocess.check_output(sys.argv[1:], timeout=timeout)
         if "seconds" not in result.decode().splitlines()[-2]:
