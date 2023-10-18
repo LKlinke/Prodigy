@@ -373,6 +373,7 @@ class FPS(Distribution):
 
         if sampling_dist.function in {"unif", "unif_d"}:
             [start, end] = sampling_dist.params[0]
+            # Note: add parameters in constructor call of pygin.Dist
             result = self._dist.updateIid(
                 str(variable),
                 pygin.Dist(
@@ -383,6 +384,7 @@ class FPS(Distribution):
 
         if sampling_dist.function == "binomial":
             [n, p] = sampling_dist.params[0]
+            # Note: add parameters in constructor call of pygin.Dist
             result = self._dist.updateIid(
                 str(variable),
                 pygin.Dist(f'(1 - ({p}) + ({p}) * {variable})^({n})'),
@@ -397,9 +399,11 @@ class FPS(Distribution):
             return FPS.from_dist(result, self._variables, self._parameters)
 
         if sampling_dist.function == "bernoulli":
+            symbolic_param = pygin.find_symbols(str(param))
+            print(symbolic_param)
             result = self._dist.updateIid(
                 str(variable),
-                pygin.Dist(f"{param} * {variable} + (1-{param})"), str(count))
+                pygin.Dist(f"{param} * {variable} + (1-{param})", symbolic_param), str(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
         if sampling_dist.function == "poisson":

@@ -1,0 +1,10 @@
+nat s;
+nat f;
+nat h;
+nat t;
+
+while(s > 0 & f < 5){
+  {observe(s<10);f:= f+1}[1/5]{f:=0; s:= s-1}
+  h := 0;
+  t := 0;
+}
