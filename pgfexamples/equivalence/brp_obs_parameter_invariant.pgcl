@@ -7,13 +7,13 @@ rparam p;
 if(s>0 & f<5){
     if(s>=10){
         h := s - 9
-        t := iid(bernoulli(1/5), h)
+        t := iid(bernoulli(1/100), h)
         if(t=0) {skip} else {observe(false)}
         s := 9;
         f := 0;
     } else {skip}
     h := 5-f
-    t := iid(bernoulli(4/5), h)
+    t := iid(bernoulli(99/100), h)
     if(t>0){
         f:=0; s:=s-1;
         if(s=8){
