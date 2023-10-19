@@ -13,7 +13,7 @@ for file in \
             trivial_iid
 do
   echo $file
-  for i in {1..1}
+  for i in {1..20}
   do
     echo -e "1\npgfexamples/equivalence/${file}_invariant.pgcl" | python prodigy/cli.py $@ main pgfexamples/equivalence/$file.pgcl | tail -n 1 |  awk '{ print $3 }' | sed 's/\./,/g'
   done
