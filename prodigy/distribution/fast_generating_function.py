@@ -68,7 +68,7 @@ class FPS(Distribution):
                                  self._parameters | other._parameters)
         else:
             raise NotImplementedError(
-                f"Addition of {self._dist} and {other} not supported.")
+                f"Addition of {self._dist} (type {type(self._dist)}) and {other} (type {type(other)} not supported.")
 
     def __sub__(self, other) -> FPS:
         if isinstance(other, (str, int)):

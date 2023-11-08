@@ -656,6 +656,25 @@ class WhileHandler(InstructionHandler):
         return non_sat_part, error_prob
 
     @staticmethod
+    def _approx_expected_visiting_times(
+            instruction: Instr,
+            prog_info: ProgramInfo,
+            distribution: Distribution,
+            error_prob: Distribution,
+            config: ForwardAnalysisConfig
+    ) -> tuple[Distribution, Distribution]:
+        assert error_prob.is_zero_dist(), f"Currently EVT reasoning does not support conditioning."
+        max_iter = int(input("Enter the number of iterations: "))
+        evt = distribution * 0
+        for i in range(max_iter):
+            print_progress_bar(i + 1, max_iter, length=50)
+            evt = distribution + \
+                  SequenceHandler.compute(instruction.body, prog_info, evt.filter(instruction.cond), error_prob,
+                                          config)[0]
+        print(evt)
+        return (evt - evt.filter(instruction.cond)), error_prob
+
+    @staticmethod
     def compute(
             instruction: Instr, prog_info: Program, distribution: Distribution,
             error_prob: Distribution, config: ForwardAnalysisConfig
@@ -669,6 +688,7 @@ class WhileHandler(InstructionHandler):
                 "[1]: Solve using invariants (Checks whether the invariant over-approximates the loop)\n"
                 "[2]: Fix a maximum number of iterations (This results in an under-approximation)\n"
                 "[3]: Analyse until a certain probability mass is captured (might not terminate!)\n"
+                "[4]: Compute expected visiting times (might be an approximation)\n"
                 "[q]: Quit.\n")
             logger.info("User chose %s", user_choice)
             if user_choice == "1":
@@ -680,6 +700,11 @@ class WhileHandler(InstructionHandler):
             if user_choice == "3":
                 return WhileHandler._compute_until_threshold(
                     instruction, prog_info, distribution, error_prob, config)
+            if user_choice == "4":
+                return WhileHandler._approx_expected_visiting_times(instruction, prog_info, distribution, error_prob,
+                                                                    config)
+            if user_choice == "5":
+                return WhileHandler._evt_invariant(instruction, prog_info, distribution, error_prob, config)
             if user_choice == "q":
                 sys.exit()
             print(f"Invalid input: {user_choice}")

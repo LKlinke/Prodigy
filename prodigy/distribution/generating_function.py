@@ -8,8 +8,7 @@ from typing import (Any, Callable, FrozenSet, Generator, Iterator, List, Set,
 
 import sympy
 from probably.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
-                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr,
-                           Walk, walk_expr)
+                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
 from probably.pgcl.parser import parse_expr
 from probably.util.ref import Mut
 from sympy.assumptions.assume import global_assumptions
@@ -867,7 +866,6 @@ class GeneratingFunction(Distribution):
                    variable: Union[str, VarExpr]) -> Distribution:
 
         subst_var = count.var
-
         def subs(dist_gf, subst_var, variable):
             result = self.marginal(
                 variable,
@@ -885,13 +883,13 @@ class GeneratingFunction(Distribution):
         if not isinstance(sampling_dist, FunctionCallExpr):
             # create distribution in correct variable:
             expr = Mut.alloc(sampling_dist)
-            for ref in walk_expr(Walk.DOWN, expr):
-                if isinstance(ref.val, VarExpr):
-                    ref.val.var = variable
-                elif isinstance(ref.val, FunctionCallExpr):
-                    raise ValueError(
-                        "Cannot handle nested user-defined functions in iid parameters"
-                    )
+            # for ref in walk_expr(Walk.DOWN, expr):
+            #    if isinstance(ref.val, VarExpr) and _sympy_symbol(ref.val.var) not in self._parameters:
+            #        ref.val.var = variable
+            #    elif isinstance(ref.val, FunctionCallExpr):
+            #        raise ValueError(
+            #            "Cannot handle nested user-defined functions in iid parameters"
+            #        )
             dist_gf = _parse_to_sympy(str(expr.val))
             return subs(dist_gf, subst_var, variable)
 
