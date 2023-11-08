@@ -724,6 +724,7 @@ class WhileHandler(InstructionHandler):
                 "[2]: Fix a maximum number of iterations (This results in an under-approximation)\n"
                 "[3]: Analyse until a certain probability mass is captured (might not terminate!)\n"
                 "[4]: Compute expected visiting times (might be an approximation)\n"
+                "[5]: Use EVT Invariant\n"
                 "[q]: Quit.\n")
             logger.info("User chose %s", user_choice)
             if user_choice == "1":
