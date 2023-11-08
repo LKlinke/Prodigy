@@ -8,6 +8,7 @@ from dataclasses import dataclass, replace
 from fractions import Fraction
 from typing import Any, Dict, Sequence, Union, get_args
 
+import sympy
 from probably.pgcl import (AbortInstr, AsgnInstr, Binop, BinopExpr,
                            CategoricalExpr, ChoiceInstr, ExpectationInstr,
                            Expr, FunctionCallExpr, IfInstr, Instr, LoopInstr,
@@ -673,6 +674,40 @@ class WhileHandler(InstructionHandler):
                                           config)[0]
         print(evt)
         return (evt - evt.filter(instruction.cond)), error_prob
+
+    @staticmethod
+    def _evt_invariant(
+            instruction: Instr,
+            prog_info: ProgramInfo,
+            distribution: Distribution,
+            error_prob: Distribution,
+            config: ForwardAnalysisConfig
+    ) -> tuple[Distribution, Distribution]:
+        assert error_prob.is_zero_dist(), f"Currently EVT reasoning does not support conditioning."
+        evt_inv = config.factory.from_expr(input("Enter EVT invariant: "), *prog_info.program.variables.keys())
+        phi = distribution + SequenceHandler.compute(instruction.body,
+                                                     prog_info,
+                                                     evt_inv.filter(instruction.cond),
+                                                     error_prob,
+                                                     config)[0]
+        if evt_inv == phi:
+            return evt_inv - evt_inv.filter(instruction.cond), error_prob
+        diff = evt_inv - phi
+        solution_candidates = sympy.solve(sympy.S(str(diff)), evt_inv.get_parameters(), dict=True)
+        solutions = []
+        for candidate in solution_candidates:
+            for _, val in candidate.items():
+                if not {str(s) for s in val.free_symbols} <= evt_inv.get_parameters():
+                    break
+            else:
+                if not all(map(lambda x: x == 0, candidate.values())):
+                    solutions.append(candidate)
+        if len(solutions) > 0:
+            print(f"All solutions: {solutions}")
+            # TODO use a solution to compute the final distribution.
+            return evt_inv, error_prob
+
+        raise VerificationError(f"Could not validate the EVT invariant {evt_inv}")
 
     @staticmethod
     def compute(
