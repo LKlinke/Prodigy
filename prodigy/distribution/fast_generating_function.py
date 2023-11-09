@@ -24,7 +24,6 @@ class FPS(Distribution):
                  finite: bool | None = None):
         self._variables = set(str(var) for var in variables if str(var) != "")
         self._parameters = set()
-
         for var in pygin.find_symbols(expression):
             if var not in self._variables:
                 if len(variables) > 0:
@@ -32,7 +31,6 @@ class FPS(Distribution):
                 else:
                     self._variables.add(var)
         self._dist = pygin.Dist(expression, list(self._parameters))
-
         self._finite = finite if finite is not None else self._dist.is_polynomial(
             self._variables) == pygin.troolean.true
 

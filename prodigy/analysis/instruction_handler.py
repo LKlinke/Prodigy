@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import itertools
 import logging
 import sys
 from abc import ABC, abstractmethod
@@ -690,10 +691,13 @@ class WhileHandler(InstructionHandler):
                                                      evt_inv.filter(instruction.cond),
                                                      error_prob,
                                                      config)[0]
+
         if evt_inv == phi:
+            print(f"{Style.OKGREEN}Invariant validated!{Style.RESET}")
             return evt_inv - evt_inv.filter(instruction.cond), error_prob
         diff = evt_inv - phi
         solution_candidates = sympy.solve(sympy.S(str(diff)), evt_inv.get_parameters(), dict=True)
+        print(f"Solution candidates: {solution_candidates}")
         solutions = []
         for candidate in solution_candidates:
             for _, val in candidate.items():
@@ -708,6 +712,76 @@ class WhileHandler(InstructionHandler):
             return evt_inv, error_prob
 
         raise VerificationError(f"Could not validate the EVT invariant {evt_inv}")
+
+    @staticmethod
+    def _evt_invariant_synthesis(
+            instruction: Instr,
+            prog_info: ProgramInfo,
+            distribution: Distribution,
+            error_prob: Distribution,
+            config: ForwardAnalysisConfig
+    ) -> tuple[Distribution, Distribution]:
+
+        def _make_clause(c, variables, powers):
+            c = [f"s_{c}"]
+            vp = (['', '{}', '({}^{})'][min(p, 2)].format(v, p) for v, p in zip(variables, powers))
+            return '*'.join(c + [s for s in vp if s])
+
+        def _generate_poly(variables, max_power):
+            res = (_make_clause(c, variables, pows) for c, pows in
+                   enumerate(itertools.product(*(range(max_power + 1) for v in variables))))
+            return ' + '.join(res)
+
+        def _generate_rational_function(max_power, *variables) -> Distribution:
+            numerator = " + ".join((_make_clause(c, variables, pows) for c, pows in
+                                    enumerate(itertools.product(*(range(max_power + 1) for v in variables)))))
+            denominator = " + ".join((_make_clause(f"d_{c}", variables, pows) for c, pows in
+                                      enumerate(itertools.product(*(range(max_power + 1) for v in variables)))))
+            return config.factory.from_expr(f"({numerator}) / ({denominator})", *variables)
+
+        assert error_prob.is_zero_dist(), f"Currently EVT reasoning does not support conditioning."
+        max_deg = int(input("Enter the maximal degree of the rational funfction: "))
+
+        for d in range(max_deg + 1):
+            print(f"{Style.YELLOW}Degree {d}{Style.RESET}", end="")
+            # Generate invariant candidate function and compute one iteration step
+            evt_inv = _generate_rational_function(d, *prog_info.program.variables.keys())
+            phi_inv = distribution + SequenceHandler.compute(instruction.body,
+                                                             prog_info,
+                                                             evt_inv.filter(instruction.cond),
+                                                             error_prob,
+                                                             config)[0]
+
+            # If they are syntactically equal we are done.
+            if evt_inv == phi_inv:
+                return evt_inv - evt_inv.filter(instruction.cond), error_prob
+
+            # otherwise we compute the difference and try to solve for the coefficients
+            diff = evt_inv - phi_inv
+            coeffs = [sympy.S(p) for p in diff.get_parameters()]
+            variables = [sympy.S(v) for v in diff.get_variables()]
+            solution_candidates = sympy.solve_undetermined_coeffs(sympy.S(str(diff)), coeffs, variables,
+                                                                  particular=True)
+            if not isinstance(solution_candidates, list):
+                solution_candidates = [solution_candidates]
+            solutions = []
+            for candidate in solution_candidates:
+                for _, val in candidate.items():
+                    if not {str(s) for s in val.free_symbols} <= evt_inv.get_parameters():
+                        break
+                else:
+                    if not all(map(lambda x: x == 0, candidate.values())):
+                        solutions.append(candidate)
+            if len(solutions) > 0:
+                print()  # generate new line after solutions found.
+                for sol in solutions:
+                    print(f"Possible invariant: {sympy.S(str(evt_inv)).subs(sol).ratsimp()}")
+                    inv = evt_inv - evt_inv.filter(instruction.cond)
+                    inv = sympy.S(str(inv)).subs(sol)
+                    print(f"{Style.CYAN}Aprrox. res: {Style.GREEN}{inv}{Style.RESET}")
+                return config.factory.from_expr(inv, *evt_inv.get_variables()), error_prob
+            print("" * 80, end="\r")  # Clear the current line for the "Degree d" output.
+        raise VerificationError(f"Could not find a rational function inductive invariant up to degree {max_deg}")
 
     @staticmethod
     def compute(
@@ -725,6 +799,7 @@ class WhileHandler(InstructionHandler):
                 "[3]: Analyse until a certain probability mass is captured (might not terminate!)\n"
                 "[4]: Compute expected visiting times (might be an approximation)\n"
                 "[5]: Use EVT Invariant\n"
+                "[6]: EVT Invariant syntesis\n"
                 "[q]: Quit.\n")
             logger.info("User chose %s", user_choice)
             if user_choice == "1":
@@ -741,6 +816,8 @@ class WhileHandler(InstructionHandler):
                                                                     config)
             if user_choice == "5":
                 return WhileHandler._evt_invariant(instruction, prog_info, distribution, error_prob, config)
+            if user_choice == "6":
+                return WhileHandler._evt_invariant_synthesis(instruction, prog_info, distribution, error_prob, config)
             if user_choice == "q":
                 sys.exit()
             print(f"Invalid input: {user_choice}")
