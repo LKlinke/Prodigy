@@ -740,7 +740,7 @@ class WhileHandler(InstructionHandler):
             return config.factory.from_expr(f"({numerator}) / ({denominator})", *variables)
 
         assert error_prob.is_zero_dist(), f"Currently EVT reasoning does not support conditioning."
-        max_deg = int(input("Enter the maximal degree of the rational funfction: "))
+        max_deg = int(input("Enter the maximal degree of the rational function: "))
 
         for d in range(max_deg + 1):
             print(f"{Style.YELLOW}Degree {d}{Style.RESET}", end="")
@@ -751,7 +751,6 @@ class WhileHandler(InstructionHandler):
                                                              evt_inv.filter(instruction.cond),
                                                              error_prob,
                                                              config)[0]
-
             # If they are syntactically equal we are done.
             if evt_inv == phi_inv:
                 return evt_inv - evt_inv.filter(instruction.cond), error_prob
@@ -771,15 +770,19 @@ class WhileHandler(InstructionHandler):
                         break
                 else:
                     if not all(map(lambda x: x == 0, candidate.values())):
-                        solutions.append(candidate)
+                        # we have excluded all zero solutions and now also exclude the solutions
+                        # which make the denominator zero
+                        if not sympy.S(str(diff)).as_numer_denom()[1].subs(candidate).equals(0):
+                            solutions.append(candidate)
             if len(solutions) > 0:
                 print()  # generate new line after solutions found.
                 for sol in solutions:
                     print(f"Possible invariant: {sympy.S(str(evt_inv)).subs(sol).ratsimp()}")
-                    inv = evt_inv - evt_inv.filter(instruction.cond)
-                    inv = sympy.S(str(inv)).subs(sol)
-                    print(f"{Style.CYAN}Aprrox. res: {Style.GREEN}{inv}{Style.RESET}")
-                return config.factory.from_expr(inv, *evt_inv.get_variables()), error_prob
+                    distribution_approx = evt_inv - evt_inv.filter(instruction.cond)
+                    distribution_approx = sympy.S(str(distribution_approx)).subs(sol).ratsimp()
+                    print(f"{Style.CYAN}Approx. res: {Style.GREEN}{distribution_approx}{Style.RESET}")
+                return config.factory.from_expr(str(distribution_approx).replace("**", "^"),
+                                                *evt_inv.get_variables()), error_prob
             print("" * 80, end="\r")  # Clear the current line for the "Degree d" output.
         raise VerificationError(f"Could not find a rational function inductive invariant up to degree {max_deg}")
 
