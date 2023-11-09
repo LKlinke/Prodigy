@@ -50,6 +50,7 @@ class ProgramInfo():
     """Pairs of variables that are independent from each other; see 
     `prodigy.analysis.static.independence.independent_vars`.
     """
+
     def __getattr__(self, __name: str) -> Any:
         return getattr(self.program, __name)
 
@@ -92,6 +93,7 @@ def condition_distribution(
 
 class InstructionHandler(ABC):
     """ Abstract class that defines a strategy for handling a specific program instruction. """
+
     @staticmethod
     @abstractmethod
     def compute(
@@ -105,11 +107,11 @@ class InstructionHandler(ABC):
 class SequenceHandler(InstructionHandler):
     @staticmethod
     def compute(
-        instruction: Union[Instr, Sequence[Instr]],
-        prog_info: ProgramInfo,
-        distribution: Distribution,
-        error_prob: Distribution,
-        config=ForwardAnalysisConfig()
+            instruction: Union[Instr, Sequence[Instr]],
+            prog_info: ProgramInfo,
+            distribution: Distribution,
+            error_prob: Distribution,
+            config=ForwardAnalysisConfig()
     ) -> tuple[Distribution, Distribution]:
         def _show_steps(inp: tuple[Distribution, Distribution],
                         instr: Instr) -> tuple[Distribution, Distribution]:
@@ -221,12 +223,12 @@ class QueryHandler(InstructionHandler):
         elif isinstance(instruction, ProbabilityQueryInstr):
             return QueryHandler.__query_probability_of(instruction.expr,
                                                        distribution), \
-                   error_prob
+                error_prob
 
         # User wants to Plot something
         elif isinstance(instruction, PlotInstr):
             return QueryHandler.__query_plot(instruction, distribution), \
-                   error_prob
+                error_prob
 
         # User wants to print the current distribution.
         elif isinstance(instruction, PrintInstr):
@@ -236,7 +238,7 @@ class QueryHandler(InstructionHandler):
         elif isinstance(instruction, OptimizationQuery):
             return QueryHandler.__query_optimization(instruction, distribution,
                                                      config), \
-                   error_prob
+                error_prob
 
         else:
             raise SyntaxError("This should not happen.")
@@ -247,7 +249,7 @@ class QueryHandler(InstructionHandler):
         logger.debug(
             "Computing the optimal value for parameter %s in order to %s the distribution %s with respect to %s",
             instr.parameter, 'maximize' if instr.type
-            == OptimizationType.MAXIMIZE else 'minimize', dist, instr.expr)
+                                           == OptimizationType.MAXIMIZE else 'minimize', dist, instr.expr)
         result = config.optimizer.optimize(instr.expr,
                                            dist,
                                            instr.parameter,
@@ -316,7 +318,7 @@ class SampleHandler(InstructionHandler):
     ) -> tuple[Distribution, Distribution]:
         _assume(instruction, AsgnInstr, 'SampleHandler')
         assert isinstance(instruction.rhs, FunctionCallExpr), "The Instruction handled by a SampleHandler must be of" \
-                                                                 f" type FunctionCallExpr, got {type(instruction)}"
+                                                              f" type FunctionCallExpr, got {type(instruction)}"
         assert instruction.rhs.function in distr_functions, f"Not a pre-defined function: {instruction.rhs.function}"
 
         logger.info("Computing distribution sampling update.\n%s", instruction)
@@ -403,7 +405,7 @@ class FunctionHandler(InstructionHandler):
             # TODO add a more efficient add_variable function for cases like this?
             input_distr = input_distr.set_variables(
                 new_name, *input_distr.get_variables()).update(
-                    BinopExpr(Binop.EQ, VarExpr(new_name), val))
+                BinopExpr(Binop.EQ, VarExpr(new_name), val))
         for new, old in new_names.items():
             input_distr = input_distr.update(
                 BinopExpr(Binop.EQ, VarExpr(old), VarExpr(new)))
@@ -448,7 +450,7 @@ class AssignmentHandler(InstructionHandler):
             BinopExpr(operator=Binop.EQ,
                       lhs=VarExpr(instruction.lhs),
                       rhs=instruction.rhs)), \
-               error_prob
+            error_prob
 
 
 class ObserveHandler(InstructionHandler):
@@ -492,7 +494,7 @@ class PChoiceHandler(InstructionHandler):
             *error_prob.get_variables())
         return lhs_block * str(
             instruction.prob) + rhs_block * f"1-({instruction.prob})", \
-               res_error_prob
+            res_error_prob
 
 
 class ITEHandler(InstructionHandler):
@@ -510,8 +512,8 @@ class ITEHandler(InstructionHandler):
         zero = error_prob * "0"
         if config.show_intermediate_steps:
             print(
-                f"\n{Style.YELLOW}Filter:{Style.RESET} {instruction.cond} \t "\
-                    f"{Style.GREEN}Result:{Style.RESET} {sat_part}"
+                f"\n{Style.YELLOW}Filter:{Style.RESET} {instruction.cond} \t " \
+                f"{Style.GREEN}Result:{Style.RESET} {sat_part}"
             )
             print(
                 f"\n{Style.YELLOW} If-branch: ({instruction.cond}){Style.RESET}"
@@ -653,8 +655,8 @@ class WhileHandler(InstructionHandler):
             print_progress_bar(int(
                 (Fraction(captured_part.get_probability_mass()) /
                  captured_probability_threshold) * 100),
-                               100,
-                               length=50)
+                100,
+                length=50)
         return non_sat_part, error_prob
 
     @staticmethod
@@ -727,25 +729,32 @@ class WhileHandler(InstructionHandler):
             vp = (['', '{}', '({}^{})'][min(p, 2)].format(v, p) for v, p in zip(variables, powers))
             return '*'.join(c + [s for s in vp if s])
 
-        def _generate_poly(variables, max_power):
-            res = (_make_clause(c, variables, pows) for c, pows in
-                   enumerate(itertools.product(*(range(max_power + 1) for v in variables))))
-            return ' + '.join(res)
+        def _generate_rational_function_stepwise(max_deg) -> Distribution:
 
-        def _generate_rational_function(max_power, *variables) -> Distribution:
-            numerator = " + ".join((_make_clause(c, variables, pows) for c, pows in
-                                    enumerate(itertools.product(*(range(max_power + 1) for v in variables)))))
-            denominator = " + ".join((_make_clause(f"d_{c}", variables, pows) for c, pows in
-                                      enumerate(itertools.product(*(range(max_power + 1) for v in variables)))))
-            return config.factory.from_expr(f"({numerator}) / ({denominator})", *variables)
+            for max_powers_denom in sympy.utilities.iterables.iproduct(
+                    *[range(max_deg + 1) for _ in prog_info.program.variables]):
+                degrees = [range(max_powers_denom[i] + 1) for i, _ in enumerate(prog_info.program.variables.keys())]
+                denominator = " + ".join(
+                    (_make_clause(f"d_{c}", prog_info.program.variables.keys(), pows) for c, pows in
+                     enumerate(itertools.product(*degrees))))
+                for max_powers_num in sympy.utilities.iterables.iproduct(
+                        *[range(sum(max_powers_denom) + 1) for _ in prog_info.program.variables]):
+                    if sum(max_powers_num) > sum(max_powers_denom):
+                        continue
+                    num_degrees = [range(max_powers_num[i] + 1) for i, _ in
+                                   enumerate(prog_info.program.variables.keys())]
+                    numerator = " + ".join((_make_clause(c, prog_info.program.variables.keys(), pows) for c, pows in
+                                            enumerate(itertools.product(*num_degrees))))
+                    yield config.factory.from_expr(f"({denominator}) / ({numerator})",
+                                                   *prog_info.program.variables.keys())
 
         assert error_prob.is_zero_dist(), f"Currently EVT reasoning does not support conditioning."
         max_deg = int(input("Enter the maximal degree of the rational function: "))
 
-        for d in range(max_deg + 1):
-            print(f"{Style.YELLOW}Degree {d}{Style.RESET}", end="")
+        for evt_candidate in _generate_rational_function_stepwise(max_deg):
+            print(f"{Style.YELLOW}Invariant candidate: {evt_candidate}{Style.RESET}", end="\n")
             # Generate invariant candidate function and compute one iteration step
-            evt_inv = _generate_rational_function(d, *prog_info.program.variables.keys())
+            evt_inv = evt_candidate
             phi_inv = distribution + SequenceHandler.compute(instruction.body,
                                                              prog_info,
                                                              evt_inv.filter(instruction.cond),
