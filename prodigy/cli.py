@@ -215,6 +215,37 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
     return indep_rel
 
 
+@cli.command('invariant_synthesis')
+@click.pass_context
+@click.argument('program_file', type=click.File('r'))
+@click.argument('input_dist', type=str, required=False)
+def invariant_synthesis(ctx, program_file: IO, input_dist: str):
+    """
+    Tries to synthesize an EVT Invariant for the given input file.
+    """
+    prog_src = program_file.read()
+
+    prog = compiler.parse_pgcl(prog_src)
+    if isinstance(prog, CheckFail):
+        raise ValueError(f"Could not compile the Program. {prog}")
+    if not isinstance(prog.instructions[0], WhileInstr):
+        raise ValueError(f"Program must only contain a while loop for which an invariant should be synthesized.")
+
+    config = ctx.obj["CONFIG"]
+    if input_dist is None:
+        dist = config.factory.one(*prog.variables.keys())
+    else:
+        dist = config.factory.from_expr(input_dist,
+                                        *prog.variables.keys(),
+                                        preciseness=1.0)
+    print(config)
+    strategy = KNOWN_STRATEGIES[config.strategy](prog.variables.keys(), config.factory)
+    start = time.perf_counter()
+    invariants = evt_invariant_synthesis(prog.instructions[0], ProgramInfo(prog), dist, config, strategy)
+    stop = time.perf_counter()
+    print(f"CPU-time elapsed: {stop - start:04f} seconds")
+
+
 if __name__ == "__main__":
     # execute only if run as a script
     cli()  # pylint: disable=no-value-for-parameter
