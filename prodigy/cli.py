@@ -14,10 +14,14 @@ from itertools import combinations
 from typing import IO, Set
 
 import click
-from probably.pgcl import Var, compiler
+from probably.pgcl import Var, compiler, WhileInstr
 from probably.pgcl.check import CheckFail
 
-from prodigy import analysis
+from prodigy.analysis.config import ForwardAnalysisConfig
+from prodigy.analysis.equivalence.equivalence_check import check_equivalence
+from prodigy.analysis.evtinvariants.heuristics.strategies import KNOWN_STRATEGIES
+from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
+from prodigy.analysis.instruction_handler import ProgramInfo, compute_discrete_distribution
 from prodigy.distribution.distribution import State
 from prodigy.util.color import Style
 
@@ -26,6 +30,7 @@ from prodigy.util.color import Style
 @click.group()
 @click.pass_context
 @click.option('--engine', type=str, required=False, default='')
+@click.option("--strategy", type=str, required=False, default='default')
 @click.option('--intermediate-results',
               is_flag=True,
               required=False,
@@ -37,18 +42,19 @@ from prodigy.util.color import Style
               default=False)
 @click.option('--use-latex', is_flag=True, required=False, default=False)
 @click.option("--no-normalize", is_flag=True, required=False, default=False)
-def cli(ctx, engine: str, intermediate_results: bool, stepwise: bool,
+def cli(ctx, engine: str, strategy: str, intermediate_results: bool, stepwise: bool,
         no_simplification: bool, use_latex: bool, no_normalize: bool):
     ctx.ensure_object(dict)
     ctx.obj['CONFIG'] = \
-        analysis.ForwardAnalysisConfig(
-            engine=analysis.ForwardAnalysisConfig.Engine.GINAC if engine == 'ginac'
-            else analysis.ForwardAnalysisConfig.Engine.SYMPY,
+        ForwardAnalysisConfig(
+            engine=ForwardAnalysisConfig.Engine.GINAC if engine == 'ginac'
+            else ForwardAnalysisConfig.Engine.SYMPY,
             show_intermediate_steps=intermediate_results,
             step_wise=stepwise,
             use_simplification=not no_simplification,
             use_latex=use_latex,
-            normalize=not no_normalize
+            normalize=not no_normalize,
+            strategy=strategy
         )
 
 
@@ -93,7 +99,7 @@ def main(ctx, program_file: IO, input_dist: str,
                                         preciseness=1.0)
 
     start = time.perf_counter()
-    dist, error_prob = analysis.compute_discrete_distribution(
+    dist, error_prob = compute_discrete_distribution(
         program, dist, config)
     stop = time.perf_counter()
 
@@ -125,7 +131,7 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
         raise ValueError(f"Could not compile invariant. {inv}")
 
     start = time.perf_counter()
-    equiv, result = analysis.equivalence.check_equivalence(
+    equiv, result = check_equivalence(
         prog, inv, ctx.obj['CONFIG'])
     stop = time.perf_counter()
     if equiv is True:
@@ -174,7 +180,7 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
         raise ValueError(f"Could not compile the Program. {prog}")
 
     start = time.perf_counter()
-    indep_rel: Set[frozenset[Var]] = analysis.static.independent_vars(prog)
+    indep_rel: Set[frozenset[Var]] = independent_vars(prog)
     stop = time.perf_counter()
     print(Style.OKBLUE + "Under-approximation: \t" + str(indep_rel) +
           Style.RESET)
@@ -187,7 +193,7 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
         config = ctx.obj['CONFIG']
         dist = config.factory.one(*prog.variables.keys())
 
-        dist, _ = analysis.compute_discrete_distribution(
+        dist, _ = compute_discrete_distribution(
             prog, dist, config)
 
         marginal_cache = {}

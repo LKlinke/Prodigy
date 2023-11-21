@@ -6,7 +6,7 @@
 .. autofunction:: prodigy.util.dedup_list
 """
 
-from typing import List, TypeVar
+from typing import List, TypeVar, Collection
 
 T = TypeVar("T")
 

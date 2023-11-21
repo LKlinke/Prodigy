@@ -7,7 +7,7 @@ import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace
 from fractions import Fraction
-from typing import Any, Dict, Sequence, Union, get_args
+from typing import Any, Dict, Sequence, Union, get_args, Optional, Iterator
 
 import sympy
 from probably.pgcl import (AbortInstr, AsgnInstr, Binop, BinopExpr,
@@ -724,12 +724,14 @@ class WhileHandler(InstructionHandler):
             config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
 
+        logger.debug("Using invariant synthesis.")
+
         def _make_clause(c, variables, powers) -> str:
             c = [f"s_{c}"]
             vp = (['', '{}', '({}^{})'][min(p, 2)].format(v, p) for v, p in zip(variables, powers))
             return '*'.join(c + [s for s in vp if s])
 
-        def _generate_rational_function_stepwise(max_deg: int) -> Distribution:
+        def _generate_rational_function_stepwise(max_deg: int) -> Iterator[Distribution]:
 
             for max_powers_denom in sympy.utilities.iterables.iproduct(
                     *[range(max_deg + 1) for _ in prog_info.program.variables]):
@@ -748,13 +750,81 @@ class WhileHandler(InstructionHandler):
                     yield config.factory.from_expr(f"({denominator}) / ({numerator})",
                                                    *prog_info.program.variables.keys())
 
+        def _check_nonnegative(f: sympy.Expr) -> Optional[bool]:
+            """
+            Checks heuristically whether a univariate rational function _f_ has a non-negative power series
+            expansion.
+
+            ..returns:
+                - None: We do not know
+                - True: It has a non-negative power series expansion
+                - False: There exists at least one negative coefficient in the power series expansion
+            """
+            logger.debug("check non-negativity for %s", f)
+
+            # TODO  f might be a sum of rational functions (partial fraction decomposition).
+            if isinstance(f, sympy.Add):
+                sub_results = [_check_nonnegative(rf) for rf in f.args]
+                for res in sub_results:
+                    if res is None:
+                        return None
+                return all(sub_results)
+
+            # Getting f as numerator/denominator and check whether it is indeed a rational function.
+            numerator, denominator = f.as_numer_denom()
+
+            # Check whether f is univariate (others not supported currently)
+            if len(denominator.free_symbols) > 1:
+                logger.info("Multivariate functions like %s are currently not supported", f)
+                return None
+
+            logger.debug("\nnumerator (non-poly) %s\ndenominator (non-poly) %s", numerator, denominator)
+            if not (numerator.is_polynomial() and denominator.is_polynomial()):
+                logger.info("%s is not a rational function.", f)
+                return None
+
+            # convert numerator and denominator into polynomial objects
+            # as_poly() fails converting constant polynomials without specified variables
+            # so we give it a _DUMMY_ variable.
+            maybe_numerator = numerator.as_poly(*numerator.free_symbols)
+            numerator = maybe_numerator if maybe_numerator else numerator.as_poly(sympy.S("DUMMY"))
+            maybe_denominator = denominator.as_poly(*denominator.free_symbols)
+            denominator = maybe_denominator if maybe_denominator else denominator.as_poly(sympy.S("DUMMY"))
+            logger.debug("\nnumerator %s\ndenominator %s", numerator, denominator)
+
+            # Check the coefficients of the denominator
+            d_coeffs = denominator.all_coeffs()
+            n_coeffs = numerator.all_coeffs()
+
+            # Check the constant coefficient and factor a minus sign if necessary
+            if d_coeffs[-1] < 0:
+                logger.debug("Try factoring a minus sign in %s", f)
+                d_coeffs = [-x for x in d_coeffs]
+                n_coeffs = [-x for x in n_coeffs]
+            if all(map(lambda x: x <= 0, d_coeffs[:-1])):  # are all other coefficients non-positive?
+                if all(map(lambda x: x >= 0, n_coeffs)):  # are all nominator coefficients non-negative?
+                    logger.info("Invariant validates as non-negative FPS.")
+                    return True
+
+            # Search for bad coefficients
+            for i, (coef, state) in enumerate(config.factory.from_expr(str(f).replace("**", "^"), *variables)):
+                if i > 10:
+                    break
+                if sympy.S(coef) < 0:
+                    logger.info("Invariant is spurious. Coefficient of state %s is %s", state.valuations, coef)
+                    return False
+
+            # We don't know otherwise
+            logger.info("Heuristic failed, we dont know!")
+            return None
+
         def _spuriosity_check(f: sympy.Expr) -> bool:
             """
-            Here we do check univariate polynomials for positivity, i.e., whether all series coefficients
+            Here we do check univariate rational functions for positivity, i.e., whether all series coefficients
             of the rational function _f_ are >= 0. This is just a heuristic and not a complete method.
             Currently only univariate, non-parametric rational functions are supported.
             """
-
+            logger.debug("Spuriosity check for %s", f)
             if len(f.free_symbols) > 1:
                 logger.info("Heuristic currently does not support multivariate %s", f)
                 return False
@@ -816,10 +886,12 @@ class WhileHandler(InstructionHandler):
                     logger.info("Heuristic is not applicable as the root %s is at most 0.", root)
                     return False
             # All real roots of the denominator are positive!
+            logger.debug("Validated non-spuriousity.")
             return True
 
         assert error_prob.is_zero_dist(), f"Currently EVT reasoning does not support conditioning."
         max_deg = int(input("Enter the maximal degree of the rational function: "))
+        logger.debug("Maximal degree for invariant search %i", max_deg)
 
         for evt_candidate in _generate_rational_function_stepwise(max_deg):
             print(f"{Style.YELLOW}Invariant candidate: {evt_candidate}{Style.RESET}", end="\n")
@@ -831,17 +903,21 @@ class WhileHandler(InstructionHandler):
                                                              error_prob,
                                                              config)[0]
             # If they are syntactically equal we are done.
+            logger.debug("Check Invariant candidate %s", evt_inv)
             if evt_inv == phi_inv:
+                logger.debug("Candidate validated.")
                 return evt_inv - evt_inv.filter(instruction.cond), error_prob
 
             # otherwise we compute the difference and try to solve for the coefficients
             diff = evt_inv - phi_inv
             coeffs = [sympy.S(p) for p in diff.get_parameters()]
             variables = [sympy.S(v) for v in diff.get_variables()]
+            logger.debug("Start solving equation systems for %s", diff)
             solution_candidates = sympy.solve_undetermined_coeffs(sympy.S(str(diff)), coeffs, variables,
                                                                   particular=True)
             if not isinstance(solution_candidates, list):
                 solution_candidates = [solution_candidates]
+            logger.debug("Filter solutions in: %s", solution_candidates)
             solutions = []
             for candidate in solution_candidates:
                 for _, val in candidate.items():
@@ -859,15 +935,24 @@ class WhileHandler(InstructionHandler):
                     solutions.append(candidate)
             if len(solutions) > 0:
                 print()  # generate new line after solutions found.
-                for sol in solutions:
-                    sp_inv = sympy.S(str(evt_inv)).subs(sol).ratsimp()
-                    # heuristic to check whether this is a "real" invariant:
-                    print(f"Invariant: {sp_inv}") if _spuriosity_check(sp_inv) else print(
-                        f"Possible Invariant: {sp_inv}")
-                    distribution_approx = evt_inv - evt_inv.filter(instruction.cond)
-                    distribution_approx = sympy.S(str(distribution_approx)).subs(sol).ratsimp()
-                    print(f"{Style.CYAN}Approx. res: {Style.GREEN}{distribution_approx}{Style.RESET}")
-                return config.factory.from_expr(str(distribution_approx).replace("**", "^"),
+                solutions_and_kinds = [(sol, _check_nonnegative(sympy.S(str(evt_inv)).subs(sol).ratsimp())) for sol in
+                                       solutions]
+                distributions = [
+                    sympy.S(str(evt_inv - evt_inv.filter(instruction.cond))).subs(sol).ratsimp()
+                    if (kind is None) or kind else "-1"
+                    for sol, kind in solutions_and_kinds
+                ]
+                for i, (sol, kind) in enumerate(solutions_and_kinds):
+                    logger.debug("Possible solution: %s", sol)
+                    message = {None: f"{Style.YELLOW}Possible invariant{Style.RESET}",
+                               True: f"{Style.GREEN}Invariant{Style.RESET}",
+                               False: f"{Style.RED}Spurious invariant{Style.RESET}"}
+                    print(f"{message[kind]}: {sympy.S(str(evt_inv)).subs(sol).ratsimp()}")
+                    if kind is None or kind:
+                        print(f"{Style.CYAN}Distribution:{Style.RESET} {distributions[i]}")
+
+                # Currently we just take the first solution.
+                return config.factory.from_expr(str(distributions[0]).replace("**", "^"),
                                                 *evt_inv.get_variables()), error_prob
             print("" * 80, end="\r")  # Clear the current line for the "Degree d" output.
         raise VerificationError(f"Could not find a rational function inductive invariant up to degree {max_deg}")

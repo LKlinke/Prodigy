@@ -7,11 +7,12 @@ from flask import Flask, jsonify, make_response, render_template, request
 from probably import pgcl
 from probably.pgcl import check_program, parse_pgcl
 
-from prodigy.analysis import (ForwardAnalysisConfig,
-                              compute_discrete_distribution)
-from prodigy.analysis.equivalence import check_equivalence
+from prodigy.analysis.config import ForwardAnalysisConfig
+from prodigy.analysis.equivalence.equivalence_check import check_equivalence
+from prodigy.analysis.instruction_handler import compute_discrete_distribution
 
 app = Flask(__name__)
+
 
 # pylint: disable = broad-except
 

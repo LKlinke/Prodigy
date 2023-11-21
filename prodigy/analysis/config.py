@@ -45,6 +45,9 @@ class ForwardAnalysisConfig:
     normalize: bool = attr.ib(default=True)
     """Switch to compute the normalized distribution"""
 
+    strategy: str = attr.ib(default="default")
+    """The Strategy for dealing with synthesis."""
+
     @property
     def optimizer(self) -> Type[Optimizer]:
         if self.engine == ForwardAnalysisConfig.Engine.SYMPY:
