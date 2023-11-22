@@ -16,3 +16,4 @@ class Style:
     OKGREEN = '\033[92m'
     OKRED = '\033[91m'
     RESET = '\033[0m'
+    CLEARTOEND = '\x1b[K'
