@@ -2,17 +2,14 @@ from __future__ import annotations
 
 import itertools
 import logging
-from typing import Any, Dict, List, Literal, Set, Tuple
+from typing import Any, Dict, List, Literal, Set, Tuple, Callable, Sequence, Union
 
 import sympy
 from probably.pgcl import (BoolType, IfInstr, Program, SkipInstr, VarExpr,
-                           WhileInstr)
+                           WhileInstr, Instr)
 
 from prodigy.analysis.config import ForwardAnalysisConfig
-# pylint: disable = cyclic-import
-# I don't see how this can be resolved without combining this module with instruction handler
-from prodigy.analysis.instruction_handler import ProgramInfo, SequenceHandler
-# pylint: enable = cyclic-import
+from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.distribution.distribution import Distribution, State
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
@@ -77,7 +74,13 @@ def generate_equivalence_test_distribution(
 
 
 def check_equivalence(
-    program: Program, invariant: Program, config: ForwardAnalysisConfig
+        program: Program,
+        invariant: Program,
+        config: ForwardAnalysisConfig,
+        analyzer: Callable[
+            [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
+            tuple[Distribution, Distribution]
+        ]
 ) -> Tuple[Literal[True], List[Dict[str, str]]] | Tuple[
         Literal[False], State] | Tuple[None, Distribution]:
     """
@@ -118,7 +121,7 @@ def check_equivalence(
         print(
             f"\n{Style.YELLOW} Compute the result of the modified invariant. {Style.RESET}"
         )
-    modified_inv_result, modified_inv_error = SequenceHandler.compute(
+    modified_inv_result, modified_inv_error = analyzer(
         modified_inv.instructions,
         ProgramInfo(modified_inv, so_vars=frozenset(new_vars.keys())),
         test_dist,
@@ -129,7 +132,7 @@ def check_equivalence(
         print(
             f"\n{Style.YELLOW} Compute the result of the invariant. {Style.RESET}"
         )
-    inv_result, inv_error = SequenceHandler.compute(
+    inv_result, inv_error = analyzer(
         invariant.instructions,
         ProgramInfo(invariant, so_vars=frozenset(new_vars.keys())), test_dist,
         config.factory.one(*(modified_inv.variables | new_vars.keys())) * 0, config)

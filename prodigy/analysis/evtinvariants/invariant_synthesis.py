@@ -1,13 +1,13 @@
 import logging
-from typing import List
+from typing import List, Callable, Union, Sequence, Tuple
 
 import sympy
-from probably.pgcl import WhileInstr
+from probably.pgcl import WhileInstr, Instr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategy
 from prodigy.analysis.exceptions import VerificationError
-from prodigy.analysis.instruction_handler import ProgramInfo, SequenceHandler
+from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.distribution import Distribution
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
@@ -20,6 +20,11 @@ def evt_invariant_synthesis(loop: WhileInstr,
                             distribution: Distribution,
                             config: ForwardAnalysisConfig,
                             strategy: SynthesisStrategy,
+                            analyzer: Callable[
+                                [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution,
+                                 ForwardAnalysisConfig],
+                                Tuple[Distribution, Distribution]
+                            ]
                             ) -> List[Distribution]:
     logger.debug("Invariant Synthesis for loop %s with initial distribution %s.", loop, distribution)
     zero_dist: Distribution = config.factory.from_expr("0", *prog_info.program.variables)
@@ -29,11 +34,11 @@ def evt_invariant_synthesis(loop: WhileInstr,
         print(f"{Style.YELLOW}Invariant candidate: {evt_candidate}{Style.RESET}")
         # Compute one iteration step.
         evt_inv = evt_candidate
-        phi_inv = distribution + SequenceHandler.compute(loop.body,
-                                                         prog_info,
-                                                         evt_inv.filter(loop.cond),
-                                                         zero_dist,
-                                                         config)[0]
+        phi_inv = distribution + analyzer(loop.body,
+                                          prog_info,
+                                          evt_inv.filter(loop.cond),
+                                          zero_dist,
+                                          config)[0]
         # Check equality between the iterated expression and the invariant.
         # If they are equal we are done.
         logger.debug("Check Invariant candidate %s", evt_inv)

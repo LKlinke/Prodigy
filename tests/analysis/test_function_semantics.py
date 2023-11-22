@@ -1,8 +1,8 @@
 import pytest
 from probably.pgcl.compiler import compile_pgcl
 
+from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.instruction_handler import compute_discrete_distribution
 from prodigy.distribution.fast_generating_function import ProdigyPGF
 from prodigy.distribution.generating_function import SympyPGF
 

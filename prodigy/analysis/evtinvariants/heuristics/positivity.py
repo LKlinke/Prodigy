@@ -6,9 +6,9 @@ from typing import Optional
 import sympy
 
 from prodigy.distribution import CommonDistributionsFactory
-from prodigy.util import logger
+from prodigy.util.logger import log_setup
 
-logger = logger.log_setup(__name__, logging.DEBUG)
+logger = log_setup(__name__, logging.DEBUG)
 
 
 class FPSPositivityHeuristic(ABC):

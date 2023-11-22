@@ -36,4 +36,3 @@ Sometimes, intermediate steps of the computation are desired. This and more conf
 
 .. automodule:: prodigy.analysis.config
 """
-from . import equivalence, optimization, static, evtinvariants

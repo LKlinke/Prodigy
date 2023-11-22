@@ -7,9 +7,9 @@ from flask import Flask, jsonify, make_response, render_template, request
 from probably import pgcl
 from probably.pgcl import check_program, parse_pgcl
 
+from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
-from prodigy.analysis.instruction_handler import compute_discrete_distribution
 
 app = Flask(__name__)
 
@@ -51,7 +51,7 @@ def checking_equivalence():
 
         app.logger.info("Run equivalence check")
         result, _ = check_equivalence(loopy_prog, invariant_prog,
-                                      ForwardAnalysisConfig(engine=engine))
+                                      ForwardAnalysisConfig(engine=engine), compute_semantics)
         app.logger.info("Equivalence check finished. Result: %s", result)
 
         return make_response(

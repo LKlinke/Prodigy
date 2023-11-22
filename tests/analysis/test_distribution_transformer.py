@@ -4,7 +4,7 @@ import probably.pgcl as pgcl
 import pytest
 from pytest import raises
 
-import prodigy.analysis
+from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.fast_generating_function import ProdigyPGF
 from prodigy.distribution.generating_function import SympyPGF
@@ -21,8 +21,8 @@ def test_context_injection(engine, factory):
         nparam n;
         """)
     gf = factory.from_expr("z^3")
-    result, error_prob = prodigy.analysis.compute_discrete_distribution(
-        program, gf, prodigy.analysis.ForwardAnalysisConfig(engine=engine))
+    result, error_prob = compute_discrete_distribution(
+        program, gf, ForwardAnalysisConfig(engine=engine))
     assert result.get_variables() == {
         "x", "y", "z"
     } and result.get_parameters() == {"p", "n"}
@@ -43,7 +43,7 @@ def test_iid_predefined_distributions(engine, factory):
     }
 
     for distribution in distributions.keys():
-        result, error_prob = prodigy.analysis.compute_discrete_distribution(
+        result, error_prob = compute_discrete_distribution(
             pgcl.parse_pgcl("""
                     nat x;
                     nparam n;
@@ -59,7 +59,7 @@ def test_iid_predefined_distributions(engine, factory):
                          [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
                           (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_iid_update(engine, factory):
-    result, error_prob = prodigy.analysis.compute_discrete_distribution(
+    result, error_prob = compute_discrete_distribution(
         pgcl.parse_pgcl("""
             nat x;
             rparam p;
@@ -67,7 +67,7 @@ def test_iid_update(engine, factory):
             x := binomial(5,p);
             x := iid(geometric(p), x);
         """), factory.one('x'),
-        prodigy.analysis.ForwardAnalysisConfig(engine=engine))
+        ForwardAnalysisConfig(engine=engine))
     assert result == factory.from_expr("(p^2/(1-(1-p)*x) + 1 - p)^5", "x")
 
 
@@ -76,30 +76,30 @@ def test_iid_update(engine, factory):
                           (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_subtraction_when_already_zero(engine, factory):
     with raises(ValueError, match='negative') as e:
-        result, error_prob = prodigy.analysis.compute_discrete_distribution(
+        result, error_prob = compute_discrete_distribution(
             pgcl.parse_pgcl("""
         nat x;
         x := 0;
         x := x-1;
         """), factory.from_expr("x^5"),
-            prodigy.analysis.ForwardAnalysisConfig(engine=engine))
+            ForwardAnalysisConfig(engine=engine))
 
-    result, error_prob = prodigy.analysis.compute_discrete_distribution(
+    result, error_prob = compute_discrete_distribution(
         pgcl.parse_pgcl("""
     nat x;
     x := 0;
     x := x - 2*x;
     """), factory.from_expr("x^5"),
-        prodigy.analysis.ForwardAnalysisConfig(engine=engine))
+        ForwardAnalysisConfig(engine=engine))
     assert result == factory.from_expr("1", "x")
 
     with raises(ValueError) as e:
-        result, error_prob = prodigy.analysis.compute_discrete_distribution(
+        result, error_prob = compute_discrete_distribution(
             pgcl.parse_pgcl("""
             nat x
             x := x - 2*x
         """), factory.poisson("x", "3"),
-            prodigy.analysis.ForwardAnalysisConfig(engine=engine))
+            ForwardAnalysisConfig(engine=engine))
     assert 'Cannot assign' in str(e)
 
 
@@ -109,12 +109,12 @@ def test_subtraction_when_already_zero(engine, factory):
 def test_addition_assignment(engine, factory):
     rand_inc = random.randint(0, 100)
     rand_init = random.randint(0, 100)
-    result, error_prob = prodigy.analysis.compute_discrete_distribution(
+    result, error_prob = compute_discrete_distribution(
         pgcl.parse_pgcl(f"""
         nat x;
         x := x+{rand_inc};
         """), factory.from_expr(f"x^{rand_init}"),
-        prodigy.analysis.ForwardAnalysisConfig(engine=engine))
+        ForwardAnalysisConfig(engine=engine))
     assert result == factory.from_expr(f"x^{rand_init + rand_inc}", "x")
 
 
@@ -124,20 +124,20 @@ def test_addition_assignment(engine, factory):
 def test_multiplication_assignment(engine, factory):
     rand_factor = random.randint(0, 100)
     rand_init = random.randint(0, 100)
-    result, error_prob = prodigy.analysis.compute_discrete_distribution(
+    result, error_prob = compute_discrete_distribution(
         pgcl.parse_pgcl(f"""
         nat x;
         x := x*{rand_factor};
         """), factory.from_expr(f"x^{rand_init}"),
-        prodigy.analysis.ForwardAnalysisConfig(engine=engine))
+        ForwardAnalysisConfig(engine=engine))
     assert result == factory.from_expr(f"x^{rand_init * rand_factor}", "x")
 
-    result, error_prob = prodigy.analysis.compute_discrete_distribution(
+    result, error_prob = compute_discrete_distribution(
         pgcl.parse_pgcl(f"""
         nat x;
         x := x*0.5;
         """), factory.from_expr(f"x^4"),
-        prodigy.analysis.ForwardAnalysisConfig(engine=engine))
+        ForwardAnalysisConfig(engine=engine))
     assert result == factory.from_expr(f"x^2", "x")
 
 
@@ -145,7 +145,7 @@ def test_multiplication_assignment(engine, factory):
                          [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
                           (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_ite_statement(engine, factory):
-    result, error_prob = prodigy.analysis.compute_discrete_distribution(
+    result, error_prob = compute_discrete_distribution(
         pgcl.parse_pgcl("""
         nat x;
         nat y;
@@ -156,5 +156,5 @@ def test_ite_statement(engine, factory):
             y := y + 1
         }
         """), factory.from_expr("x*y"),
-        prodigy.analysis.ForwardAnalysisConfig(engine=engine))
+        ForwardAnalysisConfig(engine=engine))
     assert result == factory.from_expr("x*y^2", "x", "y")

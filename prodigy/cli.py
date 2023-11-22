@@ -17,11 +17,12 @@ import click
 from probably.pgcl import Var, compiler, WhileInstr
 from probably.pgcl.check import CheckFail
 
+from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.strategies import KNOWN_STRATEGIES
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
-from prodigy.analysis.instruction_handler import ProgramInfo, compute_discrete_distribution
+from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.distribution.distribution import State
 from prodigy.util.color import Style
 
@@ -131,8 +132,7 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
         raise ValueError(f"Could not compile invariant. {inv}")
 
     start = time.perf_counter()
-    equiv, result = check_equivalence(
-        prog, inv, ctx.obj['CONFIG'])
+    equiv, result = check_equivalence(prog, inv, ctx.obj['CONFIG'], compute_semantics)
     stop = time.perf_counter()
     if equiv is True:
         assert isinstance(result, list)
@@ -241,7 +241,8 @@ def invariant_synthesis(ctx, program_file: IO, input_dist: str):
     print(config)
     strategy = KNOWN_STRATEGIES[config.strategy](prog.variables.keys(), config.factory)
     start = time.perf_counter()
-    invariants = evt_invariant_synthesis(prog.instructions[0], ProgramInfo(prog), dist, config, strategy)
+    invariants = evt_invariant_synthesis(prog.instructions[0],
+                                         ProgramInfo(prog), dist, config, strategy, compute_semantics)
     stop = time.perf_counter()
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
 

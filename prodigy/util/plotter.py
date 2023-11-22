@@ -27,7 +27,7 @@ class Plotter:
         logger.debug("Creating Histogram for %s", marginal)
         # Collect relevant data from the distribution and plot it.
         if marginal.is_finite():
-            coord_and_prob: Dict[Tuple[int, int], sympy.Basic] = {}
+            coord_and_prob: Dict[Tuple[int, int], sympy.Expr] = {}
             maxima = {x: 0, y: 0}
             max_prob = 0
             colors: List[List[float]] = []
@@ -116,7 +116,9 @@ class Plotter:
             axis.set_xlabel(f"{var}")
             axis.set_xticks(ind)
             axis.set_ylabel(f'Probability p({var})')
-            plt.get_current_fig_manager().set_window_title("Histogram Plot")
+            fig_manager = plt.get_current_fig_manager()
+            if fig_manager is not None:
+                fig_manager.set_window_title("Histogram Plot")
             plt.gcf().suptitle("Histogram")
             plt.colorbar(scalar_mappable)
             plt.show()
