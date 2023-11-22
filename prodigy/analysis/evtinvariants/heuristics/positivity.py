@@ -39,11 +39,13 @@ class RationalFunctionDenomSign(FPSPositivityHeuristic):
 
         # TODO  f might be a sum of rational functions (partial fraction decomposition).
         if isinstance(f, sympy.Add):
-            sub_results = [self.is_positive(rf) for rf in f.args]
-            for res in sub_results:
-                if res is None:
-                    return None
-            return all(sub_results)
+            logger.debug("Try to solve positivity by looking at sum terms individually.")
+            for sub_f in f.args:
+                res = self.is_positive(sub_f.apart())
+                if res is not True:
+                    logger.debug("Sum decomposition did not work. Try together()")
+                    return self.is_positive(f.together())
+            return True
 
         # Getting f as numerator/denominator and check whether it is indeed a rational function.
         numerator, denominator = f.as_numer_denom()
