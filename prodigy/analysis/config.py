@@ -48,6 +48,9 @@ class ForwardAnalysisConfig:
     strategy: str = attr.ib(default="default")
     """The Strategy for dealing with synthesis."""
 
+    show_all_invs: bool = attr.ib(default=False)
+    """Toggels printing of spurious invariants"""
+
     @property
     def optimizer(self) -> Type[Optimizer]:
         if self.engine == ForwardAnalysisConfig.Engine.SYMPY:

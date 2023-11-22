@@ -109,8 +109,10 @@ class WhileHandler(InstructionHandler):
 
     @staticmethod
     def _compute_until_threshold(
-            instruction: Instr, prog_info: ProgramInfo,
-            distribution: Distribution, error_prob: Distribution,
+            instruction: Instr,
+            prog_info: ProgramInfo,
+            distribution: Distribution,
+            error_prob: Distribution,
             config: ForwardAnalysisConfig,
             analyzer: Callable[
                 [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
@@ -307,77 +309,6 @@ class WhileHandler(InstructionHandler):
             logger.info("Heuristic failed, we dont know!")
             return None
 
-        def _spuriosity_check(f: sympy.Expr) -> bool:
-            """
-            Here we do check univariate rational functions for positivity, i.e., whether all series coefficients
-            of the rational function _f_ are >= 0. This is just a heuristic and not a complete method.
-            Currently only univariate, non-parametric rational functions are supported.
-            """
-            logger.debug("Spuriosity check for %s", f)
-            if len(f.free_symbols) > 1:
-                logger.info("Heuristic currently does not support multivariate %s", f)
-                return False
-
-            # If the denominator is constant, i.e. we already have a polynomial,
-            # just compute the result by checking the coefficients.
-            if f.is_polynomial():
-                # here we need a dummy symbol "" for sympy to handle as_poly correctly.
-                return all(map(lambda x: x >= 0, f.as_poly(*f.free_symbols).coeffs()))
-
-            # We indeed have a rational function, so we split this into nominator and denominator
-            # and do some edge case handling for constant degree zero polynomials (not theory wise but
-            # the implementation crashes otherwise)
-            numerator, denominator = f.as_numer_denom()
-            if not (numerator.is_polynomial() and denominator.is_polynomial()):
-                if numerator.is_constant() and denominator.is_constant():
-                    return numerator / denominator > 0
-                logger.info("%s is not a rational function", f)
-                return False
-            n_deg = 0 if numerator.is_constant() else numerator.as_poly().degree()
-            d_deg = 0 if denominator.is_constant() else denominator.as_poly().degree()
-
-            # We make sure that we have a true rational function so we try to convert the problem for fractions where
-            # the numerator degreee is not smaller than the denominator in the case where we have a "true" fraction
-            if n_deg >= d_deg:
-                # Filter the polynomial part
-                poly_part = sympy.S("0")
-                for term in f.apart().as_ordered_terms():
-                    numerator, denominator = term.as_numer_denom()
-                    if denominator.is_constant():
-                        poly_part += numerator / denominator
-                fractional_part = f - poly_part
-                if poly_part.is_constant():
-                    max_deg = 0
-                    poly_coeffs = [poly_part]
-                else:
-                    max_deg = poly_part.as_Poly().degree()
-                    poly_coeffs = poly_part.as_Poly().all_coeffs()
-
-                # Now we recursively check whether the fractional part has only non-negative coefficients.
-                if not _spuriosity_check(fractional_part):
-                    logger.info("The fractional part could not be validated to be strictly positive")
-                    return False
-
-                # If this was successfull, we now try to see whether we can annihilate negative coefficients in the
-                # polynomial part. This is necessary for the whole invariant to be a true fix point.
-                fractional_coeffs = fractional_part.series(n=max_deg).removeO()
-                fractional_coeffs = [
-                    fractional_coeffs] if fractional_coeffs.is_constant() else fractional_coeffs.as_Poly().all_coeffs()
-                if not all(map(lambda x, y: y >= 0 or x + y >= 0, fractional_coeffs, poly_coeffs)):
-                    logger.info("This is a spurious invariant!")
-                    return False
-                return True
-
-            # we are in the true fractional case. Here we can sometimes validate correct solutions by looking at
-            # the positivity of the roots of the denominator.
-            for root in denominator.as_poly(*denominator.free_symbols, domain="R").real_roots():
-                if root <= 0:
-                    logger.info("Heuristic is not applicable as the root %s is at most 0.", root)
-                    return False
-            # All real roots of the denominator are positive!
-            logger.debug("Validated non-spuriousity.")
-            return True
-
         assert error_prob.is_zero_dist(), f"Currently EVT reasoning does not support conditioning."
         max_deg = int(input("Enter the maximal degree of the rational function: "))
         logger.debug("Maximal degree for invariant search %i", max_deg)
@@ -428,18 +359,23 @@ class WhileHandler(InstructionHandler):
                     if (kind is None) or kind else "-1"
                     for sol, kind in solutions_and_kinds
                 ]
+                contains_only_bad_invariants = True
                 for i, (sol, kind) in enumerate(solutions_and_kinds):
+                    if kind is False and not config.show_all_invs:
+                        continue
                     logger.debug("Possible solution: %s", sol)
                     message = {None: f"{Style.YELLOW}Possible invariant{Style.RESET}",
                                True: f"{Style.GREEN}Invariant{Style.RESET}",
                                False: f"{Style.RED}Spurious invariant{Style.RESET}"}
                     print(f"{message[kind]}: {sympy.S(str(evt_inv)).subs(sol).ratsimp()}")
                     if kind is None or kind:
+                        contains_only_bad_invariants = False
                         print(f"{Style.CYAN}Distribution:{Style.RESET} {distributions[i]}")
 
                 # Currently we just take the first solution.
-                return config.factory.from_expr(str(distributions[0]).replace("**", "^"),
-                                                *evt_inv.get_variables()), error_prob
+                if not contains_only_bad_invariants:
+                    return config.factory.from_expr(str(distributions[0]).replace("**", "^"),
+                                                    *evt_inv.get_variables()), error_prob
             print("" * 80, end="\r")  # Clear the current line for the "Degree d" output.
         raise VerificationError(f"Could not find a rational function inductive invariant up to degree {max_deg}")
 

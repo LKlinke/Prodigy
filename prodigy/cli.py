@@ -43,8 +43,9 @@ from prodigy.util.color import Style
               default=False)
 @click.option('--use-latex', is_flag=True, required=False, default=False)
 @click.option("--no-normalize", is_flag=True, required=False, default=False)
+@click.option("--show-all-invs", is_flag=True, required=False, default=False)
 def cli(ctx, engine: str, strategy: str, intermediate_results: bool, stepwise: bool,
-        no_simplification: bool, use_latex: bool, no_normalize: bool):
+        no_simplification: bool, use_latex: bool, no_normalize: bool, show_all_invs: bool):
     ctx.ensure_object(dict)
     ctx.obj['CONFIG'] = \
         ForwardAnalysisConfig(
@@ -55,7 +56,8 @@ def cli(ctx, engine: str, strategy: str, intermediate_results: bool, stepwise: b
             use_simplification=not no_simplification,
             use_latex=use_latex,
             normalize=not no_normalize,
-            strategy=strategy
+            strategy=strategy,
+            show_all_invs=show_all_invs
         )
 
 
@@ -222,26 +224,36 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
 def invariant_synthesis(ctx, program_file: IO, input_dist: str):
     """
     Tries to synthesize an EVT Invariant for the given input file.
+    Supports a loop-free program to prefix the actual loop describing an initial distribution.
     """
-    prog_src = program_file.read()
 
+    # read the program source file and parse it into a program object.
+    prog_src = program_file.read()
     prog = compiler.parse_pgcl(prog_src)
     if isinstance(prog, CheckFail):
         raise ValueError(f"Could not compile the Program. {prog}")
-    if not isinstance(prog.instructions[0], WhileInstr):
-        raise ValueError(f"Program must only contain a while loop for which an invariant should be synthesized.")
 
+    # isolate the initial distribution description from the actual while loop.
+    loops = [1 if isinstance(instr, WhileInstr) else 0 for instr in prog.instructions]
+    if sum(loops) > 1:
+        raise ValueError(f"There are {sum(loops)} loops in the program. Only 1 is supported.")
+
+    # compute the initial distribution with respect to the user specified configuration
     config = ctx.obj["CONFIG"]
-    if input_dist is None:
-        dist = config.factory.one(*prog.variables.keys())
-    else:
-        dist = config.factory.from_expr(input_dist,
-                                        *prog.variables.keys(),
-                                        preciseness=1.0)
-    print(config)
+    dist = config.factory.one(*prog.variables.keys())
+    if input_dist is not None:
+        dist = config.factory.from_expr(input_dist, *prog.variables.keys())
+    dist, err = compute_semantics(prog.instructions[:loops.index(1)],
+                                  ProgramInfo(prog),
+                                  config.factory.one(*prog.variables.keys()),
+                                  config.factory.from_expr("0"),
+                                  config
+                                  )
+
+    # Create the strategy to do invariant synthesis and start synthesis.
     strategy = KNOWN_STRATEGIES[config.strategy](prog.variables.keys(), config.factory)
     start = time.perf_counter()
-    invariants = evt_invariant_synthesis(prog.instructions[0],
+    invariants = evt_invariant_synthesis(prog.instructions[loops.index(1)],
                                          ProgramInfo(prog), dist, config, strategy, compute_semantics)
     stop = time.perf_counter()
     print(f"CPU-time elapsed: {stop - start:04f} seconds")

@@ -87,11 +87,13 @@ def evt_invariant_synthesis(loop: WhileInstr,
             contains_only_bad_invariants = True
             for sol, kind in solutions_and_kinds:
                 logger.debug("Possible solution: %s", sol)
+                if kind is False and not config.show_all_invs:
+                    continue
                 message = {None: f"{Style.YELLOW}Possible invariant{Style.RESET}",
                            True: f"{Style.GREEN}Invariant{Style.RESET}",
                            False: f"{Style.RED}Spurious invariant{Style.RESET}"}
                 print(f"{message[kind]}: {sympy.S(str(evt_inv)).subs(sol).ratsimp()}")
-                contains_only_bad_invariants = False if kind is None or kind else True
+                contains_only_bad_invariants &= False if kind is None or kind else True
 
             # Just return if we know that not all invariants are spurious.
             if not contains_only_bad_invariants:
