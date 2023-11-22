@@ -25,20 +25,20 @@ def evt_invariant_synthesis(loop: WhileInstr,
                                  ForwardAnalysisConfig],
                                 Tuple[Distribution, Distribution]
                             ]
-                            ) -> List[Distribution]:
+                            ) -> List[Tuple[Distribution, Union[bool, None]]]:
     logger.debug("Invariant Synthesis for loop %s with initial distribution %s.", loop, distribution)
     zero_dist: Distribution = config.factory.from_expr("0", *prog_info.program.variables)
 
     # enumerate potential candidates given by a heuristic
     for evt_candidate in strategy.template_heuristics.generate():
-        print(f"{Style.YELLOW}Invariant candidate: {evt_candidate}{Style.RESET}")
+        print(f"{Style.YELLOW}Invariant candidate: {evt_candidate}{Style.RESET}{Style.CLEARTOEND}", end="\r")
         # Compute one iteration step.
         evt_inv = evt_candidate
-        phi_inv = distribution + analyzer(loop.body,
-                                          prog_info,
-                                          evt_inv.filter(loop.cond),
-                                          zero_dist,
-                                          config)[0]
+        one_step_dist, one_step_err = analyzer(loop.body, prog_info, evt_inv.filter(loop.cond), zero_dist, config)
+        if one_step_err != config.factory.from_expr("0", *prog_info.program.variables):
+            raise NotImplementedError(f"Currently invariant synthesis does not support conditioned distributions.")
+        phi_inv = distribution + one_step_dist
+
         # Check equality between the iterated expression and the invariant.
         # If they are equal we are done.
         logger.debug("Check Invariant candidate %s", evt_inv)
@@ -80,24 +80,31 @@ def evt_invariant_synthesis(loop: WhileInstr,
         # In case there are still some solutions we check them for actual solutions in the FPS domain with non-negative
         # coefficients. This is in general a hard problem (not known to be decidable), thus we use heuristics.
         if len(solutions) > 0:
-            solutions_and_kinds = [
-                (sol, strategy.positivity_heuristics.is_positive(sympy.S(str(evt_inv)).subs(sol).ratsimp()))
-                for sol in solutions
-            ]
-            contains_only_bad_invariants = True
-            for sol, kind in solutions_and_kinds:
+
+            result: List[Tuple[Distribution, Union[bool, None]]] = []
+            inv_found = False
+
+            for sol in solutions:
+                sol_inv = sympy.S(str(evt_inv)).subs(sol).ratsimp()
+                sol_is_positive = strategy.positivity_heuristics.is_positive(sol_inv)
+
                 logger.debug("Possible solution: %s", sol)
-                if kind is False and not config.show_all_invs:
-                    continue
-                message = {None: f"{Style.YELLOW}Possible invariant{Style.RESET}",
-                           True: f"{Style.GREEN}Invariant{Style.RESET}",
-                           False: f"{Style.RED}Spurious invariant{Style.RESET}"}
-                print(f"{message[kind]}: {sympy.S(str(evt_inv)).subs(sol).ratsimp()}")
-                contains_only_bad_invariants &= False if kind is None or kind else True
+                if sol_is_positive is None:
+                    print(f"{Style.CYAN}Possible invariant: {sol_inv}{Style.RESET}{Style.CLEARTOEND}")
+                    sol_inv = config.factory.from_expr(str(sol_inv).replace("**", "^"), *prog_info.program.variables)
+                    result.append((sol_inv, sol_is_positive))
+                elif sol_is_positive is True:
+                    print(f"{Style.GREEN}Invariant: {sol_inv}{Style.RESET}{Style.CLEARTOEND}")
+                    sol_inv = config.factory.from_expr(str(sol_inv).replace("**", "^"), *prog_info.program.variables)
+                    result.append((sol_inv, sol_is_positive))
+                    inv_found = True
+                else:
+                    if config.show_all_invs:
+                        print(f"{Style.RED}Spurious invariant: {sol_inv}{Style.RESET}{Style.CLEARTOEND}")
 
             # Just return if we know that not all invariants are spurious.
-            if not contains_only_bad_invariants:
-                return [x for (x, y) in filter(lambda x: x[1] is None or x[1], solutions_and_kinds)]
+            if inv_found:
+                return result
 
     # We were unable to determine some EVT Invariant using the given heuristic.
     raise VerificationError(
