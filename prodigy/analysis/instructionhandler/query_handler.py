@@ -14,7 +14,7 @@ from prodigy.distribution import Distribution, MarginalType
 from prodigy.util.logger import log_setup
 from prodigy.util.plotter import Plotter
 
-logger = log_setup(__name__, logging.DEBUG)
+logger = log_setup(str(__name__).rsplit(".")[-1], logging.DEBUG)
 
 
 class QueryHandler(InstructionHandler):

@@ -8,7 +8,7 @@ import sympy
 from prodigy.distribution import CommonDistributionsFactory
 from prodigy.util.logger import log_setup
 
-logger = log_setup(__name__, logging.DEBUG)
+logger = log_setup(str(__name__).rsplit(".")[-1], logging.DEBUG)
 
 
 class FPSPositivityHeuristic(ABC):

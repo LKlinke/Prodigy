@@ -21,7 +21,7 @@ from prodigy.distribution.generating_function import SympyPGF
 from prodigy.util.color import Style
 from prodigy.util.logger import print_progress_bar, log_setup
 
-logger = log_setup(__name__, logging.DEBUG)
+logger = log_setup(str(__name__).rsplit(".")[-1], logging.DEBUG)
 
 
 class WhileHandler(InstructionHandler):
@@ -219,7 +219,7 @@ class WhileHandler(InstructionHandler):
         logger.debug("Using invariant synthesis.")
 
         # Build the strategy.
-        strategy: SynthesisStrategy = KNOWN_STRATEGIES[config.strategy](prog_info.variables.keys(), config.factory)
+        strategy: SynthesisStrategy = KNOWN_STRATEGIES[config.strategy](prog_info.variables.keys(), config.factory())
 
         # generate the invariants using the strategy
         invariants = evt_invariant_synthesis(instruction, prog_info, distribution, config, strategy, analyzer)

@@ -19,7 +19,7 @@ from prodigy.distribution import (CommonDistributionsFactory, Distribution,
 from prodigy.pgcl.pgcl_checks import has_variable
 from prodigy.util.logger import log_setup, logging
 
-logger = log_setup(__name__, logging.DEBUG, file="GF_operations.log")
+logger = log_setup(str(__name__).rsplit(".")[-1], logging.DEBUG, file="GF_operations.log")
 
 
 def _term_generator(function: sympy.Poly):

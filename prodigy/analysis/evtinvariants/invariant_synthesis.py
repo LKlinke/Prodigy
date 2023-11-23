@@ -12,7 +12,7 @@ from prodigy.distribution import Distribution
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
-logger = log_setup(__name__, logging.DEBUG)
+logger = log_setup(str(__name__).rsplit(".")[-1], logging.DEBUG)
 
 
 def evt_invariant_synthesis(loop: WhileInstr,
@@ -40,13 +40,7 @@ def evt_invariant_synthesis(loop: WhileInstr,
         phi_inv = distribution + one_step_dist
 
         # Check equality between the iterated expression and the invariant.
-        # If they are equal we are done.
         logger.debug("Check Invariant candidate %s", evt_inv)
-        if evt_inv == phi_inv:
-            logger.debug("Candidate validated.")
-            return [evt_inv]
-
-        # otherwise we compute the difference and try to solve for the coefficients
         diff = evt_inv - phi_inv
         coeffs = [sympy.S(p) for p in diff.get_parameters()]
         variables = [sympy.S(v) for v in diff.get_variables()]

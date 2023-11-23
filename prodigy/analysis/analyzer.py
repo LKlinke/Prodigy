@@ -22,7 +22,7 @@ from prodigy.distribution import Distribution
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
-logger = log_setup(__name__, logging.DEBUG)
+logger = log_setup(str(__name__).rsplit(".")[-1], logging.DEBUG)
 
 
 def condition_distribution(
