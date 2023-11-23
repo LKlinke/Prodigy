@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Collection
 
 from prodigy.analysis.evtinvariants.heuristics.positivity import FPSPositivityHeuristic, FPSPositivityHeuristicFactory
@@ -28,10 +29,9 @@ class DefaultStrategy(SynthesisStrategy):
         self.positivity_heuristics = FPSPositivityHeuristicFactory.rational_function_denominator_sign(self.dist_factory)
 
 
-class SynthesisStrategyFactory:
+class SynthesisStrategies(Enum):
+    DEFAULT = DefaultStrategy
+
     @classmethod
-    def make_default(cls, variables: Collection[str], dist_fact: CommonDistributionsFactory) -> DefaultStrategy:
-        return DefaultStrategy(variables, dist_fact)
-
-
-KNOWN_STRATEGIES = {"default": SynthesisStrategyFactory.make_default}
+    def make(cls, st: 'SynthesisStrategies', *args, **kwargs) -> SynthesisStrategy:
+        return st.value(*args, **kwargs)

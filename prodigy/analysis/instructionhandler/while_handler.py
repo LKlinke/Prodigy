@@ -10,7 +10,7 @@ from probably.pgcl import Instr, parse_pgcl, Program, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
-from prodigy.analysis.evtinvariants.heuristics.strategies import KNOWN_STRATEGIES, SynthesisStrategy
+from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategy, SynthesisStrategies
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
 from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler import _assume
@@ -219,7 +219,8 @@ class WhileHandler(InstructionHandler):
         logger.debug("Using invariant synthesis.")
 
         # Build the strategy.
-        strategy: SynthesisStrategy = KNOWN_STRATEGIES[config.strategy](prog_info.variables.keys(), config.factory())
+        strategy: SynthesisStrategy = SynthesisStrategies.make(config.strategy, prog_info.variables.keys(),
+                                                               config.factory())
 
         # generate the invariants using the strategy
         invariants = evt_invariant_synthesis(instruction, prog_info, distribution, config, strategy, analyzer)

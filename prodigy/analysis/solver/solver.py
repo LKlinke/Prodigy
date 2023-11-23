@@ -23,7 +23,7 @@ class SympySolver(Solver):
         self.logger.debug("Check %s == %s", f, g)
         s_variables = {sympy.sympify(var) for var in f.get_variables() | g.get_variables()}
         s_parameters = {sympy.sympify(param) for param in f.get_parameters() | g.get_parameters()}
-
+        self.logger.debug("Parameters: %s \t Variables: %s", s_parameters, s_variables)
         s_equation = sympy.sympify(str(f - g))
 
         if s_parameters:
@@ -36,6 +36,7 @@ class SympySolver(Solver):
                 if s_equation.equals(0):
                     self.logger.debug("All parameter value combinations are valid.")
                     return True, []
+                self.logger.debug("No solutions exist.")
                 return False, []
 
             # at least one solution found
@@ -53,10 +54,10 @@ class SympySolver(Solver):
                 self.logger.debug("Could not determine equality of %s and %s", str(f), str(g))
                 return None, []
             if is_equal is False:
-                self.logger.debug("for %s == %s no solutions exist", str(f), str(g))
+                self.logger.debug("no solutions exist for %s == %s ", str(f), str(g))
                 return False, []
             if is_equal:
-                self.logger.debug("%s == %s validated", str(f), str(g))
+                self.logger.debug("Validated %s == %s", str(f), str(g))
                 return True, []
 
         raise Exception("This should not be reachable")
@@ -66,7 +67,10 @@ class SympySolver(Solver):
 
 
 class SMTZ3Solver(Solver):
-    ...
+    logger = log_setup("Z3Solver", logging.DEBUG)
+
+    def solve(self, f: Distribution, g: Distribution) -> Tuple[Optional[bool], List[Dict[sympy.Expr, sympy.Expr]]]:
+        raise NotImplementedError()
 
 
 class SolverType(Enum):

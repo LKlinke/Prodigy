@@ -13,6 +13,7 @@ from prodigy.analysis.optimization.gf_optimizer import GFOptimizer
 from prodigy.distribution.fast_generating_function import ProdigyPGF
 from prodigy.distribution.generating_function import (GeneratingFunction,
                                                       SympyPGF)
+from .evtinvariants.heuristics.strategies import SynthesisStrategies
 from .exceptions import ConfigurationError
 from .solver.solver import SolverType
 from ..distribution.distribution import CommonDistributionsFactory
@@ -46,7 +47,7 @@ class ForwardAnalysisConfig:
     normalize: bool = attr.ib(default=True)
     """Switch to compute the normalized distribution"""
 
-    strategy: str = attr.ib(default="default")
+    strategy: SynthesisStrategies = attr.ib(default=SynthesisStrategies.DEFAULT)
     """The Strategy for dealing with synthesis."""
 
     solver_type: SolverType = attr.ib(default=SolverType.SYMPY)

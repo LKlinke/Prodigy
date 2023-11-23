@@ -20,7 +20,7 @@ from probably.pgcl.check import CheckFail
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
-from prodigy.analysis.evtinvariants.heuristics.strategies import KNOWN_STRATEGIES
+from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver import SolverType
@@ -60,7 +60,7 @@ def cli(ctx, engine: str, strategy: str, solver: str, intermediate_results: bool
             use_simplification=not no_simplification,
             use_latex=use_latex,
             normalize=not no_normalize,
-            strategy=strategy,
+            strategy=SynthesisStrategies.__members__[strategy.upper()],
             show_all_invs=show_all_invs,
             solver_type=SolverType.__members__[solver.upper()]
         )
@@ -144,7 +144,7 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
     if equiv is True:
         assert isinstance(result, list)
         print(
-            f"Program{Style.OKGREEN} is equivalent{Style.RESET} to inavariant",
+            f"Program{Style.OKGREEN} is equivalent{Style.RESET} to invariant",
             end="")
         if len(result) == 0:
             print(".")
@@ -155,8 +155,8 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
     elif equiv is False:
         assert isinstance(result, State)
         print(
-            f"Program{Style.OKRED} is not equivalent{Style.RESET} to invariant. "\
-                f"{Style.OKRED}Counterexample:{Style.RESET} {result.valuations}"
+            f"Program{Style.OKRED} is not equivalent{Style.RESET} to invariant. "
+            f"{Style.OKRED}Counterexample:{Style.RESET} {result.valuations}"
         )
     else:
         assert equiv is None
@@ -200,8 +200,7 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
         config = ctx.obj['CONFIG']
         dist = config.factory.one(*prog.variables.keys())
 
-        dist, _ = compute_discrete_distribution(
-            prog, dist, config)
+        dist, _ = compute_discrete_distribution(prog, dist, config)
 
         marginal_cache = {}
         for var in prog.variables:
@@ -250,13 +249,13 @@ def invariant_synthesis(ctx, program_file: IO, input_dist: str):
         dist = config.factory.from_expr(input_dist, *prog.variables.keys())
     dist, err = compute_semantics(prog.instructions[:loops.index(1)],
                                   ProgramInfo(prog),
-                                  config.factory.one(*prog.variables.keys()),
+                                  dist,
                                   config.factory.from_expr("0"),
                                   config
                                   )
 
     # Create the strategy to do invariant synthesis and start synthesis.
-    strategy = KNOWN_STRATEGIES[config.strategy](prog.variables.keys(), config.factory)
+    strategy = SynthesisStrategies.make(config.strategy, prog.variables.keys(), config.factory)
     start = time.perf_counter()
     invariants = evt_invariant_synthesis(prog.instructions[loops.index(1)],
                                          ProgramInfo(prog), dist, config, strategy, compute_semantics)
