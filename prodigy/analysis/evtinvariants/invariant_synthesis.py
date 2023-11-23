@@ -8,6 +8,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategy
 from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+from prodigy.analysis.solver.solver import SolverType
 from prodigy.distribution import Distribution
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
@@ -32,6 +33,7 @@ def evt_invariant_synthesis(loop: WhileInstr,
     # enumerate potential candidates given by a heuristic
     for evt_candidate in strategy.template_heuristics.generate():
         print(f"{Style.YELLOW}Invariant candidate: {evt_candidate}{Style.RESET}{Style.CLEARTOEND}", end="\r")
+
         # Compute one iteration step.
         evt_inv = evt_candidate
         one_step_dist, one_step_err = analyzer(loop.body, prog_info, evt_inv.filter(loop.cond), zero_dist, config)
@@ -39,37 +41,28 @@ def evt_invariant_synthesis(loop: WhileInstr,
             raise NotImplementedError(f"Currently invariant synthesis does not support conditioned distributions.")
         phi_inv = distribution + one_step_dist
 
+        solver = SolverType.make(config.solver_type)
+
         # Check equality between the iterated expression and the invariant.
         logger.debug("Check Invariant candidate %s", evt_inv)
-        diff = evt_inv - phi_inv
-        coeffs = [sympy.S(p) for p in diff.get_parameters()]
-        variables = [sympy.S(v) for v in diff.get_variables()]
-        logger.debug("Start solving equation systems for %s", diff)
-        solution_candidates = sympy.solve_undetermined_coeffs(sympy.S(str(diff)), coeffs, variables, particular=True)
+        is_solution, solution_candidates = solver.solve(evt_inv, phi_inv)
+        if is_solution is False or is_solution is None:
+            continue
 
-        # Cleanup of messy sympy output conventions.
-        # We now always get back a list of solutions which might be empty.
-        if not isinstance(solution_candidates, list):
-            solution_candidates = [solution_candidates]
         logger.debug("Filter solutions in: %s", solution_candidates)
 
-        # Some solutions might not be of interest, as they are not purely in terms of our template parameters
-        # We filter these out. Also, "all zero" solutions are excluded.
+        # Exclude "all zero" solutions, as well as solutions which make the denominator 0.
         solutions = []
         for candidate in solution_candidates:
-            for _, val in candidate.items():
-                if not {str(s) for s in val.free_symbols} <= evt_inv.get_parameters():
-                    break
-            else:
-                if all(map(lambda x: x == 0, candidate.values())):
-                    continue
+            if all(map(lambda x: x == 0, candidate.values())):
+                continue
 
-                numerator, denominator = sympy.S(str(diff)).as_numer_denom()
-                # we have excluded all zero solutions and now also exclude the solutions
-                # which make the denominator zero
-                if denominator.subs(candidate).equals(0):
-                    continue
-                solutions.append(candidate)
+            numerator, denominator = sympy.S(str(evt_inv - phi_inv)).as_numer_denom()
+            # we have excluded all zero solutions and now also exclude the solutions
+            # which make the denominator zero
+            if denominator.subs(candidate).equals(0):
+                continue
+            solutions.append(candidate)
 
         # In case there are still some solutions we check them for actual solutions in the FPS domain with non-negative
         # coefficients. This is in general a hard problem (not known to be decidable), thus we use heuristics.

@@ -14,5 +14,9 @@ class VerificationError(Exception):
     pass
 
 
+class SolveError(Exception):
+    """The solver has encountered any issue."""
+
+
 class ConfigurationError(Exception):
     pass

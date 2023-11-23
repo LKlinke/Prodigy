@@ -470,6 +470,10 @@ class FPS(Distribution):
 
 
 class ProdigyPGF(CommonDistributionsFactory):
+
+    def __new__(cls, *args, **kwargs):
+        raise TypeError(f"Static class {str(cls)} cannot be instantiated.")
+
     @staticmethod
     def geometric(var: Union[str, VarExpr], p: DistributionParam) -> FPS:
         return FPS.from_dist(pygin.geometric(var, str(p)), {str(var)},

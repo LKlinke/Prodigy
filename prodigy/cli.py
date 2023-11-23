@@ -23,6 +23,7 @@ from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.strategies import KNOWN_STRATEGIES
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+from prodigy.analysis.solver.solver import SolverType
 from prodigy.distribution.distribution import State
 from prodigy.util.color import Style
 
@@ -32,6 +33,7 @@ from prodigy.util.color import Style
 @click.pass_context
 @click.option('--engine', type=str, required=False, default='')
 @click.option("--strategy", type=str, required=False, default='default')
+@click.option("--solver", type=str, required=False, default='sympy')
 @click.option('--intermediate-results',
               is_flag=True,
               required=False,
@@ -44,9 +46,11 @@ from prodigy.util.color import Style
 @click.option('--use-latex', is_flag=True, required=False, default=False)
 @click.option("--no-normalize", is_flag=True, required=False, default=False)
 @click.option("--show-all-invs", is_flag=True, required=False, default=False)
-def cli(ctx, engine: str, strategy: str, intermediate_results: bool, stepwise: bool,
+def cli(ctx, engine: str, strategy: str, solver: str, intermediate_results: bool, stepwise: bool,
         no_simplification: bool, use_latex: bool, no_normalize: bool, show_all_invs: bool):
     ctx.ensure_object(dict)
+    if solver.upper() not in SolverType.__members__:
+        raise ValueError(f"Solver {solver} is not known.")
     ctx.obj['CONFIG'] = \
         ForwardAnalysisConfig(
             engine=ForwardAnalysisConfig.Engine.GINAC if engine == 'ginac'
@@ -57,7 +61,8 @@ def cli(ctx, engine: str, strategy: str, intermediate_results: bool, stepwise: b
             use_latex=use_latex,
             normalize=not no_normalize,
             strategy=strategy,
-            show_all_invs=show_all_invs
+            show_all_invs=show_all_invs,
+            solver_type=SolverType.__members__[solver.upper()]
         )
 
 

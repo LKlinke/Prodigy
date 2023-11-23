@@ -14,6 +14,7 @@ from prodigy.distribution.fast_generating_function import ProdigyPGF
 from prodigy.distribution.generating_function import (GeneratingFunction,
                                                       SympyPGF)
 from .exceptions import ConfigurationError
+from .solver.solver import SolverType
 from ..distribution.distribution import CommonDistributionsFactory
 
 
@@ -47,6 +48,9 @@ class ForwardAnalysisConfig:
 
     strategy: str = attr.ib(default="default")
     """The Strategy for dealing with synthesis."""
+
+    solver_type: SolverType = attr.ib(default=SolverType.SYMPY)
+    """The solver to use for equation systems."""
 
     show_all_invs: bool = attr.ib(default=False)
     """Toggels printing of spurious invariants"""
