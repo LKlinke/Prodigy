@@ -76,4 +76,4 @@ def test_equivalence_check_parameter(engine):
     res, subs = check_equivalence(prog, inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
     assert res
     assert len(subs) == 1
-    assert sympy.S(subs[0]['p']) == sympy.S('1/2')
+    assert sympy.S(subs[0][sympy.S('p')]) == sympy.S('1/2')

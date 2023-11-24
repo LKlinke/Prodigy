@@ -1,5 +1,5 @@
-import probably.pgcl as pgcl
 import pytest
+from probably import pgcl as pgcl
 
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -10,18 +10,17 @@ from prodigy.distribution.generating_function import SympyPGF
 @pytest.mark.parametrize('engine,factory',
                          [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
                           (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
-def test_context_injection(engine, factory):
-    program = pgcl.parse_pgcl("""
+def test_ite_statement(engine, factory):
+    result, error_prob = compute_discrete_distribution(
+        pgcl.parse_pgcl("""
         nat x;
         nat y;
-        rparam p;
-        nparam n;
-        """)
-    gf = factory.from_expr("z^3")
-    result, error_prob = compute_discrete_distribution(
-        program, gf, ForwardAnalysisConfig(engine=engine))
-    assert result.get_variables() == {
-        "x", "y", "z"
-    } and result.get_parameters() == {"p", "n"}
-
-
+        
+        if ( x > y){
+            x := x + 1
+        } else {
+            y := y + 1
+        }
+        """), factory.from_expr("x*y"),
+        ForwardAnalysisConfig(engine=engine))
+    assert result == factory.from_expr("x*y^2", "x", "y")
