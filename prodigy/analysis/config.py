@@ -15,7 +15,7 @@ from prodigy.distribution.generating_function import (GeneratingFunction,
                                                       SympyPGF)
 from .evtinvariants.heuristics.strategies import SynthesisStrategies
 from .exceptions import ConfigurationError
-from .solver.solver import SolverType
+from .solver.solver_type import SolverType
 from ..distribution.distribution import CommonDistributionsFactory
 
 

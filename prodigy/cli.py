@@ -23,7 +23,7 @@ from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.analysis.solver.solver import SolverType
+from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.distribution.distribution import State
 from prodigy.util.color import Style
 

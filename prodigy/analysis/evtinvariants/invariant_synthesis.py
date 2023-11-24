@@ -8,7 +8,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategy
 from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.analysis.solver.solver import SolverType
+from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.distribution import Distribution
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
