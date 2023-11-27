@@ -32,10 +32,7 @@ class PChoiceHandler(InstructionHandler):
         rhs_block, rhs_error_prob = analyzer(instruction.rhs, prog_info, distribution, error_prob, config)
         logger.info("Combining PChoice branches.\n%s", instruction)
         new_prob = lhs_error_prob * str(instruction.prob) + rhs_error_prob * f"1-({instruction.prob})"
-        res_error_prob = (
-                lhs_error_prob * str(instruction.prob) +
-                rhs_error_prob * f"1-({instruction.prob})").set_variables(
-            *error_prob.get_variables())
+        # res_error_prob = new_prob.set_variables(*(error_prob.get_variables() | new_prob.get_variables()))
         return lhs_block * str(
-            instruction.prob) + rhs_block * f"1-({instruction.prob})", \
-            res_error_prob
+            instruction.prob) + rhs_block * f"1-({instruction.prob})", new_prob
+        # res_error_prob

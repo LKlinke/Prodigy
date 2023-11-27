@@ -98,7 +98,7 @@ def main(ctx, program_file: IO, input_dist: str,
         print("Program source:")
         print(program_source)
         print()
-    config = ctx.obj['CONFIG']
+    config: ForwardAnalysisConfig = ctx.obj['CONFIG']
     if input_dist is None:
         dist = config.factory.one(*program.variables.keys())
     else:

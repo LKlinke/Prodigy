@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Callable, Union, Sequence
 
-from probably.pgcl import Instr, Program, LoopInstr
+from probably.pgcl import Instr, LoopInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
@@ -19,7 +19,7 @@ class LoopHandler(InstructionHandler):
     @staticmethod
     def compute(
             instruction: Instr,
-            prog_info: Program,
+            prog_info: ProgramInfo,
             distribution: Distribution,
             error_prob: Distribution,
             config: ForwardAnalysisConfig,

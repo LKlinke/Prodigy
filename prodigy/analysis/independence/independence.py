@@ -11,9 +11,8 @@ from probably.pgcl import (AsgnInstr, Binop, BinopExpr, BoolLitExpr,
                            ObserveInstr, Program, SkipInstr, TickInstr, Var,
                            VarExpr, WhileInstr)
 from probably.pgcl.ast.walk import Walk, walk_instrs
-from prodigy.analysis.static.utils import (_ancestors_every_node,
-                                           _vars_of_expr, _written_vars)
 
+from prodigy.analysis.independence.utils import _vars_of_expr, _written_vars, _ancestors_every_node
 from prodigy.util.logger import log_setup
 
 logger = log_setup(__name__, logging.DEBUG)

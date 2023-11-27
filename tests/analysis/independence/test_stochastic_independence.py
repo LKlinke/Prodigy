@@ -1,7 +1,7 @@
 from probably.pgcl.ast import Program
 from probably.pgcl.compiler import compile_pgcl
 
-from prodigy.analysis.static import independent_vars
+from prodigy.analysis.independence import independent_vars
 
 
 def test_independence_fully_isolated():

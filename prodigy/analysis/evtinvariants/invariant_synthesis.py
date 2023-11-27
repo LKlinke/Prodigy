@@ -41,7 +41,10 @@ def evt_invariant_synthesis(loop: WhileInstr,
             raise NotImplementedError(f"Currently invariant synthesis does not support conditioned distributions.")
         phi_inv = distribution + one_step_dist
 
-        solver = SolverType.make(config.solver_type)
+        if config.solver_type == SolverType.Z3:
+            solver = SolverType.make(config.solver_type, config.factory)
+        else:
+            solver = SolverType.make(config.solver_type)
 
         # Check equality between the iterated expression and the invariant.
         logger.debug("Check Invariant candidate %s", evt_inv)
