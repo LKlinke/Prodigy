@@ -130,7 +130,7 @@ _OPERATOR_TABLE = [[infixl("or", "||")], [infixl("and", "&")],
                        infixl("ge", ">"),
                        infixl("geq", ">="),
                        infixl("eq", "=")
-                   ], [infixl("plus", "+"),
+                   ], [prefix("uminus" ,"-")], [infixl("plus", "+"),
                        infixl("minus", "-")], [infixl("likely", ":")],
                    [
                        infixl("times", "*"),
@@ -291,6 +291,8 @@ def _parse_expr(t: Tree) -> Expr:
         return BinopExpr(Binop.GT, expr0(), expr1())
     elif t.data == 'eq':
         return BinopExpr(Binop.EQ, expr0(), expr1())
+    elif t.data == 'uminus':
+        return UnopExpr(Unop.MINUS, expr0())
     elif t.data == 'plus':
         return BinopExpr(Binop.PLUS, expr0(), expr1())
     elif t.data == 'minus':

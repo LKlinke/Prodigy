@@ -160,6 +160,7 @@ class Unop(Enum):
     """What unary operator is it?"""
     NEG = auto()
     IVERSON = auto()
+    MINUS = auto()
 
     def __repr__(self) -> str:
         # pylint: disable=no-member
@@ -177,6 +178,8 @@ class UnopExpr(ExprClass):
             return f'not {expr_str_parens(self.expr)}'
         elif self.operator == Unop.IVERSON:
             return f'[{self.expr}]'
+        elif self.operator == Unop.MINUS:
+            return f'-{expr_str_parens(self.expr)}'
         raise Exception("Invalid Unop operator")
 
 

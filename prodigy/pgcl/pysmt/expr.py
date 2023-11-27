@@ -11,7 +11,7 @@ from fractions import Fraction
 
 from pysmt.fnode import FNode
 from pysmt.shortcuts import (FALSE, LE, LT, TRUE, And, EqualsOrIff, Int, Ite,
-                             Minus, Not, Or, Plus, Real, Times, ToReal,
+                             Minus, Not, Or, Plus, Real, Times, ToReal, Pow,
                              get_type)
 from pysmt.typing import INT
 
@@ -74,12 +74,14 @@ def expr_to_pysmt(context: TranslationContext,
     elif isinstance(expr, UnopExpr):
         operand = expr_to_pysmt(context,
                                 expr.expr,
-                                is_expectation=False,
+                                is_expectation=is_expectation,
                                 allow_infinity=allow_infinity)
         if expr.operator == Unop.NEG:
             return Not(operand)
         elif expr.operator == Unop.IVERSON:
             return Ite(operand, Real(1), Real(0))
+        elif expr.operator == Unop.MINUS:
+            return Times(Real(-1), operand)
     elif isinstance(expr, BinopExpr):
         # `is_expectation` is disabled if we enter a non-arithmetic expression
         # (we do not convert integers to reals within a boolean expression such
@@ -116,7 +118,9 @@ def expr_to_pysmt(context: TranslationContext,
                        Minus(lhs, rhs))
         elif expr.operator == Binop.TIMES:
             return Times(lhs, rhs)
+        elif expr.operator == Binop.POWER:
+            return Pow(lhs, rhs)
     elif isinstance(expr, SubstExpr):
         raise Exception("Substitution expression is not allowed here.")
 
-    raise Exception("unreachable")
+    raise Exception(f"unreachable {expr}")
