@@ -43,6 +43,12 @@ class State:
     def __str__(self):
         return self.valuations.__str__()
 
+    def __hash__(self):
+        h = 0
+        for key, val in self.valuations.items():
+            h += hash(key) + hash(val)
+            return h
+
     def __eq__(self, other) -> bool:
         if isinstance(other, dict):
             return self.valuations == other
