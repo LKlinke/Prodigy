@@ -69,7 +69,7 @@ class SMTZ3Solver(Solver):
                 coefficient_at_state[state] = [f"{prob}"]
         coefficients = [" + ".join(prob).replace('**', '^') for prob in coefficient_at_state.values()]
         coefficients = list(
-            map(lambda x: expr_to_pysmt(context, parse_expr(f"0 <= {x}"), is_expectation=True), coefficients))
+            map(lambda x: expr_to_pysmt(context, parse_expr(f"0 = {x}"), is_expectation=True), coefficients))
         self.logger.debug("Generated formula %s", coefficients)
 
         smt_formula = And(*coefficients, positivity_smt)
