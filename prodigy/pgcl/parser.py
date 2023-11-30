@@ -292,7 +292,7 @@ def _parse_expr(t: Tree) -> Expr:
     elif t.data == 'eq':
         return BinopExpr(Binop.EQ, expr0(), expr1())
     elif t.data == 'uminus':
-        return UnopExpr(Unop.MINUS, expr0())
+        return BinopExpr(Binop.TIMES, RealLitExpr(Fraction(-1)), expr0())
     elif t.data == 'plus':
         return BinopExpr(Binop.PLUS, expr0(), expr1())
     elif t.data == 'minus':

@@ -74,7 +74,7 @@ def expr_to_pysmt(context: TranslationContext,
     elif isinstance(expr, UnopExpr):
         operand = expr_to_pysmt(context,
                                 expr.expr,
-                                is_expectation=is_expectation,
+                                is_expectation=False,
                                 allow_infinity=allow_infinity)
         if expr.operator == Unop.NEG:
             return Not(operand)
@@ -89,7 +89,7 @@ def expr_to_pysmt(context: TranslationContext,
         #
         # Similarly, `allow_infinity` is disabled if we enter an arithmetic
         # expression because calculations with infinity are hard to make sense of.
-        is_arith_op = expr.operator in [Binop.PLUS, Binop.MINUS, Binop.TIMES]
+        is_arith_op = expr.operator in [Binop.PLUS, Binop.MINUS, Binop.TIMES, Binop.POWER]
         is_expectation = is_expectation  # TODO: and is_arith_op
         allow_infinity = allow_infinity  # TODO: and not is_arith_op?!??!
         lhs = expr_to_pysmt(context,
@@ -113,9 +113,7 @@ def expr_to_pysmt(context: TranslationContext,
         elif expr.operator == Binop.PLUS:
             return Plus(lhs, rhs)
         elif expr.operator == Binop.MINUS:
-            return Ite(LE(lhs, rhs),
-                       (Int(0) if get_type(lhs) == INT else Real(0)),
-                       Minus(lhs, rhs))
+            return Minus(lhs, rhs)
         elif expr.operator == Binop.TIMES:
             return Times(lhs, rhs)
         elif expr.operator == Binop.POWER:
