@@ -29,7 +29,7 @@ def evt_invariant_synthesis(loop: WhileInstr,
                             ) -> List[Tuple[Distribution, Union[bool, None]]]:
     logger.debug("Invariant Synthesis for loop %s with initial distribution %s.", loop, distribution)
     zero_dist: Distribution = config.factory.from_expr("0", *prog_info.program.variables)
-
+    print(f"{Style.YELLOW}Invariant synthesis initiated...{Style.RESET}")
     # enumerate potential candidates given by a heuristic
     for evt_candidate in strategy.template_heuristics.generate():
         print(f"{Style.YELLOW}Invariant candidate: {evt_candidate}{Style.RESET}{Style.CLEARTOEND}", end="\r")
@@ -98,4 +98,4 @@ def evt_invariant_synthesis(loop: WhileInstr,
 
     # We were unable to determine some EVT Invariant using the given heuristic.
     raise VerificationError(
-        f"Could not find a rational function inductive invariant using strategy {strategy}")
+        f"Could not find a rational function inductive invariant using {strategy}")
