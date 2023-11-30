@@ -22,6 +22,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
+from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.distribution.distribution import State
@@ -257,8 +258,12 @@ def invariant_synthesis(ctx, program_file: IO, input_dist: str):
     # Create the strategy to do invariant synthesis and start synthesis.
     strategy = SynthesisStrategies.make(config.strategy, prog.variables.keys(), config.factory)
     start = time.perf_counter()
-    invariants = evt_invariant_synthesis(prog.instructions[loops.index(1)],
-                                         ProgramInfo(prog), dist, config, strategy, compute_semantics)
+    try:
+        invariants = evt_invariant_synthesis(prog.instructions[loops.index(1)],
+                                             ProgramInfo(prog), dist, config, strategy, compute_semantics)
+    except VerificationError as e:
+        print(f"{Style.RED} {str(e)} {Style.RESET}")
+
     stop = time.perf_counter()
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
 
