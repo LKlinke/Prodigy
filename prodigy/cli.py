@@ -268,6 +268,13 @@ def invariant_synthesis(ctx, program_file: IO, input_dist: str):
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
 
 
+@cli.command()
+def print_strategies():
+    print("Currently implemented strategies are: ")
+    for strat in SynthesisStrategies:
+        print(strat.name)
+
+
 if __name__ == "__main__":
     # execute only if run as a script
     cli()  # pylint: disable=no-value-for-parameter
