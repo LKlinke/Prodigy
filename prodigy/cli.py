@@ -37,6 +37,8 @@ from prodigy.util.color import Style
 @click.option('--engine', type=str, required=False, default='')
 @click.option("--strategy", type=str, required=False, default='default')
 @click.option("--solver", type=str, required=False, default='sympy')
+@click.option("--template-heuristic", type=str, required=False, default='default')
+@click.option("--pos-heuristic", type=str, required=False, default='default')
 @click.option('--intermediate-results',
               is_flag=True,
               required=False,
@@ -49,8 +51,18 @@ from prodigy.util.color import Style
 @click.option('--use-latex', is_flag=True, required=False, default=False)
 @click.option("--no-normalize", is_flag=True, required=False, default=False)
 @click.option("--show-all-invs", is_flag=True, required=False, default=False)
-def cli(ctx, engine: str, strategy: str, solver: str, intermediate_results: bool, stepwise: bool,
-        no_simplification: bool, use_latex: bool, no_normalize: bool, show_all_invs: bool):
+def cli(ctx,
+        engine: str,
+        strategy: str,
+        solver: str,
+        template_heuristic: str,
+        pos_heuristic: str,
+        intermediate_results: bool,
+        stepwise: bool,
+        no_simplification: bool,
+        use_latex: bool,
+        no_normalize: bool,
+        show_all_invs: bool):
     ctx.ensure_object(dict)
     if solver.upper() not in SolverType.__members__:
         raise ValueError(f"Solver {solver} is not known.")
@@ -64,6 +76,8 @@ def cli(ctx, engine: str, strategy: str, solver: str, intermediate_results: bool
             use_latex=use_latex,
             normalize=not no_normalize,
             strategy=SynthesisStrategies.__members__[strategy.upper()],
+            templ_heuristic=TemplateHeuristics.__members__[template_heuristic.upper()],
+            positivity_heuristic=PositivityHeuristics.__members__[pos_heuristic.upper()],
             show_all_invs=show_all_invs,
             solver_type=SolverType.__members__[solver.upper()]
         )
@@ -273,8 +287,8 @@ def invariant_synthesis(ctx, program_file: IO, input_dist: str):
 @cli.command()
 def print_strategies():
     print("Currently implemented strategies are: ")
-    for strat in SynthesisStrategies:
-        print(strat.name)
+    for strategy in SynthesisStrategies:
+        print(strategy.name)
 
 
 @cli.command()

@@ -80,6 +80,7 @@ class SynthesisStrategies(Enum):
     DEFAULT = DefaultStrategy
     SUM_THEN_RATIONAL = PartialRational
     APART_OR_TOGETHER = AllOrPartialRational
+    FROM_HEURISTICS = SynthesisStrategy
 
     @classmethod
     def make(cls, st: 'SynthesisStrategies', *args, **kwargs) -> SynthesisStrategy:
