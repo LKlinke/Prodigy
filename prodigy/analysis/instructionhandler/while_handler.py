@@ -220,7 +220,7 @@ class WhileHandler(InstructionHandler):
 
         # Build the strategy.
         strategy: SynthesisStrategy = SynthesisStrategies.make(config.strategy, prog_info.variables.keys(),
-                                                               config.factory())
+                                                               config.factory)
 
         # generate the invariants using the strategy
         invariants = evt_invariant_synthesis(instruction, prog_info, distribution, config, strategy, analyzer)

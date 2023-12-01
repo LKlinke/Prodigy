@@ -18,5 +18,9 @@ class SolveError(Exception):
     """The solver has encountered any issue."""
 
 
+class HeuristicsError(Exception):
+    """ Representing errors occuring in positivity heuristics."""
+
+
 class ConfigurationError(Exception):
     pass
