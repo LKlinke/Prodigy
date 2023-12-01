@@ -22,6 +22,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
+from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
 from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
@@ -286,7 +287,7 @@ def print_pos_heuristics():
 @cli.command()
 def print_template_heuristics():
     print("Currently implemented template generation heuristics are: ")
-    for heuristic in PositivityHeuristics:
+    for heuristic in TemplateHeuristics:
         print(heuristic.name)
 
 
