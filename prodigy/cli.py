@@ -20,6 +20,7 @@ from probably.pgcl.check import CheckFail
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
+from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
 from prodigy.analysis.exceptions import VerificationError
@@ -273,6 +274,20 @@ def print_strategies():
     print("Currently implemented strategies are: ")
     for strat in SynthesisStrategies:
         print(strat.name)
+
+
+@cli.command()
+def print_pos_heuristics():
+    print("Currently implemented positivity heuristics are: ")
+    for heuristic in PositivityHeuristics:
+        print(heuristic.name)
+
+
+@cli.command()
+def print_template_heuristics():
+    print("Currently implemented template generation heuristics are: ")
+    for heuristic in PositivityHeuristics:
+        print(heuristic.name)
 
 
 if __name__ == "__main__":

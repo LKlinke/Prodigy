@@ -2,16 +2,17 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Collection
 
-from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import FPSPositivityHeuristic, \
-    FPSPositivityHeuristicFactory
-from prodigy.analysis.evtinvariants.heuristics.templates.templates import TemplateHeuristic, TemplateHeuristicsFactory
+from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
+from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic
+from prodigy.analysis.evtinvariants.heuristics.templates.templates import TemplateHeuristic
+from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
 from prodigy.distribution import CommonDistributionsFactory
 
 
 @dataclass
 class SynthesisStrategy:
     template_heuristics: TemplateHeuristic = field(init=False)
-    positivity_heuristics: FPSPositivityHeuristic = field(init=False)
+    positivity_heuristics: PositivityHeuristic = field(init=False)
 
     def __str__(self) -> str:
         return f"Strategy {self.__class__.__name__} ({self.template_heuristics=}, {self.positivity_heuristics=})"
@@ -24,10 +25,15 @@ class DefaultStrategy(SynthesisStrategy):
     max_degree: int = 10
 
     def __post_init__(self):
-        self.template_heuristics = TemplateHeuristicsFactory.rational_functions_total_deg(self.max_degree,
-                                                                                          self.variables,
-                                                                                          self.dist_factory)
-        self.positivity_heuristics = FPSPositivityHeuristicFactory.rational_function_denominator_sign(self.dist_factory)
+        self.template_heuristics = TemplateHeuristics.create(
+            TemplateHeuristics.DEFAULT,
+            self.max_degree,
+            self.variables,
+            self.dist_factory
+        )
+        self.positivity_heuristics = PositivityHeuristics.create(
+            PositivityHeuristics.MIXED_RAT_FUNC, self.dist_factory
+        )
 
 
 @dataclass
@@ -37,10 +43,16 @@ class PartialRational(SynthesisStrategy):
     max_degree: int = 10
 
     def __post_init__(self):
-        self.template_heuristics = TemplateHeuristicsFactory.rational_functions_total_deg(self.max_degree,
-                                                                                          self.variables,
-                                                                                          self.dist_factory)
-        self.positivity_heuristics = FPSPositivityHeuristicFactory.create_sum_then_rational()
+        self.template_heuristics = TemplateHeuristics.create(
+            TemplateHeuristics.DEFAULT,
+            self.max_degree,
+            self.variables,
+            self.dist_factory
+        )
+        self.positivity_heuristics = PositivityHeuristics.create(
+            PositivityHeuristics.INDIVIDUAL_SUM,
+            PositivityHeuristics.create(PositivityHeuristics.TRUE_RAT_FUNC)
+        )
 
 
 @dataclass
@@ -50,12 +62,18 @@ class AllOrPartialRational(SynthesisStrategy):
     max_degree: int = 10
 
     def __post_init__(self):
-        self.template_heuristics = TemplateHeuristicsFactory.rational_functions_total_deg(self.max_degree,
-                                                                                          self.variables,
-                                                                                          self.dist_factory)
-        self.positivity_heuristics = FPSPositivityHeuristicFactory.create_or(
-            FPSPositivityHeuristicFactory.create_sum_then_rational(),
-            FPSPositivityHeuristicFactory.rational_function_denominator_sign(self.dist_factory))
+        self.template_heuristics = TemplateHeuristics.create(
+            TemplateHeuristics.DEFAULT,
+            self.max_degree,
+            self.variables,
+            self.dist_factory
+        )
+
+        rat_func_heur = PositivityHeuristics.create(PositivityHeuristics.TRUE_RAT_FUNC)
+        mixed_rat_func = PositivityHeuristics.create(PositivityHeuristics.MIXED_RAT_FUNC, self.dist_factory)
+        sum_heur = PositivityHeuristics.create(PositivityHeuristics.INDIVIDUAL_SUM, rat_func_heur)
+
+        self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.OR, sum_heur, mixed_rat_func)
 
 
 class SynthesisStrategies(Enum):

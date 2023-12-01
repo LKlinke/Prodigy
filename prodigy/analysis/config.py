@@ -13,7 +13,9 @@ from prodigy.analysis.optimization.gf_optimizer import GFOptimizer
 from prodigy.distribution.fast_generating_function import ProdigyPGF
 from prodigy.distribution.generating_function import (GeneratingFunction,
                                                       SympyPGF)
+from .evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from .evtinvariants.heuristics.strategies import SynthesisStrategies
+from .evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
 from .exceptions import ConfigurationError
 from .solver.solver_type import SolverType
 from ..distribution.distribution import CommonDistributionsFactory
@@ -49,6 +51,12 @@ class ForwardAnalysisConfig:
 
     strategy: SynthesisStrategies = attr.ib(default=SynthesisStrategies.DEFAULT)
     """The Strategy for dealing with synthesis."""
+
+    templ_heuristic: TemplateHeuristics = attr.ib(default=TemplateHeuristics.DEFAULT)
+    """ The heuristics to use for template genesis"""
+
+    positivity_heuristic: PositivityHeuristics = attr.ib(default=PositivityHeuristics.DEFAULT)
+    """ The heuristics to validate positivity"""
 
     solver_type: SolverType = attr.ib(default=SolverType.SYMPY)
     """The solver to use for equation systems."""
