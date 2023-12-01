@@ -1,0 +1,6 @@
+nat x;
+
+x := geometric(1/2)
+while(x%2=1){
+    {x := x+1} [1/2] { x:= x-1}
+}
