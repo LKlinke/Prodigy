@@ -111,14 +111,6 @@ class RationalFunctionDenomSign(PositivityHeuristic):
                 self.logger.info("Invariant validates as non-negative FPS.")
                 return True
 
-        # Search for bad coefficients
-        for i, (coef, state) in enumerate(self.dist_fact.from_expr(str(f).replace("**", "^"))):
-            if i > 10:
-                break
-            if sympy.S(coef) < 0:
-                self.logger.info("Invariant is spurious. Coefficient of state %s is %s", state.valuations, coef)
-                return False
-
         # We don't know otherwise
         self.logger.info("Heuristic failed, we dont know!")
         return None

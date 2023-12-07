@@ -39,29 +39,15 @@ from prodigy.util.color import Style
 @click.option("--solver", type=str, required=False, default='sympy')
 @click.option("--template-heuristic", type=str, required=False, default='default')
 @click.option("--pos-heuristic", type=str, required=False, default='default')
-@click.option('--intermediate-results',
-              is_flag=True,
-              required=False,
-              default=False)
+@click.option('--intermediate-results', is_flag=True, required=False, default=False)
 @click.option("--stepwise", is_flag=True, required=False, default=False)
-@click.option('--no-simplification',
-              is_flag=True,
-              required=False,
-              default=False)
+@click.option('--no-simplification', is_flag=True, required=False, default=False)
 @click.option('--use-latex', is_flag=True, required=False, default=False)
 @click.option("--no-normalize", is_flag=True, required=False, default=False)
 @click.option("--show-all-invs", is_flag=True, required=False, default=False)
 def cli(ctx,
-        engine: str,
-        strategy: str,
-        solver: str,
-        template_heuristic: str,
-        pos_heuristic: str,
-        intermediate_results: bool,
-        stepwise: bool,
-        no_simplification: bool,
-        use_latex: bool,
-        no_normalize: bool,
+        engine: str, strategy: str, solver: str, template_heuristic: str, pos_heuristic: str,
+        intermediate_results: bool, stepwise: bool, no_simplification: bool, use_latex: bool, no_normalize: bool,
         show_all_invs: bool):
     ctx.ensure_object(dict)
     if solver.upper() not in SolverType.__members__:

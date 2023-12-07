@@ -181,7 +181,8 @@ class WhileHandler(InstructionHandler):
         evt_inv = config.factory.from_expr(input("Enter EVT invariant: "), *prog_info.program.variables.keys())
         phi = distribution + \
               analyzer(instruction.body, prog_info, evt_inv.filter(instruction.cond), error_prob, config)[0]
-
+        logger.debug("Trying to validate user specified invariant: %s", evt_inv)
+        logger.debug("Phi(inv) = %s", phi)
         if evt_inv == phi:
             print(f"{Style.OKGREEN}Invariant validated!{Style.RESET}")
             return evt_inv - evt_inv.filter(instruction.cond), error_prob

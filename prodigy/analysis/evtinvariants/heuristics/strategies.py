@@ -69,8 +69,10 @@ class AllOrPartialRational(SynthesisStrategy):
             self.dist_factory
         )
 
+        iterate_heur = PositivityHeuristics.create(PositivityHeuristics.ITERATE_TERMS, self.dist_factory)
         rat_func_heur = PositivityHeuristics.create(PositivityHeuristics.TRUE_RAT_FUNC)
-        mixed_rat_func = PositivityHeuristics.create(PositivityHeuristics.MIXED_RAT_FUNC, self.dist_factory)
+        mixed_rat_func = PositivityHeuristics.create(PositivityHeuristics.MIXED_RAT_FUNC, self.dist_factory,
+                                                     iterate_heur)
         sum_heur = PositivityHeuristics.create(PositivityHeuristics.INDIVIDUAL_SUM, rat_func_heur)
 
         self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.OR, sum_heur, mixed_rat_func)
