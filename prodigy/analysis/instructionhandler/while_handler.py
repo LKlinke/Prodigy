@@ -91,6 +91,8 @@ class WhileHandler(InstructionHandler):
             ]
     ) -> tuple[Distribution, Distribution]:
         max_iter = int(input("Specify a maximum iteration limit: "))
+        logger.debug("Compute %i iterations", max_iter)
+
         sat_part = distribution.filter(instruction.cond)
         non_sat_part = distribution - sat_part
         for i in range(max_iter):
@@ -157,8 +159,11 @@ class WhileHandler(InstructionHandler):
     ) -> tuple[Distribution, Distribution]:
         assert error_prob.is_zero_dist(), f"Currently EVT reasoning does not support conditioning."
         max_iter = int(input("Enter the number of iterations: "))
+        logger.debug("Compute %i iterations of EVT operator", max_iter)
+
         evt = distribution * 0
         for i in range(max_iter):
+            logger.debug("Iteration %i", i)
             print_progress_bar(i + 1, max_iter, length=50)
             evt = distribution + \
                   analyzer(instruction.body, prog_info, evt.filter(instruction.cond), error_prob, config)[0]

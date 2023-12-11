@@ -42,7 +42,7 @@ class AssignmentHandler(InstructionHandler):
             raise SyntaxError(
                 f"Assignment {instruction} is ill-formed. right-hand-side must be an expression."
             )
-        logger.info("Computing distribution update.\n%s", instruction)
+        logger.info("Update %s", instruction)
         return distribution.update(
             BinopExpr(operator=Binop.EQ,
                       lhs=VarExpr(instruction.lhs),

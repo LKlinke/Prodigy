@@ -40,6 +40,8 @@ def condition_distribution(
 def compute_discrete_distribution(
         program: Program | ProgramInfo, dist: Distribution,
         config: ForwardAnalysisConfig) -> tuple[Distribution, Distribution]:
+    logger.debug("Compute the distribution for\n%s\nand distribution %s", str(program), dist)
+
     # Inject the context from the parsed program into the initial distribution.
     prog_info = program if isinstance(program,
                                       ProgramInfo) else ProgramInfo(program)
@@ -95,7 +97,7 @@ def compute_semantics(
             *distribution.get_variables()), error_prob
 
     elif isinstance(instruction, WhileInstr):
-        logger.info("%s gets handled", instruction)
+        logger.info("\n%s gets handled", instruction)
         return WhileHandler.compute(instruction, prog_info, distribution,
                                     error_prob, config, compute_semantics)
 

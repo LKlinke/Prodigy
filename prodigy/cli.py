@@ -29,6 +29,9 @@ from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.distribution.distribution import State
 from prodigy.util.color import Style
+from prodigy.util.logger import log_setup
+
+logger = log_setup("CLI", logging.DEBUG)
 
 
 # pylint: disable-msg=too-many-arguments
@@ -86,11 +89,11 @@ def main(ctx, program_file: IO, input_dist: str,
     Compile the given program and print some information about it.
     """
 
-    # Setup the logging.
-    # logging.basicConfig(level=logging.INFO)
-    logging.getLogger("prodigy.cli").info("Program started.")
+    logger.info("Prodigy started.")
 
     # Parse and the input and do typechecking.
+    logger.debug("Read file %s", program_file.name)
+    logger.debug("Input distribution: %s", input_dist)
     program_source = program_file.read()
     program = compiler.parse_pgcl(program_source)
     # if isinstance(program, CheckFail):
@@ -109,6 +112,7 @@ def main(ctx, program_file: IO, input_dist: str,
                                         *program.variables.keys(),
                                         preciseness=1.0)
 
+    logger.debug("Start analysis.")
     start = time.perf_counter()
     dist, error_prob = compute_discrete_distribution(
         program, dist, config)
