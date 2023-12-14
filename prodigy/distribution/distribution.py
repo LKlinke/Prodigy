@@ -279,7 +279,7 @@ class Distribution(ABC):
         left_side_original = True
 
         # Check whether left hand side has only finitely many interpretations.
-        if len(syms) == 0 or not marginal.is_finite():
+        if len(syms) == 0 or not marginal.is_finite():  # This is bad, only works because its evaluated from left to right
             # Failed, so we have to check the right hand side
             left_side_original = False
             expr = str(condition.lhs)
@@ -327,6 +327,12 @@ class Distribution(ABC):
                                 modulus: str) -> Sequence[Distribution]:
         """
         Creates a list of subdistributions where at list index i, the `variable` is congruent i modulo `modulus`.
+        """
+
+    @abstractmethod
+    def hadamard_product(self, other: Distribution) -> Distribution:
+        """
+        Computes the Hadamard product of the distributions, i.e., the point-wise product of the probabilities.
         """
 
     @abstractmethod

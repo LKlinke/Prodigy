@@ -82,7 +82,7 @@ def _parse_to_sympy(expr: Any, real=True, **kwargs) -> sympy.Expr:
                     return probably_to_sympy(
                         prob_expr.lhs) * probably_to_sympy(prob_expr.rhs)
                 if op == Binop.POWER:
-                    return probably_to_sympy(prob_expr.lhs)**probably_to_sympy(
+                    return probably_to_sympy(prob_expr.lhs) ** probably_to_sympy(
                         prob_expr.rhs)
                 if op == Binop.MODULO:
                     return probably_to_sympy(
@@ -99,8 +99,8 @@ def _parse_to_sympy(expr: Any, real=True, **kwargs) -> sympy.Expr:
         s = sympy.parse_expr(
             str(expr),
             transformations=sympy.parsing.sympy_parser.standard_transformations
-            + (sympy.parsing.sympy_parser.convert_xor,
-               sympy.parsing.sympy_parser.rationalize),
+                            + (sympy.parsing.sympy_parser.convert_xor,
+                               sympy.parsing.sympy_parser.rationalize),
             global_dict={
                 'Symbol': lambda x: _sympy_symbol(x, real, **kwargs),
                 'Function': get_function,
@@ -137,13 +137,11 @@ class GeneratingFunction(Distribution):
     def __init__(self,
                  function: Union[str, sympy.Expr, Expr],
                  *variables: Union[str, sympy.Symbol],
-                 preciseness: float = 1.0,
                  closed: bool | None = None,
                  finite: bool | None = None):
 
         # Set the basic information.
         self._function: sympy.Expr = _parse_to_sympy(function)
-        self._preciseness = preciseness
 
         # Set variables and parameters
         self._variables: Set[
@@ -229,11 +227,10 @@ class GeneratingFunction(Distribution):
         # Compute the probabilities of the states _var_ = i where i ranges depending on the operator (< , <=, =).
         for i in ranges[condition.operator]:
             result += (self._function.diff(variable, i) / sympy.factorial(i)
-                       ).limit(variable, 0, '-') * variable**i
+                       ).limit(variable, 0, '-') * variable ** i
 
         return GeneratingFunction(result,
                                   *self._variables,
-                                  preciseness=self._preciseness,
                                   closed=self._is_closed_form,
                                   finite=self._is_finite)
 
@@ -252,8 +249,8 @@ class GeneratingFunction(Distribution):
             # instead of repeating all the monomials for higher total degrees, just cut-off the already created ones.
             if i > 1:
                 new_monomials = new_monomials[
-                    sympy.polys.monomials.
-                    monomial_count(len(self._variables), i - 1):]
+                                sympy.polys.monomials.
+                                monomial_count(len(self._variables), i - 1):]
             logger.debug("Monomial_generation done")
 
             # after we have the list of new monomials, create (probability, state) pais and yielding them.
@@ -279,21 +276,84 @@ class GeneratingFunction(Distribution):
         """
         a = _parse_to_sympy(modulus)
         var = _sympy_symbol(variable)
+
+        # This should be a faster variant for univariate distributions.
+        if self._variables == {var}:
+            result = []
+            for remainder in range(a):
+                other = GeneratingFunction(f"({var}^{remainder})/(1-{var}^{modulus})", *self._variables)
+                result.append(self.hadamard_product(other))
+            return result
+
+        # This is the general algorithm
         primitive_uroot = sympy.exp(2 * sympy.pi * sympy.I / a)
         result = []
         for remainder in range(a):  # type: ignore
             psum = 0
             for m in range(a):  # type: ignore
-                psum += primitive_uroot**(-m *
-                                          remainder) * self._function.subs(
-                                              var, (primitive_uroot**m) * var)
+                psum += primitive_uroot ** (-m *
+                                            remainder) * self._function.subs(
+                    var, (primitive_uroot ** m) * var)
             result.append(
                 GeneratingFunction(f"(1/{a}) * ({psum})",
                                    *self._variables,
-                                   preciseness=self._preciseness,
                                    closed=self._is_closed_form,
                                    finite=self._is_finite))
         return result
+
+    def hadamard_product(self, other: Distribution) -> Distribution:
+        """
+            Computes the Hadamard product of two univariate rational functions, i.e. the point-wise product of the coefficients
+            in their formal power series representation.
+        """
+        logger.debug("Compute Hadamard product of %s and %s", self, other)
+        if len(self._variables) > 1:
+            raise NotImplementedError("Currently only univariate distributions are supported for the Hadamard product.")
+        var = next(iter(self._variables))
+        if isinstance(other, GeneratingFunction):
+            if not other._variables == self._variables:
+                raise NotImplementedError("Only univariate distributions are supported for the Hadamard product.")
+
+            s_f, s_g = self._function, other._function
+
+            if not (s_f.is_rational_function() and s_g.is_rational_function()):
+                raise ValueError(f"Distributions need to be rational functions. Got {s_f} and {s_g}")
+
+            if s_f.is_polynomial(var):
+                s_f, s_g = s_g, s_f
+            if s_g.is_polynomial(var):
+                if s_g.is_constant(var):
+                    return GeneratingFunction(s_g * s_f.subs(var, 0), var)
+                g_deg = s_g.as_poly(var).degree()
+                f_series = s_f.series(var, n=g_deg + 1).removeO().as_poly(var)
+                result = sympy.polys.Poly(reversed([cf * cg for cf, cg in zip(reversed(f_series.all_coeffs()), reversed(
+                    s_g.as_poly(var).all_coeffs()))]), var)
+                return GeneratingFunction(result.as_expr(), var)
+
+            s_f_num, s_f_denom = s_f.as_numer_denom()
+            s_g_num, s_g_denom = s_g.as_numer_denom()
+            f_degree = s_f_denom.as_poly(var).degree()
+            g_degree = s_g_denom.as_poly(var).degree()
+            logger.debug("Degree f: %i\nDegree g: %i", f_degree, g_degree)
+
+            s_compm_f = sympy.Matrix(sympy.matrices.expressions.CompanionMatrix(
+                (var ** f_degree * s_f_denom.subs(var, 1 / var)).as_poly(var).monic()))
+            s_compm_g = sympy.Matrix(sympy.matrices.expressions.CompanionMatrix(
+                (var ** g_degree * s_g_denom.subs(var, 1 / var)).as_poly(var).monic()))
+
+            s_result_denom = sympy.det(
+                sympy.eye(f_degree * g_degree) - (sympy.matrices.kronecker_product(s_compm_f, s_compm_g)) * var)
+            logger.debug("Denominator: %s", s_result_denom)
+            logger.debug(f"Comparing %i terms", f_degree * g_degree)
+
+            result = sympy.polys.Poly(reversed([cf * cg for cf, cg in zip(reversed(
+                s_f.series(var, n=f_degree * g_degree).removeO().as_poly(var).all_coeffs()), reversed(
+                s_g.series(var, n=f_degree * g_degree).removeO().as_poly(var).all_coeffs()))]), var)
+            result *= s_result_denom
+            s_num = result.as_expr().series(var, n=f_degree * g_degree).removeO()
+
+            logger.debug("Resulting function: %s", s_num / s_result_denom)
+            return GeneratingFunction(str(s_num / s_result_denom), *self._variables)
 
     @staticmethod
     def _split_addend(addend: sympy.Expr) -> Tuple[sympy.Expr, sympy.Expr]:
@@ -313,9 +373,9 @@ class GeneratingFunction(Distribution):
             for factor in factor_powers:
                 if factor in addend.free_symbols:
                     result = (result[0],
-                              result[1] * factor**factor_powers[factor])
+                              result[1] * factor ** factor_powers[factor])
                 else:
-                    result = (result[0] * factor**factor_powers[factor],
+                    result = (result[0] * factor ** factor_powers[factor],
                               result[1])
             return result
 
@@ -365,7 +425,7 @@ class GeneratingFunction(Distribution):
         else:
             monomial = 1
             for variable, value in complete_state.items():
-                monomial *= _sympy_symbol(variable)**value
+                monomial *= _sympy_symbol(variable) ** value
             probability = self._function.as_poly(
                 *self._variables).coeff_monomial(monomial)
             return probability if probability else sympy.core.numbers.Zero()
@@ -373,7 +433,7 @@ class GeneratingFunction(Distribution):
     # Distribution interface implementation
 
     def get_fresh_variable(
-        self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
+            self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
         i = 0
         while _sympy_symbol(f'_{i}') in (
                 self._variables
@@ -390,7 +450,6 @@ class GeneratingFunction(Distribution):
         if mass == 0:
             return GeneratingFunction('0',
                                       *self._variables,
-                                      preciseness=0,
                                       closed=True,
                                       finite=True)
         elif mass > self.coefficient_sum():
@@ -408,10 +467,7 @@ class GeneratingFunction(Distribution):
             mass_res += element.subs([(sym, 1)
                                       for sym in element.free_symbols])
             if mass_res >= mass:
-                return GeneratingFunction(result,
-                                          *self._variables,
-                                          preciseness=mass_res *
-                                          self._preciseness)
+                return GeneratingFunction(result, *self._variables)
 
         raise NotImplementedError("unreachable")
 
@@ -460,22 +516,22 @@ class GeneratingFunction(Distribution):
                         )._function
                         if val_l % val_r != 0 and x != 0:
                             raise ValueError(
-                                f"Cannot assign {numerator} / {denominator} to {temp_var} "\
-                                    "because it is not always an integer"
+                                f"Cannot assign {numerator} / {denominator} to {temp_var} " \
+                                "because it is not always an integer"
                             )
                         result += x.subs(update_var,
-                                         1) * update_var**(val_l / val_r)
+                                         1) * update_var ** (val_l / val_r)
                 else:
                     val_l, val_r = state_l[numerator], div_2
                     x = self.filter(
                         parse_expr(f'{numerator}={val_l}'))._function
                     if val_l % val_r != 0 and x != 0:
                         raise ValueError(
-                            f"Cannot assign {numerator} / {denominator} to {temp_var} "\
-                                "because it is not always an integer"
+                            f"Cannot assign {numerator} / {denominator} to {temp_var} " \
+                            "because it is not always an integer"
                         )
                     result += x.subs(update_var,
-                                     1) * update_var**(val_l / val_r)
+                                     1) * update_var ** (val_l / val_r)
         else:
             if isinstance(marginal_r, GeneratingFunction):
                 for _, state_r in marginal_r:
@@ -484,23 +540,22 @@ class GeneratingFunction(Distribution):
                         parse_expr(f'{denominator}={val_r}'))._function
                     if val_l % val_r != 0 and x != 0:
                         raise ValueError(
-                            f"Cannot assign {numerator} / {denominator} to {temp_var} "\
-                                "because it is not always an integer"
+                            f"Cannot assign {numerator} / {denominator} to {temp_var} " \
+                            "because it is not always an integer"
                         )
                     result += x.subs(update_var,
-                                     1) * update_var**(val_l / val_r)
+                                     1) * update_var ** (val_l / val_r)
             else:
                 if div_1 % div_2 != 0:
                     raise ValueError(
                         f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
                     )
                 result = self._function.subs(update_var,
-                                             1) * update_var**(div_1 / div_2)
+                                             1) * update_var ** (div_1 / div_2)
 
         return GeneratingFunction(
             result,
             *self._variables,
-            preciseness=self._preciseness,
             closed=self._is_closed_form,
             finite=self._is_finite).set_parameters(*self.get_parameters())
 
@@ -528,7 +583,7 @@ class GeneratingFunction(Distribution):
                 else:
                     right_var = _parse_to_sympy(right)
                 result += prob * _parse_to_sympy(state_r.to_monomial()).subs(
-                    update_var, 1) * update_var**(left_var % right_var)
+                    update_var, 1) * update_var ** (left_var % right_var)
 
         # If the GF is infinite and right is a variable, it needs to have finite range
         elif right_sym in self._variables:
@@ -544,7 +599,7 @@ class GeneratingFunction(Distribution):
             for _, state_r in marginal_r:
                 result += self.filter(
                     parse_expr(f'{right}={state_r[right]}'))._update_modulo(
-                        temp_var, left, state_r[right], None)._function
+                    temp_var, left, state_r[right], None)._function
 
         # If left is a variable, it doesn't have to have finite range
         elif left_sym in self._variables:
@@ -554,13 +609,13 @@ class GeneratingFunction(Distribution):
                 for _, state_l in marginal_l:
                     result += self.filter(
                         parse_expr(f'{left}={state_l[left]}'))._update_modulo(
-                            temp_var, state_l[left], right, None)._function
+                        temp_var, state_l[left], right, None)._function
             else:
                 for index, gf in enumerate(
                         self._arithmetic_progression(left, str(right))):
                     # TODO this seems to compute the correct result, but it can't always be simplified to 0
                     result = result + gf._function.subs(update_var,
-                                                        1) * update_var**index
+                                                        1) * update_var ** index
 
         # If both are not variables, simply compute the result
         else:
@@ -569,7 +624,6 @@ class GeneratingFunction(Distribution):
         return GeneratingFunction(
             result,
             *self._variables,
-            preciseness=self._preciseness,
             closed=self._is_closed_form,
             finite=self._is_finite).set_parameters(*self.get_parameters())
 
@@ -585,29 +639,29 @@ class GeneratingFunction(Distribution):
                 if sub_1 == update_var:
                     result = result.subs(update_var, 1)
                 else:
-                    result = result.subs([(update_var, update_var**(-1)),
+                    result = result.subs([(update_var, update_var ** (-1)),
                                           (sub_1, sub_1 * update_var)])
             else:
                 if not sub_1 == update_var:
                     result = result.subs([(update_var, 1),
                                           (sub_1, sub_1 * update_var)])
-                result = result.subs(sub_2, sub_2 * update_var**(-1))
+                result = result.subs(sub_2, sub_2 * update_var ** (-1))
 
         # we subtract a literal / parameter from a variable
         elif sub_1 in self._variables:
             if not update_var == sub_1:
                 result = result.subs([(update_var, 1),
                                       (sub_1, sub_1 * update_var)])
-            result = result * update_var**(-sub_2)
+            result = result * update_var ** (-sub_2)
 
         # we subtract a variable from a literal / parameter
         elif sub_2 in self._variables:
             if sub_2 == update_var:
                 result = result.subs(update_var, update_var
-                                     **(-1)) * update_var**sub_1
+                                     ** (-1)) * update_var ** sub_1
             else:
-                result = result.subs(update_var, 1) * update_var**sub_1
-                result = result.subs(sub_2, sub_2 * update_var**(-1))
+                result = result.subs(update_var, 1) * update_var ** sub_1
+                result = result.subs(sub_2, sub_2 * update_var ** (-1))
 
         # we subtract two literals / parameters from each other
         else:
@@ -616,13 +670,12 @@ class GeneratingFunction(Distribution):
                 raise ValueError(
                     f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it is negative"
                 )
-            result = result.subs(update_var, 1) * update_var**diff
+            result = result.subs(update_var, 1) * update_var ** diff
 
         result = sympy.expand(result)
         gf = GeneratingFunction(result,
-                                *self._variables,
-                                preciseness=self._preciseness).set_parameters(
-                                    *self.get_parameters())
+                                *self._variables).set_parameters(
+            *self.get_parameters())
         test_fun: sympy.Basic = gf.marginal(temp_var)._function.subs(
             update_var, 0)
         if test_fun.has(sympy.S('zoo')) or test_fun == sympy.nan:
@@ -654,8 +707,8 @@ class GeneratingFunction(Distribution):
                 if not marginal_l._is_finite and not marginal_r._is_finite:
                     if approximate is None:
                         raise ValueError(
-                            f'Cannot perform the multiplication {first_factor} * {second_factor} '\
-                                'because both variables have infinite range'
+                            f'Cannot perform the multiplication {first_factor} * {second_factor} ' \
+                            'because both variables have infinite range'
                         )
                     # TODO can we choose which side to approximate in a smarter way?
                     marginal_l = marginal_l.approximate_unilaterally(
@@ -664,7 +717,7 @@ class GeneratingFunction(Distribution):
                 finite, finite_var, infinite_var = (
                     marginal_l, first_factor,
                     second_factor) if marginal_l._is_finite else (
-                        marginal_r, second_factor, first_factor)
+                    marginal_r, second_factor, first_factor)
                 for _, state in finite:
                     result += self.filter(
                         parse_expr(f'{finite_var}={state[finite_var]}')
@@ -676,8 +729,8 @@ class GeneratingFunction(Distribution):
                     term: sympy.Basic = prob * state_expr
                     result = result - term
                     term = term.subs(
-                        update_var, 1) * update_var_with_assumptions**(
-                            state[first_factor] * state[second_factor])
+                        update_var, 1) * update_var_with_assumptions ** (
+                                   state[first_factor] * state[second_factor])
                     result = result + term
 
         # we multiply a variable with a literal
@@ -688,24 +741,23 @@ class GeneratingFunction(Distribution):
                 var, lit = prod_2, prod_1
             if var == update_var:
                 result = result.subs(update_var,
-                                     update_var_with_assumptions**lit)
+                                     update_var_with_assumptions ** lit)
             else:
                 result = result.subs([
                     (update_var, 1),
-                    (var, var * update_var_with_assumptions**lit)
+                    (var, var * update_var_with_assumptions ** lit)
                 ])
 
         # we multiply two literals
         else:
             result = result.subs(update_var, 1) * (update_var_with_assumptions
-                                                   **(prod_1 * prod_2))
+                                                   ** (prod_1 * prod_2))
 
         return GeneratingFunction(
             # remove the nonnegativity assumption from all symbols
             result.replace(lambda expr: expr.is_Symbol,
                            lambda expr: _sympy_symbol(expr.name)),
             *self._variables,
-            preciseness=self._preciseness,
             closed=self._is_closed_form,
             finite=self._is_finite).set_parameters(*self.get_parameters())
 
@@ -727,11 +779,10 @@ class GeneratingFunction(Distribution):
             else:
                 result = self._function.subs(
                     _sympy_symbol(updated_var), 1) * _sympy_symbol(
-                        updated_var)**_parse_to_sympy(assign_var)
+                    updated_var) ** _parse_to_sympy(assign_var)
             return GeneratingFunction(
                 result,
                 *self._variables,
-                preciseness=self._preciseness,
                 closed=self._is_closed_form,
                 finite=self._is_finite).set_parameters(*self.get_parameters())
         else:
@@ -750,7 +801,7 @@ class GeneratingFunction(Distribution):
                 sum_1, sum_2 = sum_2, sum_1
             if sum_1 == update_var:
                 if sum_2 == update_var:
-                    result = result.subs(update_var, update_var**2)
+                    result = result.subs(update_var, update_var ** 2)
                 else:
                     result = result.subs(sum_2, sum_2 * update_var)
             else:
@@ -769,16 +820,15 @@ class GeneratingFunction(Distribution):
             if not var == update_var:
                 result = result.subs([(update_var, 1),
                                       (var, update_var * var)])
-            result = result * (update_var**lit)
+            result = result * (update_var ** lit)
 
         # we add two literals / parameters
         else:
-            result = result.subs(update_var, 1) * (update_var**(sum_1 + sum_2))
+            result = result.subs(update_var, 1) * (update_var ** (sum_1 + sum_2))
 
         return GeneratingFunction(
             result,
             *self._variables,
-            preciseness=self._preciseness,
             closed=self._is_closed_form,
             finite=self._is_finite).set_parameters(*self.get_parameters())
 
@@ -820,8 +870,8 @@ class GeneratingFunction(Distribution):
                             f'{base}={state_l[base]} & {exp}={state_r[exp]}')
                     )._function
                     res -= x
-                    res += x.subs(update_var, 1) * update_var**(state_l[base]**
-                                                                state_r[exp])
+                    res += x.subs(update_var, 1) * update_var ** (state_l[base] **
+                                                                  state_r[exp])
 
         # variable to the power of a literal
         elif pow_1 in self._variables:
@@ -835,7 +885,7 @@ class GeneratingFunction(Distribution):
             for _, state in marginal:
                 x = self.filter(parse_expr(f'{base}={state[base]}'))._function
                 res -= x
-                res += x.subs(update_var, 1) * update_var**(state[base]**pow_2)
+                res += x.subs(update_var, 1) * update_var ** (state[base] ** pow_2)
 
         # literal to the power of a variable
         elif pow_2 in self._variables:
@@ -849,23 +899,23 @@ class GeneratingFunction(Distribution):
             for _, state in marginal:
                 x = self.filter(parse_expr(f'{exp}={state[exp]}'))._function
                 res -= x
-                res += x.subs(update_var, 1) * update_var**(pow_1**state[exp])
+                res += x.subs(update_var, 1) * update_var ** (pow_1 ** state[exp])
 
         # literal to the power of a literal
         else:
-            res = res.subs(update_var, 1) * update_var**(pow_1**pow_2)
+            res = res.subs(update_var, 1) * update_var ** (pow_1 ** pow_2)
 
         return GeneratingFunction(
             res,
             *self._variables,
             finite=self._is_finite,
-            preciseness=self._preciseness,
             closed=self._is_closed_form).set_parameters(*self.get_parameters())
 
     def update_iid(self, sampling_dist: Expr, count: VarExpr,
                    variable: Union[str, VarExpr]) -> Distribution:
 
         subst_var = count.var
+
         def subs(dist_gf, subst_var, variable):
             result = self.marginal(
                 variable,
@@ -895,13 +945,13 @@ class GeneratingFunction(Distribution):
 
         if sampling_dist.function == "binomial":
             n, p = map(_parse_to_sympy, sampling_dist.params[0])
-            dist_gf = (1 - p + p * _sympy_symbol(variable))**n
+            dist_gf = (1 - p + p * _sympy_symbol(variable)) ** n
             return subs(dist_gf, subst_var, variable)
         if sampling_dist.function in {"unif", "unif_d"}:
             start, end = map(_parse_to_sympy, sampling_dist.params[0])
             var = _sympy_symbol(variable)
-            dist_gf = 1 / (end - start + 1) * var**start * (
-                var**(end - start + 1) - 1) / (var - 1)
+            dist_gf = 1 / (end - start + 1) * var ** start * (
+                    var ** (end - start + 1) - 1) / (var - 1)
             return subs(dist_gf, subst_var, variable)
         # All remaining distributions have only one parameter
         [param] = map(_parse_to_sympy, sampling_dist.params[0])
@@ -959,7 +1009,6 @@ class GeneratingFunction(Distribution):
     def copy(self, deep: bool = True) -> GeneratingFunction:
         res = GeneratingFunction(self._function,
                                  *self._variables,
-                                 preciseness=self._preciseness,
                                  closed=self._is_closed_form,
                                  finite=self._is_finite)
         res._parameters = self._parameters.copy()
@@ -972,10 +1021,9 @@ class GeneratingFunction(Distribution):
         remove_dups = set(variables)
         return GeneratingFunction(self._function,
                                   *remove_dups,
-                                  preciseness=self._preciseness,
                                   closed=self._is_closed_form,
                                   finite=self._is_finite).set_parameters(
-                                      *(self.get_parameters() - remove_dups))
+            *(self.get_parameters() - remove_dups))
 
     def set_parameters(self, *parameters: str) -> GeneratingFunction:
         remove_dups = set(parameters)
@@ -998,10 +1046,10 @@ class GeneratingFunction(Distribution):
             # Checking for naming clashes in variables and parameters:
             if self._variables.intersection(
                     other._parameters) or self._parameters.intersection(
-                        other._variables):
+                other._variables):
                 raise ArithmeticError(
-                    "Name clash for parameters and variables in "\
-                        f"{self._variables=} {other._variables=} \t {self._parameters=} {other._parameters=}"
+                    "Name clash for parameters and variables in " \
+                    f"{self._variables=} {other._variables=} \t {self._parameters=} {other._parameters=}"
                 )
 
             # collect the meta information.
@@ -1009,33 +1057,24 @@ class GeneratingFunction(Distribution):
             ), other.coefficient_sum()
             is_closed_form = self._is_closed_form and other._is_closed_form
             is_finite = self._is_finite and other._is_finite
-            preciseness = (self_coeff_sum + other_coeff_sum) / (
-                self_coeff_sum / self._preciseness + other_coeff_sum /
-                other._preciseness)  # BUG: Something not working.
 
             # do the actual operation
             function = op(self._function, other._function)
 
             # simplify the result if demanded.
             if GeneratingFunction.use_simplification:
-                logger.debug("Try simplification but stay in closed form!")
                 nominator, denominator = sympy.fraction(function)
-                logger.info("Factoring")
                 nominator = nominator.factor()
                 denominator = denominator.factor()
                 function = nominator / denominator
-                logger.debug("Closed-form simplification result: %s", function)
                 if not is_closed_form:
-                    logger.debug("Try to cancel terms")
                     function = function.expand()
-                    logger.debug("Canceling result: %s", function)
 
             # update the occuring variables and parameters
             variables = self._variables.union(other._variables)
             parameters = self._parameters.union(other._parameters)
             result = GeneratingFunction(function,
                                         *variables,
-                                        preciseness=preciseness,
                                         closed=is_closed_form,
                                         finite=is_finite)
             result._parameters = parameters
@@ -1111,8 +1150,8 @@ class GeneratingFunction(Distribution):
         # We rely on simplification of __sympy__ here. Thus, we cannot guarantee to detect equality when
         # simplification fails.
         return bool(self._function.equals(other._function)) \
-               and self._variables == other._variables \
-               and self._parameters == other._parameters
+            and self._variables == other._variables \
+            and self._parameters == other._parameters
 
     def __iter__(self) -> Iterator[Tuple[str, State]]:
         """ Iterates over the generating function yielding (coefficient, state) pairs.
@@ -1154,9 +1193,9 @@ class GeneratingFunction(Distribution):
 
     # FIXME: It's not nice to have different behaviour depending on the variable type of `threshold`.
     def approximate(
-        self,
-        threshold: Union[str,
-                         int]) -> Generator[GeneratingFunction, None, None]:
+            self,
+            threshold: Union[str,
+            int]) -> Generator[GeneratingFunction, None, None]:
         """
         Generate an approximation of a generating function, until `threshold` percent or terms of the probability
         mass is captured.
@@ -1178,7 +1217,6 @@ class GeneratingFunction(Distribution):
                 precision += prob
                 yield GeneratingFunction(approx,
                                          *self._variables,
-                                         preciseness=precision,
                                          closed=False,
                                          finite=True)
 
@@ -1194,7 +1232,6 @@ class GeneratingFunction(Distribution):
                 precision += s_prob
                 yield GeneratingFunction(str(approx.expand()),
                                          *self._variables,
-                                         preciseness=precision,
                                          closed=False,
                                          finite=True)
         else:
@@ -1209,7 +1246,7 @@ class GeneratingFunction(Distribution):
         for var in self._variables:
             coefficient_sum = coefficient_sum.limit(
                 var, 1, "-") if self._is_closed_form else coefficient_sum.subs(
-                    var, 1)
+                var, 1)
         return coefficient_sum
 
     def get_probability_mass(self):
@@ -1231,7 +1268,6 @@ class GeneratingFunction(Distribution):
             raise ZeroDivisionError
         return GeneratingFunction(self._function / mass,
                                   *self._variables,
-                                  preciseness=self._preciseness,
                                   closed=self._is_closed_form,
                                   finite=self._is_finite)
 
@@ -1320,7 +1356,6 @@ class GeneratingFunction(Distribution):
                 res += prob * state
         return GeneratingFunction(res,
                                   *self._variables,
-                                  preciseness=self._preciseness,
                                   closed=False,
                                   finite=True)
 
@@ -1333,6 +1368,7 @@ class GeneratingFunction(Distribution):
 
 class SympyPGF(CommonDistributionsFactory):
     """Implements PGFs of standard distributions."""
+
     @staticmethod
     def geometric(var: Union[str, VarExpr],
                   p: DistributionParam) -> GeneratingFunction:
@@ -1361,13 +1397,13 @@ class SympyPGF(CommonDistributionsFactory):
             expr_u = upper
         if not has_variable(expr_l, None) and (
                 not 0 <= _parse_to_sympy(lower) or
-            (not has_variable(expr_u, None)
-             and not _parse_to_sympy(lower) <= _parse_to_sympy(upper))):
+                (not has_variable(expr_u, None)
+                 and not _parse_to_sympy(lower) <= _parse_to_sympy(upper))):
             raise ValueError(
                 "Distribution parameters must satisfy 0 <= a < b < oo")
         return GeneratingFunction(
-            f"1/(({upper}) - ({lower}) + 1) * {var}**({lower}) * ({var}**(({upper}) - ({lower}) + 1) - 1) "\
-                f"/ ({var} - 1)",
+            f"1/(({upper}) - ({lower}) + 1) * {var}**({lower}) * ({var}**(({upper}) - ({lower}) + 1) - 1) " \
+            f"/ ({var} - 1)",
             str(var),
             closed=True,
             finite=True)
@@ -1449,17 +1485,15 @@ class SympyPGF(CommonDistributionsFactory):
         if variables:
             return GeneratingFunction("0",
                                       *variables,
-                                      preciseness=1,
                                       closed=True,
                                       finite=True)
-        return GeneratingFunction("0", preciseness=1, closed=True, finite=True)
+        return GeneratingFunction("0", closed=True, finite=True)
 
     @staticmethod
     def undefined(*variables: Union[str, VarExpr]) -> GeneratingFunction:
         """ A distribution where actually no information about the states is given."""
         return GeneratingFunction("0",
                                   *variables,
-                                  preciseness=1,
                                   closed=True,
                                   finite=True)
 
@@ -1467,7 +1501,6 @@ class SympyPGF(CommonDistributionsFactory):
     def one(*variables: Union[str, VarExpr]) -> Distribution:
         return GeneratingFunction("1",
                                   *map(str, variables),
-                                  preciseness=1,
                                   closed=True,
                                   finite=True)
 

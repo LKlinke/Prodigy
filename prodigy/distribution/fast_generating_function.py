@@ -274,6 +274,9 @@ class FPS(Distribution):
             for dist in self._dist.arithmetic_progression(variable, modulus)
         ]
 
+    def hadamard_product(self, other: Distribution) -> Distribution:
+        raise NotImplementedError("Hadamard product currently not implemented in GiNaC")
+
     def is_zero_dist(self) -> bool:
         res = self._dist.is_zero()
         if res == pygin.troolean.false:
