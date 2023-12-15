@@ -18,6 +18,7 @@ class FPS(Distribution):
     These formal powerseries are itself provided by `prodigy` a python binding to GiNaC,
     something similar to a computer algebra system implemented in C++.
     """
+
     def __init__(self,
                  expression: str,
                  *variables: str | VarExpr,
@@ -44,8 +45,7 @@ class FPS(Distribution):
         result._dist = dist
         result._variables = variables
         result._parameters = parameters
-        result._finite = finite if finite is not None else dist.is_polynomial(
-            variables) == pygin.troolean.true
+        result._finite = finite if finite is not None else dist.is_polynomial(variables) == pygin.troolean.true
         return result
 
     @staticmethod
