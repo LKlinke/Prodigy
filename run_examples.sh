@@ -1,12 +1,7 @@
 #!/bin/bash
 
-for file in pgfexamples/inference/*
+for file in pgfexamples/Appendix/*
 do
   echo "Run example ${file}"
-  if [[ $file == pgfexamples/inference/skip_*.pgcl ]]
-  then
-    echo "Skipped!"
-  else
-    python prodigy/cli.py $@ main $file
-  fi
+  python prodigy/cli.py $@ main $file
 done

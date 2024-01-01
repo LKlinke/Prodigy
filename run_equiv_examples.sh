@@ -1,18 +1,13 @@
 #!/bin/bash
 
-for file in pgfexamples/equivalence/*
+for file in pgfexamples/Table\ 4/*
 do
-  if [[ $file == *_invariant.pgcl ]]
+  if [[ "$file" == *invariant* ]]
   then
-    echo ""
+    echo -n
   else
     echo "Run example ${file}"
-    if [[ $file == */skip_*.pgcl ]]
-    then
-      printf "\e[32mResult:\t\e[m \e[36mSkipped!\e[m\n"
-    else
-      printf "\e[32mResult:\t\e[m"
-      python prodigy/cli.py $@ check_equality $file ${file%".pgcl"}"_invariant.pgcl"
-    fi
+    printf "\e[32mResult:\t\e[m"
+    python prodigy/cli.py $@ check_equality $file ${file%".pgcl"}"_invariant.pgcl"
   fi
 done

@@ -14,7 +14,7 @@ It provides a command-line interface as well as a webservice.
 
 To install Prodigy, follow these steps:
 
-1. Make sure [Python](https://www.python.org/downloads/) 3.9 or newer is installed.
+1. Make sure [Python](https://www.python.org/downloads/) 3.11 or newer is installed.
 2. Install [GiNaC](https://www.ginac.de/Download.html), which also requires [CLN](https://www.ginac.de/CLN/).
 3. Install [Poetry](https://python-poetry.org/docs/#installation).
 4. Clone or download the Prodigy repository, open a command prompt in its root folder, and type `poetry install`. This should automatically install all required dependencies.
