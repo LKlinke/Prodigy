@@ -1,0 +1,11 @@
+nat x;
+nat c;
+nat temp;
+rparam p;
+
+if(x>0){
+    temp := geometric(p)
+    c := c + temp + 3
+    x := 0
+    temp := 0
+} else {skip}

@@ -1,0 +1,8 @@
+nat n;
+nat c;
+nat tmp;
+
+while(n > 0){
+    {n := n - 1 } [1/2] {c := c + 1}
+    tmp := 0
+}

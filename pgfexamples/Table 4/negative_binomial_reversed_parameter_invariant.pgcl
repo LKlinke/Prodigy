@@ -1,0 +1,12 @@
+nat n;
+nat i;
+nat temp;
+
+rparam p;
+
+if (0 < n){
+ temp := iid(p*i/(1-(1-p)*i), n)
+ i := i + temp
+ n := 0
+ temp := 0
+} else { skip }
