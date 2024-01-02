@@ -1,7 +1,7 @@
 # Prodigy: PRObability DIstributions via GeneratingfunctionologY
 
 [![Open Source? Yes!](https://badgen.net/badge/Open%20Source%20%3F/Yes%21/blue?icon=github)](https://github.com/LKlinke/Prodigy/tree/ae)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4725465.svg)](https://doi.org/10.5281/zenodo.6511363)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10451092.svg)](https://doi.org/10.5281/zenodo.10451092)
 [![License](https://img.shields.io/badge/License-Apache_2.0-yellow.svg)](https://github.com/LKlinke/Prodigy/blob/ae-oopsla/LICENSE)
 
 Prodigy is a tool for inferring posterior distributions described by probabilistic integer programs with `while`-loops. It is based on (probability) generating functions.
@@ -11,28 +11,30 @@ In case of loopy programs, given an almost-surely terminating loop `while(G) {B}
 For more technical details, please refer to our OOPSLA'24 paper:
 > Lutz Klinkenberg, Christian Blumenthal, Mingshuai Chen, Darion Haase, Joost-Pieter Katoen: Exact Bayesian Inference for Loopy Probabilistic Programs. Conditionally accepted for OOPSLA'24 (as enclosed in the zipfile).
 
-Experiments in the paper are carried out on a 2,4GHz Intel i5 Quad-Core processor with 16GB RAM running MacOS Sonoma 14.0.
-
 ## Contents
 
-* Building the Docker image (This step is optional)
+* Requirements
+* Building the Docker image (Optional)
 * Smoke test
 * Replicating the results from the paper
 * Running your own example
 * Supported program syntax
 
-## Building & loading the Docker image
+## Requirements
 
-1. Install Docker (https://www.docker.com/get-started/) in case you do not have it yet.
-2. Checkout the repository on the artifact-evaluation branch:
+* Install Docker (https://www.docker.com/get-started/) in case you do not have it yet.
+* Experiments in the paper are carried out on a native 2,4GHz Intel i5 Quad-Core processor with 16GB RAM running MacOS Sonoma 14.0. Make sure to have similar specs when comparing timing results and consider differences running in a sanbox (docker).
+
+## Building & loading the Docker image
+1. Checkout the repository on the artifact-evaluation branch:
     ```bash
     git clone --single-branch --branch ae-oopsla https://github.com/LKlinke/prodigy.git
     ```
-3. Locate the repository
+2. Locate the repository
    ```bash
    cd prodigy 
    ```
-4. Building the docker image
+3. Building the docker image
    ```bash
    docker build -t prodigy:latest .
    ```
@@ -60,14 +62,14 @@ For a quick test to see if everything works:
 
 If you *did not* build the docker image yourself, load the provided docker image using
 
-5. Loading the docker image
+4. Loading the docker image
   ```bash
   docker load -i prodigy.tar
   ```
 
 Then run the docker container
 
-6. Run Prodigy via Docker:
+5. Run Prodigy via Docker:
    ```bash
    docker run -it prodigy
    ```
@@ -86,14 +88,14 @@ All Prodigy timings measured in Table 4 and Table 5 in the appendix can be repro
     ```bash
     ./reproduce_results.sh
     ```
-
-
-    > _Note:_ The script uses predefined backends. Prodigy currently supports `ginac` and `sympy`. The former enables our C++ backend based on the GiNaC package. The latter employs the python computer algebra package sympy. `ginac` is generally faster than `sympy`, however for computing queries on final distributions, the current implementation relies on `sympy`.
+> _Note:_ The script uses predefined backends. Prodigy currently supports `ginac` and `sympy`. The former enables our C++ backend based on the GiNaC package. The latter employs the python computer algebra package sympy. `ginac` is generally faster than `sympy`, however for computing queries on final distributions, the current implementation relies on `sympy`.
 
 ## Running your own example
 
+### Loop-free programs
+
 To experiment with Prodigy on a customized loop-free example, you can just write a pGCL program and invoke prodigy.
-1. Create an example file example.pgcl, e.g., `nano myexample.pgcl`.
+1. Create an example file, e.g., `nano myexample.pgcl`.
 ```bash=
 nat a;
 nat b;
@@ -121,11 +123,12 @@ observe(r3 > c)
 python prodigy/cli.py main example.pgcl 
 ```
 
+### Loopy Programs
 To experiment with Prodigy on a customized example containing loops, you need to create two files: 1) a program consisting of a single `while`-loop and 2) a loop-free invariant program (the supported syntax is specified further below).
 
 1. Open an editor by typing, e.g., `nano myexample.pgcl`.
 2. Write a program with a single `while`-loop such as
-    ```bash
+    ```bash=
     nat n; nat x;
     while(n > 0) {
         n := n - 1;
@@ -133,7 +136,7 @@ To experiment with Prodigy on a customized example containing loops, you need to
     }
     ```
 3. The effect of the above program can be summarized as follows: If `n > 0` initially, then upon termination `n` is set to zero and `x` is randomly assigned either `0` or `1`. This can be formally verified by writing the following loop-free invariant program (e.g., `nano myexample_inv.pgcl`):
-    ```bash
+    ```bash=
     nat n; nat x;
     if(n > 0) {
         { x := 0; } [1/2] { x := 1; }
@@ -158,7 +161,7 @@ To experiment with Prodigy on a customized example containing loops, you need to
 
 ## Supported program syntax
 This is a [LARK](https://github.com/lark-parser/lark) grammar.
-```
+```=
     start: declarations instructions queries
 
     declarations: declaration* -> declarations
