@@ -24,7 +24,7 @@ RUN apt install -y curl
 RUN apt install -y libginac-dev
 RUN apt install -y python3.11-dev
 RUN apt install -y build-essential
-
+RUN apt install -y dos2unix
 # setup git so we can use it with poetry later
 RUN git config --global user.name "Test User" && git config --global user.email "you@example.com"
 
@@ -50,6 +50,8 @@ COPY . .
 RUN /etc/poetry/bin/poetry env use 3.11 
 RUN /etc/poetry/bin/poetry install --no-interaction
 
+# Convert shell scripts to unix line ends (the image might be generated on a windows machine.)
+RUN dos2unix *.sh
 
 WORKDIR /root/
 
