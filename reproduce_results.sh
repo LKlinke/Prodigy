@@ -17,7 +17,7 @@ do
     echo -e "\033[93mEXAMPLE #$count (${filename%.*}):\n\033[0m"
     for i in {1..20}
     do
-      output=$( echo -e "1\npgfexamples/Table 4/${filename%.*}_invariant.pgcl" | python prodigy/cli.py --engine ginac main "$file" )
+      output=$( echo -e "1\npgfexamples/Table 4/${filename%.*}_invariant.pgcl" | timeout --signal=SIGINT 90 python prodigy/cli.py --engine ginac main "$file" )
       elapsed=$( echo -e "$output" | tail -n 1 |  awk '{ print $3 }')
       echo "Run $i: $elapsed"
     done
@@ -37,22 +37,17 @@ do
   then
      echo -n
   else
-    if [[ $file == *brp* ]]
-    then
-      echo "Timeout files will be benchmarked at the end."
-    else
-      filename=$(basename -- "$file")
-      echo -e "\033[93mEXAMPLE #$count (${filename%.*}):\n\033[0m"
-      for i in {1..20}
-      do
-        output=$( echo -e "1\npgfexamples/Table 4/${filename%.*}_invariant.pgcl" | python prodigy/cli.py --engine sympy main "$file" )
-        elapsed=$( echo -e "$output" | tail -n 1 |  awk '{ print $3 }')
-        echo "Run $i: $elapsed"
-      done
-      echo
-      echo
-      count=$((count + 1))
-      fi
+    filename=$(basename -- "$file")
+    echo -e "\033[93mEXAMPLE #$count (${filename%.*}):\n\033[0m"
+    for i in {1..20}
+    do
+      output=$( echo -e "1\npgfexamples/Table 4/${filename%.*}_invariant.pgcl" | timeout --signal=SIGINT 90 python prodigy/cli.py --engine sympy main "$file" )
+      elapsed=$( echo -e "$output" | tail -n 1 |  awk '{ print $3 }')
+      echo "Run $i: $elapsed"
+    done
+    echo
+    echo
+    count=$((count + 1))
   fi
 done
 echo
@@ -70,7 +65,7 @@ do
     echo -e "\033[93mEXAMPLE #$count (${filename%.*}):\n\033[0m"
     for i in {1..20}
     do
-      output=$( python prodigy/cli.py --engine ginac main "$file" )
+      output=$( timeout --signal=SIGINT 90 python prodigy/cli.py --engine ginac main "$file" )
       elapsed=$( echo -e "$output" | tail -n 1 |  awk '{ print $3 }')
       echo "Run $i: $elapsed"
     done
@@ -94,7 +89,7 @@ do
     echo -e "\033[93mEXAMPLE #$count (${filename%.*}):\n\033[0m"
     for i in {1..20}
     do
-      output=$( python prodigy/cli.py --engine ginac main "$file" )
+      output=$( timeout --signal=SIGINT 90 python prodigy/cli.py --engine ginac main "$file" )
       elapsed=$( echo -e "$output" | tail -n 1 |  awk '{ print $3 }')
       echo "Run $i: $elapsed"
     done
@@ -102,14 +97,4 @@ do
     echo
     count=$((count + 1))
   fi
-done
-echo
-echo
-echo -e '\033[96m--------------------------- Inference of Loopy Timeout Programs (brp_obs_param, engine:SymPy) --------------------------\033[0m'
-echo
-echo -e "\033[93mEXAMPLE (brp_obs_parameter):\n\033[0m"
-output=$( echo -e "1\npgfexamples/Table 4/brp_obs_parameter_invariant.pgcl" | python prodigy/cli.py --engine ginac main pgfexamples/Table\ 4/brp_obs_parameter.pgcl )
-echo -e "$output" | tail -n 1
-echo
-echo
 done
