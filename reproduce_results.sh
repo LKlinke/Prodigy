@@ -105,7 +105,7 @@ do
     echo -e "\033[93mEXAMPLE #$count (${filename%.*}):\n\033[0m"
     for i in {1..20}
     do
-      output=$( timeout --signal=SIGINT $TIMEOUT python prodigy/cli.py --engine ginac main "$file" )
+      output=$( timeout --signal=SIGINT $TIMEOUT python prodigy/cli.py --engine sympy main "$file" )
       if [[ $output != *seconds* ]]
       then
         echo "Timeout!"
