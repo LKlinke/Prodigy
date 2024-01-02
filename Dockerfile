@@ -48,7 +48,6 @@ WORKDIR /root/artifact
 COPY . .
 
 RUN /etc/poetry/bin/poetry env use 3.11 
-RUN /etc/poetry/bin/poetry update 
 RUN /etc/poetry/bin/poetry install --no-interaction
 
 
