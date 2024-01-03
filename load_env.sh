@@ -17,6 +17,9 @@ sleep 1
 echo "#                                                                                                    #";
 echo -e "#     \033[96m->\033[0m You can run the experiments presented in the paper by executing \033[33mpython benchmark.py\033[0m         #";
 echo "#        The measured timings do not include the time for parsing the inputs.                        #";
+echo "#        You can specify timeout and iteration limits using the environment variables                #";
+echo -e "#        E.g., \033[33mexport ITERATIONS=10; export TIMEOUT=50; python benchmark.py\033[0m                          #";
+echo "#        sets the iteration limit to 10 and the timeout to 50.                                       #";
 echo "#                                                                                                    #";
 echo -e "#     \033[96m->\033[0m Prodigy has two modes: \033[95mcheck_equality\033[0m and \033[95mmain\033[0m. You can call them via                       #"
 echo -e "#        \033[33mpython prodigy/cli.py <target>\033[0m where \033[33m<target>\033[0m is either:                                    #";

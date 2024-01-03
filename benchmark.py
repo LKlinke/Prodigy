@@ -54,33 +54,33 @@ def benchmark(iterations, engine, path, limit):
         avg_time /= iterations
         if not timeout:
             print(" "*150, end='\r')
-            print(f"{Style.OKMAGENTA}Min time: {min_time:.3f} seconds{Style.RESET}")
-            print(f"{Style.OKMAGENTA}Max time: {max_time:.3f} seconds{Style.RESET}")
-            print(f"{Style.OKMAGENTA}Average time: {avg_time:.3f} seconds{Style.RESET}")
+            print(f"Min time: {min_time:.3f} seconds{Style.RESET}")
+            print(f"Max time: {max_time:.3f} seconds{Style.RESET}")
+            print(f"{Style.OKGREEN}Average time: {avg_time:.3f} seconds{Style.RESET}")
             if is_parametrized:
-                print(f"{Style.OKMAGENTA}Parameter valuation: {params}{Style.RESET}")
+                print(f"{Style.OKGREEN}Parameter valuation: {params}{Style.RESET}")
         print()
         print()
 
-def reproduce_loopy():
+def reproduce_loopy(iterations, timeout):
     print()
     print(f'{Style.OKCYAN}Inference of Loopy Programs (Table 4 using the GiNaC engine){Style.RESET}'.center(120, '-'))
-    benchmark(20, "ginac", "/root/artifact/pgfexamples/Table 4/", 90)
+    benchmark(iterations, "ginac", "/root/artifact/pgfexamples/Table 4/", timeout)
     print(f'{Style.OKCYAN}Inference of Loopy Programs (Table 4 using the SymPy engine){Style.RESET}'.center(120, '-'))
-    benchmark(20, "sympy", "/root/artifact/pgfexamples/Table 4/", 90)
+    benchmark(iterations, "sympy", "/root/artifact/pgfexamples/Table 4/", timeout)
 
-def reproduce_loop_free():
+def reproduce_loop_free(iterations, timeout):
     print()
     print(f'{Style.OKCYAN}Inference of Loop-free Programs (Appendix Table 5 using the GiNaC engine){Style.RESET}'.center(120, '-'))
-    benchmark(20, "ginac", "/root/artifact/pgfexamples/Appendix/", 90)
+    benchmark(iterations, "ginac", "/root/artifact/pgfexamples/Appendix/", timeout)
     print(f'{Style.OKCYAN}Inference of Loop-free Programs (Appendix Table 5 using the SympY engine){Style.RESET}'.center(120, '-'))
-    benchmark(20, "sympy", "/root/artifact/pgfexamples/Appendix/", 90)
+    benchmark(iterations, "sympy", "/root/artifact/pgfexamples/Appendix/", timeout)
 
-def reproduce_all():
+def reproduce_all(iterations, timeout):
     print()
     print(f'{Style.OKGREEN}REPLICATING RESULTS FROM THE OOPSLA 2024 PAPER{Style.RESET}'.center(120, "-"))
-    reproduce_loopy()
-    reproduce_loop_free()
+    reproduce_loopy(iterations, timeout)
+    reproduce_loop_free(iterations, timeout)
 
 
 if __name__ == '__main__':
@@ -91,5 +91,11 @@ if __name__ == '__main__':
             break
         print("Unrecognized input. Try Again.")
 
-    calls= {'a': reproduce_all, 'l':reproduce_loopy, 'f':reproduce_loop_free , 'q':exit}
-    calls[choice]()
+    iters = int(os.environ.get("ITERATIONS", 20))
+    timeout = int(os.environ.get("TIMEOUT", 90))
+
+    if choice.lower() == 'q':
+        exit()
+    calls= {'a': reproduce_all, 'l':reproduce_loopy, 'f':reproduce_loop_free}
+    print(f"Current Setting: {iters} iter. per benchmark; {timeout=} seconds")
+    calls[choice](iters, timeout)
