@@ -41,13 +41,15 @@ def benchmark(iterations, engine, path, limit):
                     exit()
                 if current_time > limit:
                     timeout = True
-                    print("Timeout")
+                    print(" "*150, end='\r')
+                    print(f"{Style.OKRED}Timeout{Style.RESET}")
                     break
                 max_time = max(max_time, current_time)
                 min_time = min(min_time, current_time)
                 avg_time += current_time
             except subprocess.TimeoutExpired:
-                print("Timeout")
+                print(" "*150, end='\r')
+                print(f"{Style.OKRED}Timeout{Style.RESET}")
                 timing_process.kill()
                 timeout=True
                 break
