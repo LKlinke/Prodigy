@@ -31,7 +31,10 @@ def benchmark(iterations, engine, path, limit):
                     current_time = float(output.split("\n")[-2].split()[-2])
                 elif "validated under" in output:
                     current_time = float(output.split("\n")[-2].split()[-2])
-                    params = output.split("\n")[-4].split("[")[-1].removesuffix("]")
+                    if filename == "15_brp_obs_parameter_invariant.pgcl":
+                        params = output.split("\n")[-5].split("[")[-1].removesuffix("]")
+                    else:
+                        params = output.split("\n")[-4].split("[")[-1].removesuffix("]")
                     is_parametrized = True
                 # Plain programs:
                 elif "seconds" in output:
