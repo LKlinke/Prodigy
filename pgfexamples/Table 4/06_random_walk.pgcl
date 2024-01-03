@@ -1,0 +1,9 @@
+nat s;
+nat c;
+nat tmp;
+
+while(s > 0){
+    {s := s+1} [1/2] {s := s-1}
+    c := c+1
+    tmp := 0
+}

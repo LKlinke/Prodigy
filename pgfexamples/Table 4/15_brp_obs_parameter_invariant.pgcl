@@ -1,0 +1,46 @@
+nat s;
+nat f;
+nat h;
+nat t;
+rparam p;
+
+if(s>0 & f<5){
+    if(s>=10){
+        h := s - 9
+        t := iid(bernoulli(1/100), h)
+        if(t=0) {skip} else {observe(false)}
+        s := 9;
+        f := 0;
+    } else {skip}
+    h := 5-f
+    t := iid(bernoulli(99/100), h)
+    if(t>0){
+        f:=0; s:=s-1;
+        if(s=8){
+          {f:=5}[p]{f:=0; s:=s-1}
+        } else { skip }
+        if(s=7){
+          {f:=5}[p]{f:=0; s:=s-1}
+        } else { skip }
+        if(s=6){
+          {f:=5}[p]{f:=0; s:=s-1}
+        } else { skip }
+        if(s=5){
+          {f:=5}[p]{f:=0; s:=s-1}
+        } else { skip }
+        if(s=4){
+          {f:=5}[p]{f:=0; s:=s-1}
+        } else { skip }
+        if(s=3){
+          {f:=5}[p]{f:=0; s:=s-1}
+        } else { skip }
+        if(s=2){
+          {f:=5}[p]{f:=0; s:=s-1}
+        } else { skip }
+        if(s=1){
+          {f:=5}[p]{f:=0; s:=s-1}
+        } else { skip }
+    } else {f:=5}
+    t := 0;
+    h := 0;
+} else {skip}
