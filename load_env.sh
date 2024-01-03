@@ -15,7 +15,7 @@ echo -e "#                                  \033[92mVIRTUAL PYTHON ENVIRONMENT L
 echo "------------------------------------------------------------------------------------------------------";
 sleep 1
 echo "#                                                                                                    #";
-echo -e "#     \033[96m->\033[0m You can run the experiments presented in the paper by executing \033[33m./reproduce_results.sh\033[0m      #";
+echo -e "#     \033[96m->\033[0m You can run the experiments presented in the paper by executing \033[33mpython benchmark.py\033[0m         #";
 echo "#        The measured timings do not include the time for parsing the inputs.                        #";
 echo "#                                                                                                    #";
 echo -e "#     \033[96m->\033[0m Prodigy has two modes: \033[95mcheck_equality\033[0m and \033[95mmain\033[0m. You can call them via                       #"
