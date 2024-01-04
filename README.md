@@ -4,7 +4,7 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10451092.svg)](https://doi.org/10.5281/zenodo.10451092)
 [![License](https://img.shields.io/badge/License-Apache_2.0-yellow.svg)](https://github.com/LKlinke/Prodigy/blob/ae-oopsla/LICENSE)
 
-Prodigy is a tool for inferring posterior distributions described by probabilistic integer programs with `while`-loops. It is based on (probability) generating functions.
+Prodigy is a tool for inferring posterior distributions described by probabilistic integer programs potentially using `while`-loops. It is based on (probability) generating functions.
 
 In case of loopy programs, given an almost-surely terminating loop `while(G) {B}` and a loop-free (specification) program `I` (also called _invariant_), prodigy checks whether `while(G) {B}` and `I` are _equivalent_ programs, i.e., they yield the same output distribution on every possible input distribution.
 
@@ -45,9 +45,9 @@ The structure of the artifact is as follows (`ls -l`).
 ```bash
 /root/artifact
 ├── pgfexamples            
-|   └── Table 4            # the pGCL Programs described in Table 4 of the paper (and variations of them)
-|   └── Appendix           # the pGCL Programs described in Table 5 of the Appendix (and variations of them)
-|   └── Misc               # Additional other example pGCL programs (not further described)
+|   └── Table 4            # the pGCL Programs described in Table 4 
+|   └── Appendix           # the pGCL Programs described in Table 5 
+|   └── Misc               # Additional example pGCL programs
 ├── prodigy                # source code of Prodigy
 ├── tests                  # Prodigy unit tests
 ├── load_env.sh            # script for loading the virtual python environment
@@ -84,9 +84,9 @@ All Prodigy timings measured in Table 4 and Table 5 in the appendix can be repro
 
 ### Reproducing the results
 
-6. Reproduce the results presented in the paper:
+6. Reproduce the results presented in the paper by typing:
     ```bash
-    ./reproduce_results.sh
+    python benchmark.py
     ```
 > _Note:_ The script uses predefined backends. Prodigy currently supports `ginac` and `sympy`. The former enables our C++ backend based on the GiNaC package. The latter employs the python computer algebra package sympy. `ginac` is generally faster than `sympy`, however for computing queries on final distributions, the current implementation relies on `sympy`.
 
@@ -120,7 +120,12 @@ observe(r3 > c)
 
 2. Invoke prodigy on your example.
 ```bash
-python prodigy/cli.py main example.pgcl 
+python prodigy/cli.py main myexample.pgcl 
+```
+
+If you want to run it with a different backend type 
+```bash
+ python prodigy/cli.py --engine ginac main myexample.pgcl
 ```
 
 ### Loopy Programs
