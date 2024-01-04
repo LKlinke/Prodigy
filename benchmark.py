@@ -72,7 +72,8 @@ def benchmark(iterations, engine, path, limit):
                     current_time = float(output.split("\n")[-2].split()[-2])
                 
                 elif error is not None:
-                    print(error.split("\n")[-1])
+                    print(" "*150, end='\r')
+                    print(f"{Style.OKRED}{error.splitlines()[-1]}{Style.RESET}")
                     # If this happends, something fucked up.
                     print(f"{Style.OKRED}Skipping benchmark as error occured{Style.RESET}")
                     timeout = True
@@ -126,7 +127,7 @@ def reproduce_loop_free(iterations, timeout):
     print(f'{Style.OKCYAN}Inference of Loop-free Programs (Appendix Table 5 using the GiNaC engine){Style.RESET}'.center(120, '='))
     print()
     benchmark(iterations, "ginac", "/root/artifact/pgfexamples/Appendix/", timeout)
-    print(f'{Style.OKCYAN}Inference of Loop-free Programs (Appendix Table 5 using the SympY engine){Style.RESET}'.center(120, '='))
+    print(f'{Style.OKCYAN}Inference of Loop-free Programs (Appendix Table 5 using the SymPy engine){Style.RESET}'.center(120, '='))
     print()
     benchmark(iterations, "sympy", "/root/artifact/pgfexamples/Appendix/", timeout)
 
