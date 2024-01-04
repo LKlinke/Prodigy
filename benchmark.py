@@ -42,14 +42,15 @@ def benchmark(iterations, engine, path, limit):
             timing_process = subprocess.Popen(
                 ["python", "prodigy/cli.py", "--engine", engine, "main", f"{path}{filename}"],
                 stdin=prog_input_process.stdout,
-                stdout=subprocess.PIPE, 
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, 
                 text=True
             )
             print_progress_bar(i, iterations, 1, 84 if i/iterations < 0.1 else 83, "\r")
 
             try:
                 # if we encounter digitRecognition we give aditional time for parsing (file is huge).
-                waiting_time = limit+200 if filename == "digitRecognition.pgcl" else limit+5
+                waiting_time = limit+90 if filename == "digitRecognition.pgcl" else limit+5
 
                 # Do the job.
                 output, error = timing_process.communicate(timeout=waiting_time)
@@ -70,7 +71,8 @@ def benchmark(iterations, engine, path, limit):
                 elif "seconds" in output:
                     current_time = float(output.split("\n")[-2].split()[-2])
                 
-                else:
+                elif error is not None:
+                    print(error.split("\n")[-1])
                     # If this happends, something fucked up.
                     print(f"{Style.OKRED}Skipping benchmark as error occured{Style.RESET}")
                     timeout = True
