@@ -10,9 +10,9 @@ def benchmark(iterations, engine, path, limit):
             continue
         print(f"{Style.OKYELLOW}Currently benchmarking {filename}{Style.RESET}".center(120, "-"))
         if filename == "digitRecognition.pgcl" and engine == "sympy":
-            print(f"{Style.OKRED}>This benchmark might produce an error (Exceeding integer conversion size){Style.RESET}".rjust(120, "-"))
+            print(f"{Style.OKRED}-> This benchmark might produce an error (Exceeding integer conversion size){Style.RESET}")
         elif filename == "lucky_throw.pgcl" and engine == "sympy":
-            print(f"{Style.OKRED}>This benchmark might produce an error (Maximum recursion limit){Style.RESET}".rjust(120, "-"))
+            print(f"{Style.OKRED}-> This benchmark might produce an error (Maximum recursion limit){Style.RESET}")
         max_time = 0
         avg_time = 0
         min_time = 100000
