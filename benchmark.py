@@ -8,7 +8,7 @@ def benchmark(iterations, engine, path, limit):
     for filename in sorted(os.listdir(path)):
         if "invariant" in filename:
             continue
-        print(f"{Style.OKYELLOW}Currently benchmarking {filename}{Style.RESET}".center(120, "-"))
+        print(f"{Style.OKYELLOW}Currently benchmarking {Style.OKCYAN}{filename}{Style.RESET}".center(120, "-"))
         if filename == "digitRecognition.pgcl" and engine == "sympy":
             print(f"{Style.OKRED}-> This benchmark might produce an error (Exceeding integer conversion size){Style.RESET}")
         elif filename == "lucky_throw.pgcl" and engine == "sympy":
