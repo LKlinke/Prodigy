@@ -91,16 +91,17 @@ def reproduce_all(iterations, timeout):
 if __name__ == '__main__':
     choice = None
     while True:
+        print()
+        print()
         choice = input("Reproduce [l]oopy, [f] loop-free, [a]ll results or [q]uit?\t")
         if choice.lower() in ['a', 'l', 'f', 'q']:
             break
-        print("Unrecognized input. Try Again.")
+        if choice.lower() == 'q':
+            exit()
 
     iters = int(os.environ.get("ITERATIONS", 20))
     timeout = int(os.environ.get("TIMEOUT", 90))
 
-    if choice.lower() == 'q':
-        exit()
     calls= {'a': reproduce_all, 'l':reproduce_loopy, 'f':reproduce_loop_free}
-    print(f"Current Setting: {iters} iter. per benchmark; {timeout=} seconds")
+    print(f"{Style.OKWHITE} Current Setting: {iters} iter. per benchmark; {timeout=} seconds{Style.RESET}")
     calls[choice](iters, timeout)

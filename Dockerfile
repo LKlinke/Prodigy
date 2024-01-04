@@ -11,7 +11,7 @@ RUN ln -snf /usr/share/zoneinfo/Etc/UTC /etc/localtime \
 # Add repository for older python versions on ubuntu.
 RUN apt update
 RUN apt install -y zsh
-SHELL ["zsh", "-l", "-c"]
+SHELL ["bash", "-l", "-c"]
 RUN apt install -y software-properties-common && add-apt-repository -y ppa:deadsnakes/ppa && apt update
 
 
@@ -32,7 +32,9 @@ RUN git config --global user.name "Test User" && git config --global user.email 
 
 RUN curl -sSL https://install.python-poetry.org | python3 -
 # We need to export the path of poetry as otherwise the install script will not find the executable.
-RUN path+=/etc/poetry/bin
+RUN echo 'export PATH="$PATH:/etc/poetry/bin"' >> ~/.zshrc
+RUN echo 'export PATH="$PATH:/etc/poetry/bin"' >> ~/.bashrc
+
 
 # poetry will be installed by adding a line to .profile which is loaded by bash
 # login shells. to access it, we'll need to wrap any calls to it with `bash -l -c`.
