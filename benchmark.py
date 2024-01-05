@@ -142,7 +142,7 @@ if __name__ == '__main__':
     choice = None
     while True:
         print()
-        choice = input(f"Reproduce [l]oopy, [f] loop-free, [a]ll results or [q]uit? ")
+        choice = input(f"Reproduce [l]oopy (~75min), [f] loop-free (~75min), [a]ll results (~150min) or [q]uit? ")
         if choice.lower() in ['a', 'l', 'f']:
             break
         if choice.lower() == 'q':
