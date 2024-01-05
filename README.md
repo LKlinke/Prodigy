@@ -52,7 +52,7 @@ The structure of the artifact is as follows (`ls -l`).
 ├── tests                  # Prodigy unit tests
 ├── load_env.sh            # script for loading the virtual python environment
 ├── pyproject.toml         # Prodigy dependencies
-├── reproduce_results.sh   # script for reproducing the results in the paper
+├── benchmark.py           # script for reproducing the results in the paper
 └── ...
 ```
 
@@ -84,7 +84,7 @@ All Prodigy timings measured in Table 4 and Table 5 in the appendix can be repro
 
 ### Reproducing the results
 
-6. Reproduce the results presented in the paper by typing:
+6. Reproduce the results presented in the paper by typing (all benchmarks take ~150min):
     ```bash
     python benchmark.py
     ```
