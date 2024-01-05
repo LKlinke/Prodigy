@@ -1,0 +1,39 @@
+nat s;
+nat die;
+rparam p;
+rparam q;
+
+if(s = 0){
+    s := 7;
+    die := unif(1,6)
+} else {
+    if (s = 1){
+        s := 7
+        die:= unif(1,3)
+    } else {
+        if(s = 2){
+            s := 7
+            die:=unif(4,6)
+        } else{
+            if(s = 3){
+                s := 7
+                {die := 1} [p] { {die := 2} [q] {die := 3} }
+            } else{
+                if (s = 4){
+                    s := 7
+                    { die := 2 } [q] { die := 3 }
+                } else {
+                    if (s = 5){
+                        s := 7
+                        { die := 4 } [q] { die := 5 }
+                    } else {
+                        if (s = 6){
+                            s:=7
+                            { die := 6 } [p] { {die := 4} [q] {die := 5} }
+                        } else {skip} // s >= 7
+                    }
+                }
+            }
+        }
+    }
+}

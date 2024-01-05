@@ -1,0 +1,10 @@
+nat s;
+nat c;
+nat tmp;
+rparam p;
+
+while(s > 0){
+    {s := s+1} [p] {s := s-1}
+    c := c+1
+    tmp := 0
+}
