@@ -9,7 +9,7 @@ Prodigy is a tool for inferring posterior distributions described by probabilist
 In case of loopy programs, given an almost-surely terminating loop `while(G) {B}` and a loop-free (specification) program `I` (also called _invariant_), Prodigy checks whether `while(G) {B}` and `I` are _equivalent_ programs, i.e., whether they yield the same output distribution on every possible input distribution.
 
 For more technical details, please refer to our OOPSLA'24 paper:
-> Lutz Klinkenberg, Christian Blumenthal, Mingshuai Chen, Darion Haase, Joost-Pieter Katoen: Exact Bayesian Inference for Loopy Probabilistic Programs. Conditionally accepted for OOPSLA'24 (as enclosed in the zipfile).
+> Lutz Klinkenberg, Christian Blumenthal, Mingshuai Chen, Darion Haase, Joost-Pieter Katoen: Exact Bayesian Inference for Loopy Probabilistic Programs using Generating Functions. Accepted for OOPSLA'24 (as enclosed in the artifact). https://doi.org/10.1145/3649844
 
 ## Contents
 
@@ -45,8 +45,8 @@ The structure of the artifact is as follows (`ls -l`).
 ```bash
 /root/artifact
 ├── pgfexamples            
-|   └── Table 4            # the pGCL Programs described in Table 4 
-|   └── Appendix           # the pGCL Programs described in Table 5 
+|   └── loop_free          # the pGCL Programs described in Table 4 
+|   └── loopy              # the pGCL Programs described in Table 5 
 |   └── Misc               # Additional example pGCL programs
 ├── prodigy                # source code of Prodigy
 ├── tests                  # Prodigy unit tests
@@ -80,7 +80,7 @@ You shall see a welcome message by Prodigy and be directed into the docker conta
 
 ### Reproducible elements in the paper
 
-All Prodigy timings measured in Table 4 and Table 5 in the appendix can be reproduced.
+All Prodigy timings measured in Table 4 and Table 5 can be reproduced.
 
 ### Reproducing the results
 

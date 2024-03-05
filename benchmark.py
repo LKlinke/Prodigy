@@ -113,23 +113,23 @@ def benchmark(iterations, engine, path, limit):
 
 def reproduce_loopy(iterations, timeout):
     print()
-    print(f'{Style.OKCYAN}Inference of Loopy Programs (Table 4 using the GiNaC engine){Style.RESET}'.center(120, '='))
+    print(f'{Style.OKCYAN}Inference of Loopy Programs (Table 5 using the GiNaC engine){Style.RESET}'.center(120, '='))
     print()
-    benchmark(iterations, "ginac", "/root/artifact/pgfexamples/Table 4/", timeout)
-    print(f'{Style.OKCYAN}Inference of Loopy Programs (Table 4 using the SymPy engine){Style.RESET}'.center(120, '='))
+    benchmark(iterations, "ginac", "/root/artifact/pgfexamples/loopy/", timeout)
+    print(f'{Style.OKCYAN}Inference of Loopy Programs (Table 5 using the SymPy engine){Style.RESET}'.center(120, '='))
     print()
-    benchmark(iterations, "sympy", "/root/artifact/pgfexamples/Table 4/", timeout)
+    benchmark(iterations, "sympy", "/root/artifact/pgfexamples/loopy/", timeout)
 
 
 
 def reproduce_loop_free(iterations, timeout):
     print()
-    print(f'{Style.OKCYAN}Inference of Loop-free Programs (Appendix Table 5 using the GiNaC engine){Style.RESET}'.center(120, '='))
+    print(f'{Style.OKCYAN}Inference of Loop-free Programs (Table 4 using the GiNaC engine){Style.RESET}'.center(120, '='))
     print()
-    benchmark(iterations, "ginac", "/root/artifact/pgfexamples/Appendix/", timeout)
-    print(f'{Style.OKCYAN}Inference of Loop-free Programs (Appendix Table 5 using the SymPy engine){Style.RESET}'.center(120, '='))
+    benchmark(iterations, "ginac", "/root/artifact/pgfexamples/loop_free/", timeout)
+    print(f'{Style.OKCYAN}Inference of Loop-free Programs (Table 4 using the SymPy engine){Style.RESET}'.center(120, '='))
     print()
-    benchmark(iterations, "sympy", "/root/artifact/pgfexamples/Appendix/", timeout)
+    benchmark(iterations, "sympy", "/root/artifact/pgfexamples/loop_free/", timeout)
 
 def reproduce_all(iterations, timeout):
     reproduce_loopy(iterations, timeout)
