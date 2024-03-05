@@ -61,7 +61,7 @@ def benchmark(iterations, engine, path, limit):
                 # Or the job presented aprameter valuations.
                 elif "validated under" in output:
                     current_time = float(output.split("\n")[-2].split()[-2])
-                    if filename == "15_brp_obs_parameter.pgcl":
+                    if filename == "16_brp_obs_parameter.pgcl":
                         params = output.split("\n")[-5].split("[")[-1].removesuffix("]")
                     else:
                         params = output.split("\n")[-4].split("[")[-1].removesuffix("]")

@@ -23,7 +23,7 @@ For more technical details, please refer to our OOPSLA'24 paper:
 ## Requirements
 
 * Install Docker (https://www.docker.com/get-started/) in case you do not have it yet.
-* Experiments in the paper are carried out on a native 2,4GHz Intel i5 Quad-Core processor with 16GB RAM running MacOS Sonoma 14.0. Make sure to have similar specs when comparing timing results and consider differences running in a sanbox (docker).
+* Experiments in the paper are carried out on a native 2,4GHz Intel i5 Quad-Core processor with 16GB RAM running MacOS Sonoma 14.0. Make sure to have similar specs when comparing timing results and consider differences running in a sandbox (docker).
 
 ## Building & loading the Docker image
 1. Checkout the repository on the artifact-evaluation branch:
@@ -64,7 +64,7 @@ If you *did not* build the docker image yourself, load the provided docker image
 
 4. Load the docker image:
    ```bash
-   docker load -i prodigy.tar
+   docker load -i prodigy.tar.gz
    ```
 
 Then run the docker container:
@@ -156,7 +156,7 @@ To experiment with Prodigy on a customized example containing loops, you need to
     ```bash
     python prodigy/cli.py main myexample.pgcl "n^5"
     ```
-    when prompted press `1` and confirm your input with `[ENTER]`. Now give the path to the invariant       file:
+    when prompted press `1` and confirm your input with `[ENTER]`. Now give the path to the invariant file:
     ```bash
     myexample_inv.pgcl
     ```
