@@ -1,7 +1,7 @@
 # Prodigy: PRObability DIstributions via GeneratingfunctionologY
 
 [![Open Source? Yes!](https://badgen.net/badge/Open%20Source%20%3F/Yes%21/blue?icon=github)](https://github.com/LKlinke/Prodigy/tree/oopsla24-artifact)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10451092.svg)](https://doi.org/10.5281/zenodo.10451092)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10782412.svg)](https://doi.org/10.5281/zenodo.10782412)
 [![License](https://img.shields.io/badge/License-Apache_2.0-yellow.svg)](https://github.com/LKlinke/Prodigy/blob/oopsla24-artifact/LICENSE)
 
 Prodigy is a tool for inferring posterior distributions described by probabilistic integer programs potentially using `while`-loops. It is based on (probability) generating functions.
