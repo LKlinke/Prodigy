@@ -1,15 +1,15 @@
 # Prodigy: PRObability DIstributions via GeneratingfunctionologY
 
-[![Open Source? Yes!](https://badgen.net/badge/Open%20Source%20%3F/Yes%21/blue?icon=github)](https://github.com/LKlinke/Prodigy/tree/ae)
+[![Open Source? Yes!](https://badgen.net/badge/Open%20Source%20%3F/Yes%21/blue?icon=github)](https://github.com/LKlinke/Prodigy/tree/oopsla24-artifact)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10451092.svg)](https://doi.org/10.5281/zenodo.10451092)
-[![License](https://img.shields.io/badge/License-Apache_2.0-yellow.svg)](https://github.com/LKlinke/Prodigy/blob/ae-oopsla/LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-yellow.svg)](https://github.com/LKlinke/Prodigy/blob/oopsla24-artifact/LICENSE)
 
 Prodigy is a tool for inferring posterior distributions described by probabilistic integer programs potentially using `while`-loops. It is based on (probability) generating functions.
 
 In case of loopy programs, given an almost-surely terminating loop `while(G) {B}` and a loop-free (specification) program `I` (also called _invariant_), Prodigy checks whether `while(G) {B}` and `I` are _equivalent_ programs, i.e., whether they yield the same output distribution on every possible input distribution.
 
 For more technical details, please refer to our OOPSLA'24 paper:
-> Lutz Klinkenberg, Christian Blumenthal, Mingshuai Chen, Darion Haase, Joost-Pieter Katoen: Exact Bayesian Inference for Loopy Probabilistic Programs using Generating Functions. Accepted for OOPSLA'24 (as enclosed in the artifact). https://doi.org/10.1145/3649844
+> Lutz Klinkenberg, Christian Blumenthal, Mingshuai Chen, Darion Haase, Joost-Pieter Katoen. 2024. Exact Bayesian Inference for Loopy Probabilistic Programs using Generating Functions. Proc. ACM Program. Lang. 8, OOPSLA1, Article 127 (April 2024). https://doi.org/10.1145/3649844 (as enclosed in the artifact)
 
 ## Contents
 
