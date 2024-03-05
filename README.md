@@ -26,18 +26,22 @@ For more technical details, please refer to our OOPSLA'24 paper:
 * Experiments in the paper are carried out on a native 2,4GHz Intel i5 Quad-Core processor with 16GB RAM running MacOS Sonoma 14.0. Make sure to have similar specs when comparing timing results and consider differences running in a sandbox (docker).
 
 ## Building & loading the Docker image
-1. Checkout the repository on the artifact-evaluation branch:
-    ```bash
-    git clone --single-branch --branch ae-oopsla https://github.com/LKlinke/prodigy.git
-    ```
-2. Locate the repository:
-   ```bash
-   cd prodigy 
-   ```
-3. Build the docker image:
-   ```bash
-   docker build -t prodigy:latest .
-   ```
+
+If you want to use the provided Docker image, you can skip this step.
+
+0.  Build the Docker image from sources:
+    1. Checkout the repository on the oopsla24-artifact branch:
+        ```bash
+        git clone --single-branch --branch oopsla24-artifact https://github.com/LKlinke/prodigy.git
+        ```
+    2. Locate the repository:
+        ```bash
+        cd prodigy 
+        ```
+    3. Build the docker image:
+        ```bash
+        docker build -t prodigy:latest .
+        ```
 
 
 The structure of the artifact is as follows (`ls -l`).
@@ -62,14 +66,14 @@ For a quick test to see if everything works:
 
 If you *did not* build the docker image yourself, load the provided docker image using
 
-4. Load the docker image:
+1. Load the docker image:
    ```bash
    docker load -i prodigy.tar.gz
    ```
 
 Then run the docker container:
 
-5. Run Prodigy via Docker:
+2. Run Prodigy via Docker:
    ```bash
    docker run -it prodigy
    ```
@@ -84,11 +88,27 @@ All Prodigy timings measured in Table 4 and Table 5 can be reproduced.
 
 ### Reproducing the results
 
-6. Reproduce the results presented in the paper by typing (all benchmarks take ~150mins):
+3. Reproduce the results presented in the paper by typing (all benchmarks take ~150mins):
     ```bash
     python benchmark.py
     ```
 > _Note:_ The script uses predefined backends. Prodigy currently supports `ginac` and `sympy`. The former enables our C++ backend based on the GiNaC package. The latter employs the python computer algebra package SymPy. `ginac` is generally faster than `sympy`, however for computing queries on final distributions, the current implementation relies on `sympy`.
+
+### Results by other tools
+
+This artifact only includes the Prodigy tool.
+The paper focuses on programs featuring unbounded loops and this artifact is intended to support this.
+To also reproduce the (loop-free program) results of λ-PSI and Genfer presented in Table 4, obtain and build the tools according to their documentation:
+    
+- λ-PSI: Build from https://github.com/eth-sri/psi using commit `9db68ba9581b7a1211f1514e44e7927af24bd398`.
+- Genfer: Build from https://github.com/fzaiser/genfer using commit `5911de13f16bc3c28703f1631c5c4847f9ebac9a`.
+
+The Genfer repository also contains λ-PSI code for the benchmarks of Table 4 in the `benchmarks` folder.
+Results for individual benchmarks can be obtained by timing:
+
+- λ-PSI (symbolic): `./psi <benchmark>.psi`
+- λ-PSI (dp): `./psi --dp <benchmark>.psi`
+- Genfer (exact): `./genfer --rational <benchmark>.sgcl`
 
 ## Running your own examples
 
