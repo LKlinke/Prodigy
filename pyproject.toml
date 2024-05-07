@@ -19,6 +19,7 @@ matplotlib = "^3.4.2"
 probably = { git = "https://github.com/Philipp15b/probably.git", branch = "brand-new" }
 pygin = { git = "https://git.rwth-aachen.de/tobias.winkler1/prodigy", branch = "sympy-features" }
 Flask = "^2.0.0"
+symengine = "^0.11.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
