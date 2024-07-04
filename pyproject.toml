@@ -20,6 +20,8 @@ probably = { git = "https://github.com/Philipp15b/probably.git", branch = "brand
 pygin = { git = "https://git.rwth-aachen.de/tobias.winkler1/prodigy", branch = "sympy-features" }
 Flask = "^2.0.0"
 symengine = "^0.11.0"
+Werkzeug = "2.2.2"
+numpy = "1.26.4"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
