@@ -483,7 +483,7 @@ class PChoiceHandler(InstructionHandler):
         rhs_block, rhs_error_prob = SequenceHandler.compute(
             instruction.rhs, prog_info, distribution, error_prob, config)
         logger.info("Combining PChoice branches.\n%s", instruction)
-        new_prob = lhs_error_prob * str(instruction.prob) + rhs_error_prob * f"1-({instruction.prob})"
+        # new_prob = lhs_error_prob * str(instruction.prob) + rhs_error_prob * f"1-({instruction.prob})"
         res_error_prob = (
                 lhs_error_prob * str(instruction.prob) +
                 rhs_error_prob * f"1-({instruction.prob})").set_variables(
@@ -663,7 +663,7 @@ class WhileHandler(InstructionHandler):
             error_prob: Distribution,
             config: ForwardAnalysisConfig
     ) -> tuple[Distribution, Distribution]:
-        assert error_prob.is_zero_dist(), f"Currently EVT reasoning does not support conditioning."
+        assert error_prob.is_zero_dist(), "Currently EVT reasoning does not support conditioning."
         max_iter = int(input("Enter the number of iterations: "))
         evt = distribution * 0
         for i in range(max_iter):
