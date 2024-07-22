@@ -67,7 +67,8 @@ class Plotter:
                                     interpolation='nearest',
                                     cmap="turbo",
                                     aspect='auto')
-            plt.colorbar(color_plot)
+            # https://github.com/matplotlib/matplotlib/issues/23973
+            plt.colorbar(color_plot, ax=plt.gca())
             plt.gca().set_xlabel(f"{x}")
             plt.gca().set_xticks(range(0, maxima[x] + 1))
             plt.gca().set_ylabel(f"{y}")
@@ -120,7 +121,8 @@ class Plotter:
             if fig_manager is not None:
                 fig_manager.set_window_title("Histogram Plot")
             plt.gcf().suptitle("Histogram")
-            plt.colorbar(scalar_mappable)
+            # https://github.com/matplotlib/matplotlib/issues/23973
+            plt.colorbar(scalar_mappable, ax=plt.gca())
             plt.show()
         else:
             prev_gf = marginal
