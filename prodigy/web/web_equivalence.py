@@ -160,7 +160,7 @@ def analyze_raw_code():
         app.logger.info(
             "Analysis task started for %s with input distribution %s", program,
             input_dist)
-        result, error_prob = compute_discrete_distribution(program, input_dist, config)
+        result, _ = compute_discrete_distribution(program, input_dist, config)
         app.logger.info("Analysis completed")
 
         return jsonify({
