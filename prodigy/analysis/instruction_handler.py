@@ -483,6 +483,7 @@ class PChoiceHandler(InstructionHandler):
         rhs_block, rhs_error_prob = SequenceHandler.compute(
             instruction.rhs, prog_info, distribution, error_prob, config)
         logger.info("Combining PChoice branches.\n%s", instruction)
+        # TODO this var was never used, can this be deleted?
         # new_prob = lhs_error_prob * str(instruction.prob) + rhs_error_prob * f"1-({instruction.prob})"
         res_error_prob = (
                 lhs_error_prob * str(instruction.prob) +
