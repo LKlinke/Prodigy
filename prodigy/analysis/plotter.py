@@ -67,7 +67,7 @@ class Plotter:
                                     interpolation='nearest',
                                     cmap="turbo",
                                     aspect='auto')
-            # https://github.com/matplotlib/matplotlib/issues/23973
+            # Pass axes to prevent error (cf. https://github.com/matplotlib/matplotlib/issues/23973)
             plt.colorbar(color_plot, ax=plt.gca())
             plt.gca().set_xlabel(f"{x}")
             plt.gca().set_xticks(range(0, maxima[x] + 1))
@@ -117,7 +117,10 @@ class Plotter:
             axis.set_xlabel(f"{var}")
             axis.set_xticks(ind)
             axis.set_ylabel(f'Probability p({var})')
-            plt.get_current_fig_manager().set_window_title("Histogram Plot")
+            # Otherwise mypy complains about a possible None type
+            fig_manager = plt.get_current_fig_manager()
+            if fig_manager:
+                fig_manager.set_window_title("Histogram Plot")
             plt.gcf().suptitle("Histogram")
             # https://github.com/matplotlib/matplotlib/issues/23973
             plt.colorbar(scalar_mappable, ax=plt.gca())
