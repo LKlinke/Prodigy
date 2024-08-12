@@ -704,8 +704,10 @@ class WhileHandler(InstructionHandler):
             if user_choice == "4":
                 return WhileHandler._approx_expected_visiting_times(instruction, prog_info, distribution, error_prob,
                                                                     config)
-            if user_choice == "5":
-                return WhileHandler._evt_invariant(instruction, prog_info, distribution, error_prob, config)
+            #  This choice does not exist for now
+            #if user_choice == "5":
+            #    return WhileHandler._evt_invariant(instruction, prog_info, distribution, error_prob, config)
+
             if user_choice == "q":
                 sys.exit()
             print(f"Invalid input: {user_choice}")
