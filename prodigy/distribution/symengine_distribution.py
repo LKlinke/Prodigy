@@ -33,64 +33,44 @@ class SymengineDist(Distribution):
         return variables.intersection(parameters) == set()
 
     def __add__(self, other) -> SymengineDist:
-        if isinstance(other, (str, float, int)):
-            return self.__add__(SymengineDist(other, self._variables))
-        if not isinstance(other, SymengineDist):
-            raise SyntaxError(f"You cannot add {type(self)} to {type(other)}.")
-
-        # Here comes the actual addition.
-        if not self._check_symbol_consistency(other):
-            clash = (self._variables | other._variables) & (self._parameters | other._parameters)
-            raise SyntaxError(f"Name clash: {clash} for {self} and {other}.")
-
-        variables = self._variables | other._variables
+        variables = self._operator_prerequisites(other, self.__add__, "add")
         s_result = self._s_func + other._s_func
         return SymengineDist(s_result, *variables)
 
     def __sub__(self, other) -> SymengineDist:
-        if isinstance(other, (str, float, int)):
-            return self.__sub__(SymengineDist(other, self._variables))
-        if not isinstance(other, SymengineDist):
-            raise SyntaxError(f"You cannot subtract {type(other)} from {type(self)}.")
-
-        # Here comes the actual subtraction.
-        if not self._check_symbol_consistency(other):
-            clash = (self._variables | other._variables) & (self._parameters | other._parameters)
-            raise SyntaxError(f"Name clash: {clash} for {self} and {other}.")
-
-        variables = self._variables | other._variables
+        variables = self._operator_prerequisites(other, self.__sub__, "subtract")
         s_result = self._s_func - other._s_func
         return SymengineDist(s_result, *variables)
 
     def __mul__(self, other) -> SymengineDist:
-        if isinstance(other, (str, float, int)):
-            return self.__mul__(SymengineDist(other, self._variables))
-        if not isinstance(other, SymengineDist):
-            raise SyntaxError(f"You cannot multiply {type(self)} with {type(other)}.")
-
-        # Here comes the actual multiplication.
-        if not self._check_symbol_consistency(other):
-            clash = (self._variables | other._variables) & (self._parameters | other._parameters)
-            raise SyntaxError(f"Name clash: {clash} for {self} and {other}.")
-
-        variables = self._variables | other._variables
+        variables = self._operator_prerequisites(other, self.__mul__, "multiply")
         s_result = self._s_func * other._s_func
         return SymengineDist(s_result, *variables)
 
     def __truediv__(self, other) -> SymengineDist:
-        if isinstance(other, (str, float, int)):
-            return self.__mul__(SymengineDist(other, self._variables))
-        if not isinstance(other, SymengineDist):
-            raise SyntaxError(f"You cannot divide {type(self)} by {type(other)}.")
+        # TODO is __mul__ the right method?
+        variables = self._operator_prerequisites(other, self.__mul__, "divide")
+        s_result = self._s_func / other._s_func
+        return SymengineDist(s_result, *variables)
 
-        # Here comes the actual division.
+    def _operator_prerequisites(self, other, f_pointer, textual_descr: str):
+        """
+        Checks whether the operation can be applied to the given distributions.
+        If other is a constant, i.e. a string / float / int, the result is directly computed
+        by the given function pointer.
+        If both are SymengineDistributions and don't have inconsistent variables, the union of
+        their variables is returned.
+        """
+        if isinstance(other, (str, float, int)):
+            return f_pointer(SymengineDist(other, self._variables))
+        if not isinstance(other, SymengineDist):
+            raise SyntaxError(f"You cannot {textual_descr} {type(self)} by {type(other)}.")
+
+        # Actual operation
         if not self._check_symbol_consistency(other):
             clash = (self._variables | other._variables) & (self._parameters | other._parameters)
             raise SyntaxError(f"Name clash: {clash} for {self} and {other}.")
-
-        variables = self._variables | other._variables
-        s_result = self._s_func / other._s_func
-        return SymengineDist(s_result, *variables)
+        return self._variables | other._variables
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, SymengineDist):
@@ -102,6 +82,8 @@ class SymengineDist(Distribution):
         return other._s_func == self._s_func
 
     def __le__(self, other) -> bool:
+        if not isinstance(other, SymengineDist):
+            raise TypeError(f"Incomparable types {type(self)} and {type(other)}.")
         raise NotImplementedError()
 
     def __str__(self) -> str:
@@ -212,7 +194,7 @@ class SymengineDist(Distribution):
     def marginal(self, *variables: Union[str, VarExpr], method: MarginalType = MarginalType.INCLUDE) -> SymengineDist:
         raise NotImplementedError()
 
-    def set_variables(self, *variables: str) -> SymengineDist:
+    def set_variables(self, *variables: str):
         new_variables = set(variables)
         if self._parameters & new_variables:
             raise ValueError(
@@ -221,7 +203,7 @@ class SymengineDist(Distribution):
             raise ValueError(f"There are unknown symbols which are neither variables nor parameters.")
         self._variables = new_variables
 
-    def set_parameters(self, *parameters: str) -> SymengineDist:
+    def set_parameters(self, *parameters: str):
         new_params = set(parameters)
         if self._variables & new_params:
             raise ValueError(
