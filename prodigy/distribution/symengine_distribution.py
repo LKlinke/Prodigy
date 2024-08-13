@@ -155,10 +155,10 @@ class SymengineDist(Distribution):
         return s_exp
 
     def is_zero_dist(self) -> bool:
-        return self._s_func == 0
+        return self._s_func.is_zero
 
     def is_finite(self) -> bool:
-        raise NotImplementedError()
+        return self._s_func.is_finite
 
     def get_fresh_variable(self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
         raise NotImplementedError()
@@ -226,23 +226,24 @@ class SymenginePGF(CommonDistributionsFactory):
 
     @staticmethod
     def uniform(var: Union[str, VarExpr], lower: DistributionParam, upper: DistributionParam) -> SymengineDist:
-        raise NotImplementedError()
+        return SymengineDist(f"1/({upper} - {lower} + 1) * ({var}^{lower}) * (({var}^({upper} - {lower} + 1) - 1)/"+
+                             "({var} - 1))", str(var))
 
     @staticmethod
     def bernoulli(var: Union[str, VarExpr], p: DistributionParam) -> SymengineDist:
-        raise NotImplementedError()
+        return SymengineDist(f"({p}) * {var} + 1-({p})", str(var))
 
     @staticmethod
     def poisson(var: Union[str, VarExpr], lam: DistributionParam) -> SymengineDist:
-        raise NotImplementedError()
+        return SymengineDist(f"exp(({lam}) * ({var} - 1))", str(var))
 
     @staticmethod
     def log(var: Union[str, VarExpr], p: DistributionParam) -> SymengineDist:
-        raise NotImplementedError()
+        return SymengineDist( f"log(1-({p})*{var})/log(1-({p}))", str(var))
 
     @staticmethod
     def binomial(var: Union[str, VarExpr], n: DistributionParam, p: DistributionParam) -> SymengineDist:
-        raise NotImplementedError()
+        return SymengineDist(f"(({p})*{var} + (1-({p})))^({n})", str(var))
 
     @staticmethod
     def undefined(*variables: Union[str, VarExpr]) -> SymengineDist:
@@ -254,4 +255,4 @@ class SymenginePGF(CommonDistributionsFactory):
 
     @staticmethod
     def from_expr(expression: Union[str, Expr], *variables, **kwargs) -> SymengineDist:
-        raise NotImplementedError()
+        return SymengineDist(expression, *map(str,variables))
