@@ -19,7 +19,12 @@ matplotlib = "^3.4.2"
 probably = { git = "https://github.com/Philipp15b/probably.git", branch = "brand-new" }
 pygin = { git = "https://git.rwth-aachen.de/tobias.winkler1/prodigy", branch = "sympy-features" }
 Flask = "^2.0.0"
-symengine = "^0.11.0"
+# https://stackoverflow.com/questions/77213053/why-did-flask-start-failing-with-importerror-cannot-import-name-url-quote-fr
+Werkzeug = "2.2.2"
+# https://stackoverflow.com/questions/78348773/how-to-resolve-np-float-was-removed-in-the-numpy-2-0-release-use-np-float64
+numpy = "1.26.4"
+# https://stackoverflow.com/questions/77507580/userwarning-figurecanvasagg-is-non-interactive-and-thus-cannot-be-shown-plt-sh
+pyqt6 = "^6.7.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
@@ -28,6 +33,12 @@ mypy = ">0.770"
 yapf = "^0.30.0"
 sphinx-autodoc-typehints = "^1.10.3"
 sphinx-bootstrap-theme = "^0.8.1"
+# https://stackoverflow.com/questions/77848565/sphinxcontrib-applehelp-breaking-sphinx-builds-with-sphinx-version-less-than-5-0
+sphinxcontrib-applehelp="1.0.4"
+sphinxcontrib-devhelp="1.0.2"
+sphinxcontrib-htmlhelp="2.0.1"
+sphinxcontrib-qthelp="1.0.3"
+sphinxcontrib-serializinghtml="1.1.5"
 sphinx-click = "^2.3.2"
 sphinx-git = "^11.0.0"
 jinja2 = "<3.1"
@@ -37,7 +48,7 @@ hypothesis = "^5.18.0"
 
 
 [tool.poetry.scripts]
-prodigy = "prodigy.cli:cli"
+prodigy = "prodigy.cli:main"
 web-service = "prodigy.web.web_equivalence:start_server"
 
 [build-system]

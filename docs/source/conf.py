@@ -28,7 +28,7 @@ add_module_names = False
 html_theme_path = ["themes"] + sphinx_bootstrap_theme.get_html_theme_path()
 html_theme = 'fixedbootstrap'
 _navbar_links = [
-    ('GitHub Repository', 'https://github.com/Philipp15b/probably', True)
+    ('GitHub Repository', 'https://github.com/LKlinke/Prodigy', True)
 ]
 html_theme_options = {
     'navbar_sidebarrel': False,
