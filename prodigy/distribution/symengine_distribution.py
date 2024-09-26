@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Union, Generator, Set, FrozenSet, Sequence, Iterator, Tuple, Type
+import math
+from typing import Union, Generator, Set, FrozenSet, Sequence, Iterator, Tuple, Type, List
 
 import symengine as se
 from probably.pgcl import VarExpr, Expr
@@ -9,6 +10,10 @@ from probably.pgcl import VarExpr, Expr
 from prodigy.distribution import Distribution
 from prodigy.distribution import MarginalType, State, CommonDistributionsFactory, DistributionParam
 from prodigy.util.logger import log_setup
+from prodigy.util.order import default_monomial_iterator
+
+# todo remove once method in symengine
+import sympy as sp
 
 logger = log_setup(str(__name__).rsplit(".")[-1], logging.DEBUG, file="GF_operations.log")
 
@@ -84,13 +89,84 @@ class SymengineDist(Distribution):
     def __le__(self, other) -> bool:
         if not isinstance(other, SymengineDist):
             raise TypeError(f"Incomparable types {type(self)} and {type(other)}.")
-        raise NotImplementedError()
+
+        if self.is_finite():
+            for prob, state in self:
+                pass    # TODO
+
+        if other.is_finite():
+            for prob, state in other:
+                pass    # TODO
+
+        difference: se.Basic = self._s_func - other._s_func
+        # fixme replace once suitable method is found
+        #   cf. https://github.com/symengine/symengine.py/issues/492
+        if sp.S(difference).is_polynomial():
+            return all(
+                map(lambda x: x > 0, difference.as_coefficients_dict().values())
+            )
 
     def __str__(self) -> str:
         return f"{self._s_func}"
 
     def __iter__(self) -> Iterator[Tuple[str, State]]:
-        raise NotImplementedError()
+        prob_fun = self.get_prob_by_diff  # TODO which probability function should we use
+        if not self.is_finite():
+            v = list(self.get_variables())
+            if len(v) == 1:
+                v = v[0]
+                i = 0
+                while True:
+                    yield prob_fun(State({v: i})), State({v: i})
+                    i += 1
+            else:
+                for tup in default_monomial_iterator(len(v)):
+                    yield prob_fun(State(dict(zip(v, tup)))), State(dict(zip(v, tup)))
+        else:
+            for prob, vals in sp.S(self._s_func).as_terms():    # fixme replace with symengine method
+                yield prob, State(vals)
+
+    def iter_with(self, monomial_iterator: Iterator[List[int]]) -> Iterator[Tuple[str, State]]:
+        """
+        Iterates over the expression with a custom monomial order.
+        :param monomial_iterator: An iterator that yields the monomial order.
+        :return: An iterator over the expression in the given order.
+        """
+        prob_fun = self.get_prob_by_diff  # TODO which function here
+        if not self.is_finite():
+            v = list(self.get_variables())
+            for tup in monomial_iterator:
+                yield prob_fun(State(dict(zip(v, tup)))), State(dict(zip(v, tup)))
+        else:
+            for prob, vals in sp.S(self._s_func).as_terms():    # fixme replace with symengine method
+                yield prob, State(vals)
+
+    # TODO integrate these functions better / move them / replace by correct signature
+    def get_prob_by_diff(self, state: State) -> se.Basic:
+        """
+        Get the probability of a given state by means of differentiation
+        :param state: The state to get the probability of
+        :return: The probability of the given state
+        """
+        fun = self._s_func.diff(*state.items())
+        return fun.subs({v: 0 for v in self._variables}) / math.prod([math.factorial(el[1]) for el in state.items()])
+
+    def get_prob_by_series(self, state: State) -> se.Basic:
+        """
+        Get the probability of a given state by means of taylor expansion
+        :param state: The state to get the probability of
+        :return: The probability of the given state
+        """
+        series = self._s_func
+        args = {}
+        for (v, val) in state.items():
+            series: se.Basic = se.series(series, v, 0, val + 1)
+            # Build the expression
+            args += [f"{v} ** {val}"]
+        args = se.S("*".join(args))
+        # Expand series as simplifications (such as factoring out) lead to missing coefficients
+        coefficient_dict = series.expand().as_coefficients_dict()
+        return coefficient_dict[args] if args in coefficient_dict else se.S(0)
 
     def copy(self, deep: bool = True) -> SymengineDist:
         res = SymengineDist(0)
@@ -111,28 +187,38 @@ class SymengineDist(Distribution):
         raise NotImplementedError()
 
     def normalize(self) -> SymengineDist:
-        raise NotImplementedError()
+        mass = self.get_probability_mass()
+        if mass == 0:
+            raise ZeroDivisionError
+        return SymengineDist(self._s_func / mass, *self._variables)
 
     def get_variables(self) -> Set[str]:
         return self._variables
 
     def get_parameters(self) -> Set[str]:
-        raise self._parameters
+        return self._parameters
 
     def _exhaustive_search(self, condition: Expr) -> SymengineDist:
-        raise NotImplementedError()
+        res = se.S("0")
+        for prob, state in self:
+            if self.evaluate_condition(condition, state):
+                res += se.S(f"{prob} * {state.to_monomial()}")
+        return SymenginePGF.from_expr(
+            res,
+            self._variables
+        )
 
     def _filter_constant_condition(self, condition: Expr) -> SymengineDist:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def _arithmetic_progression(self, variable: str, modulus: str) -> Sequence[SymengineDist]:
         raise NotImplementedError()
 
     def hadamard_product(self, other: SymengineDist) -> SymengineDist:
-        raise NotImplementedError()
+        raise NotImplementedError()  # ignore for now
 
     def _find_symbols(self, expr: str) -> Set[str]:
-        raise NotImplementedError()
+        return se.S(expr).free_symbols
 
     @staticmethod
     def evaluate(expression: str, state: State):
@@ -158,13 +244,28 @@ class SymengineDist(Distribution):
         return self._s_func.is_zero
 
     def is_finite(self) -> bool:
-        return self._s_func.is_finite
+        # fixme replace once a suitable method is found within symengine
+        #   cf. https://github.com/symengine/symengine.py/issues/492
+        return sp.S(self._s_func).is_polynomial()
 
     def get_fresh_variable(self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
         raise NotImplementedError()
 
     def _update_var(self, updated_var: str, assign_var: str | int) -> SymengineDist:
-        raise NotImplementedError()
+        up_var, as_var = se.S(updated_var), se.S(assign_var)
+        if str(assign_var) in self._parameters:
+            raise ValueError("Assignment to parameters is not allowed")
+        if as_var.is_symbol and as_var not in  self._variables:
+            raise ValueError(f"Unknown symbol: {assign_var}")
+
+        if not updated_var == assign_var:
+            if as_var in self._variables:
+                res = self._s_func.subs(as_var, 1, as_var, as_var * up_var)
+            else:
+                res = self._s_func.subs(up_var, 1) * up_var ** as_var
+            return SymengineDist(res, *self._variables)
+        else:
+            return self.copy()
 
     def _update_sum(self, temp_var: str, first_summand: str | int, second_summand: str | int) -> SymengineDist:
         raise NotImplementedError()
@@ -192,7 +293,18 @@ class SymengineDist(Distribution):
         raise NotImplementedError()
 
     def marginal(self, *variables: Union[str, VarExpr], method: MarginalType = MarginalType.INCLUDE) -> SymengineDist:
-        raise NotImplementedError()
+        result = self._s_func
+        remove_vars = {
+            MarginalType.EXCLUDE: {str(var)
+                                   for var in variables},
+            MarginalType.INCLUDE:
+                self._variables - {str(var)
+                                   for var in variables}
+        }
+        for var in remove_vars[method]:
+            result = result.update_var(str(var), "0")
+        return SymenginePGF.from_expr(result, self._variables - remove_vars[method],
+                                      self._parameters)
 
     def set_variables(self, *variables: str):
         new_variables = set(variables)
@@ -226,7 +338,7 @@ class SymenginePGF(CommonDistributionsFactory):
 
     @staticmethod
     def uniform(var: Union[str, VarExpr], lower: DistributionParam, upper: DistributionParam) -> SymengineDist:
-        return SymengineDist(f"1/({upper} - {lower} + 1) * ({var}^{lower}) * (({var}^({upper} - {lower} + 1) - 1)/"+
+        return SymengineDist(f"1/({upper} - {lower} + 1) * ({var}^{lower}) * (({var}^({upper} - {lower} + 1) - 1)/" +
                              "({var} - 1))", str(var))
 
     @staticmethod
@@ -239,7 +351,7 @@ class SymenginePGF(CommonDistributionsFactory):
 
     @staticmethod
     def log(var: Union[str, VarExpr], p: DistributionParam) -> SymengineDist:
-        return SymengineDist( f"log(1-({p})*{var})/log(1-({p}))", str(var))
+        return SymengineDist(f"log(1-({p})*{var})/log(1-({p}))", str(var))
 
     @staticmethod
     def binomial(var: Union[str, VarExpr], n: DistributionParam, p: DistributionParam) -> SymengineDist:
@@ -255,4 +367,4 @@ class SymenginePGF(CommonDistributionsFactory):
 
     @staticmethod
     def from_expr(expression: Union[str, Expr], *variables, **kwargs) -> SymengineDist:
-        return SymengineDist(expression, *map(str,variables))
+        return SymengineDist(expression, *map(str, variables))

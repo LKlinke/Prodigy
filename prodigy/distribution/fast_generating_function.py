@@ -11,6 +11,8 @@ from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
                                                MarginalType, State)
 
+from prodigy.util.order import default_monomial_iterator
+
 
 class FPS(Distribution):
     """
@@ -144,31 +146,7 @@ class FPS(Distribution):
             else:
                 # TODO this is just a placeholder until we have proper multivariate iteration
                 variables = list(self.get_variables())
-
-                def n_tuples(n):
-                    """Generates all `n`-tuples of the natural numbers"""
-                    if n < 1:
-                        raise ValueError("n is too small")
-                    if n == 1:
-                        num = 0
-                        while True:
-                            yield [num]
-                            num += 1
-                    else:
-                        index = 0
-                        gen = n_tuples(n - 1)
-                        vals = []
-                        while True:
-                            # This is absolutely unreadable, so just another reason to delete this asap
-                            while len(vals) < index + 1:
-                                # pylint: disable=stop-iteration-return
-                                vals.append(next(gen))
-                                # pylint: enable=stop-iteration-return
-                            for i in range(index, -1, -1):
-                                yield [i] + vals[index - i]
-                            index += 1
-
-                for vals in n_tuples(len(variables)):
+                for vals in default_monomial_iterator(len(variables)):
                     s = f'{variables[0]}={vals[0]}'
                     for i in range(1, len(variables)):
                         s += f' & {variables[i]}={vals[i]}'
