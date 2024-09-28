@@ -5,12 +5,14 @@ from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.fast_generating_function import ProdigyPGF
 from prodigy.distribution.generating_function import SympyPGF
+from prodigy.distribution.symengine_distribution import SymenginePGF
 
 
-# todo hier symengine einbauen
-@pytest.mark.parametrize('engine,factory',
-                         [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
-                          (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
+@pytest.mark.parametrize('engine,factory', [
+    (ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
+    (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF),
+    (ForwardAnalysisConfig.Engine.SYMENGINE, SymenginePGF)
+])
 def test_context_injection(engine, factory):
     program = pgcl.parse_pgcl("""
         nat x;
@@ -24,5 +26,3 @@ def test_context_injection(engine, factory):
     assert result.get_variables() == {
         "x", "y", "z"
     } and result.get_parameters() == {"p", "n"}
-
-

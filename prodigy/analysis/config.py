@@ -30,6 +30,7 @@ class ForwardAnalysisConfig:
         """
         SYMPY = auto()
         GINAC = auto()
+        SYMENGINE = auto()
 
     show_intermediate_steps: bool = attr.ib(default=False)
     """Enables the printing of results after each instruction."""
