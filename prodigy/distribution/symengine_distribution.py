@@ -5,12 +5,15 @@ import math
 from typing import Union, Generator, Set, FrozenSet, Sequence, Iterator, Tuple, Type, List
 
 import symengine as se
-from probably.pgcl import VarExpr, Expr
+from probably.pgcl import VarExpr, Expr, FunctionCallExpr, RealLitExpr, UnopExpr, Binop, BinopExpr, Unop
+from probably.util.ref import Mut
 
 from prodigy.distribution import Distribution
 from prodigy.distribution import MarginalType, State, CommonDistributionsFactory, DistributionParam
 from prodigy.util.logger import log_setup
 from prodigy.util.order import default_monomial_iterator
+
+from probably.pgcl.parser import parse_expr
 
 # todo remove once method in symengine
 import sympy as sp
@@ -92,11 +95,11 @@ class SymengineDist(Distribution):
 
         if self.is_finite():
             for prob, state in self:
-                pass    # TODO
+                pass  # TODO
 
         if other.is_finite():
             for prob, state in other:
-                pass    # TODO
+                pass  # TODO
 
         difference: se.Basic = self._s_func - other._s_func
         # fixme replace once suitable method is found
@@ -123,7 +126,7 @@ class SymengineDist(Distribution):
                 for tup in default_monomial_iterator(len(v)):
                     yield prob_fun(State(dict(zip(v, tup)))), State(dict(zip(v, tup)))
         else:
-            for prob, vals in sp.S(self._s_func).as_terms():    # fixme replace with symengine method
+            for prob, vals in sp.S(self._s_func).as_terms():  # fixme replace with symengine method
                 yield prob, State(vals)
 
     def iter_with(self, monomial_iterator: Iterator[List[int]]) -> Iterator[Tuple[str, State]]:
@@ -138,7 +141,7 @@ class SymengineDist(Distribution):
             for tup in monomial_iterator:
                 yield prob_fun(State(dict(zip(v, tup)))), State(dict(zip(v, tup)))
         else:
-            for prob, vals in sp.S(self._s_func).as_terms():    # fixme replace with symengine method
+            for prob, vals in sp.S(self._s_func).as_terms():  # fixme replace with symengine method
                 yield prob, State(vals)
 
     # TODO integrate these functions better / move them / replace by correct signature
@@ -184,7 +187,40 @@ class SymengineDist(Distribution):
         return str(fast_result)
 
     def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
-        raise NotImplementedError()
+        # FIXME replace sympy by symengine if method is implemented
+        expr = sp.S(str(expression)).ratsimp().expand()
+        if not expr.is_polynomial():
+            raise NotImplementedError(
+                "Expected Value only computable for polynomial expressions.")
+
+        if len(expr.free_symbols & self._variables) == 0:
+            return str(expr)
+        if not expr.free_symbols.issubset(
+                self._variables.union(self._parameters)):
+            raise ValueError(
+                f"Cannot compute expected value of {expression} because it contains unknown symbols"
+            )
+
+        marginal = self.marginal(*(expr.free_symbols & self._variables),
+                                 method=MarginalType.INCLUDE)._s_func
+        gen_func = SymengineDist(expr,
+                                      *(expr.free_symbols & self._variables))
+        expected_value = sp.Integer(0)
+        for prob, state in gen_func:
+            tmp = marginal
+            for var, val in state.items():
+                var_sym = se.S(var)
+                for _ in range(val):
+                    tmp = tmp.diff(var_sym, 1) * var_sym
+                tmp = tmp.limit(var_sym, 1, '-')
+            summand: se.Expr = se.S(prob) * tmp
+            if len(summand.free_symbols) == 0 and summand < 0:
+                raise ValueError(f'Intermediate result is negative: {summand}')
+            expected_value += summand
+        if expected_value == se.S('oo'):
+            return str(RealLitExpr.infinity())
+        else:
+            return str(expected_value)
 
     def normalize(self) -> SymengineDist:
         mass = self.get_probability_mass()
@@ -209,10 +245,87 @@ class SymengineDist(Distribution):
         )
 
     def _filter_constant_condition(self, condition: Expr) -> SymengineDist:
-        raise NotImplementedError
+        # Normalize the condition into the format _var_ (< | <= | =) const. I.e., having the variable on the lhs.
+        if isinstance(condition.rhs,
+                      VarExpr) and condition.rhs.var not in self._variables:
+            if condition.operator == Binop.LEQ:
+                return self.filter(
+                    UnopExpr(operator=Unop.NEG,
+                             expr=BinopExpr(operator=Binop.LT,
+                                            lhs=condition.rhs,
+                                            rhs=condition.lhs)))
+            elif condition.operator == Binop.LT:
+                return self.filter(
+                    UnopExpr(operator=Unop.NEG,
+                             expr=BinopExpr(operator=Binop.LEQ,
+                                            lhs=condition.rhs,
+                                            rhs=condition.lhs)))
+            elif condition.operator == Binop.GT:
+                return self.filter(
+                    BinopExpr(operator=Binop.LT,
+                              lhs=condition.rhs,
+                              rhs=condition.lhs))
+            elif condition.operator == Binop.GEQ:
+                return self.filter(
+                    BinopExpr(operator=Binop.LEQ,
+                              lhs=condition.rhs,
+                              rhs=condition.lhs))
+
+        if isinstance(condition.lhs,
+                      VarExpr) and condition.lhs.var not in self._variables:
+            if condition.operator == Binop.GT:
+                return self.filter(
+                    BinopExpr(operator=Binop.LT,
+                              lhs=condition.rhs,
+                              rhs=condition.lhs))
+            elif condition.operator == Binop.GEQ:
+                return self.filter(
+                    BinopExpr(operator=Binop.LEQ,
+                              lhs=condition.rhs,
+                              rhs=condition.lhs))
+
+        # Now we have an expression of the form _var_ (< | <=, =) _const_.
+        variable = se.S(str(condition.lhs))
+        constant = condition.rhs.value
+        result = 0
+        ranges = {
+            Binop.LT: range(constant),
+            Binop.LEQ: range(constant + 1),
+            Binop.EQ: [constant]
+        }
+
+        # Compute the probabilities of the states _var_ = i where i ranges depending on the operator (< , <=, =).
+        for i in ranges[condition.operator]:
+            result += (self._s_func.diff(variable, i) / math.factorial(i)
+                       ).limit(variable, 0, '-') * variable ** i
+
+        return SymengineDist(result, *self._variables)
 
     def _arithmetic_progression(self, variable: str, modulus: str) -> Sequence[SymengineDist]:
-        raise NotImplementedError()
+        a = se.S(modulus)
+        var = (se.S(variable))
+
+        # This should be a faster variant for univariate distributions.
+        if self._variables == {var}:
+            result = []
+            for remainder in range(a):
+                other = SymengineDist(f"({var}^{remainder})/(1-{var}^{modulus})", *self._variables)
+                result.append(self.hadamard_product(other))
+            return result
+
+        # This is the general algorithm
+        primitive_uroot = se.exp(2 * se.pi * se.I / a)
+        result = []
+        for remainder in range(a):  # type: ignore
+            psum = 0
+            for m in range(a):  # type: ignore
+                psum += primitive_uroot ** (-m *
+                                            remainder) * self._s_func.subs(
+                    var, (primitive_uroot ** m) * var)
+            result.append(
+                SymengineDist(f"(1/{a}) * ({psum})",*self._variables)
+            )
+        return result
 
     def hadamard_product(self, other: SymengineDist) -> SymengineDist:
         raise NotImplementedError()  # ignore for now
@@ -249,18 +362,25 @@ class SymengineDist(Distribution):
         return sp.S(self._s_func).is_polynomial()
 
     def get_fresh_variable(self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
-        raise NotImplementedError()
+        i = 0
+        while se.S(f'_{i}') in (
+                self._variables
+                | self._parameters) or f'_{i}' in exclude:
+            i += 1
+        return f'_{i}'
+
+    # TODO when to use se.S(*) and when se.Symbol(*)?
 
     def _update_var(self, updated_var: str, assign_var: str | int) -> SymengineDist:
-        up_var, as_var = se.S(updated_var), se.S(assign_var)
+        up_var, as_var = se.Symbol(updated_var), se.Symbol(assign_var)
         if str(assign_var) in self._parameters:
             raise ValueError("Assignment to parameters is not allowed")
-        if as_var.is_symbol and as_var not in  self._variables:
+        if se.S(str(assign_var)).is_symbol and se.S(str(assign_var)) not in self._variables:
             raise ValueError(f"Unknown symbol: {assign_var}")
 
         if not updated_var == assign_var:
             if as_var in self._variables:
-                res = self._s_func.subs(as_var, 1, as_var, as_var * up_var)
+                res = self._s_func.subs(up_var, 1).subs(as_var, as_var * up_var)
             else:
                 res = self._s_func.subs(up_var, 1) * up_var ** as_var
             return SymengineDist(res, *self._variables)
@@ -268,29 +388,352 @@ class SymengineDist(Distribution):
             return self.copy()
 
     def _update_sum(self, temp_var: str, first_summand: str | int, second_summand: str | int) -> SymengineDist:
-        raise NotImplementedError()
+        update_var, sum_1, sum_2, res = se.Symbol(temp_var), se.S(first_summand), se.S(second_summand), self._s_func
+
+        # Two variables are added
+        if sum_1 in self._variables and sum_2 in self._variables:
+            if sum_2 == update_var:
+                sum_1, sum_2 = sum_2, sum_1
+            if sum_1 == update_var:
+                if sum_2 == update_var:
+                    res = res.subs(update_var, update_var ** 2)
+                else:
+                    res = res.subs(sum_2, sum_2 * update_var)
+            else:
+                res = res.subs(update_var, 1).subs(sum_1, sum_1 * update_var).subs(sum_2, sum_2 * update_var)
+
+        # One variable and one literal / parameter is added
+        elif sum_1 in self._variables or sum_2 in self._variables:
+            if sum_1 in self._variables:
+                var, lit = sum_1, sum_2
+            else:
+                var, lit = sum_2, sum_1
+            if not var == update_var:
+                res = res.subs(update_var, 1).subs(var, update_var * var)
+            res = res * (update_var ** lit)
+
+        # Two literals / parameters are added
+        else:
+            res = res.subs(update_var, 1) * (update_var ** (sum_1 * sum_2))
+
+        return SymengineDist(res, *self._variables)
 
     def _update_product(self, temp_var: str, first_factor: str, second_factor: str,
                         approximate: str | float | None) -> SymengineDist:
         raise NotImplementedError()
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int, sub: str | int) -> SymengineDist:
-        raise NotImplementedError()
+        update_var, sub_1, sub_2, res = se.Symbol(temp_var), se.S(sub_from), se.S(sub), self._s_func
+
+        # Subtraction of two variables
+        if sub_1 in self._variables and sub_2 in self._variables:
+            if sub_2 == update_var:
+                if sub_1 == update_var:
+                    res = res.subs(update_var, 1)
+                else:
+                    res = res.subs(update_var, update_var ** (-1)).subs(sub_1, sub_1 * update_var)
+            else:
+                if not sub_1 == update_var:
+                    res = res.subs(update_var, 1).subs(sub_1, sub_1 * update_var)
+                res = res.subs(sub_2, sub_2 * update_var ** (-1))
+
+        # Literal subtracted from variable
+        elif sub_1 in self._variables:
+            if not update_var == sub_1:
+                res = res.subs(update_var, 1).subs(sub_1, sub_1 * update_var)
+            res = res * update_var ** (-sub_2)
+
+        # Variable subtracted from literal
+        elif sub_2 in self._variables:
+            if sub_2 == update_var:
+                res = res.subs(update_var, update_var ** (-1)) * update_var ** sub_1
+            else:
+                res = res.subs(update_var, 1) * update_var ** sub_1
+                res = res.subs(sub_2, sub_2 * update_var ** (-1))
+
+        # Two literals are subtracted from each other
+        else:
+            diff = sub_1 - sub_2
+            if sub_1 not in self._parameters and sub_2 not in self._parameters and diff < 0:
+                raise ValueError(
+                    f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it is negative"
+                )
+            res = res.subs(update_var, 1) * update_var ** diff
+
+        res = se.expand(res)
+        expr = SymengineDist(res, *self._variables)
+        expr.set_parameters(*self.get_parameters())
+
+        test_fun: se.Basic = expr.marginal(temp_var)._s_func.subs(update_var, 0)
+        if test_fun.has(se.zoo) or test_fun == se.nan:
+            raise ValueError(
+                f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it can be negative"
+            )
+        return expr
 
     def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
                        approximate: str | float | None) -> SymengineDist:
-        raise NotImplementedError()
+        left_sym, right_sym = se.Symbol(str(left)), se.Symbol(str(right))
+
+        if left_sym in self._parameters or right_sym in self._parameters:
+            raise ValueError("Cannot perform modulo operation on parameters")
+
+        update_var = se.Symbol(temp_var)
+        result = 0
+
+        # On finite GFs, iterate over all states
+        if self.is_finite():
+            for prob, state_r in self:
+                if left_sym in self._variables:
+                    left_var = state_r[left]
+                else:
+                    left_var = se.S(left)
+                if right_sym in self._variables:
+                    right_var = state_r[right]
+                else:
+                    right_var = se.S(right)
+                result += prob * se.S(state_r.to_monomial()).subs(update_var, 1) * update_var ** (left_var % right_var)
+
+        # If GF is infinite and right is variable, it needs to have finite range
+        elif right_sym in self._variables:
+            assert isinstance(right, str)
+            marginal_r = self.marginal(right)
+            if not marginal_r.is_finite():
+                if approximate is None:
+                    raise ValueError(
+                        f'Cannot perform modulo operation with infinite right hand side {right}'
+                    )
+                marginal_r = marginal_r.approximate_unilaterally(right, approximate)
+                for _, state_r in marginal_r:
+                    result += self.filter(
+                        parse_expr(f'{right}={state_r[right]}')
+                    )._update_modulo(
+                        temp_var, left, state_r[right], None
+                    )._s_func
+
+        # If left is a variable, it doesn't have to have finite range
+        elif left_sym in self._variables:
+            assert isinstance(left, str)
+            marginal_l = self.marginal(left)
+            if not marginal_l.is_finite():
+                for _, state_l in marginal_l:
+                    result += self.filter(
+                        parse_expr(f'{left}={state_l[left]}')
+                    )._update_modulo(
+                        temp_var, state_l[left], right, None
+                    )._s_func
+
+        # Both are not variables, simply compute the result
+        else:
+            return self._update_var(temp_var, int(left) % int(right))
+
+        return SymengineDist(result, *self._variables)
 
     def _update_division(self, temp_var: str, numerator: str | int, denominator: str | int,
                          approximate: str | float | None) -> SymengineDist:
-        raise NotImplementedError()
+        update_var = se.Symbol(temp_var)
+        div_1, div_2 = se.S(numerator), se.S(denominator)
+
+        if div_1 in self._parameters or div_2 in self._parameters:
+            raise ValueError('Division containing parameters is not allowed')
+
+        marginal_l = self.marginal(numerator) if div_1 in self._variables else div_1
+        marginal_r = self.marginal(denominator) if div_2 in self._variables else div_2
+
+        if isinstance(marginal_l, SymengineDist) and not marginal_l.is_finite():
+            if approximate is None:
+                raise ValueError(
+                    f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'
+                )
+            assert isinstance(numerator, str)
+            marginal_l = marginal_l.approximate_unilaterally(numerator, approximate)
+
+        if isinstance(marginal_r, SymengineDist) and not marginal_r.is_finite():
+            if approximate is None:
+                raise ValueError(
+                    f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'
+                )
+            assert isinstance(denominator, str)
+            marginal_r = marginal_r.approximate_unilaterally(denominator, approximate)
+
+        res = 0
+        if isinstance(marginal_l, SymengineDist):
+            for _, state_l in marginal_l:
+                if isinstance(marginal_r, SymengineDist):
+                    for _, state_r in marginal_r:
+                        val_l, val_r = state_l[numerator], state_r[denominator]
+                        x = self.filter(
+                            parse_expr(f'{numerator}={val_l} & {denominator}={val_r}')
+                        )._s_func
+                        if val_l % val_r != 0 and x != 0:
+                            raise ValueError(
+                                f"Cannot assign {numerator} / {denominator} to {temp_var} "
+                                "because it is not always an integer"
+                            )
+                        res += x.subs(update_var, 1) * update_var ** (val_l / val_r)
+                else:
+                    val_l, val_r = state_l[numerator], div_2
+                    x = self.filter(
+                        parse_expr(f'{numerator}={val_l}'))._s_func
+                    if val_l % val_r != 0 and x != 0:
+                        raise ValueError(
+                            f"Cannot assign {numerator} / {denominator} to {temp_var} "
+                            "because it is not always an integer"
+                        )
+                    res += x.subs(update_var, 1) * update_var ** (val_l / val_r)
+        else:
+            if isinstance(marginal_r, SymengineDist):
+                for _, state_r in marginal_r:
+                    val_l, val_r = div_1, state_r[denominator]
+                    x = self.filter(
+                        parse_expr(f'{denominator}={val_r}'))._s_func
+                    if val_l % val_r != 0 and x != 0:
+                        raise ValueError(
+                            f"Cannot assign {numerator} / {denominator} to {temp_var} "
+                            "because it is not always an integer"
+                        )
+                    res += x.subs(update_var,
+                                  1) * update_var ** (val_l / val_r)
+            else:
+                if div_1 % div_2 != 0:
+                    raise ValueError(
+                        f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
+                    )
+                res = self._s_func.subs(update_var,
+                                           1) * update_var ** (div_1 / div_2)
+
+        res = SymengineDist(res, *self._variables)
+        res.set_parameters(*self.get_parameters())
+        return res
 
     def _update_power(self, temp_var: str, base: str | int, exp: str | int,
                       approximate: str | float | None) -> SymengineDist:
-        raise NotImplementedError()
+        update_var = se.S(temp_var)
+        pow_1, pow_2 = se.S(base), se.S(exp)
+        res = self._s_func
+
+        if pow_1 in self._parameters or pow_2 in self._parameters:
+            raise ValueError(
+                "Cannot perfrom an exponentiation containing parameters")
+
+        # variable to the power of a variable
+        if pow_1 in self._variables and pow_2 in self._variables:
+            assert isinstance(base, str)
+            assert isinstance(exp, str)
+            marginal_l, marginal_r = self.marginal(base), self.marginal(exp)
+
+            if not marginal_l.is_finite():
+                if approximate is None:
+                    raise ValueError(
+                        "Can only perform exponentiation of variables if both have a finite marginal"
+                    )
+                marginal_l = marginal_l.approximate_unilaterally(
+                    base, approximate)
+            if not marginal_r.is_finite():
+                if approximate is None:
+                    raise ValueError(
+                        "Can only perform exponentiation of variables if both have a finite marginal"
+                    )
+                marginal_r = marginal_r.approximate_unilaterally(
+                    exp, approximate)
+
+            for _, state_l in marginal_l:
+                for _, state_r in marginal_r:
+                    x = self.filter(
+                        parse_expr(
+                            f'{base}={state_l[base]} & {exp}={state_r[exp]}')
+                    )._s_func
+                    res -= x
+                    res += x.subs(update_var, 1) * update_var ** (state_l[base] **
+                                                                  state_r[exp])
+
+        # variable to the power of a literal
+        elif pow_1 in self._variables:
+            marginal = self.marginal(base)
+
+            if not marginal.is_finite():
+                raise ValueError(
+                    "Can only perform exponentiation if the base has a finite marginal"
+                )
+
+            for _, state in marginal:
+                x = self.filter(parse_expr(f'{base}={state[base]}'))._s_func
+                res -= x
+                res += x.subs(update_var, 1) * update_var ** (state[base] ** pow_2)
+
+        # literal to the power of a variable
+        elif pow_2 in self._variables:
+            marginal = self.marginal(exp)
+
+            if not marginal.is_finite():
+                raise ValueError(
+                    "Can only perform exponentiation if the exponent has a finite marginal"
+                )
+
+            for _, state in marginal:
+                x = self.filter(parse_expr(f'{exp}={state[exp]}'))._s_func
+                res -= x
+                res += x.subs(update_var, 1) * update_var ** (pow_1 ** state[exp])
+
+        # literal to the power of a literal
+        else:
+            res = res.subs(update_var, 1) * update_var ** (pow_1 ** pow_2)
+
+        res = SymengineDist(res, *self._variables)
+        res.set_parameters(*self.get_parameters())
+        return res
 
     def update_iid(self, sampling_dist: Expr, count: VarExpr, variable: Union[str, VarExpr]) -> SymengineDist:
-        raise NotImplementedError()
+        subst_var = count.var
+
+        def subs(dist_gf, subst_var, variable) -> SymengineDist:
+            result = self.marginal(
+                variable,
+                method=MarginalType.EXCLUDE) if subst_var != variable else self
+            result.set_variables(*self.get_variables(), str(variable))
+            if subst_var == variable:
+                result._s_func = result._s_func.subs(
+                    se.S(subst_var), dist_gf)
+            else:
+                result._s_func = result._s_func.subs(
+                    se.S(subst_var),
+                    se.S(subst_var) * dist_gf)
+                result = result.set_parameters(*self.get_parameters())
+            return result
+
+        if not isinstance(sampling_dist, FunctionCallExpr):
+            # create distribution in correct variable:
+            expr = Mut.alloc(sampling_dist)
+            dist_gf = se.S(str(expr.val))
+            return subs(dist_gf, subst_var, variable)
+
+        if sampling_dist.function == "binomial":
+            n, p = map(se.S, sampling_dist.params[0])
+            dist_gf = (1 - p + p * se.S(variable)) ** n
+            return subs(dist_gf, subst_var, variable)
+        if sampling_dist.function in {"unif", "unif_d"}:
+            start, end = map(se.S, sampling_dist.params[0])
+            var = se.S(variable)
+            dist_gf = 1 / (end - start + 1) * var ** start * (
+                    var ** (end - start + 1) - 1) / (var - 1)
+            return subs(dist_gf, subst_var, variable)
+        # All remaining distributions have only one parameter
+        [param] = map(se.S, sampling_dist.params[0])
+        if sampling_dist.function == "geometric":
+            dist_gf = param / (1 - (1 - param) * se.S(variable))
+            return subs(dist_gf, subst_var, variable)
+        if sampling_dist.function == "logdist":
+            dist_gf = se.log(1 - param *
+                             se.S(variable)) / se.log(1 - param)
+            return subs(dist_gf, subst_var, variable)
+        if sampling_dist.function == "bernoulli":
+            dist_gf = param * se.S(variable) + (1 - param)
+            return subs(dist_gf, subst_var, variable)
+        if sampling_dist.function == "poisson":
+            dist_gf = se.exp(param * (se.S(variable) - 1))
+            return subs(dist_gf, subst_var, variable)
+
+        raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
 
     def marginal(self, *variables: Union[str, VarExpr], method: MarginalType = MarginalType.INCLUDE) -> SymengineDist:
         result = self._s_func
@@ -325,10 +768,43 @@ class SymengineDist(Distribution):
         self._parameters = new_params
 
     def approximate(self, threshold: Union[str, int]) -> Generator[SymengineDist, None, None]:
-        raise NotImplementedError()
+        logger.debug("expand_until() call")
+        approx = se.Integer(0)
+        precision = se.Integer(0)
+
+        if isinstance(threshold, int):
+            assert threshold > 0, "Expanding to less than 0 terms is not valid."
+            for n, (prob, state) in enumerate(self):
+                if n >= threshold:
+                    break
+                approx += prob * se.S(state.to_monomial())
+                precision += prob
+                yield SymengineDist(approx,*self._variables)
 
     def approximate_unilaterally(self, variable: str, probability_mass: str | float) -> SymengineDist:
-        raise NotImplementedError()
+        logger.debug("approximate_unilaterally(%s, %s) call on %s", variable,
+                     probability_mass, self)
+        mass = se.S(probability_mass)
+        if mass == 0:
+            return SymengineDist('0',*self._variables)
+        elif mass > self.coefficient_sum():     # TODO implement coefficient_sum
+            raise ValueError("Given probability mass is too large")
+        elif mass < 0:
+            raise ValueError("Given probability mass must be non-negative")
+        var = se.S(variable)
+        if var not in self._variables:
+            raise ValueError(f'Not a variable: {variable}')
+        result = 0
+        mass_res = 0
+
+        for element in se.series(self._s_func, var):
+            result += element
+            mass_res += element.subs([(sym, 1)
+                                      for sym in element.free_symbols])
+            if mass_res >= mass:
+                return SymengineDist(result, *self._variables)
+
+        raise NotImplementedError("unreachable")
 
 
 class SymenginePGF(CommonDistributionsFactory):
