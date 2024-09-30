@@ -328,7 +328,7 @@ class SymengineDist(Distribution):
         return result
 
     def hadamard_product(self, other: SymengineDist) -> SymengineDist:
-        raise NotImplementedError()  # ignore for now
+        raise NotImplementedError("Hadamard Product is currently supported")  # ignore for now
 
     def _find_symbols(self, expr: str) -> Set[str]:
         return se.S(expr).free_symbols
@@ -420,7 +420,68 @@ class SymengineDist(Distribution):
 
     def _update_product(self, temp_var: str, first_factor: str, second_factor: str,
                         approximate: str | float | None) -> SymengineDist:
-        raise NotImplementedError()
+        update_var = se.S(temp_var)
+        # TODO: implement assumption here if implemented in symengine
+        update_var_with_assumptions = se.S(temp_var)
+        prod_1, prod_2 = se.S(first_factor), se.S(second_factor)
+        res = self._s_func
+
+        if prod_1 in self._parameters or prod_2 in self._parameters:
+            raise ValueError("Assignment of parameters is not allowed")
+
+        # Multiplication of two variables
+        if prod_1 in self._variables and prod_2 in self._variables:
+            if not self.is_finite():
+                marginal_l = self.marginal(first_factor)
+                marginal_r = self.marginal(second_factor)
+                res = se.Integer(0)
+
+                if not marginal_l.is_finite() and not marginal_r.is_finite():
+                    if approximate is None:
+                        raise ValueError(
+                            f'Cannot perform the multiplication {first_factor} * {second_factor} ' \
+                            'because both variables have infinite range'
+                        )
+                    # TODO can we choose which side to approximate in a smarter way?
+                    #   from generating_function.py
+                    marginal_l = marginal_l.approximate_unilaterally(first_factor, approximate)
+
+                finite, finite_var, infinite_var = (marginal_l, first_factor, second_factor) if marginal_l.is_finite() \
+                    else (marginal_r, second_factor, first_factor)
+
+                for _, state in finite:
+                    res += self.filter(
+                        parse_expr(f'{finite_var}={state[finite_var]}')
+                    )._update_product(
+                        temp_var, state[finite_var], infinite_var, approximate
+                    )._s_func
+            else:
+                for prob, state in self:
+                    term: se.Basic= prob * se.S(state.to_monomial())
+                    res = res - term
+                    term = term.subs(update_var, 1) * update_var_with_assumptions ** (state[first_factor]
+                                                                                      * state[second_factor])
+                    res = res + term
+
+        # Multiplication of one variable and one literal
+        elif prod_1 in self._variables or prod_2 in self._variables:
+            if prod_1 in self._variables:
+                var, lit = prod_1, prod_2
+            else:
+                var, lit = prod_2, prod_1
+            if var == update_var:
+                res = res.subs(update_var, update_var_with_assumptions ** lit)
+            else:
+                res = res.subs(update_var, 1).subs(var, var * update_var_with_assumptions ** lit)
+
+        # Multiplication of two literals
+        else:
+            res = res.subs(update_var, 1) * (update_var_with_assumptions ** (prod_1 * prod_2))
+
+        # TODO filter out assumptions over symbols once implemented
+        result = SymengineDist(res, *self._variables)
+        result.set_parameters(*self.get_parameters())
+        return result
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int, sub: str | int) -> SymengineDist:
         update_var, sub_1, sub_2, res = se.Symbol(temp_var), se.S(sub_from), se.S(sub), self._s_func
