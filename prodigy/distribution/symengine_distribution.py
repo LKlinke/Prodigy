@@ -479,9 +479,7 @@ class SymengineDist(Distribution):
             res = res.subs(update_var, 1) * (update_var_with_assumptions ** (prod_1 * prod_2))
 
         # TODO filter out assumptions over symbols once implemented
-        result = SymengineDist(res, *self._variables)
-        result.set_parameters(*self.get_parameters())
-        return result
+        return SymengineDist(res, *self._variables).set_parameters(*self.get_parameters())
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int, sub: str | int) -> SymengineDist:
         update_var, sub_1, sub_2, res = se.Symbol(temp_var), se.S(sub_from), se.S(sub), self._s_func
@@ -522,8 +520,7 @@ class SymengineDist(Distribution):
             res = res.subs(update_var, 1) * update_var ** diff
 
         res = se.expand(res)
-        expr = SymengineDist(res, *self._variables)
-        expr.set_parameters(*self.get_parameters())
+        expr = SymengineDist(res, *self._variables).set_parameters(*self._parameters)
 
         test_fun: se.Basic = expr.marginal(temp_var)._s_func.subs(update_var, 0)
         if test_fun.has(se.zoo) or test_fun == se.nan:
@@ -663,9 +660,7 @@ class SymengineDist(Distribution):
                 res = self._s_func.subs(update_var,
                                            1) * update_var ** (div_1 / div_2)
 
-        res = SymengineDist(res, *self._variables)
-        res.set_parameters(*self.get_parameters())
-        return res
+        return SymengineDist(res, *self._variables).set_parameters(*self.get_parameters())
 
     def _update_power(self, temp_var: str, base: str | int, exp: str | int,
                       approximate: str | float | None) -> SymengineDist:
@@ -740,9 +735,7 @@ class SymengineDist(Distribution):
         else:
             res = res.subs(update_var, 1) * update_var ** (pow_1 ** pow_2)
 
-        res = SymengineDist(res, *self._variables)
-        res.set_parameters(*self.get_parameters())
-        return res
+        return SymengineDist(res, *self._variables).set_parameters(*self.get_parameters())
 
     def update_iid(self, sampling_dist: Expr, count: VarExpr, variable: Union[str, VarExpr]) -> SymengineDist:
         subst_var = count.var
@@ -810,23 +803,24 @@ class SymengineDist(Distribution):
         return SymenginePGF.from_expr(result, self._variables - remove_vars[method],
                                       self._parameters)
 
-    def set_variables(self, *variables: str):
+    def set_variables(self, *variables: str) -> SymengineDist:
         new_variables = set(variables)
         if self._parameters & new_variables:
             raise ValueError(
                 f"At least one variable is already known as a parameter. {self._parameters=}, {new_variables=}")
         if not (self._parameters | new_variables).issuperset({str(s) for s in self._s_func.free_symbols}):
             raise ValueError(f"There are unknown symbols which are neither variables nor parameters.")
-        self._variables = new_variables
+        return SymenginePGF.from_expr(self._s_func, *new_variables)
 
-    def set_parameters(self, *parameters: str):
+    def set_parameters(self, *parameters: str) -> SymengineDist:
         new_params = set(parameters)
         if self._variables & new_params:
             raise ValueError(
                 f"At least one parameter is already known as a variable. {self._variables=}, {new_params=}")
         if not (self._variables | new_params).issuperset({str(s) for s in self._s_func.free_symbols}):
             raise ValueError(f"There are unknown symbols which are neither variables nor parameters.")
-        self._parameters = new_params
+
+        return SymenginePGF.from_expr(self._s_func, *self._variables)
 
     def approximate(self, threshold: Union[str, int]) -> Generator[SymengineDist, None, None]:
         logger.debug("expand_until() call")
