@@ -2,6 +2,7 @@ from prodigy.distribution.symengine_distribution import *
 import pytest
 import symengine as se
 import random
+from probably.pgcl import NatLitExpr
 
 
 def create_random_gf(number_of_variables: int = 1, terms: int = 1):
@@ -11,14 +12,14 @@ def create_random_gf(number_of_variables: int = 1, terms: int = 1):
         se.S(random.randint(0, 100)) for _ in range(len(symbols) * terms)
     ]
     coeffs = [
-        se.S(str(random.uniform(0, 1)), rational=True) for _ in range(terms)
+        se.S(str(random.uniform(0, 1))) for _ in range(terms)
     ]
 
     result = se.S(0)
     for i in range(terms):
         monomial = se.S(1)
         for var in symbols:
-            monomial *= var**values[i]
+            monomial *= var ** values[i]
         result += monomial * coeffs[i]
     return SymengineDist(str(result), *symbols)
 
@@ -31,10 +32,10 @@ class TestDistributionInterface:
         produkt = g * h
         assert summe.get_parameters() == {'p'}
         assert summe == SymengineDist("x + y", "x",
-                                           "y").set_parameters('p')
+                                      "y").set_parameters('p')
         assert produkt.get_parameters() == {'p'}
         assert produkt == SymengineDist("x*y", "x",
-                                             "y").set_parameters('p')
+                                        "y").set_parameters('p')
 
         f = SymengineDist("x*y", "y")
         with pytest.raises(ArithmeticError):
@@ -253,8 +254,8 @@ class TestDistributionInterface:
         assert gf.marginal('x') == SymenginePGF.uniform("x", '0', '10')
         assert gf.marginal(
             'x', method=MarginalType.EXCLUDE) == SymenginePGF.binomial('y',
-                                                                   n='10',
-                                                                   p='1/2')
+                                                                       n='10',
+                                                                       p='1/2')
         assert gf.marginal('x', 'y') == gf
 
         gf = SymengineDist("(1-sqrt(1-c**2))/c")
