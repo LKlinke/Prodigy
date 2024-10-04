@@ -95,19 +95,34 @@ class SymengineDist(Distribution):
 
         if self.is_finite():
             for prob, state in self:
-                pass  # TODO
+                if prob > other.get_prob_by_diff(state):
+                    return False
+                return True
 
         if other.is_finite():
             for prob, state in other:
-                pass  # TODO
+                if self.get_prob_by_diff(state) > prob:
+                    return False
+                return True
 
         difference: se.Basic = self._s_func - other._s_func
-        # fixme replace once suitable method is found
+        # todo replace once suitable method is found
         #   cf. https://github.com/symengine/symengine.py/issues/492
         if sp.S(difference).is_polynomial():
             return all(
                 map(lambda x: x > 0, difference.as_coefficients_dict().values())
             )
+
+    def coefficient_sum(self) -> se.Expr:
+        # TODO Limits seem to not be present in SE
+        coefficient_sum: sp.Expr = sp.S(self._s_func).simplify()
+        for var in self._variables:
+            coefficient_sum = coefficient_sum.limit(
+                var, 1, "-"
+            )
+        return se.S(coefficient_sum)
+
+
 
     def __str__(self) -> str:
         return f"{self._s_func}"
@@ -126,7 +141,9 @@ class SymengineDist(Distribution):
                 for tup in default_monomial_iterator(len(v)):
                     yield prob_fun(State(dict(zip(v, tup)))), State(dict(zip(v, tup)))
         else:
-            for prob, vals in sp.S(self._s_func).as_terms():  # fixme replace with symengine method
+            # FIXME not right method
+            #   ... unpacking, expected 2 got 1
+            for prob, vals in sp.S(self._s_func).as_terms():  # todo replace with symengine method
                 yield prob, State(vals)
 
     def iter_with(self, monomial_iterator: Iterator[List[int]]) -> Iterator[Tuple[str, State]]:
@@ -141,7 +158,7 @@ class SymengineDist(Distribution):
             for tup in monomial_iterator:
                 yield prob_fun(State(dict(zip(v, tup)))), State(dict(zip(v, tup)))
         else:
-            for prob, vals in sp.S(self._s_func).as_terms():  # fixme replace with symengine method
+            for prob, vals in sp.S(self._s_func).as_terms():  # todo replace with symengine method
                 yield prob, State(vals)
 
     # TODO integrate these functions better / move them / replace by correct signature
@@ -151,6 +168,7 @@ class SymengineDist(Distribution):
         :param state: The state to get the probability of
         :return: The probability of the given state
         """
+        # FIXME TypeError: Cannot convert tuple to symengine.lib.symengine_wrapper.Basic
         fun = self._s_func.diff(*state.items())
         return fun.subs({v: 0 for v in self._variables}) / math.prod([math.factorial(el[1]) for el in state.items()])
 
@@ -187,7 +205,7 @@ class SymengineDist(Distribution):
         return str(fast_result)
 
     def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
-        # FIXME replace sympy by symengine if method is implemented
+        # todo replace sympy by symengine if method is implemented
         expr = sp.S(str(expression)).ratsimp().expand()
         if not expr.is_polynomial():
             raise NotImplementedError(
@@ -357,7 +375,7 @@ class SymengineDist(Distribution):
         return self._s_func.is_zero
 
     def is_finite(self) -> bool:
-        # fixme replace once a suitable method is found within symengine
+        # todo replace once a suitable method is found within symengine
         #   cf. https://github.com/symengine/symengine.py/issues/492
         return sp.S(self._s_func).is_polynomial()
 
@@ -439,7 +457,7 @@ class SymengineDist(Distribution):
                 if not marginal_l.is_finite() and not marginal_r.is_finite():
                     if approximate is None:
                         raise ValueError(
-                            f'Cannot perform the multiplication {first_factor} * {second_factor} ' \
+                            f'Cannot perform the multiplication {first_factor} * {second_factor} '
                             'because both variables have infinite range'
                         )
                     # TODO can we choose which side to approximate in a smarter way?
@@ -810,7 +828,7 @@ class SymengineDist(Distribution):
                 f"At least one variable is already known as a parameter. {self._parameters=}, {new_variables=}")
         if not (self._parameters | new_variables).issuperset({str(s) for s in self._s_func.free_symbols}):
             raise ValueError(f"There are unknown symbols which are neither variables nor parameters.")
-        return SymenginePGF.from_expr(self._s_func, *new_variables)
+        return SymenginePGF.from_expr(str(self._s_func), *new_variables)
 
     def set_parameters(self, *parameters: str) -> SymengineDist:
         new_params = set(parameters)
@@ -820,7 +838,7 @@ class SymengineDist(Distribution):
         if not (self._variables | new_params).issuperset({str(s) for s in self._s_func.free_symbols}):
             raise ValueError(f"There are unknown symbols which are neither variables nor parameters.")
 
-        return SymenginePGF.from_expr(self._s_func, *self._variables)
+        return SymenginePGF.from_expr(str(self._s_func), *self._variables)
 
     def approximate(self, threshold: Union[str, int]) -> Generator[SymengineDist, None, None]:
         logger.debug("expand_until() call")
@@ -842,7 +860,7 @@ class SymengineDist(Distribution):
         mass = se.S(probability_mass)
         if mass == 0:
             return SymengineDist('0',*self._variables)
-        elif mass > self.coefficient_sum():     # TODO implement coefficient_sum
+        elif mass > self.coefficient_sum():
             raise ValueError("Given probability mass is too large")
         elif mass < 0:
             raise ValueError("Given probability mass must be non-negative")
@@ -870,7 +888,7 @@ class SymenginePGF(CommonDistributionsFactory):
     @staticmethod
     def uniform(var: Union[str, VarExpr], lower: DistributionParam, upper: DistributionParam) -> SymengineDist:
         return SymengineDist(f"1/({upper} - {lower} + 1) * ({var}^{lower}) * (({var}^({upper} - {lower} + 1) - 1)/" +
-                             "({var} - 1))", str(var))
+                             f"({var} - 1))", str(var))
 
     @staticmethod
     def bernoulli(var: Union[str, VarExpr], p: DistributionParam) -> SymengineDist:
