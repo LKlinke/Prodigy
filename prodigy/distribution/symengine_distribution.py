@@ -122,8 +122,6 @@ class SymengineDist(Distribution):
             )
         return se.S(coefficient_sum)
 
-
-
     def __str__(self) -> str:
         return f"{self._s_func}"
 
@@ -168,8 +166,7 @@ class SymengineDist(Distribution):
         :param state: The state to get the probability of
         :return: The probability of the given state
         """
-        # FIXME TypeError: Cannot convert tuple to symengine.lib.symengine_wrapper.Basic
-        fun = self._s_func.diff(*state.items())
+        fun = self._s_func.diff(*[el for tup in state.items() for el in tup])
         return fun.subs({v: 0 for v in self._variables}) / math.prod([math.factorial(el[1]) for el in state.items()])
 
     def get_prob_by_series(self, state: State) -> se.Basic:
@@ -179,7 +176,7 @@ class SymengineDist(Distribution):
         :return: The probability of the given state
         """
         series = self._s_func
-        args = {}
+        args = []
         for (v, val) in state.items():
             series: se.Basic = se.series(series, v, 0, val + 1)
             # Build the expression
@@ -244,6 +241,7 @@ class SymengineDist(Distribution):
         mass = self.get_probability_mass()
         if mass == 0:
             raise ZeroDivisionError
+        # FIXME TypeError: unsupported operand type(s) for /: 'Mul' and 'str'
         return SymengineDist(self._s_func / mass, *self._variables)
 
     def get_variables(self) -> Set[str]:
@@ -817,6 +815,7 @@ class SymengineDist(Distribution):
                                    for var in variables}
         }
         for var in remove_vars[method]:
+            # FIXME AttributeError: 'Mul' object has no attribute 'update_var'
             result = result.update_var(str(var), "0")
         return SymenginePGF.from_expr(result, self._variables - remove_vars[method],
                                       self._parameters)
