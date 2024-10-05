@@ -41,25 +41,25 @@ class SymengineDist(Distribution):
         return variables.intersection(parameters) == set()
 
     def __add__(self, other) -> SymengineDist:
-        variables = self._operator_prerequisites(other, self.__add__, "add")
+        variables, parameters = self._operator_prerequisites(other, self.__add__, "add")
         s_result = self._s_func + other._s_func
-        return SymengineDist(s_result, *variables)
+        return SymengineDist(s_result, *variables).set_parameters(*parameters)
 
     def __sub__(self, other) -> SymengineDist:
-        variables = self._operator_prerequisites(other, self.__sub__, "subtract")
+        variables, parameters = self._operator_prerequisites(other, self.__sub__, "subtract")
         s_result = self._s_func - other._s_func
-        return SymengineDist(s_result, *variables)
+        return SymengineDist(s_result, *variables).set_parameters(*parameters)
 
     def __mul__(self, other) -> SymengineDist:
-        variables = self._operator_prerequisites(other, self.__mul__, "multiply")
+        variables, parameters = self._operator_prerequisites(other, self.__mul__, "multiply")
         s_result = self._s_func * other._s_func
-        return SymengineDist(s_result, *variables)
+        return SymengineDist(s_result, *variables).set_parameters(*parameters)
 
     def __truediv__(self, other) -> SymengineDist:
         # TODO is __mul__ the right method?
-        variables = self._operator_prerequisites(other, self.__mul__, "divide")
+        variables, parameters = self._operator_prerequisites(other, self.__mul__, "divide")
         s_result = self._s_func / other._s_func
-        return SymengineDist(s_result, *variables)
+        return SymengineDist(s_result, *variables).set_parameters(*parameters)
 
     def _operator_prerequisites(self, other, f_pointer, textual_descr: str):
         """
@@ -78,7 +78,7 @@ class SymengineDist(Distribution):
         if not self._check_symbol_consistency(other):
             clash = (self._variables | other._variables) & (self._parameters | other._parameters)
             raise SyntaxError(f"Name clash: {clash} for {self} and {other}.")
-        return self._variables | other._variables
+        return (self._variables | other._variables), (self._parameters | other._parameters)
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, SymengineDist):
@@ -836,8 +836,9 @@ class SymengineDist(Distribution):
                 f"At least one parameter is already known as a variable. {self._variables=}, {new_params=}")
         if not (self._variables | new_params).issuperset({str(s) for s in self._s_func.free_symbols}):
             raise ValueError(f"There are unknown symbols which are neither variables nor parameters.")
-
-        return SymenginePGF.from_expr(str(self._s_func), *self._variables)
+        new_gf = SymenginePGF.from_expr(str(self._s_func), *self._variables)
+        new_gf._parameters = new_params
+        return new_gf
 
     def approximate(self, threshold: Union[str, int]) -> Generator[SymengineDist, None, None]:
         logger.debug("expand_until() call")
