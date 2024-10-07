@@ -25,21 +25,25 @@ def create_random_gf(number_of_variables: int = 1, terms: int = 1):
 
 
 class TestDistributionInterface:
-    def test_arithmetic(self):
+    def test_addition(self):
         g = SymengineDist("x", "x").set_parameters('p')
         h = SymengineDist("y", "y")
-        summe = g + h
-        produkt = g * h
-        assert summe.get_parameters() == {'p'}
-        assert summe == SymengineDist("x + y", "x",
-                                      "y").set_parameters('p')
-        assert produkt.get_parameters() == {'p'}
-        assert produkt == SymengineDist("x*y", "x",
-                                        "y").set_parameters('p')
+        gf_prod = g * h
+        assert gf_prod.get_parameters() == {'p'}
+        assert gf_prod == SymengineDist("x * y", "x", "y").set_parameters("p")
 
-        f = SymengineDist("x*y", "y")
-        with pytest.raises(ArithmeticError):
-            f + g
+    def test_product(self):
+        g = SymengineDist("x", "x").set_parameters('p')
+        h = SymengineDist("y", "y")
+        gf_sum = g + h
+        assert gf_sum.get_parameters() == {'p'}
+        assert gf_sum == SymengineDist("x + y", "x", "y").set_parameters("p")
+
+    def test_conflict_parameter_variable(self):
+        g = SymengineDist("x", "x")
+        h = SymengineDist("y", "y").set_parameters("x")
+        with pytest.raises(SyntaxError):
+            g + h
 
     def test_finite_leq(self):
         gf1 = SymengineDist("x**2*y**3")
@@ -251,6 +255,8 @@ class TestDistributionInterface:
     def test_marginal(self):
         gf = SymenginePGF.uniform("x", '0', '10') * SymenginePGF.binomial(
             'y', n='10', p='1/2')
+        print(gf.marginal("x"))
+        print(SymenginePGF.uniform("x", '0', '10'))
         assert gf.marginal('x') == SymenginePGF.uniform("x", '0', '10')
         assert gf.marginal(
             'x', method=MarginalType.EXCLUDE) == SymenginePGF.binomial('y',

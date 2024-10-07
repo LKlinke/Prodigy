@@ -608,6 +608,13 @@ class Distribution(ABC):
         :return: The distribution with parameters `parameters`.
         """
 
+    #@abstractmethod
+    def set_variables_and_parameters(self, variables, parameters):
+        """
+        todo
+        """
+
+
     @abstractmethod
     def approximate(
             self,
