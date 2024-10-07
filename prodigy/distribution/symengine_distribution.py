@@ -241,7 +241,7 @@ class SymengineDist(Distribution):
         mass = se.S(self.get_probability_mass())
         if mass == 0:
             raise ZeroDivisionError
-        return SymengineDist(self._s_func / se.S(mass), *self._variables)
+        return SymengineDist(self._s_func / mass, *self._variables)
 
     def get_variables(self) -> Set[str]:
         return self._variables
@@ -804,6 +804,11 @@ class SymengineDist(Distribution):
         raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
 
     def marginal(self, *variables: Union[str, VarExpr], method: MarginalType = MarginalType.INCLUDE) -> SymengineDist:
+        # FIXME test_marginal returns this
+        #       (1/11)*y**0*(-1 + x**11)/(-1 + x)
+        #   instead of this
+        #       (1/11)*(-1 + x**11)/(-1 + x)
+
         result = self
         remove_vars = {
             MarginalType.EXCLUDE: {str(var)
@@ -814,7 +819,6 @@ class SymengineDist(Distribution):
         }
         for var in remove_vars[method]:
             result = result._update_var(str(var), "0")
-        result._s_func = result._s_func.simplify()
         return result
 
     def set_variables(self, *variables: str) -> SymengineDist:
