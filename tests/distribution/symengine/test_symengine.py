@@ -280,10 +280,11 @@ class TestDistributionInterface:
 
     def test_approximate(self):
         gf = SymengineDist("2/(2-x) - 1")
+        print(list(gf.approximate("0.99")))
         assert list(gf.approximate("0.99"))[-1] == SymengineDist(
             "1/2*x + 1/4*x**2 + 1/8 * x**3 + 1/16 * x**4"
             "+ 1/32 * x**5 + 1/64 * x**6 + 1/128 * x**7")
 
         gf = SymenginePGF.undefined("x", 'y')
-        for prob, state in gf.approximate(10):
-            assert prob == "0" and state == dict()
+        for dist in gf.approximate(10):
+            assert dist.is_zero_dist()

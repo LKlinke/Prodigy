@@ -849,11 +849,29 @@ class SymengineDist(Distribution):
         if isinstance(threshold, int):
             assert threshold > 0, "Expanding to less than 0 terms is not valid."
             for n, (prob, state) in enumerate(self):
+                prob = se.S(prob)
                 if n >= threshold:
                     break
                 approx += prob * se.S(state.to_monomial())
                 precision += prob
-                yield SymengineDist(approx,*self._variables)
+                yield SymengineDist(approx, *self._variables)
+        elif isinstance(threshold, str):
+            s_threshold = se.S(threshold)
+            assert s_threshold < self.coefficient_sum(), \
+                f"Threshold cannot be larger than total coefficient sum! Threshold:" \
+                f" {s_threshold}, CSum {self.coefficient_sum()}"
+            for prob, state in self:
+                prob = se.S(prob)
+                state = se.S(state.to_monomial())
+                if precision >= s_threshold:
+                    break
+                approx += prob * state
+                precision += prob
+                yield SymengineDist(str(approx.expand()), *self._variables)
+        else:
+            raise TypeError(
+                f"Parameter threshold can only be of type str or int,"
+                f" not {type(threshold)}.")
 
     def approximate_unilaterally(self, variable: str, probability_mass: str | float) -> SymengineDist:
         logger.debug("approximate_unilaterally(%s, %s) call on %s", variable,
