@@ -95,13 +95,13 @@ class SymengineDist(Distribution):
 
         if self.is_finite():
             for prob, state in self:
-                if prob > other.get_prob_by_diff(state):
+                if se.S(prob) > other.get_prob_by_diff(state):
                     return False
                 return True
 
         if other.is_finite():
             for prob, state in other:
-                if self.get_prob_by_diff(state) > prob:
+                if self.get_prob_by_diff(state) > se.S(prob):
                     return False
                 return True
 
@@ -139,9 +139,9 @@ class SymengineDist(Distribution):
                 for tup in default_monomial_iterator(len(v)):
                     yield prob_fun(State(dict(zip(v, tup)))), State(dict(zip(v, tup)))
         else:
-            # FIXME not right method
-            #   ... unpacking, expected 2 got 1
-            for prob, vals in sp.S(self._s_func).as_terms():  # todo replace with symengine method
+            # todo replace with symengine method
+            import pygin
+            for prob, vals in pygin.Dist(str(self._s_func).replace("**", "^"), list(self._parameters)).get_terms(self._variables):
                 yield prob, State(vals)
 
     def iter_with(self, monomial_iterator: Iterator[List[int]]) -> Iterator[Tuple[str, State]]:
@@ -238,11 +238,10 @@ class SymengineDist(Distribution):
             return str(expected_value)
 
     def normalize(self) -> SymengineDist:
-        mass = self.get_probability_mass()
+        mass = se.S(self.get_probability_mass())
         if mass == 0:
             raise ZeroDivisionError
-        # FIXME TypeError: unsupported operand type(s) for /: 'Mul' and 'str'
-        return SymengineDist(self._s_func / mass, *self._variables)
+        return SymengineDist(self._s_func / se.S(mass), *self._variables)
 
     def get_variables(self) -> Set[str]:
         return self._variables
@@ -385,7 +384,6 @@ class SymengineDist(Distribution):
             i += 1
         return f'_{i}'
 
-    # TODO when to use se.S(*) and when se.Symbol(*)?
 
     def _update_var(self, updated_var: str, assign_var: str | int) -> SymengineDist:
         up_var, as_var = se.Symbol(updated_var), se.Symbol(assign_var)
@@ -806,7 +804,7 @@ class SymengineDist(Distribution):
         raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
 
     def marginal(self, *variables: Union[str, VarExpr], method: MarginalType = MarginalType.INCLUDE) -> SymengineDist:
-        result = self._s_func
+        result = self
         remove_vars = {
             MarginalType.EXCLUDE: {str(var)
                                    for var in variables},
@@ -815,10 +813,9 @@ class SymengineDist(Distribution):
                                    for var in variables}
         }
         for var in remove_vars[method]:
-            # FIXME AttributeError: 'Mul' object has no attribute 'update_var'
-            result = result.update_var(str(var), "0")
-        return SymenginePGF.from_expr(result, self._variables - remove_vars[method],
-                                      self._parameters)
+            result = result._update_var(str(var), "0")
+        result._s_func = result._s_func.simplify()
+        return result
 
     def set_variables(self, *variables: str) -> SymengineDist:
         new_variables = set(variables)
