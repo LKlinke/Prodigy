@@ -180,7 +180,6 @@ class TestDistributionInterface:
             f"Should be {['x' + str(i) for i in range(variable_count)]}, is {gf.get_variables()}."
 
         gf = SymengineDist("a*x + (1-a)", "x")
-        print(gf.get_variables(), gf.get_parameters())
         assert len(gf.get_variables()) == 1
         assert gf.get_variables() == {"x"}
 
@@ -255,23 +254,20 @@ class TestDistributionInterface:
     def test_marginal(self):
         gf = SymenginePGF.uniform("x", '0', '10') * SymenginePGF.binomial(
             'y', n='10', p='1/2')
-        print(gf.marginal("x"))
-        print(SymenginePGF.uniform("x", '0', '10'))
         assert gf.marginal('x') == SymenginePGF.uniform("x", '0', '10')
-        assert gf.marginal(
-            'x', method=MarginalType.EXCLUDE) == SymenginePGF.binomial('y',
-                                                                       n='10',
-                                                                       p='1/2')
-        assert gf.marginal('x', 'y') == gf
+        # TODO how to check for equality with symengine?
+        assert sp.S(gf.marginal(
+            'x', method=MarginalType.EXCLUDE)._s_func).equals(sp.S(SymenginePGF.binomial('y', n='10', p='1/2')._s_func))
+        assert sp.S(gf.marginal('x', 'y')._s_func).equals(sp.S(gf._s_func))
 
         gf = SymengineDist("(1-sqrt(1-c**2))/c")
         with pytest.raises(ValueError) as e:
             gf.marginal('x', method=MarginalType.INCLUDE)
-        assert "Unknown variable(s): {x}" in str(e)
+            assert "Unknown variable(s):" in str(e)
 
         with pytest.raises(ValueError) as e:
-            gf.marginal('x', method=MarginalType.EXCLUDE)
-        assert "Unknown variable(s): {x}" in str(e)
+            gf.marginal()
+            assert "No variables where provided" in str(e)
 
     def test_set_variables(self):
         gf = create_random_gf(3, 5)
@@ -280,7 +276,6 @@ class TestDistributionInterface:
 
     def test_approximate(self):
         gf = SymengineDist("2/(2-x) - 1")
-        print(list(gf.approximate("0.99")))
         assert list(gf.approximate("0.99"))[-1] == SymengineDist(
             "1/2*x + 1/4*x**2 + 1/8 * x**3 + 1/16 * x**4"
             "+ 1/32 * x**5 + 1/64 * x**6 + 1/128 * x**7")

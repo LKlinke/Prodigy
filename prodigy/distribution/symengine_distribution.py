@@ -108,14 +108,14 @@ class SymengineDist(Distribution):
         difference: se.Basic = self._s_func - other._s_func
         # todo replace once suitable method is found
         #   cf. https://github.com/symengine/symengine.py/issues/492
-        if sp.S(difference).is_polynomial():
+        if se.sympify(difference).is_polynomial():
             return all(
                 map(lambda x: x > 0, difference.as_coefficients_dict().values())
             )
 
     def coefficient_sum(self) -> se.Expr:
         # TODO Limits seem to not be present in SE
-        coefficient_sum: sp.Expr = sp.S(self._s_func).simplify()
+        coefficient_sum: sp.Expr = se.sympify(self._s_func).simplify()
         for var in self._variables:
             coefficient_sum = coefficient_sum.limit(
                 var, 1, "-"
@@ -156,7 +156,7 @@ class SymengineDist(Distribution):
             for tup in monomial_iterator:
                 yield prob_fun(State(dict(zip(v, tup)))), State(dict(zip(v, tup)))
         else:
-            for prob, vals in sp.S(self._s_func).as_terms():  # todo replace with symengine method
+            for prob, vals in se.sympify(self._s_func).as_terms():  # todo replace with symengine method
                 yield prob, State(vals)
 
     # TODO integrate these functions better / move them / replace by correct signature
@@ -203,7 +203,7 @@ class SymengineDist(Distribution):
 
     def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
         # todo replace sympy by symengine if method is implemented
-        expr = sp.S(str(expression)).ratsimp().expand()
+        expr = se.sympify(str(expression)).ratsimp().expand()
         if not expr.is_polynomial():
             raise NotImplementedError(
                 "Expected Value only computable for polynomial expressions.")
@@ -358,7 +358,7 @@ class SymengineDist(Distribution):
         values = []
         for var, value in state.items():
             # Convert the variable into a sympy symbol and substitute
-            variables.append(se.Symbol(var))
+            variables.append(se.S(var))
             values.append(se.S(value))
         s_exp = s_exp.subs(variables, values)
 
@@ -374,7 +374,7 @@ class SymengineDist(Distribution):
     def is_finite(self) -> bool:
         # todo replace once a suitable method is found within symengine
         #   cf. https://github.com/symengine/symengine.py/issues/492
-        return sp.S(self._s_func).is_polynomial()
+        return se.sympify(self._s_func).is_polynomial()
 
     def get_fresh_variable(self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
         i = 0
@@ -384,9 +384,8 @@ class SymengineDist(Distribution):
             i += 1
         return f'_{i}'
 
-
     def _update_var(self, updated_var: str, assign_var: str | int) -> SymengineDist:
-        up_var, as_var = se.Symbol(updated_var), se.Symbol(assign_var)
+        up_var, as_var = se.S(updated_var), se.S(assign_var)
         if str(assign_var) in self._parameters:
             raise ValueError("Assignment to parameters is not allowed")
         if se.S(str(assign_var)).is_symbol and se.S(str(assign_var)) not in self._variables:
@@ -402,7 +401,7 @@ class SymengineDist(Distribution):
             return self.copy()
 
     def _update_sum(self, temp_var: str, first_summand: str | int, second_summand: str | int) -> SymengineDist:
-        update_var, sum_1, sum_2, res = se.Symbol(temp_var), se.S(first_summand), se.S(second_summand), self._s_func
+        update_var, sum_1, sum_2, res = se.S(temp_var), se.S(first_summand), se.S(second_summand), self._s_func
 
         # Two variables are added
         if sum_1 in self._variables and sum_2 in self._variables:
@@ -496,7 +495,7 @@ class SymengineDist(Distribution):
         return SymengineDist(res, *self._variables).set_parameters(*self.get_parameters())
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int, sub: str | int) -> SymengineDist:
-        update_var, sub_1, sub_2, res = se.Symbol(temp_var), se.S(sub_from), se.S(sub), self._s_func
+        update_var, sub_1, sub_2, res = se.S(temp_var), se.S(sub_from), se.S(sub), self._s_func
 
         # Subtraction of two variables
         if sub_1 in self._variables and sub_2 in self._variables:
@@ -545,12 +544,12 @@ class SymengineDist(Distribution):
 
     def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
                        approximate: str | float | None) -> SymengineDist:
-        left_sym, right_sym = se.Symbol(str(left)), se.Symbol(str(right))
+        left_sym, right_sym = se.S(str(left)), se.S(str(right))
 
         if left_sym in self._parameters or right_sym in self._parameters:
             raise ValueError("Cannot perform modulo operation on parameters")
 
-        update_var = se.Symbol(temp_var)
+        update_var = se.S(temp_var)
         result = 0
 
         # On finite GFs, iterate over all states
@@ -603,7 +602,7 @@ class SymengineDist(Distribution):
 
     def _update_division(self, temp_var: str, numerator: str | int, denominator: str | int,
                          approximate: str | float | None) -> SymengineDist:
-        update_var = se.Symbol(temp_var)
+        update_var = se.S(temp_var)
         div_1, div_2 = se.S(numerator), se.S(denominator)
 
         if div_1 in self._parameters or div_2 in self._parameters:
@@ -804,12 +803,17 @@ class SymengineDist(Distribution):
         raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
 
     def marginal(self, *variables: Union[str, VarExpr], method: MarginalType = MarginalType.INCLUDE) -> SymengineDist:
-        # FIXME test_marginal returns this
-        #       (1/11)*y**0*(-1 + x**11)/(-1 + x)
-        #   instead of this
-        #       (1/11)*(-1 + x**11)/(-1 + x)
+        if len(variables) == 0:
+            raise ValueError("No variables were provided")
+        if not {(str(x))
+                for x in variables}.issubset(self._variables):
+            raise ValueError(
+                f"Unknown variable(s): { {str(x) for x in variables} - self._variables}"
+            )
 
         result = self
+        f = self._s_func
+        result._s_func = result._s_func.expand()
         remove_vars = {
             MarginalType.EXCLUDE: {str(var)
                                    for var in variables},
@@ -817,9 +821,42 @@ class SymengineDist(Distribution):
                 self._variables - {str(var)
                                    for var in variables}
         }
+
         for var in remove_vars[method]:
             result = result._update_var(str(var), "0")
-        return result
+
+        if result._s_func.simplify() == se.nan:
+            # Seems like there is a problem with division by zero, try sympy instead
+            sp_gf: sp.Expr = sp.S(str(f)).cancel()
+            result._s_func = se.S(str(sp_gf))
+            for var in remove_vars[method]:
+                result = result._update_var(str(var), "0")
+        return SymenginePGF.from_expr(str(result._s_func.simplify()), *(self._variables - remove_vars[method]))
+
+        # marginal_vars = set(
+        #     map(se.S, filter(lambda v: v != '', map(str, variables))))
+        # marginal = self.copy()
+        # s_var: str | VarExpr | se.Symbol
+        # # TODO replace with symengine method once implemented
+        # marginal_closed_form = not sp.S(str(marginal._s_func)).is_polynomial()
+        # if method == MarginalType.INCLUDE:
+        #     for s_var in marginal._variables.difference(marginal_vars):
+        #         if marginal_closed_form:
+        #             marginal._s_func = se.S(sp.S(str(marginal._s_func)).limit(
+        #                 s_var, 1, "-"))
+        #         else:
+        #             marginal._s_func = marginal._s_func.subs(s_var, 1)
+        #     marginal._variables = marginal_vars
+        # else:
+        #     for s_var in marginal_vars:
+        #         if marginal_closed_form:
+        #             marginal._s_func = se.S(sp.S(str(marginal._s_func)).limit(
+        #                 s_var, 1, "-"))
+        #         else:
+        #             marginal._s_func = marginal._s_func.subs(s_var, 1)
+        #     marginal._variables = marginal._variables.difference(marginal_vars)
+        # marginal._s_func = marginal._s_func.simplify()
+        # return marginal
 
     def set_variables(self, *variables: str) -> SymengineDist:
         new_variables = set(variables)
