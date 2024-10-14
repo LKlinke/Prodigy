@@ -146,6 +146,7 @@ class SymengineDist(Distribution):
                     yield str(prob_fun(State(dict(zip(v, tup))))), State(dict(zip(v, tup)))
         else:
             # todo replace with symengine method
+            logger.info("Falling back to pygin")
             import pygin
             # FIXME this method does not return the terms in a fixed order, sometimes leads to wrong results, e.g.
             #   First test:
