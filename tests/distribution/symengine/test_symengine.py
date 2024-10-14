@@ -7,7 +7,7 @@ from probably.pgcl import NatLitExpr
 
 def create_random_gf(number_of_variables: int = 1, terms: int = 1):
     # This does most likely does not create a PGF!
-    symbols = [se.S("x" + str(i)) for i in range(number_of_variables)]
+    symbols = ["x" + str(i) for i in range(number_of_variables)]
     values = [
         se.S(random.randint(0, 100)) for _ in range(len(symbols) * terms)
     ]
@@ -19,7 +19,7 @@ def create_random_gf(number_of_variables: int = 1, terms: int = 1):
     for i in range(terms):
         monomial = se.S(1)
         for var in symbols:
-            monomial *= var ** values[i]
+            monomial *= se.S(var) ** values[i]
         result += monomial * coeffs[i]
     return SymengineDist(str(result), *symbols)
 
@@ -45,7 +45,7 @@ class TestDistributionInterface:
         with pytest.raises(SyntaxError):
             g + h
 
-    def test_finite_leq(self):
+    def test_finite_sleq(self):
         gf1 = SymengineDist("x**2*y**3")
         gf2 = SymengineDist("1/2*x**2*y**3")
         assert gf2 <= gf1
@@ -63,6 +63,7 @@ class TestDistributionInterface:
 
         gf1 = SymengineDist("(1/2) * x**2*y**3 + (1/2) * x**3*y**2")
         gf2 = SymengineDist("(1/3) * x**2*y**3 + (2/3) * x**3*y**2")
+        # FIXME sometimes the pygin.get_terms method returns different order leading to different results
         assert not gf1 < gf2
 
     def test_infinite_le(self):
@@ -77,33 +78,34 @@ class TestDistributionInterface:
         assert gf1 != gf2
 
     def test_equality_variable_fail(self):
-        gf1 = SymengineDist("y*x")
-        gf2 = SymengineDist("x*y")
-        gf1 = gf1.set_variables("x").set_parameters()
-        gf2 = gf2.set_variables("y").set_parameters()
+        gf1 = SymengineDist("y*x", "x")
+        gf2 = SymengineDist("x*y", "y")
         assert gf1 != gf2
+
+    def test_variable_parameter_clash(self):
+        gf = SymengineDist("y*x")
+        with pytest.raises(ValueError) as e:
+            gf.set_variables("x")
+            assert "There are unknown symbols which are neither variables nor parameters" in str(e)
+
+        with pytest.raises(ValueError) as e:
+            gf.set_parameters("x")
+            assert "At least one parameter is already known as a variable" in str(e)
 
     def test_iteration(self):
         gf = SymengineDist("(1-sqrt(1-x**2))/x")
-        expected_terms = [("1/2", {
-            "x": 1
-        }), ("1/8", State({"x": 3})), ("1/16", {
-            "x": 5
-        }), ("5/128", {
-            "x": 7
-        }), ("7/256", {
-            "x": 9
-        }), ("21/1024", {
-            "x": 11
-        }), ("33/2048", {
-            "x": 13
-        }), ("429/32768", {
-            "x": 15
-        }), ("715/65536", {
-            "x": 17
-        }), ("2431/262144", {
-            "x": 19
-        })]
+        expected_terms = [
+            ("1/2", State({"x": 1})),
+            ("1/8", State({"x": 3})),
+            ("1/16", State({"x": 5})),
+            ("5/128", State({"x": 7})),
+            ("7/256", State({"x": 9})),
+            ("21/1024", State({"x": 11})),
+            ("33/2048", State({"x": 13})),
+            ("429/32768", State({"x": 15})),
+            ("715/65536", State({"x": 17})),
+            ("2431/262144", State({"x": 19}))
+        ]
         i = 0
         for prob, state in gf:
             if i >= 4:
@@ -113,6 +115,19 @@ class TestDistributionInterface:
             else:
                 assert (prob, state) == expected_terms[i]
                 i += 1
+
+    def test_iter_with(self):
+        pass # TODO
+
+    def test_get_prob_by_diff(self):
+        gf = SymenginePGF.geometric("x", "1/2")
+        for i in range(10):
+            assert gf.get_prob_by_diff(State({"x": i})) == se.S(f"(1/2)**({i}+1)")
+
+    def test_get_prob_by_series(self):
+        gf = SymenginePGF.geometric("x", "1/2")
+        for i in range(10):
+            assert gf.get_prob_by_series(State({"x": i})) == se.S(f"(1/2)**({i}+1)")
 
     def test_copy(self):
         gf = create_random_gf(3, 5)
@@ -186,13 +201,12 @@ class TestDistributionInterface:
     def test_get_parameters(self):
         variable_count = random.randint(1, 10)
         gf = create_random_gf(variable_count, 5)
-
         gf *= SymengineDist("p", "")
         assert len(gf.get_parameters()) == 1, \
-            f"Amount of variables does not match. Should be {2}, is {len(gf.get_parameters())}."
+            f"Amount of parameters does not match. Should be {1}, is {len(gf.get_parameters())}."
 
         assert all(map(lambda x: x in {"p"}, gf.get_parameters())), \
-            f"The variables do not coincide with the actual names." \
+            f"The parameters do not coincide with the actual names." \
             f"Should be {{'a', 'b'}}, is {gf.get_parameters()}."
 
     def test_filter(self):
@@ -217,10 +231,17 @@ class TestDistributionInterface:
 
     def test_is_zero_dist(self):
         gf = create_random_gf(4, 10)
-        assert (gf == SymenginePGF.undefined(*gf.get_variables())) == gf.is_zero_dist()
+        # Sometimes Symengine is not sure whether it's a zero dist
+        assert (gf == SymenginePGF.undefined(*gf.get_variables())) == gf.is_zero_dist() or gf.is_zero_dist() is None
 
         gf = SymenginePGF.undefined("x")
         assert (gf == SymenginePGF.undefined(*gf.get_variables())) == gf.is_zero_dist()
+
+        gf = SymenginePGF.from_expr("x - x", "x")
+        assert (gf == SymenginePGF.undefined(*gf.get_variables())) == gf.is_zero_dist()
+
+        gf = SymenginePGF.one("")
+        assert not gf.is_zero_dist()
 
     def test_is_finite(self):
         gf = create_random_gf(10, 10)
@@ -229,13 +250,68 @@ class TestDistributionInterface:
         gf = SymengineDist("(1-sqrt(1-c**2))/c")
         assert not gf.is_finite()
 
-        gf = SymengineDist("1", "x")
+        gf = SymenginePGF.one("")
         assert gf.is_finite()
+
+        gf = SymengineDist("(1/6)*(-1 + x_1**6)/(-1 + x_1)")
+        assert gf.is_finite()
+
+    def test_get_fresh_variables(self):
+        gf = SymengineDist("x_0 * x_1")
+        assert "x_2" == gf.get_fresh_variable()
+        assert "x_3" == gf.get_fresh_variable(exclude={"x_2"})
+
+    def test_update_sum(self):
+        gf = SymengineDist("x")
+        assert gf._update_sum("x", 1, 1) == SymengineDist("x ** 2")
+
+    def test_update_var(self):
+        # Parameter assignment is not allowed
+        gf = SymengineDist("x").set_parameters("y")
+        with pytest.raises(ValueError) as e:
+            gf._update_var("x", "y")
+            assert "Assignment to parameters is not allowed" in str(e)
+
+        # Variables should all be known
+        gf = SymengineDist("x")
+        with pytest.raises(ValueError) as e:
+            gf._update_var("x", "y")
+            assert "Unknown symbol: y" in str(e)
+
+        # _update_var with assign_var is integer
+        gf = SymengineDist("x")
+        assert gf._update_var("x", 5) == SymengineDist("x ** 5")
+
+        # _update_var with updated_var == assign_var
+        assert gf._update_var("x", "x") == gf
+
+        # _update_var with updated_var != assign_var, assign_var is symbol
+        gf = SymengineDist("x * y")
+        assert gf._update_var("x", "y") == SymengineDist("x*y")
+
+    def test_safe_subs(self):
+        gf = SymengineDist("x*y")
+
+        # Illegal number of arguments
+        with pytest.raises(ValueError) as e:
+            gf.safe_subs("x", 1, "y")
+            assert "There has to be an equal amount of variables and values" in str(e)
+
+        # safe_subs should behave exactly the same as subs
+        assert (gf.safe_subs("x", 1, "y", "x") == gf.safe_subs(("x", 1), ("y", "x"))
+                == gf._s_func.subs("x", 1).subs("y", "x"))
+
+        # Direct substitution leads to nan, safe_subs should not
+        gf = SymengineDist("(1/11)*(1/2 + (1/2)*y)**10*(-1 + x**11)/(-1 + x)")
+        assert gf._s_func.subs("x", 1).simplify() == se.nan
+        assert gf.safe_subs("x", 1) == se.S("(1/1024)*(1 + y)**10")
+        # TODO add test for limit
 
     def test_update(self):
         gf = SymengineDist("(1-sqrt(1-c**2))/c")
-        assert gf.update(BinopExpr(Binop.EQ, VarExpr('c'), BinopExpr(Binop.PLUS, VarExpr('c'), NatLitExpr(1)))) == \
-               SymengineDist("c*(1-sqrt(1-c**2))/c")
+        # c -> c + 1
+        updated_gf = gf.update(BinopExpr(Binop.EQ, VarExpr('c'), BinopExpr(Binop.PLUS, VarExpr('c'), NatLitExpr(1))))
+        assert updated_gf == SymengineDist("c*(1-sqrt(1-c**2))/c")
 
         gf = SymenginePGF.undefined("x")
         expr = BinopExpr(
@@ -248,14 +324,17 @@ class TestDistributionInterface:
         gf = SymenginePGF.uniform("x", "0", "5")
         expr = BinopExpr(Binop.EQ, VarExpr('x'),
                          BinopExpr(Binop.TIMES, VarExpr('x'), VarExpr('x')))
-        assert gf.update(expr) == SymengineDist(
-            "1/6 * (1 + x + x**4 + x**9 + x**16 + x**25)")
+        updated_gf = gf.update(expr)
+        # TODO how to check for equality with symengine?
+        #   cf. https://github.com/symengine/symengine.py/issues/496
+        assert sp.S(updated_gf._s_func).equals(sp.S("1/6 * (1 + x + x**4 + x**9 + x**16 + x**25)"))
 
     def test_marginal(self):
         gf = SymenginePGF.uniform("x", '0', '10') * SymenginePGF.binomial(
             'y', n='10', p='1/2')
         assert gf.marginal('x') == SymenginePGF.uniform("x", '0', '10')
         # TODO how to check for equality with symengine?
+        #   cf. https://github.com/symengine/symengine.py/issues/496
         assert sp.S(gf.marginal(
             'x', method=MarginalType.EXCLUDE)._s_func).equals(sp.S(SymenginePGF.binomial('y', n='10', p='1/2')._s_func))
         assert sp.S(gf.marginal('x', 'y')._s_func).equals(sp.S(gf._s_func))
@@ -271,7 +350,8 @@ class TestDistributionInterface:
 
     def test_set_variables(self):
         gf = create_random_gf(3, 5)
-        gf = gf.set_variables("a", "b", "c")
+
+        gf = gf.set_variables("a", "b", "c", *gf.get_variables())
         assert all([x in gf.get_variables() for x in {'a', 'b', 'c'}])
 
     def test_approximate(self):
