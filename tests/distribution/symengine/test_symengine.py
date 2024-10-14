@@ -265,6 +265,8 @@ class TestDistributionInterface:
         gf = SymengineDist("x")
         assert gf._update_sum("x", 1, 1) == SymengineDist("x ** 2")
 
+        # TODO continue with other branches
+
     def test_update_var(self):
         # Parameter assignment is not allowed
         gf = SymengineDist("x").set_parameters("y")
@@ -288,6 +290,8 @@ class TestDistributionInterface:
         # _update_var with updated_var != assign_var, assign_var is symbol
         gf = SymengineDist("x * y")
         assert gf._update_var("x", "y") == SymengineDist("x*y")
+
+    # TODO add tests for other _update_<> methods
 
     def test_safe_subs(self):
         gf = SymengineDist("x*y")
