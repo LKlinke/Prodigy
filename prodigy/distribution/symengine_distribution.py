@@ -40,28 +40,36 @@ class SymengineDist(Distribution):
         parameters = self._parameters | other._parameters
         return variables.intersection(parameters) == set()
 
+    # TODO make arithmetic prettier
     def __add__(self, other) -> SymengineDist:
-        variables, parameters = self._operator_prerequisites(other, self.__add__, "add")
+        if isinstance(other, (str, float, int)):
+            return SymengineDist(self._s_func + se.S(other), *self._variables).set_parameters(*self._parameters)
+        variables, parameters = self._operator_prerequisites(other, "add")
         s_result = self._s_func + other._s_func
         return SymengineDist(s_result, *variables).set_parameters(*parameters)
 
     def __sub__(self, other) -> SymengineDist:
-        variables, parameters = self._operator_prerequisites(other, self.__sub__, "subtract")
+        if isinstance(other, (str, float, int)):
+            return SymengineDist(self._s_func - se.S(other), *self._variables).set_parameters(*self._parameters)
+        variables, parameters = self._operator_prerequisites(other, "subtract")
         s_result = self._s_func - other._s_func
         return SymengineDist(s_result, *variables).set_parameters(*parameters)
 
     def __mul__(self, other) -> SymengineDist:
-        variables, parameters = self._operator_prerequisites(other, self.__mul__, "multiply")
+        if isinstance(other, (str, float, int)):
+            return SymengineDist(self._s_func * se.S(other), *self._variables).set_parameters(*self._parameters)
+        variables, parameters = self._operator_prerequisites(other, "multiply")
         s_result = self._s_func * other._s_func
         return SymengineDist(s_result, *variables).set_parameters(*parameters)
 
     def __truediv__(self, other) -> SymengineDist:
-        # TODO is __mul__ the right method?
-        variables, parameters = self._operator_prerequisites(other, self.__mul__, "divide")
+        if isinstance(other, (str, float, int)):
+            return SymengineDist(self._s_func / se.S(other), *self._variables).set_parameters(*self._parameters)
+        variables, parameters = self._operator_prerequisites(other, "divide")
         s_result = self._s_func / other._s_func
         return SymengineDist(s_result, *variables).set_parameters(*parameters)
 
-    def _operator_prerequisites(self, other, f_pointer, textual_descr: str):
+    def _operator_prerequisites(self, other, textual_descr: str):
         """
         Checks whether the operation can be applied to the given distributions.
         If other is a constant, i.e. a string / float / int, the result is directly computed
@@ -69,8 +77,6 @@ class SymengineDist(Distribution):
         If both are SymengineDistributions and don't have inconsistent variables, the union of
         their variables is returned.
         """
-        if isinstance(other, (str, float, int)):
-            return f_pointer(SymengineDist(other, self._variables))
         if not isinstance(other, SymengineDist):
             raise SyntaxError(f"You cannot {textual_descr} {type(self)} by {type(other)}.")
 
@@ -287,6 +293,10 @@ class SymengineDist(Distribution):
         )
 
     def _filter_constant_condition(self, condition: Expr) -> SymengineDist:
+        # FIXME
+        #   calling
+        #       python prodigy/cli.py --engine symengine main pgfexamples/sequential_loops_second_inv.pgcl
+        #   leads to an error with the expression "m > 0", where m \in self._variables
         # Normalize the condition into the format _var_ (< | <= | =) const. I.e., having the variable on the lhs.
         if isinstance(condition.rhs,
                       VarExpr) and condition.rhs.var not in self._variables:
@@ -325,7 +335,6 @@ class SymengineDist(Distribution):
                     BinopExpr(operator=Binop.LEQ,
                               lhs=condition.rhs,
                               rhs=condition.lhs))
-
         # Now we have an expression of the form _var_ (< | <=, =) _const_.
         variable = se.S(str(condition.lhs))
         constant = condition.rhs.value
@@ -336,11 +345,11 @@ class SymengineDist(Distribution):
             Binop.EQ: [constant]
         }
 
-        logger.info("Falling back to sympy")
         # Compute the probabilities of the states _var_ = i where i ranges depending on the operator (< , <=, =).
         # TODO symengine does not support limits
+        logger.info("Falling back to sympy")
         for i in ranges[condition.operator]:
-            result += (se.S((sp.S(self._s_func).diff(variable, i) / se.gamma(i + 1)).limit(variable, 0, '-'))
+            result += (self.safe_subs(variable, 0, fun=self._s_func.diff(variable, i) / se.gamma(i + 1))
                        * variable ** i)
         return SymengineDist(result, *self._variables)
 
@@ -403,6 +412,8 @@ class SymengineDist(Distribution):
         # todo replace once a suitable method is found within symengine
         #   cf. https://github.com/symengine/symengine.py/issues/492
         logger.info("Falling back to sympy")
+        # cancel() is used because is_polynomial() does not attempt simplification
+        #   cf. https://docs.sympy.org/latest/modules/core.html#sympy.core.expr.Expr.is_polynomial
         return sp.S(self._s_func).cancel().is_polynomial()
 
     def get_fresh_variable(self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
@@ -933,7 +944,7 @@ class SymengineDist(Distribution):
             if not se.S(variable).is_symbol:
                 raise ValueError(f"Substituting a non-symbol {variable}")
             f = fun
-            if f.subs(variable, value).simplify() == se.nan:
+            if f.subs(variable, value).simplify() in [se.nan, se.zoo]:
                 logger.info("Falling back to sympy")
                 sympy_func: sp.Expr = sp.S(fun)
                 if sympy_func.is_Rational:
