@@ -13,6 +13,7 @@ from prodigy.analysis.optimization.gf_optimizer import GFOptimizer
 from prodigy.distribution.fast_generating_function import ProdigyPGF
 from prodigy.distribution.generating_function import (GeneratingFunction,
                                                       SympyPGF)
+from prodigy.distribution.symengine_distribution import SymenginePGF
 from .evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from .evtinvariants.heuristics.strategies import SynthesisStrategies
 from .evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
@@ -79,6 +80,8 @@ class ForwardAnalysisConfig:
             return SympyPGF
         elif self.engine == self.Engine.GINAC:
             return ProdigyPGF
+        elif self.engine == self.Engine.SYMENGINE:
+            return SymenginePGF
         else:
             return CommonDistributionsFactory
 
