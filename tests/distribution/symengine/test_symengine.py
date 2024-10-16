@@ -4,6 +4,9 @@ import symengine as se
 import random
 from probably.pgcl import NatLitExpr
 
+# TODO
+#   At workarounds with sympy.equals(), add checks for variables / parameters
+
 
 def create_random_gf(number_of_variables: int = 1, terms: int = 1):
     # This does most likely does not create a PGF!
@@ -39,13 +42,23 @@ class TestDistributionInterface:
         assert gf_sum.get_parameters() == {'p'}
         assert gf_sum == SymengineDist("x + y", "x", "y").set_parameters("p")
 
+        g = SymengineDist("x")
+        assert g * 0 == SymenginePGF.undefined("x")
+        assert g * "0" == SymenginePGF.undefined("x")
+
     def test_conflict_parameter_variable(self):
         g = SymengineDist("x", "x")
         h = SymengineDist("y", "y").set_parameters("x")
         with pytest.raises(SyntaxError):
             g + h
 
-    def test_finite_sleq(self):
+    def test_le_fail(self):
+        gf = create_random_gf(3, 5)
+        with pytest.raises(TypeError) as e:
+            assert gf < 1
+            assert "Incomparable types" in str(e)
+
+    def test_finite_leq(self):
         gf1 = SymengineDist("x**2*y**3")
         gf2 = SymengineDist("1/2*x**2*y**3")
         assert gf2 <= gf1
@@ -72,15 +85,22 @@ class TestDistributionInterface:
         with pytest.raises(RuntimeError):
             assert gf1 < gf2
 
-    def test_equality_param_fail(self):
-        gf1 = SymengineDist("y*x", "x")
+    def test_equality(self):
+        gf = create_random_gf(3,5)
+        assert gf == gf
+
+        # Different variables
+        gf1 = SymengineDist("x", "x")
+        gf2 = SymengineDist("x", "x", "y")
+        assert gf1 != gf2
+
+        # Different parameters
+        gf1 = SymengineDist("y*x", "x").set_parameters("y")
         gf2 = SymengineDist("x*y", "y", "x")
         assert gf1 != gf2
 
-    def test_equality_variable_fail(self):
-        gf1 = SymengineDist("y*x", "x")
-        gf2 = SymengineDist("x*y", "y")
-        assert gf1 != gf2
+        # Different types
+        assert gf != 1
 
     def test_variable_parameter_clash(self):
         gf = SymengineDist("y*x")
@@ -116,8 +136,11 @@ class TestDistributionInterface:
                 assert (prob, state) == expected_terms[i]
                 i += 1
 
+    def test_iteration_multivariate(self):
+        pass    # TODO
+
     def test_iter_with(self):
-        pass # TODO
+        pass    # TODO
 
     def test_get_prob_by_diff(self):
         gf = SymenginePGF.geometric("x", "1/2")
@@ -226,8 +249,12 @@ class TestDistributionInterface:
         assert gf.filter(parse_expr("x*z <= 10")) == gf
 
         gf = SymengineDist("(c/2 + c^3/2) * (1-sqrt(1-x**2))/x")
-        assert gf.filter(parse_expr("c*c <= 5")) == SymengineDist(
-            "c/2 * (1-sqrt(1-x**2))/x")
+
+        # TODO how to check for equality with symengine?
+        #   cf. https://github.com/symengine/symengine.py/issues/496
+        assert sp.S(str(gf.filter(parse_expr("c*c <= 5"))._s_func)).equals(sp.S("c/2 * (1-sqrt(1-x**2))/x"))
+
+        # todo "m>0" from sequential_loops_second_inv.pgcl
 
     def test_is_zero_dist(self):
         gf = create_random_gf(4, 10)
@@ -262,10 +289,18 @@ class TestDistributionInterface:
         assert "x_3" == gf.get_fresh_variable(exclude={"x_2"})
 
     def test_update_sum(self):
+        # Two variables are added
+        gf = SymengineDist("x*y*z")
+        assert gf._update_sum("x", "x", "z") == SymengineDist("x**2 * y * z")
+        assert gf._update_sum("x", "y", "x") == SymengineDist("x**2 * y * z")
+        assert gf._update_sum("x", "y", "z") == SymengineDist("x**2 * y * z")
+
+        gf = SymengineDist("x*y")
+        assert gf._update_sum("x", "y", 1) == SymengineDist("x**2 * y")
+        assert gf._update_sum("x", "x", 5) == SymengineDist("x**6 * y")
+
         gf = SymengineDist("x")
         assert gf._update_sum("x", 1, 1) == SymengineDist("x ** 2")
-
-        # TODO continue with other branches
 
     def test_update_var(self):
         # Parameter assignment is not allowed
@@ -350,7 +385,7 @@ class TestDistributionInterface:
 
         with pytest.raises(ValueError) as e:
             gf.marginal()
-            assert "No variables where provided" in str(e)
+            assert "No variables were provided" in str(e)
 
     def test_set_variables(self):
         gf = create_random_gf(3, 5)
@@ -360,6 +395,7 @@ class TestDistributionInterface:
 
     def test_approximate(self):
         gf = SymengineDist("2/(2-x) - 1")
+
         assert list(gf.approximate("0.99"))[-1] == SymengineDist(
             "1/2*x + 1/4*x**2 + 1/8 * x**3 + 1/16 * x**4"
             "+ 1/32 * x**5 + 1/64 * x**6 + 1/128 * x**7")
