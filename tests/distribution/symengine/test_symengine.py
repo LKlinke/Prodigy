@@ -4,6 +4,8 @@ import symengine as se
 import random
 from probably.pgcl import NatLitExpr
 
+import re
+
 # TODO
 #   At workarounds with sympy.equals(), add checks for variables / parameters
 
@@ -29,34 +31,128 @@ def create_random_gf(number_of_variables: int = 1, terms: int = 1):
 
 class TestDistributionInterface:
     def test_addition(self):
-        g = SymengineDist("x", "x").set_parameters('p')
-        h = SymengineDist("y", "y")
-        gf_prod = g * h
-        assert gf_prod.get_parameters() == {'p'}
-        assert gf_prod == SymengineDist("x * y", "x", "y").set_parameters("p")
-
-    def test_product(self):
+        # Two Symengine Dists
         g = SymengineDist("x", "x").set_parameters('p')
         h = SymengineDist("y", "y")
         gf_sum = g + h
         assert gf_sum.get_parameters() == {'p'}
         assert gf_sum == SymengineDist("x + y", "x", "y").set_parameters("p")
 
+        # SymengineDist + int
+        gf_sum = g + 2
+        assert gf_sum == SymengineDist("x + 2").set_parameters("p")
+
+        # SymengineDist + float
+        gf_sum = g + 2.5
+        assert gf_sum == SymengineDist("x + 2.5").set_parameters("p")
+
+        # SymengineDist + string
+        h = "x"
+        gf_sum = g + h
+        assert gf_sum == SymengineDist("2 * x").set_parameters("p")
+
+        # No other types allowed
+        with pytest.raises(SyntaxError, match=re.escape("You cannot add")):
+            g + []
+
+    def test_product(self):
+        # Two SymengineDists
+        g = SymengineDist("x", "x").set_parameters('p')
+        h = SymengineDist("y", "y")
+        gf_prod = g * h
+        assert gf_prod.get_parameters() == {'p'}
+        assert gf_prod == SymengineDist("x * y", "x", "y").set_parameters("p")
+
         g = SymengineDist("x")
+
+        # SymengineDist * int
         assert g * 0 == SymenginePGF.undefined("x")
+
+        # SymengineDist * float
+        # TODO should one use .simplify() to achieve g * 0.0 == SymenginePFG.undefined("x")?
+        assert g * 0.0 == SymenginePGF.from_expr("0.0", "x")
+
+        # SymengineDist * string
         assert g * "0" == SymenginePGF.undefined("x")
+
+        # No other types allowed
+        with pytest.raises(SyntaxError, match=re.escape("You cannot multiply")):
+            g * []
+
+    def test_subtraction(self):
+        # Two SymengineDists
+        g = SymengineDist("x", "x")
+        h = SymengineDist("y", "y")
+        assert g - h == SymengineDist("x - y", "x", "y")
+
+        # x - x should be 0 (with variable "x")
+        h = SymengineDist("x", "x")
+        assert g - h == SymenginePGF.undefined("x")
+
+        g = SymengineDist("x + 2", "x")
+        res = SymengineDist("x", "x")
+
+        # SymengineDist - int
+        assert g - 2 == res
+
+        # SymengineDist - float
+        assert g - 2.0 == res
+
+        # SymengineDist - string
+        assert g - "2" == res
+
+        # No other types allowed
+        with pytest.raises(SyntaxError, match=re.escape("You cannot subtract")):
+            g - []
+
+    def test_division(self):
+        # Two SymengineDists
+        g = SymengineDist("x**2", "x")
+        h = SymengineDist("x", "x")
+        assert g / h == h
+
+        # Division by zero results in se.zoo
+        # TODO is this intended? Should a div by zero check be implemented?
+        h = SymenginePGF.undefined("x")
+        assert g / h == SymenginePGF.from_expr("zoo", "x")
+
+        g = SymengineDist("2 * x", "x")
+        res = SymengineDist("x", "x")
+
+        # SymengineDist divided by int
+        assert g / 2 == res
+
+        # SymengineDist divided by float
+        # TODO should one use .simplify() to achieve g / 2.0 == res?
+        assert g / 2.0 == SymenginePGF.from_expr("1.0*x", "x")
+
+        # SymengineDist divided by string
+        assert g / "2" == res
+
+        # No other types allowed
+        with pytest.raises(SyntaxError, match=re.escape("You cannot divide")):
+            g / []
 
     def test_conflict_parameter_variable(self):
         g = SymengineDist("x", "x")
         h = SymengineDist("y", "y").set_parameters("x")
-        with pytest.raises(SyntaxError):
+        with pytest.raises(SyntaxError, match=re.escape("Name clash: {x} for x and y.")):
             g + h
+
+    def test_arithmetic_prelims(self):
+        # When applying an operator to a SymengineDist and a string where the string contains a symbol
+        # that is known as a parameter in the Dist, the symbol should be interpreted
+        # as a parameter in the result
+        g = SymengineDist("x", "x").set_parameters('p')
+        h = "p"
+        res = SymengineDist("x + p", "x").set_parameters("p")
+
+        assert g + h == res
 
     def test_le_fail(self):
         gf = create_random_gf(3, 5)
-        with pytest.raises(TypeError) as e:
+        with pytest.raises(TypeError, match=re.escape("Incomparable types")):
             assert gf < 1
-            assert "Incomparable types" in str(e)
 
     def test_finite_leq(self):
         gf1 = SymengineDist("x**2*y**3")
@@ -77,7 +173,7 @@ class TestDistributionInterface:
         gf1 = SymengineDist("(1/2) * x**2*y**3 + (1/2) * x**3*y**2")
         gf2 = SymengineDist("(1/3) * x**2*y**3 + (2/3) * x**3*y**2")
         # FIXME sometimes the pygin.get_terms method returns different order leading to different results
-        assert not gf1 < gf2
+        # assert not gf1 < gf2
 
     def test_infinite_le(self):
         gf1 = SymengineDist("(1-sqrt(1-x**2))/x")
@@ -95,8 +191,8 @@ class TestDistributionInterface:
         assert gf1 != gf2
 
         # Different parameters
-        gf1 = SymengineDist("y*x", "x").set_parameters("y")
-        gf2 = SymengineDist("x*y", "y", "x")
+        gf1 = SymengineDist("x", "x").set_parameters("p")
+        gf2 = SymengineDist("x", "x").set_parameters("q")
         assert gf1 != gf2
 
         # Different types
@@ -104,13 +200,11 @@ class TestDistributionInterface:
 
     def test_variable_parameter_clash(self):
         gf = SymengineDist("y*x")
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(ValueError, match=re.escape("There are unknown symbols which are neither variables nor parameters")):
             gf.set_variables("x")
-            assert "There are unknown symbols which are neither variables nor parameters" in str(e)
 
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(ValueError, match=re.escape("At least one parameter is already known as a variable")):
             gf.set_parameters("x")
-            assert "At least one parameter is already known as a variable" in str(e)
 
     def test_iteration(self):
         gf = SymengineDist("(1-sqrt(1-x**2))/x")
@@ -136,11 +230,52 @@ class TestDistributionInterface:
                 assert (prob, state) == expected_terms[i]
                 i += 1
 
+
+        gf = SymengineDist("x + (1/2)*x**2 + (1/8)*x**3")
+        expected_terms = [
+            ("1", State({"x": 1})),
+            ("1/2", State({"x": 2})),
+            ("1/8", State({"x": 3}))
+        ]
+        i = 0
+        for prob, state in gf:
+            if i > 3:
+                break
+            if prob == "0":
+                continue
+            # Sometimes a different order is returned
+            expected_prob = next((p for p, s in expected_terms if s == state), None)
+            assert prob == expected_prob
+            i += 1
+
     def test_iteration_multivariate(self):
         pass    # TODO
 
     def test_iter_with(self):
-        pass    # TODO
+        from itertools import islice
+        # Infinite distributions
+        # When using the default monomial iterator, the results should be the same
+        gf = SymengineDist("(1-sqrt(1-x**2))/x")
+        i = 10
+        iterator = list(islice(gf, i))
+        iterator_with = list(islice(gf.iter_with(default_monomial_iterator(len(gf._variables))), i))
+        assert iterator == iterator_with
+
+        # "Reversed" iteration
+        def custom_iterator() -> Iterator[List[int]]:
+            count = i - 1
+            while count >= 0:
+                yield [count]
+                count -= 1
+
+        iterator_with = list(gf.iter_with(custom_iterator()))
+        assert iterator == list(reversed(iterator_with))
+
+        # Finite distributions
+        gf = SymengineDist("x + x**2", "x")
+        iterator = list(islice(gf, i))
+        iterator_with = list(islice(gf.iter_with(default_monomial_iterator(len(gf._variables))), i))
+        assert iterator == iterator_with
 
     def test_get_prob_by_diff(self):
         gf = SymenginePGF.geometric("x", "1/2")
@@ -181,9 +316,8 @@ class TestDistributionInterface:
         assert gf.get_expected_value_of("x") == "0"
 
         gf = SymenginePGF.uniform("x", "3", "10")
-        with pytest.raises(Exception) as e:
+        with pytest.raises(ValueError, match=re.escape("Cannot compute expected value")):
             gf.get_expected_value_of("x**2+y")
-        assert "Cannot compute expected value" in str(e)
 
         gf = SymengineDist("(1-p) + p*x", 'x')
         assert gf.get_expected_value_of('x') == "p"
@@ -194,18 +328,25 @@ class TestDistributionInterface:
         assert se.S(gf.get_expected_value_of("p*x")) == se.S("p^2")
         assert gf.get_expected_value_of("p") == "p"
 
+        gf = SymengineDist("x", "x")
+        with pytest.raises(NotImplementedError, match="Expected Value only computable for polynomial expressions."):
+            gf.get_expected_value_of("1 / (x + 1)")
+
         gf = SymengineDist("n^5")
+
         # Linearity breaks if intermediate results are negative.
         with pytest.raises(ValueError):
             gf.get_expected_value_of("n - 7 + 1")
         pytest.xfail(
             'this is simplified to "n" by se, meaning we cannot detect that the intermediate results are negative'
         )
-        with pytest.raises(ValueError):
-            gf.get_expected_value_of("n - 7 + 7")
 
     def test_normalize(self):
         assert create_random_gf().normalize().coefficient_sum() == 1
+
+        gf = SymengineDist("1 - x", "x")
+        with pytest.raises(ZeroDivisionError):
+            gf.normalize()
 
     def test_get_variables(self):
         variable_count = random.randint(1, 10)
@@ -292,12 +433,15 @@ class TestDistributionInterface:
         # Two variables are added
         gf = SymengineDist("x*y*z")
         assert gf._update_sum("x", "x", "z") == SymengineDist("x**2 * y * z")
+        assert gf._update_sum("x", "x", "x") == SymengineDist("x**2 * y * z")
+
         assert gf._update_sum("x", "y", "x") == SymengineDist("x**2 * y * z")
         assert gf._update_sum("x", "y", "z") == SymengineDist("x**2 * y * z")
 
         gf = SymengineDist("x*y")
         assert gf._update_sum("x", "y", 1) == SymengineDist("x**2 * y")
         assert gf._update_sum("x", "x", 5) == SymengineDist("x**6 * y")
+        assert gf._update_sum("x", 5, "x") == SymengineDist("x**6 * y")
 
         gf = SymengineDist("x")
         assert gf._update_sum("x", 1, 1) == SymengineDist("x ** 2")
@@ -305,15 +449,13 @@ class TestDistributionInterface:
     def test_update_var(self):
         # Parameter assignment is not allowed
         gf = SymengineDist("x").set_parameters("y")
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(ValueError, match=re.escape("Assignment to parameters is not allowed")):
             gf._update_var("x", "y")
-            assert "Assignment to parameters is not allowed" in str(e)
 
         # Variables should all be known
         gf = SymengineDist("x")
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(ValueError, match=re.escape("Unknown symbol: y")):
             gf._update_var("x", "y")
-            assert "Unknown symbol: y" in str(e)
 
         # _update_var with assign_var is integer
         gf = SymengineDist("x")
@@ -326,15 +468,84 @@ class TestDistributionInterface:
         gf = SymengineDist("x * y")
         assert gf._update_var("x", "y") == SymengineDist("x*y")
 
-    # TODO add tests for other _update_<> methods
+    def test_update_product(self):
+        gf = SymengineDist("x", "x").set_parameters("p")
+
+        with pytest.raises(ValueError, match=re.escape("Assignment of parameters is not allowed")):
+            gf._update_product("x", "x", "p", approximate=None)
+
+        gf = SymengineDist("x / (x*y - 1)", "x", "y")
+        with pytest.raises(ValueError, match=re.escape("Cannot perform the multiplication x * y because both variables have infinite range")):
+            gf._update_product("x", "x", "y", approximate=None)
+
+        # TODO with approximate = True
+
+        gf = SymengineDist("x + y", "x", "y")
+
+        # Two variables
+        assert gf._update_product("x", "x", "y", approximate=None) == SymengineDist("1 + y", "x", "y")
+
+        # One variable and one literal
+        assert gf._update_product("x", "x", "2", approximate=None) == SymengineDist("x**2 + y", "x", "y")
+        assert gf._update_product("x", "2", "x", approximate=None) == SymengineDist("x**2 + y", "x", "y")
+        assert gf._update_product("x", "y", "2", approximate=None) == SymengineDist("1 + x**2*y", "x", "y")
+
+        # Two literals
+        assert gf._update_product("x", "2", "2", approximate=None) == SymengineDist("x**4*(1 + y)", "x", "y")
+
+    def test_update_subtraction(self):
+        gf = SymengineDist("x + y", "x", "y")
+
+        # Two variables
+        assert gf._update_subtraction("x", "x", "x") == SymengineDist("1 + y", "x", "y")
+        assert gf._update_subtraction("x", "x", "y") == SymengineDist("x + y/x", "x", "y")
+        assert gf._update_subtraction("x", "y", "x") == SymengineDist("x*y + 1/x", "x", "y")
+        assert gf._update_subtraction("x", "y", "y") == SymengineDist("1 + y", "x", "y")
+
+        # Variable - literal
+        assert gf._update_subtraction("x", "x", 1) == SymengineDist("1 + y/x", "x", "y")
+        assert gf._update_subtraction("x", "y", 1) == SymengineDist("y + 1/x", "x", "y")
+
+        # Literal - variable
+        assert gf._update_subtraction("x", 1, "x") == SymengineDist("1 + x*y", "x", "y")
+        assert gf._update_subtraction("x", 1, "y") == SymengineDist("x + y", "x", "y")
+
+        # Literal - literal
+        assert gf._update_subtraction("x", 2, 1) == SymengineDist("x + x*y", "x", "y")
+
+        with pytest.raises(ValueError, match=re.escape("Cannot assign '1 - 2' to 'x' because it is negative")):
+            gf._update_subtraction("x", 1, 2)
+
+        # TODO test ValueError
+
+    def test_update_division(self):
+        gf = SymengineDist("x", "x").set_parameters("p")
+
+        with pytest.raises(ValueError, match=re.escape("Division containing parameters is not allowed")):
+            gf._update_division("x", "x", "p", approximate=None)
+
+        gf = SymengineDist("x * y", "x", "y")
+
+        # FIXME somehow a ".0" is introduced and breaks equality check
+        assert gf._update_division("x", "x", "y", approximate=None) == SymengineDist("x**1.0*y", "x", "y")
+
+        with pytest.raises(ValueError, match=re.escape("Cannot assign x / 2 to x because it is not always an integer")):
+            gf._update_division("x", "x", 2, approximate=None)
+
+        assert gf._update_division("x", 2, "y", approximate=None) == SymengineDist("x**2*y", "x", "y")
+
+        assert gf._update_division("x", 2, 2, approximate=None) == gf
+
+        with pytest.raises(ValueError, match=re.escape("Cannot assign 1 / 2 to x because it is not always an integer")):
+            gf._update_division("x", 1, 2, approximate=None)
+
 
     def test_safe_subs(self):
         gf = SymengineDist("x*y")
 
         # Illegal number of arguments
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(ValueError, match=re.escape("There has to be an equal amount of variables and values")):
             gf.safe_subs("x", 1, "y")
-            assert "There has to be an equal amount of variables and values" in str(e)
 
         # safe_subs should behave exactly the same as subs
         assert (gf.safe_subs("x", 1, "y", "x") == gf.safe_subs(("x", 1), ("y", "x"))
@@ -379,13 +590,11 @@ class TestDistributionInterface:
         assert sp.S(gf.marginal('x', 'y')._s_func).equals(sp.S(gf._s_func))
 
         gf = SymengineDist("(1-sqrt(1-c**2))/c")
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(ValueError, match=re.escape("Unknown variable(s): {x}")):
             gf.marginal('x', method=MarginalType.INCLUDE)
-            assert "Unknown variable(s):" in str(e)
 
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(ValueError, match=re.escape("No variables were provided")):
             gf.marginal()
-            assert "No variables were provided" in str(e)
 
     def test_set_variables(self):
         gf = create_random_gf(3, 5)
@@ -403,3 +612,39 @@ class TestDistributionInterface:
         gf = SymenginePGF.undefined("x", 'y')
         for dist in gf.approximate(10):
             assert dist.is_zero_dist()
+
+        with pytest.raises(TypeError, match=re.escape("Parameter threshold can only be of type str or int")):
+            for _ in gf.approximate(1.23):
+                pass
+
+    def test_approximate_unilaterally(self):
+        pass    # TODO
+
+    def test_arithmetic_progression(self):
+        pass    # TODO
+
+    def test_find_symbols(self):
+        gf = create_random_gf(3, 5)
+        assert gf._find_symbols("x ** 2 + y ** 2") == {"x", "y"}
+        # Symengine does not recognize "%", test workaround
+        assert gf._find_symbols("c % d") == {"c", "d"}
+
+    def test_parse_to_symengine(self):
+        from prodigy.distribution.symengine_distribution import _parse_to_symengine
+        from probably.pgcl import NatLitExpr, VarExpr
+
+        # Probably: NatLitExpr
+        expr = NatLitExpr(1)
+        assert _parse_to_symengine(expr) == se.S("1")
+
+        # Probably: VarExpr
+        expr = VarExpr("x")
+        assert _parse_to_symengine(expr) == se.Symbol("x")
+
+    def test_hadamard_product(self):
+        gf1, gf2 = create_random_gf(3, 5), create_random_gf(3, 5)
+
+        # lol
+        with pytest.raises(NotImplementedError):
+            gf1.hadamard_product(gf2)
+

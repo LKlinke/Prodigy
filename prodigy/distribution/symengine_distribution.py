@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Union, Generator, Set, FrozenSet, Sequence, Iterator, Tuple, Type, List, get_args
+import operator
+from typing import Union, Generator, Sequence, Iterator, Tuple, Type, List, get_args
 
 import symengine as se
 from probably.pgcl import VarExpr, Expr, FunctionCallExpr, RealLitExpr, UnopExpr, Binop, BinopExpr, Unop, NatLitExpr
@@ -14,7 +15,7 @@ from prodigy.util.order import default_monomial_iterator
 
 from probably.pgcl.parser import parse_expr
 
-# todo remove once method in symengine
+# todo remove once methods in symengine
 import sympy as sp
 
 logger = log_setup(str(__name__).rsplit(".")[-1], logging.DEBUG, file="GF_operations.log")
@@ -25,11 +26,13 @@ class SymengineDist(Distribution):
     def factory() -> Type[CommonDistributionsFactory]:
         return SymenginePGF
 
-    def __init__(self, function, *variables):
+    def __init__(self, function, *variables: Union[se.Symbol, str]):
         self._s_func: se.Expr = se.S(function)
-        self._variables: set[str] = set(variables) if len(variables) > 0 else {str(v) for v in
-                                                                               self._s_func.free_symbols}
-        self._parameters: set[str] = {str(s) for s in self._s_func.free_symbols} - self._variables
+        self._variables: set[se.Symbol] = self._s_func.free_symbols
+        self._parameters: set[se.Symbol] = set()
+        if variables:
+            self._variables = {se.Symbol(str(v)) for v in variables}
+            self._parameters: set[se.Symbol] = self._s_func.free_symbols - self._variables
 
     def _check_symbol_consistency(self, other: SymengineDist) -> bool:
         """
@@ -39,43 +42,49 @@ class SymengineDist(Distribution):
         parameters = self._parameters | other._parameters
         return variables.intersection(parameters) == set()
 
-    # TODO make arithmetic prettier
     def __add__(self, other) -> SymengineDist:
-        if isinstance(other, (str, float, int)):
-            return SymengineDist(self._s_func + se.S(other)).set_variables_and_parameters(self._variables, self._parameters)
-        variables, parameters = self._operator_prerequisites(other, "add")
-        s_result = self._s_func + other._s_func
-        return SymengineDist(s_result).set_variables_and_parameters(variables, parameters)
+        return self._arithmetic(other, "add", operator.add)
 
     def __sub__(self, other) -> SymengineDist:
-        if isinstance(other, (str, float, int)):
-            return SymengineDist(self._s_func - se.S(other)).set_variables_and_parameters(self._variables, self._parameters)
-        variables, parameters = self._operator_prerequisites(other, "subtract")
-        s_result = self._s_func - other._s_func
-        return SymengineDist(s_result).set_variables_and_parameters(variables, parameters)
+        return self._arithmetic(other, "subtract", operator.sub)
 
     def __mul__(self, other) -> SymengineDist:
-        if isinstance(other, (str, float, int)):
-            return SymengineDist(self._s_func * se.S(other)).set_variables_and_parameters(self._variables, self._parameters)
-        variables, parameters = self._operator_prerequisites(other, "multiply")
-        s_result = self._s_func * other._s_func
-        return SymengineDist(s_result).set_variables_and_parameters(variables, parameters)
+        return self._arithmetic(other, "multiply", operator.mul)
 
     def __truediv__(self, other) -> SymengineDist:
-        if isinstance(other, (str, float, int)):
-            return SymengineDist(self._s_func / se.S(other)).set_variables_and_parameters(self._variables, self._parameters)
-        variables, parameters = self._operator_prerequisites(other, "divide")
-        s_result = self._s_func / other._s_func
-        return SymengineDist(s_result).set_variables_and_parameters(variables, parameters)
+        return self._arithmetic(other, "divide", operator.truediv)
 
-    def _operator_prerequisites(self, other, textual_descr: str) -> (set[str], set[str]):
+    def _arithmetic(self, other: str | int | float | SymengineDist, textual_descr: str, op: operator) -> SymengineDist:
         """
-        Checks whether the operation can be applied to the given distributions.
-        If other is a constant, i.e. a string / float / int, the result is directly computed
-        by the given function pointer.
-        If both are SymengineDistributions and don't have inconsistent variables, the union of
-        their variables is returned.
+        Applies an arithmetic operator to self and one unknown object.
+
+        :param other: The object for which the operator should be applied with self.
+            Supported types: str, int, float, SymengineDist
+        :param textual_descr: The text description of the operator to be applied with self. Used for the error message
+        :param op: The operator to be applied with self.
         """
+        if isinstance(other, (str, int, float)):
+            # FIXME
+            #   not sure how this should look like
+            other_syms = self._find_symbols(str(other))
+            res = op(self._s_func, se.S(other))
+            # If other has no symbols, simply return the current symbols as variables / parameters
+            if other_syms == set():
+                return SymengineDist(res).set_variables_and_parameters(
+                    self.get_variables(), self.get_parameters()
+                )
+            params = other_syms.intersection(self.get_parameters())
+            if params != set():
+                return SymengineDist(res).set_variables_and_parameters(
+                    self.get_variables().union(other_syms.difference(params)),
+                    self.get_parameters(),
+                )
+            else:
+                return SymengineDist(res).set_variables_and_parameters(
+                    self.get_variables().union(other_syms),
+                    self.get_parameters()
+                )
+
         if not isinstance(other, SymengineDist):
             raise SyntaxError(f"You cannot {textual_descr} {type(self)} by {type(other)}.")
 
@@ -83,7 +92,9 @@ class SymengineDist(Distribution):
         if not self._check_symbol_consistency(other):
             clash = (self._variables | other._variables) & (self._parameters | other._parameters)
             raise SyntaxError(f"Name clash: {clash} for {self} and {other}.")
-        return (self._variables | other._variables), (self._parameters | other._parameters)
+        new_vars, new_params = (self.get_variables() | other.get_variables()), (self.get_parameters() | other.get_parameters())
+        res = op(self._s_func, other._s_func)
+        return SymengineDist(res).set_variables_and_parameters(new_vars, new_params)
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, SymengineDist):
@@ -92,9 +103,9 @@ class SymengineDist(Distribution):
             return False
         if not other._parameters == self._parameters:
             return False
-        return other._s_func == self._s_func
+        return self._s_func == other._s_func
 
-    def __le__(self, other) -> bool:
+    def __le__(self, other: SymengineDist) -> bool:
         if not isinstance(other, SymengineDist):
             raise TypeError(f"Incomparable types {type(self)} and {type(other)}.")
 
@@ -161,8 +172,8 @@ class SymengineDist(Distribution):
             #   Second test:
             #       1/2, {'x': 2, 'y': 3}
             #       1/2, {'x': 2, 'y': 3}
-            for prob, vals in (pygin.Dist(str(self._s_func).replace("**", "^"), list(self._parameters))
-                    .get_terms(self._variables)):
+            for prob, vals in (pygin.Dist(str(self._s_func).replace("**", "^"), list(self.get_parameters()))
+                    .get_terms(self.get_variables())):
                 yield prob, State(vals)
             # TODO replace with sympy method for now
             # logger.info("Falling back to sympy")
@@ -177,7 +188,6 @@ class SymengineDist(Distribution):
             #     yield str(fun.EC()), State(fun.EM().as_expr().as_powers_dict())
             #     fun -= fun.EC() * fun.EM().as_expr()
 
-
     def iter_with(self, monomial_iterator: Iterator[List[int]]) -> Iterator[Tuple[str, State]]:
         """
         Iterates over the expression with a custom monomial order.
@@ -188,10 +198,19 @@ class SymengineDist(Distribution):
         if not self.is_finite():
             v = list(self.get_variables())
             for tup in monomial_iterator:
-                yield prob_fun(State(dict(zip(v, tup)))), State(dict(zip(v, tup)))
+                yield str(prob_fun(State(dict(zip(v, tup))))), State(dict(zip(v, tup)))
         else:
-            logger.info("Falling back to sympy")
-            for prob, vals in sp.S(self._s_func).as_terms():  # todo replace with symengine method
+            logger.info("Falling back to pygin")
+            import pygin
+            # FIXME this method does not return the terms in a fixed order, sometimes leads to wrong results, e.g.
+            #   First test:
+            #       1/2, {'x': 2, 'y': 3}
+            #       1/2, {'x': 3, 'y': 2}
+            #   Second test:
+            #       1/2, {'x': 2, 'y': 3}
+            #       1/2, {'x': 2, 'y': 3}
+            for prob, vals in (pygin.Dist(str(self._s_func).replace("**", "^"), list(self.get_parameters()))
+                    .get_terms(self.get_variables())):
                 yield prob, State(vals)
 
     # TODO integrate these functions better / move them / replace by correct signature
@@ -254,18 +273,18 @@ class SymengineDist(Distribution):
             raise NotImplementedError(
                 "Expected Value only computable for polynomial expressions.")
 
-        if len(self._find_symbols(expr) & self._variables) == 0:
+        if len(self._find_symbols(expr) & self.get_variables()) == 0:
             return str(expr)
         if not self._find_symbols(expr).issubset(
-                self._variables.union(self._parameters)):
+                self.get_variables().union(self.get_parameters())):
             raise ValueError(
                 f"Cannot compute expected value of {expression} because it contains unknown symbols"
             )
 
-        marginal = self.marginal(*(self._find_symbols(expr) & self._variables),
+        marginal = self.marginal(*(self._find_symbols(expr) & self.get_variables()),
                                  method=MarginalType.INCLUDE)._s_func
         gen_func = SymengineDist(expr,
-                                 *(self._find_symbols(expr) & self._variables))
+                                 *(self._find_symbols(expr) & self.get_variables()))
         expected_value = sp.Integer(0)
         for prob, state in gen_func:
             tmp = sp.S(marginal)
@@ -289,11 +308,11 @@ class SymengineDist(Distribution):
             raise ZeroDivisionError
         return SymengineDist(self._s_func / mass, *self._variables)
 
-    def get_variables(self) -> Set[str]:
-        return self._variables
+    def get_variables(self) -> set[str]:
+        return set(map(str, self._variables))
 
-    def get_parameters(self) -> Set[str]:
-        return self._parameters
+    def get_parameters(self) -> set[str]:
+        return set(map(str, self._parameters))
 
     def _exhaustive_search(self, condition: Expr) -> SymengineDist:
         res = se.S("0")
@@ -371,7 +390,7 @@ class SymengineDist(Distribution):
         for i in ranges[condition.operator]:
             result += (self.safe_subs(variable, 0, fun=self._s_func.diff(variable, i) / se.gamma(i + 1))
                        * variable ** i)
-        return SymengineDist(result).set_variables_and_parameters(self._variables, self._parameters)
+        return SymengineDist(result).set_variables_and_parameters(self.get_variables(), self.get_parameters())
 
     def _arithmetic_progression(self, variable: str, modulus: str) -> Sequence[SymengineDist]:
         a = se.S(modulus)
@@ -380,7 +399,7 @@ class SymengineDist(Distribution):
         # This should be a faster variant for univariate distributions.
         if self._variables == {var}:
             result = []
-            for remainder in range(a):
+            for remainder in range(int(modulus)):
                 other = SymengineDist(f"({var}^{remainder})/(1-{var}^{modulus})", *self._variables)
                 result.append(self.hadamard_product(other))
             return result
@@ -400,9 +419,15 @@ class SymengineDist(Distribution):
         return result
 
     def hadamard_product(self, other: SymengineDist) -> SymengineDist:
-        raise NotImplementedError("Hadamard Product is currently supported")  # ignore for now
+        raise NotImplementedError("Hadamard Product is currently unsupported")  # ignore for now
 
-    def _find_symbols(self, expr: str) -> Set[str]:
+    def _find_symbols(self, expr: str) -> set[str]:
+        # FIXME Symengine does not recognize the character '%', i.e.
+        #       se.S("c % 2")   # Fails
+        #   replace this workaround!
+        if "%" in str(expr):
+            import re
+            expr = re.sub(r'(\w+)\s*%\s*(\w+)', r'mod(\1, \2)', expr)
         return {str(sym) for sym in se.S(expr).free_symbols}
 
     @staticmethod
@@ -436,27 +461,27 @@ class SymengineDist(Distribution):
         #   cf. https://docs.sympy.org/latest/modules/core.html#sympy.core.expr.Expr.is_polynomial
         return sp.S(self._s_func).cancel().is_polynomial()
 
-    def get_fresh_variable(self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
+    def get_fresh_variable(self, exclude: set[str] | frozenset[str] = frozenset()) -> str:
         i = 0
         while f'x_{i}' in (
-                self._variables
-                | self._parameters) or f'x_{i}' in exclude:
+                self.get_variables()
+                | self.get_parameters()) or f'x_{i}' in exclude:
             i += 1
         return f'x_{i}'
 
     def _update_var(self, updated_var: str, assign_var: str | int) -> SymengineDist:
-        up_var, as_var = se.S(updated_var), se.S(assign_var)
-        if str(assign_var) in self._parameters:
+        up_var, as_var = se.Symbol(updated_var), se.S(assign_var)
+        if as_var in self._parameters:
             raise ValueError("Assignment to parameters is not allowed")
-        if as_var.is_symbol and str(assign_var) not in self._variables:
+        if as_var.is_symbol and as_var not in self._variables:
             raise ValueError(f"Unknown symbol: {assign_var}")
 
         if not updated_var == assign_var:
-            if assign_var in self._variables:
+            if as_var in self._variables:
                 res = self.safe_subs((up_var, 1), (as_var, as_var * up_var))
             else:
                 res = self.safe_subs(up_var, 1) * up_var ** as_var
-            return SymengineDist(res).set_variables_and_parameters(self._variables, self._parameters)
+            return SymengineDist(res).set_variables_and_parameters(self.get_variables(), self.get_parameters())
         else:
             return self.copy()
 
@@ -464,7 +489,7 @@ class SymengineDist(Distribution):
         update_var, sum_1, sum_2, res = se.S(temp_var), se.S(first_summand), se.S(second_summand), self._s_func
 
         # Two variables are added
-        if first_summand in self._variables and second_summand in self._variables:
+        if sum_1 in self._variables and sum_2 in self._variables:
             if sum_2 == update_var:
                 sum_1, sum_2 = sum_2, sum_1
             if sum_1 == update_var:
@@ -476,8 +501,8 @@ class SymengineDist(Distribution):
                 res = self.safe_subs((update_var, 1), (sum_1, sum_1 * update_var), (sum_2, sum_2 * update_var), fun=res)
 
         # One variable and one literal / parameter is added
-        elif first_summand in self._variables or second_summand in self._variables:
-            if first_summand in self._variables:
+        elif sum_1 in self._variables or sum_2 in self._variables:
+            if sum_1 in self._variables:
                 var, lit = sum_1, sum_2
             else:
                 var, lit = sum_2, sum_1
@@ -488,7 +513,7 @@ class SymengineDist(Distribution):
         # Two literals / parameters are added
         else:
             res = self.safe_subs(update_var, 1, fun=res) * (update_var ** (sum_1 + sum_2))
-        return SymengineDist(res).set_variables_and_parameters(self._variables, self._parameters)
+        return SymengineDist(res).set_variables_and_parameters(self.get_variables(), self.get_parameters())
 
     def _update_product(self, temp_var: str, first_factor: str, second_factor: str,
                         approximate: str | float | None) -> SymengineDist:
@@ -498,11 +523,11 @@ class SymengineDist(Distribution):
         prod_1, prod_2 = se.S(first_factor), se.S(second_factor)
         res = self._s_func
 
-        if first_factor in self._parameters or second_factor in self._parameters:
+        if prod_1 in self._parameters or prod_2 in self._parameters:
             raise ValueError("Assignment of parameters is not allowed")
 
         # Multiplication of two variables
-        if first_factor in self._variables and second_factor in self._variables:
+        if prod_1 in self._variables and prod_2 in self._variables:
             if not self.is_finite():
                 marginal_l = self.marginal(first_factor)
                 marginal_r = self.marginal(second_factor)
@@ -535,8 +560,8 @@ class SymengineDist(Distribution):
                     res = res + term
 
         # Multiplication of one variable and one literal
-        elif first_factor in self._variables or second_factor in self._variables:
-            if first_factor in self._variables:
+        elif prod_1 in self._variables or prod_2 in self._variables:
+            if prod_1 in self._variables:
                 var, lit = prod_1, prod_2
             else:
                 var, lit = prod_2, prod_1
@@ -550,13 +575,13 @@ class SymengineDist(Distribution):
             res = self.safe_subs(update_var, 1, fun=res) * (update_var_with_assumptions ** (prod_1 * prod_2))
 
         # TODO filter out assumptions over symbols once implemented
-        return SymengineDist(res).set_variables_and_parameters(self._variables, self._parameters)
+        return SymengineDist(res).set_variables_and_parameters(self.get_variables(), self.get_parameters())
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int, sub: str | int) -> SymengineDist:
         update_var, sub_1, sub_2, res = se.S(temp_var), se.S(sub_from), se.S(sub), self._s_func
 
         # Subtraction of two variables
-        if sub_from in self._variables and sub in self._variables:
+        if sub_1 in self._variables and sub_2 in self._variables:
             if sub_2 == update_var:
                 if sub_1 == update_var:
                     res = self.safe_subs(update_var, 1, fun=res)
@@ -568,13 +593,13 @@ class SymengineDist(Distribution):
                 res = self.safe_subs(sub_2, sub_2 * update_var ** (-1), fun=res)
 
         # Literal subtracted from variable
-        elif sub_from in self._variables:
+        elif sub_1 in self._variables:
             if not update_var == sub_1:
                 res = self.safe_subs(update_var, 1, sub_1, sub_1 * update_var, fun=res)
             res = res * update_var ** (-sub_2)
 
         # Variable subtracted from literal
-        elif sub in self._variables:
+        elif sub_2 in self._variables:
             if sub_2 == update_var:
                 res = self.safe_subs(update_var, update_var ** (-1), fun=res) * update_var ** sub_1
             else:
@@ -591,10 +616,10 @@ class SymengineDist(Distribution):
             res = self.safe_subs(update_var, 1, fun=res) * update_var ** diff
 
         res = se.expand(res)
-        expr = SymengineDist(res).set_variables_and_parameters(self._variables, self._parameters)
+        expr = SymengineDist(res).set_variables_and_parameters(self.get_variables(), self.get_parameters())
 
         test_fun: se.Basic = expr.marginal(temp_var).safe_subs(update_var, 0)
-        if test_fun.has(se.zoo) or test_fun.simplify() == se.nan:
+        if test_fun.simplify() in [se.nan, se.zoo]:
             raise ValueError(
                 f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it can be negative"
             )
@@ -602,31 +627,31 @@ class SymengineDist(Distribution):
 
     def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
                        approximate: str | float | None) -> SymengineDist:
-        if left in self._parameters or right in self._parameters:
-            raise ValueError("Cannot perform modulo operation on parameters")
-        # FIXME Symengine turns 'e' into 'E'
-        #   when running pgfexamples/independence/oblivious_transfer.pgcl
-        #   if replaced by another variable name, this works
-        #   print(se.S("e"))  # E
+        left_sym, right_sym = se.Symbol(str(left)), se.Symbol(
+            str(right))
+        if left_sym in self._parameters or right_sym in self._parameters:
+            raise ValueError('Cannot perform modulo operation on parameters')
+
         update_var = se.S(temp_var)
         result = 0
 
         # On finite GFs, iterate over all states
         if self.is_finite():
             for prob, state_r in self:
-                if left in self._variables:
+                prob = se.S(prob)
+                if left_sym in self._variables:
                     left_var = state_r[left]
                 else:
-                    left_var = se.S(left)
-                if right in self._variables:
+                    left_var = _parse_to_symengine(left)
+                if right_sym in self._variables:
                     right_var = state_r[right]
                 else:
-                    right_var = se.S(right)
-                result += se.S(prob) * self.safe_subs((update_var, 1), fun=se.S(state_r.to_monomial())) * update_var ** (
-                            left_var % right_var)
+                    right_var = _parse_to_symengine(right)
+                result += prob * self.safe_subs(
+                    update_var, 1, fun=_parse_to_symengine(state_r.to_monomial())) * update_var ** (left_var % right_var)
 
-        # If GF is infinite and right is variable, it needs to have finite range
-        elif right in self._variables:
+        # If the GF is infinite and right is a variable, it needs to have finite range
+        elif right_sym in self._variables:
             assert isinstance(right, str)
             marginal_r = self.marginal(right)
             if not marginal_r.is_finite():
@@ -634,38 +659,41 @@ class SymengineDist(Distribution):
                     raise ValueError(
                         f'Cannot perform modulo operation with infinite right hand side {right}'
                     )
-                marginal_r = marginal_r.approximate_unilaterally(right, approximate)
-                for _, state_r in marginal_r:
-                    result += self.filter(
-                        parse_expr(f'{right}={state_r[right]}')
-                    )._update_modulo(
-                        temp_var, left, state_r[right], None
-                    )._s_func
+                marginal_r = marginal_r.approximate_unilaterally(
+                    right, approximate)
+            for _, state_r in marginal_r:
+                result += self.filter(
+                    parse_expr(f'{right}={state_r[right]}'))._update_modulo(
+                    temp_var, left, state_r[right], None)._s_func
 
         # If left is a variable, it doesn't have to have finite range
-        elif left in self._variables:
+        elif left_sym in self._variables:
             assert isinstance(left, str)
             marginal_l = self.marginal(left)
-            if not marginal_l.is_finite():
+            if marginal_l.is_finite():
                 for _, state_l in marginal_l:
                     result += self.filter(
-                        parse_expr(f'{left}={state_l[left]}')
-                    )._update_modulo(
-                        temp_var, state_l[left], right, None
-                    )._s_func
+                        parse_expr(f'{left}={state_l[left]}'))._update_modulo(
+                        temp_var, state_l[left], right, None)._s_func
+            else:
+                for index, gf in enumerate(
+                        self._arithmetic_progression(left, str(right))):
+                    # TODO this seems to compute the correct result, but it can't always be simplified to 0
+                    #   from generating_function.py
+                    result = result + self.safe_subs(update_var, 1, fun=gf._s_func) * update_var ** index
 
-        # Both are not variables, simply compute the result
+        # If both are not variables, simply compute the result
         else:
             return self._update_var(temp_var, int(left) % int(right))
 
-        return SymengineDist(result, *self._variables)
+        return SymengineDist(result).set_variables_and_parameters(self.get_variables(), self.get_parameters())
 
     def _update_division(self, temp_var: str, numerator: str | int, denominator: str | int,
                          approximate: str | float | None) -> SymengineDist:
         update_var = se.S(temp_var)
-        div_1, div_2 = se.S(numerator), se.S(denominator)
+        div_1, div_2 = _parse_to_symengine(numerator), _parse_to_symengine(denominator)
 
-        if numerator in self._parameters or denominator in self._parameters:
+        if div_1 in self._parameters or div_2 in self._parameters:
             raise ValueError('Division containing parameters is not allowed')
 
         marginal_l = self.marginal(numerator) if div_1 in self._variables else div_1
@@ -733,20 +761,20 @@ class SymengineDist(Distribution):
                 res = self.safe_subs(update_var,
                                      1) * update_var ** (div_1 / div_2)
 
-        return SymengineDist(res).set_variables_and_parameters(self._variables, self._parameters)
+        return SymengineDist(res).set_variables_and_parameters(self.get_variables(), self.get_parameters())
 
     def _update_power(self, temp_var: str, base: str | int, exp: str | int,
                       approximate: str | float | None) -> SymengineDist:
-        update_var = se.S(temp_var)
+        update_var = se.Symbol(temp_var)
         pow_1, pow_2 = se.S(base), se.S(exp)
         res = self._s_func
 
-        if base in self._parameters or exp in self._parameters:
+        if pow_1 in self._parameters or pow_2 in self._parameters:
             raise ValueError(
-                "Cannot perfrom an exponentiation containing parameters")
+                "Cannot perform an exponentiation containing parameters")
 
         # variable to the power of a variable
-        if base in self._variables and exp in self._variables:
+        if pow_1 in self._variables and pow_2 in self._variables:
             assert isinstance(base, str)
             assert isinstance(exp, str)
             marginal_l, marginal_r = self.marginal(base), self.marginal(exp)
@@ -777,7 +805,7 @@ class SymengineDist(Distribution):
                                                                                  state_r[exp])
 
         # variable to the power of a literal
-        elif base in self._variables:
+        elif pow_1 in self._variables:
             marginal = self.marginal(base)
 
             if not marginal.is_finite():
@@ -791,7 +819,7 @@ class SymengineDist(Distribution):
                 res += self.safe_subs(update_var, 1, fun=x) * update_var ** (state[base] ** pow_2)
 
         # literal to the power of a variable
-        elif exp in self._variables:
+        elif pow_2 in self._variables:
             marginal = self.marginal(exp)
 
             if not marginal.is_finite():
@@ -808,7 +836,7 @@ class SymengineDist(Distribution):
         else:
             res = self.safe_subs(update_var, 1, fun=res) * update_var ** (pow_1 ** pow_2)
 
-        return SymengineDist(res).set_variables_and_parameters(self._variables, self._parameters)
+        return SymengineDist(res).set_variables_and_parameters(self.get_variables(), self.get_parameters())
 
     def update_iid(self, sampling_dist: Expr, count: VarExpr, variable: Union[str, VarExpr]) -> SymengineDist:
         subst_var = count.var
@@ -824,7 +852,7 @@ class SymengineDist(Distribution):
                 result._s_func = result.safe_subs(
                     se.S(subst_var),
                     se.S(subst_var) * dist_gf)
-            return result.set_variables_and_parameters(self._variables, self._parameters)
+            return result.set_variables_and_parameters(self.get_variables(), self.get_parameters())
 
         if not isinstance(sampling_dist, FunctionCallExpr):
             # create distribution in correct variable:
@@ -867,52 +895,76 @@ class SymengineDist(Distribution):
     def marginal(self, *variables: Union[str, VarExpr], method: MarginalType = MarginalType.INCLUDE) -> SymengineDist:
         if len(variables) == 0:
             raise ValueError("No variables were provided")
-        if not {(str(x))
+        if not {se.S(str(x))
                 for x in variables}.issubset(self._variables):
             raise ValueError(
-                f"Unknown variable(s): { {str(x) for x in variables} - self._variables}"
+                f"Unknown variable(s): { {se.S(str(x)) for x in variables} - self._variables}"
             )
 
-        result = self
-        result._s_func = result._s_func.expand()
-        remove_vars = {
-            MarginalType.EXCLUDE: {str(var)
-                                   for var in variables},
-            MarginalType.INCLUDE:
-                self._variables - {str(var)
-                                   for var in variables}
-        }
+        marginal_vars = set(
+            map(se.Symbol, filter(lambda v: v != '', map(str, variables))))
+        marginal = self.copy()
+        s_var: str | VarExpr | se.Symbol
+        if method == MarginalType.INCLUDE:
+            for s_var in marginal._variables.difference(marginal_vars):
+                marginal._s_func = marginal.safe_subs(s_var, 1)
+            marginal._variables = marginal_vars
+        else:
+            for s_var in marginal_vars:
+                marginal._s_func = marginal.safe_subs(s_var, 1)
+            marginal._variables = marginal._variables.difference(marginal_vars)
 
-        for var in remove_vars[method]:
-            result = result._update_var(str(var), "0")
-        return SymenginePGF.from_expr(str(result._s_func.simplify()), *(self._variables - remove_vars[method]))
+        return marginal
+        # if len(variables) == 0:
+        #     raise ValueError("No variables were provided")
+        # if not {(str(x))
+        #         for x in variables}.issubset(self.get_variables()):
+        #     raise ValueError(
+        #         f"Unknown variable(s): { {str(x) for x in variables} - self.get_variables()}"
+        #     )
+        #
+        # result = self
+        # result._s_func = result._s_func.expand()
+        # remove_vars = {
+        #     MarginalType.EXCLUDE: {str(var)
+        #                            for var in variables},
+        #     MarginalType.INCLUDE:
+        #         self.get_variables() - {str(var)
+        #                            for var in variables}
+        # }
+        #
+        # for var in remove_vars[method]:
+        #     result = result._update_var(str(var), "0")
+        # return SymenginePGF.from_expr(str(result._s_func.simplify()), *(self.get_variables() - remove_vars[method]))
 
     def set_variables(self, *variables: str) -> SymengineDist:
         new_variables = set(variables)
-        if self._parameters & new_variables:
+        if self.get_parameters() & new_variables:
             raise ValueError(
                 f"At least one variable is already known as a parameter. {self._parameters=}, {new_variables=}")
-        if not (self._parameters | new_variables).issuperset({str(s) for s in self._s_func.free_symbols}):
+        if not (self.get_parameters() | new_variables).issuperset({str(s) for s in self._s_func.free_symbols}):
             raise ValueError(f"There are unknown symbols which are neither variables nor parameters.")
         return SymenginePGF.from_expr(str(self._s_func), *new_variables)
 
     def set_parameters(self, *parameters: str) -> SymengineDist:
         new_params = set(parameters)
-        if self._variables & new_params:
+        if self.get_variables() & new_params:
             raise ValueError(
                 f"At least one parameter is already known as a variable. {self._variables=}, {new_params=}")
-        if not (self._variables | new_params).issuperset({str(s) for s in self._s_func.free_symbols}):
+        if not (self.get_variables() | new_params).issuperset({str(s) for s in self._s_func.free_symbols}):
             raise ValueError(f"There are unknown symbols which are neither variables nor parameters.")
         new_gf = SymenginePGF.from_expr(str(self._s_func), *self._variables)
-        new_gf._parameters = new_params
+        new_gf._parameters = {se.Symbol(p) for p in new_params}
         return new_gf
 
     def set_variables_and_parameters(self, variables: set[str], parameters: set[str]):
-        if not (variables | parameters).issuperset(set(map(str, self._s_func.free_symbols))):
-            raise ValueError("There are unknown symbols which are neither variables nor parameters.")
+        var_sym = {se.Symbol(v) for v in variables}
+        param_sym = {se.Symbol(p) for p in parameters}
+        if not (var_sym | param_sym).issuperset(self._s_func.free_symbols):
+            raise ValueError(f"There are unknown symbols which are neither variables nor parameters: {set(self._s_func.free_symbols).difference((var_sym | param_sym))}")
         new_gf = SymenginePGF.from_expr(str(self._s_func))
-        new_gf._variables = variables
-        new_gf._parameters = parameters
+        new_gf._variables = var_sym
+        new_gf._parameters = param_sym
         return new_gf
 
     def approximate(self, threshold: Union[str, int]) -> Generator[SymengineDist, None, None]:
@@ -971,8 +1023,6 @@ class SymengineDist(Distribution):
         if fun is None:
             fun = self._s_func
         for (variable, value) in pairs:
-            if not se.S(variable).is_symbol:
-                raise ValueError(f"Substituting a non-symbol {variable}")
             f = fun
             # FIXME subs with dict instead of stepwise
             if f.subs(variable, value).simplify() in [se.nan, se.zoo]:
@@ -1003,7 +1053,9 @@ class SymengineDist(Distribution):
         result = 0
         mass_res = 0
 
-        for element in se.series(self._s_func, var):
+        logger.info("Falling back to sympy")
+        sympy_f: sp.Expr = sp.S(self._s_func)
+        for element in sympy_f.series(sp.S(var), n=None):
             result += element
             mass_res += self.safe_subs(*[(sym, 1)
                                          for sym in element.free_symbols], fun=element)
@@ -1014,7 +1066,7 @@ class SymengineDist(Distribution):
 
 
 # TODO check which types of expressions one needs
-def _parse_to_symengine(expression):
+def _parse_to_symengine(expression) -> se.Expr:
     def probably_to_symengine(expr: Expr):
         if isinstance(expr, NatLitExpr):
             return se.Integer(expr.value)
@@ -1023,6 +1075,8 @@ def _parse_to_symengine(expression):
 
     if isinstance(expression, get_args(Expr)):
         return probably_to_symengine(expression)
+
+    return se.S(str(expression))
 
 
 class SymenginePGF(CommonDistributionsFactory):
