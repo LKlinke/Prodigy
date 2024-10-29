@@ -915,27 +915,6 @@ class SymengineDist(Distribution):
             marginal._variables = marginal._variables.difference(marginal_vars)
 
         return marginal
-        # if len(variables) == 0:
-        #     raise ValueError("No variables were provided")
-        # if not {(str(x))
-        #         for x in variables}.issubset(self.get_variables()):
-        #     raise ValueError(
-        #         f"Unknown variable(s): { {str(x) for x in variables} - self.get_variables()}"
-        #     )
-        #
-        # result = self
-        # result._s_func = result._s_func.expand()
-        # remove_vars = {
-        #     MarginalType.EXCLUDE: {str(var)
-        #                            for var in variables},
-        #     MarginalType.INCLUDE:
-        #         self.get_variables() - {str(var)
-        #                            for var in variables}
-        # }
-        #
-        # for var in remove_vars[method]:
-        #     result = result._update_var(str(var), "0")
-        # return SymenginePGF.from_expr(str(result._s_func.simplify()), *(self.get_variables() - remove_vars[method]))
 
     def set_variables(self, *variables: str) -> SymengineDist:
         new_variables = set(variables)
