@@ -27,7 +27,7 @@ class SymengineDist(Distribution):
         return SymenginePGF
 
     def __init__(self, function, *variables: Union[se.Symbol, str]):
-        self._s_func: se.Expr = se.S(function)
+        self._s_func: se.Expr = _parse_to_symengine(function)
         self._variables: set[se.Symbol] = self._s_func.free_symbols
         self._parameters: set[se.Symbol] = set()
         if variables:
@@ -1046,12 +1046,38 @@ class SymengineDist(Distribution):
 
 
 # TODO check which types of expressions one needs
+
 def _parse_to_symengine(expression) -> se.Expr:
+    """
+    Parses an arbitrary expression to symengine.
+
+    :param expression: The expression to parse.
+    :returns: The parsed expression.
+    """
     def probably_to_symengine(expr: Expr):
         if isinstance(expr, NatLitExpr):
             return se.Integer(expr.value)
-        else:
-            return se.S(str(expr))
+        elif isinstance(expr, VarExpr):
+            return se.Symbol(expr.var)
+        elif isinstance(expr, RealLitExpr):
+            return se.Rational(expr.to_fraction())
+        elif isinstance(expr, BinopExpr):
+            supported_operators = {
+                Binop.PLUS: operator.add,
+                Binop.MINUS: operator.sub,
+                Binop.TIMES: operator.mul,
+                Binop.POWER: operator.pow,
+                Binop.DIVIDE: operator.truediv,
+                Binop.MODULO: operator.mod
+            }
+            op = expr.operator
+            if op not in supported_operators:
+                raise ValueError(f'Unsupported operand: {op}')
+            return supported_operators[op](
+                probably_to_symengine(expr.lhs),
+                probably_to_symengine(expr.rhs)
+            )
+        raise ValueError(f"Unsupported type: {type(expression)}")
 
     if isinstance(expression, get_args(Expr)):
         return probably_to_symengine(expression)
