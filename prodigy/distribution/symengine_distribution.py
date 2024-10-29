@@ -895,7 +895,7 @@ class SymengineDist(Distribution):
     def marginal(self, *variables: Union[str, VarExpr], method: MarginalType = MarginalType.INCLUDE) -> SymengineDist:
         if len(variables) == 0:
             raise ValueError("No variables were provided")
-        if not {se.S(str(x))
+        if not {se.Symbol(str(x))
                 for x in variables}.issubset(self._variables):
             raise ValueError(
                 f"Unknown variable(s): { {se.S(str(x)) for x in variables} - self._variables}"
@@ -1034,6 +1034,7 @@ class SymengineDist(Distribution):
 
         logger.info("Falling back to sympy")
         sympy_f: sp.Expr = sp.S(self._s_func)
+        # todo remove with symengine method
         for element in sympy_f.series(sp.S(var), n=None):
             result += element
             mass_res += self.safe_subs(*[(sym, 1)
