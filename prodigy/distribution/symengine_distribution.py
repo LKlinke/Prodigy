@@ -926,14 +926,14 @@ class SymengineDist(Distribution):
         return SymenginePGF.from_expr(str(self._s_func), *new_variables)
 
     def set_parameters(self, *parameters: str) -> SymengineDist:
-        new_params = set(parameters)
-        if self.get_variables() & new_params:
+        new_params = {se.Symbol(p) for p in parameters}
+        if self._variables & new_params:
             raise ValueError(
                 f"At least one parameter is already known as a variable. {self._variables=}, {new_params=}")
-        if not (self.get_variables() | new_params).issuperset({str(s) for s in self._s_func.free_symbols}):
+        if not (self._variables | new_params).issuperset(self._s_func.free_symbols):
             raise ValueError(f"There are unknown symbols which are neither variables nor parameters.")
         new_gf = SymenginePGF.from_expr(str(self._s_func), *self._variables)
-        new_gf._parameters = {se.Symbol(p) for p in new_params}
+        new_gf._parameters = new_params
         return new_gf
 
     def set_variables_and_parameters(self, variables: set[str], parameters: set[str]):
@@ -1060,7 +1060,7 @@ def _parse_to_symengine(expression) -> se.Expr:
         elif isinstance(expr, VarExpr):
             return se.Symbol(expr.var)
         elif isinstance(expr, RealLitExpr):
-            return se.Rational(expr.to_fraction())
+            return se.S(str(expr.to_fraction()))
         elif isinstance(expr, BinopExpr):
             supported_operators = {
                 Binop.PLUS: operator.add,
