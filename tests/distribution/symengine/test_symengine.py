@@ -1,8 +1,12 @@
+from fractions import Fraction
+
+import probably.pgcl
+
 from prodigy.distribution.symengine_distribution import *
 import pytest
 import symengine as se
 import random
-from probably.pgcl import NatLitExpr
+from probably.pgcl import NatLitExpr, BoolLitExpr
 
 import re
 
@@ -602,6 +606,28 @@ class TestDistributionInterface:
         gf = gf.set_variables("a", "b", "c", *gf.get_variables())
         assert all([x in gf.get_variables() for x in {'a', 'b', 'c'}])
 
+        gf = SymengineDist("x * p", "x")
+        with pytest.raises(ValueError, match=re.escape(f"At least one variable is already known as a parameter.")):
+            gf.set_variables("p")
+
+    def test_set_parameters(self):
+        gf = SymengineDist("x*p_1*p_2", "x").set_parameters("p_1", "p_2")
+        assert gf.get_parameters() == {"p_1", "p_2"}
+
+        with pytest.raises(ValueError, match=re.escape("There are unknown symbols which are neither variables nor parameters.")):
+            gf.set_parameters("p_1")
+
+    def test_set_variables_and_parameters(self):
+        gf = SymengineDist("x * p", "x").set_parameters("p")
+
+        # Swap variables and parameters
+        updated_gf = gf.set_variables_and_parameters({"p"}, {"x"})
+        assert updated_gf.get_variables() == {"p"}
+        assert updated_gf.get_parameters() == {"x"}
+
+        with pytest.raises(ValueError, match=re.escape("There are unknown symbols which are neither variables nor parameters:")):
+            gf.set_variables_and_parameters({"x"}, set())
+
     def test_approximate(self):
         gf = SymengineDist("2/(2-x) - 1")
 
@@ -633,6 +659,10 @@ class TestDistributionInterface:
         from prodigy.distribution.symengine_distribution import _parse_to_symengine
         from probably.pgcl import NatLitExpr, VarExpr
 
+        # Base case
+        expr = "x**2 + y**2"
+        assert _parse_to_symengine(expr) == se.S(expr)
+
         # Probably: NatLitExpr
         expr = NatLitExpr(1)
         assert _parse_to_symengine(expr) == se.S("1")
@@ -640,6 +670,56 @@ class TestDistributionInterface:
         # Probably: VarExpr
         expr = VarExpr("x")
         assert _parse_to_symengine(expr) == se.Symbol("x")
+
+        # Probably: RealLitExpr
+        expr = RealLitExpr(Fraction(2, 4))
+        assert _parse_to_symengine(expr) == se.S("1/2")
+
+        # Probably: BinopExpr
+        expr = BinopExpr(
+            lhs=VarExpr("x"),
+            operator=Binop.PLUS,
+            rhs=VarExpr("y")
+        )
+        assert _parse_to_symengine(expr) == se.S("x + y")
+
+        # Probably: Nested BinopExpr
+        expr = BinopExpr(
+            lhs=BinopExpr(
+                lhs=VarExpr("x"),
+                operator=Binop.POWER,
+                rhs=NatLitExpr(2)
+            ),
+            operator=Binop.DIVIDE,
+            rhs=BinopExpr(
+                lhs=VarExpr("y"),
+                operator=Binop.MINUS,
+                rhs=BinopExpr(
+                    lhs=VarExpr("x"),
+                    operator=Binop.TIMES,
+                    rhs=RealLitExpr(Fraction(1,3))
+                )
+            )
+        )
+        assert _parse_to_symengine(expr) == se.S("(x**2) / (y - x * 1/3)")
+
+        # Probably: Not supported operator
+        expr = BinopExpr(
+            lhs=VarExpr("x"),
+            operator=Binop.LEQ,
+            rhs=NatLitExpr(5)
+        )
+
+        with pytest.raises(ValueError, match=re.escape(f"Unsupported operand: {Binop.LEQ}")):
+            _parse_to_symengine(expr)
+
+        # Probably: Not supported type
+        expr = BoolLitExpr(True)
+
+        with pytest.raises(ValueError, match=re.escape(f"Unsupported type: {type(expr)}")):
+            _parse_to_symengine(expr)
+
+
 
     def test_hadamard_product(self):
         gf1, gf2 = create_random_gf(3, 5), create_random_gf(3, 5)
