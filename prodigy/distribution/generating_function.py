@@ -176,6 +176,9 @@ class GeneratingFunction(Distribution):
     def _filter_constant_condition(self,
                                    condition: Expr) -> GeneratingFunction:
         # Normalize the condition into the format _var_ (< | <= | =) const. I.e., having the variable on the lhs.
+
+        # FIXME variable comparison does not work as condition.rhs.var is str and self._var of type
+        #   set[sympy.Symbol]
         if isinstance(condition.rhs,
                       VarExpr) and condition.rhs.var not in self._variables:
             if condition.operator == Binop.LEQ:
@@ -201,13 +204,17 @@ class GeneratingFunction(Distribution):
                               lhs=condition.rhs,
                               rhs=condition.lhs))
 
+        # FIXME variable comparison does not work as condition.rhs.var is str and self._var of type
+        #   set[sympy.Symbol]
         if isinstance(condition.lhs,
                       VarExpr) and condition.lhs.var not in self._variables:
             if condition.operator == Binop.GT:
                 return self.filter(
-                    BinopExpr(operator=Binop.LT,
-                              lhs=condition.rhs,
-                              rhs=condition.lhs))
+                    UnopExpr(operator=Unop.NEG,
+                             expr=BinopExpr(operator=Binop.LEQ,
+                              lhs=condition.lhs,
+                              rhs=condition.rhs)))
+
             elif condition.operator == Binop.GEQ:
                 return self.filter(
                     BinopExpr(operator=Binop.LEQ,
