@@ -246,10 +246,11 @@ def benchmark(config: Configuration):
                         str(
                             output[0]
                             .split("\x1b")[2]
-                            .split("[92m")[1])
-                        .removeprefix("(")
+                            .split("[92m")[1]
+                        ).removeprefix("(")
                         .removesuffix(")")
-                        .split(",")),  # Very hacky lol
+                        .split(",")
+                    ),  # Very hacky lol
                     file=file
                 )
             )

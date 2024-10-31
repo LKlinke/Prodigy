@@ -43,18 +43,18 @@ class SymengineDist(Distribution):
         return variables.intersection(parameters) == set()
 
     def __add__(self, other) -> SymengineDist:
-        return self._arithmetic(other, "add", operator.add)
+        return self._arithmetic_operator(other, "add", operator.add)
 
     def __sub__(self, other) -> SymengineDist:
-        return self._arithmetic(other, "subtract", operator.sub)
+        return self._arithmetic_operator(other, "subtract", operator.sub)
 
     def __mul__(self, other) -> SymengineDist:
-        return self._arithmetic(other, "multiply", operator.mul)
+        return self._arithmetic_operator(other, "multiply", operator.mul)
 
     def __truediv__(self, other) -> SymengineDist:
-        return self._arithmetic(other, "divide", operator.truediv)
+        return self._arithmetic_operator(other, "divide", operator.truediv)
 
-    def _arithmetic(self, other: str | int | float | SymengineDist, textual_descr: str, op: operator) -> SymengineDist:
+    def _arithmetic_operator(self, other: str | int | float | SymengineDist, textual_descr: str, op: operator) -> SymengineDist:
         """
         Applies an arithmetic operator to self and one unknown object.
 
@@ -67,6 +67,10 @@ class SymengineDist(Distribution):
             # FIXME
             #   not sure how this should look like
             other_syms = self._find_symbols(str(other))
+            # TODO
+            #   for floats like 1.0, 2.0, ... conversion into floats of all effected coefficients breaks equality,
+            #   i.e. 1.0 * x != x
+            #   change?
             res = op(self._s_func, se.S(other))
             # If other has no symbols, simply return the current symbols as variables / parameters
             if other_syms == set():
