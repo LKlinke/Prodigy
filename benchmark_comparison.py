@@ -62,7 +62,7 @@ class Configuration:
 
         :param args: The command line arguments.
         """
-        self.engine: list[str] = [args.engine] if args.engine else engines
+
         self.output_file: str | None = args.output
         self.fail_on_error: bool = args.fail_on_error
         self.skip_timeouts: bool = args.skip_timeouts
@@ -85,6 +85,21 @@ class Configuration:
             # A file containing files that should be tested
             self.files = list(map(str.strip, open(input_files, "r").readlines()))
 
+        self.engine: list[str]
+        if args.engine is None:
+            self.engine = engines
+        else:
+            engine = args.engine
+            if "," in engine:
+                engine = engine.split(",")
+            else:
+                engine = [engine]
+
+            assert all(e in engines for e in engine), \
+                f"Unrecognized engine. Given: {engine}"
+
+            self.engine = engine
+
 
 def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
@@ -102,8 +117,8 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--engine",
         metavar="ENGINE",
-        choices=engines,
-        help="The engine that should be tested primarily. If unset, all engines are tested."
+        help="The engine that should be tested primarily. Separate multiple engines by ','." +
+             f"If unset, all engines are tested. Supported engines: {', '.join(engines)}."
     )
 
     # -o, --output
