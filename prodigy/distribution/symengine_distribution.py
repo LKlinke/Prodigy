@@ -114,13 +114,13 @@ class SymengineDist(Distribution):
                 s, o = se.S(prob), other.get_prob_by_diff(state)
                 if s > o:
                     return False
-                return True
+            return True
 
         if other.is_finite():
             for prob, state in other:
                 if self.get_prob_by_diff(state) > se.S(prob):
                     return False
-                return True
+            return True
 
         difference: se.Basic = self._s_func - other._s_func
         # todo replace once suitable method is found
@@ -1060,6 +1060,7 @@ class SymengineDist(Distribution):
                 else:
                     result[str(var)] = 0
         return result
+
 
 def _parse_to_symengine(expression) -> se.Expr:
     """
