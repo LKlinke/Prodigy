@@ -304,7 +304,7 @@ def benchmark(config: Configuration):
                             break
 
             # Results are equal, add run to output file (if set)
-            if config.output_file and not fail:
+            if config.output_file is not None and not fail:
                 with open(config.output_file, "a") as f:
                     f.write(file)
                     for engine in config.engine:
@@ -313,7 +313,7 @@ def benchmark(config: Configuration):
             print("Results are equal, continuing...")
 
     # Write average to output file
-    if config.output_file:
+    if config.output_file is not None:
         print("Writing output file...")
         with open(config.output_file, "a") as f:
             averages = [str(round(sum(times[engine]) / len(times[engine]), 6)) for engine in engines]
