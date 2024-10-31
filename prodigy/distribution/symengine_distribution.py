@@ -148,6 +148,7 @@ class SymengineDist(Distribution):
         return f"{self._s_func}"
 
     def __iter__(self) -> Iterator[Tuple[str, State]]:
+
         prob_fun = self.get_prob_by_diff  # TODO which probability function should we use
         if not self.is_finite():
             v = list(self.get_variables())
@@ -162,31 +163,22 @@ class SymengineDist(Distribution):
                     state = State(dict(zip(v, tup)))
                     yield str(prob_fun(state)), state
         else:
-            # todo replace with symengine method
-            logger.info("Falling back to pygin")
-            import pygin
-            # FIXME this method does not return the terms in a fixed order, sometimes leads to wrong results, e.g.
-            #   First test:
-            #       1/2, {'x': 2, 'y': 3}
-            #       1/2, {'x': 3, 'y': 2}
-            #   Second test:
-            #       1/2, {'x': 2, 'y': 3}
-            #       1/2, {'x': 2, 'y': 3}
-            for prob, vals in (pygin.Dist(str(self._s_func).replace("**", "^"), list(self.get_parameters()))
-                    .get_terms(self.get_variables())):
-                yield prob, State(vals)
-            # TODO replace with sympy method for now
-            # logger.info("Falling back to sympy")
-            # fun: sp.Expr = sp.S(self._s_func)
-            #
-            # if not fun.is_polynomial(*self._variables):
-            #     fun: sp.Poly = fun.expand().ratsimp().as_poly(
-            #         *[sp.Symbol(x) for x in self._variables])
-            # else:
-            #     fun: sp.Poly = fun.as_poly(*[sp.Symbol(x) for x in self._variables])
-            # while fun.as_expr() != 0:
-            #     yield str(fun.EC()), State(fun.EM().as_expr().as_powers_dict())
-            #     fun -= fun.EC() * fun.EM().as_expr()
+            # TODO replace with symengine method
+            logger.info("Falling back to sympy")
+
+            func: sp.Expr = sp.S(self._s_func)
+            variables: set[sp.Symbol] = {sp.Symbol(v) for v in self.get_variables()}
+
+            if not func.is_polynomial(*variables):
+                func = func.expand().ratsimp().as_poly(*variables)
+            else:
+                func = func.as_poly(*variables)
+
+            assert isinstance(func, sp.Poly)
+
+            while func.as_expr() != 0:
+                yield str(func.EC()), self._monomial_to_state(func.EM().as_expr())
+                func -= func.EC() * func.EM().as_expr()
 
     def iter_with(self, monomial_iterator: Iterator[List[int]]) -> Iterator[Tuple[str, State]]:
         """
@@ -200,18 +192,22 @@ class SymengineDist(Distribution):
             for tup in monomial_iterator:
                 yield str(prob_fun(State(dict(zip(v, tup))))), State(dict(zip(v, tup)))
         else:
-            logger.info("Falling back to pygin")
-            import pygin
-            # FIXME this method does not return the terms in a fixed order, sometimes leads to wrong results, e.g.
-            #   First test:
-            #       1/2, {'x': 2, 'y': 3}
-            #       1/2, {'x': 3, 'y': 2}
-            #   Second test:
-            #       1/2, {'x': 2, 'y': 3}
-            #       1/2, {'x': 2, 'y': 3}
-            for prob, vals in (pygin.Dist(str(self._s_func).replace("**", "^"), list(self.get_parameters()))
-                    .get_terms(self.get_variables())):
-                yield prob, State(vals)
+            # TODO replace with symengine method
+            logger.info("Falling back to sympy")
+
+            func: sp.Expr = sp.S(self._s_func)
+            variables: set[sp.Symbol] = {sp.Symbol(v) for v in self.get_variables()}
+
+            if not func.is_polynomial(*variables):
+                func = func.expand().ratsimp().as_poly(*variables)
+            else:
+                func = func.as_poly(*variables)
+
+            assert isinstance(func, sp.Poly)
+
+            while func.as_expr() != 0:
+                yield str(func.EC()), self._monomial_to_state(func.EM().as_expr())
+                func -= func.EC() * func.EM().as_expr()
 
     # TODO integrate these functions better / move them / replace by correct signature
     def get_prob_by_diff(self, state: State) -> se.Basic:
@@ -1045,7 +1041,25 @@ class SymengineDist(Distribution):
         raise NotImplementedError("unreachable")
 
 
-# TODO check which types of expressions one needs
+    # TODO replace sympy with symengine
+    def _monomial_to_state(self, monomial: sp.Expr) -> State:
+        """ Converts a `monomial` into a state representation, i.e., a (variable_name, variable_value) dict.
+            This is tied to a specific instance of a generating function as a variable and parameter context
+            is needed to resolve the types of indeterminates in the monomial.
+        """
+        result = State()
+        if monomial.free_symbols == set():
+            for var in self._variables:
+                result[str(var)] = 0
+        else:
+            variables_and_powers = monomial.as_powers_dict()
+            for var in self._variables:
+                var = sp.Symbol(str(var))
+                if var in variables_and_powers.keys():
+                    result[str(var)] = int(variables_and_powers[var])
+                else:
+                    result[str(var)] = 0
+        return result
 
 def _parse_to_symengine(expression) -> se.Expr:
     """
