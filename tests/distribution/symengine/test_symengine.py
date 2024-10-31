@@ -11,7 +11,7 @@ from probably.pgcl import NatLitExpr, BoolLitExpr
 import re
 
 # TODO
-#   At workarounds with sympy.equals(), add checks for variables / parameters
+#   At workarounds with sympy.equals(), add checks for variables / parameters (once symengine supports .equals())
 
 
 def create_random_gf(number_of_variables: int = 1, terms: int = 1):
@@ -73,7 +73,7 @@ class TestDistributionInterface:
         assert g * 0 == SymenginePGF.undefined("x")
 
         # SymengineDist * float
-        # TODO should one use .simplify() to achieve g * 0.0 == SymenginePFG.undefined("x")?
+        # TODO ".0" is addes and breaks equality
         assert g * 0.0 == SymenginePGF.from_expr("0.0", "x")
 
         # SymengineDist * string
@@ -176,8 +176,7 @@ class TestDistributionInterface:
 
         gf1 = SymengineDist("(1/2) * x**2*y**3 + (1/2) * x**3*y**2")
         gf2 = SymengineDist("(1/3) * x**2*y**3 + (2/3) * x**3*y**2")
-        # FIXME sometimes the pygin.get_terms method returns different order leading to different results
-        # assert not gf1 < gf2
+        assert not gf1 < gf2
 
     def test_infinite_le(self):
         gf1 = SymengineDist("(1-sqrt(1-x**2))/x")
@@ -253,29 +252,8 @@ class TestDistributionInterface:
             i += 1
 
     def test_iteration_multivariate(self):
-        # gf = FPS("1/(2-x) * 1/(2-y)")
-        # expected_terms = [
-        #     ("1/4", State({'x': 0, 'y': 0})),
-        #     ("1/8", State({'x': 0, 'y': 1})),
-        #     ("1/8", State({'x': 1, 'y': 0})),
-        #     ("1/16", State({'x': 0, 'y': 2})),
-        #     ("1/16", State({'x': 1, 'y': 1})),
-        #     ("1/16", State({'x': 2, 'y': 0})),
-        #     ("1/32", State({'x': 0, 'y': 3})),
-        #     ("1/32", State({'x': 1, 'y': 2})),
-        #     ("1/32", State({'x': 2, 'y': 1})),
-        #     ("1/32", State({'x': 3, 'y': 0})),
-        #     ("1/64", State({'x': 0, 'y': 4}))
-        # ]
-        # generated_terms = []
-        # for i, term in enumerate(gf):
-        #     if i >= 11:
-        #         break
-        #     print(term)
-        #     generated_terms.append(term)
-        #
-        # assert generated_terms == expected_terms
-        pass
+        pass    # TODO
+
 
     def test_iteration_finite(self):
         gf = SymengineDist("(1/2) * x**2 + (1/2) * x**3")
@@ -284,7 +262,6 @@ class TestDistributionInterface:
             ("1/2", State({"x": 3}))
         ]
         assert list(iter(gf)) == expected_terms
-
 
     def test_iter_with(self):
         # Infinite distributions
