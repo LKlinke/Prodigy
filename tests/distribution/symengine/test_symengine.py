@@ -1,6 +1,6 @@
 from fractions import Fraction
 
-import probably.pgcl
+from itertools import islice
 
 from prodigy.distribution.symengine_distribution import *
 import pytest
@@ -253,10 +253,40 @@ class TestDistributionInterface:
             i += 1
 
     def test_iteration_multivariate(self):
-        pass    # TODO
+        # gf = FPS("1/(2-x) * 1/(2-y)")
+        # expected_terms = [
+        #     ("1/4", State({'x': 0, 'y': 0})),
+        #     ("1/8", State({'x': 0, 'y': 1})),
+        #     ("1/8", State({'x': 1, 'y': 0})),
+        #     ("1/16", State({'x': 0, 'y': 2})),
+        #     ("1/16", State({'x': 1, 'y': 1})),
+        #     ("1/16", State({'x': 2, 'y': 0})),
+        #     ("1/32", State({'x': 0, 'y': 3})),
+        #     ("1/32", State({'x': 1, 'y': 2})),
+        #     ("1/32", State({'x': 2, 'y': 1})),
+        #     ("1/32", State({'x': 3, 'y': 0})),
+        #     ("1/64", State({'x': 0, 'y': 4}))
+        # ]
+        # generated_terms = []
+        # for i, term in enumerate(gf):
+        #     if i >= 11:
+        #         break
+        #     print(term)
+        #     generated_terms.append(term)
+        #
+        # assert generated_terms == expected_terms
+        pass
+
+    def test_iteration_finite(self):
+        gf = SymengineDist("(1/2) * x**2 + (1/2) * x**3")
+        expected_terms = [
+            ("1/2", State({"x": 2})),
+            ("1/2", State({"x": 3}))
+        ]
+        assert list(iter(gf)) == expected_terms
+
 
     def test_iter_with(self):
-        from itertools import islice
         # Infinite distributions
         # When using the default monomial iterator, the results should be the same
         gf = SymengineDist("(1-sqrt(1-x**2))/x")
