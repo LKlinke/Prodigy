@@ -270,8 +270,8 @@ def benchmark(config: Configuration):
                 )
             )
 
-        # Compare results if at least two engines are selected and file wasn't skipped once
-        if len(config.engine) > 1 and file not in timeouts:
+        # Compare results if at least two engines are selected and file wasn't skipped once (if skip_timeouts is set)
+        if len(config.engine) > 1 and (not config.skip_timeouts or file not in timeouts):
             try:
                 results: dict[str, list[sp.Expr]] = {}
                 for engine in config.engine:
@@ -302,10 +302,8 @@ def benchmark(config: Configuration):
                         try:
                             assert results[engine][i].equals(results[other_engine][i]), \
                                 f"""
-                                Engine {engine} disagrees with engine {other_engine} on file {file}. 
-                                {engine}: {results[engine][i]}
-                                {other_engine}: {results[other_engine][i]}
-                                """
+                                Engine {engine} disagrees with engine {other_engine} on file {file}.
+                                """ + "\n".join(f"{e}: {results[e][i]}" for e in engines)
                         except AssertionError as e:
                             with open("exceptions.txt", "a") as f:
                                 # Write file to exception file

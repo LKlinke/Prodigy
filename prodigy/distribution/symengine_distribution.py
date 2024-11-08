@@ -63,31 +63,9 @@ class SymengineDist(Distribution):
         :param textual_descr: The text description of the operator to be applied with self. Used for the error message
         :param op: The operator to be applied with self.
         """
-        if isinstance(other, (str, int, float)):
-            # FIXME
-            #   not sure how this should look like
-            other_syms = self._find_symbols(str(other))
-            # TODO
-            #   for floats like 1.0, 2.0, ... conversion into floats of all effected coefficients breaks equality,
-            #   i.e. 1.0 * x != x
-            #   change?
-            res = op(self._s_func, se.S(other))
-            # If other has no symbols, simply return the current symbols as variables / parameters
-            if other_syms == set():
-                return SymengineDist(res).set_variables_and_parameters(
-                    self.get_variables(), self.get_parameters()
-                )
-            params = other_syms.intersection(self.get_parameters())
-            if params != set():
-                return SymengineDist(res).set_variables_and_parameters(
-                    self.get_variables().union(other_syms.difference(params)),
-                    self.get_parameters(),
-                )
-            else:
-                return SymengineDist(res).set_variables_and_parameters(
-                    self.get_variables().union(other_syms),
-                    self.get_parameters()
-                )
+        if isinstance(other, (str, int ,float)):
+            # Convert other into a SymengineDist with matching variables
+            return self._arithmetic_operator(SymengineDist(other, *self.get_variables()), textual_descr, op)
 
         if not isinstance(other, SymengineDist):
             raise SyntaxError(f"You cannot {textual_descr} {type(self)} by {type(other)}.")
