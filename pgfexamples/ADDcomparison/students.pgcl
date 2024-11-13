@@ -24,14 +24,14 @@ nat sInC_42
 
 nat x
 
-likes_11 := bernoulli(0.5) // TODO use a parameter?
-likes_12 := bernoulli(0.5)
-likes_21 := bernoulli(0.5)
-likes_22 := bernoulli(0.5)
-likes_31 := bernoulli(0.5)
-likes_32 := bernoulli(0.5)
-likes_41 := bernoulli(0.5)
-likes_42 := bernoulli(0.5)
+likes_11 := bernoulli(1/2) // TODO use a parameter?
+likes_12 := bernoulli(1/2)
+likes_21 := bernoulli(1/2)
+likes_22 := bernoulli(1/2)
+likes_31 := bernoulli(1/2)
+likes_32 := bernoulli(1/2)
+likes_41 := bernoulli(1/2)
+likes_42 := bernoulli(1/2)
 
 sInC_11 := 1
 sInC_12 := 0
@@ -48,46 +48,46 @@ sInC_42 := 0
     if(sInC_11 = 1) {
         observe(likes_11 = 1)
     } else{skip}
-} [0.7] {skip}
+} [7/10] {skip}
 
 {
     if(sInC_12 = 1) {
         observe(likes_12 = 1)
     } else{skip}
-} [0.7] {skip}
+} [7/10] {skip}
 
 {
     if(sInC_21 = 1) {
         observe(likes_21 = 1)
     } else{skip}
-} [0.7] {skip}
+} [7/10] {skip}
 
 {
     if(sInC_22 = 1) {
         observe(likes_22 = 1)
     } else{skip}
-} [0.7] {skip}
+} [7/10] {skip}
 
 {
     if(sInC_31 = 1) {
         observe(likes_31 = 1)
     } else{skip}
-} [0.7] {skip}
+} [7/10] {skip}
 
 {
     if(sInC_32 = 1) {
         observe(likes_32 = 1)
     } else{skip}
-} [0.7] {skip}
+} [7/10] {skip}
 
 {
     if(sInC_41 = 1) {
         observe(likes_41 = 1)
     } else{skip}
-} [0.7] {skip}
+} [7/10] {skip}
 
 {
     if(sInC_42 = 1) {
         observe(likes_42 = 1)
     } else{skip}
-} [0.7] {skip}
+} [7/10] {skip}

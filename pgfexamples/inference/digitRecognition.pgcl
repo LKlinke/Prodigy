@@ -1,4 +1,5 @@
 nat y;
+nat tmp;
 
 tmp := bernoulli(98717/1000004);
 if(tmp = 1) {

@@ -385,9 +385,9 @@ class SymengineDist(Distribution):
         # This is the general algorithm
         primitive_uroot = se.exp(2 * se.pi * se.I / a)
         result = []
-        for remainder in range(a):  # type: ignore
+        for remainder in range(int(a)):  # type: ignore
             psum = 0
-            for m in range(a):  # type: ignore
+            for m in range(int(a)):  # type: ignore
                 psum += primitive_uroot ** (-m *
                                             remainder) * self.safe_subs(
                     var, (primitive_uroot ** m) * var)
