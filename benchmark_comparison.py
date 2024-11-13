@@ -6,15 +6,19 @@ import sympy as sp
 import os
 from glob import glob
 
+
 # All files in the pgfexamples folder
 all_files: list[str] = [y for x in os.walk("pgfexamples") for y in glob(os.path.join(x[0], '*.pgcl'))] + [
     "example.pgcl"]
 
 # Timeouts / Exception runs
-timeouts: list[str] = list(map(str.strip, open("timeouts.txt", "r").readlines())) + list(
-    map(str.strip, open("exceptions.txt", "r").readlines()))
+# If files are not present, an empty list is returned
+timeouts: list[str] = list(map(str.strip, open("timeouts.txt", "r").readlines())) \
+    if os.path.isfile("timeouts.txt") else [] + \
+    list(map(str.strip, open("exceptions.txt", "r").readlines())) if os.path.isfile("exceptions.txt") else []
 
 # All available engines
+# (will be executed in this order)
 engines = [
     "ginac", "symengine", "sympy"
 ]
@@ -80,7 +84,7 @@ class Configuration:
             self.files = all_files
         elif "pgcl" in input_files:
             # A single file should be tested
-            self.files = [input_files]
+            self.files = [args.input]
         else:
             # A file containing files that should be tested
             self.files = list(map(str.strip, open(input_files, "r").readlines()))
@@ -107,6 +111,7 @@ def create_parser() -> argparse.ArgumentParser:
     # Main input file
     parser.add_argument(
         "input",
+        metavar="INPUT",
         help="File to be analyzed. If set to \"all\", all files in the pgfexamples folder will be analyzed. " +
              "If file does not have a .pgcl extension, it is interpreted to be a file containing files to be tested.",
         type=str
@@ -117,8 +122,9 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--engine",
         metavar="ENGINE",
-        help="The engine that should be tested primarily. Separate multiple engines by ','." +
-             f"If unset, all engines are tested. Supported engines: {', '.join(engines)}."
+        help="The engine that should be tested primarily. Separate multiple engines by ','. " +
+             "If unset, all engines are tested. Note: Engines will be executed in the order given. "+
+             f"Supported engines: {', '.join(engines)}."
     )
 
     # -o, --output
@@ -160,7 +166,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # --generate-markdown
-    # If set, generates a markdown table with the results and highlighted entries for fastest entries.
+    # If set, generates a Markdown table with the results and highlighted entries for fastest entries.
     parser.add_argument(
         "--generate-markdown",
         help="If set, the script will generate a markdown table of the results. Note: only works if 'output' is set.",
@@ -174,6 +180,15 @@ def main(args):
     """
     Parses the arguments and calls main benchmark method.
     """
+    # Create timeouts and exceptions files if not yet present
+    if not os.path.isfile("exceptions.txt"):
+        with open("exceptions.txt", "w"):
+            pass
+
+    if not os.path.isfile("timeouts.txt"):
+        with open("timeouts.txt", "w"):
+            pass
+
     parser = create_parser()
     args = parser.parse_args(args)
     config = Configuration(args)
@@ -193,13 +208,15 @@ def benchmark(config: Configuration):
         engine: [] for engine in engines
     }
 
-    # If output is wanted, setup the corresponding file
+    # If output is wanted, set up the corresponding file
     if config.output_file is not None:
         setup_outfile(config.output_file)
 
+    counter = 0
     # For each file, test all engines
     for file in config.files:
-        print(f"Now testing: {file}")
+        counter += 1
+        print(f"Now testing: {file} ({counter}/{len(config.files)})")
 
         # Check if the current file is in timeouts
         if file in timeouts and config.skip_timeouts:
@@ -248,7 +265,7 @@ def benchmark(config: Configuration):
             output = output.splitlines()
 
             # Sometimes other stuff is logged, which is captured
-            # but not interesting for the analysis
+            # but not interesting for the analysis.
             # The interesting part begins with "Result: [...]"
             while "Result" not in output[0]:
                 output = output[1:]
@@ -299,6 +316,8 @@ def benchmark(config: Configuration):
                         break
                     # Compare expr and error_prob
                     for i in range(2):
+                        if fail:
+                            break
                         try:
                             assert results[engine][i].equals(results[other_engine][i]), \
                                 f"""
@@ -323,19 +342,14 @@ def benchmark(config: Configuration):
                     for engine in config.engine:
                         f.write(f",{times[engine][-1].time}")
                     f.write("\n")
-            print("Results are equal, continuing...")
 
-    # Write average to output file
-    if config.output_file is not None:
-        print("Writing output file...")
-        with open(config.output_file, "a") as f:
-            averages = [str(round(sum(times[engine]) / len(times[engine]), 6)) for engine in engines]
-            f.write("Average," + ",".join(averages))
+            if not fail:
+                print("Results are equal, continuing...")
 
     # If generate markdown is set, create the Markdown table
     if config.generate_markdown:
         print("Generating markdown table...")
-        generate_markdown_table(config.output_file)
+        generate_markdown_table(config.output_file, config.engine)
 
 
 def setup_outfile(out_file: str):
@@ -356,33 +370,52 @@ def setup_outfile(out_file: str):
         f.write("\n")
 
 
-def generate_markdown_table(csv_file: str):
+def generate_markdown_table(csv_file: str, engine_list: list[str]):
     """
     Parses a given csv file to a Markdown table while highlighting the fastest result
 
     :param csv_file: The csv file to be parsed.
+    :param engine_list: A list of engines to be compared.
     """
     out_file = csv_file.split(".")[0] + "_format.md"
 
+    # Read the output file
     with open(csv_file, "r") as f:
         lines = f.readlines()
 
-    no_fastest = [0] * (len(lines[0].strip().split(",")) - 1)
+    # Stores the results
+    results: list[list[float]] = [[] for _ in range(len(engine_list))]
+    # Stores information about the fastest engine
+    no_fastest = [0] * (len(engine_list))
+
     with open(out_file, "w") as f:
+        # Parse the results
         for line in lines:
             line = line.strip().split(",")
+            for (i, value) in enumerate(line[1:]):
+                if any([el in line for el in engine_list]):
+                    continue
+                results[i].append(float(value.strip()))
 
             # Check if header
-            if any([el in line for el in engines]):
+            if any([el in line for el in engine_list]):
+                # Write header
                 f.write("|" + "|".join(line) + "|\n")
                 f.write("|---" * len(line) + "|\n")
             else:
+                # Get the values as floats
                 values = list(map(float, line[1:]))
+                # Observe the minimum (=fastest)
                 min_value = min(values)
+                # Get its index and increase the counter by one
                 index = line.index(str(min_value))
                 no_fastest[index - 1] += 1
+                # Highlight the fastest run by making it bold
                 line[index] = f"**{min_value}**"
-                f.write("|".join(line) + "|\n")
+                # Write the run
+                f.write("|" + "|".join(line) + "|\n")
+        # Write the average and summary
+        f.write("|Average|" + "|".join([f"{sum(results[i]) / len(results[i])}" for i in range(len(engine_list))]) + "|\n")
         f.write("Times fastest run|" + "|".join(map(str, no_fastest)) + "|\n")
 
 
