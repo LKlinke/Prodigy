@@ -1,3 +1,4 @@
+// Psi fails here
 nat s;
 nat c;
 nat tmp;
