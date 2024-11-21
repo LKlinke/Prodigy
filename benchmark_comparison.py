@@ -222,10 +222,11 @@ def benchmark(config: Configuration):
         if file in timeouts and config.skip_timeouts:
             print(f"File is in timeouts, skipping...")
             continue
-
+        engine_counter = 0
         # For each engine, run the program
         for engine in config.engine:
-            print(f"Running {engine}")
+            engine_counter += 1
+            print(f"Running {engine} ({engine_counter}/{len(config.engine)})")
 
             # Check if current file is in timeouts
             # Files can be added dynamically, hence the second check
