@@ -58,8 +58,8 @@ def cli(ctx,
     ctx.obj['CONFIG'] = \
         ForwardAnalysisConfig(
             engine=ForwardAnalysisConfig.Engine.GINAC if engine == 'ginac'
-            else ForwardAnalysisConfig.Engine.SYMPY if engine == 'sympy' else
-            ForwardAnalysisConfig.Engine.SYMENGINE,
+            else ForwardAnalysisConfig.Engine.SYMENGINE if engine == 'symengine' else
+            ForwardAnalysisConfig.Engine.SYMPY,
             show_intermediate_steps=intermediate_results,
             step_wise=stepwise,
             use_simplification=not no_simplification,
