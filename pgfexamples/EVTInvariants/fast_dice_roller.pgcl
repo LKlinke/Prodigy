@@ -31,3 +31,5 @@ v := 0
 // w_m * v^5 * (1+c+c^2+c^3+c^4) + w_0 * v^4 * (1+c+c^2+c^3) + w_1 * v^3 * (1 + c + c^2) + w_2 * v^2 * (1 + c) + w_3 * v + w_4 * flag * v^8 * (1+c+c^2+c^3+c^4+c^5) + w_5 * flag * v^6 * (1+c+c^2+c^3+c^4+c^5) + w_6 * flag * v^7 * (1+c+c^2+c^3+c^4+c^5)
 
 // sum_{i = 0}^{n-1} (w_i * v^i * (sum_{j = 0}^{i-1} (c^j) )) +  sum_{i = n}^{2^{\ceil{\log_2(n)}}} (flag * w_i * v^i * (sum_{j = 0}^{n-1} (c^j) ))
+
+// Wolfram Query:  Sum[f * w_i * v^i * (Sum[c^j, {j,0,n-1}]),{i, n, 2^log(n)}] + Sum[w_i * v^i * (Sum[c^j, {j,0,i-1}]),{i,0,n-1}]
