@@ -205,7 +205,8 @@ class WhileHandler(InstructionHandler):
         if len(solutions) > 0:
             print(f"All solutions: {solutions}")
             # TODO use a solution to compute the final distribution.
-            return evt_inv, error_prob
+            sol_dist = config.factory.from_expr(sympy.S(str(evt_inv - evt_inv.filter(instruction.cond))).subs(solutions[0]))
+            return sol_dist, error_prob
 
         raise VerificationError(f"Could not validate the EVT invariant {evt_inv}")
 
