@@ -11,5 +11,5 @@ if (aliceDunnit = 1){
 
 observe(withGun = 1)
 ?Pr[aliceDunnit =1]
-?Opt[aliceDunnit=1, p, MIN]
+#?Opt[aliceDunnit=1, p, MIN]
 #!Print
