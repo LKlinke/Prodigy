@@ -285,7 +285,7 @@ class GeneratingFunction(Distribution):
         var = _sympy_symbol(variable)
 
         # This should be a faster variant for univariate distributions.
-        if self._variables == {var}:
+        if self._variables == {var} and self._function.is_rational_function():
             result = []
             for remainder in range(a):
                 other = GeneratingFunction(f"({var}^{remainder})/(1-{var}^{modulus})", *self._variables)
@@ -619,7 +619,7 @@ class GeneratingFunction(Distribution):
                         temp_var, state_l[left], right, None)._function
             else:
                 for index, gf in enumerate(
-                        self._arithmetic_progression(left, str(right))):
+                    self._arithmetic_progression(left, str(right))):
                     # TODO this seems to compute the correct result, but it can't always be simplified to 0
                     result = result + gf._function.subs(update_var,
                                                         1) * update_var ** index

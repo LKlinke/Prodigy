@@ -345,7 +345,7 @@ class FPS(Distribution):
         if not isinstance(sampling_dist, FunctionCallExpr):
             result = FPS.from_dist(
                 self._dist.updateIid(str(variable),
-                                     pygin.Dist(str(sampling_dist), *self._parameters),
+                                     pygin.Dist(str(sampling_dist), list(self._parameters)),
                                      str(count)), self._variables,
                 self._parameters)
             return result

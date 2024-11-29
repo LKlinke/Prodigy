@@ -65,7 +65,7 @@ class Plotter:
                                     vmin=0,
                                     origin='lower',
                                     interpolation='nearest',
-                                    cmap="turbo",
+                                    cmap="Blues",
                                     aspect='auto')
             # Pass axes to prevent error (cf. https://github.com/matplotlib/matplotlib/issues/23973)
             plt.colorbar(color_plot, ax=plt.gca())
