@@ -7,6 +7,6 @@ do
       printf "Processing $f\n\e[32mResult:\t\e[m \e[36mSkipped!\e[m\n"
   else
     echo "Processing $f"
-    poetry run python ../../prodigy/cli.py "$@" invariant_synthesis "$f"
+    poetry run prodigy "$@" invariant_synthesis "$f"
   fi
 done
