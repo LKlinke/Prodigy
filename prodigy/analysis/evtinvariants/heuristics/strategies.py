@@ -54,6 +54,26 @@ class PartialRational(SynthesisStrategy):
             PositivityHeuristics.create(PositivityHeuristics.TRUE_RAT_FUNC)
         )
 
+@dataclass
+class InfinitePolynomial(SynthesisStrategy):
+    variables: Collection[str]
+    dist_factory: CommonDistributionsFactory
+
+    def __post_init__(self):
+        self.template_heuristics = TemplateHeuristics.create(TemplateHeuristics.POLY, self.variables, self.dist_factory)
+        self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.POLYNOMIAL)
+
+
+@dataclass
+class FinitePolynomial(SynthesisStrategy):
+    variables: Collection[str]
+    dist_factory: CommonDistributionsFactory
+    max_deg: int = 10 
+
+    def __post_init__(self):
+        self.template_heuristics = TemplateHeuristics.create(TemplateHeuristics.POLY, self.variables, self.dist_factory, self.max_deg)
+        self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.POLYNOMIAL)
+
 
 @dataclass
 class AllOrPartialRational(SynthesisStrategy):
@@ -82,6 +102,8 @@ class SynthesisStrategies(Enum):
     DEFAULT = DefaultStrategy
     SUM_THEN_RATIONAL = PartialRational
     APART_OR_TOGETHER = AllOrPartialRational
+    INF_POLY = InfinitePolynomial
+    FIN_POLY = FinitePolynomial
     FROM_HEURISTICS = SynthesisStrategy
 
     @classmethod
