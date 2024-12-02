@@ -362,6 +362,8 @@ class GeneratingFunction(Distribution):
             logger.debug("Resulting function: %s", s_num / s_result_denom)
             return GeneratingFunction(str(s_num / s_result_denom), *self._variables)
 
+        raise ValueError("Hadamard product is only applicable with distributions.")
+
     @staticmethod
     def _split_addend(addend: sympy.Expr) -> Tuple[sympy.Expr, sympy.Expr]:
         r"""

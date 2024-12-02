@@ -43,8 +43,8 @@ class SymengineDist(Distribution):
         """
         Checks whether variables and parameters names are compliant.
         """
-        variables = self._variables | other._variables
-        parameters = self._parameters | other._parameters
+        variables = self._variables | other.get_variable_sym()
+        parameters = self._parameters | other.get_parameter_sym()
         return variables.intersection(parameters) == set()
 
     def __add__(self, other) -> SymengineDist:
@@ -78,21 +78,21 @@ class SymengineDist(Distribution):
 
         # Actual operation
         if not self._check_symbol_consistency(other):
-            clash = (self._variables | other._variables) & (self._parameters | other._parameters)
+            clash = (self._variables | other.get_variable_sym()) & (self._parameters | other.get_parameter_sym())
             raise SyntaxError(f"Name clash: {clash} for {self} and {other}.")
         new_vars, new_params = (self.get_variables() | other.get_variables()), (
                 self.get_parameters() | other.get_parameters())
-        res = op(self._s_func, other._s_func)
+        res = op(self._s_func, other.get_function())
         return SymengineDist(res).set_variables_and_parameters(new_vars, new_params)
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, SymengineDist):
             return False
-        if not other._variables == self._variables:
+        if not other.get_variable_sym() == self._variables:
             return False
-        if not other._parameters == self._parameters:
+        if not other.get_variable_sym() == self._parameters:
             return False
-        return self._s_func == other._s_func
+        return self._s_func == other.get_function()
 
     def __le__(self, other: SymengineDist) -> bool:
         if not isinstance(other, SymengineDist):
@@ -111,7 +111,7 @@ class SymengineDist(Distribution):
                     return False
             return True
 
-        difference: se.Basic = self._s_func - other._s_func
+        difference: se.Basic = self._s_func - other.get_function()
         # todo replace once suitable method is found
         #   cf. https://github.com/symengine/symengine.py/issues/492
         logger.info("Falling back to sympy")
@@ -237,9 +237,11 @@ class SymengineDist(Distribution):
 
     def copy(self, deep: bool = True) -> SymengineDist:
         res = SymengineDist(0)
+        # pylint: disable-msg=protected-access
         res._s_func = self._s_func.copy()
         res._variables = self._variables.copy()
         res._parameters = self._parameters.copy()
+        # pylint: enable-msg=protected-access
         return res
 
     def get_probability_mass(self) -> str:
@@ -268,7 +270,7 @@ class SymengineDist(Distribution):
             )
 
         marginal = self.marginal(*(self._find_symbols(expr) & self.get_variables()),
-                                 method=MarginalType.INCLUDE)._s_func
+                                 method=MarginalType.INCLUDE).get_function()
         gen_func = SymengineDist(expr,
                                  *(self._find_symbols(expr) & self.get_variables()))
         expected_value = sp.Integer(0)
@@ -295,10 +297,24 @@ class SymengineDist(Distribution):
         return SymengineDist(self._s_func / mass, *self._variables)
 
     def get_variables(self) -> set[str]:
+        """Returns all variables of the distribution as strings"""
         return set(map(str, self._variables))
 
+    def get_variable_sym(self) -> set[se.Symbol]:
+        """Returns all variables of the distribution as symbols"""
+        return self._variables
+
     def get_parameters(self) -> set[str]:
+        """Returns all parameters of the distribution as strings"""
         return set(map(str, self._parameters))
+
+    def get_parameter_sym(self) -> set[se.Symbol]:
+        """Returns all variables of the distribution as symbols"""
+        return self._parameters
+
+    def get_function(self) -> se.Expr:
+        """Returns the expression of the distribution"""
+        return self._s_func
 
     def _exhaustive_search(self, condition: Expr) -> SymengineDist:
         res = se.S("0")
@@ -531,11 +547,13 @@ class SymengineDist(Distribution):
                     else (marginal_r, second_factor, first_factor)
 
                 for _, state in finite:
+                    # pylint: disable-msg=protected-access
                     res += self.filter(
                         parse_expr(f'{finite_var}={state[finite_var]}')
                     )._update_product(
                         temp_var, state[finite_var], infinite_var, approximate
-                    )._s_func
+                    ).get_function()
+                    # pylint: enable-msg=protected-access
             else:
                 for prob, state in self:
                     term: se.Expr = se.S(prob) * se.S(state.to_monomial())
@@ -649,9 +667,11 @@ class SymengineDist(Distribution):
                 marginal_r = marginal_r.approximate_unilaterally(
                     right, approximate)
             for _, state_r in marginal_r:
+                # pylint: disable-msg=protected-access
                 result += self.filter(
                     parse_expr(f'{right}={state_r[right]}'))._update_modulo(
-                    temp_var, left, state_r[right], None)._s_func
+                    temp_var, left, state_r[right], None).get_function()
+                # pylint: enable-msg=protected-access
 
         # If left is a variable, it doesn't have to have finite range
         elif left_sym in self._variables:
@@ -659,15 +679,17 @@ class SymengineDist(Distribution):
             marginal_l = self.marginal(left)
             if marginal_l.is_finite():
                 for _, state_l in marginal_l:
+                    # pylint: disable-msg=protected-access
                     result += self.filter(
                         parse_expr(f'{left}={state_l[left]}'))._update_modulo(
-                        temp_var, state_l[left], right, None)._s_func
+                        temp_var, state_l[left], right, None).get_function()
+                    # pylint: enable-msg=protected-access
             else:
                 for index, gf in enumerate(
                         self._arithmetic_progression(left, str(right))):
                     # TODO this seems to compute the correct result, but it can't always be simplified to 0
                     #   from generating_function.py
-                    result = result + self.safe_subs(update_var, 1, fun=gf._s_func) * update_var ** index
+                    result = result + self.safe_subs(update_var, 1, fun=gf.get_function()) * update_var ** index
 
         # If both are not variables, simply compute the result
         else:
@@ -710,7 +732,7 @@ class SymengineDist(Distribution):
                         val_l, val_r = state_l[numerator], state_r[denominator]
                         x = self.filter(
                             parse_expr(f'{numerator}={val_l} & {denominator}={val_r}')
-                        )._s_func
+                        ).get_function()
                         if val_l % val_r != 0 and x != 0:
                             raise ValueError(
                                 f"Cannot assign {numerator} / {denominator} to {temp_var} "
@@ -720,7 +742,7 @@ class SymengineDist(Distribution):
                 else:
                     val_l, val_r = state_l[numerator], div_2
                     x = self.filter(
-                        parse_expr(f'{numerator}={val_l}'))._s_func
+                        parse_expr(f'{numerator}={val_l}')).get_function()
                     if val_l % val_r != 0 and x != 0:
                         raise ValueError(
                             f"Cannot assign {numerator} / {denominator} to {temp_var} "
@@ -732,7 +754,7 @@ class SymengineDist(Distribution):
                 for _, state_r in marginal_r:
                     val_l, val_r = div_1, state_r[denominator]
                     x = self.filter(
-                        parse_expr(f'{denominator}={val_r}'))._s_func
+                        parse_expr(f'{denominator}={val_r}')).get_function()
                     if val_l % val_r != 0 and x != 0:
                         raise ValueError(
                             f"Cannot assign {numerator} / {denominator} to {temp_var} "
@@ -786,7 +808,7 @@ class SymengineDist(Distribution):
                     x = self.filter(
                         parse_expr(
                             f'{base}={state_l[base]} & {exp}={state_r[exp]}')
-                    )._s_func
+                    ).get_function()
                     res -= x
                     res += self.safe_subs(update_var, 1, fun=x) * update_var ** (state_l[base] **
                                                                                  state_r[exp])
@@ -801,7 +823,7 @@ class SymengineDist(Distribution):
                 )
 
             for _, state in marginal:
-                x = self.filter(parse_expr(f'{base}={state[base]}'))._s_func
+                x = self.filter(parse_expr(f'{base}={state[base]}')).get_function()
                 res -= x
                 res += self.safe_subs(update_var, 1, fun=x) * update_var ** (state[base] ** pow_2)
 
@@ -815,7 +837,7 @@ class SymengineDist(Distribution):
                 )
 
             for _, state in marginal:
-                x = self.filter(parse_expr(f'{exp}={state[exp]}'))._s_func
+                x = self.filter(parse_expr(f'{exp}={state[exp]}')).get_function()
                 res -= x
                 res += self.safe_subs(update_var, 1, fun=x) * update_var ** (pow_1 ** state[exp])
 
@@ -833,12 +855,13 @@ class SymengineDist(Distribution):
                 variable,
                 method=MarginalType.EXCLUDE) if subst_var != variable else self
             if subst_var == variable:
-                result._s_func = result.safe_subs(
+                result._s_func = result.safe_subs(  # pylint: disable-msg=protected-access
                     se.S(subst_var), dist_gf)
             else:
-                result._s_func = result.safe_subs(
+                result._s_func = result.safe_subs(  # pylint: disable-msg=protected-access
                     se.S(subst_var),
                     se.S(subst_var) * dist_gf)
+
             return result.set_variables_and_parameters(self.get_variables(), self.get_parameters())
 
         if not isinstance(sampling_dist, FunctionCallExpr):
@@ -893,13 +916,16 @@ class SymengineDist(Distribution):
         marginal = self.copy()
         s_var: str | VarExpr | se.Symbol
         if method == MarginalType.INCLUDE:
-            for s_var in marginal._variables.difference(marginal_vars):
-                marginal._s_func = marginal.safe_subs(s_var, 1)
-            marginal._variables = marginal_vars
+            for s_var in marginal.get_variable_sym().difference(marginal_vars):
+                marginal._s_func = marginal.safe_subs(s_var, 1) # pylint: disable-msg=protected-access
+            marginal._variables = marginal_vars # pylint: disable-msg=protected-access
         else:
+
             for s_var in marginal_vars:
-                marginal._s_func = marginal.safe_subs(s_var, 1)
-            marginal._variables = marginal._variables.difference(marginal_vars)
+                marginal._s_func = marginal.safe_subs(s_var, 1) # pylint: disable-msg=protected-access
+            # pylint: disable-msg=protected-access
+            marginal._variables = marginal.get_variable_sym().difference(marginal_vars)
+            # pylint: enable-msg=protected-access
 
         return marginal
 
@@ -920,7 +946,7 @@ class SymengineDist(Distribution):
         if not (self._variables | new_params).issuperset(self._s_func.free_symbols):
             raise ValueError("There are unknown symbols which are neither variables nor parameters.")
         new_gf = SymenginePGF.from_expr(str(self._s_func), *self._variables)
-        new_gf._parameters = new_params
+        new_gf._parameters = new_params # pylint: disable-msg=protected-access
         return new_gf
 
     def set_variables_and_parameters(self, variables: set[str], parameters: set[str]):
@@ -931,8 +957,8 @@ class SymengineDist(Distribution):
                 "There are unknown symbols which are neither variables nor parameters: " +
                 f"{set(self._s_func.free_symbols).difference((var_sym | param_sym))}")
         new_gf = SymenginePGF.from_expr(str(self._s_func))
-        new_gf._variables = var_sym
-        new_gf._parameters = param_sym
+        new_gf._variables = var_sym     # pylint: disable-msg=protected-access
+        new_gf._parameters = param_sym  # pylint: disable-msg=protected-access
         return new_gf
 
     def approximate(self, threshold: Union[str, int]) -> Generator[SymengineDist, None, None]:

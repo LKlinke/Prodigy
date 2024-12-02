@@ -38,7 +38,7 @@ def evt_invariant_synthesis(loop: WhileInstr,
         evt_inv = evt_candidate
         one_step_dist, one_step_err = analyzer(loop.body, prog_info, evt_inv.filter(loop.cond), zero_dist, config)
         if one_step_err != config.factory.from_expr("0", *prog_info.program.variables):
-            raise NotImplementedError(f"Currently invariant synthesis does not support conditioned distributions.")
+            raise NotImplementedError("Currently invariant synthesis does not support conditioned distributions.")
         phi_inv = distribution + one_step_dist
 
         if config.solver_type == SolverType.Z3:
@@ -60,7 +60,7 @@ def evt_invariant_synthesis(loop: WhileInstr,
             if all(map(lambda x: x == 0, candidate.values())):
                 continue
 
-            numerator, denominator = sympy.S(str(evt_inv - phi_inv)).as_numer_denom()
+            _, denominator = sympy.S(str(evt_inv - phi_inv)).as_numer_denom()
             # we have excluded all zero solutions and now also exclude the solutions
             # which make the denominator zero
             if denominator.subs(candidate).equals(0):
