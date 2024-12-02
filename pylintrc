@@ -3,7 +3,7 @@ ignore=
 load-plugins=
 
 [MESSAGES CONTROL]
-# todo remove duplicate-code and protected-access
+# todo remove duplicate-code?
 disable=
     missing-docstring,
     too-few-public-methods,
@@ -19,8 +19,7 @@ disable=
     too-many-statements,
     too-many-nested-blocks,
     too-many-instance-attributes,
-    duplicate-code,
-    protected-access
+    duplicate-code
 
 [VARIABLES]
 init-import=no
@@ -29,7 +28,7 @@ init-import=no
 ignored-modules=
 
 [BASIC]
-good-names=T,i,t,op,fn,R,M,ii,g,pc,tf,k,p,x,y,n,f,gf,xl,xr,e,it,s,el,eq,a,m,c,vp,o,v,st,h
+good-names=T,i,t,op,fn,R,M,ii,g,pc,tf,k,p,x,y,n,f,gf,xl,xr,e,it,s,el,eq,a,m,c,vp,o,v,st,h,d
 
 [FORMAT]
 max-line-length=120

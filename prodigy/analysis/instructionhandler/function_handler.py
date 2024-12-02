@@ -4,8 +4,8 @@ import logging
 from dataclasses import replace
 from typing import Dict, Callable, Union, Sequence
 
-from probably.pgcl import Instr, AsgnInstr, FunctionCallExpr, sample_predefined_functions as distr_functions, BinopExpr, \
-    Binop, VarExpr, Program
+from probably.pgcl import Instr, AsgnInstr, FunctionCallExpr, sample_predefined_functions as distr_functions, \
+    BinopExpr, Binop, VarExpr, Program
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
@@ -56,7 +56,7 @@ class FunctionHandler(InstructionHandler):
             *function.variables)
 
         sub_porgram = Program.from_function(function, prog_info.program)
-        sub_result, sub_error = analyzer(sub_porgram.instructions,
+        sub_result, _ = analyzer(sub_porgram.instructions,
                                          replace(prog_info, program=sub_porgram),
                                          input_distr,
                                          config.factory.from_expr("0"),

@@ -26,6 +26,6 @@ class SumPositivity(PositivityHeuristic):
                 if result is False or result is None:
                     self.logger.debug("Could not determinine positivity")
                     return None
-            self.logger.debug(f"Positive %s", f)
+            self.logger.debug("Positive %s", f)
             return True
         return self._term_heuristic.is_positive(f)

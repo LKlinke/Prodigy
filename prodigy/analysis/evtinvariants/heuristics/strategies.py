@@ -54,13 +54,15 @@ class PartialRational(SynthesisStrategy):
             PositivityHeuristics.create(PositivityHeuristics.TRUE_RAT_FUNC)
         )
 
+
 @dataclass
 class InfinitePolynomial(SynthesisStrategy):
     variables: Collection[str]
     dist_factory: CommonDistributionsFactory
 
     def __post_init__(self):
-        self.template_heuristics = TemplateHeuristics.create(TemplateHeuristics.POLY, self.variables, self.dist_factory)
+        self.template_heuristics = (
+            TemplateHeuristics.create(TemplateHeuristics.POLY, self.variables, self.dist_factory))
         self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.POLYNOMIAL)
 
 
@@ -68,10 +70,11 @@ class InfinitePolynomial(SynthesisStrategy):
 class FinitePolynomial(SynthesisStrategy):
     variables: Collection[str]
     dist_factory: CommonDistributionsFactory
-    max_deg: int = 10 
+    max_deg: int = 10
 
     def __post_init__(self):
-        self.template_heuristics = TemplateHeuristics.create(TemplateHeuristics.POLY, self.variables, self.dist_factory, self.max_deg)
+        self.template_heuristics = (
+            TemplateHeuristics.create(TemplateHeuristics.POLY, self.variables, self.dist_factory, self.max_deg))
         self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.POLYNOMIAL)
 
 
@@ -95,7 +98,8 @@ class AllOrPartialRational(SynthesisStrategy):
                                                      iterate_heur)
         sum_heur = PositivityHeuristics.create(PositivityHeuristics.INDIVIDUAL_SUM, rat_func_heur)
 
-        self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.OR, sum_heur, mixed_rat_func)
+        self.positivity_heuristics = (
+            PositivityHeuristics.create(PositivityHeuristics.OR, sum_heur, mixed_rat_func))
 
 
 class SynthesisStrategies(Enum):

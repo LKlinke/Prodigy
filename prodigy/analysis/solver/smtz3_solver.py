@@ -123,11 +123,11 @@ class SMTZ3Solver(Solver):
             self.logger.debug(f"Solving time: {time.perf_counter() - start:04f}")
             # pylint: enable-msg=logging-fstring-interpolation
 
-        if is_sat is None:
-            self.logger.debug("Could not determine equality of %s and %s", str(f), str(g))
-            return None, []
-        elif is_sat is False:
+        if is_sat is False:
             self.logger.debug("no solutions exist for %s == %s ", str(f), str(g))
             return False, []
         elif is_sat is True:
             return True, [sol]
+        else:
+            self.logger.debug("Could not determine equality of %s and %s", str(f), str(g))
+            return None, []

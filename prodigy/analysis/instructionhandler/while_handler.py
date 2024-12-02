@@ -157,7 +157,7 @@ class WhileHandler(InstructionHandler):
                 tuple[Distribution, Distribution]
             ]
     ) -> tuple[Distribution, Distribution]:
-        assert error_prob.is_zero_dist(), f"Currently EVT reasoning does not support conditioning."
+        assert error_prob.is_zero_dist(), "Currently EVT reasoning does not support conditioning."
         max_iter = int(input("Enter the number of iterations: "))
         logger.debug("Compute %i iterations of EVT operator", max_iter)
 
@@ -182,7 +182,7 @@ class WhileHandler(InstructionHandler):
                 tuple[Distribution, Distribution]
             ]
     ) -> tuple[Distribution, Distribution]:
-        assert error_prob.is_zero_dist(), f"Currently EVT reasoning does not support conditioning."
+        assert error_prob.is_zero_dist(), "Currently EVT reasoning does not support conditioning."
         evt_inv = config.factory.from_expr(input("Enter EVT invariant: "), *prog_info.program.variables.keys())
         phi = distribution + \
               analyzer(instruction.body, prog_info, evt_inv.filter(instruction.cond), error_prob, config)[0]
@@ -241,7 +241,7 @@ class WhileHandler(InstructionHandler):
 
         # give associated distributions:
         distributions = [inv - inv.filter(instruction.cond) for inv, inv_type in invariants]
-        print(f"Continuing with the following distributions is possible:")
+        print("Continuing with the following distributions is possible:")
         for i, d in enumerate(distributions):
             print(f"{i + 1}.\t{d}")
 

@@ -3,7 +3,7 @@ from typing import Optional
 
 import sympy
 
-from prodigy.analysis.evtinvariants.heuristics.positivity.polynomialPositivity import FinitePolynomialPositivity
+from prodigy.analysis.evtinvariants.heuristics.positivity.polynomial_positivity import FinitePolynomialPositivity
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic
 from prodigy.analysis.exceptions import VerificationError
 from prodigy.util.logger import log_setup
