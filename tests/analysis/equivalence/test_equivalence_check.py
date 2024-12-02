@@ -10,7 +10,7 @@ from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 
 @pytest.mark.parametrize(
     'engine',
-    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY])
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE])
 def test_equivalence_check(engine):
     prog = compile_pgcl("""
         nat x;
@@ -44,7 +44,7 @@ def test_equivalence_check(engine):
 
 @pytest.mark.parametrize(
     'engine',
-    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY])
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE])
 def test_equivalence_check_parameter(engine):
     prog = compile_pgcl("""
         nat x;
@@ -76,4 +76,4 @@ def test_equivalence_check_parameter(engine):
     res, subs = check_equivalence(prog, inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
     assert res
     assert len(subs) == 1
-    assert sympy.S(subs[0][sympy.S('p')]) == sympy.S('1/2')
+    assert sympy.S(subs[0][sympy.S('p')]) == sympy.S('0.5') or sympy.S(subs[0][sympy.S('p')]) == sympy.S('1/2')
