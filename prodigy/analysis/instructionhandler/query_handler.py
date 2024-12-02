@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 from typing import get_args, Callable, Union, Sequence
 
-from probably.pgcl import Instr, Query, ExpectationInstr, VarExpr, NatLitExpr, RealLitExpr, BinopExpr, Binop, UnopExpr, \
-    Unop, ProbabilityQueryInstr, PlotInstr, PrintInstr, OptimizationQuery, OptimizationType, Expr
+from probably.pgcl import Instr, Query, ExpectationInstr, VarExpr, NatLitExpr, RealLitExpr, BinopExpr, Binop, \
+    UnopExpr, Unop, ProbabilityQueryInstr, PlotInstr, PrintInstr, OptimizationQuery, OptimizationType, Expr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
@@ -79,7 +79,8 @@ class QueryHandler(InstructionHandler):
                              config: ForwardAnalysisConfig):
         logger.debug(
             "Computing the optimal value for parameter %s in order to %s the distribution %s with respect to %s",
-            instr.parameter, 'maximize' if instr.type == OptimizationType.MAXIMIZE else 'minimize', dist, instr.expr)
+            instr.parameter, 'maximize' \
+                if instr.type == OptimizationType.MAXIMIZE else 'minimize', dist, instr.expr)
         result = config.optimizer.optimize(instr.expr,
                                            dist,
                                            instr.parameter,
