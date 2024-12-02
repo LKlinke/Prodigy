@@ -21,7 +21,7 @@ def create_random_gf(number_of_variables: int = 1, terms: int = 1):
         se.S(random.randint(0, 100)) for _ in range(len(symbols) * terms)
     ]
     coeffs = [
-        se.S(str(random.uniform(0, 1))) for _ in range(terms)
+        se.S(f"{random.randint(0, 100)}/{random.randint(0, 100)}") for _ in range(terms)
     ]
 
     result = se.S(0)
@@ -509,13 +509,13 @@ class TestDistributionInterface:
 
         # Two variables
         assert gf._update_subtraction("x", "x", "x") == SymengineDist("1 + y", "x", "y")
-        assert gf._update_subtraction("x", "x", "y") == SymengineDist("x + y/x", "x", "y")
-        assert gf._update_subtraction("x", "y", "x") == SymengineDist("x*y + 1/x", "x", "y")
         assert gf._update_subtraction("x", "y", "y") == SymengineDist("1 + y", "x", "y")
+        with pytest.raises(ValueError, match=re.escape("can be negative")):
+             gf._update_subtraction("x", "x", "y")
 
         # Variable - literal
-        assert gf._update_subtraction("x", "x", 1) == SymengineDist("1 + y/x", "x", "y")
-        assert gf._update_subtraction("x", "y", 1) == SymengineDist("y + 1/x", "x", "y")
+        with pytest.raises(ValueError, match=re.escape("can be negative")):
+            gf._update_subtraction("x", "x", "1")
 
         # Literal - variable
         assert gf._update_subtraction("x", 1, "x") == SymengineDist("1 + x*y", "x", "y")
@@ -527,7 +527,6 @@ class TestDistributionInterface:
         with pytest.raises(ValueError, match=re.escape("Cannot assign '1 - 2' to 'x' because it is negative")):
             gf._update_subtraction("x", 1, 2)
 
-        # TODO test ValueError
 
     def test_update_division(self):
         gf = SymengineDist("x", "x").set_parameters("p")

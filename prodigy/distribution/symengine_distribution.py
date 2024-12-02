@@ -7,6 +7,7 @@ from typing import Union, Generator, Sequence, Iterator, Tuple, Type, List, get_
 import symengine as se
 from probably.pgcl import VarExpr, Expr, FunctionCallExpr, RealLitExpr, UnopExpr, Binop, BinopExpr, Unop, NatLitExpr
 from probably.util.ref import Mut
+from symengine.lib.symengine_wrapper import NegativeInfinity
 
 from prodigy.distribution import Distribution
 from prodigy.distribution import MarginalType, State, CommonDistributionsFactory, DistributionParam
@@ -54,7 +55,8 @@ class SymengineDist(Distribution):
     def __truediv__(self, other) -> SymengineDist:
         return self._arithmetic_operator(other, "divide", operator.truediv)
 
-    def _arithmetic_operator(self, other: str | int | float | SymengineDist, textual_descr: str, op: operator) -> SymengineDist:
+    def _arithmetic_operator(self, other: str | int | float | SymengineDist, textual_descr: str,
+                             op: operator) -> SymengineDist:
         """
         Applies an arithmetic operator to self and one unknown object.
 
@@ -63,7 +65,7 @@ class SymengineDist(Distribution):
         :param textual_descr: The text description of the operator to be applied with self. Used for the error message
         :param op: The operator to be applied with self.
         """
-        if isinstance(other, (str, int ,float)):
+        if isinstance(other, (str, int, float)):
             # Convert other into a SymengineDist with matching variables
             return self._arithmetic_operator(SymengineDist(other, *self.get_variables()), textual_descr, op)
 
@@ -74,7 +76,8 @@ class SymengineDist(Distribution):
         if not self._check_symbol_consistency(other):
             clash = (self._variables | other._variables) & (self._parameters | other._parameters)
             raise SyntaxError(f"Name clash: {clash} for {self} and {other}.")
-        new_vars, new_params = (self.get_variables() | other.get_variables()), (self.get_parameters() | other.get_parameters())
+        new_vars, new_params = (self.get_variables() | other.get_variables()), (
+                    self.get_parameters() | other.get_parameters())
         res = op(self._s_func, other._s_func)
         return SymengineDist(res).set_variables_and_parameters(new_vars, new_params)
 
@@ -597,7 +600,8 @@ class SymengineDist(Distribution):
         expr = SymengineDist(res).set_variables_and_parameters(self.get_variables(), self.get_parameters())
 
         test_fun: se.Basic = expr.marginal(temp_var).safe_subs(update_var, 0)
-        if test_fun.simplify() in [se.nan, se.zoo]:
+        # Safe_subs returns NegativeInfinity when called with x^{-1}[x/0]
+        if test_fun.simplify() in [se.nan, se.zoo] or isinstance(test_fun, NegativeInfinity):
             raise ValueError(
                 f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it can be negative"
             )
@@ -626,7 +630,8 @@ class SymengineDist(Distribution):
                 else:
                     right_var = _parse_to_symengine(right)
                 result += prob * self.safe_subs(
-                    update_var, 1, fun=_parse_to_symengine(state_r.to_monomial())) * update_var ** (left_var % right_var)
+                    update_var, 1, fun=_parse_to_symengine(state_r.to_monomial())) * update_var ** (
+                                      left_var % right_var)
 
         # If the GF is infinite and right is a variable, it needs to have finite range
         elif right_sym in self._variables:
@@ -918,7 +923,8 @@ class SymengineDist(Distribution):
         var_sym = {se.Symbol(v) for v in variables}
         param_sym = {se.Symbol(p) for p in parameters}
         if not (var_sym | param_sym).issuperset(self._s_func.free_symbols):
-            raise ValueError(f"There are unknown symbols which are neither variables nor parameters: {set(self._s_func.free_symbols).difference((var_sym | param_sym))}")
+            raise ValueError(
+                f"There are unknown symbols which are neither variables nor parameters: {set(self._s_func.free_symbols).difference((var_sym | param_sym))}")
         new_gf = SymenginePGF.from_expr(str(self._s_func))
         new_gf._variables = var_sym
         new_gf._parameters = param_sym
@@ -1022,7 +1028,6 @@ class SymengineDist(Distribution):
 
         raise NotImplementedError("unreachable")
 
-
     # TODO replace sympy with symengine
     def _monomial_to_state(self, monomial: sp.Expr) -> State:
         """ Converts a `monomial` into a state representation, i.e., a (variable_name, variable_value) dict.
@@ -1051,6 +1056,7 @@ def _parse_to_symengine(expression) -> se.Expr:
     :param expression: The expression to parse.
     :returns: The parsed expression.
     """
+
     def probably_to_symengine(expr: Expr):
         if isinstance(expr, NatLitExpr):
             return se.Integer(expr.value)
@@ -1110,6 +1116,10 @@ class SymenginePGF(CommonDistributionsFactory):
 
     @staticmethod
     def undefined(*variables: Union[str, VarExpr]) -> SymengineDist:
+        return SymengineDist("0", *map(str, variables))
+
+    @staticmethod
+    def zero(*variables: Union[str, VarExpr]) -> SymengineDist:
         return SymengineDist("0", *map(str, variables))
 
     @staticmethod
