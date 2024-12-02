@@ -5,7 +5,7 @@ from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import Posi
 
 class OrHeuristic(PositivityHeuristic):
 
-    def __init__(self, sub_heuristic: 'PositivityHeuristic' = None, *heuristics: PositivityHeuristic):
+    def __init__(self, sub_heuristic: Optional[PositivityHeuristic] = None, *heuristics: PositivityHeuristic):
         super().__init__(sub_heuristic)
         self._heuristics: List[PositivityHeuristic] = list(heuristics)
 
@@ -20,7 +20,7 @@ class OrHeuristic(PositivityHeuristic):
 
 class AndHeuristic(PositivityHeuristic):
 
-    def __init__(self, sub_heuristic: 'PositivityHeuristic' = None, *heuristics: Collection[PositivityHeuristic]):
+    def __init__(self, sub_heuristic: Optional[PositivityHeuristic] = None, *heuristics: Collection[PositivityHeuristic]):
         super().__init__(sub_heuristic)
         self._heuristics: List[PositivityHeuristic] = list(*heuristics)
 
@@ -35,7 +35,7 @@ class AndHeuristic(PositivityHeuristic):
 
 class NotHeuristic(PositivityHeuristic):
 
-    def __init__(self, heuristic: PositivityHeuristic, sub_heuristic: PositivityHeuristic = None):
+    def __init__(self, heuristic: PositivityHeuristic, sub_heuristic: Optional[PositivityHeuristic] = None):
         super().__init__(sub_heuristic)
         self._heuristic = heuristic
 

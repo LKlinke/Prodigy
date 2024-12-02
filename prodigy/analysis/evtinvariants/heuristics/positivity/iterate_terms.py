@@ -20,7 +20,7 @@ class IterateTermsHeuristic(PositivityHeuristic):
     def __init__(self,
                  dist_fact: CommonDistributionsFactory,
                  iterations: int = 10,
-                 sub_heuristic: PositivityHeuristic = None,
+                 sub_heuristic: Optional[PositivityHeuristic] = None,
                  *variables: str):
         super().__init__(sub_heuristic)
         self._factory = dist_fact
@@ -34,3 +34,4 @@ class IterateTermsHeuristic(PositivityHeuristic):
                 return None
             if sympy.S(prob) < 0:
                 return False
+        return True

@@ -4,7 +4,7 @@ from typing import Optional
 
 class PositivityHeuristic(ABC):
 
-    def __init__(self, sub_heuristic: 'PositivityHeuristic' = None):
+    def __init__(self, sub_heuristic: Optional['PositivityHeuristic'] = None):
         self.sub_heuristic = sub_heuristic
 
     def is_positive(self, f: str) -> Optional[bool]:

@@ -11,7 +11,7 @@ from prodigy.util.logger import log_setup
 class SumPositivity(PositivityHeuristic):
     logger = log_setup("SumPositivity", logging.DEBUG)
 
-    def __init__(self, term_heuristic: PositivityHeuristic, sub_heuristic: PositivityHeuristic = None):
+    def __init__(self, term_heuristic: PositivityHeuristic, sub_heuristic: Optional[PositivityHeuristic] = None):
         if term_heuristic is None:
             raise HeuristicsError("The SumPositivity heuristic needs a term heuristic.")
         super().__init__(sub_heuristic)

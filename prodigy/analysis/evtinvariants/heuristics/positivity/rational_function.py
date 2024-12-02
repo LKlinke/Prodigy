@@ -13,7 +13,7 @@ from prodigy.util.logger import log_setup
 class SingleRationalFunction(PositivityHeuristic):
     logger = log_setup("SingleRationalFunction", logging.DEBUG)
 
-    def __init__(self, sub_heuristic: 'PositivityHeuristic' = None):
+    def __init__(self, sub_heuristic: Optional[PositivityHeuristic] = None):
         super().__init__(sub_heuristic)
         self._poly_heuristic = FinitePolynomialPositivity(sub_heuristic)
 
@@ -49,7 +49,7 @@ class SingleRationalFunction(PositivityHeuristic):
 class RationalFunctionDenomSign(PositivityHeuristic):
     logger = log_setup("RationalFunctionDenomSign", logging.DEBUG)
 
-    def __init__(self, dist_fact: CommonDistributionsFactory, sub_heuristic: 'PositivityHeuristic' = None):
+    def __init__(self, dist_fact: CommonDistributionsFactory, sub_heuristic: Optional[PositivityHeuristic] = None):
         super().__init__(sub_heuristic)
         self.dist_fact = dist_fact
 

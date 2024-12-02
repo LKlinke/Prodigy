@@ -11,7 +11,7 @@ from prodigy.util.logger import log_setup
 class FinitePolynomialPositivity(PositivityHeuristic):
     logger = log_setup("FinitePolynomialPositivity", logging.DEBUG)
 
-    def __init__(self, sub_heuristic: 'PositivityHeuristic' = None):
+    def __init__(self, sub_heuristic: Optional[PositivityHeuristic] = None):
         super().__init__(sub_heuristic)
 
     def _is_positive(self, f: str) -> Optional[bool]:
