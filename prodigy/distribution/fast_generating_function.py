@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import (FrozenSet, Generator, Iterator, List, Set, Tuple, Type,
+from typing import (Dict, FrozenSet, Generator, Iterator, List, Set, Tuple, Type,
                     Union)
 
 import pygin  # type: ignore
@@ -154,7 +154,7 @@ class FPS(Distribution):
                     if mass != '0':
                         yield mass, State(dict(zip(variables, vals)))
         else:
-            terms = self._dist.get_terms(self._variables)
+            terms: List[Tuple[str, Dict[str, int]]] = self._dist.get_terms(self._variables)
             for prob, vals in terms:
                 yield prob, State(vals)
 

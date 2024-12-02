@@ -308,7 +308,7 @@ class GeneratingFunction(Distribution):
                                    finite=self._is_finite))
         return result
 
-    def hadamard_product(self, other: Distribution) -> Distribution:
+    def hadamard_product(self, other: Distribution) -> GeneratingFunction:
         """
             Computes the Hadamard product of two univariate rational functions, i.e. the point-wise product of the
             coefficients in their formal power series representation.
@@ -361,6 +361,8 @@ class GeneratingFunction(Distribution):
 
             logger.debug("Resulting function: %s", s_num / s_result_denom)
             return GeneratingFunction(str(s_num / s_result_denom), *self._variables)
+        
+        raise TypeError(f"Cannot compute the Hadamard Product, where {other=} is of type {type(other)}.")
 
     @staticmethod
     def _split_addend(addend: sympy.Expr) -> Tuple[sympy.Expr, sympy.Expr]:
