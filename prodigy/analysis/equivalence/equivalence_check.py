@@ -16,7 +16,7 @@ from prodigy.pgcl.pgcl_operations import cav_phi
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
-logger = log_setup(str(__name__).rsplit(".")[-1], logging.DEBUG)
+logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
 def generate_equivalence_test_distribution(

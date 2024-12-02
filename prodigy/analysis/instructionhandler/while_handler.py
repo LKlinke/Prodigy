@@ -21,7 +21,7 @@ from prodigy.distribution.generating_function import SympyPGF
 from prodigy.util.color import Style
 from prodigy.util.logger import print_progress_bar, log_setup
 
-logger = log_setup(str(__name__).rsplit(".")[-1], logging.DEBUG)
+logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
 class WhileHandler(InstructionHandler):
@@ -206,7 +206,8 @@ class WhileHandler(InstructionHandler):
             print(f"All solutions: {solutions}")
             # TODO use a solution to compute the final distribution.
             logger.info("Using the first solution to continue.")
-            sol_dist = config.factory.from_expr(sympy.S(str(evt_inv - evt_inv.filter(instruction.cond))).subs(solutions[0]))
+            sol_dist = config.factory.from_expr(
+                sympy.S(str(evt_inv - evt_inv.filter(instruction.cond))).subs(solutions[0]))
             return sol_dist, error_prob
 
         raise VerificationError(f"Could not validate the EVT invariant {evt_inv}")

@@ -33,7 +33,7 @@ class SympySolver(Solver):
 
             # at least one solution found
             for sol in solutions:
-                for key, val in sol.items():
+                for _, val in sol.items():
                     if not val.free_symbols <= s_parameters:
                         self.logger.info("SympySolver produced the invalid result %s.", sol)
                         return None, []
@@ -52,7 +52,7 @@ class SympySolver(Solver):
                 self.logger.debug("Validated %s == %s", str(f), str(g))
                 return True, []
 
-        raise Exception("This should not be reachable")
+        raise RuntimeError("This should not be reachable")
 
     def __str__(self):
-        return f"SympySolver"
+        return "SympySolver"

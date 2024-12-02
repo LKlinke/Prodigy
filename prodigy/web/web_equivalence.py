@@ -40,7 +40,7 @@ def checking_equivalence():
                 jsonify({'message': 'No invariant source selected'}), 500)
         app.logger.debug("Invariant file %s", invariant_source)
         engine = ForwardAnalysisConfig.Engine.GINAC if request.form[
-            'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
+                                                           'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
         app.logger.debug("Chosen engine %s", engine)
 
         app.logger.debug("Parse loop-file")
@@ -90,7 +90,7 @@ def distribution_transformation():
                 jsonify({'message': 'Please provide an input distribution'}),
                 500)
         engine = ForwardAnalysisConfig.Engine.GINAC if request.form[
-            'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
+                                                           'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
 
         app.logger.debug("Parsing the program source")
         program = parse_pgcl(prog_src)
@@ -144,7 +144,7 @@ def analyze_raw_code():
                 jsonify({'message': 'Please provide an input distribution'}),
                 500)
         engine = ForwardAnalysisConfig.Engine.GINAC if request.form[
-            'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
+                                                           'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
 
         app.logger.debug("Parsing the program source")
         program = parse_pgcl(prog_src)

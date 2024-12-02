@@ -19,7 +19,7 @@ from prodigy.distribution import (CommonDistributionsFactory, Distribution,
 from prodigy.pgcl.pgcl_checks import has_variable
 from prodigy.util.logger import log_setup, logging
 
-logger = log_setup(str(__name__).rsplit(".")[-1], logging.DEBUG, file="GF_operations.log")
+logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG, file="GF_operations.log")
 
 
 def _term_generator(function: sympy.Poly):
@@ -212,8 +212,8 @@ class GeneratingFunction(Distribution):
                 return self.filter(
                     UnopExpr(operator=Unop.NEG,
                              expr=BinopExpr(operator=Binop.LEQ,
-                              lhs=condition.lhs,
-                              rhs=condition.rhs)))
+                                            lhs=condition.lhs,
+                                            rhs=condition.rhs)))
 
             elif condition.operator == Binop.GEQ:
                 return self.filter(
@@ -310,8 +310,8 @@ class GeneratingFunction(Distribution):
 
     def hadamard_product(self, other: Distribution) -> Distribution:
         """
-            Computes the Hadamard product of two univariate rational functions, i.e. the point-wise product of the coefficients
-            in their formal power series representation.
+            Computes the Hadamard product of two univariate rational functions, i.e. the point-wise product of the
+            coefficients in their formal power series representation.
         """
         logger.debug("Compute Hadamard product of %s and %s", self, other)
         if len(self._variables) > 1:
@@ -337,8 +337,8 @@ class GeneratingFunction(Distribution):
                     s_g.as_poly(var).all_coeffs()))]), var)
                 return GeneratingFunction(result.as_expr(), var)
 
-            s_f_num, s_f_denom = s_f.as_numer_denom()
-            s_g_num, s_g_denom = s_g.as_numer_denom()
+            _, s_f_denom = s_f.as_numer_denom()
+            _, s_g_denom = s_g.as_numer_denom()
             f_degree = s_f_denom.as_poly(var).degree()
             g_degree = s_g_denom.as_poly(var).degree()
             logger.debug("Degree f: %i\nDegree g: %i", f_degree, g_degree)
@@ -351,7 +351,7 @@ class GeneratingFunction(Distribution):
             s_result_denom = sympy.det(
                 sympy.eye(f_degree * g_degree) - (sympy.matrices.kronecker_product(s_compm_f, s_compm_g)) * var)
             logger.debug("Denominator: %s", s_result_denom)
-            logger.debug(f"Comparing %i terms", f_degree * g_degree)
+            logger.debug("Comparing %i terms", f_degree * g_degree)
 
             result = sympy.polys.Poly(reversed([cf * cg for cf, cg in zip(reversed(
                 s_f.series(var, n=f_degree * g_degree).removeO().as_poly(var).all_coeffs()), reversed(
@@ -619,7 +619,7 @@ class GeneratingFunction(Distribution):
                         temp_var, state_l[left], right, None)._function
             else:
                 for index, gf in enumerate(
-                    self._arithmetic_progression(left, str(right))):
+                        self._arithmetic_progression(left, str(right))):
                     # TODO this seems to compute the correct result, but it can't always be simplified to 0
                     result = result + gf._function.subs(update_var,
                                                         1) * update_var ** index
@@ -1060,8 +1060,6 @@ class GeneratingFunction(Distribution):
                 )
 
             # collect the meta information.
-            self_coeff_sum, other_coeff_sum = self.coefficient_sum(
-            ), other.coefficient_sum()
             is_closed_form = self._is_closed_form and other._is_closed_form
             is_finite = self._is_finite and other._is_finite
 
