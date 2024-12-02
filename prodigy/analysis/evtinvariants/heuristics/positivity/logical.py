@@ -22,7 +22,8 @@ class OrHeuristic(PositivityHeuristic):
 
 class AndHeuristic(PositivityHeuristic):
 
-    def __init__(self, sub_heuristic: Optional[PositivityHeuristic] = None, *heuristics: Collection[PositivityHeuristic]):
+    def __init__(self, sub_heuristic: Optional[PositivityHeuristic] = None,
+                 *heuristics: Collection[PositivityHeuristic]):
         super().__init__(sub_heuristic)
         self._heuristics: List[PositivityHeuristic] = list(*heuristics)
 
