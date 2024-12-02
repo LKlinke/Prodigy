@@ -48,7 +48,7 @@ pytest-cov = "^2.9.0"
 hypothesis = "^5.18.0"
 
 [tool.poetry.scripts]
-prodigy = "prodigy.cli:main"
+prodigy = "prodigy.cli:cli"
 web-service = "prodigy.web.web_equivalence:start_server"
 
 [build-system]
