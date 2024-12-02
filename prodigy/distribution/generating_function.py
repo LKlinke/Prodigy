@@ -364,6 +364,8 @@ class GeneratingFunction(Distribution):
         
         raise TypeError(f"Cannot compute the Hadamard Product, where {other=} is of type {type(other)}.")
 
+        raise ValueError("Hadamard product is only applicable with distributions.")
+
     @staticmethod
     def _split_addend(addend: sympy.Expr) -> Tuple[sympy.Expr, sympy.Expr]:
         r"""

@@ -17,6 +17,7 @@ class IterateTermsHeuristic(PositivityHeuristic):
             - None: The first _iterations_ may coefficients were >= 0.
     """
 
+    # pylint: disable-msg=keyword-arg-before-vararg
     def __init__(self,
                  dist_fact: CommonDistributionsFactory,
                  iterations: int = 10,
@@ -26,10 +27,11 @@ class IterateTermsHeuristic(PositivityHeuristic):
         self._factory = dist_fact
         self._max_iters = iterations
         self._vars = variables
+    # pylint: enable-msg=keyword-arg-before-vararg
 
     def _is_positive(self, f: str) -> Optional[bool]:
         dist = self._factory.from_expr(f, *self._vars)
-        for i, (prob, state) in enumerate(dist):
+        for i, (prob, _) in enumerate(dist):
             if i >= self._max_iters:
                 return None
             if sympy.S(prob) < 0:

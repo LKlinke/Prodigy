@@ -20,5 +20,5 @@ class FinitePolynomialPositivity(PositivityHeuristic):
             self.logger.debug("Determine positivity of polynomial %s", s_f)
             if s_f.is_constant():
                 return s_f.is_positive
-            return all([coefficient >= 0 for coefficient in s_f.as_poly().coeffs()])
+            return all(coefficient >= 0 for coefficient in s_f.as_poly().coeffs())
         raise HeuristicsError(f"Given function {f} is not a polynomial.")
