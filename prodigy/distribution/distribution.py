@@ -31,6 +31,7 @@ class State:
 
     valuations: Dict[str, int] = field(default_factory=dict)
     """The variable assignment of this state"""
+
     def __iter__(self):
         return self.valuations.__iter__()
 
@@ -90,6 +91,7 @@ class State:
 
 class Distribution(ABC):
     """ Abstract class that models different representations of probability distributions. """
+
     @staticmethod
     @abstractmethod
     def factory() -> Type[CommonDistributionsFactory]:
@@ -218,8 +220,8 @@ class Distribution(ABC):
 
         if isinstance(condition, BinopExpr) and not self._find_symbols(
                 str(condition.lhs)) | self._find_symbols(str(
-                    condition.rhs)) <= (self.get_variables()
-                                        | self.get_parameters()):
+            condition.rhs)) <= (self.get_variables()
+                                | self.get_parameters()):
             raise ValueError(
                 f"Cannot filter based on the expression {str(condition)} because it contains unknown variables"
             )
@@ -279,7 +281,8 @@ class Distribution(ABC):
         left_side_original = True
 
         # Check whether left hand side has only finitely many interpretations.
-        if len(syms) == 0 or not marginal.is_finite():  # This is bad, only works because its evaluated from left to right
+        # This is bad, only works because its evaluated from left to right
+        if len(syms) == 0 or not marginal.is_finite():
             # Failed, so we have to check the right hand side
             left_side_original = False
             expr = str(condition.lhs)
@@ -380,11 +383,11 @@ class Distribution(ABC):
         elif op == Binop.OR:
             return cls.evaluate_condition(condition.lhs,
                                           state) or cls.evaluate_condition(
-                                              condition.rhs, state)
+                condition.rhs, state)
         elif op == Binop.AND:
             return cls.evaluate_condition(condition.lhs,
                                           state) and cls.evaluate_condition(
-                                              condition.rhs, state)
+                condition.rhs, state)
         raise AssertionError(f"Unexpected condition type. {condition}")
 
     def evaluate_expression(self,
@@ -510,7 +513,7 @@ class Distribution(ABC):
 
     @abstractmethod
     def get_fresh_variable(
-        self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
+            self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
         """
         Returns a str that is the name of neither an existing variable nor an existing
         parameter of this distribution nor contained in the `exclude` parameter.
@@ -623,12 +626,11 @@ class Distribution(ABC):
         :return: The distribution with parameters `parameters`.
         """
 
-    #@abstractmethod
+    # @abstractmethod
     def set_variables_and_parameters(self, variables, parameters):
         """
         todo
         """
-
 
     @abstractmethod
     def approximate(
@@ -673,6 +675,7 @@ class Distribution(ABC):
 
 class CommonDistributionsFactory(ABC):
     """ Abstract Factory Class implementing a Factory for common distributions."""
+
     @staticmethod
     @abstractmethod
     def geometric(var: Union[str, VarExpr],

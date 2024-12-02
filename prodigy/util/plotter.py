@@ -14,6 +14,7 @@ logger = log_setup(__name__, logging.DEBUG)
 
 class Plotter:
     """ Plotter that generates histogram plots using matplotlib."""
+
     @staticmethod
     def _create_2d_hist(function: Distribution, var_1: str, var_2: str,
                         threshold: Union[str, int]):

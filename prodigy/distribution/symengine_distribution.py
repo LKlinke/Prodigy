@@ -2,24 +2,28 @@ from __future__ import annotations
 
 import logging
 import operator
+import re
 from typing import Union, Generator, Sequence, Iterator, Tuple, Type, List, get_args
 
 import symengine as se
+# pylint: disable-msg=no-name-in-module
+from symengine.lib.symengine_wrapper import NegativeInfinity
+# pylint: enable-msg=no-name-in-module
+
+# todo remove once methods in symengine
+import sympy as sp
+
 from probably.pgcl import VarExpr, Expr, FunctionCallExpr, RealLitExpr, UnopExpr, Binop, BinopExpr, Unop, NatLitExpr
 from probably.util.ref import Mut
-from symengine.lib.symengine_wrapper import NegativeInfinity
+from probably.pgcl.parser import parse_expr
 
 from prodigy.distribution import Distribution
 from prodigy.distribution import MarginalType, State, CommonDistributionsFactory, DistributionParam
 from prodigy.util.logger import log_setup
 from prodigy.util.order import default_monomial_iterator
 
-from probably.pgcl.parser import parse_expr
 
-# todo remove once methods in symengine
-import sympy as sp
-
-logger = log_setup(str(__name__).rsplit(".")[-1], logging.DEBUG, file="GF_operations.log")
+logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG, file="GF_operations.log")
 
 
 class SymengineDist(Distribution):
@@ -77,7 +81,7 @@ class SymengineDist(Distribution):
             clash = (self._variables | other._variables) & (self._parameters | other._parameters)
             raise SyntaxError(f"Name clash: {clash} for {self} and {other}.")
         new_vars, new_params = (self.get_variables() | other.get_variables()), (
-                    self.get_parameters() | other.get_parameters())
+                self.get_parameters() | other.get_parameters())
         res = op(self._s_func, other._s_func)
         return SymengineDist(res).set_variables_and_parameters(new_vars, new_params)
 
@@ -240,9 +244,10 @@ class SymengineDist(Distribution):
 
     def get_probability_mass(self) -> str:
         fast_result: se.Expr = self.safe_subs(*zip(self._variables, [1] * len(self._variables)))
-        if fast_result == se.nan or fast_result == se.zoo:
+        if fast_result in [se.nan, se.zoo]:
             raise ValueError(
-                f"Indeterminate expression {self._s_func} with {self._variables} mapped to {(1,) * len(self._variables)}"
+                f"Indeterminate expression {self._s_func} with {self._variables} mapped to " +
+                f"{(1,) * len(self._variables)}"
             )
         return str(fast_result)
 
@@ -375,7 +380,7 @@ class SymengineDist(Distribution):
 
     def _arithmetic_progression(self, variable: str, modulus: str) -> Sequence[SymengineDist]:
         a = se.S(modulus)
-        var = (se.S(variable))
+        var = se.S(variable)
 
         # This should be a faster variant for univariate distributions.
         if self._variables == {var}:
@@ -407,7 +412,6 @@ class SymengineDist(Distribution):
         #       se.S("c % 2")   # Fails
         #   replace this workaround!
         if "%" in str(expr):
-            import re
             expr = re.sub(r'(\w+)\s*%\s*(\w+)', r'mod(\1, \2)', expr)
         return {str(sym) for sym in se.S(expr).free_symbols}
 
@@ -631,7 +635,7 @@ class SymengineDist(Distribution):
                     right_var = _parse_to_symengine(right)
                 result += prob * self.safe_subs(
                     update_var, 1, fun=_parse_to_symengine(state_r.to_monomial())) * update_var ** (
-                                      left_var % right_var)
+                                  left_var % right_var)
 
         # If the GF is infinite and right is a variable, it needs to have finite range
         elif right_sym in self._variables:
@@ -905,7 +909,7 @@ class SymengineDist(Distribution):
             raise ValueError(
                 f"At least one variable is already known as a parameter. {self._parameters=}, {new_variables=}")
         if not (self.get_parameters() | new_variables).issuperset({str(s) for s in self._s_func.free_symbols}):
-            raise ValueError(f"There are unknown symbols which are neither variables nor parameters.")
+            raise ValueError("There are unknown symbols which are neither variables nor parameters.")
         return SymenginePGF.from_expr(str(self._s_func), *new_variables)
 
     def set_parameters(self, *parameters: str) -> SymengineDist:
@@ -914,7 +918,7 @@ class SymengineDist(Distribution):
             raise ValueError(
                 f"At least one parameter is already known as a variable. {self._variables=}, {new_params=}")
         if not (self._variables | new_params).issuperset(self._s_func.free_symbols):
-            raise ValueError(f"There are unknown symbols which are neither variables nor parameters.")
+            raise ValueError("There are unknown symbols which are neither variables nor parameters.")
         new_gf = SymenginePGF.from_expr(str(self._s_func), *self._variables)
         new_gf._parameters = new_params
         return new_gf
@@ -924,7 +928,8 @@ class SymengineDist(Distribution):
         param_sym = {se.Symbol(p) for p in parameters}
         if not (var_sym | param_sym).issuperset(self._s_func.free_symbols):
             raise ValueError(
-                f"There are unknown symbols which are neither variables nor parameters: {set(self._s_func.free_symbols).difference((var_sym | param_sym))}")
+                "There are unknown symbols which are neither variables nor parameters: " +
+                f"{set(self._s_func.free_symbols).difference((var_sym | param_sym))}")
         new_gf = SymenginePGF.from_expr(str(self._s_func))
         new_gf._variables = var_sym
         new_gf._parameters = param_sym

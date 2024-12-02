@@ -30,8 +30,8 @@ def print_progress_bar(iteration, total, decimals=1, length=100, print_end=""):
     filled_length = int(length * iteration // total)
     progress_bar = '█' * filled_length + '-' * (length - filled_length)
     print(
-        f'{Style.YELLOW if (iteration / float(total)) < 1 else Style.GREEN}\r'\
-            f'Progress: |{progress_bar}| {percent}% completed{Style.RESET}',
+        f'{Style.YELLOW if (iteration / float(total)) < 1 else Style.GREEN}\r' \
+        f'Progress: |{progress_bar}| {percent}% completed{Style.RESET}',
         end=print_end,
         flush=True)
     # Print New Line on Complete

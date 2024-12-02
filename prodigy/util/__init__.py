@@ -47,8 +47,8 @@ def compute_hadamard_product(f: str, g: str) -> str:
     TODO: To be moved into the distribution interface.
     """
     s_f, s_g = sympy.S(f), sympy.S(g)
-    s_f_num, s_f_denom = s_f.as_numer_denom()
-    s_g_num, s_g_denom = s_g.as_numer_denom()
+    _, s_f_denom = s_f.as_numer_denom()
+    _, s_g_denom = s_g.as_numer_denom()
     f_roots = s_f_denom.as_poly().all_roots()
     g_roots = s_g_denom.as_poly().all_roots()
     print(f"Degree f: {len(f_roots)}")

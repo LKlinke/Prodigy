@@ -12,7 +12,7 @@ from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.distribution import Distribution
 from prodigy.util.logger import log_setup
 
-logger = log_setup(str(__name__).rsplit(".")[-1], logging.DEBUG)
+logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
 class PChoiceHandler(InstructionHandler):

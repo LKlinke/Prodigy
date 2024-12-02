@@ -10,7 +10,7 @@ from probably.pgcl.ast import (Binop, BinopExpr, BoolLitExpr, Expr, IfInstr,
 
 from prodigy.util.logger import log_setup
 
-logger = log_setup(str(__name__).rsplit(".")[-1], logging.DEBUG)
+logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
 def make_else_if(instructions: List[Tuple[BinopExpr, List[Instr]]]) -> IfInstr:

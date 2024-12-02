@@ -195,7 +195,7 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
         raise ValueError(f"Could not compile the Program. {prog}")
 
     start = time.perf_counter()
-    indep_rel: Set[frozenset[Var]] = independent_vars(prog)
+    indep_rel: Set[frozenset[Var]] = independent_vars(prog, program_file, compute_exact)
     stop = time.perf_counter()
     print(Style.OKBLUE + "Under-approximation: \t" + str(indep_rel) +
           Style.RESET)
@@ -255,7 +255,7 @@ def invariant_synthesis(ctx, program_file: IO, input_dist: str):
     dist = config.factory.one(*prog.variables.keys())
     if input_dist is not None:
         dist = config.factory.from_expr(input_dist, *prog.variables.keys())
-    dist, err = compute_semantics(prog.instructions[:loops.index(1)],
+    dist, _ = compute_semantics(prog.instructions[:loops.index(1)],
                                   ProgramInfo(prog),
                                   dist,
                                   config.factory.from_expr("0"),
@@ -266,7 +266,7 @@ def invariant_synthesis(ctx, program_file: IO, input_dist: str):
     strategy = SynthesisStrategies.make(config.strategy, prog.variables.keys(), config.factory)
     start = time.perf_counter()
     try:
-        invariants = evt_invariant_synthesis(prog.instructions[loops.index(1)],
+        evt_invariant_synthesis(prog.instructions[loops.index(1)],
                                              ProgramInfo(prog), dist, config, strategy, compute_semantics)
     except VerificationError as e:
         print(f"{Style.RED} {str(e)} {Style.RESET}")

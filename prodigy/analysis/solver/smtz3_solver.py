@@ -25,8 +25,8 @@ class SMTZ3Solver(Solver):
 
     def solve(self, f: Distribution, g: Distribution) -> Tuple[Optional[bool], List[Dict[sympy.Expr, sympy.Expr]]]:
         """
-        WARNING: This method currently just tries to find models which are positive FPS by design. We hence do not have completeness
-        of the algorithm for a given template.
+        WARNING: This method currently just tries to find models which are positive FPS by design. We hence do not have
+        completeness of the algorithm for a given template.
         """
         self.logger.debug("Check %s == %s", f, g)
         s_f, s_g = sympy.S(str(f)), sympy.S(str(g))
@@ -43,7 +43,7 @@ class SMTZ3Solver(Solver):
 
         numerator_symbols = list(f_num.free_symbols - {sympy.S(var) for var in f.get_variables()})
         denominator_symbols = sorted(list(f_denom.free_symbols - {sympy.S(var) for var in f.get_variables()}),
-                                     key=lambda x: str(x))
+                                     key=str)
 
         # create a (variable, type) context for parsing to pySMT
         context = TranslationContext({var: Symbol(var, REAL) for var in f.get_parameters() | g.get_parameters()})
@@ -59,7 +59,7 @@ class SMTZ3Solver(Solver):
         goal_function = self._factory.from_expr(str(lhs - rhs).replace("**", "^"),
                                                 *f.get_variables() | g.get_variables())
 
-        coefficient_at_state = dict()
+        coefficient_at_state = {}
         for prob, state in goal_function:
             if prob.startswith("-"):
                 prob = "(-1)*" + prob[1:]

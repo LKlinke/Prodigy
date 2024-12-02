@@ -273,7 +273,7 @@ class FPS(Distribution):
             self._variables, self._parameters, self._finite)
 
     def get_fresh_variable(
-        self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
+            self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
         res: str = pygin.get_fresh_variable()
         while res in exclude:
             res = pygin.get_fresh_variable()
@@ -408,8 +408,8 @@ class FPS(Distribution):
             MarginalType.EXCLUDE: {str(var)
                                    for var in variables},
             MarginalType.INCLUDE:
-            self._variables - {str(var)
-                               for var in variables}
+                self._variables - {str(var)
+                                   for var in variables}
         }
         for var in remove_vars[method]:
             result = result.update_var(str(var), "0")

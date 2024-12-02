@@ -4,8 +4,8 @@ import functools
 import logging
 from typing import Union, Sequence, get_args
 
-from probably.pgcl import Program, Instr, SkipInstr, AbortInstr, WhileInstr, LoopInstr, QueryInstr, Query, ObserveInstr, \
-    ChoiceInstr, AsgnInstr, IfInstr
+from probably.pgcl import Program, Instr, SkipInstr, AbortInstr, WhileInstr, LoopInstr, QueryInstr, Query, \
+    ObserveInstr, ChoiceInstr, AsgnInstr, IfInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import ObserveZeroEventError
@@ -22,7 +22,7 @@ from prodigy.distribution import Distribution
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
-logger = log_setup(str(__name__).rsplit(".")[-1], logging.DEBUG)
+logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
 def condition_distribution(
