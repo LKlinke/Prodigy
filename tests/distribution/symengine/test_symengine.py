@@ -40,6 +40,7 @@ class TestDistributionInterface:
         h = SymengineDist("y", "y")
         gf_sum = g + h
         assert gf_sum.get_parameters() == {'p'}
+        tmp = SymengineDist("x + y", "x", "y").set_parameters("p")
         assert gf_sum == SymengineDist("x + y", "x", "y").set_parameters("p")
 
         # SymengineDist + int
