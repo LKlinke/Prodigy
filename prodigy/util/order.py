@@ -22,7 +22,7 @@ def default_monomial_iterator(n: int) -> Iterator[List[int]]:
     else:
         index = 0
         gen = default_monomial_iterator(n - 1)
-        vals = []
+        vals: list[list[int]] = []
         while True:
             # This is absolutely unreadable, so just another reason to delete this asap
             while len(vals) < index + 1:
