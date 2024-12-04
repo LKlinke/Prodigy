@@ -80,7 +80,7 @@ class SMTZ3Solver(Solver):
         with pysmt.shortcuts.Solver(logic=QF_NRA) as solver:
             solver.add_assertion(smt_formula)
             self.logger.debug("Solve call to Z3")
-            is_sat = True
+            is_sat: bool | None = True
             while is_sat:
                 try:
                     is_sat = solver.solve()

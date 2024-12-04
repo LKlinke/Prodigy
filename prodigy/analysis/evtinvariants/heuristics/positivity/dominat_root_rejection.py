@@ -39,7 +39,7 @@ class DominantRootHeuristic(PositivityHeuristic):
         real_roots = s_denom_as_poly.real_roots()
         if len(real_roots) == 0:
             # No dominant real root -> thus there definetly is a negative sign somewhere.
-            self.logger.debug("No real roots found. Not psositive!")
+            self.logger.debug("No real roots found. Not positive!")
             return False
         else:
             # We have at least one real root.

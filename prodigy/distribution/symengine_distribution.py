@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import operator
 import re
-from typing import Union, Generator, Sequence, Iterator, Tuple, Type, List, get_args
+from typing import Union, Generator, Sequence, Iterator, Tuple, Type, List, get_args, Callable
 
 import symengine as se
 # pylint: disable-msg=no-name-in-module
@@ -60,7 +60,7 @@ class SymengineDist(Distribution):
         return self._arithmetic_operator(other, "divide", operator.truediv)
 
     def _arithmetic_operator(self, other: str | int | float | SymengineDist, textual_descr: str,
-                             op: operator) -> SymengineDist:
+                             op: Callable) -> SymengineDist:
         """
         Applies an arithmetic operator to self and one unknown object.
 
@@ -216,10 +216,10 @@ class SymengineDist(Distribution):
         :param state: The state to get the probability of
         :return: The probability of the given state
         """
-        series = self._s_func
+        series: se.Basic = self._s_func
         args = []
         for (v, val) in state.items():
-            series: se.Basic = se.series(series, v, 0, val + 1)
+            series = se.series(series, v, 0, val + 1)
             # Build the expression
             args += [f"{v} ** {val}"]
         # Use simplify to convert "v ** 0" to 1 in order to extract the probability correctly
@@ -406,7 +406,7 @@ class SymengineDist(Distribution):
             )
         return result
 
-    def hadamard_product(self, other: SymengineDist) -> SymengineDist:
+    def hadamard_product(self, other: Distribution) -> SymengineDist:
         raise NotImplementedError("Hadamard Product is currently unsupported")  # ignore for now
 
     def _find_symbols(self, expr: str) -> set[str]:
@@ -991,7 +991,7 @@ class SymengineDist(Distribution):
         if all_tuples:
             pairs = parameters
         else:
-            pairs = [(parameters[i], parameters[i + 1]) for i in range(0, len(parameters), 2)]
+            pairs = [(parameters[i], parameters[i + 1]) for i in range(0, len(parameters), 2)] # type: ignore
         if fun is None:
             fun = self._s_func
         for (variable, value) in pairs:
@@ -1008,6 +1008,11 @@ class SymengineDist(Distribution):
                 fun = fun.subs(variable, value)
 
         return fun
+
+    def filter(self, condition: Expr) -> SymengineDist:
+        res = super().filter(condition)
+        assert isinstance(res, SymengineDist)
+        return res
 
     def approximate_unilaterally(self, variable: str, probability_mass: str | float) -> SymengineDist:
         logger.debug("approximate_unilaterally(%s, %s) call on %s", variable,
