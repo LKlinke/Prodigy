@@ -12,8 +12,6 @@ from pysmt.logics import QF_NRA
 from pysmt.shortcuts import Symbol, EqualsOrIff, Not, And
 from pysmt.typing import REAL
 
-import sympy as sp
-
 from prodigy.analysis.solver.solver import Solver
 from prodigy.distribution import Distribution, CommonDistributionsFactory, State
 from prodigy.util.logger import log_setup
@@ -78,7 +76,7 @@ class SMTZ3Solver(Solver):
         self.logger.debug("Converted to SMT %s", smt_formula)
 
         start = time.perf_counter()
-        sol: dict[sp.Basic, sp.Basic]  = {}
+        sol: dict[sympy.Basic, sympy.Basic]  = {}
         with pysmt.shortcuts.Solver(logic=QF_NRA) as solver:
             solver.add_assertion(smt_formula)
             self.logger.debug("Solve call to Z3")
