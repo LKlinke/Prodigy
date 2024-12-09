@@ -960,10 +960,10 @@ class SymengineDist(Distribution):
                 f" {s_threshold}, CSum {self.coefficient_sum()}"
             for prob, state in self:
                 prob = se.S(prob)
-                state = se.S(state.to_monomial())
+                state_expr: se.Basic = se.S(state.to_monomial())
                 if precision >= s_threshold:
                     break
-                approx += prob * state
+                approx += prob * state_expr
                 precision += prob
                 yield SymengineDist(str(approx.expand()), *self._variables)
         else:
