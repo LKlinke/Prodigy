@@ -7,10 +7,6 @@ def default_monomial_iterator(n: int) -> Iterator[List[int]]:
     numbers in n dimensions.
     :param n: Length of tuple
     :return: Iterator of all possible pairs of natural numbers in n dimensions
-
-    Example:
-        >>> list(default_monomial_iterator(2))
-        [[0, 0], [1, 0], [0, 1], [2, 0], [1, 1], ...]
     """
     if n < 1:
         raise ValueError("n is too small")
