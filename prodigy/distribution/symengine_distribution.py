@@ -37,7 +37,7 @@ class SymengineDist(Distribution):
         self._parameters: set[se.Symbol] = set()
         if variables:
             self._variables = {se.Symbol(str(v)) for v in variables}
-            self._parameters: set[se.Symbol] = self._s_func.free_symbols - self._variables
+            self._parameters = self._s_func.free_symbols - self._variables
 
     def _check_symbol_consistency(self, other: SymengineDist) -> bool:
         """
@@ -142,10 +142,10 @@ class SymengineDist(Distribution):
         if not self.is_finite():
             v = list(self.get_variables())
             if len(v) == 1:
-                v = v[0]
+                var = v[0]
                 i = 0
                 while True:
-                    yield str(prob_fun(State({v: i}))), State({v: i})
+                    yield str(prob_fun(State({var: i}))), State({var: i})
                     i += 1
             else:
                 for tup in default_monomial_iterator(len(v)):
@@ -989,12 +989,12 @@ class SymengineDist(Distribution):
         if len(parameters) % 2 != 0 and not all_tuples:
             raise ValueError("There has to be an equal amount of variables and values")
         if all_tuples:
-            pairs = parameters
+            pairs = parameters  # type: ignore
         else:
             pairs = [(parameters[i], parameters[i + 1]) for i in range(0, len(parameters), 2)] # type: ignore
         if fun is None:
             fun = self._s_func
-        for (variable, value) in pairs:
+        for (variable, value) in pairs:     # type: ignore
             f = fun
             # FIXME subs with dict instead of stepwise
             if f.subs(variable, value).simplify() in [se.nan, se.zoo]:
