@@ -155,8 +155,8 @@ class FPS(Distribution):
                         yield mass, State(dict(zip(variables, vals)))
         else:
             terms: List[Tuple[str, Dict[str, int]]] = self._dist.get_terms(self._variables)
-            for prob, vals in terms:
-                yield prob, State(vals)
+            for prob, vals in terms:        # type: ignore
+                yield prob, State(vals)     # type: ignore
 
     def copy(self, deep: bool = True) -> Distribution:
         return FPS.from_dist(self._dist, self._variables, self._parameters,

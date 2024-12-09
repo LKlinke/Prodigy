@@ -12,8 +12,10 @@ from pysmt.logics import QF_NRA
 from pysmt.shortcuts import Symbol, EqualsOrIff, Not, And
 from pysmt.typing import REAL
 
+import sympy as sp
+
 from prodigy.analysis.solver.solver import Solver
-from prodigy.distribution import Distribution, CommonDistributionsFactory
+from prodigy.distribution import Distribution, CommonDistributionsFactory, State
 from prodigy.util.logger import log_setup
 
 
@@ -59,7 +61,7 @@ class SMTZ3Solver(Solver):
         goal_function = self._factory.from_expr(str(lhs - rhs).replace("**", "^"),
                                                 *f.get_variables() | g.get_variables())
 
-        coefficient_at_state = {}
+        coefficient_at_state: dict[State, list[str]] = {}
         for prob, state in goal_function:
             if prob.startswith("-"):
                 prob = "(-1)*" + prob[1:]
@@ -76,7 +78,7 @@ class SMTZ3Solver(Solver):
         self.logger.debug("Converted to SMT %s", smt_formula)
 
         start = time.perf_counter()
-        sol = {}
+        sol: dict[sp.Basic, sp.Basic]  = {}
         with pysmt.shortcuts.Solver(logic=QF_NRA) as solver:
             solver.add_assertion(smt_formula)
             self.logger.debug("Solve call to Z3")
@@ -86,7 +88,7 @@ class SMTZ3Solver(Solver):
                     is_sat = solver.solve()
                     if is_sat:
                         partial_model = []
-                        sol = {}
+                        sol= {}
 
                         # Generate solution mapping
                         for k in context.variables.values():
