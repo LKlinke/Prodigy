@@ -14,41 +14,62 @@ from itertools import combinations
 from typing import IO, Set
 
 import click
-from probably.pgcl import Var, compiler
+from probably.pgcl import Var, compiler, WhileInstr
 from probably.pgcl.check import CheckFail
 
-from prodigy import analysis
+from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
+from prodigy.analysis.config import ForwardAnalysisConfig
+from prodigy.analysis.equivalence.equivalence_check import check_equivalence
+from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
+from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
+from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
+from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
+from prodigy.analysis.exceptions import VerificationError
+from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.distribution.distribution import State
 from prodigy.util.color import Style
+from prodigy.util.logger import log_setup
+
+logger = log_setup("CLI", logging.DEBUG)
 
 
 # pylint: disable-msg=too-many-arguments
 @click.group()
 @click.pass_context
 @click.option('--engine', type=str, required=False, default='')
-@click.option('--intermediate-results',
-              is_flag=True,
-              required=False,
-              default=False)
+@click.option("--strategy", type=str, required=False, default='default')
+@click.option("--solver", type=str, required=False, default='sympy')
+@click.option("--template-heuristic", type=str, required=False, default='default')
+@click.option("--pos-heuristic", type=str, required=False, default='default')
+@click.option('--intermediate-results', is_flag=True, required=False, default=False)
 @click.option("--stepwise", is_flag=True, required=False, default=False)
-@click.option('--no-simplification',
-              is_flag=True,
-              required=False,
-              default=False)
+@click.option('--no-simplification', is_flag=True, required=False, default=False)
 @click.option('--use-latex', is_flag=True, required=False, default=False)
 @click.option("--no-normalize", is_flag=True, required=False, default=False)
-def cli(ctx, engine: str, intermediate_results: bool, stepwise: bool,
-        no_simplification: bool, use_latex: bool, no_normalize: bool):
+@click.option("--show-all-invs", is_flag=True, required=False, default=False)
+def cli(ctx,
+        engine: str, strategy: str, solver: str, template_heuristic: str, pos_heuristic: str,
+        intermediate_results: bool, stepwise: bool, no_simplification: bool, use_latex: bool, no_normalize: bool,
+        show_all_invs: bool):
     ctx.ensure_object(dict)
+    if solver.upper() not in SolverType.__members__:
+        raise ValueError(f"Solver {solver} is not known.")
     ctx.obj['CONFIG'] = \
-        analysis.ForwardAnalysisConfig(
-            engine=analysis.ForwardAnalysisConfig.Engine.GINAC if engine == 'ginac'
-            else analysis.ForwardAnalysisConfig.Engine.SYMPY,
+        ForwardAnalysisConfig(
+            engine=ForwardAnalysisConfig.Engine.GINAC if engine == 'ginac'
+            else ForwardAnalysisConfig.Engine.SYMENGINE if engine == 'symengine' else
+            ForwardAnalysisConfig.Engine.SYMPY,
             show_intermediate_steps=intermediate_results,
             step_wise=stepwise,
             use_simplification=not no_simplification,
             use_latex=use_latex,
-            normalize=not no_normalize
+            normalize=not no_normalize,
+            strategy=SynthesisStrategies.__members__[strategy.upper()],
+            templ_heuristic=TemplateHeuristics.__members__[template_heuristic.upper()],
+            positivity_heuristic=PositivityHeuristics.__members__[pos_heuristic.upper()],
+            show_all_invs=show_all_invs,
+            solver_type=SolverType.__members__[solver.upper()]
         )
 
 
@@ -69,11 +90,11 @@ def main(ctx, program_file: IO, input_dist: str,
     Compile the given program and print some information about it.
     """
 
-    # Setup the logging.
-    # logging.basicConfig(level=logging.INFO)
-    logging.getLogger("prodigy.cli").info("Program started.")
+    logger.info("Prodigy started.")
 
     # Parse and the input and do typechecking.
+    logger.debug("Read file %s", program_file.name)
+    logger.debug("Input distribution: %s", input_dist)
     program_source = program_file.read()
     program = compiler.parse_pgcl(program_source)
     # if isinstance(program, CheckFail):
@@ -84,7 +105,7 @@ def main(ctx, program_file: IO, input_dist: str,
         print("Program source:")
         print(program_source)
         print()
-    config = ctx.obj['CONFIG']
+    config: ForwardAnalysisConfig = ctx.obj['CONFIG']
     if input_dist is None:
         dist = config.factory.one(*program.variables.keys())
     else:
@@ -92,8 +113,9 @@ def main(ctx, program_file: IO, input_dist: str,
                                         *program.variables.keys(),
                                         preciseness=1.0)
 
+    logger.debug("Start analysis.")
     start = time.perf_counter()
-    dist, error_prob = analysis.compute_discrete_distribution(
+    dist, error_prob = compute_discrete_distribution(
         program, dist, config)
     stop = time.perf_counter()
 
@@ -125,13 +147,12 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
         raise ValueError(f"Could not compile invariant. {inv}")
 
     start = time.perf_counter()
-    equiv, result = analysis.equivalence.check_equivalence(
-        prog, inv, ctx.obj['CONFIG'])
+    equiv, result = check_equivalence(prog, inv, ctx.obj['CONFIG'], compute_semantics)
     stop = time.perf_counter()
     if equiv is True:
         assert isinstance(result, list)
         print(
-            f"Program{Style.OKGREEN} is equivalent{Style.RESET} to inavariant",
+            f"Program{Style.OKGREEN} is equivalent{Style.RESET} to invariant",
             end="")
         if len(result) == 0:
             print(".")
@@ -142,8 +163,8 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
     elif equiv is False:
         assert isinstance(result, State)
         print(
-            f"Program{Style.OKRED} is not equivalent{Style.RESET} to invariant. "\
-                f"{Style.OKRED}Counterexample:{Style.RESET} {result.valuations}"
+            f"Program{Style.OKRED} is not equivalent{Style.RESET} to invariant. "
+            f"{Style.OKRED}Counterexample:{Style.RESET} {result.valuations}"
         )
     else:
         assert equiv is None
@@ -174,7 +195,7 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
         raise ValueError(f"Could not compile the Program. {prog}")
 
     start = time.perf_counter()
-    indep_rel: Set[frozenset[Var]] = analysis.static.independent_vars(prog)
+    indep_rel: Set[frozenset[Var]] = independent_vars(prog, program_file, compute_exact)
     stop = time.perf_counter()
     print(Style.OKBLUE + "Under-approximation: \t" + str(indep_rel) +
           Style.RESET)
@@ -187,8 +208,7 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
         config = ctx.obj['CONFIG']
         dist = config.factory.one(*prog.variables.keys())
 
-        dist, _ = analysis.compute_discrete_distribution(
-            prog, dist, config)
+        dist, _ = compute_discrete_distribution(prog, dist, config)
 
         marginal_cache = {}
         for var in prog.variables:
@@ -207,6 +227,73 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
         print(f"CPU-time elapsed: {stop - start:04f} seconds")
 
     return indep_rel
+
+
+@cli.command('invariant_synthesis')
+@click.pass_context
+@click.argument('program_file', type=click.File('r'))
+@click.argument('input_dist', type=str, required=False)
+def invariant_synthesis(ctx, program_file: IO, input_dist: str):
+    """
+    Tries to synthesize an EVT Invariant for the given input file.
+    Supports a loop-free program to prefix the actual loop describing an initial distribution.
+    """
+
+    # read the program source file and parse it into a program object.
+    prog_src = program_file.read()
+    prog = compiler.parse_pgcl(prog_src)
+    if isinstance(prog, CheckFail):
+        raise ValueError(f"Could not compile the Program. {prog}")
+
+    # isolate the initial distribution description from the actual while loop.
+    loops = [1 if isinstance(instr, WhileInstr) else 0 for instr in prog.instructions]
+    if sum(loops) > 1:
+        raise ValueError(f"There are {sum(loops)} loops in the program. Only 1 is supported.")
+
+    # compute the initial distribution with respect to the user specified configuration
+    config = ctx.obj["CONFIG"]
+    dist = config.factory.one(*prog.variables.keys())
+    if input_dist is not None:
+        dist = config.factory.from_expr(input_dist, *prog.variables.keys())
+    dist, _ = compute_semantics(prog.instructions[:loops.index(1)],
+                                  ProgramInfo(prog),
+                                  dist,
+                                  config.factory.from_expr("0"),
+                                  config
+                                  )
+
+    # Create the strategy to do invariant synthesis and start synthesis.
+    strategy = SynthesisStrategies.make(config.strategy, prog.variables.keys(), config.factory)
+    start = time.perf_counter()
+    try:
+        evt_invariant_synthesis(prog.instructions[loops.index(1)],
+                                             ProgramInfo(prog), dist, config, strategy, compute_semantics)
+    except VerificationError as e:
+        print(f"{Style.RED} {str(e)} {Style.RESET}")
+
+    stop = time.perf_counter()
+    print(f"CPU-time elapsed: {stop - start:04f} seconds")
+
+
+@cli.command()
+def print_strategies():
+    print("Currently implemented strategies are: ")
+    for strategy in SynthesisStrategies:
+        print(strategy.name)
+
+
+@cli.command()
+def print_pos_heuristics():
+    print("Currently implemented positivity heuristics are: ")
+    for heuristic in PositivityHeuristics:
+        print(heuristic.name)
+
+
+@cli.command()
+def print_template_heuristics():
+    print("Currently implemented template generation heuristics are: ")
+    for heuristic in TemplateHeuristics:
+        print(heuristic.name)
 
 
 if __name__ == "__main__":

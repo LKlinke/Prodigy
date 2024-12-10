@@ -12,10 +12,10 @@ from .optimizer import Optimizer
 class GFOptimizer(Optimizer):
     @staticmethod
     def optimize(
-        condition: Union[str, Expr],
-        dist: Distribution,
-        *parameters: Union[str, VarExpr],
-        method: OptimizationType = OptimizationType.MINIMIZE
+            condition: Union[str, Expr],
+            dist: Distribution,
+            *parameters: Union[str, VarExpr],
+            method: OptimizationType = OptimizationType.MINIMIZE
     ) -> List[Union[str, Expr]]:
 
         if len(parameters) > 1:

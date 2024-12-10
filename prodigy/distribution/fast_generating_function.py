@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import (FrozenSet, Generator, Iterator, List, Set, Tuple, Type,
+from typing import (Dict, FrozenSet, Generator, Iterator, List, Set, Tuple, Type,
                     Union)
 
 import pygin  # type: ignore
@@ -11,6 +11,8 @@ from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
                                                MarginalType, State)
 
+from prodigy.util.order import default_monomial_iterator
+
 
 class FPS(Distribution):
     """
@@ -18,13 +20,13 @@ class FPS(Distribution):
     These formal powerseries are itself provided by `prodigy` a python binding to GiNaC,
     something similar to a computer algebra system implemented in C++.
     """
+
     def __init__(self,
                  expression: str,
                  *variables: str | VarExpr,
                  finite: bool | None = None):
         self._variables = set(str(var) for var in variables if str(var) != "")
         self._parameters = set()
-
         for var in pygin.find_symbols(expression):
             if var not in self._variables:
                 if len(variables) > 0:
@@ -32,7 +34,6 @@ class FPS(Distribution):
                 else:
                     self._variables.add(var)
         self._dist = pygin.Dist(expression, list(self._parameters))
-
         self._finite = finite if finite is not None else self._dist.is_polynomial(
             self._variables) == pygin.troolean.true
 
@@ -46,8 +47,7 @@ class FPS(Distribution):
         result._dist = dist
         result._variables = variables
         result._parameters = parameters
-        result._finite = finite if finite is not None else dist.is_polynomial(
-            variables) == pygin.troolean.true
+        result._finite = finite if finite is not None else dist.is_polynomial(variables) == pygin.troolean.true
         return result
 
     @staticmethod
@@ -146,31 +146,7 @@ class FPS(Distribution):
             else:
                 # TODO this is just a placeholder until we have proper multivariate iteration
                 variables = list(self.get_variables())
-
-                def n_tuples(n):
-                    """Generates all `n`-tuples of the natural numbers"""
-                    if n < 1:
-                        raise ValueError("n is too small")
-                    if n == 1:
-                        num = 0
-                        while True:
-                            yield [num]
-                            num += 1
-                    else:
-                        index = 0
-                        gen = n_tuples(n - 1)
-                        vals = []
-                        while True:
-                            # This is absolutely unreadable, so just another reason to delete this asap
-                            while len(vals) < index + 1:
-                                # pylint: disable=stop-iteration-return
-                                vals.append(next(gen))
-                                # pylint: enable=stop-iteration-return
-                            for i in range(index, -1, -1):
-                                yield [i] + vals[index - i]
-                            index += 1
-
-                for vals in n_tuples(len(variables)):
+                for vals in default_monomial_iterator(len(variables)):
                     s = f'{variables[0]}={vals[0]}'
                     for i in range(1, len(variables)):
                         s += f' & {variables[i]}={vals[i]}'
@@ -178,9 +154,9 @@ class FPS(Distribution):
                     if mass != '0':
                         yield mass, State(dict(zip(variables, vals)))
         else:
-            terms = self._dist.get_terms(self._variables)
-            for prob, vals in terms:
-                yield prob, State(vals)
+            terms: List[Tuple[str, Dict[str, int]]] = self._dist.get_terms(self._variables)
+            for prob, vals in terms:        # type: ignore
+                yield prob, State(vals)     # type: ignore
 
     def copy(self, deep: bool = True) -> Distribution:
         return FPS.from_dist(self._dist, self._variables, self._parameters,
@@ -276,6 +252,9 @@ class FPS(Distribution):
             for dist in self._dist.arithmetic_progression(variable, modulus)
         ]
 
+    def hadamard_product(self, other: Distribution) -> Distribution:
+        raise NotImplementedError("Hadamard product currently not implemented in GiNaC")
+
     def is_zero_dist(self) -> bool:
         res = self._dist.is_zero()
         if res == pygin.troolean.false:
@@ -294,7 +273,7 @@ class FPS(Distribution):
             self._variables, self._parameters, self._finite)
 
     def get_fresh_variable(
-        self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
+            self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
         res: str = pygin.get_fresh_variable()
         while res in exclude:
             res = pygin.get_fresh_variable()
@@ -366,7 +345,7 @@ class FPS(Distribution):
         if not isinstance(sampling_dist, FunctionCallExpr):
             result = FPS.from_dist(
                 self._dist.updateIid(str(variable),
-                                     pygin.Dist(str(sampling_dist), *self._parameters),
+                                     pygin.Dist(str(sampling_dist), list(self._parameters)),
                                      str(count)), self._variables,
                 self._parameters)
             return result
@@ -429,8 +408,8 @@ class FPS(Distribution):
             MarginalType.EXCLUDE: {str(var)
                                    for var in variables},
             MarginalType.INCLUDE:
-            self._variables - {str(var)
-                               for var in variables}
+                self._variables - {str(var)
+                                   for var in variables}
         }
         for var in remove_vars[method]:
             result = result.update_var(str(var), "0")
@@ -472,6 +451,10 @@ class FPS(Distribution):
 
 
 class ProdigyPGF(CommonDistributionsFactory):
+
+    def __new__(cls, *args, **kwargs):
+        raise TypeError(f"Static class {str(cls)} cannot be instantiated.")
+
     @staticmethod
     def geometric(var: Union[str, VarExpr], p: DistributionParam) -> FPS:
         return FPS.from_dist(pygin.geometric(var, str(p)), {str(var)},

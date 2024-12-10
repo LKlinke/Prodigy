@@ -2,14 +2,14 @@ nat aliceDunnit;
 nat withGun;
 rparam p;
 
-aliceDunnit := bernoulli(0.3);
+aliceDunnit := bernoulli(3/10);
 if (aliceDunnit = 1){
     withGun := bernoulli(p);
 } else {
-    withGun := bernoulli(0.8);
+    withGun := bernoulli(4/5);
 }
 
 observe(withGun = 1)
 ?Pr[aliceDunnit =1]
-#?Opt[aliceDunnit =1, p, MAX]
-!Print
+#?Opt[aliceDunnit=1, p, MIN]
+#!Print

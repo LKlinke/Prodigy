@@ -137,3 +137,9 @@ dmypy.json
 
 # Poetry
 poetry.lock
+
+# Benchmark script
+*.csv
+*.txt
+*.md
+!README.md

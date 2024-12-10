@@ -8,20 +8,20 @@ nat temp2;
 nat temp3;
 
 // didItRain
-cloudy := bernoulli(0.5);
+cloudy := bernoulli(1/2);
 
 if (cloudy = 1){
-    rain := bernoulli(0.8);
-    sprinkler := bernoulli(0.1);
+    rain := bernoulli(8/10);
+    sprinkler := bernoulli(1/10);
 }else{
-    rain := bernoulli(0.2);
-    sprinkler := bernoulli(0.5);
+    rain := bernoulli(2/10);
+    sprinkler := bernoulli(5/10);
 }
 
-temp1 := bernoulli(0.7);
+temp1 := bernoulli(7/10);
 if (temp1 = 1 & rain = 1){wetRoof := 1} else {skip}
-temp2 := bernoulli(0.9);
-temp3 := bernoulli(0.9);
+temp2 := bernoulli(9/10);
+temp3 := bernoulli(9/10);
 if ((temp2 = 1 & rain =1) || (temp3 = 1 & sprinkler = 1)){
     wetGrass := 1;
 } else {wetGrass := 0}

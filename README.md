@@ -31,17 +31,17 @@ If you run into trouble during installation, this subsection might be of help. I
   - `CMake`
   - `pkg-config`
   - `build-essential` (includes `make`, `g++`, `gcc`, and more)
-  - `python3-dev` (called `python3-devel` on some other package managers such as `yam`)
+  - `python3-dev` (called `python3-devel` on some other package managers such as `yam`) 
 
 ## Basic Usage
 ### CLI
 
-5. In the project directory, type ``poetry shell``. This activates the freshly installed virtual environment.
-6. Now, you can use prodigy by executing the script via `python prodigy/cli.py ...`. For more information, see the help message or have a look into the documentation.
+1. In the project directory, type ``poetry shell``. This activates the freshly installed virtual environment.
+2. Now, you can use prodigy by executing the script via `python prodigy/cli.py ...`. For more information, see the help message or have a look into the documentation.
 
 
 ### Webservice
-5. Activate the cvirtual environment by ``poetry shell``.
-6. Type ``web-service``.
-7. Open a browser and locate `localhost:8080`.
+1. Activate the virtual environment by ``poetry shell``.
+2. Type ``web-service``.
+3. Open a browser and locate `localhost:8080`.
 

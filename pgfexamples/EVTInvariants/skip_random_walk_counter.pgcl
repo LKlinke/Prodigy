@@ -1,0 +1,12 @@
+nat x;
+nat c;
+
+x := 1
+c := 0
+while(x>0){
+ {x:=x-1}[1/2]{x:=x+1}
+ c := c+1
+}
+
+# EVT Inv: (1-(1-c^2)^(1/2)+c*x)/(c+(1-c^2)^(1/2)*x-x)
+# EVT param inv in [a,b,d]: (a-(1-c^2)^(1/2)+c*x)/(c+(1-c^2)^(1/2)*b*x+d*x)

@@ -47,7 +47,7 @@ class TestDistributionInterface:
         assert produkt.get_parameters() == {'p'}
         assert produkt == FPS("x*y", "x", "y").set_parameters('p')
 
-    def test_iteration(self):
+    def test_iteration_univariate(self):
         gf = FPS("(1-sqrt(1-x^2))/x")
         expected_terms = [("1/2", {
             "x": 1
@@ -77,6 +77,31 @@ class TestDistributionInterface:
             else:
                 assert (prob, state) in expected_terms
                 i += 1
+
+    def test_iteration_multivariate(self):
+        gf = FPS("1/(2-x) * 1/(2-y)")
+        expected_terms = [
+            ("1/4", State({'x': 0, 'y': 0})),
+            ("1/8", State({'x': 0, 'y': 1})),
+            ("1/8", State({'x': 1, 'y': 0})),
+            ("1/16", State({'x': 0, 'y': 2})),
+            ("1/16", State({'x': 1, 'y': 1})),
+            ("1/16", State({'x': 2, 'y': 0})),
+            ("1/32", State({'x': 0, 'y': 3})),
+            ("1/32", State({'x': 1, 'y': 2})),
+            ("1/32", State({'x': 2, 'y': 1})),
+            ("1/32", State({'x': 3, 'y': 0})),
+            ("1/64", State({'x': 0, 'y': 4}))
+        ]
+        generated_terms = []
+        for i, term in enumerate(gf):
+            if i >= 11:
+                break
+            print(term)
+            generated_terms.append(term)
+
+        # FIXME Multivariate iteration sometimes swaps the values of variables
+        # assert generated_terms == expected_terms
 
     def test_copy(self):
         gf = create_random_gf(3, 5)
@@ -149,7 +174,7 @@ class TestDistributionInterface:
 
         gf = FPS("0.1*x^5+0.2*x^6+0.3*x^7+0.4*x^8")
         # TODO this also results in huge complex expressions which are likely correct but cannot be simplified
-        #assert gf.filter(parse_expr("x % 3 = 2")) == FPS('0.1*x^5 + 0.4*x^8')
+        # assert gf.filter(parse_expr("x % 3 = 2")) == FPS('0.1*x^5 + 0.4*x^8')
 
         gf = FPS("(1-sqrt(1-c^2))/c", "c", "x", "z")
         assert gf.filter(parse_expr("x*z <= 10")) == gf

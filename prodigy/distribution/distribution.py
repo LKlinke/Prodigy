@@ -31,6 +31,7 @@ class State:
 
     valuations: Dict[str, int] = field(default_factory=dict)
     """The variable assignment of this state"""
+
     def __iter__(self):
         return self.valuations.__iter__()
 
@@ -42,6 +43,12 @@ class State:
 
     def __str__(self):
         return self.valuations.__str__()
+
+    def __hash__(self):
+        h = 0
+        for key, val in self.valuations.items():
+            h += hash(key) + hash(val)
+            return h
 
     def __eq__(self, other) -> bool:
         if isinstance(other, dict):
@@ -84,6 +91,7 @@ class State:
 
 class Distribution(ABC):
     """ Abstract class that models different representations of probability distributions. """
+
     @staticmethod
     @abstractmethod
     def factory() -> Type[CommonDistributionsFactory]:
@@ -212,8 +220,8 @@ class Distribution(ABC):
 
         if isinstance(condition, BinopExpr) and not self._find_symbols(
                 str(condition.lhs)) | self._find_symbols(str(
-                    condition.rhs)) <= (self.get_variables()
-                                        | self.get_parameters()):
+            condition.rhs)) <= (self.get_variables()
+                                | self.get_parameters()):
             raise ValueError(
                 f"Cannot filter based on the expression {str(condition)} because it contains unknown variables"
             )
@@ -273,6 +281,7 @@ class Distribution(ABC):
         left_side_original = True
 
         # Check whether left hand side has only finitely many interpretations.
+        # This is bad, only works because its evaluated from left to right
         if len(syms) == 0 or not marginal.is_finite():
             # Failed, so we have to check the right hand side
             left_side_original = False
@@ -324,6 +333,12 @@ class Distribution(ABC):
         """
 
     @abstractmethod
+    def hadamard_product(self, other: Distribution) -> Distribution:
+        """
+        Computes the Hadamard product of the distributions, i.e., the point-wise product of the probabilities.
+        """
+
+    @abstractmethod
     def _find_symbols(self, expr: str) -> Set[str]:
         "Returns a set of all free symbols in the given expression."
 
@@ -368,11 +383,11 @@ class Distribution(ABC):
         elif op == Binop.OR:
             return cls.evaluate_condition(condition.lhs,
                                           state) or cls.evaluate_condition(
-                                              condition.rhs, state)
+                condition.rhs, state)
         elif op == Binop.AND:
             return cls.evaluate_condition(condition.lhs,
                                           state) and cls.evaluate_condition(
-                                              condition.rhs, state)
+                condition.rhs, state)
         raise AssertionError(f"Unexpected condition type. {condition}")
 
     def evaluate_expression(self,
@@ -412,10 +427,8 @@ class Distribution(ABC):
 
             Parameters are not allowed in an update expression.
         """
-
         assert isinstance(expression, BinopExpr) and isinstance(expression.lhs, VarExpr), \
             f"Expression must be an assignment, was {expression}."
-
         variable = expression.lhs.var
         if variable not in self.get_variables():
             raise ValueError(
@@ -426,13 +439,22 @@ class Distribution(ABC):
         def evaluate(function: Distribution, expression: Expr,
                      temp_var: str) -> Tuple[Distribution, str]:
             # TODO handle reals in every case
+
+            # For binary operator, we need to introduce fresh variables to prevent clashes
+            # and recursively evaluate the left- and right-hand side of the operator
             if isinstance(expression, BinopExpr):
+                # Get two fresh variables
                 xl = function.get_fresh_variable()
                 xr = function.get_fresh_variable({xl})
+                # Add variables to functions' variables
                 f = function.set_variables(*(function.get_variables()
                                              | {xl, xr}))
+                # Recursively evaluate the lhs and rhs of the binary operator
                 f, t_1 = evaluate(f, expression.lhs, xl)
                 f, t_2 = evaluate(f, expression.rhs, xr)
+
+                # With the two resulting temporary variables, execute the effect of the binary operator
+                # by calling the corresponding update method within the concrete distribution class
                 if expression.operator == Binop.PLUS:
                     f = f._update_sum(temp_var, t_1, t_2)
                 elif expression.operator == Binop.TIMES:
@@ -449,6 +471,7 @@ class Distribution(ABC):
                     raise ValueError(
                         f"Unsupported binary operator: {expression.operator}")
 
+                # Marginalize the introduced variables as they are only present to prevent clashes
                 f = f.marginal(xl, xr, method=MarginalType.EXCLUDE)
                 return f, temp_var
 
@@ -466,6 +489,8 @@ class Distribution(ABC):
         # pylint: enable=protected-access
 
         value: int | None = None
+
+        # Check if the value is a natural number
         if isinstance(expression.rhs, RealLitExpr):
             if expression.rhs.to_fraction().denominator == 1:
                 value = expression.rhs.to_fraction().numerator
@@ -473,17 +498,22 @@ class Distribution(ABC):
                 raise ValueError(
                     f'Cannot assign the real value {str(expression.rhs)} to {variable}'
                 )
+
         if isinstance(expression.rhs, NatLitExpr):
             value = expression.rhs.value
+
+        # If expression is of form "x = n" where n is a natual number
+        # simply assign the value
         if value is not None:
             result = self._update_var(variable, value)
         else:
+            # Not just a literal assignment, need to evaluate the expression first
             result, _ = evaluate(self, expression.rhs, variable)
         return result
 
     @abstractmethod
     def get_fresh_variable(
-        self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
+            self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
         """
         Returns a str that is the name of neither an existing variable nor an existing
         parameter of this distribution nor contained in the `exclude` parameter.
@@ -596,6 +626,12 @@ class Distribution(ABC):
         :return: The distribution with parameters `parameters`.
         """
 
+    # @abstractmethod
+    def set_variables_and_parameters(self, variables, parameters):
+        """
+        todo
+        """
+
     @abstractmethod
     def approximate(
             self,
@@ -639,6 +675,7 @@ class Distribution(ABC):
 
 class CommonDistributionsFactory(ABC):
     """ Abstract Factory Class implementing a Factory for common distributions."""
+
     @staticmethod
     @abstractmethod
     def geometric(var: Union[str, VarExpr],

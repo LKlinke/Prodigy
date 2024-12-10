@@ -7,11 +7,12 @@ from flask import Flask, jsonify, make_response, render_template, request
 from probably import pgcl
 from probably.pgcl import check_program, parse_pgcl
 
-from prodigy.analysis import (ForwardAnalysisConfig,
-                              compute_discrete_distribution)
-from prodigy.analysis.equivalence import check_equivalence
+from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
+from prodigy.analysis.config import ForwardAnalysisConfig
+from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 
 app = Flask(__name__)
+
 
 # pylint: disable = broad-except
 
@@ -39,7 +40,7 @@ def checking_equivalence():
                 jsonify({'message': 'No invariant source selected'}), 500)
         app.logger.debug("Invariant file %s", invariant_source)
         engine = ForwardAnalysisConfig.Engine.GINAC if request.form[
-            'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
+                                                           'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
         app.logger.debug("Chosen engine %s", engine)
 
         app.logger.debug("Parse loop-file")
@@ -50,7 +51,7 @@ def checking_equivalence():
 
         app.logger.info("Run equivalence check")
         result, _ = check_equivalence(loopy_prog, invariant_prog,
-                                      ForwardAnalysisConfig(engine=engine))
+                                      ForwardAnalysisConfig(engine=engine), compute_semantics)
         app.logger.info("Equivalence check finished. Result: %s", result)
 
         return make_response(
@@ -89,7 +90,7 @@ def distribution_transformation():
                 jsonify({'message': 'Please provide an input distribution'}),
                 500)
         engine = ForwardAnalysisConfig.Engine.GINAC if request.form[
-            'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
+                                                           'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
 
         app.logger.debug("Parsing the program source")
         program = parse_pgcl(prog_src)
@@ -143,7 +144,7 @@ def analyze_raw_code():
                 jsonify({'message': 'Please provide an input distribution'}),
                 500)
         engine = ForwardAnalysisConfig.Engine.GINAC if request.form[
-            'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
+                                                           'engine'] == 'ginac' else ForwardAnalysisConfig.Engine.SYMPY
 
         app.logger.debug("Parsing the program source")
         program = parse_pgcl(prog_src)

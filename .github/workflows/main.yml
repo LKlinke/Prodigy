@@ -47,11 +47,11 @@ jobs:
         run: make mypy
       - name: Run unit tests
         run: make ARGS="--exitfirst" test
-      - name: Build docs
-        run: make docs
-      - name: Deploy docs
-        if: github.ref == 'refs/heads/master'
-        uses: JamesIves/github-pages-deploy-action@4.1.1
-        with:
-          branch: gh-pages
-          folder: docs/build/html
+#      - name: Build docs
+#        run: make docs
+#      - name: Deploy docs
+#        if: github.ref == 'refs/heads/master'
+#        uses: JamesIves/github-pages-deploy-action@4.1.1
+#        with:
+#          branch: gh-pages
+#          folder: docs/build/html

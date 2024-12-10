@@ -1,0 +1,21 @@
+nat x;
+
+x := 1
+while(x%3=1){
+    {x := x+1} [1/3] { {x := x + 2} [1/2] {x := x+3} }
+}
+
+// EVTInvariant: (x^3+x^2+3*x)/(3-x^3)
+
+// NOTE: In general for the following program you can write the invariants as follows:
+// x := D
+// while(x%m=r){
+//   x += unif(1, m)
+// }
+//
+// has the universal invariant  D + arithprog[D, m, r] * modupdate[m]
+// where arithprog[D, m ,r] := 1/m * Sum[1/w[m]^(k*r) * (f /. {x -> w[m]^k * x}), {k, 0, m - 1}]
+// and modupdate[m] := Sum[x^i, {i,0,m}] / ( m - x^m ) * x
+// and w[a] = Exp[2*Pi*I/a]
+//
+//
