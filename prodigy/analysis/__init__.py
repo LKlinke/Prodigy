@@ -14,8 +14,6 @@ is handled via a dedicated instruction handler. These handlers describe on a gen
 is changed after executing the program instruction. This is oftentimes not computable, i.e., when the input distribution
 has infinite support, or in case of while-loop instructions.
 
-.. automodule:: prodigy.analysis.instruction_handler
-
 Distribution
 ############
 
