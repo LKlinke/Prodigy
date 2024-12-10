@@ -28,7 +28,7 @@ class Plotter:
         logger.debug("Creating Histogram for %s", marginal)
         # Collect relevant data from the distribution and plot it.
         if marginal.is_finite():
-            coord_and_prob: Dict[Tuple[int, int], sympy.Expr] = {}
+            coord_and_prob: Dict[Tuple[int, int], sympy.Basic] = {}
             maxima = {x: 0, y: 0}
             max_prob = 0
             colors: List[List[float]] = []
