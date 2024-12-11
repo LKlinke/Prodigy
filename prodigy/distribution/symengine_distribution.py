@@ -313,11 +313,6 @@ class SymengineDist(Distribution):
         )
 
     def _filter_constant_condition(self, condition: Expr) -> SymengineDist:
-        # FIXME
-        #   calling
-        #       python prodigy/cli.py --engine symengine main pgfexamples/sequential_loops_second_inv.pgcl
-        #   leads to an error with the expression "m > 0", where m \in self._variables
-
         # Mapping of operator from expression
         #   <const> <op> <var>
         # to
