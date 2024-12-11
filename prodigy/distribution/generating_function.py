@@ -175,51 +175,54 @@ class GeneratingFunction(Distribution):
 
     def _filter_constant_condition(self,
                                    condition: Expr) -> GeneratingFunction:
+        # TODO refactor this in superclass?
         # Normalize the condition into the format _var_ (< | <= | =) const. I.e., having the variable on the lhs.
 
-        # FIXME variable comparison does not work as condition.rhs.var is str and self._var of type
-        #   set[sympy.Symbol]
-        if isinstance(condition.rhs,
-                      VarExpr) and condition.rhs.var not in self._variables:
-            if condition.operator == Binop.LEQ:
-                return self.filter(
-                    UnopExpr(operator=Unop.NEG,
-                             expr=BinopExpr(operator=Binop.LT,
-                                            lhs=condition.rhs,
-                                            rhs=condition.lhs)))
-            elif condition.operator == Binop.LT:
-                return self.filter(
-                    UnopExpr(operator=Unop.NEG,
-                             expr=BinopExpr(operator=Binop.LEQ,
-                                            lhs=condition.rhs,
-                                            rhs=condition.lhs)))
-            elif condition.operator == Binop.GT:
-                return self.filter(
-                    BinopExpr(operator=Binop.LT,
-                              lhs=condition.rhs,
-                              rhs=condition.lhs))
-            elif condition.operator == Binop.GEQ:
-                return self.filter(
-                    BinopExpr(operator=Binop.LEQ,
-                              lhs=condition.rhs,
-                              rhs=condition.lhs))
+        # Mapping of operator from expression
+        #   <const> <op> <var>
+        # to
+        #   <var> <op> <const>
+        flipped_operators = {
+            Binop.LT: Binop.GT,
+            Binop.LEQ: Binop.GEQ,
+            Binop.GT: Binop.LT,
+            Binop.GEQ: Binop.LEQ,
+            Binop.EQ: Binop.EQ
+        }
 
-        # FIXME variable comparison does not work as condition.rhs.var is str and self._var of type
-        #   set[sympy.Symbol]
-        if isinstance(condition.lhs,
-                      VarExpr) and condition.lhs.var not in self._variables:
-            if condition.operator == Binop.GT:
-                return self.filter(
-                    UnopExpr(operator=Unop.NEG,
-                             expr=BinopExpr(operator=Binop.LEQ,
-                                            lhs=condition.lhs,
-                                            rhs=condition.rhs)))
+        # Mapping of operator from
+        #   <var> <op> <const>
+        # to
+        #   ¬(<var> <op> <const>)
+        neg_operator = {
+            Binop.GT: Binop.LEQ,
+            Binop.GEQ: Binop.LT
+        }
 
-            elif condition.operator == Binop.GEQ:
-                return self.filter(
-                    BinopExpr(operator=Binop.LEQ,
-                              lhs=condition.rhs,
-                              rhs=condition.lhs))
+        # If condition of form
+        #   <const> <op> <var>
+        # flip operator and move to
+        #   <var> <op> <const>
+        if isinstance(condition.rhs, VarExpr):
+            return self.filter(
+                BinopExpr(
+                    operator=flipped_operators[condition.operator],
+                    rhs=condition.lhs,
+                    lhs=condition.rhs
+                )
+            )
+
+        # Now we have the form <var> <op> <const>
+        # As we only allow <op> \in {<, <=, =}, we need to remove the other operator
+        # by using negation
+        if condition.operator in neg_operator:
+            return self.filter(
+                UnopExpr(operator=Unop.NEG, expr=BinopExpr(
+                    operator=neg_operator[condition.operator],
+                    rhs=condition.rhs,
+                    lhs=condition.lhs
+                ))
+            )
 
         # Now we have an expression of the form _var_ (< | <=, =) _const_.
         variable = _sympy_symbol(str(condition.lhs))
