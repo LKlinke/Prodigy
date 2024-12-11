@@ -109,9 +109,7 @@ def main(ctx, program_file: IO, input_dist: str,
     if input_dist is None:
         dist = config.factory.one(*program.variables.keys())
     else:
-        dist = config.factory.from_expr(input_dist,
-                                        *program.variables.keys(),
-                                        preciseness=1.0)
+        dist = config.factory.from_expr(input_dist, *program.variables.keys())
 
     logger.debug("Start analysis.")
     start = time.perf_counter()
