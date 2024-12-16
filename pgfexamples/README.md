@@ -17,6 +17,4 @@ pgfexamples/
 │   └── invariants                  # Corresponding loop-free programs
 └── template_parameter_synthesis    # Equality of loopy and loop-free programs with parameters
     └── invariants                  # Corresponding loop-free programs
- 
-
-```
+ ```
