@@ -12,7 +12,10 @@ pgfexamples/
 ├── evt_invariants                  # Synthesis of expected visiting time invariants
 ├── independence                    # Independent variables
 ├── inference                       # Calculation of posterior distribution
-│   └── conditioning                # ... with observe-statements
+│   ├── loop_free                   # ... without while-loops
+│   │   └── conditioning            # ... with observe-statements
+│   └── loopy                       # ... with while-loops
+│       └── conditioning            # ... with observe-statements 
 ├── loop_equivalence                # Equality of loopy and loop-free programs
 │   └── invariants                  # Corresponding loop-free programs
 └── template_parameter_synthesis    # Equality of loopy and loop-free programs with parameters
