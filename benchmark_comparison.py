@@ -1,21 +1,34 @@
 import subprocess
 from subprocess import TimeoutExpired
 import argparse
+import re
 import sys
 import sympy as sp
 import os
 from glob import glob
 
+# https://stackoverflow.com/a/14693789
+ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 
 # All files in the pgfexamples folder
 all_files: list[str] = [y for x in os.walk("pgfexamples") for y in glob(os.path.join(x[0], '*.pgcl'))] + [
     "example.pgcl"]
 
+# All folders containing a subfolder "invariants"
+folders_with_invariants: list[str] = [
+    os.path.join(root, folder)
+    for root, dirs, _ in os.walk("pgfexamples")
+    for folder in dirs
+    if "invariants" in os.listdir(os.path.join(root, folder))
+]
+
 # Timeouts / Exception runs
 # If files are not present, an empty list is returned
 timeouts: list[str] = list(map(str.strip, open("timeouts.txt", "r").readlines())) \
     if os.path.isfile("timeouts.txt") else [] + \
-    list(map(str.strip, open("exceptions.txt", "r").readlines())) if os.path.isfile("exceptions.txt") else []
+                                           list(map(str.strip,
+                                                    open("exceptions.txt", "r").readlines())) if os.path.isfile(
+    "exceptions.txt") else []
 
 # All available engines
 # (will be executed in this order)
@@ -28,6 +41,7 @@ class Run:
     """
     Represents a single run of one engine on one file.
     """
+
     def __init__(self, time, output, file):
         """
         Initializes the Run object.
@@ -60,6 +74,7 @@ class Configuration:
     """
     Represents the configuration given by the user
     """
+
     def __init__(self, args):
         """
         Initializes the Configuration object.
@@ -123,7 +138,7 @@ def create_parser() -> argparse.ArgumentParser:
         "--engine",
         metavar="ENGINE",
         help="The engine that should be tested primarily. Separate multiple engines by ','. " +
-             "If unset, all engines are tested. Note: Engines will be executed in the order given. "+
+             "If unset, all engines are tested. Note: Engines will be executed in the order given. " +
              f"Supported engines: {', '.join(engines)}."
     )
 
@@ -237,7 +252,22 @@ def benchmark(config: Configuration):
             output = ""
             # Execute the program
             try:
+                # 'check_equality' has a different output type
+                called_check_equality = False
+                # Default: Run the "main" method
                 cmd = ["python", "prodigy/cli.py", "--engine", engine, "main", file]
+
+                # Check if the file is situated in a folder with invariants
+                if path := next((folder_path for folder_path in folders_with_invariants if folder_path in file), None):
+                    file_name = file.split(path + "/")[1].split(".")[0]
+                    # Check if there exists an invariant file
+                    invariant_file = os.path.join(path, "invariants", f"{file_name}_invariant.pgcl")
+                    if os.path.isfile(invariant_file):
+                        # Call the "check_equality" method
+                        print(f"Invariant file exists, calling 'check_equality' with {invariant_file}")
+                        called_check_equality = True
+                        cmd = ["python", "prodigy/cli.py", "--engine", engine, "check_equality", file, invariant_file]
+
                 output = subprocess.check_output(cmd, timeout=config.timeout).decode()
                 print(output)
             except TimeoutExpired as e:
@@ -265,84 +295,96 @@ def benchmark(config: Configuration):
             # Parse output
             output = output.splitlines()
 
-            # Sometimes other stuff is logged, which is captured
-            # but not interesting for the analysis.
-            # The interesting part begins with "Result: [...]"
-            while "Result" not in output[0]:
-                output = output[1:]
-
-            # Add time to the dictionary
-            times[engine].append(
-                Run(
-                    time=float(output[-1].split()[-2]),
-                    output=tuple(
-                        str(
-                            output[0]
-                            .split("\x1b")[2]
-                            .split("[92m")[1]
-                        ).removeprefix("(")
-                        .removesuffix(")")
-                        .split(",")
-                    ),  # Very hacky lol
-                    file=file
-                )
-            )
-
-        # Compare results if at least two engines are selected and file wasn't skipped once (if skip_timeouts is set)
-        if len(config.engine) > 1 and (not config.skip_timeouts or file not in timeouts):
-            try:
-                results: dict[str, list[sp.Expr]] = {}
-                for engine in config.engine:
-                    # Results for "engine" look like this:
-                    #   expr, error_prob
-                    results[engine] = [sp.S(times[engine][-1].output[i]) for i in range(2)]
-            except Exception as e:
-                # Something went wrong while parsing
-                print(str(e))
-                if config.fail_on_error:
-                    raise e
-                continue
+            # Remove all ANSI escape sequences
+            output = [ansi_escape.sub("", o) for o in output]
 
             fail = False
-            # Compare all results
-            for engine in config.engine:
-                if fail:
-                    break
-                # Engines the current engine is compared against
-                # Technically, we only need one direction of equality
-                # but this is more convenient
-                other_engines = set(results.keys()) - {engine}
-                for other_engine in other_engines:
+
+            if called_check_equality:
+                if "not" in output[0]:
+                    fail = True
+
+                print(output)
+            else:
+
+                # Sometimes other stuff is logged, which is captured
+                # but not interesting for the analysis.
+                # The interesting part begins with "Result: [...]"
+                while "Result" not in output[0]:
+                    output = output[1:]
+
+                # Add time to the dictionary
+                # FIXME this probably break now due to ANSI removal
+                times[engine].append(
+                    Run(
+                        time=float(output[-1].split()[-2]),
+                        output=tuple(
+                            str(
+                                output[0]
+                                .split("\x1b")[2]
+                                .split("[92m")[1]
+                            ).removeprefix("(")
+                            .removesuffix(")")
+                            .split(",")
+                        ),  # Very hacky lol
+                        file=file
+                    )
+                )
+
+            # Compare results if at least two engines are selected and file wasn't skipped once (if skip_timeouts is set)
+            if len(config.engine) > 1 and (not config.skip_timeouts or file not in timeouts):
+                try:
+                    results: dict[str, list[sp.Expr]] = {}
+                    for engine in config.engine:
+                        # Results for "engine" look like this:
+                        #   expr, error_prob
+                        results[engine] = [sp.S(times[engine][-1].output[i]) for i in range(2)]
+                except Exception as e:
+                    # Something went wrong while parsing
+                    print(str(e))
+                    if config.fail_on_error:
+                        raise e
+                    continue
+
+                # Compare all results
+                for engine in config.engine:
                     if fail:
                         break
-                    # Compare expr and error_prob
-                    for i in range(2):
+                    # Engines the current engine is compared against
+                    # Technically, we only need one direction of equality
+                    # but this is more convenient
+                    other_engines = set(results.keys()) - {engine}
+                    for other_engine in other_engines:
                         if fail:
                             break
-                        try:
-                            assert results[engine][i].equals(results[other_engine][i]), \
-                                f"""
-                                Engine {engine} disagrees with engine {other_engine} on file {file}.
-                                """ + "\n".join(f"{e}: {results[e][i]}" for e in engines)
-                        except AssertionError as e:
-                            with open("exceptions.txt", "a") as f:
-                                # Write file to exception file
-                                # We do not need to add file to timeouts,
-                                # as the file was already checked
-                                f.write(file + "\n")
-                            print(str(e))
-                            if config.fail_on_error:
-                                raise e
-                            fail = True
-                            break
+                        # Compare expr and error_prob
+                        for i in range(2):
+                            if fail:
+                                break
+                            try:
+                                assert results[engine][i].equals(results[other_engine][i]), \
+                                    f"""
+                                    Engine {engine} disagrees with engine {other_engine} on file {file}.
+                                    """ + "\n".join(f"{e}: {results[e][i]}" for e in engines)
+                            except AssertionError as e:
+                                with open("exceptions.txt", "a") as f:
+                                    # Write file to exception file
+                                    # We do not need to add file to timeouts,
+                                    # as the file was already checked
+                                    f.write(file + "\n")
+                                print(str(e))
+                                if config.fail_on_error:
+                                    raise e
+                                fail = True
+                                break
 
-            # Results are equal, add run to output file (if set)
-            if config.output_file is not None and not fail:
-                with open(config.output_file, "a") as f:
-                    f.write(file)
-                    for engine in config.engine:
-                        f.write(f",{times[engine][-1].time}")
-                    f.write("\n")
+                # Results are equal, add run to output file (if set)
+                if config.output_file is not None and not fail:
+                    with open(config.output_file, "a") as f:
+                        f.write(file)
+                        for engine in config.engine:
+                            f.write(f",{times[engine][-1].time}")
+                        f.write("\n")
 
             if not fail:
                 print("Results are equal, continuing...")
@@ -416,8 +458,10 @@ def generate_markdown_table(csv_file: str, engine_list: list[str]):
                 # Write the run
                 f.write("|" + "|".join(line) + "|\n")
         # Write the average and summary
-        f.write("|Average|" + "|".join([f"{sum(results[i]) / len(results[i])}" for i in range(len(engine_list))]) + "|\n")
+        f.write(
+            "|Average|" + "|".join([f"{sum(results[i]) / len(results[i])}" for i in range(len(engine_list))]) + "|\n")
         f.write("Times fastest run|" + "|".join(map(str, no_fastest)) + "|\n")
+
 
 
 if __name__ == '__main__':
