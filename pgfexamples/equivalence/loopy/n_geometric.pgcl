@@ -1,3 +1,4 @@
+# check_equality pgfexamples/equivalence/loopy/n_geometric.pgcl pgfexamples/equivalence/loopy/invariants/n_geometric_invariant.pgcl
 nat n;
 nat c;
 nat tmp;

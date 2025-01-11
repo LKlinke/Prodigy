@@ -1,6 +1,7 @@
+# main pgfexamples/inference/loopy/uniform_sampling.pgcl
+
 # correctness proof in [Lumbroso 2013]
 # invariant most likely not in loop-free ReDiP-Fragment.
-
 nat running;
 nat v;
 nat c;

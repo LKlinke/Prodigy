@@ -1,3 +1,6 @@
+# skip
+# TODO how to do this with CLI?
+# check_equality pgfexamples/equivalence/loopy/sequential_loops.pgcl pgfexamples/equivalence/loopy/invariants/sequential_loops_invariant.pgcl
 nat c;
 nat m;
 nat n;

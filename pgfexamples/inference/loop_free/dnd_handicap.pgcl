@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/dnd_handicap.pgcl
 // Estimates benefits or punishments when beeing allowed to throw multiple dice
 // and take the maximum / mininmum of these dice. The punishment is controlled
 // by the variable `good`.

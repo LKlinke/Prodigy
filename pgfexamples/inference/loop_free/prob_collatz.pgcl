@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/prob_collatz.pgcl
 nat n;
 nat x;
 

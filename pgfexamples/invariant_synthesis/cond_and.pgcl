@@ -1,3 +1,4 @@
+# invariant_synthesis pgfexamples/invariant_synthesis/cond_and.pgcl
 nat m;
 nat n;
 

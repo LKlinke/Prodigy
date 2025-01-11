@@ -1,3 +1,4 @@
+# check_equality pgfexamples/template_parameter_synthesis/ky_die_parameter.pgcl pgfexamples/template_parameter_synthesis/invariants/ky_die_parameter_invariant.pgcl
 nat s;
 nat die;
 

@@ -1,3 +1,4 @@
+# check_equality pgfexamples/template_parameter_synthesis/brp_obs_parameter.pgcl pgfexamples/template_parameter_synthesis/invariants/brp_obs_parameter_invariant.pgcl
 nat s;
 nat f;
 nat h;

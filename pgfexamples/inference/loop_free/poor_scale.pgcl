@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/poor_scale.pgcl
 nat n;
 nat x;
 

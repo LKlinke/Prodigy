@@ -1,3 +1,4 @@
+# invariant_synthesis pgfexamples/invariant_synthesis/fast_dice_roller.pgcl
 nat v;
 nat c;
 bool flag;

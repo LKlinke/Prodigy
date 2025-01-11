@@ -1,3 +1,4 @@
+# check_equality pgfexamples/equivalence/loopy/dep_bern.pgcl pgfexamples/equivalence/loopy/invariants/dep_bern_invariant.pgcl
 nat c;
 nat m;
 nat n;

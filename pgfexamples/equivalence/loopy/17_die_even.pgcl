@@ -1,3 +1,4 @@
+# check_equality pgfexamples/equivalence/loopy/17_die_even.pgcl pgfexamples/equivalence/loopy/invariants/17_die_even_invariant.pgcl
 nat c
 nat x
 nat temp

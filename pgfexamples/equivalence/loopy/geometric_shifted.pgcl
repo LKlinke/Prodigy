@@ -1,3 +1,4 @@
+# check_equality pgfexamples/equivalence/loopy/geometric_shifted.pgcl pgfexamples/equivalence/loopy/invariants/geometric_shifted_invariant.pgcl
 nat x;
 nat c;
 nat temp;

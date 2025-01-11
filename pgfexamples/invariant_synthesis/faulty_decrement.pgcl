@@ -1,3 +1,4 @@
+# invariant_synthesis pgfexamples/invariant_synthesis/faulty_decrement.pgcl
 nat x;
 
 x := geometric(1/2)
