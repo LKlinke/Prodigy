@@ -1,3 +1,4 @@
+# check_equality pgfexamples/equivalence/loopy/ky_die.pgcl pgfexamples/equivalence/loopy/invariants/ky_die_invariant.pgcl
 nat s;
 nat die;
 

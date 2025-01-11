@@ -1,3 +1,5 @@
+# skip
+# TODO how to do this with the CLI
 nat x;
 nat y;
 nat c;

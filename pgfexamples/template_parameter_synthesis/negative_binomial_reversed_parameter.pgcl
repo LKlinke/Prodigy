@@ -1,3 +1,4 @@
+# check_equality pgfexamples/template_parameter_synthesis/negative_binomial_reversed_parameter.pgcl pgfexamples/template_parameter_synthesis/invariants/negative_binomial_reversed_parameter_invariant.pgcl
 nat n;
 nat i;
 nat temp;

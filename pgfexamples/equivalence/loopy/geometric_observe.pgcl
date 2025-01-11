@@ -1,3 +1,4 @@
+# check_equality pgfexamples/equivalence/loopy/geometric_observe.pgcl pgfexamples/equivalence/loopy/invariants/geometric_observe_invariant.pgcl
 nat y;
 nat x;
 nat tmp;

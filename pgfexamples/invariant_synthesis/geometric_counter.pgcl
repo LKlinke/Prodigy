@@ -1,3 +1,4 @@
+# invariant_synthesis pgfexamples/invariant_synthesis/geometric_counter.pgcl
 nat x;
 nat c;
 

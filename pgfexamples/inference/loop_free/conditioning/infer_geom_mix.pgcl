@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/conditioning/infer_geom_mix.pgcl
 // sample from either 1, 2, or 3 geom distributions and add the results
 // infer from how many distributions we sampled based on observing one result
 

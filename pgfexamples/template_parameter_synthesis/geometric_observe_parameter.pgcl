@@ -1,3 +1,4 @@
+# check_equality pgfexamples/template_parameter_synthesis/geometric_observe_parameter.pgcl pgfexamples/template_parameter_synthesis/invariants/geometric_observe_parameter_invariant.pgcl
 nat y;
 nat x;
 nat tmp;

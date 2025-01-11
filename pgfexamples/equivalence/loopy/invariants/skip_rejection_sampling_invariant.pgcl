@@ -1,3 +1,4 @@
+# skip
 nat c;
 
 if ( not (c%2=0)){
