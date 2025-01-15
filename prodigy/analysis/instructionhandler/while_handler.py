@@ -290,6 +290,7 @@ class WhileHandler(InstructionHandler):
             if user_choice == "5":
                 return WhileHandler._evt_invariant(instruction, prog_info, distribution, error_prob, config, analyzer)
             if user_choice == "6":
+                # TODO include phi step here?
                 return WhileHandler._evt_invariant_synthesis(instruction, prog_info, distribution, error_prob, config,
                                                              analyzer)
             if user_choice == "q":
