@@ -127,7 +127,8 @@ def create_parser() -> argparse.ArgumentParser:
         "input",
         metavar="INPUT",
         help="File to be analyzed. If set to \"all\", all files in the pgfexamples folder will be analyzed. " +
-             "If file does not have a .pgcl extension, it is interpreted to be a file containing files to be tested.",
+             "If a folder is provided, all files with '.pgcl' extensions in the folder or its subfolders are tested. " +
+             "If  file does not have a .pgcl extension, it is interpreted to be a file containing files to be tested.",
         type=str
     )
 
