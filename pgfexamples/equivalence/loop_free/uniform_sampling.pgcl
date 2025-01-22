@@ -1,0 +1,4 @@
+# check_equality pgfexamples/equivalence/loop_free/uniform_sampling.pgcl pgfexamples/equivalence/loop_free/uniform_sampling_2.pgcl
+nat x
+
+x := unif(1,6)
