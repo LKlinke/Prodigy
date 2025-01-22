@@ -8,6 +8,7 @@ from glob import glob
 import re
 
 # All files in the pgfexamples folder
+# https://stackoverflow.com/a/18394205
 all_files: list[str] = [y for x in os.walk("pgfexamples") for y in glob(os.path.join(x[0], '*.pgcl'))] + [
     "example.pgcl"]
 
@@ -95,6 +96,9 @@ class Configuration:
         elif "pgcl" in input_files:
             # A single file should be tested
             self.files = [args.input]
+        elif os.path.isdir(input_files):
+            # A folder is given, only test files in the folder
+            self.files = [y for x in os.walk(args.input) for y in glob(os.path.join(x[0], '*.pgcl'))]
         else:
             # A file containing files that should be tested
             self.files = list(map(str.strip, open(input_files, "r").readlines()))
@@ -298,7 +302,8 @@ def benchmark(config: Configuration):
 
         # Compare results if at least two engines are selected and file wasn't skipped once (if skip_timeouts is set)
         if len(config.engine) > 1 and not skipped:
-            fail = compare_output({engine: times[engine][-1] for engine in config.engine}, instructions, file, config.fail_on_error)
+            fail = compare_output({engine: times[engine][-1] for engine in config.engine}, instructions, file,
+                                  config.fail_on_error)
             if not fail:
                 print("Results are equal, continuing...")
 
@@ -316,6 +321,12 @@ def benchmark(config: Configuration):
 
 
 def setup_outfile(out_file: str, engine_list: list[str]) -> None:
+    """
+    Creates the output csv file and writes the header. If a file of the same name already exists, rename it to <name>_{i},
+    where i is the lowest number such that no file with the name <name>_i exists.
+    :param out_file: The file to be created.
+    :param engine_list: The list of engines which are tested.
+    """
     # If file exists, rename it to filename_{i}.extension
     if os.path.isfile(out_file):
         i = 1
@@ -345,6 +356,7 @@ def obtain_instructions(file_path: str) -> list[str]:
     if first_line.startswith("#"):
         # First line is an instruction
         parts = list(map(str.strip, first_line.split()[1:]))
+        # If "skip" is set, the file should be ignored
         if parts == ["skip"]:
             return []
         return parts
@@ -539,7 +551,9 @@ def generate_markdown_table(csv_file: str, engine_list: list[str]) -> None:
         # Write the average and summary
         f.write(
             "|Average|" + "|".join([f"{sum(results[i]) / len(results[i])}" for i in range(len(engine_list))]) + "|\n")
-        f.write("Times fastest run|" + "|".join(map(str, no_fastest)) + "|\n")
+        # Only add the time comparison if at least 2 engines are selected
+        if len(engine_list) > 1:
+            f.write("Times fastest run|" + "|".join(map(str, no_fastest)) + "|\n")
 
 
 if __name__ == '__main__':
