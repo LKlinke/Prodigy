@@ -77,9 +77,9 @@ def check_equivalence(
 
     logger.debug("Checking equivalence.")
 
-    # TODO move this line
-    # First we create the modified input program in order to fit the premise of Park's Lemma
-    modified_inv = cav_phi(program, program2)
+    # If both programs do not have the same variables, they are not equal
+    if set(program.variables.keys()).difference(set(program2.variables.keys())) != set():
+        return False, State()   # TODO how should the state look like?
 
     # Now we have to generate an infinite state parametrized distribution for every program variable.
     test_dist, new_vars = generate_equivalence_test_distribution(program, config)
@@ -87,10 +87,10 @@ def check_equivalence(
     # Compute the resulting distributions for both programs
     logger.debug("Compute the modified invariant...")
     modified_inv_result, modified_inv_error = analyzer(
-        modified_inv.instructions,
-        ProgramInfo(modified_inv, so_vars=frozenset(new_vars.keys())),
+        program2.instructions,
+        ProgramInfo(program2, so_vars=frozenset(new_vars.keys())),
         test_dist,
-        config.factory.from_expr("0", *(modified_inv.variables | new_vars.keys())),
+        config.factory.from_expr("0", *(program2.variables | new_vars.keys())),
         config
     )
     logger.debug("modified invariant result:\n%s", modified_inv_result)
@@ -101,7 +101,7 @@ def check_equivalence(
     inv_result, inv_error = analyzer(
         program2.instructions,
         ProgramInfo(program2, so_vars=frozenset(new_vars.keys())), test_dist,
-        config.factory.one(*(modified_inv.variables | new_vars.keys())) * 0, config)
+        config.factory.one(*(program2.variables | new_vars.keys())) * 0, config)
     logger.debug("invariant result:\n%s", inv_result)
 
     diff = inv_result - modified_inv_result
