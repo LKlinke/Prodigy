@@ -50,7 +50,7 @@ def generate_equivalence_test_distribution(
 
 def check_equivalence(
         program: Program,
-        program2: Program,
+        other_program: Program,
         config: ForwardAnalysisConfig,
         analyzer: Callable[
             [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
@@ -70,7 +70,7 @@ def check_equivalence(
     equivalent.
     :param config: The configuration.
     :param program: The first program
-    :param program2: The second program
+    :param other_program: The second program
     :params analyzer: The analyzer.
     :returns: Whether the invariant and the program are equivalent.
     """
@@ -78,41 +78,46 @@ def check_equivalence(
     logger.debug("Checking equivalence.")
 
     # If both programs do not have the same variables, they are not equal
-    if set(program.variables.keys()).difference(set(program2.variables.keys())) != set():
+    if set(program.variables.keys()).difference(set(other_program.variables.keys())) != set():
+        logger.info("The two programs already have different variable sets, prog: %s, other: %s",
+                    program.variables.keys(), other_program.variables.keys())
         return False, State()   # TODO how should the state look like?
 
     # Now we have to generate an infinite state parametrized distribution for every program variable.
     test_dist, new_vars = generate_equivalence_test_distribution(program, config)
 
     # Compute the resulting distributions for both programs
-    logger.debug("Compute the modified invariant...")
-    modified_inv_result, modified_inv_error = analyzer(
-        program2.instructions,
-        ProgramInfo(program2, so_vars=frozenset(new_vars.keys())),
+    logger.debug("Compute the other programs posterior...")
+    other_program_posterior, other_program_error = analyzer(
+        other_program.instructions,
+        ProgramInfo(other_program, so_vars=frozenset(new_vars.keys())),
         test_dist,
-        config.factory.from_expr("0", *(program2.variables | new_vars.keys())),
+        config.factory.from_expr("0", *(other_program.variables | new_vars.keys())),
         config
     )
-    logger.debug("modified invariant result:\n%s", modified_inv_result)
-    logger.debug("Compute the invariant...")
+    logger.debug("other programs result:\n%s", other_program_posterior)
+    logger.debug("Compute the posterior of the program...")
 
     if config.show_intermediate_steps:
-        print(f"\n{Style.YELLOW} Compute the result of the invariant. {Style.RESET}")
-    inv_result, inv_error = analyzer(
-        program2.instructions,
-        ProgramInfo(program2, so_vars=frozenset(new_vars.keys())), test_dist,
-        config.factory.one(*(program2.variables | new_vars.keys())) * 0, config)
-    logger.debug("invariant result:\n%s", inv_result)
+        print(f"\n{Style.YELLOW} Compute the posterior of the program. {Style.RESET}")
+    program_posterior, program_error = analyzer(
+        program.instructions,
+        ProgramInfo(program, so_vars=frozenset(new_vars.keys())),
+        test_dist,
+        config.factory.one(*(program.variables | new_vars.keys())) * 0,
+        config
+    )
+    logger.debug("program result:\n%s", program_posterior)
 
-    diff = inv_result - modified_inv_result
+    diff = program_posterior - other_program_posterior
 
     # Compare them and check whether they are equal.
-    params = program.parameters.keys() | program2.parameters.keys()
+    params = program.parameters.keys() | other_program.parameters.keys()
     solver = SolverType.make(config.solver_type)
-    dist_is_solution, dist_candidates = solver.solve(inv_result.set_parameters(*params),
-                                                     modified_inv_result.set_parameters(*params))
-    err_is_solution, err_candidates = solver.solve(inv_error.set_parameters(*params),
-                                                   modified_inv_error.set_parameters(*params))
+    dist_is_solution, dist_candidates = solver.solve(program_posterior.set_parameters(*params),
+                                                     other_program_posterior.set_parameters(*params))
+    err_is_solution, err_candidates = solver.solve(program_error.set_parameters(*params),
+                                                   other_program_error.set_parameters(*params))
 
     # If there is no solution tell the user why.
     if (dist_is_solution and err_is_solution) is False:
