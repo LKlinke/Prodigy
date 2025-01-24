@@ -121,17 +121,17 @@ def check_equivalence(
 
     # If there is no solution tell the user why.
     if (dist_is_solution and err_is_solution) is False:
-        logger.debug("Invariant validation failed.")
+        logger.debug("Equivalence refuted.")
         state, _ = diff.get_state()
         return False, State({var: state[sym] for sym, var in new_vars.items()})
 
     # If there is a solution, individually, see whether they match.
     if (dist_is_solution and err_is_solution) is True:
         if not dist_candidates:
-            logger.debug("Invariant validated.")
+            logger.debug("Posterior equivalence validated.")
             return True, err_candidates
         if not err_candidates:
-            logger.debug("Invariant validated.")
+            logger.debug("Posterior error validated.")
             return True, dist_candidates
         logger.debug("Matching individual solutions\n%s\n%s", dist_candidates, err_candidates)
         res_both = []
@@ -146,5 +146,7 @@ def check_equivalence(
             logger.debug("Current partial solution space: %s", res_both)
             if len(res_both) == 0:
                 return False, State()  # TODO how to generate a counterexample here?
+        logger.debug("Equivalence validated.")
         return True, res_both
+    logger.debug("Equivalence unknown.")
     return None, diff
