@@ -53,7 +53,7 @@ class WhileHandler(InstructionHandler):
             modified_inv = cav_phi(prog, inv_prog)
 
             answer, result = check_equivalence(
-                prog, modified_inv, config, analyzer)
+                inv_prog, modified_inv, config, analyzer)
             if answer:
                 assert isinstance(result, list)
                 if len(result) == 0:
