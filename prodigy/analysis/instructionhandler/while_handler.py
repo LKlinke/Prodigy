@@ -50,10 +50,10 @@ class WhileHandler(InstructionHandler):
             print(f"{Style.YELLOW}Verifying invariant...{Style.RESET}")
 
             # First we create the modified input program in order to fit the premise of Park's Lemma
-            modified_inv = cav_phi(prog, inv_prog)
+            phi_inv = cav_phi(prog, inv_prog)
 
             answer, result = check_equivalence(
-                inv_prog, modified_inv, config, analyzer)
+                inv_prog, phi_inv, config, analyzer)
             if answer:
                 assert isinstance(result, list)
                 if len(result) == 0:
