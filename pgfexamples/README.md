@@ -10,8 +10,7 @@ pgfexamples/
 │       ├── inference
 │       └── psi_fails               # Examples where Psi fails 
 ├── equivalence                     # Equivalence of two programs
-│   ├── loop_free                   # Programs without loops
-│       └── invariants              # ... and their counterparts
+│   ├── loop_free                   # Programs without loops and their counterparts
 │   └── loopy                       # Programs with loops
 │       └── invariants              # ... and their loop-free counterpart
 ├── independence                    # Checks for independent variables
