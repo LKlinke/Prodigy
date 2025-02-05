@@ -14,7 +14,7 @@ from prodigy.pgcl.pgcl_operations import cav_phi
 @pytest.mark.parametrize(
     'engine',
     [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE])
-def test_equivalence_check(engine):
+def test_equivalence_check_geometric_sampler(engine):
     prog = compile_pgcl("""
         nat x;
         nat c;
