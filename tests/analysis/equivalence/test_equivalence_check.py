@@ -8,6 +8,7 @@ from probably.pgcl.compiler import compile_pgcl
 from prodigy.analysis.analyzer import compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
+from prodigy.pgcl.pgcl_operations import cav_phi
 
 
 @pytest.mark.parametrize(
@@ -40,7 +41,8 @@ def test_equivalence_check(engine):
     """)
     assert isinstance(inv, Program)
 
-    res, subs = check_equivalence(prog, inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
+    phi_inv = cav_phi(prog, inv)
+    res, subs = check_equivalence(phi_inv, inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
     assert res
     assert subs == []
 
@@ -76,7 +78,9 @@ def test_equivalence_check_parameter(engine):
         } else {skip}
     """)
     assert isinstance(inv, Program)
-    res, subs = check_equivalence(prog, inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
+
+    phi_inv = cav_phi(prog, inv)
+    res, subs = check_equivalence(phi_inv, inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
     assert res
     assert len(subs) == 1
     assert sympy.S(subs[0][sympy.S('p')]) == sympy.S('0.5') or sympy.S(subs[0][sympy.S('p')]) == sympy.S('1/2')
