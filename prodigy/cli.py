@@ -126,8 +126,8 @@ def main(ctx, program_file: IO, input_dist: str,
 @cli.command('check_equality')
 @click.pass_context
 @click.argument('program_file', type=click.File('r'))
-@click.argument('invariant_file', type=click.File('r'))
-def check_equality(ctx, program_file: IO, invariant_file: IO):
+@click.argument('other_program_file', type=click.File('r'))
+def check_equality(ctx, program_file: IO, other_program_file: IO):
     """
     Checks whether a certain loop-free program is an invariant of a specified while loop.
     :param program_file: the file containing the while-loop
@@ -135,18 +135,18 @@ def check_equality(ctx, program_file: IO, invariant_file: IO):
     :return:
     """
     prog_src = program_file.read()
-    inv_src = invariant_file.read()
+    other_prog_src = other_program_file.read()
 
     prog = compiler.parse_pgcl(prog_src)
     if isinstance(prog, CheckFail):
         raise ValueError(f"Could not compile the Program. {prog}")
 
-    inv = compiler.parse_pgcl(inv_src)
-    if isinstance(inv, CheckFail):
-        raise ValueError(f"Could not compile invariant. {inv}")
+    other_prog = compiler.parse_pgcl(other_prog_src)
+    if isinstance(other_prog, CheckFail):
+        raise ValueError(f"Could not compile invariant. {other_prog}")
 
     start = time.perf_counter()
-    equiv, result = check_equivalence(prog, inv, ctx.obj['CONFIG'], compute_semantics)
+    equiv, result = check_equivalence(prog, other_prog, ctx.obj['CONFIG'], compute_semantics)
     stop = time.perf_counter()
     if equiv is True:
         assert isinstance(result, list)
