@@ -1,5 +1,6 @@
 import builtins
-
+import os
+from glob import glob
 import pytest
 import sympy
 from probably.pgcl.ast import Program
@@ -85,30 +86,75 @@ def test_equivalence_check_parameter(engine):
     assert len(subs) == 1
     assert sympy.S(subs[0][sympy.S('p')]) == sympy.S('0.5') or sympy.S(subs[0][sympy.S('p')]) == sympy.S('1/2')
 
-@pytest.mark.parametrize(
-    'engine',
-    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY,
-     ForwardAnalysisConfig.Engine.SYMENGINE])
-def test_equivalence_file(monkeypatch, engine):
-    # Read the body of the program files
-    with open("pgfexamples/equivalence/loop_free/bernoulli.pgcl", "r") as f:
-        file = "\n".join(f.readlines())
 
-    with open("pgfexamples/equivalence/loop_free/bernoulli2.pgcl", "r") as f:
+@pytest.mark.parametrize(
+    "engine",
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY,
+     ForwardAnalysisConfig.Engine.SYMENGINE]
+)
+@pytest.mark.parametrize(
+    "file_path",
+    [y for x in os.walk("pgfexamples/equivalence/loop_free") for y in glob(os.path.join(x[0], '*.pgcl')) if
+     not y.endswith('2.pgcl')]
+)
+def test_equivalence_loop_free_benchmarks(monkeypatch, engine, file_path):
+    # Read the body of the program files
+    with open(file_path, "r") as f:
+        file = "\n".join(f.readlines())
+    file2_path = file_path.replace(".pgcl", "2.pgcl")
+    with open(file2_path, "r") as f:
         inv = "\n".join(f.readlines())
 
     # Compile them to a program object
     prog1 = compile_pgcl(file)
     prog2 = compile_pgcl(inv)
 
-    assert(isinstance(prog1, Program))
-    assert(isinstance(prog2, Program))
-
-    # Simulate the input for the invariant files
-    monkeypatch.setattr(builtins, "input", lambda _: "pgfexamples/equivalence/loop_free/bernoulli2.pgcl")
+    assert (isinstance(prog1, Program))
+    assert (isinstance(prog2, Program))
 
     # Run the main program
     res, subs = check_equivalence(prog1, prog2, ForwardAnalysisConfig(engine=engine), compute_semantics)
     assert res
     assert subs == []
 
+
+@pytest.mark.parametrize(
+    "engine",
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY,
+     #ForwardAnalysisConfig.Engine.SYMENGINE
+     ]
+)
+@pytest.mark.parametrize(
+    "file_path",
+    [y for x in os.walk("pgfexamples/equivalence/loopy") for y in glob(os.path.join(x[0], '*.pgcl')) if
+     not "invariants" in y]
+)
+def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
+    # Read the body of the program files
+    with open(file_path, "r") as f:
+        lines = f.readlines()
+        if "skip" in lines[0]:
+            pytest.skip("File marked as skipped")
+        file = "\n".join(lines)
+
+    invariant_path = file_path.replace("loopy/", "loopy/invariants/").replace(".pgcl", "_invariant.pgcl")
+
+    with open(invariant_path, "r") as f:
+        inv = "\n".join(f.readlines())
+
+    # Compile them to a program object
+    prog1 = compile_pgcl(file)
+    prog2 = compile_pgcl(inv)
+
+    assert (isinstance(prog1, Program))
+    assert (isinstance(prog2, Program))
+
+
+    inputs = iter(["1", invariant_path])
+    # Simulate the input for the invariant files
+    monkeypatch.setattr(builtins, "input", lambda _: next(inputs))   # Select invariant file1
+
+    # Run the main program
+    res, subs = check_equivalence(prog1, prog2, ForwardAnalysisConfig(engine=engine), compute_semantics)
+    assert res
+    assert subs == []

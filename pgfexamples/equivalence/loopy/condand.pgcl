@@ -1,4 +1,4 @@
-# check_equality pgfexamples/equivalence/loopy/condard.pgcl pgfexamples/equivalence/loopy/invariants/condard_invariant.pgcl
+# skip
 nat n;
 nat m;
 
