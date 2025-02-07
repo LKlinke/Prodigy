@@ -239,6 +239,8 @@ def benchmark(config: Configuration):
         engine_counter = 0
 
         instructions = obtain_instructions(file)
+        inputs = obtain_inputs(instructions)
+
         skipped = False
         # For each engine, run the program
         for engine in config.engine:
@@ -262,11 +264,12 @@ def benchmark(config: Configuration):
                 print("File marked to be skipped...")
                 skipped = True
                 continue
-            # Execute the program
 
+            # Execute the program
             cmd = ["python", "prodigy/cli.py", "--engine", engine, *instructions]
+
             try:
-                output = subprocess.check_output(cmd, timeout=config.timeout).decode()
+                output = subprocess.check_output(cmd, timeout=config.timeout, input=inputs).decode()
             except TimeoutExpired as e:
                 # Command timed out
                 with open("timeouts.txt", "a") as f:
@@ -366,6 +369,17 @@ def obtain_instructions(file_path: str) -> list[str]:
         print(f"No instruction found for {file_path}, executing default instruction...")
         return default_instruction + [file_path]
 
+def obtain_inputs(instructions: list[str]) -> bytes:
+    if len(instructions) == 2:
+        # No input is necessary
+        return b""
+    method = instructions[0]
+    other_file = instructions[2]
+    input_cmd = b""
+    if method == "check_equality" and ("loopy" in other_file or "template_parameter_synthesis"):
+        # Select invariant file for loopy programs
+        input_cmd = b"1\n" + str.encode(other_file + "\n")
+    return input_cmd
 
 def capture_output(output: list[str], cmd: list[str], file: str) -> Run:
     # Remove ANSI
