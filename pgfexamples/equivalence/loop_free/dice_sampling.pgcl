@@ -1,0 +1,9 @@
+# check_equality pgfexamples/equivalence/loop_free/dice_sampling.pgcl pgfexamples/equivalence/loop_free/dice_sampling2.pgcl
+nat dice;
+nat tmp;
+
+tmp := 0;
+
+# Roll a dice
+dice := unif(1,6);
+
