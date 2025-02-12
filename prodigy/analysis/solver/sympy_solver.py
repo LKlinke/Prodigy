@@ -43,7 +43,7 @@ class SympySolver(Solver):
 
             except NotImplementedError as e:
                 if "no valid subset found" in str(e):
-                    self.logger.info("%s ha no solution", s_equation)
+                    self.logger.info("No solution for %s", s_equation)
                     return False, []
 
         else:
