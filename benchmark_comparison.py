@@ -415,7 +415,7 @@ def capture_output(output: list[str], cmd: list[str], file: str) -> Run:
             output = output[1:]
         return Run(
             time=float(output[-1].split()[-2]),
-            output=output[0].split()[1],
+            output=output[0].split("Invariant: ")[1],
             file=file
         )
     else:
