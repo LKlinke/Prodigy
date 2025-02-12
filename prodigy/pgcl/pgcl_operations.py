@@ -16,8 +16,8 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 def make_else_if(instructions: List[Tuple[BinopExpr, List[Instr]]]) -> IfInstr:
     """Creates an else-if chain from a list of conditions and bodies for if-instructions"""
 
-    outer_instr: IfInstr = None
-    curr_instr: IfInstr = None
+    outer_instr: IfInstr | None = None
+    curr_instr: IfInstr | None = None
     for cond, body in instructions:
         instr = IfInstr(cond=cond, true=body, false=None)
         if outer_instr is None:

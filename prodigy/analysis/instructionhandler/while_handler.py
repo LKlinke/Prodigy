@@ -18,6 +18,7 @@ from prodigy.analysis.instructionhandler.instruction_handler import InstructionH
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.distribution import Distribution, State
 from prodigy.distribution.generating_function import SympyPGF
+from prodigy.pgcl.pgcl_operations import cav_phi
 from prodigy.util.color import Style
 from prodigy.util.logger import print_progress_bar, log_setup
 
@@ -47,8 +48,12 @@ class WhileHandler(InstructionHandler):
                            instructions=[instruction],
                            functions=prog_info.functions)
             print(f"{Style.YELLOW}Verifying invariant...{Style.RESET}")
+
+            # First we create the modified input program in order to fit the premise of Park's Lemma
+            phi_inv = cav_phi(prog, inv_prog)
+
             answer, result = check_equivalence(
-                prog, inv_prog, config, analyzer)
+                inv_prog, phi_inv, config, analyzer)
             if answer:
                 assert isinstance(result, list)
                 if len(result) == 0:
@@ -290,6 +295,7 @@ class WhileHandler(InstructionHandler):
             if user_choice == "5":
                 return WhileHandler._evt_invariant(instruction, prog_info, distribution, error_prob, config, analyzer)
             if user_choice == "6":
+                # TODO include phi step here?
                 return WhileHandler._evt_invariant_synthesis(instruction, prog_info, distribution, error_prob, config,
                                                              analyzer)
             if user_choice == "q":

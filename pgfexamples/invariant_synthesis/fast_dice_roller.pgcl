@@ -22,7 +22,7 @@ while (flag = 0) {
 
 flag := 0
 v := 0
-!Plot[c, \infty]
+#!Plot[c, \infty]
 
 // Invariant template seems to be: a*v^4*flag*(1+c+c^2)+b*v^2*(1+c)+d*v with solution: [{a: 1/3, b: 2/3, d: 4/3}]
 
