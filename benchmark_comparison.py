@@ -14,11 +14,11 @@ all_files: list[str] = [y for x in os.walk("pgfexamples") for y in glob(os.path.
 
 # Timeouts / Exception runs
 # If files are not present, an empty list is returned
-skip_files: list[str] = list(map(str.strip, open("timeouts.txt", "r").readlines())) \
-    if os.path.isfile("timeouts.txt") else [] + \
-                                           list(map(str.strip,
+skip_files: list[str] = (list(map(str.strip, open("timeouts.txt", "r").readlines())) \
+    if os.path.isfile("timeouts.txt") else []) + \
+                                           (list(map(str.strip,
                                                     open("exceptions.txt", "r").readlines())) if os.path.isfile(
-    "exceptions.txt") else []
+    "exceptions.txt") else [])
 
 # All available engines
 # (will be executed in this order)
@@ -239,6 +239,11 @@ def benchmark(config: Configuration):
         engine_counter = 0
 
         instructions = obtain_instructions(file)
+        # Check if file is to be skipped
+        if not instructions:
+            print("File marked to be skipped...")
+            continue
+
         inputs = obtain_inputs(instructions)
 
         skipped = False
@@ -259,12 +264,6 @@ def benchmark(config: Configuration):
 
             output = ""
 
-            # Check if file is to be skipped
-            if not instructions:
-                print("File marked to be skipped...")
-                skipped = True
-                continue
-
             # Execute the program
             cmd = ["python", "prodigy/cli.py", "--engine", engine, *instructions]
 
@@ -272,6 +271,7 @@ def benchmark(config: Configuration):
                 output = subprocess.check_output(cmd, timeout=config.timeout, input=inputs).decode()
             except TimeoutExpired as e:
                 # Command timed out
+                print("Command timed out, writing in timeouts.txt...")
                 with open("timeouts.txt", "a") as f:
                     # Write the file in "timeouts.txt" and add to the list
                     f.write(file + "\n")
@@ -281,6 +281,7 @@ def benchmark(config: Configuration):
                         raise e
                     continue
             except subprocess.CalledProcessError as e:
+                print("Command threw an exception, writing in exceptions.txt...")
                 # Error occurred while running the program (e.g. runtime error)
                 with open("exceptions.txt", "a") as f:
                     # Write the file in "timeouts.txt" and add to the list
