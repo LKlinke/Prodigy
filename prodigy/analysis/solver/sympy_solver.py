@@ -19,10 +19,15 @@ class SympySolver(Solver):
         s_equation = sympy.sympify(str(f - g))
 
         if s_parameters:
-            solutions = sympy.solve_undetermined_coeffs(s_equation, s_parameters, *s_variables, dict=True,
-                                                        particular=True)
-            # validate solutions:
 
+            try:
+                solutions = sympy.solve_undetermined_coeffs(s_equation, s_parameters, *s_variables, dict=True, particular=True)
+            except NotImplementedError as e:
+                if "no valid subset found" in str(e):
+                    self.logger.info("%s ha no solution", s_equation)
+                    return False, []
+
+            # validate solutions:
             # no solutions or infinitely many found.
             if not len(solutions) > 0:
                 if s_equation.equals(0):
