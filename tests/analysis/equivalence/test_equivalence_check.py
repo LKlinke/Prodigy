@@ -121,7 +121,7 @@ def test_equivalence_loop_free_benchmarks(monkeypatch, engine, file_path):
 @pytest.mark.parametrize(
     "engine",
     [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY,
-     #ForwardAnalysisConfig.Engine.SYMENGINE
+     # ForwardAnalysisConfig.Engine.SYMENGINE
      ]
 )
 @pytest.mark.parametrize(
@@ -149,12 +149,35 @@ def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
     assert (isinstance(prog1, Program))
     assert (isinstance(prog2, Program))
 
-
     inputs = iter(["1", invariant_path])
     # Simulate the input for the invariant files
-    monkeypatch.setattr(builtins, "input", lambda _: next(inputs))   # Select invariant file1
+    monkeypatch.setattr(builtins, "input", lambda _: next(inputs))  # Select invariant file1
 
     # Run the main program
     res, subs = check_equivalence(prog1, prog2, ForwardAnalysisConfig(engine=engine), compute_semantics)
     assert res
     assert subs == []
+
+
+@pytest.mark.parametrize(
+    "engine",
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY,
+     # ForwardAnalysisConfig.Engine.SYMENGINE
+     ]
+)
+def test_equivalence_fail(engine):
+    prog1 = compile_pgcl("""
+    nat x;
+    x := geometric(1/2);
+    """)
+
+    prog2 = compile_pgcl("""
+    nat x;
+    x := unif(1,6);
+    """)
+
+    assert(isinstance(prog1, Program))
+    assert(isinstance(prog2, Program))
+
+    res, subs = check_equivalence(prog1, prog2, ForwardAnalysisConfig(engine=engine), compute_semantics)
+    assert not res
