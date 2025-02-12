@@ -22,28 +22,29 @@ class SympySolver(Solver):
 
             try:
                 solutions = sympy.solve_undetermined_coeffs(s_equation, s_parameters, *s_variables, dict=True, particular=True)
+
+                # validate solutions:
+                # no solutions or infinitely many found.
+                if not len(solutions) > 0:
+                    if s_equation.equals(0):
+                        self.logger.debug("All parameter value combinations are valid.")
+                        return True, []
+                    self.logger.debug("No solutions exist.")
+                    return False, []
+
+                # at least one solution found
+                for sol in solutions:
+                    for _, val in sol.items():
+                        if not val.free_symbols <= s_parameters:
+                            self.logger.info("SympySolver produced the invalid result %s.", sol)
+                            return None, []
+                self.logger.debug("solutions found: %s", solutions)
+                return True, solutions
+
             except NotImplementedError as e:
                 if "no valid subset found" in str(e):
                     self.logger.info("%s ha no solution", s_equation)
                     return False, []
-
-            # validate solutions:
-            # no solutions or infinitely many found.
-            if not len(solutions) > 0:
-                if s_equation.equals(0):
-                    self.logger.debug("All parameter value combinations are valid.")
-                    return True, []
-                self.logger.debug("No solutions exist.")
-                return False, []
-
-            # at least one solution found
-            for sol in solutions:
-                for _, val in sol.items():
-                    if not val.free_symbols <= s_parameters:
-                        self.logger.info("SympySolver produced the invalid result %s.", sol)
-                        return None, []
-            self.logger.debug("solutions found: %s", solutions)
-            return True, solutions
 
         else:
             is_equal = s_equation.equals(0)
