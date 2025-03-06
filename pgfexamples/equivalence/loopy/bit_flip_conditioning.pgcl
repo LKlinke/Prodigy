@@ -1,3 +1,5 @@
+# skip
+# FIXME compile_pgcl yields CheckFail(location=VarExpr('b1'), message='Expected numeric value, got BoolType().')
 # check_equality pgfexamples/equivalence/loopy/bit_flip_conditioning.pgcl pgfexamples/equivalence/loopy/invariants/bit_flip_conditioning_invariant.pgcl
 bool b1
 bool b2

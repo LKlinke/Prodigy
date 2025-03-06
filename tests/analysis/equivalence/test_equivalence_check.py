@@ -138,7 +138,6 @@ def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
         file = "\n".join(lines)
 
     invariant_path = file_path.replace("loopy/", "loopy/invariants/").replace(".pgcl", "_invariant.pgcl")
-
     with open(invariant_path, "r") as f:
         inv = "\n".join(f.readlines())
 

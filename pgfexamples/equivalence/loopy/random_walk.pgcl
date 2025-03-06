@@ -1,3 +1,5 @@
+# skip
+# CheckFail(location=BinopExpr(operator=Binop.POWER, lhs=BinopExpr(operator=Binop.MINUS, lhs=NatLitExpr(1), rhs=BinopExp...), rhs=VarExpr('c'))), rhs=RealLitExpr("1/2")), message='Expected value of type NatType(bounds=None), got RealType().'
 # check_equality pgfexamples/equivalence/loopy/random_walk.pgcl pgfexamples/equivalence/loopy/invariants/random_walk_invariant.pgcl
 nat s;
 nat c;

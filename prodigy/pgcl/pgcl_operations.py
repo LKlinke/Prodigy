@@ -25,8 +25,8 @@ def make_else_if(instructions: List[Tuple[BinopExpr, List[Instr]]]) -> IfInstr:
         if curr_instr is not None:
             curr_instr.false = [instr]
         curr_instr = instr
-
-    curr_instr.false = [SkipInstr()]
+    if curr_instr:
+        curr_instr.false = [SkipInstr()]
     return outer_instr
 
 
