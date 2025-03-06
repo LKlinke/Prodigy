@@ -21,7 +21,8 @@ class SympySolver(Solver):
         if s_parameters:
 
             try:
-                solutions = sympy.solve_undetermined_coeffs(s_equation, s_parameters, *s_variables, dict=True, particular=True)
+                solutions = sympy.solve_undetermined_coeffs(s_equation, s_parameters, *s_variables,
+                                                            dict=True, particular=True)
 
                 # validate solutions:
                 # no solutions or infinitely many found.

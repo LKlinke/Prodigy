@@ -12,7 +12,6 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.distribution.distribution import Distribution, State
-from prodigy.pgcl.pgcl_operations import cav_phi
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
