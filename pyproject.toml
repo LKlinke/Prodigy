@@ -26,6 +26,7 @@ numpy = "1.26.4"
 # https://stackoverflow.com/questions/77507580/userwarning-figurecanvasagg-is-non-interactive-and-thus-cannot-be-shown-plt-sh
 pyqt6 = "^6.7.1"
 symengine = "^0.11.0"
+setuptools = "^76.0.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
