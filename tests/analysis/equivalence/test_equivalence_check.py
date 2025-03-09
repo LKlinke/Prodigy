@@ -130,7 +130,7 @@ def test_equivalence_loop_free_benchmarks(monkeypatch, engine, file_path):
 )
 # This test apparently has some side-effect which fails other tests (cf. #64), if it is executed last
 # this problem does not occur
-@pytest.mark
+@pytest.mark.last
 def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
     # Read the body of the program files
     with open(file_path, "r") as f:
