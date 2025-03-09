@@ -117,7 +117,6 @@ def test_equivalence_loop_free_benchmarks(monkeypatch, engine, file_path):
     assert res
     assert subs == []
 
-
 @pytest.mark.parametrize(
     "engine",
     [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY,
@@ -129,6 +128,9 @@ def test_equivalence_loop_free_benchmarks(monkeypatch, engine, file_path):
     [y for x in os.walk("pgfexamples/equivalence/loopy") for y in glob(os.path.join(x[0], '*.pgcl')) if
      not "invariants" in y]
 )
+# This test apparently has some side-effect which fails other tests (cf. #64), if it is executed last
+# this problem does not occur
+@pytest.mark
 def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
     # Read the body of the program files
     with open(file_path, "r") as f:
