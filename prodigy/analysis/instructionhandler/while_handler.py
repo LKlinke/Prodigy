@@ -209,7 +209,6 @@ class WhileHandler(InstructionHandler):
                     solutions.append(candidate)
         if len(solutions) > 0:
             print(f"All solutions: {solutions}")
-            # TODO use a solution to compute the final distribution.
             logger.info("Using the first solution to continue.")
             sol_dist = config.factory.from_expr(
                 sympy.S(str(evt_inv - evt_inv.filter(instruction.cond))).subs(solutions[0]))
@@ -295,7 +294,6 @@ class WhileHandler(InstructionHandler):
             if user_choice == "5":
                 return WhileHandler._evt_invariant(instruction, prog_info, distribution, error_prob, config, analyzer)
             if user_choice == "6":
-                # TODO include phi step here?
                 return WhileHandler._evt_invariant_synthesis(instruction, prog_info, distribution, error_prob, config,
                                                              analyzer)
             if user_choice == "q":

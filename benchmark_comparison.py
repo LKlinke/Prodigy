@@ -263,10 +263,9 @@ def benchmark(config: Configuration):
                 continue
 
             output = ""
-
             # Execute the program
             cmd = ["python", "prodigy/cli.py", "--engine", engine, *instructions]
-
+            print(bytes.decode(inputs))
             try:
                 output = subprocess.check_output(cmd, timeout=config.timeout, input=inputs).decode()
             except TimeoutExpired as e:
@@ -378,8 +377,13 @@ def obtain_inputs(instructions: list[str]) -> bytes:
     other_file = instructions[2]
     input_cmd = b""
     if method == "check_equality" and ("loopy" in other_file or "template_parameter_synthesis"):
-        # Select invariant file for loopy programs
-        input_cmd = b"1\n" + str.encode(other_file + "\n")
+        if other_file.endswith("1.pgcl"):
+            # We have multiple invariants
+            input_cmd = str.encode("".join("1\n" + inv_file + "\n" for inv_file in
+                                           list(sorted(glob(other_file.replace("1.pgcl", "*"))))))
+        else:
+            # Select invariant file for loopy programs
+            input_cmd = b"1\n" + str.encode(other_file + "\n")
     return input_cmd
 
 def capture_output(output: list[str], cmd: list[str], file: str) -> Run:

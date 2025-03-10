@@ -47,4 +47,7 @@ pgfexamples/
     * In `pgfexamples/equivalence/loopy` and `pgfexamples/template_parameter_synthesis` the files are named
       `file_name.pgcl` in the main folder and their corresponding invariants with `file_name_invariant.pgcl` in the
       invariants folder
+    * If there are multiple invariant files for one program, e.g. for a nested loop, the invariants are to be marked
+      with numbers indicating the order they should be used (i.e. the invariant for the outer-most while loop has number
+      1 and so on)
     * Invariants and second programs are to be marked with `skip`

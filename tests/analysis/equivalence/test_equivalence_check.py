@@ -1,6 +1,8 @@
 import builtins
 import os
 from glob import glob
+from os.path import isfile
+
 import pytest
 import sympy
 from probably.pgcl.ast import Program
@@ -140,6 +142,9 @@ def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
         file = "\n".join(lines)
 
     invariant_path = file_path.replace("loopy/", "loopy/invariants/").replace(".pgcl", "_invariant.pgcl")
+    if not isfile(invariant_path):
+        pytest.skip("File has multiple invariants")
+
     with open(invariant_path, "r") as f:
         inv = "\n".join(f.readlines())
 
