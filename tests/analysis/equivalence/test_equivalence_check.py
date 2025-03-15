@@ -5,6 +5,7 @@ from os.path import isfile
 
 import pytest
 import sympy
+from probably.pgcl import parse_pgcl
 from probably.pgcl.ast import Program
 from probably.pgcl.compiler import compile_pgcl
 
@@ -99,7 +100,7 @@ def test_equivalence_check_parameter(engine):
     [y for x in os.walk("pgfexamples/equivalence/loop_free") for y in glob(os.path.join(x[0], '*.pgcl')) if
      not y.endswith('2.pgcl')]
 )
-def test_equivalence_loop_free_benchmarks(monkeypatch, engine, file_path):
+def test_equivalence_loop_free_benchmarks(engine, file_path):
     # Read the body of the program files
     with open(file_path, "r") as f:
         file = "\n".join(f.readlines())
@@ -149,8 +150,8 @@ def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
         inv = "\n".join(f.readlines())
 
     # Compile them to a program object
-    prog1 = compile_pgcl(file)
-    prog2 = compile_pgcl(inv)
+    prog1 = parse_pgcl(file)
+    prog2 = parse_pgcl(inv)
 
     assert (isinstance(prog1, Program))
     assert (isinstance(prog2, Program))
