@@ -1,5 +1,4 @@
 # check_equality pgfexamples/equivalence/loopy/nested_while.pgcl pgfexamples/equivalence/loopy/invariants/nested_while_invariant1.pgcl
-# TODO how to do this with the CLI
 nat x;
 nat y;
 nat c;
