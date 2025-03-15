@@ -27,7 +27,7 @@ from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_syn
 from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
-from prodigy.analysis.independence.independence import independent_vars as ivars
+from prodigy.analysis.independence.independence import independent_vars as independent_vars_analysis
 from prodigy.distribution.distribution import State
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
@@ -194,7 +194,7 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
         raise ValueError(f"Could not compile the Program. {prog}")
 
     start = time.perf_counter()
-    indep_rel: Set[frozenset[Var]] = ivars(prog) #, program_file, compute_exact)
+    indep_rel: Set[frozenset[Var]] = independent_vars_analysis(prog) #, program_file, compute_exact)
     stop = time.perf_counter()
     print(Style.OKBLUE + "Under-approximation: \t" + str(indep_rel) +
           Style.RESET)
