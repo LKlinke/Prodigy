@@ -122,7 +122,7 @@ def test_equivalence_loop_free_benchmarks(engine, file_path):
 
 @pytest.mark.parametrize(
     "engine",
-    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY,
+    [ ForwardAnalysisConfig.Engine.GINAC,ForwardAnalysisConfig.Engine.SYMPY,
      # ForwardAnalysisConfig.Engine.SYMENGINE
      ]
 )
@@ -133,7 +133,7 @@ def test_equivalence_loop_free_benchmarks(engine, file_path):
 )
 # This test apparently has some side-effect which fails other tests (cf. #64), if it is executed last
 # this problem does not occur
-@pytest.mark.last
+# FIXME this test has some effect on GINAC, when removing GINAC from the engine list, all tests pass
 def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
     # Read the body of the program files
     with open(file_path, "r") as f:
@@ -158,10 +158,11 @@ def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
 
     inputs = iter(["1", invariant_path])
     # Simulate the input for the invariant files
-    monkeypatch.setattr(builtins, "input", lambda _: next(inputs))  # Select invariant file1
+    with monkeypatch.context() as m:
+        m.setattr("builtins.input", lambda _: next(inputs))  # Select invariant file1
+        # Run the main program
+        res, subs = check_equivalence(prog1, prog2, ForwardAnalysisConfig(engine=engine), compute_semantics)
 
-    # Run the main program
-    res, subs = check_equivalence(prog1, prog2, ForwardAnalysisConfig(engine=engine), compute_semantics)
     assert res
     assert subs == []
 
