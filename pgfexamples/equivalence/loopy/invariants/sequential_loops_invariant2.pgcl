@@ -1,0 +1,13 @@
+# skip
+nat m;
+nat c;
+nat tmp;
+
+if(m > 0){
+    tmp := iid( ((1-(1-(c*c))^(1/2))/c), m)
+    c := c + tmp
+    tmp := 0
+    m := 0
+} else {
+    skip
+}

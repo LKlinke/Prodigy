@@ -1,0 +1,6 @@
+# skip
+nat x;
+
+if (x = 1){
+  observe(false)
+} else {skip}

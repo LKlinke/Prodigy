@@ -1,6 +1,0 @@
-nat x;
-
-x := geometric(1/2)
-while (x > 0){
-  {skip}[1/2]{x:=x-1}
-}

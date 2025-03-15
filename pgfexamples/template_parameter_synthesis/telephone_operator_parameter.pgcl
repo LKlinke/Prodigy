@@ -1,3 +1,6 @@
+# skip
+# TODO this has no invariant file
+# check_equality pgfexamples/template_parameter_synthesis/telephone_operator_parameter.pgcl pgfexamples/template_parameter_synthesis/invariants/telephone_operator_parameter_invariant.pgcl
 nat x; // 0: weekday, 1: weekend
 nat d; // sample the number of phone calls received in one hour.
 rparam p;

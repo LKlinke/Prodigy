@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/conditioning/evidence2.pgcl
 nat evidence;
 nat coin;
 nat coin1;

@@ -7,17 +7,47 @@ pgfexamples/
 ├── comparison                      # Comparisons with other tools / paradigms
 │   ├── ADDcomparison               # Comparisons with Algebraic Decision Diagrams
 │   └── psicomparison               # Comparisons with Psi
-│       ├── inference               
+│       ├── inference
 │       └── psi_fails               # Examples where Psi fails 
-├── evt_invariants                  # Synthesis of expected visiting time invariants
-├── independence                    # Independent variables
+├── equivalence                     # Equivalence of two programs
+│   ├── loop_free                   # Programs without loops and their counterparts
+│   └── loopy                       # Programs with loops
+│       └── invariants              # ... and their loop-free counterpart
+├── independence                    # Checks for independent variables
 ├── inference                       # Calculation of posterior distribution
 │   ├── loop_free                   # ... without while-loops
 │   │   └── conditioning            # ... with observe-statements
 │   └── loopy                       # ... with while-loops
 │       └── conditioning            # ... with observe-statements 
-├── loop_equivalence                # Equality of loopy and loop-free programs
-│   └── invariants                  # Corresponding loop-free programs
+├── invariant_synthesis             # Synthesis of (expected visiting time) invariants
 └── template_parameter_synthesis    # Equality of loopy and loop-free programs with parameters
-    └── invariants                  # Corresponding loop-free programs
- ```
+    └── invariants                  # Corresponding loop-free programs
+```
+
+## File structure
+
+* Files have a comment in the first line indicating which arguments should be used in order to execute it
+
+> ```bash
+>python prodigy/cli.py METHOD FILE ARGS 
+>```
+> results in
+>```
+># METHOD FILE ARGS
+>```
+> in the first line of the corresponding program or just
+> ```
+> # skip
+> ```
+> if the file should not be automatically tested.
+
+* Naming convention:
+    * In `pgfexamples/equivalence/loop_free` the files are named `file_name.pgcl` for the first and
+      `file_name2.pgcl` for the second program
+    * In `pgfexamples/equivalence/loopy` and `pgfexamples/template_parameter_synthesis` the files are named
+      `file_name.pgcl` in the main folder and their corresponding invariants with `file_name_invariant.pgcl` in the
+      invariants folder
+    * If there are multiple invariant files for one program, e.g. for a nested loop, the invariants are to be marked
+      with numbers indicating the order they should be used (i.e. the invariant for the outer-most while loop has number
+      1 and so on)
+    * Invariants and second programs are to be marked with `skip`

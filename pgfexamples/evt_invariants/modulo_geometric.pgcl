@@ -1,9 +1,0 @@
-nat x;
-
-x := geometric(1/2)
-while(x%2=1){
-    {x := x+2} [1/2] { x:= x+1}
-}
-
-// EVT Invariant: (4+2*x-x^2)/(8-6*x^2+x^4)
-// Parameter Inv: (a+b*x-c*x^2)/(d-e*x^2+f*x^4)

@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loopy/conditioning/trivial_iid.pgcl
 nat n;
 nat m;
 nat tmp;

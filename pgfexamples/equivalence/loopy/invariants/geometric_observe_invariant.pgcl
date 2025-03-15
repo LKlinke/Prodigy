@@ -1,0 +1,12 @@
+# skip
+nat y;
+nat x;
+nat tmp;
+
+if ( y = 1){
+    tmp := iid(x/(2-x), y);
+    x := x + tmp;
+    y := 0;
+    observe(x < 3);
+    tmp := 0; 
+} else { skip}

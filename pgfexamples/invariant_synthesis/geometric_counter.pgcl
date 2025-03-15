@@ -1,0 +1,8 @@
+# invariant_synthesis pgfexamples/invariant_synthesis/geometric_counter.pgcl
+nat x;
+nat c;
+
+x := 1
+while (x = 1){
+ {x := 0 } [1/2] {c := c+1}
+}

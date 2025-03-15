@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/pi.pgcl
 nat x
 nat y
 x := unif(0,30)

@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/conditioning/murder_mystery.pgcl
 nat aliceDunnit;
 nat withGun;
 rparam p;

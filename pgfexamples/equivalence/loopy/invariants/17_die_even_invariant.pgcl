@@ -1,0 +1,15 @@
+# skip
+nat c
+nat x
+nat temp
+rparam p
+rparam q
+
+if (x < 6) {
+    temp := geometric(p)
+    x := 6
+    c := c + temp + 1
+    {skip}[q]{observe(false)}
+    temp := 0
+}
+else {skip}

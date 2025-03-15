@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/conditioning/lucky_throw.pgcl
 nat die;
 nat lucky_throw;
 nat hand;

@@ -1,3 +1,4 @@
+
 # 3 bit messages, no real bitwise XOR used, inspirited by Barthe et al., A Probabilistic Separation Logic
 
 nat r0;

@@ -1,0 +1,9 @@
+# check_equality pgfexamples/equivalence/loopy/n_geometric.pgcl pgfexamples/equivalence/loopy/invariants/n_geometric_invariant.pgcl
+nat n;
+nat c;
+nat tmp;
+
+while(n > 0){
+    {n := n - 1 } [1/2] {c := c + 1}
+    tmp := 0
+}

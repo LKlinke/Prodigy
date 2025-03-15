@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/max.pgcl
 fun max := {
     nat x;
     nat y;

@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/conditioning/twocoins.pgcl
 nat firstCoin;
 nat secondCoin;
 nat bothHeads;

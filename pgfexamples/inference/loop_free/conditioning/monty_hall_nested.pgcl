@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/conditioning/monty_hall_nested.pgcl
 nat prize;
 nat player;
 nat door;

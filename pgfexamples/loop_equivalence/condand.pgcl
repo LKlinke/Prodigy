@@ -1,9 +1,0 @@
-nat n;
-nat m;
-
-while ((0 < n & 0 < m)) {
-{n := n - 1;} [1/2] {m := m - 1;}
-}
-!Plot[n, \infty]
-!Plot[m, \infty]
-!Plot[n, m, \infty]

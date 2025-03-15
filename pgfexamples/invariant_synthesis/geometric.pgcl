@@ -1,0 +1,7 @@
+# invariant_synthesis pgfexamples/invariant_synthesis/geometric.pgcl
+nat x;
+
+x := 1
+while (x = 1){
+ {x := 0} [1/2] {skip}
+}

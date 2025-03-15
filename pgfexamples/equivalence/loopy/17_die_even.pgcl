@@ -1,0 +1,11 @@
+# check_equality pgfexamples/equivalence/loopy/17_die_even.pgcl pgfexamples/equivalence/loopy/invariants/17_die_even_invariant.pgcl
+nat c
+nat x
+nat temp
+
+while (x < 6) {
+    x := unif(1,6)
+    c := c + 1
+    observe(x % 2 = 0)
+    temp := 0
+}
