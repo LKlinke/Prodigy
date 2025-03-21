@@ -17,7 +17,7 @@ networkx = "2.5"
 sympy = "^1.8"
 matplotlib = "^3.4.2"
 probably = { git = "https://github.com/Philipp15b/probably.git", branch = "brand-new" }
-pygin = { git = "https://git.rwth-aachen.de/tobias.winkler1/prodigy", branch = "sympy-features" }
+pygin = { git = "https://git.rwth-aachen.de/tobias.winkler1/prodigy", branch = "dynamic-variables" }
 Flask = "^2.0.0"
 # https://stackoverflow.com/questions/77213053/why-did-flask-start-failing-with-importerror-cannot-import-name-url-quote-fr
 Werkzeug = "2.2.2"

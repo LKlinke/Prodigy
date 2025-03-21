@@ -274,9 +274,9 @@ class FPS(Distribution):
 
     def get_fresh_variable(
             self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
-        res: str = pygin.get_fresh_variable()
+        res: str = self._dist.get_fresh_variable()
         while res in exclude:
-            res = pygin.get_fresh_variable()
+            res = self._dist.get_fresh_variable()
         return res
 
     def _update_var(self, updated_var: str, assign_var: str | int) -> FPS:

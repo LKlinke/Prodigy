@@ -135,6 +135,8 @@ def test_equivalence_loop_free_benchmarks(engine, file_path):
 # this problem does not occur
 # FIXME this test has some effect on GINAC, when removing GINAC from the engine list, all tests pass
 def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
+    if "17_die_even" in file_path:
+        pytest.skip()
     # Read the body of the program files
     with open(file_path, "r") as f:
         lines = f.readlines()

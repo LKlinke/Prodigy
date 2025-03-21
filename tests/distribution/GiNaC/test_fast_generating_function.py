@@ -258,7 +258,7 @@ def test_predefined_variable_names(name):
 
     assert ProdigyPGF.bernoulli(name, '1/2') == FPS(f'1/2+1/2*{name}')
 
-    pygin.reset_symbol_cache()
+    # pygin.reset_symbol_cache()
     gf = FPS(f'{name}*x', 'x')
     assert len(gf.get_parameters()) == 1
     assert gf.update(parse_expr('x = 2')) == FPS(f'{name}*x^2', 'x')

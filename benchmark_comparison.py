@@ -386,6 +386,7 @@ def obtain_inputs(instructions: list[str]) -> bytes:
             input_cmd = b"1\n" + str.encode(other_file + "\n")
     return input_cmd
 
+
 def capture_output(output: list[str], cmd: list[str], file: str) -> Run:
     # Remove ANSI
     output = [ansi_escape.sub("", o) for o in output]
