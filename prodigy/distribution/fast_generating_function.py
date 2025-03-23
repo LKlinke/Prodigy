@@ -357,16 +357,17 @@ class FPS(Distribution):
                 str(variable),
                 pygin.Dist(
                     f"1/(({end}) - ({start}) + 1) * test^({start}) "
-                    f"* (test^(({end}) - ({start}) + 1) - 1) / (test - 1)"),
+                    f"* (test^(({end}) - ({start}) + 1) - 1) / (test - 1)", list(self._parameters)),
                 str(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
         if sampling_dist.function == "binomial":
             [n, p] = sampling_dist.params[0]
             # Note: add parameters in constructor call of pygin.Dist
+            print(self._variables, self._parameters)
             result = self._dist.updateIid(
                 str(variable),
-                pygin.Dist(f'(1 - ({p}) + ({p}) * {variable})^({n})'),
+                pygin.Dist(f'(1 - ({p}) + ({p}) * {variable})^({n})', list(self._parameters)),
                 str(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
@@ -386,7 +387,7 @@ class FPS(Distribution):
 
         if sampling_dist.function == "poisson":
             result = self._dist.updateIid(
-                str(variable), pygin.Dist(f"exp({param} * ({variable} - 1))"),
+                str(variable), pygin.Dist(f"exp({param} * ({variable} - 1))", list(self._parameters)),
                 str(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
@@ -394,7 +395,7 @@ class FPS(Distribution):
             result = self._dist.updateIid(
                 str(variable),
                 pygin.Dist(
-                    f'log(1 - ({param}) * {variable}) / log(1 - ({param}))'),
+                    f'log(1 - ({param}) * {variable}) / log(1 - ({param}))', list(self._parameters)),
                 str(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 

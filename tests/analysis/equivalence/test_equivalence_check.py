@@ -131,9 +131,6 @@ def test_equivalence_loop_free_benchmarks(engine, file_path):
     [y for x in os.walk("pgfexamples/equivalence/loopy") for y in glob(os.path.join(x[0], '*.pgcl')) if
      not "invariants" in y]
 )
-# This test apparently has some side-effect which fails other tests (cf. #64), if it is executed last
-# this problem does not occur
-# FIXME this test has some effect on GINAC, when removing GINAC from the engine list, all tests pass
 def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
     if "17_die_even" in file_path:
         pytest.skip()
