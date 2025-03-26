@@ -132,8 +132,10 @@ def test_equivalence_loop_free_benchmarks(engine, file_path):
      not "invariants" in y]
 )
 def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
+    # FIXME this file leads to timeouts
     if "17_die_even" in file_path:
         pytest.skip()
+
     # Read the body of the program files
     with open(file_path, "r") as f:
         lines = f.readlines()
