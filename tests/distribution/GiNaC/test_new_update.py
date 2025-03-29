@@ -136,9 +136,9 @@ def test_fresh_variables():
 
 
 def test_modulo():
-    gf = FPS('x * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
+    gf = FPS('x * (3/10*y^4 + 3/10*y^7 + 2/5*y^8)')
     assert gf.update(
-        parse_expr('x = 5 % 3')) == FPS('x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
+        parse_expr('x = 5 % 3')) == FPS('x^2 * (3/10*y^4 + 3/10*y^7 + 2/5*y^8)')
     assert gf.update(parse_expr('x = 5 % (1+1+1)')) == FPS(
         'x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
     assert gf.update(parse_expr('x = y % (3+2)'))._dist == pygin.Dist(
