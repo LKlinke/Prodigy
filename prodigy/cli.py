@@ -24,6 +24,7 @@ from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory imp
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
 from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
+from prodigy.analysis.evtinvariants.invariant_verification import evt_invariant_verification
 from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
@@ -231,8 +232,9 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
 @cli.command('invariant_synthesis')
 @click.pass_context
 @click.argument('program_file', type=click.File('r'))
+@click.option('--invariant', is_flag=False, type=str, required=False)
 @click.argument('input_dist', type=str, required=False)
-def invariant_synthesis(ctx, program_file: IO, input_dist: str):
+def invariant_synthesis(ctx, program_file: IO, invariant: str, input_dist: str):
     """
     Tries to synthesize an EVT Invariant for the given input file.
     Supports a loop-free program to prefix the actual loop describing an initial distribution.
@@ -265,7 +267,12 @@ def invariant_synthesis(ctx, program_file: IO, input_dist: str):
     strategy = SynthesisStrategies.make(config.strategy, prog.variables.keys(), config.factory)
     start = time.perf_counter()
     try:
-        evt_invariant_synthesis(prog.instructions[loops.index(1)],
+        if invariant:
+            invariant = config.factory.from_expr(invariant, *prog.variables.keys())
+            evt_invariant_verification(prog.instructions[loops.index(1)],
+                           ProgramInfo(prog), dist, invariant, config, compute_semantics)
+        else:
+            evt_invariant_synthesis(prog.instructions[loops.index(1)],
                                              ProgramInfo(prog), dist, config, strategy, compute_semantics)
     except VerificationError as e:
         print(f"{Style.RED} {str(e)} {Style.RESET}")

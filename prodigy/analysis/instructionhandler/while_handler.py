@@ -12,6 +12,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategy, SynthesisStrategies
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
+from prodigy.analysis.evtinvariants.invariant_verification import evt_invariant_verification
 from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
@@ -189,32 +190,12 @@ class WhileHandler(InstructionHandler):
     ) -> tuple[Distribution, Distribution]:
         assert error_prob.is_zero_dist(), "Currently EVT reasoning does not support conditioning."
         evt_inv = config.factory.from_expr(input("Enter EVT invariant: "), *prog_info.program.variables.keys())
-        phi = distribution + \
-              analyzer(instruction.body, prog_info, evt_inv.filter(instruction.cond), error_prob, config)[0]
-        logger.debug("Trying to validate user specified invariant: %s", evt_inv)
-        logger.debug("Phi(inv) = %s", phi)
-        if evt_inv == phi:
-            print(f"{Style.OKGREEN}Invariant validated!{Style.RESET}")
-            return evt_inv - evt_inv.filter(instruction.cond), error_prob
-        diff = evt_inv - phi
-        solution_candidates = sympy.solve(sympy.S(str(diff)), evt_inv.get_parameters(), dict=True)
-        print(f"Solution candidates: {solution_candidates}")
-        solutions = []
-        for candidate in solution_candidates:
-            for _, val in candidate.items():
-                if not {str(s) for s in val.free_symbols} <= evt_inv.get_parameters():
-                    break
-            else:
-                if not all(map(lambda x: x == 0, candidate.values())):
-                    solutions.append(candidate)
-        if len(solutions) > 0:
-            print(f"All solutions: {solutions}")
-            logger.info("Using the first solution to continue.")
-            sol_dist = config.factory.from_expr(
-                sympy.S(str(evt_inv - evt_inv.filter(instruction.cond))).subs(solutions[0]))
-            return sol_dist, error_prob
-
-        raise VerificationError(f"Could not validate the EVT invariant {evt_inv}")
+        solution = evt_invariant_verification(instruction, prog_info, distribution, evt_inv, config, analyzer)
+        if solution is not None:
+            print(f"{Style.OKGREEN}Continuing with {solution}{Style.RESET}")
+            return solution, error_prob
+        else:
+            raise VerificationError(f"Could not validate the EVT invariant {evt_inv}")
 
     @staticmethod
     def _evt_invariant_synthesis(
