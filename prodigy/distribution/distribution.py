@@ -446,7 +446,7 @@ class Distribution(ABC):
                 # Get two fresh variables
                 xl = function.get_fresh_variable()
                 xr = function.get_fresh_variable({xl})
-                print(xl, xr)
+                #print(xl, xr)
                 # Add variables to functions' variables
                 f = function.set_variables(*(function.get_variables()
                                              | {xl, xr}))
@@ -474,8 +474,8 @@ class Distribution(ABC):
 
                 # Marginalize the introduced variables as they are only present to prevent clashes
                 f = f.marginal(xl, xr, method=MarginalType.EXCLUDE)
-                print(f"marginal: {f}")
-                print(f.get_variables())
+                #print(f"marginal: {f}")
+                #print(f.get_variables())
                 return f, temp_var
 
             if isinstance(expression, VarExpr):

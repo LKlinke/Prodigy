@@ -172,7 +172,7 @@ class WhileHandler(InstructionHandler):
             print_progress_bar(i + 1, max_iter, length=50)
             evt = distribution + \
                   analyzer(instruction.body, prog_info, evt.filter(instruction.cond), error_prob, config)[0]
-        print(evt)
+        #print(evt)
         return (evt - evt.filter(instruction.cond)), error_prob
 
     @staticmethod

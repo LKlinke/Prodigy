@@ -114,12 +114,11 @@ class FPS(Distribution):
             f"Division of {type(self._dist)} and {type(other)} not supported.")
 
     def __eq__(self, other) -> bool:
-        print(f"EQ: {self._dist}, {other._dist}")
         if isinstance(other, str):
             other = FPS(other)
         if isinstance(other, FPS):
-            print(self._variables, other._variables)
-            print(self._parameters, other._parameters)
+            #print(self._variables, other._variables)
+            #print(self._parameters, other._parameters)
             if not self._variables == other._variables:
                 return False
             if not self._parameters == other._parameters:
@@ -323,11 +322,10 @@ class FPS(Distribution):
 
     def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
                        approximate: str | float | None) -> FPS:
-        print(temp_var, left, right)
-        print(
-            self._dist.update_modulo(temp_var, str(left), str(right),
+        #print(temp_var, left, right)
+        self._dist.update_modulo(temp_var, str(left), str(right),
                                      self._variables, self._finite,
-                                     approximate))
+                                     approximate)
         return FPS.from_dist(
             self._dist.update_modulo(temp_var, str(left), str(right),
                                      self._variables, self._finite,
