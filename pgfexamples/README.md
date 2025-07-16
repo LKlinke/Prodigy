@@ -4,11 +4,6 @@ The examples are structured as follows:
 
 ```
 pgfexamples/
-├── comparison                      # Comparisons with other tools / paradigms
-│   ├── ADDcomparison               # Comparisons with Algebraic Decision Diagrams
-│   └── psicomparison               # Comparisons with Psi
-│       ├── inference
-│       └── psi_fails               # Examples where Psi fails 
 ├── equivalence                     # Equivalence of two programs
 │   ├── loop_free                   # Programs without loops and their counterparts
 │   └── loopy                       # Programs with loops

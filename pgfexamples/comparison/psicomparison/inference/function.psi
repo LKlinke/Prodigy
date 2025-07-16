@@ -1,8 +1,0 @@
-def f(a){
-    return 20*a + 2;
-}
-
-def main(){
- res := f(2);
- return res;
-}
