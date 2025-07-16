@@ -1,4 +1,4 @@
-# invariant_synthesis pgfexamples/invariant_synthesis/thirds_geometric.pgcl (x^3+x^2+3*x)/(3-x^3)
+# invariant_synthesis pgfexamples/invariant_synthesis/thirds_geometric.pgcl --invariant (x^3+x^2+3*x)/(3-x^3)
 nat x;
 
 x := 1

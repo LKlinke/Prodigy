@@ -266,16 +266,13 @@ def invariant_synthesis(ctx, program_file: IO, invariant: str, input_dist: str):
     # Create the strategy to do invariant synthesis and start synthesis.
     strategy = SynthesisStrategies.make(config.strategy, prog.variables.keys(), config.factory)
     start = time.perf_counter()
-    try:
-        if invariant:
-            invariant = config.factory.from_expr(invariant, *prog.variables.keys())
-            evt_invariant_verification(prog.instructions[loops.index(1)],
-                           ProgramInfo(prog), dist, invariant, config, compute_semantics)
-        else:
-            evt_invariant_synthesis(prog.instructions[loops.index(1)],
-                                             ProgramInfo(prog), dist, config, strategy, compute_semantics)
-    except VerificationError as e:
-        print(f"{Style.RED} {str(e)} {Style.RESET}")
+    if invariant:
+        invariant = config.factory.from_expr(invariant, *prog.variables.keys())
+        evt_invariant_verification(prog.instructions[loops.index(1)],
+                        ProgramInfo(prog), dist, invariant, config, compute_semantics)
+    else:
+        evt_invariant_synthesis(prog.instructions[loops.index(1)],
+                                            ProgramInfo(prog), dist, config, strategy, compute_semantics)
 
     stop = time.perf_counter()
     print(f"CPU-time elapsed: {stop - start:04f} seconds")

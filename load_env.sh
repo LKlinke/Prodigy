@@ -45,4 +45,6 @@ echo
 
 cd /root/artifact
 
-source artifact/.venv/bin/activate
+source ./.venv/bin/activate
+
+pip install z3-solver

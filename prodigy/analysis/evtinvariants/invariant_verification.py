@@ -7,6 +7,7 @@ import sympy
 from probably.pgcl import Instr, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
+from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.distribution.distribution import Distribution
 from prodigy.util.color import Style
@@ -68,7 +69,5 @@ def evt_invariant_verification(loop: WhileInstr,
         print(f"{Style.GREEN}Invariant: {sol_dist}{Style.RESET}{Style.CLEARTOEND}")
         return sol_dist
     
-    # No solution found, return empty distribution.
-    print(f"{Style.RED}Invariant verification failed!{Style.RESET}")
-    logger.debug("Returning None.")
-    return None
+    # No solution found.
+    raise VerificationError(f"Invariant {invariant} could not be verified for loop {loop}.")
