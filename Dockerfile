@@ -20,6 +20,7 @@ RUN apt install -y cmake
 RUN apt install -y make
 RUN apt install -y graphviz
 RUN apt install -y libginac-dev
+RUN apt install -y dos2unix
 
 # Setup poetry as python package manager
 RUN apt install -y curl
@@ -37,5 +38,5 @@ RUN poetry update
 RUN poetry install --no-interaction
 
 RUN bash -c "source ./.venv/bin/activate && pip install z3-solver"
-
+RUN bash -c "dos2unix load_env.sh"
 CMD ["bash", "--rcfile", "./load_env.sh", "-i"]
