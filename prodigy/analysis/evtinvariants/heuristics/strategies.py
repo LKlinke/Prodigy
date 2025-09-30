@@ -114,7 +114,12 @@ class InfiniteEGD(SynthesisStrategy):
         # Tailored to template heuristic
         poly_numerator = PositivityHeuristics.create(PositivityHeuristics.POLYNOMIAL)
         egd_term_heur = PositivityHeuristics.create(PositivityHeuristics.RAT_DENOM_GEO_LIKE, poly_numerator)
-        self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.INDIVIDUAL_SUM, egd_term_heur)
+        egd_heur = PositivityHeuristics.create(PositivityHeuristics.INDIVIDUAL_SUM, egd_term_heur)
+
+        rat_func_heur = PositivityHeuristics.create(PositivityHeuristics.TRUE_RAT_FUNC)
+
+        self.positivity_heuristics = (
+            PositivityHeuristics.create(PositivityHeuristics.OR, egd_heur, rat_func_heur))
 
 
 @dataclass
@@ -130,7 +135,12 @@ class FiniteEGD(SynthesisStrategy):
         # Tailored to template heuristic
         poly_numerator = PositivityHeuristics.create(PositivityHeuristics.POLYNOMIAL)
         egd_term_heur = PositivityHeuristics.create(PositivityHeuristics.RAT_DENOM_GEO_LIKE, poly_numerator)
-        self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.INDIVIDUAL_SUM, egd_term_heur)
+        egd_heur = PositivityHeuristics.create(PositivityHeuristics.INDIVIDUAL_SUM, egd_term_heur)
+
+        rat_func_heur = PositivityHeuristics.create(PositivityHeuristics.TRUE_RAT_FUNC)
+
+        self.positivity_heuristics = (
+            PositivityHeuristics.create(PositivityHeuristics.OR, egd_heur, rat_func_heur))
 
 
 class SynthesisStrategies(Enum):
