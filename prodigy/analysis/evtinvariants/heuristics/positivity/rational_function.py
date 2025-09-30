@@ -114,3 +114,65 @@ class RationalFunctionDenomSign(PositivityHeuristic):
         # We don't know otherwise
         self.logger.info("Heuristic failed, we dont know!")
         return None
+
+
+class RationalFunctionDenomGeometricLike(PositivityHeuristic):
+    logger = log_setup("RationalFunctionDenomGeometricLike", logging.DEBUG)
+
+    def __init__(self, numerator_heuristic: PositivityHeuristic, sub_heuristic: Optional[PositivityHeuristic] = None):
+        if numerator_heuristic is None:
+            raise HeuristicsError("The RationalFunctionDenomGeometricLike heuristic needs a numerator heuristic.")
+        super().__init__(sub_heuristic)
+        self._numerator_heuristic = numerator_heuristic
+
+    def _is_geometric_like(self, f: sympy.Expr) -> Optional[bool]:
+        """
+        Checks if _f_ is 'geometric-like' if in a denominator, i.e. f is a polynomial of the form 
+        - positive constant term, and
+        - all other monome coefficients are negative.
+        """
+        f_const_term, f_rest = f.as_coeff_Add()
+        if f_const_term <= 0:
+            return None
+        if any(coefficient > 0 for coefficient in f_rest.as_poly().coeffs()):
+            return None
+        return True
+
+    def _denominator_is_prod_of_gemoetric_like(self, denom: sympy.Expr) -> Optional[bool]:
+        if isinstance(denom, sympy.Mul):
+            for term in denom.args:
+                self.logger.debug("checking denominator geometric-like for %s", term)
+                result = self._is_geometric_like(term)
+                if result is False or result is None:
+                    self.logger.debug("Could not determinine positivity")
+                    return None
+            self.logger.debug("Geometric-like denominator %s", denom)
+            return True
+        return self._is_geometric_like(denom)        
+
+    def _num_denom_check(self, numerator: sympy.Expr, denominator: sympy.Expr) -> Optional[bool]:
+        res_numerator = self._numerator_heuristic.is_positive(str(numerator))
+        res_denominator = self._denominator_is_prod_of_gemoetric_like(denominator)
+        return res_numerator and res_denominator
+        
+    def _is_positive(self, f: str) -> Optional[bool]:
+        """
+        Checks heuristically whether _f_ is a rational function g/h with
+        - g is positive,
+        - h is a product of 'geometric-like' terms, see _is_geometric_like
+        """ 
+        s_f: sympy.Expr = sympy.S(f)
+        if not s_f.is_rational_function():
+            raise HeuristicsError(f"The given function is not rational {f=}")
+        if s_f.is_polynomial():
+            self.logger.debug("Forward to numerator heuristic")
+            return self._numerator_heuristic.is_positive(str(s_f))
+        if isinstance(s_f, sympy.Add):
+            raise HeuristicsError(f"The given function is a sum of rational functions {f=}.")
+
+        self.logger.debug("try do decide positivity for %s", f)
+        s_numerator, s_denominator = s_f.as_numer_denom()
+        res = self._num_denom_check(s_numerator, s_denominator)
+    
+        self.logger.debug("result: %s", res)
+        return res

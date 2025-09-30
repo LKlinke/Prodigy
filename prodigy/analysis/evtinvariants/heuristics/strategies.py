@@ -102,12 +102,45 @@ class AllOrPartialRational(SynthesisStrategy):
             PositivityHeuristics.create(PositivityHeuristics.OR, sum_heur, mixed_rat_func))
 
 
+@dataclass
+class InfiniteEGD(SynthesisStrategy):
+    variables: Collection[str]
+    dist_factory: CommonDistributionsFactory
+
+    def __post_init__(self):
+        self.template_heuristics = (
+            TemplateHeuristics.create(TemplateHeuristics.EGD, self.variables, self.dist_factory))
+
+        # Tailored to template heuristic
+        poly_numerator = PositivityHeuristics.create(PositivityHeuristics.POLYNOMIAL)
+        egd_term_heur = PositivityHeuristics.create(PositivityHeuristics.RAT_DENOM_GEO_LIKE, poly_numerator)
+        self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.INDIVIDUAL_SUM, egd_term_heur)
+
+
+@dataclass
+class FiniteEGD(SynthesisStrategy):
+    variables: Collection[str]
+    dist_factory: CommonDistributionsFactory
+    max_deg: int = 10
+
+    def __post_init__(self):
+        self.template_heuristics = (
+            TemplateHeuristics.create(TemplateHeuristics.EGD, self.variables, self.dist_factory, self.max_deg))
+
+        # Tailored to template heuristic
+        poly_numerator = PositivityHeuristics.create(PositivityHeuristics.POLYNOMIAL)
+        egd_term_heur = PositivityHeuristics.create(PositivityHeuristics.RAT_DENOM_GEO_LIKE, poly_numerator)
+        self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.INDIVIDUAL_SUM, egd_term_heur)
+
+
 class SynthesisStrategies(Enum):
     DEFAULT = DefaultStrategy
     SUM_THEN_RATIONAL = PartialRational
     APART_OR_TOGETHER = AllOrPartialRational
     INF_POLY = InfinitePolynomial
     FIN_POLY = FinitePolynomial
+    INF_EGD = InfiniteEGD
+    FIN_EGD = FiniteEGD
     FROM_HEURISTICS = SynthesisStrategy
 
     @classmethod
