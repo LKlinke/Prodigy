@@ -151,9 +151,12 @@ class RationalFunctionDenomGeometricLike(PositivityHeuristic):
         return self._is_geometric_like(denom)        
 
     def _num_denom_check(self, numerator: sympy.Expr, denominator: sympy.Expr) -> Optional[bool]:
-        res_numerator = self._numerator_heuristic.is_positive(str(numerator))
-        res_denominator = self._denominator_is_prod_of_gemoetric_like(denominator)
-        return res_numerator and res_denominator
+        # if numerator is not positive, we don't know about positivity of fraction.
+        # The denominator could cancel negativity, but we don't check this.
+        if self._numerator_heuristic.is_positive(str(numerator)):
+            return self._denominator_is_prod_of_gemoetric_like(denominator)
+        else:
+            return None
         
     def _is_positive(self, f: str) -> Optional[bool]:
         """
