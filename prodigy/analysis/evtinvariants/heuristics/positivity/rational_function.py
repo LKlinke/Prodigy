@@ -36,8 +36,9 @@ class SingleRationalFunction(PositivityHeuristic):
             self.logger.debug("Forward to poly heuristic")
             return self._poly_heuristic.is_positive(str(s_f))
         if isinstance(s_f, sympy.Add):
-            raise HeuristicsError(f"The given function is a sum of rational functions {f=}.")
-
+            self.logger.debug(f"The given function is a sum of rational functions {f=}. Trying together()")
+            s_f = sympy.together(s_f)
+            
         self.logger.debug("try do decide positivity for %s", f)
         s_numerator, s_denominator = s_f.as_numer_denom()
         res1 = self._num_denom_check(s_numerator, s_denominator)
