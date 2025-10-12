@@ -8,6 +8,7 @@ from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import Posi
 from prodigy.analysis.exceptions import HeuristicsError
 from prodigy.distribution import CommonDistributionsFactory
 from prodigy.util.logger import log_setup
+from prodigy.util.order import all_coeffs_multivariate
 
 
 class SingleRationalFunction(PositivityHeuristic):
@@ -89,28 +90,32 @@ class RationalFunctionDenomSign(PositivityHeuristic):
             self.logger.info("%s is not a rational function.", f)
             return None
 
-        # convert numerator and denominator into polynomial objects
-        # as_poly() fails converting constant polynomials without specified variables
-        # so we give it a _DUMMY_ variable.
-        maybe_numerator = numerator.as_poly(*numerator.free_symbols)
-        numerator = maybe_numerator if maybe_numerator else numerator.as_poly(sympy.S("DUMMY"))
-        maybe_denominator = denominator.as_poly(*denominator.free_symbols)
-        denominator = maybe_denominator if maybe_denominator else denominator.as_poly(sympy.S("DUMMY"))
         self.logger.debug("\nnumerator %s\ndenominator %s", numerator, denominator)
 
         # Check the coefficients of the denominator
-        d_coeffs = denominator.all_coeffs()
-        n_coeffs = numerator.all_coeffs()
+        d_coeffs = all_coeffs_multivariate(denominator.as_expr())
+        n_coeffs = all_coeffs_multivariate(numerator.as_expr())
+
+        if not 1 in d_coeffs.keys():
+            self.logger.info("For this heuristic, the denominator must contain a constant term. Result: unknown")
+            return None
 
         # Check the constant coefficient and factor a minus sign if necessary
-        if d_coeffs[-1] < 0:
+        if d_coeffs[1] < 0:
             self.logger.debug("Try factoring a minus sign in %s", f)
-            d_coeffs = [-x for x in d_coeffs]
-            n_coeffs = [-x for x in n_coeffs]
-        if all(map(lambda x: x <= 0, d_coeffs[:-1])):  # are all other coefficients non-positive?
-            if all(map(lambda x: x >= 0, n_coeffs)):  # are all nominator coefficients non-negative?
-                self.logger.info("Invariant validates as non-negative FPS.")
-                return True
+            # Multiply all values in the dict by -1
+            for key in d_coeffs:
+                d_coeffs[key] = -d_coeffs[key]
+            for key in n_coeffs:
+                n_coeffs[key] = -n_coeffs[key]
+
+        # Check if all other coefficients are non-positive
+        for key, val in d_coeffs.items():
+            if not key==1 and val > 0:
+                return None
+        if all(map(lambda x: x >= 0, n_coeffs.values())):
+            self.logger.info("Invariant validates as non-negative FPS.")
+            return True
 
         # We don't know otherwise
         self.logger.info("Heuristic failed, we dont know!")
