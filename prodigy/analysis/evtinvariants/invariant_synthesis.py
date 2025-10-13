@@ -49,6 +49,11 @@ def evt_invariant_synthesis(loop: WhileInstr,
         is_solution, solution_candidates = solver.solve(evt_inv, phi_inv)
         if is_solution is False or is_solution is None:
             continue
+        if config.solver_type == SolverType.Z3:
+            sol = sympy.S(str(evt_inv)).subs(solution_candidates[0]).ratsimp()
+            sol = config.factory.from_expr(str(sol).replace("**", "^"), *prog_info.program.variables)
+            print(f"{Style.GREEN}Invariant: {sol}{Style.RESET}{Style.CLEARTOEND}")
+            return [(sol,True)]
         logger.debug("Filter solutions in: %s", solution_candidates)
 
         # Exclude "all zero" solutions, as well as solutions which make the denominator 0.
