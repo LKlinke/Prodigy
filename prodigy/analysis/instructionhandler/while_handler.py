@@ -167,13 +167,15 @@ class WhileHandler(InstructionHandler):
         max_iter = int(input("Enter the number of iterations: "))
         logger.debug("Compute %i iterations of EVT operator", max_iter)
 
-        evt = distribution * 0
+        evt = distribution
+        prev = distribution * 0
         for i in range(max_iter):
             logger.debug("Iteration %i", i)
             print_progress_bar(i + 1, max_iter, length=50)
-            evt = distribution + \
-                  analyzer(instruction.body, prog_info, evt.filter(instruction.cond), error_prob, config)[0]
-        #print(evt)
+            # The difference is a performance optimization but should result in the correct result
+            difference = evt-prev
+            prev = evt
+            evt += analyzer(instruction.body, prog_info, difference.filter(instruction.cond), error_prob, config)[0]
         return (evt - evt.filter(instruction.cond)), error_prob
 
     @staticmethod
