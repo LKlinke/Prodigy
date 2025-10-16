@@ -24,9 +24,9 @@ Werkzeug = "2.2.2"
 # https://stackoverflow.com/questions/78348773/how-to-resolve-np-float-was-removed-in-the-numpy-2-0-release-use-np-float64
 numpy = "1.26.4"
 python-flint = "^0.8.0"
-sympy = "1.14.0"
 symengine = "^0.14.1"
 z3-solver = "^4.15.3.0"
+sympy = "^1.14.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "7.2.1"
