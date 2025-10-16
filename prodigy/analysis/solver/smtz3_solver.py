@@ -1,5 +1,6 @@
 import logging
 import time
+import os
 from typing import Tuple, Optional, List, Dict, Union
 
 import pysmt.solvers.solver
@@ -15,6 +16,7 @@ from pysmt.typing import REAL
 from prodigy.analysis.solver.solver import Solver
 from prodigy.distribution import Distribution, CommonDistributionsFactory, State
 from prodigy.util.logger import log_setup
+from prodigy.util.order import all_coeffs_multivariate
 
 
 class SMTZ3Solver(Solver):
@@ -41,36 +43,68 @@ class SMTZ3Solver(Solver):
         lhs = f_num * g_denom
         rhs = g_num * f_denom
 
-        numerator_symbols = list(f_num.free_symbols - {sympy.S(var) for var in f.get_variables()})
-        denominator_symbols = sorted(list(f_denom.free_symbols - {sympy.S(var) for var in f.get_variables()}),
-                                     key=str)
+        # TODO: This is an unstable version!
+        if os.environ.get("PRODIGY_DEV", None):
 
-        # create a (variable, type) context for parsing to pySMT
-        context = TranslationContext({var: Symbol(var, REAL) for var in f.get_parameters() | g.get_parameters()})
+            difference = f - g
+            diff_num, diff_denom = sympy.S(str(difference)).as_numer_denom()
+            num_coeffs = all_coeffs_multivariate(diff_num.factor(), *[sympy.S(x) for x in difference.get_variables()])
+            denom_coeffs = all_coeffs_multivariate(diff_denom.factor(), *[sympy.S(x) for x in difference.get_variables()])
 
-        # encode positivity (sufficient condition)
-        positivity_of_num = " & ".join(f"0 <= {sym}" for sym in numerator_symbols)
-        positivity_of_denom = " & ".join(
-            f"0 < {sym}" if i == 0 else f"{sym} <= 0" for i, sym in enumerate(denominator_symbols))
-        positivity_of_solution = " & ".join([positivity_of_num, positivity_of_denom])
-        positivity_smt = expr_to_pysmt(context, parse_expr(positivity_of_solution), is_expectation=True)
+            # create a (variable, type) context for parsing to pySMT
+            context = TranslationContext(
+                {var: Symbol(var, REAL) for var in f.get_parameters() | g.get_parameters()})
 
-        # encode invariance condition
-        goal_function = self._factory.from_expr(str(lhs - rhs).replace("**", "^"),
-                                                *f.get_variables() | g.get_variables())
+            # encode positivity (sufficient condition)
+            positivity_of_num = " & ".join(f"0 <= {coeff}" for coeff in num_coeffs.values())
+            positivity_of_denom = " & ".join(
+                f"0 < {value}" if key == 1 else f"{value} <= 0" for key, value in denom_coeffs.items())
+            positivity_of_solution = " & ".join([positivity_of_num, positivity_of_denom]).replace("**", "^")
+            f_num, f_denom = s_f.as_numer_denom()
+            num_coeffs = all_coeffs_multivariate(f_num, *[sympy.S(x) for x in f.get_variables()])
+            denom_coeffs = all_coeffs_multivariate(f_denom, *[sympy.S(x) for x in f.get_variables()])
 
-        coefficient_at_state: dict[State, list[str]] = {}
-        for prob, state in goal_function:
-            if prob.startswith("-"):
-                prob = "(-1)*" + prob[1:]
-            if coefficient_at_state.get(state):
-                coefficient_at_state[state].append(f"{prob}")
-            else:
-                coefficient_at_state[state] = [f"{prob}"]
-        coefficients = [" + ".join(prob).replace('**', '^') for prob in coefficient_at_state.values()]
-        coefficients = list(
-            map(lambda x: expr_to_pysmt(context, parse_expr(f"0 = {x}"), is_expectation=True), coefficients))
-        self.logger.debug("Generated formula %s", coefficients)
+            positivity_of_num = " & ".join(f"0 <= {coeff}" for coeff in num_coeffs.values())
+            positivity_of_denom = " & ".join(
+                f"0 < {value}" if key == 1 else f"{value} <= 0" for key, value in denom_coeffs.items())
+            positivity_of_invariant = " & ".join([positivity_of_num, positivity_of_denom]).replace("**", "^")
+
+            positivity = " & ".join([positivity_of_solution, positivity_of_invariant])
+            positivity_smt = expr_to_pysmt(context, parse_expr(positivity), is_expectation=True)
+            coefficients = []
+
+        else:
+            numerator_symbols = list(f_num.free_symbols - {sympy.S(var) for var in f.get_variables()})
+            denominator_symbols = sorted(list(f_denom.free_symbols - {sympy.S(var) for var in f.get_variables()}),
+                                         key=str)
+
+            # create a (variable, type) context for parsing to pySMT
+            context = TranslationContext({var: Symbol(var, REAL) for var in f.get_parameters() | g.get_parameters()})
+
+            # encode positivity (sufficient condition)
+            positivity_of_num = " & ".join(f"0 <= {sym}" for sym in numerator_symbols)
+            positivity_of_denom = " & ".join(
+                f"0 < {sym}" if i == 0 else f"{sym} <= 0" for i, sym in enumerate(denominator_symbols))
+            positivity_of_solution = " & ".join([positivity_of_num, positivity_of_denom])
+            positivity_smt = expr_to_pysmt(context, parse_expr(positivity_of_solution), is_expectation=True)
+
+            # encode invariance condition
+            goal_function = self._factory.from_expr(str(lhs - rhs).replace("**", "^"),
+                                                    *f.get_variables() | g.get_variables())
+
+            coefficient_at_state: dict[State, list[str]] = {}
+            for prob, state in goal_function:
+                if prob.startswith("-"):
+                    prob = "(-1)*" + prob[1:]
+                if coefficient_at_state.get(state):
+                    coefficient_at_state[state].append(f"{prob}")
+                else:
+                    coefficient_at_state[state] = [f"{prob}"]
+            coefficients = [" + ".join(prob).replace('**', '^') for prob in coefficient_at_state.values()]
+            coefficients = list(
+                map(lambda x: expr_to_pysmt(context, parse_expr(f"0 = {x}"), is_expectation=True), coefficients))
+            self.logger.debug("Generated formula %s", coefficients)
+        # TODO: Unstable Ends here
 
         smt_formula = And(*coefficients, positivity_smt)
         self.logger.debug("Converted to SMT %s", smt_formula)
