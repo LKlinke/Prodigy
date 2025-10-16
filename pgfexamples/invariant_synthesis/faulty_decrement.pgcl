@@ -2,7 +2,7 @@
 nat x;
 nat c;
 
-x := 2
+x := 1
 c := 0
 while (x > 0){
   {skip}[1/2]{x:=x-1}
