@@ -1,4 +1,0 @@
-# main pgfexamples/inference/loop_free/conditioning/undefined_normalization.pgcl
-nat x;
-
-observe(false)

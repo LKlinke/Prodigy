@@ -13,31 +13,7 @@ echo "#                                                                         
 echo -e "#                                  \033[92mVIRTUAL PYTHON ENVIRONMENT LOADED\033[0m                                 #";
 echo "------------------------------------------------------------------------------------------------------";
 sleep 1
-echo "#                                                                                                    #";
-echo -e "#     \033[96m->\033[0m You can run the experiments presented in the paper by executing \033[33mpython benchmark.py\033[0m         #";
-echo "#        The measured timings do not include the time for parsing the inputs.                        #";
-echo "#        You can specify timeout and iteration limits using the environment variables                #";
-echo -e "#        E.g., \033[33mexport ITERATIONS=10; export TIMEOUT=50; python benchmark.py\033[0m                          #";
-echo "#        sets the iteration limit to 10 and the timeout to 50.                                       #";
-echo "#                                                                                                    #";
-echo -e "#     \033[96m->\033[0m Prodigy has two modes: \033[95mcheck_equality\033[0m and \033[95mmain\033[0m. You can call them via                       #"
-echo -e "#        \033[33mpython prodigy/cli.py <target>\033[0m where \033[33m<target>\033[0m is either:                                    #";
-echo -e "#     \t     \033[97m*\033[0m \033[33mcheck_equality\033[0m [OPTIONS] PROGRAM_FILE INVARIANT_FILE                                  #";
-echo -e "#     \t     \033[97m*\033[0m \033[33mmain\033[0m           [OPTIONS] PROGRAM_FILE [INPUT_DIST]                                    #";
-echo "#                                                                                                    #";
-echo -e "#        \033[95mcheck_equality\033[0m: just performs the equivalence check described in the paper.                 #";
-echo -e "#        \033[95mmain\033[0m: computes the final distribution after termination of a given pGCL program.            #";
-echo -e "#           When no input distribution is specified it assumes all variables to be                   #";
-echo -e "#           initialized with 0, i.e., implicitly assumes the input distribution '1'.                 #";
-echo "#                                                                                                    #";
-echo "#                                                                                                    #";
-echo -e "#     \033[96m->\033[0m Verbose output can be switched on by \033[33mpython prodigy/cli.py --intermediate-results <target>\033[0m  #"
-echo -e "#     \033[96m->\033[0m Backends can be switched by \033[33mpython prodigy/cli.py --engine [ginac | sympy] <target>\033[0m         #"
-echo "#                                                                                                    #";
-echo "------------------------------------------------------------------------------------------------------";
-echo "#                                                                                                    #";
 echo -e "#        For more details please visit our Github repository: \033[97m\033[4mhttps://github.com/LKlinke/prodigy\033[0m     #";
-echo "#   (C) Lutz Klinkenberg, Christian Blumenthal, Mingshuai Chen, Darion Haase, Joost-Pieter Katoen    #";
 echo "------------------------------------------------------------------------------------------------------";
 echo
 echo -e "\033[96mWe spawned you in /root/artifact.\033[0m"
@@ -46,3 +22,14 @@ echo
 cd /root/artifact
 
 source ./.venv/bin/activate
+
+# Ask the user whether he wants to run the benchmarks right now
+read -p "Do you want to run the benchmarks now? (y/n) "
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo
+    python benchmark_comparison.py --engine ginac -o results.csv all
+    echo "The results have been written to 'results.csv'."
+else
+    echo
+    echo "You can run the benchmarks later by executing 'python benchmark_comparison.py --engine ginac -o results.csv'."
+fi

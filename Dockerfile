@@ -38,5 +38,7 @@ RUN poetry update
 RUN poetry install --no-interaction
 
 RUN bash -c "source ./.venv/bin/activate && pip install z3-solver"
+RUN bash -c "source ./.venv/bin/activate && pip install setuptools"
+RUN bash -c "source ./.venv/bin/activate && pysmt-install --z3 --confirm-agreement"
 RUN bash -c "dos2unix load_env.sh"
 CMD ["bash", "--rcfile", "./load_env.sh", "-i"]

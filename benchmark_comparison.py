@@ -9,8 +9,7 @@ import re
 
 # All files in the pgfexamples folder
 # https://stackoverflow.com/a/18394205
-all_files: list[str] = [y for x in os.walk("pgfexamples") for y in glob(os.path.join(x[0], '*.pgcl'))] + [
-    "example.pgcl"]
+all_files: list[str] = [y for x in os.walk("pgfexamples") for y in glob(os.path.join(x[0], '*.pgcl'))]
 
 # Timeouts / Exception runs
 # If files are not present, an empty list is returned
@@ -23,7 +22,7 @@ skip_files: list[str] = (list(map(str.strip, open("timeouts.txt", "r").readlines
 # All available engines
 # (will be executed in this order)
 engines: list[str] = [
-    "ginac", "symengine", "sympy"
+    "ginac", "sympy"
 ]
 
 # Default CLI args for files that do not contain any additional information
@@ -264,7 +263,10 @@ def benchmark(config: Configuration):
 
             output = ""
             # Execute the program
-            cmd = ["python", "prodigy/cli.py", "--engine", engine, *instructions]
+            if "--engine" in instructions:
+                cmd = ["python", "prodigy/cli.py", *instructions]
+            else:
+                cmd = ["python", "prodigy/cli.py", "--engine", engine, *instructions]
             print(bytes.decode(inputs))
             try:
                 output = subprocess.check_output(cmd, timeout=config.timeout, input=inputs).decode()
@@ -316,7 +318,7 @@ def benchmark(config: Configuration):
             with open(config.output_file, "a") as f:
                 f.write(file)
                 for engine in config.engine:
-                    f.write(f",{times[engine][-1].time}")
+                    f.write(f"{instructions},{times[engine][-1].time}")
                 f.write("\n")
     # If generate markdown is set, create the Markdown table
     if config.generate_markdown:
@@ -343,9 +345,7 @@ def setup_outfile(out_file: str, engine_list: list[str]) -> None:
 
     # Write header
     with open(out_file, "a") as f:
-        f.write("file")
-        for engine in engine_list:
-            f.write(f",{engine}")
+        f.write("file,call,time")
         f.write("\n")
 
 

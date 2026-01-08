@@ -1,7 +1,0 @@
-# main pgfexamples/inference/loop_free/pi.pgcl
-nat x
-nat y
-x := unif(0,30)
-y := unif(0,30)
-// approx. pi/4 = 0.78539816339...
-?Pr[x^2 + y^2 <= 900]

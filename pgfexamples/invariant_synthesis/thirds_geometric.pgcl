@@ -1,4 +1,4 @@
-# invariant_synthesis pgfexamples/invariant_synthesis/thirds_geometric.pgcl --invariant (x^3+x^2+3*x)/(3-x^3)
+# --engine sympy --solver z3 invariant_synthesis pgfexamples/invariant_synthesis/thirds_geometric.pgcl
 nat x;
 
 x := 1
