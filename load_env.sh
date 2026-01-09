@@ -13,6 +13,12 @@ echo "#                                                                         
 echo -e "#                                  \033[92mVIRTUAL PYTHON ENVIRONMENT LOADED\033[0m                                 #";
 echo "------------------------------------------------------------------------------------------------------";
 sleep 1
+echo "#                                                                                                    #";
+echo -e "#     \033[96m->\033[0m You can run all experiments presented in the paper by executing                            #";
+echo -e "#           \033[33mpython benchmark_comparison.py --engine ginac -o results.csv all \033[0m                        #";
+echo "#        The measured timings do not include the time for parsing the inputs.                        #";
+echo "#                                                                                                    #";
+echo "------------------------------------------------------------------------------------------------------";
 echo -e "#        For more details please visit our Github repository: \033[97m\033[4mhttps://github.com/LKlinke/prodigy\033[0m     #";
 echo "------------------------------------------------------------------------------------------------------";
 echo
@@ -31,5 +37,5 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "The results have been written to 'results.csv'."
 else
     echo
-    echo "You can run the benchmarks later by executing 'python benchmark_comparison.py --engine ginac -o results.csv'."
+    echo "You can run the benchmarks later by executing 'python benchmark_comparison.py --engine ginac -o results.csv all'."
 fi

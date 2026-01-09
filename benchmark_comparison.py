@@ -245,14 +245,14 @@ def benchmark(config: Configuration):
 
         inputs = obtain_inputs(instructions)
 
+        # Read engine from instructions if provided, or use engines from config by default
+        used_engines = [instructions[instructions.index("--engine") + 1]] if "--engine" in instructions else config.engine
+        
         skipped = False
         # For each engine, run the program
-        for engine in config.engine:
+        for engine in used_engines:
             if skipped:
                 continue
-
-            engine_counter += 1
-            print(f"Running {engine} ({engine_counter}/{len(config.engine)})")
 
             # Check if current file is in timeouts
             # Files can be added dynamically, hence the second check
@@ -260,6 +260,9 @@ def benchmark(config: Configuration):
                 print(f"File is in skipped files, skipping...")
                 skipped = True
                 continue
+
+            engine_counter += 1
+            print(f"Running {engine} ({engine_counter}/{len(used_engines)})")
 
             output = ""
             # Execute the program
@@ -307,8 +310,8 @@ def benchmark(config: Configuration):
         fail = False
 
         # Compare results if at least two engines are selected and file wasn't skipped once (if skip_timeouts is set)
-        if len(config.engine) > 1 and not skipped:
-            fail = compare_output({engine: times[engine][-1] for engine in config.engine}, instructions, file,
+        if len(used_engines) > 1 and not skipped:
+            fail = compare_output({engine: times[engine][-1] for engine in used_engines}, instructions, file,
                                   config.fail_on_error)
             if not fail:
                 print("Results are equal, continuing...")
@@ -316,9 +319,8 @@ def benchmark(config: Configuration):
         # Write results if output file is set (and results are equal or just one engine is tested)
         if config.output_file is not None and not fail and not skipped:
             with open(config.output_file, "a") as f:
-                f.write(file)
-                for engine in config.engine:
-                    f.write(f"{instructions},{times[engine][-1].time}")
+                row = [file] + [val for engine in used_engines for val in [engine, f"{instructions}", f"{times[engine][-1].time}", f"{times[engine][-1].output}"]]
+                f.write("; ".join(row))
                 f.write("\n")
     # If generate markdown is set, create the Markdown table
     if config.generate_markdown:

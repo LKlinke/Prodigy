@@ -1,5 +1,4 @@
-# skip
-# --solver z3 invariant_synthesis pgfexamples/invariant_synthesis/nontermination.pgcl
+# --engine ginac --solver z3 invariant_synthesis pgfexamples/invariant_synthesis/nontermination.pgcl
 nat x;
 
 {x:=1}[1/2]{x:=2}

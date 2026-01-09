@@ -1,0 +1,10 @@
+# Requirements
+
+- The only requirement to run this artifact is a working Docker setup.
+
+# Image Details
+
+The Docker image is a multi-platform (linux/amd64, linux/arm64) image and should run on macOS and linux.
+The image has been built on Apple Silicon (ARM).
+
+We also provide the source code and Dockerfile to manually build this Docker image, but this should not be required.
