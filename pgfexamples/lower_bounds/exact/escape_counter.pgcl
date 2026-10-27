@@ -1,0 +1,12 @@
+// Random walk with upward drift and a step counter: terminates only with probability 1/2.
+// The occupation measure has infinite mass; the counter c strictly increases, so the progress rule
+// makes the (algebraic) fixpoint below exact.
+nat x;
+nat c;
+x := 1;
+c := 0;
+while (x > 0) {
+  {x := x + 1} [2/3] {x := x - 1}
+  c := c + 1
+}
+?Pr[c = 5]

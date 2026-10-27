@@ -1,0 +1,16 @@
+// Geometric loop with conditioning inside the loop body (unnormalised posterior semantics:
+// observe(psi) restricts the measure to psi).  Each round the process stops w.p. 1/2; otherwise a
+// noisy sensor is queried and we observe that it stayed silent (silent w.p. 4/5).
+// The output measure has mass 5/6 < 1, so the exactness criterion of ESOP'26 (Thm. 6) does not apply;
+// the finite-mass fixpoint below is exact by Corollary "finite-mass fixpoints are exact".
+nat x;
+nat c;
+nat s;
+x := 1;
+c := 0;
+s := 0;
+while (x = 1) {
+  {x := 0} [1/2] { c := c + 1; {s := 1} [1/5] {s := 0}; observe(s = 0) }
+}
+?Pr[c = 3]
+?Ex[c]

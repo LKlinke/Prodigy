@@ -1,0 +1,12 @@
+// Near-critical random walk (step down w.p. 11/20) with a step counter: E[c] = 10, slow mixing.
+nat x;
+nat c;
+x := 1;
+c := 0;
+while (x > 0) {
+  {x := x - 1} [11/20] {x := x + 1}
+  c := c + 1
+}
+?Pr[c >= 50]
+?Pr[c = 11]
+?Ex[c]

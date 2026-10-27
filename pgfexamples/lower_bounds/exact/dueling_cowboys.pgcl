@@ -1,0 +1,14 @@
+// Dueling cowboys (Prodigy example) with hit probabilities a = 1/2 (player A) and b = 1/3 (player B).
+// t = 0: A's turn, t = 1: B's turn; c = 1 while both are alive.
+nat t;
+nat c;
+c := 1;
+t := 1;
+while (c = 1 & t <= 1) {
+  if (t = 0) {
+    {c := 0} [1/2] {t := 1}
+  } else {
+    {c := 0} [1/3] {t := 0}
+  }
+}
+?Pr[t = 0]

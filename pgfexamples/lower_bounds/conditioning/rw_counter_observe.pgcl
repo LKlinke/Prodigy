@@ -1,0 +1,20 @@
+// Random walk (down w.p. 2/3) with step counter and conditioning inside the loop: whenever the walk
+// is at height x >= 3, a detector fires w.p. 1/2 and we observe that it did NOT fire.
+nat x;
+nat c;
+nat d;
+x := 1;
+c := 0;
+d := 0;
+while (x > 0) {
+  {x := x - 1} [2/3] {x := x + 1}
+  c := c + 1
+  if (x >= 3) {
+    {d := 1} [1/2] {d := 0}
+    observe(d = 0)
+  } else {
+    skip
+  }
+}
+?Pr[c >= 20]
+?Ex[c]

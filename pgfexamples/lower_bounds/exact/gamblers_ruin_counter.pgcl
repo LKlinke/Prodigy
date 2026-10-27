@@ -1,0 +1,11 @@
+// Fair gambler's ruin on {0,...,4} started in 2, with a step counter.
+nat x;
+nat c;
+x := 2;
+c := 0;
+while (0 < x & x < 4) {
+  {x := x - 1} [1/2] {x := x + 1}
+  c := c + 1
+}
+?Pr[x = 0]
+?Ex[c]
