@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Union, Sequence, get_args
+from typing import Callable, Optional, Union, Sequence, get_args
 
 from probably.pgcl import Program, Instr, SkipInstr, AbortInstr, WhileInstr, LoopInstr, QueryInstr, Query, \
     ObserveInstr, ChoiceInstr, AsgnInstr, IfInstr
@@ -18,6 +18,7 @@ from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.instructionhandler.query_handler import QueryHandler
 from prodigy.analysis.instructionhandler.queryblock_handler import QueryBlockHandler
 from prodigy.analysis.instructionhandler.while_handler import WhileHandler
+from prodigy.analysis.session import current_session
 from prodigy.distribution import Distribution
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
@@ -28,6 +29,8 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 def condition_distribution(
         dist: Distribution, error_prob: Distribution,
         config: ForwardAnalysisConfig) -> tuple[Distribution, Distribution]:
+    # lets the session rescale the residual mass of approximated loops
+    current_session().on_normalize(error_prob)
     one = config.factory.one(*error_prob.get_variables())
     zero = one * "0"
     if dist == zero and error_prob == one:
@@ -39,7 +42,15 @@ def condition_distribution(
 
 def compute_discrete_distribution(
         program: Program | ProgramInfo, dist: Distribution,
-        config: ForwardAnalysisConfig) -> tuple[Distribution, Distribution]:
+        config: ForwardAnalysisConfig,
+        step_callback: Optional[Callable[[Instr, Distribution, Distribution], None]] = None
+) -> tuple[Distribution, Distribution]:
+    """
+    Computes the output distribution of ``program`` for the input ``dist``.
+
+    :param step_callback: if given, called with (instruction, distribution, error_prob) after each
+        top-level instruction.
+    """
     logger.debug("Compute the distribution for\n%s\nand distribution %s", str(program), dist)
 
     # Inject the context from the parsed program into the initial distribution.
@@ -49,9 +60,15 @@ def compute_discrete_distribution(
     parameters = set(prog_info.parameters.keys()).union(dist.get_parameters())
     initial_dist = dist.set_variables(*variables).set_parameters(*parameters)
     error_prob = config.factory.one(*variables) * 0
-    dist, error_prob = compute_semantics(prog_info.instructions,
-                                         prog_info, initial_dist,
-                                         error_prob, config)
+    if step_callback is None:
+        dist, error_prob = compute_semantics(prog_info.instructions,
+                                             prog_info, initial_dist,
+                                             error_prob, config)
+    else:
+        dist = initial_dist
+        for instr in prog_info.instructions:
+            dist, error_prob = compute_semantics([instr], prog_info, dist, error_prob, config)
+            step_callback(instr, dist, error_prob)
     if config.normalize:
         dist, error_prob = condition_distribution(dist, error_prob, config)
     return dist, error_prob
@@ -74,7 +91,7 @@ def compute_semantics(
         output = f"\n{Style.BLUE}Instruction:{Style.RESET} {instr}\t {Style.GREEN}Result:{Style.RESET} {res}"
         print(output, prog_info.so_vars)
         if config.step_wise:
-            input("Next step [Enter]")
+            current_session().provider.next_step()
         return res, error_prob
 
     def _dont_show_steps(
