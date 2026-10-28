@@ -1,0 +1,21 @@
+{
+  "name": "prodigy-web-frontend",
+  "private": true,
+  "description": "Builds the vendored editor and math bundles of the Prodigy web GUI (prodigy/web/static/vendor). Only needed when updating these libraries.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "@codemirror/autocomplete": "6.18.6",
+    "@codemirror/commands": "6.8.1",
+    "@codemirror/language": "6.11.0",
+    "@codemirror/lint": "6.8.5",
+    "@codemirror/search": "6.5.10",
+    "@codemirror/state": "6.5.2",
+    "@codemirror/view": "6.36.8",
+    "@lezer/highlight": "1.2.1",
+    "esbuild": "0.25.4",
+    "katex": "0.16.22"
+  }
+}

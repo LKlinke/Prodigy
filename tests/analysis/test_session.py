@@ -214,3 +214,15 @@ def test_cli_analyze(tmp_path):
     missing = runner.invoke(cli, ["analyze", str(program)])
     assert missing.exit_code == 2
     assert "No strategy chosen for loop 0" in missing.output
+
+
+def test_inner_upper_bound_keeps_outer_invariant_sound():
+    from prodigy.web.examples import ExampleLibrary  # pylint: disable=import-outside-toplevel
+    example = ExampleLibrary("pgfexamples").load("equivalence/loopy/nested_while.pgcl")
+    decisions = example["suggestion"]["decisions"]
+    assert set(decisions) == {"0", "1"}
+    result = analyse(example["source"], decisions, input_distribution="x")
+    assert result["status"] == "ok", result["error"]
+    assert result["bounds"]["kind"] == Bound.UPPER
+    loops = {loop["id"]: loop for loop in result["loops"]}
+    assert loops[1]["inside_checks"] == 1 and loops[0]["kind"] == Bound.UPPER

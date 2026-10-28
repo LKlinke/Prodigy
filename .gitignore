@@ -142,4 +142,10 @@ poetry.lock
 *.csv
 *.txt
 *.md
-!README.mdprodigy/web/frontend/node_modules/
+!README.md
+!docs/*.md
+!prodigy/web/frontend/README.md
+
+# Web GUI: npm packages for rebuilding the vendored libraries
+prodigy/web/frontend/node_modules/
+

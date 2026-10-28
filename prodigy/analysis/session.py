@@ -33,8 +33,10 @@ import contextlib
 import contextvars
 import io
 import logging
+import os
 import re
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Tuple, Union
@@ -418,6 +420,8 @@ class LoopRecord:
     progress: Optional[Tuple[int, Optional[int]]] = None
     failed: Optional[str] = None
     """Error message if the strategy failed (e.g. a refuted invariant)."""
+    inside_checks: int = 0
+    """How many of the invocations happened inside the check of another loop's invariant."""
     suppressed_messages: int = 0
 
     MAX_MESSAGES = 4
@@ -449,6 +453,7 @@ class LoopRecord:
             "messages": self.messages + ([f"… {self.suppressed_messages} similar message(s) omitted."]
                                          if self.suppressed_messages else []),
             "failed": self.failed,
+            "inside_checks": self.inside_checks,
         }
 
 
@@ -630,12 +635,14 @@ class AnalysisSession:
         """Runs ``task.strategy`` and books its outcome (used by the while handler)."""
         key = task.loop.id if task.loop is not None else f"while ({task.instruction.cond})"
         record = self.loop_records.get(key)
-        if record is None or self.silent:
+        if record is None:
             record = LoopRecord(loop=task.loop, cond=str(task.instruction.cond),
                                 strategy=task.strategy.name,
                                 params=dict(task.decision.params))
-            if not self.silent:
-                self.loop_records[key] = record
+            self.loop_records[key] = record
+        if self.silent:
+            # e.g. an inner loop met while checking the invariant of an outer loop
+            record.inside_checks += 1
         task.record = record
         start = time.perf_counter()
         try:
@@ -659,7 +666,7 @@ class AnalysisSession:
 
         scope = self.scope
         scope.kind = Bound.combine(scope.kind, outcome.kind)
-        if outcome.kind == Bound.LOWER:
+        if outcome.kind == Bound.LOWER and not self.silent:
             from prodigy.analysis.result import sym  # pylint: disable=import-outside-toplevel
             residual = sym(outcome.residual)
             record.residual = sym(record.residual) + residual
@@ -733,13 +740,54 @@ class AnalysisSession:
             yield
             return
         writer = _TeeWriter(self.log, self.output_callback)
-        with contextlib.redirect_stdout(writer):
+        # Native code (the GiNaC bindings) writes to file descriptor 1 directly; keep that out
+        # of the real stdout as well (e.g. for `prodigy analyze --json`).
+        with _native_stdout_captured(writer.write), contextlib.redirect_stdout(writer):
             yield
 
     def run(self):
         """Runs the analysis; never raises for analysis errors (they end up in the result)."""
         from prodigy.analysis.result import build_result  # pylint: disable=import-outside-toplevel
         return build_result(self)
+
+
+def _flush_c_stdio() -> None:
+    try:
+        import ctypes  # pylint: disable=import-outside-toplevel
+        ctypes.CDLL(None).fflush(None)
+    except Exception:  # pylint: disable=broad-except
+        pass
+
+
+@contextlib.contextmanager
+def _native_stdout_captured(append: Callable[[str], Any]) -> Iterator[None]:
+    """Redirects file descriptor 1 into a temporary file and hands its content to ``append``."""
+    try:
+        target = sys.__stdout__
+        fd = target.fileno() if target is not None else 1
+    except (AttributeError, OSError, ValueError):
+        yield
+        return
+    try:
+        if target is not None:
+            target.flush()
+        _flush_c_stdio()
+        saved = os.dup(fd)
+    except OSError:
+        yield
+        return
+    with tempfile.TemporaryFile() as spool:
+        os.dup2(spool.fileno(), fd)
+        try:
+            yield
+        finally:
+            _flush_c_stdio()
+            os.dup2(saved, fd)
+            os.close(saved)
+            spool.seek(0)
+            data = spool.read().decode("utf-8", "replace")
+            if data:
+                append(data)
 
 
 class _TeeWriter(io.TextIOBase):

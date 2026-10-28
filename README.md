@@ -40,7 +40,16 @@ If you run into trouble during installation, this subsection might be of help. I
 2. Now, you can use prodigy by executing the script via `python prodigy/cli.py ...`. For more information, see the help message or have a look into the documentation.
 
 
-### Webservice
+### Web GUI
+1. Activate the virtual environment by ``poetry shell``.
+2. Type ``prodigy web`` (or ``prodigy --engine ginac web`` for the faster GiNaC engine). The GUI opens in your browser.
+3. Write or load a program, choose a strategy for each loop under *Setup*, and press *Analyze* (⌘/Ctrl + Return).
+
+Results come with their guarantee (exact, lower bound with residual mass, upper bound), and
+queries are answered with sound intervals. See [docs/gui.md](docs/gui.md), which also
+describes the non-interactive analysis API (`prodigy analyze --json`).
+
+### Webservice (legacy)
 1. Activate the virtual environment by ``poetry shell``.
 2. Type ``web-service``.
 3. Open a browser and locate `localhost:8080`.

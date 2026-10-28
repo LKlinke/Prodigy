@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import itertools
 import math
+import re
 import time
 import traceback
 from dataclasses import dataclass, field
@@ -61,6 +62,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from prodigy.distribution import Distribution
 
 SCHEMA = "prodigy/analysis-result@1"
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
 _INFINITY_SPELLINGS = {"\\infty", "∞", "oo", "inf", "infinity"}
 
@@ -588,7 +591,7 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
     result.loops.sort(key=lambda r: (r["id"] is None, r["id"] if r["id"] is not None else 0))
     result.steps = session.steps
     result.warnings = list(session.warnings)
-    result.log = session.log.getvalue()
+    result.log = _ANSI.sub("", session.log.getvalue())
     result.timing["analysis"] = round(analysis_time, 6)
     result.timing["total"] = round(time.perf_counter() - started, 6)
     return result

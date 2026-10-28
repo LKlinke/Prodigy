@@ -110,10 +110,14 @@ def _positivity(config: ForwardAnalysisConfig, variables, invariant: Any) -> Opt
 
 
 def _evt_outcome_kind(scope_kind: str, positive: Optional[bool], finite: Optional[bool]) -> Tuple[str, List[str]]:
-    """Guarantee for a fixed point I of Ψ_G(H) = G + ⟦body⟧(⟨H⟩_B)."""
+    """Guarantee for a fixed point I of Ψ_G(H) = G + ⟦body⟧(⟨H⟩_B).
+
+    ``scope_kind`` says how the body was analysed while checking I: exactly, or with inner
+    loops over-approximated (then Ψ' ⪰ Ψ, so I = Ψ'(I) ⪰ Ψ(I) and Park still applies, but the
+    finite-mass rule for the other direction does not)."""
     messages = []
-    if scope_kind != Bound.EXACT:
-        messages.append("The loop body was itself approximated while checking the invariant; "
+    if scope_kind not in (Bound.EXACT, Bound.UPPER):
+        messages.append("Loops inside the body were under-approximated while checking the invariant; "
                         "no guarantee.")
         return Bound.UNKNOWN, messages
     if positive is False:
@@ -123,6 +127,10 @@ def _evt_outcome_kind(scope_kind: str, positive: Optional[bool], finite: Optiona
         messages.append("Non-negativity of the invariant's coefficients could not be established; "
                         "no guarantee.")
         return Bound.UNKNOWN, messages
+    if scope_kind == Bound.UPPER:
+        messages.append("Upper bound (Park's lemma): loops inside the body were over-approximated while "
+                        "checking the invariant, so exactness cannot be certified.")
+        return Bound.UPPER, messages
     if finite is True:
         messages.append("Exact: I is a non-negative fixed point of Ψ_G with finite mass. "
                         "Park's lemma gives ⪯, the finite-mass (lower induction) rule gives ⪰.")
@@ -188,9 +196,14 @@ def _strategy_invariant(task: LoopTask) -> LoopOutcome:
         if scope.kind == Bound.EXACT:
             kind = Bound.UPPER
             messages.append("Upper bound by Park's lemma; exact if the loop terminates almost surely.")
+        elif scope.kind == Bound.UPPER:
+            # an over-approximated body Φ' ⪰ Φ with Φ'(I) = I gives Φ(I) ⪯ I, so Park still applies
+            kind = Bound.UPPER
+            messages.append("Upper bound by Park's lemma; loops inside the body were over-approximated "
+                            "during the check, which keeps the argument sound.")
         else:
             kind = Bound.UNKNOWN
-            messages.append("Loops inside the body were approximated during the check; no guarantee.")
+            messages.append("Loops inside the body were under-approximated during the check; no guarantee.")
         return LoopOutcome(dist, error_prob, kind=kind, certificate=certificate, messages=messages)
 
     if answer is False:

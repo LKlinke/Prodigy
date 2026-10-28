@@ -75,19 +75,24 @@ def _missing(raw: Any) -> bool:
 
 def _parse_int(raw: Any) -> int:
     if isinstance(raw, bool):
-        raise ValueError("expected an integer")
+        raise ValueError("must be a whole number")
     if isinstance(raw, int):
         return raw
-    text = str(raw).strip()
-    return int(text)
+    try:
+        return int(str(raw).strip())
+    except ValueError:
+        raise ValueError(f"must be a whole number, not {str(raw).strip()!r}") from None
 
 
 def _parse_probability(raw: Any) -> str:
     """Accepts 0.99, "0.99", "99/100"; returns a normalised string."""
     text = str(raw).strip()
-    value = Fraction(text)
+    try:
+        value = Fraction(text)
+    except (ValueError, ZeroDivisionError):
+        raise ValueError(f"must be a probability such as 0.99 or 99/100, not {text!r}") from None
     if not 0 <= value <= 1:
-        raise ValueError("expected a probability between 0 and 1")
+        raise ValueError("must be a probability between 0 and 1")
     return text
 
 
