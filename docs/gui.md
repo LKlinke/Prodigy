@@ -31,9 +31,19 @@ with numpy 2).
   certificate of every loop, console output, and the full result as JSON.
 * **Examples**: the programs in `pgfexamples/`, with a suggested setup derived from their
   first line (e.g. `check_equality` examples come with their invariant).
+* **New, Open…, Save** (toolbar): in Chrome and Edge, Open and Save work directly on `.pgcl`
+  files on disk, and the file stays linked across reloads; Save As… (⇧⌘S) picks another file.
+  Safari and Firefox cannot write to a folder: Open reads the chosen file, Save downloads the
+  program. The program is also kept in the browser, so a reload never loses it; replacing a
+  program with unsaved changes (New, Open…, an example) asks first.
 
-Keyboard: ⌘/Ctrl + Return analyses, ⌘/Ctrl + . (or Esc) stops. Every analysis runs in its
-own process with a time limit and can be stopped at any time.
+Keyboard: ⌘/Ctrl + Return analyses, ⌘/Ctrl + . (or Esc) stops, ⌘/Ctrl + O opens,
+⌘/Ctrl + S saves. Every analysis runs in its own process with a time limit and can be stopped
+at any time.
+
+The GUI follows the system appearance (light or dark, macOS: System Settings → Appearance);
+following Apple's guidelines it has no switch of its own. Firefox can override the appearance
+for websites (Settings → General → Website appearance).
 
 ## Guarantees
 

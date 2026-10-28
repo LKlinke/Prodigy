@@ -46,6 +46,7 @@
   --on-accent: #FFFFFF;
   --focus-ring: 0 0 0 3px rgba(0, 102, 204, 0.35);
   --selection: rgba(0, 102, 204, 0.18);
+  --active-line: rgba(118, 118, 128, 0.06);
 
   --data: #48484A;
   --exact: #1F7A35;
@@ -83,6 +84,7 @@
     --accent-fill-hover: #1A80EA;
     --focus-ring: 0 0 0 3px rgba(74, 163, 255, 0.45);
     --selection: rgba(74, 163, 255, 0.28);
+    --active-line: rgba(255, 255, 255, 0.045);
 
     --data: #C7C7CC;
     --exact: #4CD47A;
@@ -163,6 +165,12 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 
 .toolbar-group { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .toolbar-trailing { flex-shrink: 0; }
+.file-actions { display: flex; gap: 4px; flex-shrink: 0; }
+@media (max-width: 1180px) {
+  /* symbols only; the names stay available as accessible labels and tooltips */
+  .file-actions .button-label { display: none; }
+  .file-actions .button { padding: 0 8px; }
+}
 
 .doc-title { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
 .doc-title-main {
@@ -389,6 +397,21 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, 0.28); }
 .sheet-body { overflow: auto; padding: 8px; min-height: 120px; }
 .sheet-footer { padding: 12px 16px; display: flex; justify-content: flex-end; border-top: 1px solid var(--separator); }
 
+/* ---- alerts (unsaved changes, name for a download) ---------------------------------- */
+
+dialog.alert {
+  border: 0; padding: 0; border-radius: 12px; background: var(--surface); color: var(--text);
+  width: min(380px, calc(100vw - 32px)); box-shadow: var(--shadow-sheet);
+}
+dialog.alert::backdrop { background: rgba(0, 0, 0, 0.28); }
+.alert-inner { display: grid; gap: 10px; padding: 20px 20px 16px; }
+.alert-title { font-size: var(--text-body); font-weight: 700; line-height: 1.35; }
+.alert-message { margin: 0; font-size: var(--text-callout); color: var(--text-2); line-height: 1.4; }
+.alert-field { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px; }
+.alert-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+.alert-buttons .button { min-width: 72px; }
+.alert-buttons [value="discard"] { margin-right: auto; }
+
 .library-group { padding: 8px 8px 4px; font-size: var(--text-callout); font-weight: 600; color: var(--text-2); }
 .library-row {
   display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px;
@@ -408,32 +431,8 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, 0.28); }
 }
 
 /* ---- editor (CodeMirror) ----------------------------------------------------------- */
-
-.cm-editor { height: 100%; font-size: 13px; }
-.cm-editor.cm-focused { outline: none; }
-.cm-scroller { font-family: var(--font-mono); line-height: 1.6; }
-.cm-content { padding: 12px 0 48px; caret-color: var(--accent); }
-.cm-gutters { background: var(--surface); color: var(--text-3); border-right: 0; }
-.cm-lineNumbers .cm-gutterElement { padding: 0 8px 0 12px; min-width: 32px; }
-.cm-activeLine { background: rgba(118, 118, 128, 0.06); }
-.cm-activeLineGutter { background: transparent; color: var(--text); }
-.cm-selectionBackground, .cm-focused .cm-selectionBackground { background: var(--selection) !important; }
-.cm-cursor { border-left-color: var(--accent); border-left-width: 2px; }
-.cm-matchingBracket { background: var(--fill-hover); outline: none; }
-.cm-tooltip { background: var(--surface); border: 1px solid var(--separator-strong); border-radius: 8px; box-shadow: var(--shadow); color: var(--text); }
-.cm-tooltip-autocomplete ul li[aria-selected] { background: var(--accent-fill); color: var(--on-accent); }
-.cm-tooltip-lint { padding: 0; }
-.cm-diagnostic { padding: 6px 10px; font-family: var(--font-ui); font-size: var(--text-callout); border-left-width: 3px; }
-.cm-diagnostic-error { border-left-color: var(--error); }
-.cm-diagnostic-warning { border-left-color: var(--unknown); }
-.cm-diagnostic-info { border-left-color: var(--text-3); }
-.cm-lintRange-error { background-image: none; text-decoration: wavy underline var(--error); text-underline-offset: 3px; }
-.cm-lintRange-warning { background-image: none; text-decoration: wavy underline var(--unknown); text-underline-offset: 3px; }
-.cm-lintRange-info { background-image: none; }
-.cm-gutter-lint { width: 14px; }
-.cm-lint-marker { width: 10px; height: 10px; }
-.cm-panels { background: var(--surface); color: var(--text); }
-.cm-searchMatch { background: rgba(255, 204, 0, 0.35); }
+/* The editor's own styling (font, gutter, cursor, tooltips, …) is a CodeMirror theme in
+   editor.js: CodeMirror's base theme uses more specific selectors than plain CSS here. */
 
 /* inline annotations: loop strategy above a loop, result after a query */
 /* Block widgets must not have vertical margins: CodeMirror measures their height without

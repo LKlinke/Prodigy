@@ -1,5 +1,6 @@
 // Prodigy web GUI: wires the editor, the setup panel, the analysis jobs and the result view.
 import { api } from "./api.js";
+import { canWriteFiles, createDocument } from "./document.js";
 import { createEditor } from "./editor.js";
 import { createLibrary } from "./library.js";
 import { defaultDecision, focusLoopCard, renderSetup, setupProblems } from "./setup.js";
@@ -35,11 +36,11 @@ const state = {
   job: null,
   result: null,
   resultStale: false,
-  title: load("title", null),
   optionsOpen: false,
 };
 
 let editor;
+let documents;
 let checkTimer = null;
 let checkController = null;
 let pollTimer = null;
@@ -107,17 +108,28 @@ function initDivider() {
 
 // ---- document title -------------------------------------------------------------------------
 
-function setTitle(title, subtitle = "") {
-  state.title = title ? { title, subtitle } : null;
-  save("title", state.title);
-  renderTitle();
+function renderTitle({ name, category, edited, fileName }) {
+  $("doc-title").textContent = name;
+  $("doc-subtitle").textContent = [category, edited ? "Edited" : ""].filter(Boolean).join(" · ");
+  $("doc-title-wrap").title = fileName || "";
+  document.title = `${name}${edited ? " — Edited" : ""} — Prodigy`;
 }
 
-function renderTitle() {
-  const title = state.title?.title || "Untitled";
-  $("doc-title").textContent = title;
-  $("doc-subtitle").textContent = state.title?.subtitle || "";
-  document.title = `${title} — Prodigy`;
+/** New or Open replaced the program: its loops and results no longer apply. */
+async function programReplaced() {
+  state.setup.decisions = {};
+  state.setup.input = "";
+  state.pendingDefault = null;
+  state.outline = null;
+  state.result = null;
+  state.resultStale = false;
+  save("setup", state.setup);
+  renderResultPanel();
+  selectTab("setup");
+  clearTimeout(checkTimer);
+  await runCheck();
+  renderSetupPanel();
+  updateAnnotations();
 }
 
 // ---- checking -------------------------------------------------------------------------------
@@ -308,6 +320,17 @@ function showRunMessage(message, tone = "error") {
     icon(tone === "error" ? "error" : "info"), " ", message));
 }
 
+/** A short notice (opened, saved); information disappears after a few seconds. */
+function notify(message, tone = "info") {
+  showRunMessage(message, tone);
+  const shown = $("run-status").firstChild;
+  if (tone === "info") {
+    setTimeout(() => {
+      if (!state.job && $("run-status").firstChild === shown) $("run-status").replaceChildren();
+    }, 5000);
+  }
+}
+
 function buildRequest() {
   const options = state.setup.options;
   const decisions = {};
@@ -411,6 +434,7 @@ async function stop() {
 // ---- examples -----------------------------------------------------------------------------------------
 
 async function loadExample(example) {
+  if (!(await documents.confirmClose())) return;
   let data;
   try {
     data = await api.example(example.id);
@@ -429,7 +453,7 @@ async function loadExample(example) {
   state.setup.input = suggestion.input_distribution || "";
   state.result = null;
   state.resultStale = false;
-  setTitle(example.title, example.category_title);
+  documents.exampleLoaded(example, data.source);
   renderResultPanel();
   showRunMessage(suggestion.note ? `${suggestion.note} ⌘Z restores your program.` : "Example loaded. ⌘Z restores your program.", "info");
   await runCheck();
@@ -451,7 +475,6 @@ async function loadExample(example) {
 async function boot() {
   initTabs();
   initDivider();
-  renderTitle();
   try {
     state.meta = await api.meta();
   } catch (error) {
@@ -476,24 +499,37 @@ async function boot() {
     doc: load("source", WELCOME),
     onChange: (source) => {
       save("source", source);
-      if (state.title && !state.title.subtitle?.endsWith("edited")) {
-        setTitle(state.title.title, `${state.title.subtitle ? `${state.title.subtitle} · ` : ""}edited`);
-      }
+      documents?.changed();
       markStale();
       scheduleCheck();
     },
     onRun: run,
     onStop: stop,
   });
+  documents = createDocument({ editor, initialText: editor.getSource(), onReplace: programReplaced, notify,
+    onChange: renderTitle });
+  documents.changed();
 
   const library = createLibrary($("library"), { api, onLoad: loadExample });
+  $("btn-new").addEventListener("click", () => documents.new());
+  $("btn-open").addEventListener("click", () => documents.open());
+  $("btn-save").addEventListener("click", () => documents.save());
+  $("btn-save").title = canWriteFiles ? "Save (⌘S) · Save As… (⇧⌘S)" : "Download the program as a .pgcl file (⌘S)";
   $("btn-examples").addEventListener("click", () => library.open());
   $("btn-run").addEventListener("click", run);
   $("btn-stop").addEventListener("click", stop);
   document.addEventListener("keydown", (event) => {
     const mod = event.metaKey || event.ctrlKey;
+    const key = event.key.toLowerCase();
+    const modal = document.querySelector("dialog[open]");
     if (mod && event.key === "Enter") { event.preventDefault(); run(); }
-    else if ((mod && event.key === ".") || (event.key === "Escape" && state.job && !$("library").open)) {
+    else if (mod && !event.altKey && key === "s") {
+      event.preventDefault();
+      if (!modal) documents.save({ as: event.shiftKey });
+    } else if (mod && !event.altKey && !event.shiftKey && key === "o") {
+      event.preventDefault();
+      if (!modal) documents.open();
+    } else if ((mod && event.key === ".") || (event.key === "Escape" && state.job && !modal)) {
       if (state.job) { event.preventDefault(); stop(); }
     }
   });
