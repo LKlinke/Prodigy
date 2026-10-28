@@ -1,7 +1,7 @@
 import random
 
 import pytest
-from _pytest.python_api import raises
+from pytest import raises
 from probably import pgcl as pgcl
 
 from prodigy.analysis.analyzer import compute_discrete_distribution

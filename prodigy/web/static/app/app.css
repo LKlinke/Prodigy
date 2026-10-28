@@ -436,9 +436,11 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, 0.28); }
 .cm-searchMatch { background: rgba(255, 204, 0, 0.35); }
 
 /* inline annotations: loop strategy above a loop, result after a query */
+/* Block widgets must not have vertical margins: CodeMirror measures their height without
+   margins, and the line-number gutter would drift by the difference after every widget. */
 .cm-loop-annotation {
-  display: flex; align-items: center; gap: 6px;
-  margin: 6px 0 2px; font-family: var(--font-ui); font-size: var(--text-caption); line-height: 18px;
+  display: flex; align-items: center; gap: 6px; box-sizing: border-box; height: 30px;
+  padding: 6px 0 4px; font-family: var(--font-ui); font-size: var(--text-caption); line-height: 18px;
 }
 .cm-loop-annotation button {
   display: inline-flex; align-items: center; gap: 6px; height: 20px; padding: 0 8px;

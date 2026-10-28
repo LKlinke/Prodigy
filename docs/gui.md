@@ -14,6 +14,10 @@ poetry run prodigy web --port 9000 --time-limit 300 --no-browser
 The GUI needs no Node.js or internet connection; the editor (CodeMirror 6) and KaTeX are
 vendored under `prodigy/web/static/vendor/`.
 
+Prodigy is tested with Python 3.11 and 3.14. On Python 3.13 and later, `poetry install` compiles
+numpy 1.26.4 from source (a few minutes; networkx 2.5, which `probably` pins, does not work
+with numpy 2).
+
 ## What the GUI shows
 
 * **Program** (left): editor with pGCL highlighting, syntax errors (and type-checker

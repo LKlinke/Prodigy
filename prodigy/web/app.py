@@ -61,8 +61,11 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
 
     app = Flask(__name__, static_folder="static", template_folder="templates")
     app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
-    app.config["JSON_SORT_KEYS"] = False
-    app.json_sort_keys = False  # type: ignore[attr-defined]
+    provider = getattr(app, "json", None)
+    if provider is not None and hasattr(provider, "sort_keys"):
+        provider.sort_keys = False  # Flask >= 2.2: keep the result's key order
+    else:
+        app.config["JSON_SORT_KEYS"] = False
 
     jobs = JobManager(max_jobs=max_jobs, time_limit=time_limit, memory_limit=memory_limit)
     library = ExampleLibrary(examples_dir or default_examples_dir())
