@@ -347,7 +347,7 @@ def _print_summary(result: Dict[str, Any]) -> None:
         if dist.get("error_probability") not in (None, "0"):
             print(f"{Style.OKBLUE}Observation violated with probability:{Style.RESET}\t{dist['error_probability']}")
     bounds = result.get("bounds") or {}
-    if bounds:
+    if bounds and status == "ok":
         print(f"{Style.OKBLUE}Guarantee:{Style.RESET}\t{bounds.get('explanation', bounds.get('kind'))}")
     for query in result.get("queries", []):
         where = f"line {query['line']}: " if query.get("line") else ""
