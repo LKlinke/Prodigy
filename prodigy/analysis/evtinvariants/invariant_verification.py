@@ -15,17 +15,17 @@ from prodigy.util.logger import log_setup
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
+Analyzer = Callable[[Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
+                    Tuple[Distribution, Distribution]]
+"""Computes the semantics of instructions (``compute_semantics``)."""
+
 
 def evt_invariant_check(loop: WhileInstr,
                         prog_info: ProgramInfo,
                         distribution: Distribution,
                         invariant: Distribution,
                         config: ForwardAnalysisConfig,
-                        analyzer: Callable[
-                            [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution,
-                             ForwardAnalysisConfig],
-                            tuple[Distribution, Distribution]
-                        ] = None) -> Tuple[Distribution, Distribution, List[Dict[str, str]]]:
+                        analyzer: Analyzer) -> Tuple[Distribution, Distribution, List[Dict[str, str]]]:
     """
     Checks whether ``invariant`` is a fixed point of the EVT operator
     Ψ(I) = distribution + ⟦body⟧(⟨I⟩_guard), solving for the invariant's parameters if needed.
@@ -90,9 +90,6 @@ def evt_invariant_verification(loop: WhileInstr,
                                distribution: Distribution,
                                invariant: Distribution,
                                config: ForwardAnalysisConfig,
-                               analyzer: Callable[
-                                            [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
-                                        tuple[Distribution, Distribution]
-                                        ] = None) -> Distribution:
+                               analyzer: Analyzer) -> Distribution:
     """Like :func:`evt_invariant_check`, but returns only the terminating part."""
     return evt_invariant_check(loop, prog_info, distribution, invariant, config, analyzer)[0]

@@ -10,7 +10,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.analysis.result import (QueryResult, describe_distribution, exact_and_float, finish_query,
+from prodigy.analysis.result import (QueryResult, describe_distribution, finish_query,
                                      is_monotone_nonnegative, joint_table, sym, univariate_table)
 from prodigy.analysis.session import AnalysisSession, current_session
 from prodigy.distribution import Distribution, MarginalType

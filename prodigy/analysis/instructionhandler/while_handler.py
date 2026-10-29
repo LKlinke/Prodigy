@@ -89,11 +89,11 @@ def finite_mass(invariant: Any, variables: Sequence[str]) -> Tuple[Optional[bool
         f = sympy.cancel(sympy.together(expr.subs(substitution)))
         if not f.is_rational_function(t):
             return None, None
-        numerator, denominator = sympy.fraction(f)
-        q = sympy.Poly(denominator, t)
-        if q.eval(0) == 0:
+        _, denominator = sympy.fraction(f)
+        poly = sympy.Poly(denominator, t)
+        if poly.eval(0) == 0:
             return None, None
-        if q.count_roots(0, 1) > 0:
+        if poly.count_roots(0, 1) > 0:
             return False, None
         return True, sympy.nsimplify(f.subs(t, 1))
     except Exception:  # pylint: disable=broad-except

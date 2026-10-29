@@ -12,7 +12,7 @@ import os
 import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from probably.pgcl import parse_pgcl
 
@@ -45,7 +45,7 @@ def _title(stem: str) -> str:
 
 @dataclass
 class Example:
-    id: str
+    id: str  # pylint: disable=invalid-name
     title: str
     category: List[str]
     command: str
@@ -64,7 +64,7 @@ class Example:
 
 
 class ExampleLibrary:
-    def __init__(self, root: Optional[os.PathLike]):
+    def __init__(self, root: Optional[Union[str, os.PathLike]]):
         self.root = Path(root).resolve() if root else None
         self._examples: Optional[List[Example]] = None
 
@@ -145,12 +145,13 @@ class ExampleLibrary:
             loops = 0
         numbered = self._numbered_invariants(path, loops) if example.command == "check_equality" else []
         if numbered:
-            suggestion["decisions"] = {str(i): {"strategy": "invariant", "params": {"invariant": inv.read_text(encoding="utf-8")}}
-                                       for i, inv in enumerate(numbered)}
-            suggestion["note"] = (f"Invariants from {', '.join(inv.name for inv in numbered)} (one per loop, in textual "
-                                  "order). With the default input every variable is 0, so the loops may not run: set an "
-                                  "initial distribution under Input.")
-        elif example.command == "check_equality" and example.args:
+            suggestion["decisions"] = {
+                str(i): {"strategy": "invariant", "params": {"invariant": inv.read_text(encoding="utf-8")}}
+                for i, inv in enumerate(numbered)}
+            suggestion["note"] = (f"Invariants from {', '.join(inv.name for inv in numbered)} (one per loop, "
+                                  "in textual order). With the default input every variable is 0, so the loops "
+                                  "may not run: set an initial distribution under Input.")
+        elif example.command == "check_equality" and example.args and self.root is not None:
             other = self._resolve_arg(example.args[0])
             if other is not None:
                 other_source = other.read_text(encoding="utf-8")

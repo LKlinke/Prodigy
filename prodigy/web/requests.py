@@ -89,7 +89,7 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
     try:
         program = parse_pgcl(source)
     except Exception as exc:  # pylint: disable=broad-except
-        return {"status": "error", "error": {"type": "syntax", "message": str(exc).split("\n")[0]}}
+        return {"status": "error", "error": {"type": "syntax", "message": str(exc).split("\n", maxsplit=1)[0]}}
     input_distribution = request.get("input_distribution")
     if isinstance(input_distribution, str) and not input_distribution.strip():
         input_distribution = None

@@ -80,7 +80,7 @@ def token_positions(source: str, pattern: "re.Pattern[str]") -> List[Tuple[int, 
 class LoopInfo:
     """A while loop of the analysed program, identified by its position in the text."""
 
-    id: int
+    id: int  # pylint: disable=invalid-name
     """Index of the loop in textual order (0-based); the key for decisions."""
     cond: str
     """The loop guard as pGCL text."""
@@ -320,7 +320,7 @@ class DecisionProvider:
     def next_step(self) -> None:
         """Called after each instruction in step-wise mode."""
 
-    def continue_plot(self, probability: float) -> bool:
+    def continue_plot(self, probability: float) -> bool:  # pylint: disable=unused-argument
         return False
 
 
@@ -443,7 +443,7 @@ class LoopRecord:
             "depth": self.loop.depth if self.loop else None,
             "cond": self.cond,
             "strategy": self.strategy,
-            "params": {k: v for k, v in self.params.items()},
+            "params": dict(self.params),
             "invocations": self.invocations,
             "kind": self.kind,
             "residual_mass": residual,
@@ -573,6 +573,7 @@ class AnalysisSession:
                     loop=task.loop, strategy=task.strategy.name, param=alias.alias_of)
             with open(str(raw), "r", encoding="utf-8") as handle:
                 return handle.read()
+        assert alias.alias_of is not None
         return task.strategy.param(alias.alias_of).parse(raw)
 
     # -- scopes and bounds ---------------------------------------------------------------
@@ -764,7 +765,7 @@ def _native_stdout_captured(append: Callable[[str], Any]) -> Iterator[None]:
     """Redirects file descriptor 1 into a temporary file and hands its content to ``append``."""
     try:
         target = sys.__stdout__
-        fd = target.fileno() if target is not None else 1
+        descriptor = target.fileno() if target is not None else 1
     except (AttributeError, OSError, ValueError):
         yield
         return
@@ -772,17 +773,17 @@ def _native_stdout_captured(append: Callable[[str], Any]) -> Iterator[None]:
         if target is not None:
             target.flush()
         _flush_c_stdio()
-        saved = os.dup(fd)
+        saved = os.dup(descriptor)
     except OSError:
         yield
         return
     with tempfile.TemporaryFile() as spool:
-        os.dup2(spool.fileno(), fd)
+        os.dup2(spool.fileno(), descriptor)
         try:
             yield
         finally:
             _flush_c_stdio()
-            os.dup2(saved, fd)
+            os.dup2(saved, descriptor)
             os.close(saved)
             spool.seek(0)
             data = spool.read().decode("utf-8", "replace")

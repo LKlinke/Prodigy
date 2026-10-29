@@ -27,7 +27,6 @@ from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrate
 from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
 from prodigy.analysis.evtinvariants.invariant_verification import evt_invariant_verification
-from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.analysis.independence.independence import independent_vars as get_independent_vars_of
@@ -109,7 +108,8 @@ def _collect_decisions(loop_specs: Tuple[str, ...], decisions_file: Optional[IO]
               is_flag=True,
               required=False,
               default=False)
-@click.option('--loop', 'loop_specs', multiple=True, help=_LOOP_OPTION_HELP + " Loops without a decision are asked for.")
+@click.option('--loop', 'loop_specs', multiple=True,
+              help=_LOOP_OPTION_HELP + " Loops without a decision are asked for.")
 def main(ctx, program_file: IO, input_dist: str,
          show_input_program: bool, loop_specs: Tuple[str, ...]) -> None:
     """
@@ -294,9 +294,9 @@ def invariant_synthesis(ctx, program_file: IO, invariant: str, input_dist: str):
     strategy = SynthesisStrategies.make(config.strategy, prog.variables.keys(), config.factory)
     start = time.perf_counter()
     if invariant:
-        invariant = config.factory.from_expr(invariant, *prog.variables.keys())
+        invariant_dist = config.factory.from_expr(invariant, *prog.variables.keys())
         evt_invariant_verification(prog.instructions[loops.index(1)],
-                        ProgramInfo(prog), dist, invariant, config, compute_semantics)
+                                   ProgramInfo(prog), dist, invariant_dist, config, compute_semantics)
     else:
         evt_invariant_synthesis(prog.instructions[loops.index(1)],
                                             ProgramInfo(prog), dist, config, strategy, compute_semantics)
@@ -357,9 +357,9 @@ def _print_summary(result: Dict[str, Any]) -> None:
             interval = ""
             if query["bound"] != "exact":
                 low = _format_value(query["lower"], query["lower_float"]) if query["lower"] is not None else "?"
-                up = _format_value(query["upper"], query["upper_float"]) if query["upper"] is not None else "∞" \
+                high = _format_value(query["upper"], query["upper_float"]) if query["upper"] is not None else "∞" \
                     if query["bound"] == "lower" else "?"
-                interval = f"\t∈ [{low}, {up}]  ({query['bound']})"
+                interval = f"\t∈ [{low}, {high}]  ({query['bound']})"
             print(f"  {where}{label} = {value}{interval}")
         elif query["kind"] == "marginal":
             print(f"  {where}marginal of {query['expr']}: {query['value']}")
@@ -385,9 +385,10 @@ def _print_summary(result: Dict[str, Any]) -> None:
               help="Number of coefficients per marginal in the result (0 to skip).")
 @click.option('--steps', is_flag=True, default=False, help="Record the distribution after each instruction.")
 @click.option('--output', type=click.File('w'), required=False, help="Write the JSON result to this file.")
-def analyze(ctx, program_file: IO, input_dist: Optional[str], loop_specs: Tuple[str, ...],
-            decisions_file: Optional[IO], as_json: bool, coefficients: int, steps: bool,
-            output: Optional[IO]) -> None:
+def analyze(  # pylint: disable=too-many-arguments
+        ctx, program_file: IO, input_dist: Optional[str], loop_specs: Tuple[str, ...],
+        decisions_file: Optional[IO], as_json: bool, coefficients: int, steps: bool,
+        output: Optional[IO]) -> None:
     """
     Analyse a program without asking questions: every loop needs a strategy (--loop or
     --decisions). Queries are answered with sound intervals.
@@ -472,7 +473,8 @@ def print_loop_strategies(as_json: bool) -> None:
               help="Folder with example programs (default: pgfexamples of this checkout).")
 @click.option('--allowed-host', 'allowed_hosts', multiple=True,
               help="Additional host name the server may be reached under (when not on localhost).")
-def web(ctx, host: str, port: int, no_browser: bool, time_limit: float, max_jobs: int,
+def web(  # pylint: disable=too-many-arguments
+        ctx, host: str, port: int, no_browser: bool, time_limit: float, max_jobs: int,
         memory_limit: Optional[int], examples_dir: Optional[str], allowed_hosts: Tuple[str, ...]) -> None:
     """
     Start the web GUI (a local web server) and open it in the browser.

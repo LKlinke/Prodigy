@@ -49,7 +49,7 @@ import re
 import time
 import traceback
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import sympy
 from probably.pgcl import (Binop, BinopExpr, BoolType, Expr, NatLitExpr, NatType, RealLitExpr,
@@ -229,7 +229,7 @@ def joint_table(dist: "Distribution", limit: int) -> Optional[Dict[str, Any]]:
     if len(terms) > limit:
         return {"variables": sorted(dist.get_variables()), "rows": [], "truncated": True}
     variables = sorted(dist.get_variables())
-    rows = []
+    rows: List[Dict[str, Any]] = []
     for prob, state in terms:
         if sym(prob) == 0:
             continue
@@ -538,6 +538,7 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
     with session.activate(), session._output():  # pylint: disable=protected-access
         try:
             program = session.program
+            assert program is not None
             if session.input_distribution is None:
                 dist = config.factory.one(*program.variables.keys())
             elif isinstance(session.input_distribution, str):
@@ -572,8 +573,6 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
             result.status = "error"
             result.error = {"type": type(exc).__name__, "message": str(exc),
                             "details": getattr(exc, "details", None)}
-        except SystemExit:
-            raise
         except Exception as exc:  # pylint: disable=broad-except
             analysis_time = time.perf_counter() - started
             result.status = "error"

@@ -135,7 +135,7 @@ def _importable_main():
 
 @dataclass
 class Job:
-    id: str
+    id: str  # pylint: disable=invalid-name
     process: Any
     conn: Any
     time_limit: float
