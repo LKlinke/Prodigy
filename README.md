@@ -2,7 +2,7 @@
 
 prodigy is a prototypical tool for the analysis of probabilistic non-negative integer programs with `while`-loops. It is based on (probability) generating functions.
 
-It provides a command-line interface as well as a webservice.
+It provides a command-line interface and a web GUI.
 
 ## Contents
 
@@ -20,7 +20,7 @@ To install Prodigy, follow these steps:
 4. Clone or download the Prodigy repository, open a command prompt in its root folder, and type `./install.sh`. This installs Prodigy with the dependency versions locked in `uv.lock` into `.venv`, and the Z3 solver for pysmt.
 
 If no errors occurred, you have successfully installed Prodigy.
-Now there are two options on how to use the tool. You can either use the command-line interface (CLI) or use the webservice frontend. The next section (_Basic Usage_) details how to achieve both of these things.
+Now there are two options on how to use the tool. You can either use the command-line interface (CLI) or the web GUI. The next section (_Basic Usage_) details how to achieve both of these things.
 
 ### Troubleshooting
 
@@ -47,10 +47,6 @@ If you run into trouble during installation, this subsection might be of help. I
 Results come with their guarantee (exact, lower bound with residual mass, upper bound), and
 queries are answered with sound intervals. See [docs/gui.md](docs/gui.md), which also
 describes the non-interactive analysis API (`prodigy analyze --json`).
-
-### Webservice (legacy)
-1. Type ``uv run web-service``.
-2. Open a browser and locate `localhost:8080`.
 
 ## Development
 

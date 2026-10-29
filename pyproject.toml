@@ -29,7 +29,6 @@ dependencies = [
 
 [project.scripts]
 prodigy = "prodigy.cli:cli"
-web-service = "prodigy.web.web_equivalence:start_server"
 
 [dependency-groups]
 dev = [
