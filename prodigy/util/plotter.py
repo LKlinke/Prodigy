@@ -105,7 +105,7 @@ class Plotter:
                 prob_sum += sympy.S(prob)
                 terms += 1
             axis = plt.subplot()
-            my_cmap = plt.cm.get_cmap("Blues")
+            my_cmap = plt.get_cmap("Blues")
             scalar_mappable = ScalarMappable(cmap=my_cmap,
                                              norm=plt.Normalize(0, max(data)))
             scalar_mappable.set_array([])
