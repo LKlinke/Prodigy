@@ -1,3 +1,4 @@
+# pylint: disable=invalid-name  # style as taken over from probably
 from __future__ import annotations
 
 from typing import Optional, Union
@@ -43,8 +44,8 @@ class NatType(TypeClass):
 
     .. doctest::
 
-        >>> from probably.pgcl.parser import parse_pgcl, parse_expr
-        >>> from probably.pgcl.check import get_type
+        >>> from prodigy.pgcl.parser import parse_pgcl, parse_expr
+        >>> from prodigy.pgcl.check import get_type
         >>> program = parse_pgcl("nat x [1,5]")
         >>> get_type(program, parse_expr("x + 5"))
         NatType(bounds=None)

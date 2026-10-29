@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long,broad-exception-raised  # style as taken over from probably
 """
 -------------
 Type Checking
@@ -13,12 +14,12 @@ import attr
 # https://github.com/Marco-Sulla/python-frozendict/issues/62
 from frozendict import frozendict
 
-from probably.pgcl.ast.declarations import Function, FunctionDecl, VarDecl
-from probably.pgcl.ast.expressions import (FunctionCallExpr, InferExpr,
+from prodigy.pgcl.ast.declarations import Function, FunctionDecl, VarDecl
+from prodigy.pgcl.ast.expressions import (FunctionCallExpr, InferExpr,
                                            SampleExpr)
-from probably.pgcl.ast.instructions import QueryInstr
-from probably.pgcl.ast.types import DistributionType
-from probably.util.ref import Mut
+from prodigy.pgcl.ast.instructions import QueryInstr
+from prodigy.pgcl.ast.types import DistributionType
+from prodigy.pgcl.util.ref import Mut
 
 from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
                   CategoricalExpr, ChoiceInstr, Decl, ExpectationInstr, Expr,

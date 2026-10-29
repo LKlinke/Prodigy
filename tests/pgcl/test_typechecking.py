@@ -1,8 +1,8 @@
-from probably.pgcl.ast.declarations import ConstDecl, VarDecl
-from probably.pgcl.ast.expressions import NatLitExpr, VarExpr
-from probably.pgcl.ast.types import NatType, RealType
-from probably.pgcl.check import CheckFail, check_program
-from probably.pgcl.parser import parse_pgcl
+from prodigy.pgcl.ast.declarations import ConstDecl, VarDecl
+from prodigy.pgcl.ast.expressions import NatLitExpr, VarExpr
+from prodigy.pgcl.ast.types import NatType, RealType
+from prodigy.pgcl.check import CheckFail, check_program
+from prodigy.pgcl.parser import parse_pgcl
 
 
 def test_correct_program():

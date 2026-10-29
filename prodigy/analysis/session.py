@@ -41,7 +41,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Tuple, Union
 
-from probably.pgcl import (ChoiceInstr, IfInstr, Instr, LoopInstr, Program, QueryInstr,
+from prodigy.pgcl import (ChoiceInstr, IfInstr, Instr, LoopInstr, Program, QueryInstr,
                            WhileInstr)
 
 from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,

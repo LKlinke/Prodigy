@@ -1,4 +1,4 @@
-import probably.pgcl as pgcl
+import prodigy.pgcl as pgcl
 import pytest
 
 from prodigy.analysis.analyzer import compute_discrete_distribution

@@ -1,7 +1,7 @@
 from pytest import raises
 
-from probably.pgcl.ast import *
-from probably.pgcl.parser import parse_pgcl
+from prodigy.pgcl.ast import *
+from prodigy.pgcl.parser import parse_pgcl
 
 
 def test_all_distributions():

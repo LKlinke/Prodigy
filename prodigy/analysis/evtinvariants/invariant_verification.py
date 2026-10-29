@@ -4,7 +4,7 @@ from typing import Callable, Dict, List, Sequence, Tuple, Union
 import sympy
 
 
-from probably.pgcl import Instr, WhileInstr
+from prodigy.pgcl import Instr, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import VerificationError

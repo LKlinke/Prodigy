@@ -1,10 +1,10 @@
-from probably.pgcl.ast.declarations import VarDecl
-from probably.pgcl.ast.expressions import (FunctionCallExpr, InferExpr,
+from prodigy.pgcl.ast.declarations import VarDecl
+from prodigy.pgcl.ast.expressions import (FunctionCallExpr, InferExpr,
                                            NatLitExpr, SampleExpr)
-from probably.pgcl.ast.instructions import AsgnInstr
-from probably.pgcl.ast.program import Program
-from probably.pgcl.ast.types import DistributionType
-from probably.pgcl.compiler import compile_pgcl
+from prodigy.pgcl.ast.instructions import AsgnInstr
+from prodigy.pgcl.ast.program import Program
+from prodigy.pgcl.ast.types import DistributionType
+from prodigy.pgcl.compiler import compile_pgcl
 
 
 def test_basic_inference():

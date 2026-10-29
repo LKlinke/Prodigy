@@ -1,12 +1,12 @@
 """
-=================
-``probably.util``
-=================
+=====================
+``prodigy.pgcl.util``
+=====================
 
-.. autofunction:: probably.util.dedup_list
+.. autofunction:: prodigy.pgcl.util.dedup_list
 
-.. automodule:: probably.util.ref
-.. automodule:: probably.util.lark_expr_parser
+.. automodule:: prodigy.pgcl.util.ref
+.. automodule:: prodigy.pgcl.util.lark_expr_parser
 """
 
 from typing import List, TypeVar

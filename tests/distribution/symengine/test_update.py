@@ -1,6 +1,6 @@
 import pytest
 import symengine as se
-from probably.pgcl.parser import parse_expr
+from prodigy.pgcl.parser import parse_expr
 import sympy as sp
 
 from prodigy.distribution import MarginalType

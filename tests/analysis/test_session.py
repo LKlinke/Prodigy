@@ -4,7 +4,7 @@ from fractions import Fraction
 
 import pytest
 from click.testing import CliRunner
-from probably.pgcl import parse_pgcl
+from prodigy.pgcl import parse_pgcl
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler.while_handler import finite_mass

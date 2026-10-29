@@ -1,8 +1,8 @@
 from typing import Iterable
 
-from probably.pgcl.ast.expressions import FunctionCallExpr, NatLitExpr, VarExpr
-from probably.pgcl.ast.walk import Walk, walk_expr
-from probably.util.ref import Mut
+from prodigy.pgcl.ast.expressions import FunctionCallExpr, NatLitExpr, VarExpr
+from prodigy.pgcl.ast.walk import Walk, walk_expr
+from prodigy.pgcl.util.ref import Mut
 
 
 def test_function_parameters():

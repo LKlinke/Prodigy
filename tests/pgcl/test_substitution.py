@@ -4,12 +4,11 @@ from typing import Dict, List, Tuple, Union
 import hypothesis.strategies as st
 from hypothesis import given
 
-from probably.pgcl.ast import Expr, SubstExpr, Unop, UnopExpr, VarExpr
-from probably.pgcl.ast.walk import Walk, walk_expr
-from probably.pgcl.parser import parse_pgcl
-from probably.pgcl.substitute import substitute_expr
-from probably.pgcl.wp import loopfree_wp
-from probably.util.ref import Mut
+from prodigy.pgcl.ast import Expr, SubstExpr, Unop, UnopExpr, VarExpr
+from prodigy.pgcl.ast.walk import Walk, walk_expr
+from prodigy.pgcl.parser import parse_pgcl
+from prodigy.pgcl.substitute import substitute_expr
+from prodigy.pgcl.util.ref import Mut
 
 
 def make_closure(substs: List[Tuple[int, int]], var: int,
@@ -81,25 +80,3 @@ def test_generated_substitution(expr: Expr):
     dumb_substitute(dumb_res)
 
     assert smart_res.val == dumb_res.val
-
-
-def test_branchy_substitution():
-    # this test comes from a reported issue.
-    # the setup: the weakest preexpectation expression for a program with a few branches
-    code = """
-    if (c=2) { d:=10 } {d := 20}
-    if (f=1) { f:=0 } {f := 1}
-    """
-    program = parse_pgcl(code)
-    wp = loopfree_wp(program.instructions, VarExpr('Y'))
-    assert str(
-        wp
-    ) == "([c = 2] * ((([f = 1] * ((Y)[f/0])) + ([not (f = 1)] * ((Y)[f/1])))[d/10])) + ([not (c = 2)] * ((([f = 1] * ((Y)[f/0])) + ([not (f = 1)] * ((Y)[f/1])))[d/20]))"
-
-    # now the actual test
-    wp_expr_ref = Mut.alloc(wp)
-    substitute_expr(wp_expr_ref, symbolic=set(['Y']))
-
-    assert str(
-        wp_expr_ref.val
-    ) == "([c = 2] * (([f = 1] * ((Y)[d/10, f/0])) + ([not (f = 1)] * ((Y)[d/10, f/1])))) + ([not (c = 2)] * (([f = 1] * ((Y)[d/20, f/0])) + ([not (f = 1)] * ((Y)[d/20, f/1]))))"

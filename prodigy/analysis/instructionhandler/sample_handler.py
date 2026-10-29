@@ -4,7 +4,7 @@ import logging
 from abc import abstractmethod
 from typing import Callable, Sequence, Union
 
-from probably.pgcl import Instr, AsgnInstr, FunctionCallExpr, sample_predefined_functions as distr_functions, Var
+from prodigy.pgcl import Instr, AsgnInstr, FunctionCallExpr, sample_predefined_functions as distr_functions, Var
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume

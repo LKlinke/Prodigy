@@ -8,9 +8,9 @@ from fractions import Fraction
 from typing import (Dict, FrozenSet, Generator, Iterator, List, Sequence, Set,
                     Tuple, Type, Union)
 
-from probably.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr,
+from prodigy.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr,
                            RealLitExpr, Unop, UnopExpr, VarExpr)
-from probably.pgcl.parser import parse_expr
+from prodigy.pgcl.parser import parse_expr
 
 from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
                                       check_is_modulus_condition, has_variable)

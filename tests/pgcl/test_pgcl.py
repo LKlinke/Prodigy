@@ -1,5 +1,5 @@
 # pylint: disable=wildcard-import
-from probably.pgcl import *
+from prodigy.pgcl import *
 
 
 def test_chain():

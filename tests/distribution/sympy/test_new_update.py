@@ -1,5 +1,5 @@
 import sympy
-from probably.pgcl.parser import parse_expr
+from prodigy.pgcl.parser import parse_expr
 from pytest import raises
 
 from prodigy.distribution.distribution import MarginalType
@@ -178,7 +178,7 @@ def test_modulo():
 
 def test_division():
     gf = GeneratingFunction('n')
-    # probably simplifies 4 / 2 to a RealLitExpr
+    # the parser simplifies 4 / 2 to a RealLitExpr
     assert gf.update(parse_expr('n = 4 / 2')) == GeneratingFunction('n^2')
     assert gf.update(parse_expr('n = n / 1')) == GeneratingFunction('n')
     with raises(ValueError) as e:

@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long  # style as taken over from probably
 r"""
 ---
 AST

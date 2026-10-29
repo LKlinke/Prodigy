@@ -1,3 +1,4 @@
+# pylint: disable=broad-exception-raised  # style as taken over from probably
 """
 -------------------
 Translation Context
@@ -15,7 +16,7 @@ from pysmt.fnode import FNode
 from pysmt.shortcuts import Symbol
 from pysmt.typing import BOOL, INT, REAL
 
-from probably.pgcl.ast import BoolType, NatType, Program, RealType, Type, Var
+from prodigy.pgcl.ast import BoolType, NatType, Program, RealType, Type, Var
 
 
 def _translate_type(typ: Type):

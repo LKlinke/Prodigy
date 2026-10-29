@@ -4,8 +4,8 @@ from io import StringIO
 from typing import Optional
 
 from flask import Flask, jsonify, make_response, render_template, request
-from probably import pgcl
-from probably.pgcl import check_program, parse_pgcl
+from prodigy import pgcl
+from prodigy.pgcl import check_program, parse_pgcl
 
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig

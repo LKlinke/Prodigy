@@ -4,8 +4,8 @@ import functools
 import logging
 from typing import Dict, List, Tuple
 
-from probably.pgcl import Program, WhileInstr
-from probably.pgcl.ast import (Binop, BinopExpr, BoolLitExpr, Expr, IfInstr,
+from prodigy.pgcl import Program, WhileInstr
+from prodigy.pgcl.ast import (Binop, BinopExpr, BoolLitExpr, Expr, IfInstr,
                                Instr, NatLitExpr, SkipInstr, VarExpr)
 
 from prodigy.util.logger import log_setup

@@ -1,5 +1,5 @@
-from probably.pgcl.ast.instructions import QueryInstr
-from probably.pgcl.compiler import compile_pgcl
+from prodigy.pgcl.ast.instructions import QueryInstr
+from prodigy.pgcl.compiler import compile_pgcl
 
 
 def test_basic_query():

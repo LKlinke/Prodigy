@@ -16,8 +16,8 @@ from itertools import combinations
 from typing import IO, Any, Dict, Optional, Set, Tuple
 
 import click
-from probably.pgcl import Var, compiler, WhileInstr
-from probably.pgcl.check import CheckFail
+from prodigy.pgcl import Var, compiler, WhileInstr
+from prodigy.pgcl.check import CheckFail
 
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig

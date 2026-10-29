@@ -4,12 +4,12 @@ from typing import (Dict, FrozenSet, Generator, Iterator, List, Set, Tuple, Type
                     Union)
 
 import pygin  # type: ignore
-from probably.pgcl import Binop, BinopExpr, Expr, FunctionCallExpr, VarExpr
 from sympy import nan, sympify
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
                                                MarginalType, State)
+from prodigy.pgcl import Binop, BinopExpr, Expr, FunctionCallExpr, VarExpr
 
 from prodigy.util.order import default_monomial_iterator
 

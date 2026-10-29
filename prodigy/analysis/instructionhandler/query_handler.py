@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import get_args, Callable, Union, Sequence
 
-from probably.pgcl import Instr, Query, ExpectationInstr, VarExpr, NatLitExpr, RealLitExpr, BinopExpr, Binop, \
+from prodigy.pgcl import Instr, Query, ExpectationInstr, VarExpr, NatLitExpr, RealLitExpr, BinopExpr, Binop, \
     UnopExpr, Unop, ProbabilityQueryInstr, PlotInstr, PrintInstr, OptimizationQuery, OptimizationType, Expr
 
 from prodigy.analysis.config import ForwardAnalysisConfig

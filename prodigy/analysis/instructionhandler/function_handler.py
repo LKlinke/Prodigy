@@ -4,7 +4,7 @@ import logging
 from dataclasses import replace
 from typing import Dict, Callable, Union, Sequence
 
-from probably.pgcl import Instr, AsgnInstr, FunctionCallExpr, sample_predefined_functions as distr_functions, \
+from prodigy.pgcl import Instr, AsgnInstr, FunctionCallExpr, sample_predefined_functions as distr_functions, \
     BinopExpr, Binop, VarExpr, Program
 
 from prodigy.analysis.config import ForwardAnalysisConfig

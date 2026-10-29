@@ -13,8 +13,8 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import copy
 
-from probably.pgcl import parse_pgcl, substitute
-from probably.pgcl.check import CheckFail, check_program
+from prodigy.pgcl import parse_pgcl, substitute
+from prodigy.pgcl.check import CheckFail, check_program
 
 from prodigy.analysis.result import outline_program
 
@@ -28,7 +28,7 @@ _FIRST = ("RPAR", "RBRACE", "RSQB", "LBRACE", "__ANON_0")
 
 def _terminal_texts() -> Dict[str, str]:
     try:
-        from probably.pgcl.parser import _PARSER  # pylint: disable=import-outside-toplevel
+        from prodigy.pgcl.parser import _PARSER  # pylint: disable=import-outside-toplevel
     except ImportError:  # pragma: no cover
         return {}
     texts = {}
@@ -192,7 +192,7 @@ def _check(source: str) -> Dict[str, Any]:
         outline = None
         diagnostics.append(_diagnostic("warning", f"Could not outline the program: {exc}", None, source))
     try:
-        # same as probably's compile_pgcl, without parsing a second time
+        # same as prodigy.pgcl.compiler.compile_pgcl, without parsing a second time
         checked_program = copy.deepcopy(program)
         substitute.substitute_constants(checked_program)
         checked = check_program(checked_program)

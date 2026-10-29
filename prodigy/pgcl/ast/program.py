@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long  # style as taken over from probably
 from __future__ import annotations
 
 import copy
@@ -114,7 +115,7 @@ class Program:
 
         .. doctest::
 
-            >>> from probably.pgcl.parser import parse_pgcl
+            >>> from prodigy.pgcl.parser import parse_pgcl
             >>> program = parse_pgcl("nat x; nat y; while (x < 2) {}")
             >>> program.to_skeleton()
             Program(variables={'x': NatType(bounds=None), 'y': NatType(bounds=None)}, constants={}, parameters={}, functions={}, instructions=[])
@@ -132,7 +133,7 @@ class Program:
 
         .. doctest::
 
-            >>> from probably.pgcl.parser import parse_pgcl
+            >>> from prodigy.pgcl.parser import parse_pgcl
             >>> program = parse_pgcl("nat x; nat y; while (x < 2) {}")
             >>> print(program)
             nat x;

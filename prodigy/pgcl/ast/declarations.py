@@ -95,7 +95,7 @@ class FunctionDecl(DeclClass):
 @attr.s
 class Function(Node):
     """
-    A function is similar to a :class:`~probably.pgcl.ast.Program`, but more
+    A function is similar to a :class:`~prodigy.pgcl.ast.Program`, but more
     limited and with a `return` statement at the end.
     """
 
@@ -120,7 +120,7 @@ class Function(Node):
                                                  Expr]]) -> Dict[Var, Expr]:
         """
         Converts a tuple of positional and named parameters as given by a
-        :class:`~probably.pgcl.ast.FunctionCallExpr` to a dict that maps each
+        :class:`~prodigy.pgcl.ast.FunctionCallExpr` to a dict that maps each
         variable name of this function to an initial value. Variables that are
         not contained in the given parameters are mapped to 0.
 

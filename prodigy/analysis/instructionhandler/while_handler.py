@@ -13,7 +13,7 @@ from fractions import Fraction
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import sympy
-from probably.pgcl import Instr, parse_pgcl, Program, WhileInstr
+from prodigy.pgcl import Instr, parse_pgcl, Program, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence

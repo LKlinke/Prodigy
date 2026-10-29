@@ -1,6 +1,6 @@
 from lark import Lark
 
-from probably.util.lark_expr_parser import (atom, build_expr_parser, infixl,
+from prodigy.pgcl.util.lark_expr_parser import (atom, build_expr_parser, infixl,
                                             prefix)
 
 

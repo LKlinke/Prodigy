@@ -1,12 +1,12 @@
 """
-==================
-``probably.pysmt``
-==================
+======================
+``prodigy.pgcl.pysmt``
+======================
 
-Probably contains some utility functions to translate parts of a pGCL program to
+This package contains some utility functions to translate parts of a pGCL program to
 pySMT.
 
 
-.. automodule:: probably.pysmt.context
-.. automodule:: probably.pysmt.expr
+.. automodule:: prodigy.pgcl.pysmt.context
+.. automodule:: prodigy.pgcl.pysmt.expr
 """

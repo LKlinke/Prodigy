@@ -15,9 +15,9 @@ from pysmt.shortcuts import (FALSE, LE, LT, TRUE, And, EqualsOrIff, Int, Ite,
                              get_type)
 from pysmt.typing import INT
 
-from probably.pgcl.ast import (Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr,
+from prodigy.pgcl.ast import (Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr,
                                RealLitExpr, SubstExpr, Unop, UnopExpr, VarExpr)
-from probably.pysmt.context import TranslationContext
+from prodigy.pgcl.pysmt.context import TranslationContext
 
 
 def expr_to_pysmt(context: TranslationContext,
@@ -42,7 +42,7 @@ def expr_to_pysmt(context: TranslationContext,
 
     .. doctest::
 
-        >>> from probably.pgcl.parser import parse_expr
+        >>> from prodigy.pgcl.parser import parse_expr
         >>> from pysmt.shortcuts import Symbol
         >>> from pysmt.typing import INT
 

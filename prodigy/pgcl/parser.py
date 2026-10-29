@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long,broad-exception-raised,wildcard-import,unused-wildcard-import  # style as taken over from probably
 """
 ------
 Parser
@@ -25,14 +26,14 @@ from typing import Dict, List, Optional, Tuple, Union
 import attr
 from lark import Lark, Tree
 
-from probably.pgcl.ast import *
-from probably.pgcl.ast.expressions import InferExpr, SampleExpr
-from probably.pgcl.ast.instructions import QueryInstr, AbortInstr
-from probably.pgcl.ast.types import DistributionType
-from probably.pgcl.ast.walk import Walk, walk_expr
-from probably.util.lark_expr_parser import (atom, build_expr_parser, infixl,
+from prodigy.pgcl.ast import *
+from prodigy.pgcl.ast.expressions import InferExpr, SampleExpr
+from prodigy.pgcl.ast.instructions import QueryInstr, AbortInstr
+from prodigy.pgcl.ast.types import DistributionType
+from prodigy.pgcl.ast.walk import Walk, walk_expr
+from prodigy.pgcl.util.lark_expr_parser import (atom, build_expr_parser, infixl,
                                             infixr, prefix)
-from probably.util.ref import Mut
+from prodigy.pgcl.util.ref import Mut
 
 _PGCL_GRAMMAR = """
     start: declarations instructions queries
@@ -147,7 +148,7 @@ _OPERATOR_TABLE = [[infixl("or", "||")], [infixl("and", "&")],
                    ]]
 """
 The order of the operators corresponds to their precedence (earlier operators have lower precedence).
-See also: :module:`probably.util.lark_expr_parser`
+See also: :module:`prodigy.pgcl.util.lark_expr_parser`
 """
 
 _PGCL_GRAMMAR += "\n" + textwrap.indent(
@@ -172,7 +173,7 @@ class _LikelyExpr(ExprClass):
     probability as a constant. _LikelyExprs are transformed into
     CategoricalExprs later during parsing.
 
-    They do not occur in the public API of probably, but they may occur as part
+    They do not occur in the public API of this package, but they may occur as part
     of errors emitted by the parser before translation to CategoricalExprs.
     """
     value: Expr = attr.ib()
@@ -545,7 +546,7 @@ def _parse_program(t: Tree) -> Program:
 
 def parse_pgcl(code: str) -> Program:
     """
-    Parse a pGCL program with an optional :py:class:`probably.pgcl.ast.ProgramConfig`.
+    Parse a pGCL program with an optional :py:class:`prodigy.pgcl.ast.ProgramConfig`.
 
     .. doctest::
 

@@ -2,14 +2,14 @@ from fractions import Fraction
 
 from pytest import raises
 
-from probably.pgcl import parse_pgcl
-from probably.pgcl.ast.declarations import FunctionDecl, VarDecl
-from probably.pgcl.ast.expressions import (Binop, BinopExpr, CategoricalExpr,
+from prodigy.pgcl import parse_pgcl
+from prodigy.pgcl.ast.declarations import FunctionDecl, VarDecl
+from prodigy.pgcl.ast.expressions import (Binop, BinopExpr, CategoricalExpr,
                                            FunctionCallExpr, NatLitExpr,
                                            RealLitExpr, VarExpr)
-from probably.pgcl.ast.instructions import AsgnInstr
-from probably.pgcl.ast.types import NatType
-from probably.pgcl.parser import parse_expr
+from prodigy.pgcl.ast.instructions import AsgnInstr
+from prodigy.pgcl.ast.types import NatType
+from prodigy.pgcl.parser import parse_expr
 
 
 def test_basic_function():

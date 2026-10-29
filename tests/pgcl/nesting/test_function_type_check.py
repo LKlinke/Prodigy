@@ -1,5 +1,5 @@
-from probably.pgcl.check import CheckFail
-from probably.pgcl.compiler import compile_pgcl
+from prodigy.pgcl.check import CheckFail
+from prodigy.pgcl.compiler import compile_pgcl
 
 
 def test_correct_function():

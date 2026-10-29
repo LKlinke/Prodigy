@@ -1,5 +1,5 @@
 import pytest
-from probably.pgcl.compiler import compile_pgcl
+from prodigy.pgcl.compiler import compile_pgcl
 
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig

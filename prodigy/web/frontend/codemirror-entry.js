@@ -26,7 +26,7 @@ const ATOMS = new Set(["true", "false"]);
 
 export const PGCL_WORDS = { keywords: [...KEYWORDS], types: [...TYPES], builtins: [...BUILTINS] };
 
-/** pGCL as accepted by the probably parser (comments: # and //, queries ?Pr ?Ex ?Opt !Print !Plot). */
+/** pGCL as accepted by the parser in prodigy/pgcl (comments: # and //, queries ?Pr ?Ex ?Opt !Print !Plot). */
 export const pgcl = StreamLanguage.define({
   name: "pgcl",
   startState: () => ({ afterType: false }),
