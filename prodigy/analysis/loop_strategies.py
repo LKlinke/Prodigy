@@ -184,6 +184,11 @@ class LoopOutcome:
     the incoming distribution (i.e. before any later normalisation)."""
     certificate: Dict[str, Any] = field(default_factory=dict)
     messages: List[str] = field(default_factory=list)
+    query_bounds: Dict[Tuple[str, str], Tuple[Any, Any]] = field(default_factory=dict)
+    """Bounds that the strategy computed itself for the queries directly after the loop, as
+    ``(kind, expression) -> (lower, upper)`` with kind ``"?Pr"`` or ``"?Ex"`` and ``None`` for an
+    unknown side. They refer to the incoming distribution of the loop and tighten the intervals of
+    exactly these queries (e.g. the upper bounds of an EVT super-invariant)."""
 
 
 @dataclass

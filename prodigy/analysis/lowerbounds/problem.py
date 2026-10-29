@@ -1,3 +1,5 @@
+# pylint: disable=invalid-name,import-outside-toplevel
+# Names follow the mathematics (H, Phi, A, b, ...); scipy and FLINT are imported where they are needed.
 """
 A single-loop program split into the parts used by the lower-bound modes: the loop-free prefix (which
 determines the initial measure ``g`` of the loop), the loop, and the loop-free epilogue with its queries.
@@ -6,9 +8,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from fractions import Fraction
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Tuple
 
-from prodigy.pgcl import ExpectationInstr, PlotInstr, PrintInstr, ProbabilityQueryInstr, Program, WhileInstr
+from prodigy.pgcl import (ExpectationInstr, PlotInstr, PrintInstr, ProbabilityQueryInstr, Program, VarExpr,
+                          WhileInstr)
 
 from prodigy.analysis.lowerbounds import explicit
 from prodigy.analysis.lowerbounds.ir import (IR, UnsupportedProgram, eval_number, expr_to_ir, instr_to_ir,
@@ -71,7 +74,7 @@ def _contains(stmt: IR, tag: str) -> bool:
     return False
 
 
-def _geometric_samples(stmt: IR, acc: Dict[str, Fraction]):
+def _geometric_samples(stmt: IR, acc: Dict[str, Tuple[Fraction, int]]):
     if not isinstance(stmt, tuple) or not stmt:
         return acc
     if stmt[0] == "assign" and stmt[2][0] == "call" and stmt[2][1] == "geometric":
@@ -113,9 +116,35 @@ def load_problem(program: Program) -> LoopProblem:
     if _geometric_samples(body_ir, {}) or _geometric_samples(epi_ir, {}):
         raise UnsupportedProgram("geometric sampling is only supported before the loop")
     if any(_contains(s, "observe") for s in (prefix_ir, body_ir, epi_ir)):
-        raise UnsupportedProgram("observe is not supported by the lower-bound modes: conditioning has to be distinguished from non-termination (Klinkenberg et al., OOPSLA 2024), which these modes do not do yet")
+        raise UnsupportedProgram("observe is not supported by the lower-bound modes: conditioning has to be "
+                                 "distinguished from non-termination (Klinkenberg et al., OOPSLA 2024), which these "
+                                 "modes do not do yet")
     return LoopProblem(variables=variables, prefix=prefix_ir, guard=expr_to_ir(loop.cond), body=body_ir,
                        epilogue=epi_ir, queries=queries, forced_rates=forced)
+
+
+def queries_after(program: Program, loop: WhileInstr) -> List[Query]:
+    """The ``?Pr`` and ``?Ex`` queries that directly follow ``loop`` at the top level of ``program`` (``!Plot`` and
+    ``!Print`` are skipped; any other instruction ends the list). Marginal queries ``?Pr[x]`` and queries outside the
+    supported expressions are left out."""
+    instructions = list(program.instructions)
+    index = next((i for i, ins in enumerate(instructions) if ins is loop), None)
+    if index is None:
+        return []
+    queries: List[Query] = []
+    for ins in instructions[index + 1:]:
+        if isinstance(ins, (PlotInstr, PrintInstr)):
+            continue
+        if not isinstance(ins, (ProbabilityQueryInstr, ExpectationInstr)):
+            break
+        kind = "?Pr" if isinstance(ins, ProbabilityQueryInstr) else "?Ex"
+        if kind == "?Pr" and isinstance(ins.expr, VarExpr):
+            continue
+        try:
+            queries.append(Query(kind, expr_to_ir(ins.expr), str(ins.expr)))
+        except UnsupportedProgram:
+            continue
+    return queries
 
 
 def problem_from_loop(loop: WhileInstr, variables: List[str], init_expr: str) -> LoopProblem:
@@ -131,7 +160,9 @@ def problem_from_loop(loop: WhileInstr, variables: List[str], init_expr: str) ->
     if _geometric_samples(body_ir, {}):
         raise UnsupportedProgram("geometric sampling is only supported before the loop")
     if _contains(body_ir, "observe"):
-        raise UnsupportedProgram("observe is not supported by the lower-bound modes: conditioning has to be distinguished from non-termination (Klinkenberg et al., OOPSLA 2024), which these modes do not do yet")
+        raise UnsupportedProgram("observe is not supported by the lower-bound modes: conditioning has to be "
+                                 "distinguished from non-termination (Klinkenberg et al., OOPSLA 2024), which these "
+                                 "modes do not do yet")
     forced = {v: (r, p) for v, r, p in zip(variables, den.r, den.p) if r != 0}
     return LoopProblem(variables=list(variables), prefix=("seq", []), guard=expr_to_ir(loop.cond), body=body_ir,
                        epilogue=("seq", []), queries=[], forced_rates=forced, init_form=(numer, den))

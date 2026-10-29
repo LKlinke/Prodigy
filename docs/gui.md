@@ -71,6 +71,20 @@ from x = 1, invariant synthesis finds a fixed point with infinite mass and Prodi
 Pr[x = 0] = 1 is reported as an upper bound — the true value is 1/2. Unrolling 25
 iterations gives Pr[x = 0] ∈ [0.4956, 1].
 
+Two strategies give lower bounds without a termination assumption (package
+`prodigy.analysis.lowerbounds`, see the README):
+
+* **EVT sub-invariant** checks a generating function ν with finite mass and ν ≤ Φ(ν); then
+  [¬guard]·ν lies below the output (lower induction), and at most |Φ(ν)| − |ν| mass is
+  missing. If that is 0, the result is exact.
+* **EVT sandwich** synthesises a finite-mass sub-invariant and a super-invariant (Park) by
+  linear programming and checks both exactly. The ?Pr and ?Ex queries directly after the
+  loop get both sides from the two certificates — expectations included, which otherwise
+  only have a lower bound. For example, the random walk with a step counter in
+  `pgfexamples/lower_bounds/sandwich/rw_counter_23.pgcl` gives E[c] ∈ [2.99948, 3.00815].
+  Queries after other instructions fall back to the residual mass. Needs a rational input
+  distribution and no `observe`.
+
 ## Non-interactive analysis API
 
 The while handler no longer asks questions itself. An `AnalysisSession`

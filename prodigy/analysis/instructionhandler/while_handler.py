@@ -525,6 +525,118 @@ register_loop_strategy(LoopStrategy(
 ))
 
 
+
+# ---------------------------------------------------------------------------------------
+# Lower bounds without a termination assumption (prodigy.analysis.lowerbounds)
+# ---------------------------------------------------------------------------------------
+
+def _exact(value: Any) -> Any:
+    """Fraction (or ∞) from the lower-bound package -> sympy, ``None`` for ∞."""
+    if value is None or value == float("inf"):
+        return None
+    if isinstance(value, Fraction):
+        return sympy.Rational(value.numerator, value.denominator)
+    return sympy.nsimplify(value)
+
+
+def _strategy_evt_subinvariant(task: LoopTask) -> LoopOutcome:
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.lowerbounds.subinvariant import evt_subinvariant_verification
+    config = task.config
+    variables = [str(v) for v in task.prog_info.program.variables.keys()]
+    subinvariant = config.factory.from_expr(task.param("subinvariant"), *variables)
+    details: Dict[str, Any] = {}
+    lower = evt_subinvariant_verification(task.instruction, task.prog_info, task.distribution, subinvariant, config,
+                                          task.analyzer, details=details)
+    # The output lies coefficient-wise above `lower` (lower induction). The mass it misses is at most
+    # |Phi(nu)| - |nu|, and at most the mass that entered the loop minus |lower|.
+    residual = _mass(task.distribution) - _mass(lower)
+    gap = _exact(details.get("gap"))
+    if gap is not None:
+        residual = sympy.Min(residual, gap)
+    certificate = {
+        "type": "evt_subinvariant",
+        "subinvariant": str(subinvariant),
+        "mass": str(details.get("mass")),
+        "nonnegative": details.get("nonneg_nu"),
+        "subinvariance": details.get("nonneg_gap"),
+        "missing_mass": str(residual),
+    }
+    # |Phi(nu)| = |nu|: nu is the occupation measure itself, so the result is exact
+    kind = Bound.EXACT if residual == 0 else Bound.LOWER
+    return LoopOutcome(lower, task.error_prob, kind=kind, residual=residual, certificate=certificate)
+
+
+def _strategy_evt_sandwich(task: LoopTask) -> LoopOutcome:
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.lowerbounds.egcalc import directed_decimal
+    from prodigy.analysis.lowerbounds.problem import problem_from_loop, queries_after
+    from prodigy.analysis.lowerbounds.sandwich import evt_sandwich
+    _require_unconditioned(task)
+    variables = [str(v) for v in task.prog_info.program.variables.keys()]
+    problem = problem_from_loop(task.instruction, variables, str(task.distribution))
+    problem.queries = queries_after(task.prog_info.program, task.instruction)
+    result = evt_sandwich(problem)
+    if result.lower is None:
+        raise VerificationError("No finite-mass EVT sub-invariant found for the lower bound.")
+    lower = task.config.factory.from_expr(result.lower.calc.to_expr(result.lower.exit_numerator), *variables)
+    mass_low, mass_high = (_exact(m) for m in result.mass_bounds)
+    if mass_low is not None and mass_high is not None:
+        residual = mass_high - mass_low
+    else:
+        residual = _mass(task.distribution) - _mass(lower)
+    low, high = result.mass_bounds
+    certificate: Dict[str, Any] = {
+        "type": "evt_sandwich",
+        # rounded outwards, so the interval stays sound; the exact values follow
+        "termination_probability": [directed_decimal(low, False), directed_decimal(high, True)],
+        "termination_probability_exact": [str(mass_low), str(mass_high) if mass_high is not None else None],
+    }
+    for name, cert in (("lower", result.lower), ("upper", result.upper)):
+        summary = None
+        if cert is not None:
+            summary = cert.to_json()
+            summary.pop("numerator", None)  # the generating function says the same
+            summary["exit_mass_rounded"] = directed_decimal(cert.exit_mass, name == "upper")
+            summary["check"] = cert.extra.get("check")
+        certificate[name] = summary
+    query_bounds = {(bound.query.kind, bound.query.text): (_exact(bound.lower), _exact(bound.upper))
+                    for bound in result.bounds}
+    return LoopOutcome(lower, task.error_prob, kind=Bound.LOWER, residual=residual, certificate=certificate,
+                       query_bounds=query_bounds)
+
+
+register_loop_strategy(LoopStrategy(
+    name="evt_subinvariant",
+    title="EVT sub-invariant (lower bound)",
+    menu_text="Use EVT sub-invariant (lower bound, no termination assumption)",
+    legacy_key="7",
+    soundness=Bound.LOWER,
+    description="Checks that a generating function nu with finite mass satisfies nu ≤ Φ(nu) "
+                "coefficient-wise. By lower induction [¬guard]·nu is then a lower bound on the output, "
+                "without any termination assumption; the missing mass is at most |Φ(nu)| − |nu|. "
+                "Not for loops with observe in the body.",
+    params=(ParamSpec("subinvariant", "expression", "EVT sub-invariant nu", prompt="Enter EVT sub-invariant: ",
+                      help="Generating function over the program variables with finite mass, "
+                           "e.g. (1 + d/3)/(1 - 3/5*c)."),),
+    run=_strategy_evt_subinvariant,
+))
+
+register_loop_strategy(LoopStrategy(
+    name="evt_sandwich",
+    title="EVT sandwich (lower and upper bounds)",
+    menu_text="EVT sandwich: synthesise EVT sub- and super-invariants (lower and upper bounds)",
+    legacy_key="8",
+    soundness=Bound.LOWER,
+    description="Synthesises a finite-mass EVT sub-invariant (lower bound) and an EVT super-invariant "
+                "(upper bound, Park) with eventually geometric templates by linear programming, checks "
+                "both exactly, and bounds the ?Pr and ?Ex queries right after the loop from both sides. "
+                "Needs a rational input distribution and no observe.",
+    run=_strategy_evt_sandwich,
+    requires_unconditioned=True,
+))
+
+
 # ---------------------------------------------------------------------------------------
 # The handler
 # ---------------------------------------------------------------------------------------

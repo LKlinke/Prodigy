@@ -328,6 +328,28 @@ function certificateView(cert) {
               h("td", {}, yesNo(c.nonnegative)), h("td", {}, yesNo(c.finite_mass))))))))));
       }
       break;
+    case "evt_subinvariant":
+      add("Rule", "Lower induction: ν ≤ Φ(ν) and |ν| < ∞, so [¬guard]·ν lies below the output");
+      add("Sub-invariant ν", h("code", { class: "rv-wrap" }, cert.subinvariant));
+      add("|ν|", h("code", {}, cert.mass));
+      add("ν ≥ 0", cert.nonnegative);
+      add("ν ≤ Φ(ν)", cert.subinvariance);
+      add("Mass not accounted for", h("code", {}, cert.missing_mass));
+      break;
+    case "evt_sandwich": {
+      add("Rule", "Finite-mass sub-invariant below (lower induction), super-invariant above (Park); both checked exactly");
+      const [low, high] = cert.termination_probability || [];
+      add("Termination probability", h("code", {}, `[${low}, ${high === "inf" ? "∞" : high}]`));
+      for (const [label, c] of [["Sub-invariant", cert.lower], ["Super-invariant", cert.upper]]) {
+        if (!c) continue;
+        add(label, `${c.template_size} template values, rates ${c.rates.join(", ")}, periods ${c.periods.join(", ")}`);
+        add(`${label}: exit mass`, h("code", {}, `${c.kind === "upper" ? "≤" : "≥"} ${c.exit_mass_rounded ?? c.exit_mass}`));
+        if (c.check) add(`${label}: check`, c.check);
+        rows.push(h("div", { class: "rv-cert-block" }, h("dt", {}, `${label} H`),
+          h("dd", {}, h("pre", { class: "rv-pre" }, c.generating_function || ""))));
+      }
+      break;
+    }
     default:
       add("Details", h("code", { class: "rv-wrap" }, JSON.stringify(cert)));
   }

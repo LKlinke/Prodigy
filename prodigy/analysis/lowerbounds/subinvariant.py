@@ -1,3 +1,5 @@
+# pylint: disable=invalid-name,import-outside-toplevel
+# Names follow the mathematics (H, Phi, A, b, ...); scipy and FLINT are imported where they are needed.
 r"""
 Verification of user-provided EVT sub-invariants (lower induction).
 
@@ -16,7 +18,7 @@ from __future__ import annotations
 import logging
 import math
 from fractions import Fraction
-from typing import Callable, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
 
 import sympy
 from prodigy.pgcl import Instr, WhileInstr
@@ -36,7 +38,7 @@ def to_product_form(expr: Union[str, sympy.Expr], variables: Sequence[str]) -> O
     """Write a rational generating function as ``P / prod_i (1 - r_i X_i^{p_i})`` (at most one factor per variable,
     ``r_i >= 0``), or return None if this is not possible."""
     syms = [sympy.Symbol(v) for v in variables]
-    e = sympy.sympify(expr, locals={v: s for v, s in zip(variables, syms)}) if isinstance(expr, str) else expr
+    e = sympy.sympify(expr, locals=dict(zip(variables, syms))) if isinstance(expr, str) else expr
     e = sympy.together(sympy.expand(e))
     num, den = sympy.fraction(e)
     if any(s not in syms for s in e.free_symbols):
@@ -126,9 +128,13 @@ def evt_subinvariant_verification(loop: WhileInstr, prog_info: ProgramInfo, dist
                                   invariant: Distribution, config: ForwardAnalysisConfig,
                                   analyzer: Callable[[Union[Instr, Sequence[Instr]], ProgramInfo, Distribution,
                                                       Distribution, ForwardAnalysisConfig],
-                                                     Tuple[Distribution, Distribution]]) -> Distribution:
+                                                     Tuple[Distribution, Distribution]],
+                                  details: Optional[Dict[str, Any]] = None) -> Distribution:
     """Verify an EVT sub-invariant ``nu`` of finite mass and return the lower bound ``<nu>_{not G}`` on the output
-    distribution of the loop (raises :class:`VerificationError` if the conditions cannot be established)."""
+    distribution of the loop (raises :class:`VerificationError` if the conditions cannot be established).
+
+    ``details``, if given, receives ``mass`` (``|nu|``), ``gap`` (``|Phi(nu)| - |nu|``, which bounds the mass that the
+    lower bound misses), ``exit_mass`` and how non-negativity was established (``nonneg_nu``, ``nonneg_gap``)."""
     print(f"{Style.YELLOW}Sub-invariant verification (lower induction) initiated...{Style.RESET}")
     from prodigy.analysis.lowerbounds.ir import instr_to_ir
     from prodigy.analysis.lowerbounds.problem import _contains
@@ -154,7 +160,8 @@ def evt_subinvariant_verification(loop: WhileInstr, prog_info: ProgramInfo, dist
         except Exception as exc:  # pylint: disable=broad-except
             raise VerificationError(f"Could not determine the mass of nu: {exc}") from exc
         if mass is None:
-            raise VerificationError("Could not determine the mass of nu: the closed form is not rational, and evaluating "
+            raise VerificationError("Could not determine the mass of nu: the closed form is not rational, "
+                                    "and evaluating "
                                     "it at 1 is only sound inside the radius of convergence.")
     if mass == math.inf:
         raise VerificationError("nu has infinite mass; lower induction needs |nu| < inf.")
@@ -163,6 +170,8 @@ def evt_subinvariant_verification(loop: WhileInstr, prog_info: ProgramInfo, dist
     exit_mass = exact_mass(str(exit_part), variables)
     print(f"{Style.OKGREEN}Sub-invariant verified:{Style.RESET} nu >= 0 [{how1}], nu <= Phi(nu) [{how2}], "
           f"|nu| = {mass} < inf.")
+    if details is not None:
+        details.update(mass=mass, gap=gap, exit_mass=exit_mass, nonneg_nu=how1, nonneg_gap=how2)
     if gap is not None and exit_mass is not None:
         print(f"{Style.GREEN}Lower bound on the output distribution:{Style.RESET} {exit_part}")
         print(f"{Style.GREEN}Termination probability in{Style.RESET} [{directed_decimal(exit_mass, False)}, "

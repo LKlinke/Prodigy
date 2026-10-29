@@ -59,8 +59,9 @@ describes the non-interactive analysis API (`prodigy analyze --json`).
 The package `prodigy.analysis.lowerbounds` adds two analysis modes for programs with a single loop. They implement the
 rules of the paper *Finite Mass Is All It Takes: Lower Bounds for Probabilistic Loops without Termination
 Assumptions*. The occupation measure of a loop is what Prodigy calls its
-expected visiting times (EVT). Both modes are available interactively in the while handler (options `[7]` and `[8]`)
-and as CLI commands:
+expected visiting times (EVT). Both modes are loop strategies (`evt_subinvariant` and `evt_sandwich`): in the web GUI,
+in `prodigy analyze --loop 0=evt_sandwich`, interactively in the while handler (options `[7]` and `[8]`), and as CLI
+commands:
 
 | command | while handler | what it does |
 |---|---|---|

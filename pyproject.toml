@@ -26,6 +26,7 @@ dependencies = [
     "symengine>=0.14.0,<0.15",
     "setuptools>=76.0.0,<77",
     # lower-bound modes (prodigy.analysis.lowerbounds): HiGHS LP solver (scipy), exact rational linear algebra (FLINT)
+    "numpy>=1.26",
     "scipy>=1.11",
     "python-flint>=0.6",
 ]
