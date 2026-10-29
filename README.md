@@ -16,8 +16,8 @@ To install Prodigy, follow these steps:
 
 1. Make sure [Python](https://www.python.org/downloads/) 3.11 or newer is installed (tested with 3.11 and 3.14).
 2. Install [GiNaC](https://www.ginac.de/Download.html), which also requires [CLN](https://www.ginac.de/CLN/).
-3. Install [Poetry](https://python-poetry.org/docs/#installation).
-4. Clone or download the Prodigy repository, open a command prompt in its root folder, and type `./install.sh`. This should automatically install all required dependencies.
+3. Install [uv](https://docs.astral.sh/uv/getting-started/installation/).
+4. Clone or download the Prodigy repository, open a command prompt in its root folder, and type `./install.sh`. This installs Prodigy with the dependency versions locked in `uv.lock` into `.venv`, and the Z3 solver for pysmt.
 
 If no errors occurred, you have successfully installed Prodigy.
 Now there are two options on how to use the tool. You can either use the command-line interface (CLI) or use the webservice frontend. The next section (_Basic Usage_) details how to achieve both of these things.
@@ -36,21 +36,24 @@ If you run into trouble during installation, this subsection might be of help. I
 ## Basic Usage
 ### CLI
 
-1. In the project directory, type ``poetry shell``. This activates the freshly installed virtual environment.
-2. Now, you can use prodigy by executing the script via `python prodigy/cli.py ...`. For more information, see the help message or have a look into the documentation.
+1. In the project directory, run prodigy with ``uv run prodigy ...`` (or activate the virtual environment with ``source .venv/bin/activate`` and type ``prodigy ...``).
+2. For more information, see the help message (``uv run prodigy --help``) or have a look into the documentation.
 
 
 ### Web GUI
-1. Activate the virtual environment by ``poetry shell``.
-2. Type ``prodigy web`` (or ``prodigy --engine ginac web`` for the faster GiNaC engine). The GUI opens in your browser.
-3. Write or load a program, choose a strategy for each loop under *Setup*, and press *Analyze* (⌘/Ctrl + Return).
+1. Type ``uv run prodigy web`` (or ``uv run prodigy --engine ginac web`` for the faster GiNaC engine). The GUI opens in your browser.
+2. Write or load a program, choose a strategy for each loop under *Setup*, and press *Analyze* (⌘/Ctrl + Return).
 
 Results come with their guarantee (exact, lower bound with residual mass, upper bound), and
 queries are answered with sound intervals. See [docs/gui.md](docs/gui.md), which also
 describes the non-interactive analysis API (`prodigy analyze --json`).
 
 ### Webservice (legacy)
-1. Activate the virtual environment by ``poetry shell``.
-2. Type ``web-service``.
-3. Open a browser and locate `localhost:8080`.
+1. Type ``uv run web-service``.
+2. Open a browser and locate `localhost:8080`.
+
+## Development
+
+- `make lint`, `make mypy` and `make test` run the checks of the CI (pylint, mypy, and the tests with coverage; see `.github/workflows/main.yml`).
+- Dependencies are locked in `uv.lock`. After changing them in `pyproject.toml`, run `uv lock` and commit both files. `uv lock --upgrade` updates all dependencies within their constraints; Dependabot proposes such updates monthly as pull requests.
 

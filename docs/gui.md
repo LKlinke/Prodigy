@@ -5,16 +5,16 @@ program, choose how each `while` loop is analysed, and get the output distributi
 answers to the queries — each with what is *guaranteed* about it.
 
 ```sh
-poetry install
-poetry run prodigy web                    # http://localhost:8080
-poetry run prodigy --engine ginac web     # GiNaC as default engine (usually much faster)
-poetry run prodigy web --port 9000 --time-limit 300 --no-browser
+uv sync
+uv run prodigy web                    # http://localhost:8080
+uv run prodigy --engine ginac web     # GiNaC as default engine (usually much faster)
+uv run prodigy web --port 9000 --time-limit 300 --no-browser
 ```
 
 The GUI needs no Node.js or internet connection; the editor (CodeMirror 6) and KaTeX are
 vendored under `prodigy/web/static/vendor/`.
 
-Prodigy is tested with Python 3.11 and 3.14. On Python 3.13 and later, `poetry install` compiles
+Prodigy is tested with Python 3.11 and 3.14. On Python 3.13 and later, `uv sync` compiles
 numpy 1.26.4 from source (a few minutes; networkx 2.5, which `probably` pins, does not work
 with numpy 2).
 

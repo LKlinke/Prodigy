@@ -7,7 +7,7 @@ ENV LANG=C.UTF-8
 RUN ln -snf /usr/share/zoneinfo/Etc/UTC /etc/localtime \
     && echo "Etc/UTC" > /etc/timezone
 
-# setup git so we can use it with poetry later
+# setup git so uv can install the dependencies from GitHub
 RUN apt update && apt install -y git
 RUN git config --global user.name "Docker" && git config --global user.email "docker@example.com"
 
@@ -22,21 +22,16 @@ RUN apt install -y graphviz
 RUN apt install -y libginac-dev
 RUN apt install -y dos2unix
 
-# Setup poetry as python package manager
+# Setup uv as python package manager
 RUN apt install -y curl
-RUN curl -sSL https://install.python-poetry.org | python3 - 
-RUN ln -s /root/.local/bin/poetry /usr/local/bin/poetry
-RUN poetry config virtualenvs.in-project true
-
-
+RUN pip install --no-cache-dir uv==0.11.32
 
 WORKDIR /root/artifact
 COPY . .
 
-RUN poetry env use 3.11 
-RUN poetry update
-RUN poetry install --no-interaction
-
-RUN bash -c "source ./.venv/bin/activate && pip install z3-solver"
+# Install the dependencies exactly as locked in uv.lock into ./.venv, with the image's Python
+ENV UV_PYTHON_DOWNLOADS=never UV_LINK_MODE=copy
+RUN uv sync --locked
+RUN uv pip install z3-solver
 RUN bash -c "dos2unix load_env.sh"
 CMD ["bash", "--rcfile", "./load_env.sh", "-i"]

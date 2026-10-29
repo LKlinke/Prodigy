@@ -1,7 +1,7 @@
 """
 prodigy also offers a simple command-line interface for quick program inspection.
 
-If you use `poetry` and do not have prodigy installed globally, you can use `poetry run prodigy INPUT`.
+If you do not have prodigy installed globally, you can use `uv run prodigy INPUT` in the project folder.
 
 .. click:: prodigy.cli:cli
    :prog: prodigy
