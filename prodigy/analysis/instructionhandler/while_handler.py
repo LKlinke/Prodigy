@@ -5,7 +5,6 @@ import sys
 from fractions import Fraction
 from typing import Callable, Union, Sequence
 
-import sympy
 from probably.pgcl import Instr, parse_pgcl, Program, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig

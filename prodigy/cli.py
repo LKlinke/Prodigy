@@ -25,7 +25,6 @@ from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrate
 from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
 from prodigy.analysis.evtinvariants.invariant_verification import evt_invariant_verification
-from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.analysis.independence.independence import independent_vars as get_independent_vars_of
@@ -267,9 +266,9 @@ def invariant_synthesis(ctx, program_file: IO, invariant: str, input_dist: str):
     strategy = SynthesisStrategies.make(config.strategy, prog.variables.keys(), config.factory)
     start = time.perf_counter()
     if invariant:
-        invariant = config.factory.from_expr(invariant, *prog.variables.keys())
+        invariant_dist = config.factory.from_expr(invariant, *prog.variables.keys())
         evt_invariant_verification(prog.instructions[loops.index(1)],
-                        ProgramInfo(prog), dist, invariant, config, compute_semantics)
+                        ProgramInfo(prog), dist, invariant_dist, config, compute_semantics)
     else:
         evt_invariant_synthesis(prog.instructions[loops.index(1)],
                                             ProgramInfo(prog), dist, config, strategy, compute_semantics)
