@@ -1,0 +1,15 @@
+# skip
+nat c;
+nat m;
+nat n;
+nat tmp;
+
+if (c > 0){
+    tmp := iid(bernoulli(1/2), c)
+    m := m + tmp
+    n := n + (c-tmp)
+    c := 0
+    tmp := 0
+} else {skip}
+
+// this basically generates ((m+n)/2) ^ k where k is the value of c in that state.

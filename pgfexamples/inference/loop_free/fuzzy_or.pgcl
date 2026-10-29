@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/fuzzy_or.pgcl
 nat n0;
 nat n1;
 nat n2;

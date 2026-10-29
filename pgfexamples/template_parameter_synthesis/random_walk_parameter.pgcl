@@ -1,3 +1,4 @@
+# check_equality pgfexamples/template_parameter_synthesis/random_walk_parameter.pgcl pgfexamples/template_parameter_synthesis/invariants/random_walk_parameter_invariant.pgcl
 nat s;
 nat c;
 nat tmp;

@@ -1,5 +1,0 @@
-nat n;
-nat s;
-
-n := poisson(5);
-s := iid(geometric(1/2), n)

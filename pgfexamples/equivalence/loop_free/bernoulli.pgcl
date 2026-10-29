@@ -1,0 +1,4 @@
+# check_equality pgfexamples/equivalence/loop_free/bernoulli.pgcl pgfexamples/equivalence/loop_free/bernoulli2.pgcl
+nat x;
+
+{ x := 0 } [1/3] { x := 1 }

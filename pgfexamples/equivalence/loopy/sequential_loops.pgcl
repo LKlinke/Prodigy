@@ -1,0 +1,17 @@
+# check_equality pgfexamples/equivalence/loopy/sequential_loops.pgcl pgfexamples/equivalence/loopy/invariants/sequential_loops_invariant1.pgcl
+nat c;
+nat m;
+nat n;
+nat tmp;
+
+while (0 < n) {
+ tmp := unif(1,6);
+ m := m + tmp;
+ tmp := 0;
+ n := n-1
+}
+while(m > 0){
+    {m := m+1} [1/2] {m := m-1}
+    c := c+1
+    tmp := 0
+}

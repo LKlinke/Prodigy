@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/function.pgcl
 fun f := {
     nat a;
     return 20*a + 2;

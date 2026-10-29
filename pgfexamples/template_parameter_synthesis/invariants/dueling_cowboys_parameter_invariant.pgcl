@@ -1,3 +1,4 @@
+# skip
 nat t; // t = 0 player A's turn; t = 1 player B's turn; t>1 not interpretable
 nat c; // c=1, both player alive; c = 0 one player dead; c>1 not interpretable
 rparam a; // probability that Player A shoots player B in a turn.

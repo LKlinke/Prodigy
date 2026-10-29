@@ -5,19 +5,20 @@ import sys
 from fractions import Fraction
 from typing import Callable, Union, Sequence
 
-import sympy
 from probably.pgcl import Instr, parse_pgcl, Program, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategy, SynthesisStrategies
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
+from prodigy.analysis.evtinvariants.invariant_verification import evt_invariant_verification
 from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.distribution import Distribution, State
 from prodigy.distribution.generating_function import SympyPGF
+from prodigy.pgcl.pgcl_operations import cav_phi
 from prodigy.util.color import Style
 from prodigy.util.logger import print_progress_bar, log_setup
 
@@ -47,8 +48,12 @@ class WhileHandler(InstructionHandler):
                            instructions=[instruction],
                            functions=prog_info.functions)
             print(f"{Style.YELLOW}Verifying invariant...{Style.RESET}")
+
+            # First we create the modified input program in order to fit the premise of Park's Lemma
+            phi_inv = cav_phi(prog, inv_prog)
+
             answer, result = check_equivalence(
-                prog, inv_prog, config, analyzer)
+                inv_prog, phi_inv, config, analyzer)
             if answer:
                 assert isinstance(result, list)
                 if len(result) == 0:
@@ -167,7 +172,7 @@ class WhileHandler(InstructionHandler):
             print_progress_bar(i + 1, max_iter, length=50)
             evt = distribution + \
                   analyzer(instruction.body, prog_info, evt.filter(instruction.cond), error_prob, config)[0]
-        print(evt)
+        #print(evt)
         return (evt - evt.filter(instruction.cond)), error_prob
 
     @staticmethod
@@ -184,33 +189,12 @@ class WhileHandler(InstructionHandler):
     ) -> tuple[Distribution, Distribution]:
         assert error_prob.is_zero_dist(), "Currently EVT reasoning does not support conditioning."
         evt_inv = config.factory.from_expr(input("Enter EVT invariant: "), *prog_info.program.variables.keys())
-        phi = distribution + \
-              analyzer(instruction.body, prog_info, evt_inv.filter(instruction.cond), error_prob, config)[0]
-        logger.debug("Trying to validate user specified invariant: %s", evt_inv)
-        logger.debug("Phi(inv) = %s", phi)
-        if evt_inv == phi:
-            print(f"{Style.OKGREEN}Invariant validated!{Style.RESET}")
-            return evt_inv - evt_inv.filter(instruction.cond), error_prob
-        diff = evt_inv - phi
-        solution_candidates = sympy.solve(sympy.S(str(diff)), evt_inv.get_parameters(), dict=True)
-        print(f"Solution candidates: {solution_candidates}")
-        solutions = []
-        for candidate in solution_candidates:
-            for _, val in candidate.items():
-                if not {str(s) for s in val.free_symbols} <= evt_inv.get_parameters():
-                    break
-            else:
-                if not all(map(lambda x: x == 0, candidate.values())):
-                    solutions.append(candidate)
-        if len(solutions) > 0:
-            print(f"All solutions: {solutions}")
-            # TODO use a solution to compute the final distribution.
-            logger.info("Using the first solution to continue.")
-            sol_dist = config.factory.from_expr(
-                sympy.S(str(evt_inv - evt_inv.filter(instruction.cond))).subs(solutions[0]))
-            return sol_dist, error_prob
-
-        raise VerificationError(f"Could not validate the EVT invariant {evt_inv}")
+        solution = evt_invariant_verification(instruction, prog_info, distribution, evt_inv, config, analyzer)
+        if solution is not None:
+            print(f"{Style.OKGREEN}Continuing with {solution}{Style.RESET}")
+            return solution, error_prob
+        else:
+            raise VerificationError(f"Could not validate the EVT invariant {evt_inv}")
 
     @staticmethod
     def _evt_invariant_synthesis(

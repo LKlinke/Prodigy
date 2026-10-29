@@ -1,3 +1,4 @@
+# check_equality pgfexamples/template_parameter_synthesis/geometric_parameter.pgcl pgfexamples/template_parameter_synthesis/invariants/geometric_parameter_invariant.pgcl
 nat x;
 nat c;
 nat temp;

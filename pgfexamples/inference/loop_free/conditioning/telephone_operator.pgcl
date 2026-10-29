@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/conditioning/telephone_operator.pgcl
 nat x; // 0: weekday, 1: weekend
 nat d; // sample the number of phone calls received in one hour.
 //rparam p;

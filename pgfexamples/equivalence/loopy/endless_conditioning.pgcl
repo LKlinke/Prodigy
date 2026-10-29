@@ -1,0 +1,7 @@
+# check_equality pgfexamples/equivalence/loopy/endless_conditioning.pgcl pgfexamples/equivalence/loopy/invariants/endless_conditioning_invariant.pgcl
+nat x;
+
+while(x=1){
+{x := 0}[1/2]{x:=1}
+observe(x=1)
+}

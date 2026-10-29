@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loopy/conditioning/dep_bern.pgcl
 nat c;
 nat m;
 nat n;

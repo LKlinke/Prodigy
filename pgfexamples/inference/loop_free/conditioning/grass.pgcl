@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/conditioning/grass.pgcl
 nat cloudy;
 nat rain;
 nat sprinkler;

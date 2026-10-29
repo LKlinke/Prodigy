@@ -1,0 +1,11 @@
+# check_equality pgfexamples/equivalence/loopy/geometric_observe.pgcl pgfexamples/equivalence/loopy/invariants/geometric_observe_invariant.pgcl
+nat y;
+nat x;
+nat tmp;
+
+while ( y = 1){
+    {y := 0}[1/2]{y := 1};
+    x := x + 1;
+    observe( x < 3)
+    tmp := 0;
+}

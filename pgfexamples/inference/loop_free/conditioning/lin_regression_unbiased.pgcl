@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/conditioning/lin_regression_unbiased.pgcl
 nat a;
 nat b;
 nat x1;

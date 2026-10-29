@@ -1,0 +1,10 @@
+# check_equality pgfexamples/equivalence/loopy/random_walk.pgcl pgfexamples/equivalence/loopy/invariants/random_walk_invariant.pgcl
+nat s;
+nat c;
+nat tmp;
+
+while(s > 0){
+    {s := s+1} [1/2] {s := s-1}
+    c := c+1
+    tmp := 0
+}

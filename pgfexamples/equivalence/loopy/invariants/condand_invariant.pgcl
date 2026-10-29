@@ -1,0 +1,16 @@
+# skip
+nat n;
+nat m;
+
+if ((0 < n ) & (0 < m)){
+    # The "closed-form" solution for this program is
+    #
+    #
+    # Sum[Binomial[a + b - i - 1, b - 1] 2^(i - a - b)*n^i, {i, 1, a}] +
+    # Sum[Binomial[a + b - j - 1, a - 1] 2^(j - a - b)*m^j, {j, 1, b}]
+    #
+    #
+    # which does not admit a nice closed-form.
+
+    skip
+} else {skip}

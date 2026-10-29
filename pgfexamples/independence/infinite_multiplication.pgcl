@@ -1,3 +1,5 @@
+# skip
+# fails (on purpose)
 nat x;
 nat y;
 nat z;

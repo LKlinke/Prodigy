@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/monty_hall.pgcl
 nat prize;
 nat player;
 nat opendoor;

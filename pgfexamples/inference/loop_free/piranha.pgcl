@@ -1,3 +1,4 @@
+# main pgfexamples/inference/loop_free/piranha.pgcl
 nat piranha
 nat fish_taken_is_piranha
 

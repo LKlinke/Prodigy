@@ -1,0 +1,11 @@
+# skip
+nat dice;
+nat tmp;
+
+# Roll a three-sided dice
+tmp := unif(1,3);
+
+# Flip a coin, leave or increase by 3
+{ dice := tmp; } [1/2] { dice := tmp + 3; }
+
+tmp := 0;

@@ -1,0 +1,10 @@
+# check_equality pgfexamples/equivalence/loopy/geometric_shifted.pgcl pgfexamples/equivalence/loopy/invariants/geometric_shifted_invariant.pgcl
+nat x;
+nat c;
+nat temp;
+rparam p;
+
+while (x > 0){
+ {x := 0; c := c + 3 } [1/2] {c := c+1}
+ temp := 0
+}

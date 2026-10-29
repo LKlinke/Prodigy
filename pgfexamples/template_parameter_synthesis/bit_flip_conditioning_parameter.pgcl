@@ -1,3 +1,4 @@
+# check_equality pgfexamples/template_parameter_synthesis/bit_flip_conditioning_parameter.pgcl pgfexamples/template_parameter_synthesis/invariants/bit_flip_conditioning_parameter_invariant.pgcl
 bool b1
 bool b2
 bool b3

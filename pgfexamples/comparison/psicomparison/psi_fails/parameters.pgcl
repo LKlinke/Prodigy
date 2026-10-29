@@ -1,7 +1,0 @@
-// can be substituted by the telephone operator
-nat n;
-nparam lam;
-
-n := poisson(lam);
-
-observe(n > 5)
