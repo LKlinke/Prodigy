@@ -1,3 +1,5 @@
+# pylint: disable=invalid-name
+# Names follow the mathematics (H, Phi, A, b, ...); scipy and FLINT are imported where they are needed.
 """
 Translation of pGCL programs (the AST of prodigy.pgcl) into the small intermediate representation used by the
 exact generating-function calculus of :mod:`prodigy.analysis.lowerbounds.egcalc`.

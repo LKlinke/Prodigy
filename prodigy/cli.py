@@ -325,6 +325,7 @@ def evt_lower_bound(ctx, program_file: IO, invariant: str, input_dist: str):
     NU(1,...,1) < oo) and continues the analysis with the resulting lower bound on the output distribution of the
     loop.  No termination assumption is needed.
     """
+    # pylint: disable=import-outside-toplevel
     from prodigy.analysis.lowerbounds.subinvariant import evt_subinvariant_verification
     prog = compiler.parse_pgcl(program_file.read())
     if isinstance(prog, CheckFail):
@@ -336,8 +337,8 @@ def evt_lower_bound(ctx, program_file: IO, invariant: str, input_dist: str):
     zero = config.factory.from_expr("0", *variables)
     dist, err = compute_semantics(prefix, ProgramInfo(prog), dist, zero, config)
     start = time.perf_counter()
-    nu = config.factory.from_expr(invariant, *variables)
-    lower = evt_subinvariant_verification(loop, ProgramInfo(prog), dist, nu, config, compute_semantics)
+    subinvariant = config.factory.from_expr(invariant, *variables)
+    lower = evt_subinvariant_verification(loop, ProgramInfo(prog), dist, subinvariant, config, compute_semantics)
     print(f"{Style.CYAN}Queries below are evaluated on the lower bound (they are lower bounds for the unnormalised "
           f"probabilities and expectations).{Style.RESET}")
     compute_semantics(rest, ProgramInfo(prog), lower, err, config)
@@ -346,6 +347,7 @@ def evt_lower_bound(ctx, program_file: IO, invariant: str, input_dist: str):
 
 def _parse_shape(spec: str):
     """'r1,r2;p1,p2;b1,b2' -> TemplateShape"""
+    # pylint: disable=import-outside-toplevel
     from fractions import Fraction
     from prodigy.analysis.lowerbounds.parameters import TemplateShape
     parts = spec.split(";")
@@ -359,7 +361,6 @@ def _parse_shape(spec: str):
 
 
 @cli.command('evt_sandwich')
-@click.pass_context
 @click.argument('program_file', type=click.File('r'))
 @click.option('--size', type=int, default=1200, show_default=True,
               help="Budget for the number of template values of the lower certificate.")
@@ -371,11 +372,14 @@ def _parse_shape(spec: str):
 @click.option('--objective', type=click.Choice(['auto', 'mass']), default='auto', show_default=True,
               help="Objective of the upper certificate (auto: exit mass plus the moments of ?Ex queries).")
 @click.option('--per-query/--no-per-query', default=None,
-              help="Re-optimise the upper certificate for every ?Pr query (default: only if its exit mass is infinite).")
+              help="Re-optimise the upper certificate for every ?Pr query "
+                   "(default: only if its exit mass is infinite).")
 @click.option('--show-certificates', is_flag=True, default=False)
 @click.option('--json', 'json_path', type=str, default=None, help="Write certificates and bounds to this file.")
-def evt_sandwich(ctx, program_file: IO, size: int, lower_specs, upper_specs, no_upper: bool, objective: str,
-                 per_query, show_certificates: bool, json_path: str):
+def evt_sandwich(  # pylint: disable=too-many-arguments
+        program_file: IO, size: int, lower_specs, upper_specs, no_upper: bool, objective: str,
+        per_query, show_certificates: bool, json_path: str):
+    # pylint: disable=import-outside-toplevel
     """
     Sandwich bounds for a program with one loop: synthesises an EVT sub-invariant of finite mass (lower bound,
     no termination assumption) and an EVT super-invariant (upper bound) with eventually geometric templates by

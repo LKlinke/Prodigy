@@ -1,3 +1,5 @@
+# pylint: disable=invalid-name,import-outside-toplevel,use-dict-literal
+# Names follow the mathematics (H, Phi, A, b, ...); scipy and FLINT are imported where they are needed.
 r"""
 Sandwich bounds for the output distribution of a loop: an exactly verified finite-mass EVT sub-invariant (lower
 induction) bounds the output distribution from below, an exactly verified EVT super-invariant (Park induction)
@@ -16,11 +18,11 @@ import math
 import time
 from dataclasses import dataclass, field
 from fractions import Fraction
-from typing import Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 from prodigy.analysis.lowerbounds import explicit
-from prodigy.analysis.lowerbounds.egcalc import Denominator, GFCalculus, Num, directed_decimal, padd, pmul
-from prodigy.analysis.lowerbounds.ir import IR, UnsupportedProgram, eval_expr
+from prodigy.analysis.lowerbounds.egcalc import Denominator, GFCalculus, Num, directed_decimal, pmul
+from prodigy.analysis.lowerbounds.ir import IR, UnsupportedProgram
 from prodigy.analysis.lowerbounds.parameters import ParameterPlan, TemplateShape, plan_parameters
 from prodigy.analysis.lowerbounds.problem import LoopProblem, Query
 from prodigy.analysis.lowerbounds.synthesis import Certificate, TemplateLP, verify_certificate
@@ -51,6 +53,7 @@ class SandwichResult:
     time_total: float
     plan: Optional[ParameterPlan] = None
     attempts: List[dict] = field(default_factory=list)
+    per_query: dict = field(default_factory=dict)
 
     def to_json(self) -> dict:
         return dict(variables=self.problem.variables,
@@ -83,6 +86,7 @@ def _upper_support(problem: LoopProblem, shape: TemplateShape, rounds: int = 6) 
     within the box do not suffice: the geometric tails of the template copy the values of the last layer of the box
     beyond the box, and the mass of these copies flows back into the box.  We therefore close the reachable states
     under these copies and under the transitions of the body, within a box twice as large."""
+    assert shape.reach_box is not None
     halo = [2 * b + 2 if r != 0 else b for b, r in zip(shape.reach_box, shape.rates)]
     seeds = set(problem.initial_measure().keys())
     reach: set = set()
@@ -137,7 +141,7 @@ def _moment_bound(calc: GFCalculus, num: Num, expr: IR):
     a, var, b = aff
     if a < 0 or b < 0:
         raise UnsupportedProgram("expectations with negative coefficients are not supported")
-    total = Fraction(0)
+    total: Union[Fraction, float] = Fraction(0)
     if b != 0:
         m = calc.mass(num)
         if m == INF:
@@ -176,8 +180,9 @@ def synthesize_lower(problem: LoopProblem, shapes: Sequence[TemplateShape], verb
             if attempts is not None:
                 attempts.append(dict(kind="lower", shape=shape.describe(), error=str(exc)))
             continue
-        rec = dict(kind="lower", shape=shape.describe(), size=lp.size, time_build=round(lp.time_build, 3),
-                   time_lp=round(lp.time_lp, 3), success=h is not None)
+        rec: Dict[str, Any] = dict(kind="lower", shape=shape.describe(), size=lp.size,
+                                   time_build=round(lp.time_build, 3), time_lp=round(lp.time_lp, 3),
+                                   success=h is not None)
         if h is not None:
             cert = lp.certificate(h, "lower")
             rec["exit_mass"] = directed_decimal(cert.exit_mass, False)
@@ -230,8 +235,9 @@ def synthesize_upper(problem: LoopProblem, shapes: Sequence[TemplateShape], obje
             if attempts is not None:
                 attempts.append(dict(kind="upper", shape=shape.describe(), error=str(exc)))
             continue
-        rec = dict(kind="upper", shape=shape.describe(), size=lp.size, time_build=round(lp.time_build, 3),
-                   time_lp=round(lp.time_lp, 3), success=h is not None)
+        rec: Dict[str, Any] = dict(kind="upper", shape=shape.describe(), size=lp.size,
+                                   time_build=round(lp.time_build, 3), time_lp=round(lp.time_lp, 3),
+                                   success=h is not None)
         if h is not None:
             done_groups.add(shape.group)
             cert = lp.certificate(h, "upper")
@@ -286,7 +292,7 @@ def query_bounds(problem: LoopProblem, lower: Optional[Certificate], upper: Opti
     lpost = _post(lower.calc, problem, lower.numerator) if lower else {}
     upost = _post(upper.calc, problem, upper.numerator) if upper else None
     l_mass = lower.calc.mass(lpost) if lower else Fraction(0)
-    u_mass = upper.calc.mass(upost) if upper else INF
+    u_mass = upper.calc.mass(upost) if upper is not None and upost is not None else INF
     mass_hi = min(u_mass, g_mass)
     mass_lo = l_mass
 
@@ -317,7 +323,7 @@ def query_bounds(problem: LoopProblem, lower: Optional[Certificate], upper: Opti
             out.append(QueryBound(q, lo, hi))
         else:
             lo = _moment_bound(lower.calc, lpost, q.expr) if lower else Fraction(0)
-            hi = _moment_bound(upper.calc, upost, q.expr) if upper else INF
+            hi = _moment_bound(upper.calc, upost, q.expr) if upper is not None and upost is not None else INF
             out.append(QueryBound(q, lo, hi))
     return out, (mass_lo, mass_hi)
 
@@ -348,6 +354,7 @@ def evt_sandwich(problem: LoopProblem, lower_shapes: Optional[Sequence[TemplateS
     if with_upper:
         if verbose:
             print(f"{Style.YELLOW}Synthesising an EVT super-invariant (upper bound)...{Style.RESET}")
+        assert upper_shapes is not None
         upper = synthesize_upper(problem, upper_shapes, objective=objective, verbose=verbose, attempts=attempts)
     # independent re-check of the final certificates
     for cert in (lower, upper):
@@ -378,7 +385,6 @@ def evt_sandwich(problem: LoopProblem, lower_shapes: Optional[Sequence[TemplateS
 
 
 def print_result(res: SandwichResult, show_certificates: bool = False):
-    p = res.problem
     if res.lower is None:
         print(f"{Style.OKRED}No lower certificate found.{Style.RESET}")
     else:

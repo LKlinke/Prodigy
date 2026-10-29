@@ -1,3 +1,5 @@
+# pylint: disable=invalid-name,import-outside-toplevel
+# Names follow the mathematics (H, Phi, A, b, ...); scipy and FLINT are imported where they are needed.
 r"""
 Explicit-state semantics of loop-free statements of the intermediate representation, on measures given as
 dicts ``state tuple -> weight`` (exact :class:`fractions.Fraction` or ``float``), and a sparse Kleene iteration for
@@ -8,12 +10,12 @@ from __future__ import annotations
 
 import math
 from fractions import Fraction
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from prodigy.analysis.lowerbounds.ir import IR, UnsupportedProgram, eval_expr, eval_number
 
 State = Tuple[int, ...]
-Measure = Dict[State, object]
+Measure = Dict[State, Any]  # weights: Fractions or floats
 
 
 def _weight(p, like):

@@ -1,3 +1,5 @@
+# pylint: disable=invalid-name,import-outside-toplevel,use-dict-literal
+# Names follow the mathematics (H, Phi, A, b, ...); scipy and FLINT are imported where they are needed.
 r"""
 Synthesis of EVT (occupation) sub- and superinvariants with eventually geometric templates by linear
 programming, with exact rational certificates.
@@ -22,7 +24,7 @@ import math
 import time
 from dataclasses import dataclass, field
 from fractions import Fraction
-from typing import Callable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -39,11 +41,11 @@ class Certificate:
     numerator: Num
     exit_numerator: Num
     template_size: int
-    margin: float
+    margin: Optional[float]
     time_build: float
     time_lp: float
-    exit_mass: object = None
-    total_mass: object = None
+    exit_mass: Any = None
+    total_mass: Any = None
     extra: dict = field(default_factory=dict)
 
     @property
@@ -91,23 +93,23 @@ def scaled_expansion(calc: GFCalculus, polys: Sequence[Num], box: Sequence[int])
         axis_scales.append(scales)
         for v in range(n_i):
             if scales[v] != 1:
-                idx = [slice(None)] * (d + 1)
+                idx: List[Any] = [slice(None)] * (d + 1)
                 idx[i] = v
                 arr[tuple(idx)] *= scales[v]
         rf = float(r)
         for v in range(p, n_i):
-            iv = [slice(None)] * (d + 1)
+            iv: List[Any] = [slice(None)] * (d + 1)
             iv[i] = v
-            iw = [slice(None)] * (d + 1)
+            iw: List[Any] = [slice(None)] * (d + 1)
             iw[i] = v - p
             arr[tuple(iv)] += a * arr[tuple(iw)]
             farr[tuple(iv)] += rf * farr[tuple(iw)]
     rows = int(np.prod(shape[:-1]))
     scale = []
-    for idx in np.ndindex(*shape[:-1]):
+    for cell in np.ndindex(*shape[:-1]):
         sc = common
         for i in range(d):
-            sc *= axis_scales[i][idx[i]]
+            sc *= axis_scales[i][cell[i]]
         scale.append(sc)
     return arr.reshape(rows, len(polys)), farr.reshape(rows, len(polys)), scale
 
@@ -150,7 +152,7 @@ class TemplateLP:
         self.row_scale = scale
         self.time_build = time.perf_counter() - t0
         self.time_lp = 0.0
-        self.margin_used = None
+        self.margin_used: Optional[float] = None
 
     @property
     def size(self) -> int:

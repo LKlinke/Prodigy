@@ -1,3 +1,5 @@
+# pylint: disable=invalid-name
+# Names follow the mathematics (H, Phi, A, b, ...); scipy and FLINT are imported where they are needed.
 r"""
 Exact generating-function calculus over a fixed product denominator.
 
@@ -23,8 +25,8 @@ from __future__ import annotations
 
 import math
 from fractions import Fraction
-from itertools import product
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
+
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 
@@ -129,7 +131,7 @@ def degrees(poly: Num, d: int) -> List[int]:
     return deg
 
 
-def monomial(d: int, e: Iterable[int], c=ONE) -> Num:
+def monomial(d: int, e: Iterable[int], c=ONE) -> Num:  # pylint: disable=unused-argument
     return {tuple(e): Fraction(c)} if c != 0 else {}
 
 
@@ -303,10 +305,10 @@ class GFCalculus:
         if t == "and":
             return self.restrict(self.restrict(poly, guard[1]), guard[2])
         if t == "or":
-            a = self.restrict(poly, guard[1])
-            b = self.restrict(poly, guard[2])
-            ab = self.restrict(a, guard[2])
-            return padd(a, b, pscale(ab, -1))
+            left = self.restrict(poly, guard[1])
+            right = self.restrict(poly, guard[2])
+            both = self.restrict(left, guard[2])
+            return padd(left, right, pscale(both, -1))
         if t == "not":
             return padd(poly, pscale(self.restrict(poly, guard[1]), -1))
         if t == "cmp":
@@ -433,9 +435,9 @@ class GFCalculus:
                 lo, hi = int(eval_number(args[0])), int(eval_number(args[1]))
                 w = Fraction(1, hi - lo + 1)
                 dist = {}
-                for v in range(lo, hi + 1):
+                for k in range(lo, hi + 1):
                     ee = [0] * self.d
-                    ee[i] = v
+                    ee[i] = k
                     dist[tuple(ee)] = w
                 return pmul(base, dist)
             if name == "bernoulli":
@@ -446,10 +448,10 @@ class GFCalculus:
             if name == "binomial":
                 n, q = int(eval_number(args[0])), eval_number(args[1])
                 dist = {}
-                for v in range(n + 1):
+                for k in range(n + 1):
                     ee = [0] * self.d
-                    ee[i] = v
-                    dist[tuple(ee)] = Fraction(math.comb(n, v)) * q ** v * (1 - q) ** (n - v)
+                    ee[i] = k
+                    dist[tuple(ee)] = Fraction(math.comb(n, k)) * q ** k * (1 - q) ** (n - k)
                 return pmul(base, padd(dist))
         raise UnsupportedProgram(f"unsupported assignment {var} := {e}")
 
@@ -476,9 +478,9 @@ class GFCalculus:
             if r == 0:
                 continue
             for v in range(p, shape[i]):
-                sl_v = [slice(None)] * self.d
+                sl_v: List[Any] = [slice(None)] * self.d
                 sl_v[i] = v
-                sl_w = [slice(None)] * self.d
+                sl_w: List[Any] = [slice(None)] * self.d
                 sl_w[i] = v - p
                 arr[tuple(sl_v)] = arr[tuple(sl_v)] + r * arr[tuple(sl_w)]
         return arr
@@ -500,7 +502,7 @@ class GFCalculus:
         arr = self.expand(poly, self.positivity_box(poly))
         for idx in np.ndindex(*arr.shape):
             if arr[idx] < 0:
-                return tuple(int(v) for v in idx), arr[idx]
+                return tuple(int(v) for v in idx), cast(Fraction, arr[idx])
         return None
 
     def coefficient(self, poly: Num, state: Sequence[int]) -> Fraction:
@@ -513,9 +515,10 @@ class GFCalculus:
         for i in range(self.d):
             if not cur:
                 return ZERO
-            cur = calc.eliminate(cur, i)
-            if cur is None:
+            elim = calc.eliminate(cur, i)
+            if elim is None:
                 return math.inf
+            cur = elim
             calc = calc.with_den(calc.den.without(i))
         return sum(cur.values(), ZERO) if cur else ZERO
 
@@ -526,9 +529,10 @@ class GFCalculus:
         for j in range(self.d):
             if j == i or not cur:
                 continue
-            cur = calc.eliminate(cur, j)
-            if cur is None:
+            elim = calc.eliminate(cur, j)
+            if elim is None:
                 return math.inf
+            cur = elim
             calc = calc.with_den(calc.den.without(j))
         if not cur:
             return ZERO

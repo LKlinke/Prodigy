@@ -1,3 +1,5 @@
+# pylint: disable=invalid-name,import-outside-toplevel,use-dict-literal
+# Names follow the mathematics (H, Phi, A, b, ...); scipy and FLINT are imported where they are needed.
 r"""
 Automatic choice of template parameters (rates, periods, tail starts) for the LP synthesis of EVT sub- and
 superinvariants.
@@ -19,7 +21,8 @@ unbounded variable; their rates must make the template a super-invariant far out
 as a random walk whose increments ``delta`` depend on a finite *phase* (the bounded variables and the residues of the
 unbounded ones): for per-unit rates ``s_i`` this requires that the matrix
 ``M(s)[e', e] = sum_delta P(e -> e', delta) prod_i s_i^(-delta_i)`` has spectral radius at most one.  We minimise
-the rates of the variables that are unbounded at loop exit subject to this condition.  The heuristic only proposes candidates: every certificate is
+the rates of the variables that are unbounded at loop exit subject to this condition.  The heuristic only proposes
+candidates: every certificate is
 verified exactly, so the parameters affect precision and running time, never soundness.
 """
 from __future__ import annotations
@@ -105,7 +108,7 @@ def decay_rate(marg: Dict[int, float], period: int) -> float:
     classes: Dict[int, float] = {}
     for v, m in marg.items():
         classes[v % period] = classes.get(v % period, 0.0) + m
-    cls = max(classes, key=classes.get)
+    cls = max(classes, key=lambda k: classes[k])
     pts = [(v, marg[v]) for v in sorted(marg) if v % period == cls and marg[v] > 1e-14 * total]
     if len(pts) < 3:
         return 0.0
@@ -122,14 +125,14 @@ def decay_rate(marg: Dict[int, float], period: int) -> float:
     if len(tail) < 2:
         return 0.0
     tail = tail[len(tail) // 4:] if len(tail) >= 12 else tail
-    v = np.array([t[0] for t in tail], dtype=float)
+    xs = np.array([t[0] for t in tail], dtype=float)
     y = np.log(np.array([t[1] for t in tail]))
     if len(tail) >= 6:
-        a = np.stack([np.ones_like(v), np.log(v + 1.0), v], axis=1)
+        a = np.stack([np.ones_like(xs), np.log(xs + 1.0), xs], axis=1)
         coef, *_ = np.linalg.lstsq(a, y, rcond=None)
         slope = coef[2]
     else:
-        slope = (y[-1] - y[0]) / (v[-1] - v[0])
+        slope = (y[-1] - y[0]) / (xs[-1] - xs[0])
     return float(math.exp(slope * period))
 
 
@@ -349,6 +352,7 @@ def upper_tail_rates(kernel: TailKernel, profiles: List[VariableProfile], slack:
 def _reach_count(init_states, guard, body, variables, shape: TemplateShape, cap: int = 100_000) -> int:
     """Number of template values that survive the restriction to reachable states (the box size itself if the box
     has more than ``cap`` states, which avoids exploring huge boxes)."""
+    assert shape.reach_box is not None
     full = int(np.prod([b + 1 for b in shape.reach_box]))
     if full > cap:
         return full
@@ -475,7 +479,7 @@ def plan_parameters(init: Measure, guard: IR, body: IR, variables: Sequence[str]
             return tail
 
         def upper_count(lam):
-            tail = upper_tail(lam)
+            tail = upper_tail(lam)  # pylint: disable=cell-var-from-loop  # called in this iteration only
             full = int(np.prod([b + 1 for b in upper_box(tail)]))
             if full <= upper_size:
                 return full
@@ -529,7 +533,7 @@ def plan_parameters(init: Measure, guard: IR, body: IR, variables: Sequence[str]
                         rates.append(nice_rate(s ** pr.period, up=True) if abs(s - 1) > 1e-9 else Fraction(1))
                     upper.append(TemplateShape(rates, list(periods_up), list(tail_up), reach_box=up_reach,
                                                group=group))
-    info = dict(iterations=explo.iterations, states=len(explo.occupation), remaining=explo.remaining,
+    info: Dict[str, object] = dict(iterations=explo.iterations, states=len(explo.occupation), remaining=explo.remaining,
                 leaked=explo.leaked, exit_mass=sum(explo.exit.values()),
                 tail_rates={variables[i]: s for i, s in per_unit.items()} if per_unit else None)
     return ParameterPlan(lower=lower, upper=upper, profiles=profiles, exploration=info)
