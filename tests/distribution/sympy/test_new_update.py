@@ -81,9 +81,11 @@ def test_multiplication():
         parse_expr("n = n * n")) == GeneratingFunction("0.5*n^1+0.5*n^4")
 
     gf = SympyPGF.poisson('x', 3) * GeneratingFunction('y^3')
-    assert gf.update(parse_expr('x = x * y'))._function == gf._function.subs(
-        _sympy_symbol('x'),
-        _sympy_symbol('x')**3)
+    # equal functions; SymPy writes them as exp(3*x**3 - 3) or exp(-3)*exp(3*x**3) depending on its cache
+    assert sympy.simplify(
+        gf.update(parse_expr('x = x * y'))._function - gf._function.subs(
+            _sympy_symbol('x'),
+            _sympy_symbol('x')**3)) == 0
 
     gf = SympyPGF.poisson('x', 3) * SympyPGF.poisson('y', 5)
     assert gf.update(parse_expr('x = 3*7')) == SympyPGF.poisson(
