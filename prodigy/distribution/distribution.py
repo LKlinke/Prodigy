@@ -4,6 +4,7 @@ import functools
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from fractions import Fraction
 from typing import (Dict, FrozenSet, Generator, Iterator, List, Sequence, Set,
                     Tuple, Type, Union)
 
@@ -14,6 +15,38 @@ from probably.pgcl.parser import parse_expr
 from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
                                       check_is_modulus_condition, has_variable)
 from prodigy.pgcl.pgcl_operations import state_to_equality_expression
+
+
+def constant_value(expression: Expr) -> Fraction | None:
+    """
+    The value of an arithmetic expression without variables, or None if the expression contains
+    variables, an operator other than + - * / % ^, or an intermediate result that natural-number
+    arithmetic does not allow (negative difference, division by zero, non-integer modulo or exponent).
+    """
+    if isinstance(expression, NatLitExpr):
+        return Fraction(expression.value)
+    if isinstance(expression, RealLitExpr):
+        return expression.to_fraction()
+    if not isinstance(expression, BinopExpr):
+        return None
+    left, right = constant_value(expression.lhs), constant_value(expression.rhs)
+    if left is None or right is None:
+        return None
+    if expression.operator == Binop.PLUS:
+        return left + right
+    if expression.operator == Binop.TIMES:
+        return left * right
+    if expression.operator == Binop.MINUS:
+        return left - right if left >= right else None
+    if expression.operator == Binop.DIVIDE:
+        return left / right if right != 0 else None
+    if expression.operator == Binop.MODULO:
+        if left.denominator == 1 and right.denominator == 1 and right != 0:
+            return Fraction(left.numerator % right.numerator)
+        return None
+    if expression.operator == Binop.POWER:
+        return left**right.numerator if right.denominator == 1 else None
+    return None
 
 
 class MarginalType(Enum):
@@ -440,6 +473,11 @@ class Distribution(ABC):
                      temp_var: str) -> Tuple[Distribution, str]:
             # TODO handle reals in every case
 
+            # Subexpressions without variables are computed directly, e.g. 9/2*2 becomes 9
+            constant = constant_value(expression) if isinstance(expression, BinopExpr) else None
+            if constant is not None:
+                return function, str(constant)
+
             # For binary operator, we need to introduce fresh variables to prevent clashes
             # and recursively evaluate the left- and right-hand side of the operator
             if isinstance(expression, BinopExpr):
@@ -504,6 +542,14 @@ class Distribution(ABC):
 
         if isinstance(expression.rhs, NatLitExpr):
             value = expression.rhs.value
+
+        # An expression without variables, e.g. "x = 9/2*2" or "x = 5 % 3", is a literal assignment
+        if value is None and isinstance(expression.rhs, BinopExpr):
+            constant = constant_value(expression.rhs)
+            if constant is not None:
+                if constant.denominator != 1:
+                    raise ValueError(f'Cannot assign the real value {constant} to {variable}')
+                value = constant.numerator
 
         # If expression is of form "x = n" where n is a natual number
         # simply assign the value
