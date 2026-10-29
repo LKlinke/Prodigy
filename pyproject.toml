@@ -29,6 +29,7 @@ Werkzeug = ">=2.3.5,<3"
 numpy = "1.26.4"
 # 0.14 has wheels for Python 3.14
 symengine = "^0.14.0"
+setuptools = "^76.0.0"
 
 [tool.poetry.dev-dependencies]
 # pytest 7.2 rewrites assertions with ast.Str, which Python 3.14 removed; 8.4 is the first release for 3.14
