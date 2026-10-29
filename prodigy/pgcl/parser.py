@@ -153,7 +153,8 @@ See also: :module:`prodigy.pgcl.util.lark_expr_parser`
 
 _PGCL_GRAMMAR += "\n" + textwrap.indent(
     build_expr_parser(_OPERATOR_TABLE, "expression"), '    ')
-_PARSER = Lark(_PGCL_GRAMMAR)
+# Since lark 1.0, every rule that parsing starts at must be declared here.
+_PARSER = Lark(_PGCL_GRAMMAR, start=["start", "expression"])
 
 
 def _doc_parser_grammar():
@@ -559,7 +560,7 @@ def parse_pgcl(code: str) -> Program:
         >>> parse_pgcl("x := x : 1/3 + y : 2/3").instructions[0]
         AsgnInstr(lhs='x', rhs=CategoricalExpr(exprs=[(VarExpr('x'), RealLitExpr("1/3")), (VarExpr('y'), RealLitExpr("2/3"))]))
     """
-    tree = _PARSER.parse(code)
+    tree = _PARSER.parse(code, start="start")
     return _parse_program(tree)
 
 
