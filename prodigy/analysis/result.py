@@ -349,12 +349,37 @@ def make_interval(value: Any, kind: str, residual: Any, *, monotone: bool,
     return None, None, Bound.UNKNOWN, "No guaranteed bound for this approximation."
 
 
+def tighten_interval(lower: Any, upper: Any, bound: str, known: Tuple[Any, Any]) -> Tuple[Any, Any, str]:
+    """Intersects an interval with bounds known from elsewhere (``None``: unknown side)."""
+    if bound not in (Bound.LOWER, Bound.EXACT):
+        return lower, upper, bound
+    known_lower, known_upper = known
+    try:
+        if known_lower is not None and (lower is None or sym(known_lower) > sym(lower)):
+            lower = sym(known_lower)
+        if known_upper is not None and (upper is None or sym(known_upper) < sym(upper)):
+            upper = sym(known_upper)
+    except TypeError:  # symbolic values that cannot be compared
+        return lower, upper, bound
+    if lower is not None and upper is not None and sym(lower) == sym(upper):
+        bound = Bound.EXACT
+    return lower, upper, bound
+
+
 def finish_query(session: "AnalysisSession", query: QueryResult, *, monotone: bool,
-                 probability: bool) -> QueryResult:
-    """Fills value_float and the interval of ``query`` from the session's bound state."""
+                 probability: bool, known: Optional[Tuple[Any, Any]] = None) -> QueryResult:
+    """Fills value_float and the interval of ``query`` from the session's bound state, intersected
+    with ``known`` bounds (e.g. from the strategy of the loop right before the query)."""
     query.value, query.value_float = exact_and_float(query.value)
     lower, upper, bound, note = make_interval(query.value, session.bound_kind, session.residual,
                                               monotone=monotone, probability=probability)
+    if known is not None and monotone:
+        lower, upper, bound = tighten_interval(lower, upper, bound, known)
+        if bound == Bound.LOWER and lower is not None:
+            # the value of a lower-bound query is its lower end
+            query.value, query.value_float = exact_and_float(lower)
+        if upper is not None:
+            note = ""
     query.lower, query.lower_float = exact_and_float(lower)
     query.upper, query.upper_float = exact_and_float(upper)
     query.bound = bound

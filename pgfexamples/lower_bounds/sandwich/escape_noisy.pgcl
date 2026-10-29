@@ -1,0 +1,13 @@
+// Upward-drifting walk with a NOISY counter y (incremented w.p. 1/2 per round): not AST, and y does
+// not increase in every round, so the progress rule does not apply; lower bounds via Rule B (finite mass).
+nat x;
+nat y;
+x := 1;
+y := 0;
+while (x > 0) {
+  {x := x + 1} [2/3] {x := x - 1}
+  {y := y + 1} [1/2] {skip}
+}
+?Pr[true]
+?Pr[y = 2]
+?Pr[y >= 5]

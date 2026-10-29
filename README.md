@@ -53,3 +53,37 @@ describes the non-interactive analysis API (`prodigy analyze --json`).
 - `make lint`, `make mypy` and `make test` run the checks of the CI (pylint, mypy, and the tests with coverage; see `.github/workflows/main.yml`).
 - Dependencies are locked in `uv.lock`. After changing them in `pyproject.toml`, run `uv lock` and commit both files. `uv lock --upgrade` updates all dependencies within their constraints; Dependabot proposes such updates monthly as pull requests.
 
+
+## Lower bounds for loops (occupation subinvariants)
+
+The package `prodigy.analysis.lowerbounds` adds two analysis modes for programs with a single loop. They implement the
+rules of the paper *Finite Mass Is All It Takes: Lower Bounds for Probabilistic Loops without Termination
+Assumptions*. The occupation measure of a loop is what Prodigy calls its
+expected visiting times (EVT). Both modes are loop strategies (`evt_subinvariant` and `evt_sandwich`): in the web GUI,
+in `prodigy analyze --loop 0=evt_sandwich`, interactively in the while handler (options `[7]` and `[8]`), and as CLI
+commands:
+
+| command | while handler | what it does |
+|---|---|---|
+| `evt_lower_bound PROGRAM --invariant NU` | `[7]` | **Subinvariant mode.** Verifies that `NU` is an occupation subinvariant of *finite mass* (`NU <= Phi(NU)` coefficient-wise, and the total mass of `NU` is finite). Then `[not guard]*NU` is a lower bound on the output distribution of the loop, **without any termination assumption** (lower induction), and the missing mass is at most `\|Phi(NU)\| - \|NU\|`. |
+| `evt_sandwich PROGRAM [--size N] [--lower R;P;B] [--upper R;P;B] [--per-query] [--json F]` | `[8]` | **Synthesis mode.** Synthesises a finite-mass subinvariant (lower bound) and a superinvariant (upper bound, Park induction) with eventually geometric templates by linear programming, checks both in exact arithmetic, and prints two-sided bounds for the `?Pr`/`?Ex` queries after the loop. |
+
+Example (random walk with a step counter `c`, `pgfexamples/lower_bounds/sandwich/rw_counter_23.pgcl`):
+
+```
+python -m prodigy.cli evt_sandwich pgfexamples/lower_bounds/sandwich/rw_counter_23.pgcl
+...
+Probability of termination (after the epilogue): [0.9999958249, 1]
+?Pr[c >= 20]: [0.01661845727, 0.0166226323]
+?Pr[c = 11]: [0.01517383867, 0.01517383868]
+?Ex[c]: [2.999481151, 3.008152854]
+```
+
+Template parameters (rates, periods, tail starts) are chosen automatically from a short numerical exploration of the
+loop; `--lower`/`--upper` override them, e.g. `--lower "0,17/20;1,2;24,48"`. Every certificate is verified exactly, so
+the parameters affect precision and running time but never soundness. `abort` is interpreted as divergence.
+Conditioning is not supported: `evt_sandwich` rejects programs with `observe`, and the subinvariant mode rejects
+`observe` in the loop body, because violated observations would otherwise be treated like non-termination.
+Additional Python dependencies: `scipy` (HiGHS) and `python-flint`. Tests: `pytest tests/analysis/test_lowerbounds.py`.
+The examples in `pgfexamples/lower_bounds/exact` are loops whose occupation measures are known in closed form, those in
+`pgfexamples/lower_bounds/sandwich` loops for which the synthesis mode computes two-sided bounds.

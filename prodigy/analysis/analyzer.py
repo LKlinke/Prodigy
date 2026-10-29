@@ -101,6 +101,9 @@ def compute_semantics(
         return compute_semantics(instr, prog_info, dist, error_prob,
                                  config)
 
+    if not isinstance(instruction, list):
+        current_session().on_instruction(instruction)
+
     if isinstance(instruction, list):
         func = _show_steps if config.show_intermediate_steps else _dont_show_steps
         return functools.reduce(func, instruction,

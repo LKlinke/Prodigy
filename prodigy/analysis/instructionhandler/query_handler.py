@@ -57,7 +57,8 @@ class QueryHandler(InstructionHandler):
             print(f"Expected value: {result}")
             session.record_query(finish_query(
                 session, QueryResult("expectation", str(expression), value=result),
-                monotone=is_monotone_nonnegative(expression, prog_info.program), probability=False))
+                monotone=is_monotone_nonnegative(expression, prog_info.program), probability=False,
+                known=session.loop_query_bounds("?Ex", str(expression))))
             return distribution, error_prob
 
         # User wants to compute a marginal, or the probability of a condition.
@@ -202,5 +203,6 @@ class QueryHandler(InstructionHandler):
             prob = sat_part.get_probability_mass()
             print(f"Probability of {expression}: {prob}")
             session.record_query(finish_query(session, QueryResult("probability", str(expression), value=prob),
-                                              monotone=True, probability=True))
+                                              monotone=True, probability=True,
+                                              known=session.loop_query_bounds("?Pr", str(expression))))
         return dist

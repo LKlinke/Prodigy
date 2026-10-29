@@ -41,8 +41,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Tuple, Union
 
-from prodigy.pgcl import (ChoiceInstr, IfInstr, Instr, LoopInstr, Program, QueryInstr,
-                           WhileInstr)
+from prodigy.pgcl import (ChoiceInstr, ExpectationInstr, IfInstr, Instr, LoopInstr, OptimizationQuery, PlotInstr,
+                          PrintInstr, ProbabilityQueryInstr, Program, QueryInstr, WhileInstr)
 
 from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
                                               get_loop_strategy, loop_strategies)
@@ -58,6 +58,7 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 _COMMENT_RE = re.compile(r"(#|//).*$", re.M)
 _WHILE_RE = re.compile(r"\bwhile\b")
 _QUERY_RE = re.compile(r"\?Pr\b|\?Ex\b|\?Opt\b|!Print\b|!Plot\b")
+_QUERY_INSTRS = (ExpectationInstr, OptimizationQuery, PlotInstr, PrintInstr, ProbabilityQueryInstr, QueryInstr)
 
 
 def _blank_comments(source: str) -> str:
@@ -525,6 +526,8 @@ class AnalysisSession:
         self.queries: List[Any] = []
         self.steps: List[Dict[str, Any]] = []
         self.warnings: List[str] = []
+        # bounds of a loop strategy for the queries right after its loop (LoopOutcome.query_bounds)
+        self._loop_query_bounds: Dict[Tuple[str, str], Tuple[Any, Any]] = {}
         self.log = io.StringIO()
         self._scopes: List[_Scope] = [_Scope(silent=False)]
         self._query_index = 0
@@ -666,6 +669,8 @@ class AnalysisSession:
             record.add_message(message)
 
         scope = self.scope
+        if not self.silent:
+            self._loop_query_bounds = self._sound_query_bounds(scope.kind, outcome.query_bounds)
         scope.kind = Bound.combine(scope.kind, outcome.kind)
         if outcome.kind == Bound.LOWER and not self.silent:
             from prodigy.analysis.result import sym  # pylint: disable=import-outside-toplevel
@@ -673,6 +678,27 @@ class AnalysisSession:
             record.residual = sym(record.residual) + residual
             scope.residual = sym(scope.residual) + residual
         return outcome
+
+    @staticmethod
+    def _sound_query_bounds(kind_before: str, bounds: Dict[Tuple[str, str], Tuple[Any, Any]]
+                            ) -> Dict[Tuple[str, str], Tuple[Any, Any]]:
+        """The part of a strategy's query bounds that stays sound for the program: they were
+        computed from the loop's incoming distribution, so they hold as they are only if that
+        distribution is exact; if it is a lower bound, only their lower sides hold."""
+        if kind_before == Bound.EXACT:
+            return dict(bounds)
+        if kind_before == Bound.LOWER:
+            return {key: (lower, None) for key, (lower, _) in bounds.items()}
+        return {}
+
+    def on_instruction(self, instruction: Any) -> None:
+        """Called for every instruction before it is executed (see ``compute_semantics``)."""
+        if self._loop_query_bounds and not isinstance(instruction, _QUERY_INSTRS):
+            self._loop_query_bounds = {}
+
+    def loop_query_bounds(self, kind: str, expression: str) -> Optional[Tuple[Any, Any]]:
+        """Bounds that the strategy of the loop right before this query computed for it."""
+        return self._loop_query_bounds.get((kind, expression))
 
     def note(self, task: LoopTask, message: str) -> None:
         record = task.record

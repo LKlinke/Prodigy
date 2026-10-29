@@ -1,0 +1,13 @@
+// Skip-free walk with up-jumps of size 2 (down w.p. 3/4, up by 2 w.p. 1/4) and step counter.
+// The generating function of c is algebraic of degree 3.
+nat x;
+nat c;
+x := 1;
+c := 0;
+while (x > 0) {
+  {x := x - 1} [3/4] {x := x + 2}
+  c := c + 1
+}
+?Pr[c >= 20]
+?Pr[c = 7]
+?Ex[c]

@@ -1,0 +1,14 @@
+// The loop of Counterexample 9 of Hark et al. (POPL'20), where naive lower induction for weakest
+// preexpectations is unsound.  Here k strictly increases, so on the occupation-measure side every
+// subinvariant is sound (progress rule) and the fixpoint below is the occupation measure.
+nat a;
+nat b;
+nat k;
+a := 1;
+b := 0;
+k := 0;
+while (a > 0) {
+  {a := 0} [1/2] {b := b + 1}
+  k := k + 1
+}
+?Ex[b]

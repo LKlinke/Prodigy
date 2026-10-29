@@ -305,6 +305,101 @@ def invariant_synthesis(ctx, program_file: IO, invariant: str, input_dist: str):
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
 
 
+def _loop_parts(prog):
+    loops = [1 if isinstance(instr, WhileInstr) else 0 for instr in prog.instructions]
+    if sum(loops) != 1:
+        raise ValueError(f"There are {sum(loops)} top-level loops in the program. Exactly 1 is supported.")
+    k = loops.index(1)
+    return prog.instructions[:k], prog.instructions[k], prog.instructions[k + 1:]
+
+
+@cli.command('evt_lower_bound')
+@click.pass_context
+@click.argument('program_file', type=click.File('r'))
+@click.option('--invariant', type=str, required=True,
+              help="EVT sub-invariant nu (a generating function in the program variables).")
+@click.argument('input_dist', type=str, required=False)
+def evt_lower_bound(ctx, program_file: IO, invariant: str, input_dist: str):
+    """
+    Lower induction: verifies that NU is an EVT sub-invariant of finite mass (NU <= Phi(NU) coefficient-wise and
+    NU(1,...,1) < oo) and continues the analysis with the resulting lower bound on the output distribution of the
+    loop.  No termination assumption is needed.
+    """
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.lowerbounds.subinvariant import evt_subinvariant_verification
+    prog = compiler.parse_pgcl(program_file.read())
+    if isinstance(prog, CheckFail):
+        raise ValueError(f"Could not compile the Program. {prog}")
+    prefix, loop, rest = _loop_parts(prog)
+    config = ctx.obj["CONFIG"]
+    variables = list(prog.variables.keys())
+    dist = config.factory.one(*variables) if input_dist is None else config.factory.from_expr(input_dist, *variables)
+    zero = config.factory.from_expr("0", *variables)
+    dist, err = compute_semantics(prefix, ProgramInfo(prog), dist, zero, config)
+    start = time.perf_counter()
+    subinvariant = config.factory.from_expr(invariant, *variables)
+    lower = evt_subinvariant_verification(loop, ProgramInfo(prog), dist, subinvariant, config, compute_semantics)
+    print(f"{Style.CYAN}Queries below are evaluated on the lower bound (they are lower bounds for the unnormalised "
+          f"probabilities and expectations).{Style.RESET}")
+    compute_semantics(rest, ProgramInfo(prog), lower, err, config)
+    print(f"CPU-time elapsed: {time.perf_counter() - start:04f} seconds")
+
+
+def _parse_shape(spec: str):
+    """'r1,r2;p1,p2;b1,b2' -> TemplateShape"""
+    # pylint: disable=import-outside-toplevel
+    from fractions import Fraction
+    from prodigy.analysis.lowerbounds.parameters import TemplateShape
+    parts = spec.split(";")
+    if len(parts) != 3:
+        raise click.BadParameter("template shapes are given as 'rates;periods;tail starts', e.g. '0,7/8;1,2;24,48'")
+    rates = [Fraction(x) for x in parts[0].split(",")]
+    periods = [int(x) for x in parts[1].split(",")]
+    tails = [int(x) for x in parts[2].split(",")]
+    box = [t + p + 1 if r != 0 else t for r, p, t in zip(rates, periods, tails)]
+    return TemplateShape(rates, periods, tails, reach_box=box)
+
+
+@cli.command('evt_sandwich')
+@click.argument('program_file', type=click.File('r'))
+@click.option('--size', type=int, default=1200, show_default=True,
+              help="Budget for the number of template values of the lower certificate.")
+@click.option('--lower', 'lower_specs', multiple=True,
+              help="Template shape of the lower certificate 'rates;periods;tail starts' (repeatable).")
+@click.option('--upper', 'upper_specs', multiple=True,
+              help="Template shape of the upper certificate 'rates;periods;tail starts' (repeatable).")
+@click.option('--no-upper', is_flag=True, default=False, help="Only synthesise the lower certificate.")
+@click.option('--objective', type=click.Choice(['auto', 'mass']), default='auto', show_default=True,
+              help="Objective of the upper certificate (auto: exit mass plus the moments of ?Ex queries).")
+@click.option('--per-query/--no-per-query', default=None,
+              help="Re-optimise the upper certificate for every ?Pr query "
+                   "(default: only if its exit mass is infinite).")
+@click.option('--show-certificates', is_flag=True, default=False)
+@click.option('--json', 'json_path', type=str, default=None, help="Write certificates and bounds to this file.")
+def evt_sandwich(  # pylint: disable=too-many-arguments
+        program_file: IO, size: int, lower_specs, upper_specs, no_upper: bool, objective: str,
+        per_query, show_certificates: bool, json_path: str):
+    # pylint: disable=import-outside-toplevel
+    """
+    Sandwich bounds for a program with one loop: synthesises an EVT sub-invariant of finite mass (lower bound,
+    no termination assumption) and an EVT super-invariant (upper bound) with eventually geometric templates by
+    linear programming, verifies both exactly, and prints two-sided bounds for the queries after the loop.
+    """
+    from prodigy.analysis.lowerbounds.problem import load_problem
+    from prodigy.analysis.lowerbounds.sandwich import evt_sandwich as run_sandwich, print_result, write_json
+    prog = compiler.parse_pgcl(program_file.read())
+    if isinstance(prog, CheckFail):
+        raise ValueError(f"Could not compile the Program. {prog}")
+    problem = load_problem(prog)
+    lower = [_parse_shape(s) for s in lower_specs] or None
+    upper = [_parse_shape(s) for s in upper_specs] or None
+    res = run_sandwich(problem, lower_shapes=lower, upper_shapes=upper, size=size, objective=objective,
+                       with_upper=not no_upper, per_query=per_query)
+    print_result(res, show_certificates=show_certificates)
+    if json_path:
+        write_json(res, json_path)
+
+
 @cli.command()
 def print_strategies():
     print("Currently implemented strategies are: ")

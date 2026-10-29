@@ -1,0 +1,12 @@
+// As rw_counter_23 but with weaker drift (step down w.p. 3/5): heavier tail of c.
+nat x;
+nat c;
+x := 1;
+c := 0;
+while (x > 0) {
+  {x := x - 1} [3/5] {x := x + 1}
+  c := c + 1
+}
+?Pr[c >= 20]
+?Pr[c = 11]
+?Ex[c]

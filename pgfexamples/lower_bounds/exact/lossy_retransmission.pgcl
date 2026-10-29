@@ -1,0 +1,12 @@
+// Retransmission protocol whose sender may crash: every failed attempt is retried, but with
+// probability 1/10 the sender crashes (abort: the run never terminates).
+// Non-AST (termination probability 5/6) because of divergence INSIDE the loop body.
+nat d;
+nat c;
+d := 0;
+c := 0;
+while (d = 0) {
+  {d := 1} [1/3] { c := c + 1; {skip} [9/10] {abort} }
+}
+?Pr[c = 2]
+?Ex[c]

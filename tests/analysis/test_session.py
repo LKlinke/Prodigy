@@ -163,7 +163,8 @@ def test_interactive_session_keeps_historic_prompts(monkeypatch):
     session = AnalysisSession.interactive(program, source=GEOMETRIC, capture_output=True)
     result = session.run().to_json()
     assert prompts[0].startswith("While Instruction has only limited support. Choose an option:\n[1]: ")
-    assert "[6]: EVT Invariant syntesis\n[q]: Quit.\n" in prompts[0]
+    assert "[6]: EVT Invariant syntesis\n" in prompts[0]
+    assert "[8]: EVT sandwich: synthesise EVT sub- and super-invariants (lower and upper bounds)\n[q]: Quit.\n" in prompts[0]
     assert prompts[1] == "Specify a maximum iteration limit: "
     assert fraction(result["bounds"]["residual_mass"]) == Fraction(1, 16)
 

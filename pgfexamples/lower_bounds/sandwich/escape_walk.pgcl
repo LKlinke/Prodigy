@@ -1,0 +1,10 @@
+// Upward-drifting random walk WITHOUT counter: terminates with probability 1/2.
+// Phi_g has rational PHANTOM fixpoints, e.g. (1 + X)/(1 - 2X), whose exit part (= 1) wrongly suggests
+// almost-sure termination; the least fixpoint 1/2 + (3/2) X/(1 - X) has infinite mass as well.
+// Sandwich: finite-mass subinvariants (Rule B) from below, a superinvariant with constant tail from above.
+nat x;
+x := 1;
+while (x > 0) {
+  {x := x + 1} [2/3] {x := x - 1}
+}
+?Pr[true]
