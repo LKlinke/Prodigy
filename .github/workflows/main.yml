@@ -12,6 +12,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # A hanging test fails the job after an hour instead of GitHub's default of 6 hours.
+    timeout-minutes: 60
     env:
       POETRY_VIRTUALENVS_CREATE: false
     steps:

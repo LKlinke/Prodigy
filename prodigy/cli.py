@@ -8,10 +8,12 @@ If you use `poetry` and do not have prodigy installed globally, you can use `poe
    :show-nested:
 """
 
+import json
 import logging
+import sys
 import time
 from itertools import combinations
-from typing import IO, Set
+from typing import IO, Any, Dict, Optional, Set, Tuple
 
 import click
 from probably.pgcl import Var, compiler, WhileInstr
@@ -28,6 +30,8 @@ from prodigy.analysis.evtinvariants.invariant_verification import evt_invariant_
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.analysis.independence.independence import independent_vars as get_independent_vars_of
+from prodigy.analysis.loop_strategies import loop_strategies
+from prodigy.analysis.session import AnalysisSession, DEFAULT_KEY, parse_decisions, validate_decisions, LoopRegistry
 from prodigy.distribution.distribution import State
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
@@ -77,6 +81,25 @@ def cli(ctx,
 # pylint: enable-msg=too-many-arguments
 
 
+_LOOP_OPTION_HELP = ("Strategy for a loop, as ID=STRATEGY[:NAME=VALUE,...], e.g. 0=unroll:iterations=100 or "
+                     "'*=evt_synthesis' for all loops. See `prodigy loop_strategies`.")
+
+
+def _collect_decisions(loop_specs: Tuple[str, ...], decisions_file: Optional[IO]) -> Dict[Any, Any]:
+    decisions: Dict[Any, Any] = {}
+    if decisions_file is not None:
+        loaded = json.load(decisions_file)
+        decisions.update(loaded.get("decisions", loaded) if isinstance(loaded, dict) else {})
+    for spec in loop_specs:
+        key, sep, rest = spec.partition("=")
+        key = key.strip()
+        if sep and (key == DEFAULT_KEY or key.isdigit()):
+            decisions[key] = rest
+        else:
+            decisions[DEFAULT_KEY] = spec
+    return decisions
+
+
 @cli.command('main')
 @click.pass_context
 @click.argument('program_file', type=click.File('r'))
@@ -85,8 +108,10 @@ def cli(ctx,
               is_flag=True,
               required=False,
               default=False)
+@click.option('--loop', 'loop_specs', multiple=True,
+              help=_LOOP_OPTION_HELP + " Loops without a decision are asked for.")
 def main(ctx, program_file: IO, input_dist: str,
-         show_input_program: bool) -> None:
+         show_input_program: bool, loop_specs: Tuple[str, ...]) -> None:
     """
     Compile the given program and print some information about it.
     """
@@ -113,9 +138,12 @@ def main(ctx, program_file: IO, input_dist: str,
         dist = config.factory.from_expr(input_dist, *program.variables.keys())
 
     logger.debug("Start analysis.")
+    session = AnalysisSession.interactive(program, source=program_source, config=config,
+                                          decisions=_collect_decisions(loop_specs, None))
     start = time.perf_counter()
-    dist, error_prob = compute_discrete_distribution(
-        program, dist, config)
+    with session.activate():
+        dist, error_prob = compute_discrete_distribution(
+            program, dist, config)
     stop = time.perf_counter()
 
     print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + "(" + str(dist) +
@@ -268,7 +296,7 @@ def invariant_synthesis(ctx, program_file: IO, invariant: str, input_dist: str):
     if invariant:
         invariant_dist = config.factory.from_expr(invariant, *prog.variables.keys())
         evt_invariant_verification(prog.instructions[loops.index(1)],
-                        ProgramInfo(prog), dist, invariant_dist, config, compute_semantics)
+                                   ProgramInfo(prog), dist, invariant_dist, config, compute_semantics)
     else:
         evt_invariant_synthesis(prog.instructions[loops.index(1)],
                                             ProgramInfo(prog), dist, config, strategy, compute_semantics)
@@ -296,6 +324,167 @@ def print_template_heuristics():
     print("Currently implemented template generation heuristics are: ")
     for heuristic in TemplateHeuristics:
         print(heuristic.name)
+
+
+def _format_value(exact: Optional[str], number: Optional[float]) -> str:
+    if number is not None:
+        text = f"{number:.6g}"
+        return text if exact is None or exact == text else f"{text}  ({exact})" if len(exact) <= 40 else text
+    return exact if exact is not None else "?"
+
+
+def _print_summary(result: Dict[str, Any]) -> None:
+    status = result["status"]
+    if status != "ok":
+        error = result.get("error") or {}
+        print(f"{Style.OKRED}{status}:{Style.RESET} {error.get('message', '')}")
+        if status == "needs_decision":
+            print("Choose strategies with --loop ID=STRATEGY[:NAME=VALUE,...]; "
+                  "`prodigy outline FILE` lists the loops, `prodigy loop_strategies` the strategies.")
+    dist = result.get("distribution")
+    if dist:
+        print(f"{Style.OKBLUE}Result:{Style.RESET}\t{dist['closed_form']}")
+        if dist.get("error_probability") not in (None, "0"):
+            print(f"{Style.OKBLUE}Observation violated with probability:{Style.RESET}\t{dist['error_probability']}")
+    bounds = result.get("bounds") or {}
+    if bounds and status == "ok":
+        print(f"{Style.OKBLUE}Guarantee:{Style.RESET}\t{bounds.get('explanation', bounds.get('kind'))}")
+    for query in result.get("queries", []):
+        where = f"line {query['line']}: " if query.get("line") else ""
+        if query["kind"] in ("probability", "expectation"):
+            label = ("Pr" if query["kind"] == "probability" else "E") + f"[{query['expr']}]"
+            value = _format_value(query["value"], query["value_float"])
+            interval = ""
+            if query["bound"] != "exact":
+                low = _format_value(query["lower"], query["lower_float"]) if query["lower"] is not None else "?"
+                high = _format_value(query["upper"], query["upper_float"]) if query["upper"] is not None else "∞" \
+                    if query["bound"] == "lower" else "?"
+                interval = f"\t∈ [{low}, {high}]  ({query['bound']})"
+            print(f"  {where}{label} = {value}{interval}")
+        elif query["kind"] == "marginal":
+            print(f"  {where}marginal of {query['expr']}: {query['value']}")
+        elif query["kind"] == "optimization":
+            print(f"  {where}optimum for {query['expr']}: {query['value']}")
+    for loop in result.get("loops", []):
+        where = f" (line {loop['line']})" if loop.get("line") else ""
+        print(f"  loop {loop['id']}{where} [{loop['strategy']}] {loop['kind']}: " + " ".join(loop["messages"]))
+    for warning in result.get("warnings", []):
+        print(f"{Style.YELLOW}Warning:{Style.RESET} {warning}")
+    print(f"CPU-time elapsed: {result['timing'].get('analysis', 0):04f} seconds")
+
+
+@cli.command('analyze')
+@click.pass_context
+@click.argument('program_file', type=click.File('r'))
+@click.argument('input_dist', type=str, required=False)
+@click.option('--loop', 'loop_specs', multiple=True, help=_LOOP_OPTION_HELP)
+@click.option('--decisions', 'decisions_file', type=click.File('r'), required=False,
+              help='JSON file {"0": {"strategy": ..., "params": {...}}, "*": ...}.')
+@click.option('--json', 'as_json', is_flag=True, default=False, help="Print the JSON result.")
+@click.option('--coefficients', type=int, default=30, show_default=True,
+              help="Number of coefficients per marginal in the result (0 to skip).")
+@click.option('--steps', is_flag=True, default=False, help="Record the distribution after each instruction.")
+@click.option('--output', type=click.File('w'), required=False, help="Write the JSON result to this file.")
+def analyze(  # pylint: disable=too-many-arguments
+        ctx, program_file: IO, input_dist: Optional[str], loop_specs: Tuple[str, ...],
+        decisions_file: Optional[IO], as_json: bool, coefficients: int, steps: bool,
+        output: Optional[IO]) -> None:
+    """
+    Analyse a program without asking questions: every loop needs a strategy (--loop or
+    --decisions). Queries are answered with sound intervals.
+    """
+    program_source = program_file.read()
+    program = compiler.parse_pgcl(program_source)
+    config: ForwardAnalysisConfig = ctx.obj['CONFIG']
+    decisions = parse_decisions(_collect_decisions(loop_specs, decisions_file))
+    problems = validate_decisions(decisions, LoopRegistry(program, program_source))
+    if problems:
+        for problem in problems:
+            print(f"{Style.OKRED}Error:{Style.RESET} {problem}", file=sys.stderr)
+        sys.exit(2)
+    session = AnalysisSession(program, source=program_source, config=config, decisions=decisions,
+                              input_distribution=input_dist, capture_output=True,
+                              record_steps=steps, coefficient_limit=coefficients)
+    result = session.run().to_json()
+    if output is not None:
+        json.dump(result, output, indent=2)
+    if as_json:
+        print(json.dumps(result, indent=2))
+    else:
+        _print_summary(result)
+    if result["status"] == "needs_decision":
+        sys.exit(2)
+    if result["status"] != "ok":
+        sys.exit(1)
+
+
+@cli.command('outline')
+@click.argument('program_file', type=click.File('r'))
+@click.option('--json', 'as_json', is_flag=True, default=False)
+def outline(program_file: IO, as_json: bool) -> None:
+    """
+    List the loops (with the ids used by --loop) and queries of a program.
+    """
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.result import outline_program
+    source = program_file.read()
+    info = outline_program(compiler.parse_pgcl(source), source)
+    if as_json:
+        print(json.dumps(info, indent=2))
+        return
+    print("Variables: " + ", ".join(f"{name}: {typ}" for name, typ in info["variables"].items()))
+    if info["parameters"]:
+        print("Parameters: " + ", ".join(info["parameters"]))
+    for loop in info["loops"]:
+        where = f"line {loop['line']}" if loop["line"] else "?"
+        print(f"loop {loop['id']} ({where}, depth {loop['depth']}): while ({loop['cond']})")
+    for query in info["queries"]:
+        print(f"query {query['index']} (line {query['line']}): {query['text']}")
+
+
+@cli.command('loop_strategies')
+@click.option('--json', 'as_json', is_flag=True, default=False)
+def print_loop_strategies(as_json: bool) -> None:
+    """
+    List the strategies for while loops and their parameters.
+    """
+    strategies = loop_strategies()
+    if as_json:
+        print(json.dumps([s.to_json() for s in strategies], indent=2))
+        return
+    for strategy in strategies:
+        print(f"{strategy.name}  ({strategy.soundness})  {strategy.title}")
+        print(f"    {strategy.description}")
+        for param in strategy.params:
+            default = f", default {param.default}" if param.default is not None else ""
+            print(f"    - {param.name} [{param.kind}{default}]: {param.help}")
+
+
+@cli.command('web')
+@click.pass_context
+@click.option('--host', default='127.0.0.1', show_default=True)
+@click.option('--port', default=8080, show_default=True, type=int)
+@click.option('--no-browser', is_flag=True, default=False, help="Do not open a browser window.")
+@click.option('--time-limit', default=120.0, show_default=True, type=float,
+              help="Seconds an analysis may run before it is stopped.")
+@click.option('--max-jobs', default=2, show_default=True, type=int, help="Analyses running at the same time.")
+@click.option('--memory-limit', default=None, type=int, help="Memory limit per analysis in MB (Linux).")
+@click.option('--examples', 'examples_dir', default=None, type=click.Path(exists=True, file_okay=False),
+              help="Folder with example programs (default: pgfexamples of this checkout).")
+@click.option('--allowed-host', 'allowed_hosts', multiple=True,
+              help="Additional host name the server may be reached under (when not on localhost).")
+def web(  # pylint: disable=too-many-arguments
+        ctx, host: str, port: int, no_browser: bool, time_limit: float, max_jobs: int,
+        memory_limit: Optional[int], examples_dir: Optional[str], allowed_hosts: Tuple[str, ...]) -> None:
+    """
+    Start the web GUI (a local web server) and open it in the browser.
+    """
+    # pylint: disable=import-outside-toplevel
+    from prodigy.web.app import serve
+    config: ForwardAnalysisConfig = ctx.obj['CONFIG']
+    serve(host=host, port=port, open_browser=not no_browser, time_limit=time_limit, max_jobs=max_jobs,
+          memory_limit=memory_limit, examples_dir=examples_dir, default_engine=config.engine.name.lower(),
+          allowed_hosts=allowed_hosts)
 
 
 if __name__ == "__main__":

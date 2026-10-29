@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Prodigy</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d1d1f'/%3E%3Cpath d='M8 23V9h6.5a4.5 4.5 0 0 1 0 9H8' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linejoin='round'/%3E%3Cpath d='M17.5 23h6.5' stroke='%23c08bf2' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/katex/katex.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app/app.css') }}?v={{ version }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app/components/result-view.css') }}?v={{ version }}">
+  <script src="{{ url_for('static', filename='vendor/katex/katex.min.js') }}" defer></script>
+  <script type="module" src="{{ url_for('static', filename='app/main.js') }}?v={{ version }}"></script>
+</head>
+<body>
+<div class="app" id="app" data-version="{{ version }}">
+  <header class="toolbar" role="toolbar" aria-label="Program and analysis">
+    <div class="toolbar-group">
+      <div class="file-actions" role="group" aria-label="File">
+        <button type="button" class="button" id="btn-new" title="New program" aria-label="New program">
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.8h5l3 3v9.4H4z M9 1.8v3h3 M8 7.4v4.4 M5.8 9.6h4.4"/></svg>
+          <span class="button-label">New</span>
+        </button>
+        <button type="button" class="button" id="btn-open" title="Open a program (⌘O)" aria-label="Open…">
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.8 3.8h4.3l1.5 1.6h6.6v7.8H1.8z M1.8 7.2h12.4"/></svg>
+          <span class="button-label">Open…</span>
+        </button>
+        <button type="button" class="button" id="btn-save" title="Save (⌘S)" aria-label="Save">
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8 M4.8 6.9L8 10.1l3.2-3.2 M2.5 10.5v3h11v-3"/></svg>
+          <span class="button-label">Save</span>
+        </button>
+      </div>
+      <button type="button" class="button" id="btn-examples" aria-haspopup="dialog" title="Open an example program">
+        <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.2c1.8-.9 3.7-.9 5.5.3 1.8-1.2 3.7-1.2 5.5-.3v9.6c-1.8-.9-3.7-.9-5.5.3-1.8-1.2-3.7-1.2-5.5-.3z M8 3.5v9.6"/></svg>
+        <span>Examples</span>
+      </button>
+      <div class="doc-title" id="doc-title-wrap">
+        <span class="doc-title-main" id="doc-title">Untitled</span>
+        <span class="doc-title-sub" id="doc-subtitle"></span>
+      </div>
+    </div>
+    <div class="toolbar-group toolbar-trailing">
+      <div class="run-status" id="run-status" aria-live="polite"></div>
+      <button type="button" class="button" id="btn-stop" hidden title="Stop the analysis (⌘.)">
+        <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1.5" class="filled"/></svg>
+        <span>Stop</span>
+      </button>
+      <button type="button" class="button prominent" id="btn-run" title="Analyze the program (⌘↩)">
+        <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7.5-4.5z" class="filled"/></svg>
+        <span>Analyze</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="split" id="split">
+    <section class="pane editor-pane" aria-labelledby="program-heading">
+      <div class="pane-header">
+        <h2 class="pane-title" id="program-heading">Program</h2>
+        <button type="button" class="problems" id="problems" aria-live="polite"></button>
+      </div>
+      <div class="editor-host" id="editor"></div>
+    </section>
+
+    <div class="divider" id="divider" role="separator" aria-orientation="vertical" aria-label="Resize panes"
+         tabindex="0" aria-valuemin="25" aria-valuemax="75" aria-valuenow="55"></div>
+
+    <section class="pane inspector" aria-label="Setup and result">
+      <div class="inspector-header">
+        <div class="segmented" role="tablist" aria-label="Inspector">
+          <button type="button" role="tab" id="tab-setup" aria-selected="true" aria-controls="panel-setup">Setup</button>
+          <button type="button" role="tab" id="tab-result" aria-selected="false" aria-controls="panel-result" tabindex="-1">
+            Result<span class="tab-badge" id="result-badge" hidden></span>
+          </button>
+        </div>
+      </div>
+      <div class="inspector-body">
+        <div class="panel" id="panel-setup" role="tabpanel" aria-labelledby="tab-setup"></div>
+        <div class="panel" id="panel-result" role="tabpanel" aria-labelledby="tab-result" hidden></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog class="sheet" id="library" aria-labelledby="library-title">
+  <form method="dialog" class="sheet-inner">
+    <header class="sheet-header">
+      <h2 id="library-title">Examples</h2>
+      <p class="sheet-subtitle">Programs from <code>pgfexamples</code>. Loading replaces the program; ⌘Z brings yours back.</p>
+      <input type="search" class="field" id="library-search" placeholder="Search examples" aria-label="Search examples" autocomplete="off">
+    </header>
+    <div class="sheet-body" id="library-list" role="listbox" aria-label="Examples"></div>
+    <footer class="sheet-footer">
+      <button type="submit" class="button" value="cancel">Cancel</button>
+    </footer>
+  </form>
+</dialog>
+<dialog class="alert" id="close-alert" aria-labelledby="close-alert-title" aria-describedby="close-alert-message">
+  <form method="dialog" class="alert-inner">
+    <h2 class="alert-title" id="close-alert-title">Do you want to save the changes?</h2>
+    <p class="alert-message" id="close-alert-message">Your changes will be lost if you don’t save them.</p>
+    <div class="alert-buttons">
+      <button type="button" class="button" value="discard">Don’t Save</button>
+      <button type="button" class="button" value="cancel">Cancel</button>
+      <button type="submit" class="button prominent" value="save" autofocus>Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="alert" id="name-alert" aria-labelledby="name-alert-title" aria-describedby="name-alert-message">
+  <form method="dialog" class="alert-inner">
+    <h2 class="alert-title" id="name-alert-title">Save Program</h2>
+    <label class="alert-field"><span>Save As:</span>
+      <input class="field" id="name-alert-field" autocomplete="off" spellcheck="false" required>
+    </label>
+    <p class="alert-message" id="name-alert-message">This browser can’t save into a folder directly, so the program is downloaded as a .pgcl file.</p>
+    <div class="alert-buttons">
+      <button type="button" class="button" value="cancel">Cancel</button>
+      <button type="submit" class="button prominent" value="save">Download</button>
+    </div>
+  </form>
+</dialog>
+<noscript>The Prodigy GUI needs JavaScript.</noscript>
+</body>
+</html>

@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Sequence, Tuple, Union
+from typing import Callable, Dict, List, Sequence, Tuple, Union
 
 import sympy
 
@@ -20,12 +20,20 @@ Analyzer = Callable[[Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, D
 """Computes the semantics of instructions (``compute_semantics``)."""
 
 
-def evt_invariant_verification(loop: WhileInstr,
-                               prog_info: ProgramInfo,
-                               distribution: Distribution,
-                               invariant: Distribution,
-                               config: ForwardAnalysisConfig,
-                               analyzer: Analyzer) -> Distribution:
+def evt_invariant_check(loop: WhileInstr,
+                        prog_info: ProgramInfo,
+                        distribution: Distribution,
+                        invariant: Distribution,
+                        config: ForwardAnalysisConfig,
+                        analyzer: Analyzer) -> Tuple[Distribution, Distribution, List[Dict[str, str]]]:
+    """
+    Checks whether ``invariant`` is a fixed point of the EVT operator
+    Ψ(I) = distribution + ⟦body⟧(⟨I⟩_guard), solving for the invariant's parameters if needed.
+
+    :returns: the terminating part ⟨I⟩_¬guard, the invariant I itself (with the first solution
+        substituted) and all solutions found.
+    :raises VerificationError: if the invariant cannot be validated.
+    """
     logger.debug("Invariant Verification for loop %s with initial distribution %s.", loop, distribution)
     print(f"{Style.YELLOW}Invariant verification initiated...{Style.RESET}")
 
@@ -42,7 +50,7 @@ def evt_invariant_verification(loop: WhileInstr,
     if invariant == phi:
         print(f"{Style.OKGREEN}Invariant validated!{Style.RESET}")
         print(f"{Style.GREEN}Invariant: {invariant}{Style.RESET}{Style.CLEARTOEND}")
-        return invariant - invariant.filter(loop.cond)
+        return invariant - invariant.filter(loop.cond), invariant, []
 
     # If the invariant does not match, we need to find a solution.
     diff = invariant - phi
@@ -68,8 +76,20 @@ def evt_invariant_verification(loop: WhileInstr,
         sol_dist = config.factory.from_expr(
             solution, *prog_info.program.variables.keys()
         )
+        full = str(sympy.S(str(invariant)).subs(solutions[0])).replace("**", "^")
+        full_dist = config.factory.from_expr(full, *prog_info.program.variables.keys())
         print(f"{Style.GREEN}Invariant: {sol_dist}{Style.RESET}{Style.CLEARTOEND}")
-        return sol_dist
+        return sol_dist, full_dist, [{str(k): str(v) for k, v in s.items()} for s in solutions]
 
     # No solution found.
     raise VerificationError(f"Invariant {invariant} could not be verified for loop {loop}.")
+
+
+def evt_invariant_verification(loop: WhileInstr,
+                               prog_info: ProgramInfo,
+                               distribution: Distribution,
+                               invariant: Distribution,
+                               config: ForwardAnalysisConfig,
+                               analyzer: Analyzer) -> Distribution:
+    """Like :func:`evt_invariant_check`, but returns only the terminating part."""
+    return evt_invariant_check(loop, prog_info, distribution, invariant, config, analyzer)[0]

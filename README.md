@@ -14,7 +14,7 @@ It provides a command-line interface as well as a webservice.
 
 To install Prodigy, follow these steps:
 
-1. Make sure [Python](https://www.python.org/downloads/) 3.9 or newer is installed.
+1. Make sure [Python](https://www.python.org/downloads/) 3.11 or newer is installed (tested with 3.11 and 3.14).
 2. Install [GiNaC](https://www.ginac.de/Download.html), which also requires [CLN](https://www.ginac.de/CLN/).
 3. Install [Poetry](https://python-poetry.org/docs/#installation).
 4. Clone or download the Prodigy repository, open a command prompt in its root folder, and type `./install.sh`. This should automatically install all required dependencies.
@@ -40,7 +40,16 @@ If you run into trouble during installation, this subsection might be of help. I
 2. Now, you can use prodigy by executing the script via `python prodigy/cli.py ...`. For more information, see the help message or have a look into the documentation.
 
 
-### Webservice
+### Web GUI
+1. Activate the virtual environment by ``poetry shell``.
+2. Type ``prodigy web`` (or ``prodigy --engine ginac web`` for the faster GiNaC engine). The GUI opens in your browser.
+3. Write or load a program, choose a strategy for each loop under *Setup*, and press *Analyze* (⌘/Ctrl + Return).
+
+Results come with their guarantee (exact, lower bound with residual mass, upper bound), and
+queries are answered with sound intervals. See [docs/gui.md](docs/gui.md), which also
+describes the non-interactive analysis API (`prodigy analyze --json`).
+
+### Webservice (legacy)
 1. Activate the virtual environment by ``poetry shell``.
 2. Type ``web-service``.
 3. Open a browser and locate `localhost:8080`.

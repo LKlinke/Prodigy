@@ -19,7 +19,10 @@ disable=
     too-many-statements,
     too-many-nested-blocks,
     too-many-instance-attributes,
-    duplicate-code
+    duplicate-code,
+    # The analysis session, the loop-strategy registry and the instruction handlers refer to
+    # each other through imports inside functions (resolved at run time, not at import time).
+    cyclic-import
 
 [VARIABLES]
 init-import=no
