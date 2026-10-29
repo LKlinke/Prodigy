@@ -1,0 +1,18 @@
+# Dependency updates arrive as pull requests, so the CI checks them before they reach main.
+version: 2
+updates:
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      python-dependencies:
+        patterns: [ "*" ]
+
+  - package-ecosystem: github-actions
+    directories: [ "/", "/.github/actions/setup" ]
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: [ "*" ]
