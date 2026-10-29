@@ -1,5 +1,5 @@
 import pytest
-from probably.pgcl import parse_pgcl
+from prodigy.pgcl import parse_pgcl
 
 from prodigy.analysis.analyzer import compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig

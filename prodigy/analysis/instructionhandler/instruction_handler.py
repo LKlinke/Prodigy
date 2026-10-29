@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Union, Sequence, Callable
 
-from probably.pgcl import Instr
+from prodigy.pgcl import Instr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo

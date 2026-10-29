@@ -14,9 +14,9 @@ from symengine.lib.symengine_wrapper import NegativeInfinity
 # todo remove once methods in symengine
 import sympy as sp
 
-from probably.pgcl import VarExpr, Expr, FunctionCallExpr, RealLitExpr, UnopExpr, Binop, BinopExpr, Unop, NatLitExpr
-from probably.util.ref import Mut
-from probably.pgcl.parser import parse_expr
+from prodigy.pgcl import VarExpr, Expr, FunctionCallExpr, RealLitExpr, UnopExpr, Binop, BinopExpr, Unop, NatLitExpr
+from prodigy.pgcl.util.ref import Mut
+from prodigy.pgcl.parser import parse_expr
 
 from prodigy.distribution import Distribution
 from prodigy.distribution import MarginalType, State, CommonDistributionsFactory, DistributionParam

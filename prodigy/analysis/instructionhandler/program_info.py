@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from probably.pgcl import Program, Var
+from prodigy.pgcl import Program, Var
 
 
 @dataclass(frozen=True)

@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple, Union
 import matplotlib.pyplot as plt
 import sympy
 from matplotlib.cm import ScalarMappable
-from probably.pgcl import VarExpr
+from prodigy.pgcl import VarExpr
 
 from prodigy.distribution.distribution import Distribution
 from prodigy.util.logger import log_setup

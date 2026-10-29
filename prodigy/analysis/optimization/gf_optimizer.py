@@ -1,8 +1,8 @@
 from typing import List, Union, get_args
 
 import sympy
-from probably.pgcl import Expr, OptimizationType, VarExpr
-from probably.pgcl.parser import parse_expr
+from prodigy.pgcl import Expr, OptimizationType, VarExpr
+from prodigy.pgcl.parser import parse_expr
 
 from prodigy.distribution.distribution import Distribution
 

@@ -1,0 +1,9 @@
+The pGCL front end in this package (ast/, check.py, compiler.py, parser.py, substitute.py,
+util/, pysmt/ and __init__.py) and its tests in tests/pgcl come from probably,
+https://github.com/Philipp15b/probably (branch brand-new, commit 3db123d), by Philipp Schröer
+and contributors, licensed under the Apache License 2.0 (see LICENSE in this folder).
+
+Prodigy changed these files: the imports refer to prodigy.pgcl instead of probably, and the
+parts that Prodigy does not use (control-flow graphs, weakest pre-expectations, the command
+line) were left out. The git history of these files records all changes, including those
+made in probably.

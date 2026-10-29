@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from probably.pgcl import Instr
+from prodigy.pgcl import Instr
 
 
 def _assume(instruction: Instr, instr_type, clsname: str):

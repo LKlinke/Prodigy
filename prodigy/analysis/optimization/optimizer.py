@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Union
 
 import attr
-from probably.pgcl import Expr, OptimizationType, VarExpr
+from prodigy.pgcl import Expr, OptimizationType, VarExpr
 
 from prodigy.distribution.distribution import Distribution
 

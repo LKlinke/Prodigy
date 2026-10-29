@@ -14,9 +14,7 @@ uv run prodigy web --port 9000 --time-limit 300 --no-browser
 The GUI needs no Node.js or internet connection; the editor (CodeMirror 6) and KaTeX are
 vendored under `prodigy/web/static/vendor/`.
 
-Prodigy is tested with Python 3.11 and 3.14. On Python 3.13 and later, `uv sync` compiles
-numpy 1.26.4 from source (a few minutes; networkx 2.5, which `probably` pins, does not work
-with numpy 2).
+Prodigy is tested with Python 3.11 and 3.14.
 
 ## What the GUI shows
 
@@ -80,7 +78,7 @@ The while handler no longer asks questions itself. An `AnalysisSession`
 their index in textual order (`prodigy outline FILE` lists them).
 
 ```python
-from probably.pgcl import parse_pgcl
+from prodigy.pgcl import parse_pgcl
 from prodigy.analysis.session import AnalysisSession
 
 session = AnalysisSession(parse_pgcl(source), source=source,

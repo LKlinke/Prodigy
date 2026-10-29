@@ -77,7 +77,7 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
                  progress: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
     """Runs one analysis request and returns the JSON result (never raises for analysis errors)."""
     # pylint: disable=import-outside-toplevel
-    from probably.pgcl import parse_pgcl
+    from prodigy.pgcl import parse_pgcl
 
     from prodigy.analysis.session import AnalysisSession
 

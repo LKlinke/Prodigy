@@ -4,9 +4,6 @@ from typing import Tuple, Optional, List, Dict, Union
 
 import pysmt.solvers.solver
 import sympy
-from probably.pgcl.parser import parse_expr
-from probably.pysmt.context import TranslationContext
-from probably.pysmt.expr import expr_to_pysmt
 from pysmt.exceptions import SolverReturnedUnknownResultError
 from pysmt.logics import QF_NRA
 from pysmt.shortcuts import Symbol, EqualsOrIff, Not, And
@@ -14,6 +11,9 @@ from pysmt.typing import REAL
 
 from prodigy.analysis.solver.solver import Solver
 from prodigy.distribution import Distribution, CommonDistributionsFactory, State
+from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.pysmt.context import TranslationContext
+from prodigy.pgcl.pysmt.expr import expr_to_pysmt
 from prodigy.util.logger import log_setup
 
 

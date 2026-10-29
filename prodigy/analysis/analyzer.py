@@ -4,7 +4,7 @@ import functools
 import logging
 from typing import Callable, Optional, Union, Sequence, get_args
 
-from probably.pgcl import Program, Instr, SkipInstr, AbortInstr, WhileInstr, LoopInstr, QueryInstr, Query, \
+from prodigy.pgcl import Program, Instr, SkipInstr, AbortInstr, WhileInstr, LoopInstr, QueryInstr, Query, \
     ObserveInstr, ChoiceInstr, AsgnInstr, IfInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig

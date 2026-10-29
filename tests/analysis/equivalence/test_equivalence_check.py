@@ -5,9 +5,9 @@ from os.path import isfile
 
 import pytest
 import sympy
-from probably.pgcl import parse_pgcl
-from probably.pgcl.ast import Program
-from probably.pgcl.compiler import compile_pgcl
+from prodigy.pgcl import parse_pgcl
+from prodigy.pgcl.ast import Program
+from prodigy.pgcl.compiler import compile_pgcl
 
 from prodigy.analysis.analyzer import compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig

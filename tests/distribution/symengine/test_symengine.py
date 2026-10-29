@@ -6,7 +6,7 @@ from prodigy.distribution.symengine_distribution import *
 import pytest
 import symengine as se
 import random
-from probably.pgcl import NatLitExpr, BoolLitExpr
+from prodigy.pgcl import NatLitExpr, BoolLitExpr
 
 import re
 
@@ -664,25 +664,25 @@ class TestDistributionInterface:
 
     def test_parse_to_symengine(self):
         from prodigy.distribution.symengine_distribution import _parse_to_symengine
-        from probably.pgcl import NatLitExpr, VarExpr
+        from prodigy.pgcl import NatLitExpr, VarExpr
 
         # Base case
         expr = "x**2 + y**2"
         assert _parse_to_symengine(expr) == se.S(expr)
 
-        # Probably: NatLitExpr
+        # pGCL AST: NatLitExpr
         expr = NatLitExpr(1)
         assert _parse_to_symengine(expr) == se.S("1")
 
-        # Probably: VarExpr
+        # pGCL AST: VarExpr
         expr = VarExpr("x")
         assert _parse_to_symengine(expr) == se.Symbol("x")
 
-        # Probably: RealLitExpr
+        # pGCL AST: RealLitExpr
         expr = RealLitExpr(Fraction(2, 4))
         assert _parse_to_symengine(expr) == se.S("1/2")
 
-        # Probably: BinopExpr
+        # pGCL AST: BinopExpr
         expr = BinopExpr(
             lhs=VarExpr("x"),
             operator=Binop.PLUS,
@@ -690,7 +690,7 @@ class TestDistributionInterface:
         )
         assert _parse_to_symengine(expr) == se.S("x + y")
 
-        # Probably: Nested BinopExpr
+        # pGCL AST: Nested BinopExpr
         expr = BinopExpr(
             lhs=BinopExpr(
                 lhs=VarExpr("x"),
@@ -710,7 +710,7 @@ class TestDistributionInterface:
         )
         assert _parse_to_symengine(expr) == se.S("(x**2) / (y - x * 1/3)")
 
-        # Probably: Not supported operator
+        # pGCL AST: Not supported operator
         expr = BinopExpr(
             lhs=VarExpr("x"),
             operator=Binop.LEQ,
@@ -720,7 +720,7 @@ class TestDistributionInterface:
         with pytest.raises(ValueError, match=re.escape(f"Unsupported operand: {Binop.LEQ}")):
             _parse_to_symengine(expr)
 
-        # Probably: Not supported type
+        # pGCL AST: Not supported type
         expr = BoolLitExpr(True)
 
         with pytest.raises(ValueError, match=re.escape(f"Unsupported type: {type(expr)}")):

@@ -52,7 +52,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import sympy
-from probably.pgcl import (Binop, BinopExpr, BoolType, Expr, NatLitExpr, NatType, RealLitExpr,
+from prodigy.pgcl import (Binop, BinopExpr, BoolType, Expr, NatLitExpr, NatType, RealLitExpr,
                            UnopExpr, VarExpr)
 
 from prodigy.analysis.loop_strategies import Bound

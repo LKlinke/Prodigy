@@ -7,16 +7,16 @@ from typing import (Any, Callable, FrozenSet, Generator, Iterator, List, Set,
                     Tuple, Type, Union, get_args)
 
 import sympy
-from probably.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
-                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
-from probably.pgcl.parser import parse_expr
-from probably.util.ref import Mut
 from sympy.assumptions.assume import global_assumptions
 
-# TODO Implement these checks in probably
+# TODO Implement these checks in prodigy.pgcl
 from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
+from prodigy.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
+                          NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
+from prodigy.pgcl.parser import parse_expr
 from prodigy.pgcl.pgcl_checks import has_variable
+from prodigy.pgcl.util.ref import Mut
 from prodigy.util.logger import log_setup, logging
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG, file="GF_operations.log")
@@ -33,8 +33,8 @@ def _term_generator(function: sympy.Poly):
 
 def _parse_to_sympy(expr: Any, real=True, **kwargs) -> sympy.Expr:
     """
-    Parses something (`float`s, `bool`s, `Fraction`s, `probably.Expr`s, anything that can be converted to a valid
-    string) to a sympy expression. Can convert a probably expression faster than passing it as a string to sympy.
+    Parses something (`float`s, `bool`s, `Fraction`s, pGCL `Expr`s, anything that can be converted to a valid
+    string) to a sympy expression. Can convert a pGCL expression faster than passing it as a string to sympy.
     Also will correctly determine if something is a symbol or a function (e.g., if we have a variable called `exp` or
     `log`). All symbols are given the assumptions that they are real unless specified otherwise.
     """

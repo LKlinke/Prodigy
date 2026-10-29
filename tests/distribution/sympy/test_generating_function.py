@@ -2,8 +2,8 @@ import random
 
 import pytest
 import sympy
-from probably.pgcl import Binop, BinopExpr, NatLitExpr, VarExpr
-from probably.pgcl.parser import parse_expr
+from prodigy.pgcl import Binop, BinopExpr, NatLitExpr, VarExpr
+from prodigy.pgcl.parser import parse_expr
 
 from prodigy.distribution.distribution import MarginalType, State
 from prodigy.distribution.generating_function import (GeneratingFunction,

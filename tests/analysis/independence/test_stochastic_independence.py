@@ -1,5 +1,5 @@
-from probably.pgcl.ast import Program
-from probably.pgcl.compiler import compile_pgcl
+from prodigy.pgcl.ast import Program
+from prodigy.pgcl.compiler import compile_pgcl
 
 from prodigy.analysis.independence import independent_vars
 

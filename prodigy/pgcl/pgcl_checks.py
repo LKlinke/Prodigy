@@ -1,9 +1,9 @@
 from typing import Optional, Set
 
-from probably.pgcl import (Binop, BinopExpr, Expr, NatLitExpr, Unop, UnopExpr,
+from prodigy.pgcl import (Binop, BinopExpr, Expr, NatLitExpr, Unop, UnopExpr,
                            VarExpr)
-from probably.pgcl.ast.walk import Walk, mut_expr_children, walk_expr
-from probably.util.ref import Mut
+from prodigy.pgcl.ast.walk import Walk, mut_expr_children, walk_expr
+from prodigy.pgcl.util.ref import Mut
 
 
 def has_variable(expr: Expr, params: Optional[Set[str]]) -> bool:

@@ -30,7 +30,7 @@ from fractions import Fraction
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 if TYPE_CHECKING:  # pragma: no cover
-    from probably.pgcl import Instr, WhileInstr
+    from prodigy.pgcl import Instr, WhileInstr
 
     from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.analysis.instructionhandler.program_info import ProgramInfo

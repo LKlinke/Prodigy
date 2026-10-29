@@ -2,7 +2,7 @@ import logging
 from typing import List, Callable, Union, Sequence, Tuple
 
 import sympy
-from probably.pgcl import WhileInstr, Instr
+from prodigy.pgcl import WhileInstr, Instr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategy
