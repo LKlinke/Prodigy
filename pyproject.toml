@@ -28,10 +28,10 @@ dependencies = [
     "Werkzeug>=2.3.5,<3",
     # https://stackoverflow.com/questions/78348773/how-to-resolve-np-float-was-removed-in-the-numpy-2-0-release-use-np-float64
     # (networkx 2.5, pinned by probably, needs numpy < 2; 1.26.4 has no wheels for Python >= 3.13 and is built from source there)
-    "numpy==1.26.4",
+    "numpy==2.4.6",
     # 0.14 has wheels for Python 3.14
     "symengine>=0.14.0,<0.15",
-    "setuptools>=76.0.0,<77",
+    "setuptools>=76.0.0,<85",
 ]
 
 [project.scripts]
@@ -42,11 +42,11 @@ web-service = "prodigy.web.web_equivalence:start_server"
 dev = [
     # pytest 7.2 rewrites assertions with ast.Str, which Python 3.14 removed; 8.4 is the first release for 3.14
     "pytest>=8.4",
-    "pylint>=2.5.2,<3",
+    "pylint>=2.5.2,<5",
     "mypy>0.770",
-    "yapf>=0.30.0,<0.31",
-    "jinja2==3.1.4",
-    "rope>=0.17.0,<0.18",
+    "yapf>=0.30.0,<0.44",
+    "jinja2==3.1.6",
+    "rope>=0.17.0,<1.16",
     # pytest-cov < 5 uses hook markers that pytest 9 deprecates and pytest 10 removes
     "pytest-cov>=5",
     # hypothesis 5 registers a pytest plugin that fails to load on Python >= 3.12 (importlib.metadata)
