@@ -1,7 +1,8 @@
 #!/bin/bash
+set -e
 
-# Install poetry packages
-poetry install
+# Install Prodigy and the dependencies locked in uv.lock into .venv (needs uv: https://docs.astral.sh/uv/)
+uv sync
 
 # Install z3 solver
-poetry run pysmt-install --z3 --confirm-agreement
+uv run pysmt-install --z3 --confirm-agreement

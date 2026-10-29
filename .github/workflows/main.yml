@@ -1,5 +1,3 @@
-# This is a basic workflow to help you get started with Actions
-
 name: CI
 
 on:
@@ -8,52 +6,82 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-  
+
+permissions:
+  contents: read
+
+concurrency:
+  # A new push to a pull request cancels its older runs; runs on main always finish.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Every uv command fails if uv.lock does not match pyproject.toml, instead of updating it.
+  UV_LOCKED: "1"
+
 jobs:
-  build:
+  lint:
+    name: pylint
     runs-on: ubuntu-latest
-    # A hanging test fails the job after an hour instead of GitHub's default of 6 hours.
-    timeout-minutes: 60
-    env:
-      POETRY_VIRTUALENVS_CREATE: false
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: 3.11
-      - name: Set up Poetry cache for Python dependencies
-        uses: actions/cache@v3
-        if: startsWith(runner.os, 'Linux')
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: make lint
+
+  typecheck:
+    name: mypy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          path: ~/.cache/pypoetry
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: ${{ runner.os }}-poetry-
-      - name: Set up pre-commit cache
-        uses: actions/cache@v3
-        if: startsWith(runner.os, 'Linux')
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: make mypy
+
+  test:
+    name: tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [ "3.11", "3.14" ]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          path: ~/.cache/pre-commit
-          key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
-          restore-keys: ${{ runner.os }}-pre-commit-
-      - name: Install Poetry
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          python-version: ${{ matrix.python }}
+      - run: make test
+      - name: Coverage summary
+        if: ${{ !cancelled() }}
+        run: uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload test report and coverage
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-report-python-${{ matrix.python }}
+          path: |
+            testreport.xml
+            htmlcov/
+          retention-days: 14
+
+  # The branch protection rule requires this check. It passes only if all jobs above passed,
+  # so jobs can be added or renamed without changing the rule.
+  build:
+    if: ${{ always() }}
+    needs: [ lint, typecheck, test ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All checks passed
         run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-      - name: Install GiNaC
-        run: sudo apt-get install -y libginac-dev
-      - name: Install dependencies
-        run: poetry install --no-interaction
-      - name: Run linter
-        run: make lint
-      - name: Run mypy
-        run: make mypy
-      - name: Run unit tests
-        run: make ARGS="--exitfirst" test
-#      - name: Build docs
-#        run: make docs
-#      - name: Deploy docs
-#        if: github.ref == 'refs/heads/master'
-#        uses: JamesIves/github-pages-deploy-action@4.1.1
-#        with:
-#          branch: gh-pages
-#          folder: docs/build/html
+          echo "pylint: ${{ needs.lint.result }}, mypy: ${{ needs.typecheck.result }}, tests: ${{ needs.test.result }}"
+          test "${{ needs.lint.result }}" = success
+          test "${{ needs.typecheck.result }}" = success
+          test "${{ needs.test.result }}" = success

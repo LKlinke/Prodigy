@@ -5,19 +5,19 @@ help:
 	@echo "Available targets: install, lint, mypy, test, docs, clean, format"
 
 install:
-	poetry install
+	uv sync
 
 lint:
-	poetry run pylint prodigy ${ARGS}
+	uv run pylint prodigy ${ARGS}
 
 mypy:
-	poetry run mypy prodigy ${ARGS}
+	uv run mypy prodigy ${ARGS}
 
 test:
-	poetry run pytest --doctest-modules --cov=prodigy --cov-report html --cov-report term --junitxml=testreport.xml tests/ prodigy/ ${ARGS}
+	uv run pytest --cov=prodigy --cov-report html --cov-report term --junitxml=testreport.xml ${ARGS}
 
 docs:
-	poetry run bash -c "cd docs && make html"
+	uv run bash -c "cd docs && make html"
 
 docker-build:
 	docker build -t prodigy .
@@ -29,5 +29,5 @@ clean:
 	rm -rf docs/build
 
 format:
-	poetry run yapf -r -i prodigy/ tests/
-	poetry run isort prodigy/ tests/
+	uv run yapf -r -i prodigy/ tests/
+	uv run isort prodigy/ tests/
