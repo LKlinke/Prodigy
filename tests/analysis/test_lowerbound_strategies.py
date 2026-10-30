@@ -108,3 +108,14 @@ def test_subinvariant_whose_denominator_is_not_a_product():
                      "evt_subinvariant:subinvariant=x*y/(1-9/50*(x+y))*(1+z/10)")
     assert result["loops"][0]["kind"] == "lower"
     assert exact(query(result, "z = 1")["lower"]) == Fraction(5, 32)
+
+
+def test_evt_invariant_that_is_a_polynomial_in_several_variables_is_exact():
+    """A language model's EVT invariant for the fast dice roller: the positivity heuristic failed on it
+    (multivariate partial fractions), the sound criterion recognises the non-negative polynomial."""
+    invariant = "v + (2/3)*v^2*(1+c) + (1/3)*v^4*(1+c+c^2+c^3) + (1/6)*v^8*flag*(1+c+c^2+c^3+c^4+c^5)"
+    result = analyse((EXAMPLES / "exact" / "fast_dice_roller.pgcl").read_text(),
+                     {"strategy": "evt_invariant", "params": {"invariant": invariant}})
+    certificate = result["loops"][0]["certificates"][0]
+    assert certificate["nonnegative"] is True and certificate["finite_mass"] is True
+    assert result["loops"][0]["kind"] == "exact"

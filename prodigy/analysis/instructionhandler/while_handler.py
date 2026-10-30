@@ -103,6 +103,12 @@ def finite_mass(invariant: Any, variables: Sequence[str]) -> Tuple[Optional[bool
 
 
 def _positivity(config: ForwardAnalysisConfig, variables, invariant: Any) -> Optional[bool]:
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.lowerbounds.subinvariant import nonneg_by_construction
+    # Sound criterion first: it covers polynomials and P / prod (c - R), for which the heuristic fails on
+    # several variables (SymPy has no multivariate partial fraction decomposition).
+    if nonneg_by_construction(str(invariant), [str(v) for v in variables]):
+        return True
     try:
         strategy: SynthesisStrategy = SynthesisStrategies.make(config.strategy, variables, config.factory)
         verdict = strategy.positivity_heuristics.is_positive(sympy.S(str(invariant).replace("^", "**")))
