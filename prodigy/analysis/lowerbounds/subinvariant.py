@@ -76,8 +76,33 @@ def to_product_form(expr: Union[str, sympy.Expr], variables: Sequence[str]) -> O
     return numer, Denominator(rates, periods)
 
 
+def nonneg_by_construction(expr_str: str, variables: Sequence[str]) -> bool:
+    """Sufficient criterion for non-negative coefficients: the expression is ``P / prod_i Q_i^k_i`` where ``P`` has
+    non-negative coefficients and every ``Q_i = c_i - R_i`` has a constant ``c_i > 0`` and ``R_i`` non-negative
+    coefficients, as ``1/(c - R) = sum_n R^n / c^(n+1)``. Covers denominators that are not products of univariate
+    factors, e.g. ``x*y/(1 - 9/50*(x + y))``."""
+    syms = [sympy.Symbol(v) for v in variables]
+    try:
+        expr = sympy.cancel(sympy.together(sympy.sympify(expr_str, locals=dict(zip(variables, syms)))))
+        num, den = sympy.fraction(expr)
+        coeff, factors = sympy.factor_list(den, *syms)
+        for factor, power in factors:
+            poly = sympy.Poly(factor, *syms)
+            constant = poly.coeff_monomial(1)
+            if constant == 0:
+                return False
+            if constant < 0:
+                poly, coeff = -poly, coeff * (-1) ** power
+            if any(c > 0 for monomial, c in poly.terms() if any(monomial)):
+                return False
+        return all(c >= 0 for c in sympy.Poly(num / coeff, *syms).coeffs())
+    except (TypeError, ValueError, sympy.SympifyError, sympy.PolynomialError):
+        return False
+
+
 def decide_nonneg(expr_str: str, variables: Sequence[str], config: ForwardAnalysisConfig) -> Tuple[Optional[bool], str]:
-    """Coefficient-wise nonnegativity: exact for product denominators, otherwise Prodigy's heuristics."""
+    """Coefficient-wise nonnegativity: exact for product denominators, then a sufficient criterion for rational
+    functions, otherwise Prodigy's heuristics."""
     form = to_product_form(expr_str, variables)
     if form is not None:
         numer, den = form
@@ -86,6 +111,8 @@ def decide_nonneg(expr_str: str, variables: Sequence[str], config: ForwardAnalys
         if neg is None:
             return True, "exact (finite positivity check)"
         return False, f"exact: coefficient {neg[1]} at {dict(zip(variables, neg[0]))}"
+    if nonneg_by_construction(expr_str, variables):
+        return True, "P / prod (c - R) with non-negative P and R"
     from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
     try:
         heuristic = PositivityHeuristics.create(PositivityHeuristics.MIXED_RAT_FUNC, config.factory)

@@ -89,3 +89,22 @@ def test_subinvariant_that_is_too_large_is_refuted():
                               capture_output=True)
     result = session.run().to_json()
     assert result["status"] != "ok"
+
+
+def test_nonneg_by_construction():
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.lowerbounds.subinvariant import nonneg_by_construction
+    assert nonneg_by_construction("x*y/(1-9/50*(x+y))*(1+z/10)", ["x", "y", "z"])
+    assert nonneg_by_construction("(50 - 9*x)^(-2)", ["x"])
+    assert not nonneg_by_construction("1/(1+x)", ["x"])
+    assert not nonneg_by_construction("x - x^2", ["x"])
+    assert not nonneg_by_construction("1/(2*x - 1)", ["x"])
+
+
+def test_subinvariant_whose_denominator_is_not_a_product():
+    """A language model's candidate for quadrant_timeout. Prodigy's positivity heuristic could not show nu >= 0;
+    the criterion for P / prod (c - R) can, for nu and for Phi(nu) - nu."""
+    result = analyse((EXAMPLES / "sandwich" / "quadrant_timeout.pgcl").read_text(),
+                     "evt_subinvariant:subinvariant=x*y/(1-9/50*(x+y))*(1+z/10)")
+    assert result["loops"][0]["kind"] == "lower"
+    assert exact(query(result, "z = 1")["lower"]) == Fraction(5, 32)
