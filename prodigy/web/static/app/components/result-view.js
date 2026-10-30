@@ -292,6 +292,10 @@ function yesNo(value, yes = "yes", no = "no") {
 function certificateView(cert) {
   const rows = [];
   const add = (label, value) => { if (value !== null && value !== undefined && value !== "") rows.push(h("div", {}, h("dt", {}, label), h("dd", {}, value))); };
+  if (cert.ai) {
+    const rejected = cert.ai.rejected?.length ? `, after ${cert.ai.rejected.length} rejected` : "";
+    add("Candidate from", `${cert.ai.model} (attempt ${cert.ai.attempts}${rejected}), checked by Prodigy`);
+  }
   switch (cert.type) {
     case "unrolling":
       add("Iterations", cert.fixpoint ? `${cert.iterations_done} (fixed point reached)` : String(cert.iterations));

@@ -340,7 +340,8 @@ class InteractiveDecisions(DecisionProvider):
             return preset
         options: Dict[str, LoopStrategy] = {}
         lines = ["While Instruction has only limited support. Choose an option:\n"]
-        extra_key = 7
+        numbered = [int(s.legacy_key) for s in loop_strategies() if s.legacy_key and s.legacy_key.isdigit()]
+        extra_key = max(numbered, default=0) + 1
         for strategy in loop_strategies():
             key = strategy.legacy_key
             if key is None:

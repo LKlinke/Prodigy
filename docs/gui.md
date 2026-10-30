@@ -85,6 +85,32 @@ Two strategies give lower bounds without a termination assumption (package
   Queries after other instructions fall back to the residual mass. Needs a rational input
   distribution and no `observe`.
 
+## Candidates from a language model
+
+The strategy *EVT invariant from a language model* (`ai_invariant`) asks a language model for an
+EVT invariant or a finite-mass EVT sub-invariant (parameter *Kind of candidate*). Prodigy checks
+every candidate exactly, like one typed in by hand, so the guarantee never depends on the model.
+A rejected candidate goes back to the model with the reason (e.g. Φ(I) − I), up to *Attempts*
+times. The certificate names the model and the accepted candidate; with that candidate, the check
+can be repeated without the model (strategies `evt_invariant`, `evt_subinvariant`).
+
+The API key is read from the environment of `prodigy` and never reaches the browser:
+
+```sh
+export ANTHROPIC_API_KEY="sk-ant-..."         # Claude API
+export PRODIGY_AI_MODEL=claude-opus-5-5       # optional, default claude-sonnet-5-5
+uv run prodigy --engine ginac web
+
+# or an OpenAI-compatible API, e.g. a local model served by Ollama:
+export PRODIGY_AI_BASE_URL=http://localhost:11434/v1 PRODIGY_AI_MODEL=<model>
+```
+
+`ANTHROPIC_WORKSPACE_ID` is needed for a Claude API key that is not scoped to a workspace,
+`OPENAI_API_KEY` for OpenAI's API; `PRODIGY_AI_PROVIDER` (`anthropic` or `openai`) chooses if
+both are configured. Answers are untrusted input: a candidate may only contain numbers, the
+program's variables and parameters, `+ - * / ^`, parentheses, `sqrt` and `exp` before any
+computer algebra system sees it.
+
 ## Non-interactive analysis API
 
 The while handler no longer asks questions itself. An `AnalysisSession`
