@@ -289,9 +289,25 @@ function yesNo(value, yes = "yes", no = "no") {
   return "undecided";
 }
 
+/** The attempts of a language model (strategy ai_invariant): candidate, verdict, full answer. */
+function aiAttempts(attempts) {
+  return attempts.map((a) => h("div", { class: "rv-cert-block" },
+    h("dt", {}, `Attempt ${a.attempt}`),
+    h("dd", {},
+      h("div", {}, a.candidate ? h("code", { class: "rv-wrap" }, a.candidate) : "No candidate in the answer",
+        a.stop_reason && !["end_turn", "stop"].includes(a.stop_reason) ? ` · stopped: ${a.stop_reason}` : ""),
+      a.reason ? h("div", {}, a.reason) : null,
+      h("details", {}, h("summary", {}, "Answer of the model"), h("pre", { class: "rv-pre" }, a.answer || "(no text)")))));
+}
+
 function certificateView(cert) {
   const rows = [];
   const add = (label, value) => { if (value !== null && value !== undefined && value !== "") rows.push(h("div", {}, h("dt", {}, label), h("dd", {}, value))); };
+  if (cert.ai) {
+    const rejected = cert.ai.rejected?.length ? `, after ${cert.ai.rejected.length} rejected` : "";
+    add("Candidate from", `${cert.ai.model} (attempt ${cert.ai.attempts}${rejected}), checked by Prodigy`);
+    if (cert.ai.rejected?.length) rows.push(...aiAttempts(cert.ai.rejected));
+  }
   switch (cert.type) {
     case "unrolling":
       add("Iterations", cert.fixpoint ? `${cert.iterations_done} (fixed point reached)` : String(cert.iterations));
@@ -350,6 +366,10 @@ function certificateView(cert) {
       }
       break;
     }
+    case "ai_attempts":
+      add("Model", cert.model);
+      rows.push(...aiAttempts(cert.attempts || []));
+      break;
     default:
       add("Details", h("code", { class: "rv-wrap" }, JSON.stringify(cert)));
   }

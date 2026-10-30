@@ -8,6 +8,8 @@ they show up in the same menu, with the same prompts, as before.
 """
 from __future__ import annotations
 
+import dataclasses
+import json
 import logging
 from fractions import Fraction
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
@@ -101,6 +103,12 @@ def finite_mass(invariant: Any, variables: Sequence[str]) -> Tuple[Optional[bool
 
 
 def _positivity(config: ForwardAnalysisConfig, variables, invariant: Any) -> Optional[bool]:
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.lowerbounds.subinvariant import nonneg_by_construction
+    # Sound criterion first: it covers polynomials and P / prod (c - R), for which the heuristic fails on
+    # several variables (SymPy has no multivariate partial fraction decomposition).
+    if nonneg_by_construction(str(invariant), [str(v) for v in variables]):
+        return True
     try:
         strategy: SynthesisStrategy = SynthesisStrategies.make(config.strategy, variables, config.factory)
         verdict = strategy.positivity_heuristics.is_positive(sympy.S(str(invariant).replace("^", "**")))
@@ -636,6 +644,87 @@ register_loop_strategy(LoopStrategy(
     requires_unconditioned=True,
 ))
 
+
+# ---------------------------------------------------------------------------------------
+# Candidates from a language model (prodigy.analysis.ai_candidates)
+# ---------------------------------------------------------------------------------------
+
+_AI_TARGETS = {"evt_invariant": "invariant", "evt_subinvariant": "subinvariant"}
+
+
+def _strategy_ai_invariant(task: LoopTask) -> LoopOutcome:
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis import ai_candidates
+    form = task.param("form")
+    attempts = task.param("attempts")
+    provider = ai_candidates.get_provider()
+    target = get_loop_strategy(form)
+    program = task.prog_info.program
+    variables = [str(v) for v in program.variables.keys()]
+    parameters = [str(p) for p in program.parameters.keys()]
+    rejected: List[Tuple[str, str]] = []
+    log: List[Dict[str, Any]] = []  # every attempt, for the certificate and the GUI
+    for attempt in range(1, attempts + 1):
+        task.progress(attempt - 1, attempts, f"Asking {provider.model}")
+        answer = provider.ask(ai_candidates.SYSTEM_PROMPT, ai_candidates.prompt(
+            form, str(program), str(task.instruction), variables, parameters, str(task.distribution), rejected))
+        entry: Dict[str, Any] = {"attempt": attempt, "answer": answer.strip()[-2000:], "candidate": None,
+                                 **provider.diagnostics}
+        log.append(entry)
+        print(f"Answer {attempt} of {provider.model}:\n{answer.strip()[-2000:] or '(no text)'}")
+        try:
+            candidate = ai_candidates.candidate_from_answer(answer, variables + parameters)
+        except ai_candidates.CandidateError as exc:
+            entry["reason"] = str(exc)
+            if not answer.strip() and provider.diagnostics:
+                entry["reason"] += (f" The model stopped with {provider.diagnostics.get('stop_reason')} "
+                                    f"(content: {provider.diagnostics.get('content', '?')}).")
+            lines = answer.strip().splitlines()
+            rejected.append((lines[-1][:200] if lines else "(empty answer)", entry["reason"]))
+            print(f"Rejected: {entry['reason']}")
+            continue
+        entry["candidate"] = candidate
+        # The candidate goes through the same check as one typed in by hand.
+        attempt_task = dataclasses.replace(task, strategy=target,
+                                           decision=LoopDecision(form, {_AI_TARGETS[form]: candidate}))
+        try:
+            outcome = target.run(attempt_task)
+        except Exception as exc:  # pylint: disable=broad-except  # any failed check rejects the candidate
+            reason = str(exc) or type(exc).__name__
+            details = getattr(exc, "details", None)
+            if details:
+                reason += " " + json.dumps(details, default=str)[:1000]
+            entry["reason"] = reason
+            rejected.append((candidate, reason))
+            print(f"Rejected {candidate}: {reason}")
+            continue
+        outcome.certificate["ai"] = {"provider": provider.name, "model": provider.model, "attempts": attempt,
+                                     "candidate": candidate, "answer": entry["answer"], "rejected": log[:-1]}
+        outcome.messages.append(f"Candidate proposed by {provider.model} (attempt {attempt}), checked by Prodigy.")
+        return outcome
+    raise InvariantRefutedError(
+        f"None of {attempts} answers of {provider.model} gave a candidate that passed Prodigy's check. "
+        f"Last reason: {log[-1].get('reason', 'none')[:300] if log else 'none'}",
+        details={"type": "ai_attempts", "provider": provider.name, "model": provider.model, "attempts": log})
+
+
+register_loop_strategy(LoopStrategy(
+    name="ai_invariant",
+    title="EVT invariant from a language model",
+    menu_text="Ask a language model for an EVT invariant or sub-invariant (checked by Prodigy)",
+    legacy_key="9",
+    soundness=Bound.UPPER,
+    description="A language model proposes an EVT invariant or a finite-mass sub-invariant. Prodigy checks "
+                "every candidate exactly, like one typed in by hand, and tells the model why a candidate "
+                "was rejected. Needs an API key in the environment of prodigy (see docs/gui.md).",
+    params=(ParamSpec("form", "choice", "Kind of candidate", prompt="Kind (evt_invariant or evt_subinvariant): ",
+                      default="evt_invariant", choices=("evt_invariant", "evt_subinvariant"),
+                      help="evt_invariant: expected visiting times (exact with finite mass, otherwise an upper "
+                           "bound); evt_subinvariant: a lower bound without termination assumption."),
+            ParamSpec("attempts", "int", "Attempts", prompt="Number of attempts: ", default=3, minimum=1,
+                      help="How often the model may try again after a rejected candidate.")),
+    run=_strategy_ai_invariant,
+))
 
 # ---------------------------------------------------------------------------------------
 # The handler
