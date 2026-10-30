@@ -657,16 +657,27 @@ def _strategy_ai_invariant(task: LoopTask) -> LoopOutcome:
     variables = [str(v) for v in program.variables.keys()]
     parameters = [str(p) for p in program.parameters.keys()]
     rejected: List[Tuple[str, str]] = []
+    log: List[Dict[str, Any]] = []  # every attempt, for the certificate and the GUI
     for attempt in range(1, attempts + 1):
         task.progress(attempt - 1, attempts, f"Asking {provider.model}")
         answer = provider.ask(ai_candidates.SYSTEM_PROMPT, ai_candidates.prompt(
             form, str(program), str(task.instruction), variables, parameters, str(task.distribution), rejected))
+        entry: Dict[str, Any] = {"attempt": attempt, "answer": answer.strip()[-2000:], "candidate": None,
+                                 **provider.diagnostics}
+        log.append(entry)
+        print(f"Answer {attempt} of {provider.model}:\n{answer.strip()[-2000:] or '(no text)'}")
         try:
             candidate = ai_candidates.candidate_from_answer(answer, variables + parameters)
         except ai_candidates.CandidateError as exc:
+            entry["reason"] = str(exc)
+            if not answer.strip() and provider.diagnostics:
+                entry["reason"] += (f" The model stopped with {provider.diagnostics.get('stop_reason')} "
+                                    f"(content: {provider.diagnostics.get('content', '?')}).")
             lines = answer.strip().splitlines()
-            rejected.append((lines[-1][:200] if lines else "(empty answer)", str(exc)))
+            rejected.append((lines[-1][:200] if lines else "(empty answer)", entry["reason"]))
+            print(f"Rejected: {entry['reason']}")
             continue
+        entry["candidate"] = candidate
         # The candidate goes through the same check as one typed in by hand.
         attempt_task = dataclasses.replace(task, strategy=target,
                                            decision=LoopDecision(form, {_AI_TARGETS[form]: candidate}))
@@ -677,15 +688,18 @@ def _strategy_ai_invariant(task: LoopTask) -> LoopOutcome:
             details = getattr(exc, "details", None)
             if details:
                 reason += " " + json.dumps(details, default=str)[:1000]
+            entry["reason"] = reason
             rejected.append((candidate, reason))
+            print(f"Rejected {candidate}: {reason}")
             continue
         outcome.certificate["ai"] = {"provider": provider.name, "model": provider.model, "attempts": attempt,
-                                     "candidate": candidate,
-                                     "rejected": [{"candidate": c, "reason": r} for c, r in rejected]}
+                                     "candidate": candidate, "answer": entry["answer"], "rejected": log[:-1]}
         outcome.messages.append(f"Candidate proposed by {provider.model} (attempt {attempt}), checked by Prodigy.")
         return outcome
-    raise VerificationError(f"None of {attempts} candidates of {provider.model} passed Prodigy's check. "
-                            f"Last reason: {rejected[-1][1][:300] if rejected else 'none'}")
+    raise InvariantRefutedError(
+        f"None of {attempts} answers of {provider.model} gave a candidate that passed Prodigy's check. "
+        f"Last reason: {log[-1].get('reason', 'none')[:300] if log else 'none'}",
+        details={"type": "ai_attempts", "provider": provider.name, "model": provider.model, "attempts": log})
 
 
 register_loop_strategy(LoopStrategy(

@@ -26,7 +26,7 @@ import os
 import re
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
 from prodigy.pgcl.parser import parse_expr
@@ -56,6 +56,8 @@ class Provider:
     model: str
     ask: Callable[[str, str], str]
     """(system prompt, user prompt) -> text of the answer"""
+    diagnostics: Dict[str, Any] = field(default_factory=dict)
+    """Why the last answer ended (``stop_reason``) and the kinds of its content blocks."""
 
 
 def _post(url: str, headers: Dict[str, str], body: Dict[str, Any], timeout: float) -> Dict[str, Any]:
@@ -102,12 +104,18 @@ def _anthropic(env: Mapping[str, str], timeout: float) -> Provider:
     if env.get("ANTHROPIC_WORKSPACE_ID"):
         headers["anthropic-workspace-id"] = env["ANTHROPIC_WORKSPACE_ID"]
 
-    def ask(system: str, user: str) -> str:
-        reply = _post(ANTHROPIC_URL, headers, {"model": model, "max_tokens": 4096, "system": system,
-                                               "messages": [{"role": "user", "content": user}]}, timeout)
-        return "".join(block.get("text", "") for block in reply.get("content", []) if block.get("type") == "text")
+    diagnostics: Dict[str, Any] = {}
 
-    return Provider("anthropic", model, ask)
+    def ask(system: str, user: str) -> str:
+        # room for the model's reasoning; only the tokens used are billed
+        reply = _post(ANTHROPIC_URL, headers, {"model": model, "max_tokens": 16000, "system": system,
+                                               "messages": [{"role": "user", "content": user}]}, timeout)
+        blocks = reply.get("content") or []
+        diagnostics.clear()
+        diagnostics.update(stop_reason=reply.get("stop_reason"), content=[b.get("type") for b in blocks])
+        return "".join(block.get("text", "") for block in blocks if block.get("type") == "text")
+
+    return Provider("anthropic", model, ask, diagnostics)
 
 
 def _openai(env: Mapping[str, str], timeout: float) -> Provider:
@@ -117,15 +125,20 @@ def _openai(env: Mapping[str, str], timeout: float) -> Provider:
     url = (env.get("PRODIGY_AI_BASE_URL") or "https://api.openai.com/v1").rstrip("/") + "/chat/completions"
     headers = {"authorization": f"Bearer {env['OPENAI_API_KEY']}"} if env.get("OPENAI_API_KEY") else {}
 
+    diagnostics: Dict[str, Any] = {}
+
     def ask(system: str, user: str) -> str:
         reply = _post(url, headers, {"model": model, "messages": [{"role": "system", "content": system},
                                                                    {"role": "user", "content": user}]}, timeout)
         try:
-            return reply["choices"][0]["message"]["content"] or ""
-        except (KeyError, IndexError, TypeError) as exc:
+            choice = reply["choices"][0]
+            diagnostics.clear()
+            diagnostics.update(stop_reason=choice.get("finish_reason"))
+            return choice["message"]["content"] or ""
+        except (KeyError, IndexError, TypeError, AttributeError) as exc:
             raise AIRequestError(f"{url}: unexpected answer {str(reply)[:300]}") from exc
 
-    return Provider("openai", model, ask)
+    return Provider("openai", model, ask, diagnostics)
 
 
 # ---------------------------------------------------------------------------------------
@@ -136,9 +149,11 @@ SYSTEM_PROMPT = (
     "You help the verifier Prodigy analyse probabilistic programs with loops. Prodigy represents a "
     "distribution over program states by its probability generating function (PGF) in the program "
     "variables: the coefficient of x^i*c^j is the probability of the state x = i, c = j. You propose a "
-    "generating function; Prodigy checks it exactly and rejects it if it is wrong. Answer with a single "
-    "closed-form expression in the program variables and parameters, using numbers, + - * / ^, "
-    "parentheses, sqrt and exp, alone on the last line. Keep any reasoning short.")
+    "generating function; Prodigy checks it exactly and rejects it if it is wrong. Your candidate is a "
+    "single closed-form expression in the program variables and parameters, using numbers, + - * / ^, "
+    "parentheses, sqrt and exp. Keep any reasoning short and end your answer with the line\n"
+    "ANSWER: <expression>\n"
+    "If you cannot find a candidate, end with the line ANSWER: none")
 
 _TASKS = {
     "evt_invariant": (
@@ -174,21 +189,30 @@ def prompt(form: str, program: str, loop: str, variables: Sequence[str], paramet
 
 
 _FENCE = re.compile(r"```[A-Za-z]*\n?(.*?)```", re.S)
+_ANSWER = re.compile(r"^[\s*_#>]*ANSWER[\s*_]*:[\s*_`$]*(.*?)[\s*_`$]*$", re.I | re.M)
 _PREFIX = re.compile(r"^(?:[A-Za-z_]\w*\s*(?:\([^)]*\))?\s*=\s*)+")
 _ALLOWED = re.compile(r"[0-9A-Za-z_+\-*/^().\s]+")
 _IDENTIFIER = re.compile(r"[A-Za-z_]\w*")
 
 
 def candidate_from_answer(answer: str, names: Sequence[str]) -> str:
-    """The candidate in a model's answer: the last line of its last code block, or of the answer.
+    """The candidate in a model's answer: its last ``ANSWER:`` line, else the last line of its last
+    code block or of the answer.
 
     Raises :class:`CandidateError` unless it is an expression over ``names``, numbers,
     ``+ - * / ^``, parentheses, ``sqrt`` and ``exp`` that parses as a pGCL expression."""
-    blocks = _FENCE.findall(answer)
-    lines = [line.strip() for line in (blocks[-1] if blocks else answer).splitlines() if line.strip()]
-    if not lines:
-        raise CandidateError("The answer contains no expression.")
-    candidate = _PREFIX.sub("", lines[-1].strip("`$ ")).rstrip(".;").strip().replace("**", "^")
+    marked = _ANSWER.findall(answer)
+    if marked:
+        line = marked[-1].strip()
+        if line.lower().strip(".") in ("none", "unknown", ""):
+            raise CandidateError("The model found no candidate (ANSWER: none).")
+    else:
+        blocks = _FENCE.findall(answer)
+        lines = [line.strip() for line in (blocks[-1] if blocks else answer).splitlines() if line.strip()]
+        if not lines:
+            raise CandidateError("The answer contains no text.")
+        line = lines[-1]
+    candidate = _PREFIX.sub("", line.strip("`$ ")).rstrip(".;").strip().replace("**", "^")
     if not _ALLOWED.fullmatch(candidate):
         raise CandidateError(f"{candidate!r} contains characters other than numbers, variables, "
                              "+ - * / ^ and parentheses.")

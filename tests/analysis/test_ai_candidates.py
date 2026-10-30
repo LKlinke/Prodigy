@@ -53,7 +53,10 @@ def test_no_accepted_candidate_fails_the_analysis(monkeypatch):
     fake_provider(monkeypatch, ["__import__('os').system('true')", "x"])
     result = analyse({"strategy": "ai_invariant", "params": {"form": "evt_invariant", "attempts": "2"}})
     assert result["status"] != "ok"
-    assert "None of 2 candidates" in str(result.get("error"))
+    assert "None of 2 answers" in str(result.get("error"))
+    log = result["loops"][0]["certificates"][0]
+    assert log["type"] == "ai_attempts" and [a["attempt"] for a in log["attempts"]] == [1, 2]
+    assert log["attempts"][0]["candidate"] is None and "__import__" in log["attempts"][0]["answer"]
 
 
 def test_subinvariant_candidates_give_lower_bounds(monkeypatch):
@@ -67,6 +70,10 @@ def test_answers_are_untrusted():
     names = ["x", "c"]
     assert candidate_from_answer("I(x, c) = (x + 1/2)/(1 - c/2).", names) == "(x + 1/2)/(1 - c/2)"
     assert candidate_from_answer("so\n$x**2 + sqrt(1 - c)$", names) == "x^2 + sqrt(1 - c)"
+    assert candidate_from_answer("Reasoning.\n**ANSWER:** `(x + 1/2)/(1 - c/2)`\nThis is exact.", names) \
+        == "(x + 1/2)/(1 - c/2)"
+    with pytest.raises(CandidateError, match="no candidate"):
+        candidate_from_answer("I do not know.\nANSWER: none", names)
     for answer in ["__import__('os').system('ls')", "x + y", "lambda: x", "(x + 1", "", "x.real"]:
         with pytest.raises(CandidateError):
             candidate_from_answer(answer, names)
@@ -81,8 +88,10 @@ def test_configuration(monkeypatch):
 
     def post(url, headers, body, timeout):
         requests.append((url, headers, body))
+        if "anthropic" in url and body["messages"][0]["content"] == "think":
+            return {"content": [{"type": "thinking", "thinking": "..."}], "stop_reason": "max_tokens"}
         if "anthropic" in url:
-            return {"content": [{"type": "text", "text": "x/2"}]}
+            return {"content": [{"type": "text", "text": "x/2"}], "stop_reason": "end_turn"}
         return {"choices": [{"message": {"content": "x/3"}}]}
 
     monkeypatch.setattr(ai_candidates, "_post", post)
@@ -91,6 +100,7 @@ def test_configuration(monkeypatch):
     url, headers, body = requests[-1]
     assert url == "https://api.anthropic.com/v1/messages" and headers["authorization"] == "Bearer sk-ant-test"
     assert headers["anthropic-workspace-id"] == "ws" and body["system"] == "s"
+    assert claude.ask("s", "think") == "" and claude.diagnostics == {"stop_reason": "max_tokens", "content": ["thinking"]}
     local = get_provider({"PRODIGY_AI_BASE_URL": "http://localhost:11434/v1/", "PRODIGY_AI_MODEL": "m"})
     assert local.ask("s", "u") == "x/3"
     url, headers, body = requests[-1]
