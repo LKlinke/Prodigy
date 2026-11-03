@@ -143,6 +143,7 @@ poetry.lock
 *.txt
 *.md
 !README.md
+!CLAUDE.md
 !docs/*.md
 !prodigy/web/frontend/README.md
 
