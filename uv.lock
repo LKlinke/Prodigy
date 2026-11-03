@@ -1513,9 +1513,10 @@ wheels = [
 ]
 
 [[package]]
-name = "prodigy"
+name = "prodigy-ppl"
 version = "3.0.0"
 source = { editable = "." }
+default-groups = ["dev", "ginac"]
 dependencies = [
     { name = "algebraic-data-types" },
     { name = "attrs" },
@@ -1528,7 +1529,6 @@ dependencies = [
     { name = "networkx", version = "3.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "pygin" },
     { name = "pysmt" },
     { name = "python-flint" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
@@ -1536,6 +1536,11 @@ dependencies = [
     { name = "setuptools" },
     { name = "symengine" },
     { name = "sympy" },
+]
+
+[package.optional-dependencies]
+ginac = [
+    { name = "pygin" },
 ]
 
 [package.dev-dependencies]
@@ -1549,6 +1554,9 @@ dev = [
     { name = "rope" },
     { name = "yapf" },
 ]
+ginac = [
+    { name = "pygin" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1561,7 +1569,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.4.2,<4" },
     { name = "networkx", specifier = ">=3.2,<4" },
     { name = "numpy", specifier = ">=1.26" },
-    { name = "pygin", git = "https://github.com/LKlinke/prodigy-ginac-bindings.git?rev=dynamic-variables" },
+    { name = "pygin", marker = "extra == 'ginac'", git = "https://github.com/LKlinke/prodigy-ginac-bindings.git?rev=dynamic-variables" },
     { name = "pysmt", specifier = ">=0.9.0,<0.10" },
     { name = "python-flint", specifier = ">=0.6" },
     { name = "scipy", specifier = ">=1.11" },
@@ -1569,6 +1577,7 @@ requires-dist = [
     { name = "symengine", specifier = ">=0.14.0,<0.15" },
     { name = "sympy", specifier = ">=1.8,<2" },
 ]
+provides-extras = ["ginac"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1581,6 +1590,7 @@ dev = [
     { name = "rope", specifier = ">=0.17.0,<1.16" },
     { name = "yapf", specifier = ">=0.30.0,<0.44" },
 ]
+ginac = [{ name = "pygin", git = "https://github.com/LKlinke/prodigy-ginac-bindings.git?rev=dynamic-variables" }]
 
 [[package]]
 name = "pygin"

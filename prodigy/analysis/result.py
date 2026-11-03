@@ -71,7 +71,7 @@ _INFINITY_SPELLINGS = {"\\infty", "∞", "oo", "inf", "infinity"}
 def prodigy_version() -> str:
     try:
         from importlib.metadata import version  # pylint: disable=import-outside-toplevel
-        return version("prodigy")
+        return version("prodigy-ppl")
     except Exception:  # pylint: disable=broad-except
         return "3.0.0"
 

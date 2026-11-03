@@ -565,7 +565,7 @@ def print_loop_strategies(as_json: bool) -> None:
 @click.option('--max-jobs', default=2, show_default=True, type=int, help="Analyses running at the same time.")
 @click.option('--memory-limit', default=None, type=int, help="Memory limit per analysis in MB (Linux).")
 @click.option('--examples', 'examples_dir', default=None, type=click.Path(exists=True, file_okay=False),
-              help="Folder with example programs (default: pgfexamples of this checkout).")
+              help="Folder with example programs (default: pgfexamples of this checkout or package).")
 @click.option('--allowed-host', 'allowed_hosts', multiple=True,
               help="Additional host name the server may be reached under (when not on localhost).")
 def web(  # pylint: disable=too-many-arguments

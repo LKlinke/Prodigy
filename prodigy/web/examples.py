@@ -29,7 +29,10 @@ _CATEGORY_TITLES = {
 
 
 def default_examples_dir() -> Optional[Path]:
-    """``pgfexamples`` of the source checkout this package lives in, if present."""
+    """
+    ``pgfexamples`` of the source checkout this package lives in, or the copy inside the
+    installed package (``prodigy/pgfexamples``, see ``pyproject.toml``), if present.
+    """
     here = Path(__file__).resolve()
     for parent in here.parents:
         candidate = parent / "pgfexamples"

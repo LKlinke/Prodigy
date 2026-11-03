@@ -1,37 +1,30 @@
+# The released image (ghcr.io/lklinke/prodigy): the command line and the web GUI with the SymPy and
+# SymEngine engines, as installed by pip install prodigy-ppl. Dockerfile.artifact builds the full
+# environment for artifacts.
+#   docker run -p 8080:8080 ghcr.io/lklinke/prodigy                        web GUI on http://localhost:8080
+#   docker run -v "$PWD":/work ghcr.io/lklinke/prodigy main /work/prog.pgcl   command line
+FROM public.ecr.aws/docker/library/python:3.11-slim AS build
+
+RUN pip install --no-cache-dir uv==0.11.32
+ENV UV_PYTHON_DOWNLOADS=never UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1 UV_PROJECT_ENVIRONMENT=/opt/prodigy
+WORKDIR /src
+
+# The dependencies exactly as locked in uv.lock, without the development tools and without pygin;
+# in a layer of their own, so that it stays cached when only the code changes
+COPY pyproject.toml uv.lock README.md LICENSE ./
+RUN uv sync --locked --no-default-groups --no-install-project
+COPY prodigy prodigy
+COPY pgfexamples pgfexamples
+RUN uv sync --locked --no-default-groups --no-editable
+
 FROM public.ecr.aws/docker/library/python:3.11-slim
 
-ENV LC_ALL=C.UTF-8
-ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8 LANG=C.UTF-8 PATH=/opt/prodigy/bin:$PATH
+COPY --from=build /opt/prodigy /opt/prodigy
+RUN useradd --create-home prodigy
+USER prodigy
+WORKDIR /home/prodigy
 
-# Setup timezone
-RUN ln -snf /usr/share/zoneinfo/Etc/UTC /etc/localtime \
-    && echo "Etc/UTC" > /etc/timezone
-
-# setup git so uv can install the dependencies from GitHub
-RUN apt update && apt install -y git
-RUN git config --global user.name "Docker" && git config --global user.email "docker@example.com"
-
-# install common text editors for convenience
-RUN apt install -y vim nano
-
-# Setup cmake for ginac development
-RUN apt install -y build-essential
-RUN apt install -y cmake 
-RUN apt install -y make
-RUN apt install -y graphviz
-RUN apt install -y libginac-dev
-RUN apt install -y dos2unix
-
-# Setup uv as python package manager
-RUN apt install -y curl
-RUN pip install --no-cache-dir uv==0.11.32
-
-WORKDIR /root/artifact
-COPY . .
-
-# Install the dependencies exactly as locked in uv.lock into ./.venv, with the image's Python
-ENV UV_PYTHON_DOWNLOADS=never UV_LINK_MODE=copy
-RUN uv sync --locked
-RUN uv pip install z3-solver
-RUN bash -c "dos2unix load_env.sh"
-CMD ["bash", "--rcfile", "./load_env.sh", "-i"]
+EXPOSE 8080
+ENTRYPOINT ["prodigy"]
+CMD ["web", "--host", "0.0.0.0", "--no-browser"]
