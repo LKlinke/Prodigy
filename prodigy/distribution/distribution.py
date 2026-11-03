@@ -11,6 +11,7 @@ from typing import (Dict, FrozenSet, Generator, Iterator, List, Sequence, Set,
 from prodigy.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr,
                            RealLitExpr, Unop, UnopExpr, VarExpr)
 from prodigy.pgcl.parser import parse_expr
+from prodigy.distribution.linear_guards import normalize_guard
 
 from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
                                       check_is_modulus_condition, has_variable)
@@ -245,6 +246,11 @@ class Distribution(ABC):
             raise SyntaxError(
                 f"We do not support filtering for {type(Unop.IVERSON)} expressions."
             )
+
+        # Linear comparisons are evaluated exactly, e.g. 1/2*x < 2 becomes x < 4
+        normalized = normalize_guard(condition, self.get_variables())
+        if normalized is not None and normalized != condition:
+            return self.filter(normalized)
 
         if isinstance(condition,
                       BinopExpr) and not has_variable(condition, None):

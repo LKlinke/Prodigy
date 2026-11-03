@@ -9,3 +9,14 @@ built from. Expressions are parsed with the operator table of
 
 .. literalinclude:: _generated/pgcl.lark
    :language: text
+
+Guards
+------
+
+Comparisons in guards (``if``, ``while``, ``observe``) are compared over the rationals. Guards
+with one variable can be filtered on every distribution, including infinite ones; other guards
+need a variable with a finite marginal. Linear guards are first rewritten exactly into guards with
+natural numbers only:
+
+.. automodule:: prodigy.distribution.linear_guards
+   :no-index:
