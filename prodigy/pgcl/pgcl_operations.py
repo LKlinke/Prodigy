@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import functools
 import logging
 from typing import Dict, List, Tuple
@@ -44,18 +45,20 @@ def cav_phi(program: Program, invariant: Program) -> Program:
     """
         The characteristic loop functional. It unrolls a loop exactly once.
 
+        The result is ``if (G) { B; I } else { skip }`` for a program ``while (G) { B }`` and an
+        invariant program ``I``. Declarations, constants, parameters and functions are taken from
+        the invariant. The instructions are copied, so the result shares no nodes with its inputs.
+
         .. returns: A new program object equivalent to one loop unrolling of :param: program.
+        .. raises: ValueError if :param: program is not a single while loop.
     """
-    assert isinstance(
-        program.instructions[0],
-        WhileInstr), "Program can only be one big loop to analyze."
+    if len(program.instructions) != 1 or not isinstance(program.instructions[0], WhileInstr):
+        raise ValueError("Program can only be one big loop to analyze.")
+    loop = program.instructions[0]
     logger.debug("Create modified invariant program.")
-    new_instructions = program.instructions[0].body.copy()
+    new_instructions = copy.deepcopy(loop.body) + copy.deepcopy(invariant.instructions)
 
-    for instr in invariant.instructions:
-        new_instructions.append(instr)
-
-    guarded_instr = IfInstr(cond=program.instructions[0].cond,
+    guarded_instr = IfInstr(cond=copy.deepcopy(loop.cond),
                             true=new_instructions,
                             false=[SkipInstr()])
 
