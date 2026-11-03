@@ -17,7 +17,7 @@ test:
 	uv run pytest --cov=prodigy --cov-report html --cov-report term --junitxml=testreport.xml ${ARGS}
 
 docs:
-	uv run bash -c "cd docs && make html"
+	uv run --group docs sphinx-build -M html docs/source docs/build -W --keep-going ${ARGS}
 
 # The version from the Git tags (hatch-vcs); the Docker builds have no .git and get it as a build argument
 VERSION = $(shell uvx hatch version 2>/dev/null || echo 0+unknown)
@@ -34,7 +34,7 @@ docker-artifact:
 	docker build -f Dockerfile.artifact --build-arg PRODIGY_VERSION=$(VERSION) -t prodigy-artifact .
 
 clean:
-	rm -rf docs/build
+	rm -rf docs/build docs/source/_generated
 
 format:
 	uv run yapf -r -i prodigy/ tests/

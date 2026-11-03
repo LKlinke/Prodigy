@@ -73,12 +73,12 @@ def _require_unconditioned(task: LoopTask) -> None:
 
 
 def finite_mass(invariant: Any, variables: Sequence[str]) -> Tuple[Optional[bool], Optional[sympy.Expr]]:
-    """Decides |I| < ∞ for a generating function I with non-negative coefficients.
+    """Decides ``|I| < ∞`` for a generating function I with non-negative coefficients.
 
     Substitutes t for every variable; f(t) = I(t, …, t) has the same mass. For a rational f
     with f's denominator q(0) ≠ 0, Pringsheim's theorem says the radius of convergence is a
-    singularity on the positive axis, so |I| < ∞ iff q has no root in (0, 1]; then
-    |I| = f(1). Returns (None, None) when this cannot be decided (parameters, non-rational).
+    singularity on the positive axis, so ``|I| < ∞`` iff q has no root in (0, 1]; then
+    ``|I| = f(1)``. Returns (None, None) when this cannot be decided (parameters, non-rational).
     """
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import sym

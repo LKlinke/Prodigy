@@ -4,15 +4,15 @@ The Prodigy web GUI (``prodigy web``).
 A small Flask application: one page (``templates/app.html`` with the ES modules in
 ``static/app``) and a JSON API:
 
-==========================  ==========================================================
-``GET  /api/meta``          version, engines, loop strategies with their parameters
-``POST /api/check``         diagnostics (syntax/type errors with positions) and outline
-``POST /api/analyze``       starts an analysis in its own process, returns a job id
-``GET  /api/jobs/<id>``     state, new console output, progress, result when done
-``DELETE /api/jobs/<id>``   cancels the analysis
-``GET  /api/examples``      the example library (``pgfexamples``)
-``GET  /api/examples/<id>`` source of an example and a suggested setup
-==========================  ==========================================================
+============================  ==========================================================
+``GET  /api/meta``            version, engines, loop strategies with their parameters
+``POST /api/check``           diagnostics (syntax/type errors with positions) and outline
+``POST /api/analyze``         starts an analysis in its own process, returns a job id
+``GET  /api/jobs/<id>``       state, new console output, progress, result when done
+``DELETE /api/jobs/<id>``     cancels the analysis
+``GET  /api/examples``        the example library (``pgfexamples``)
+``GET  /api/examples/<id>``   source of an example and a suggested setup
+============================  ==========================================================
 
 The server binds to localhost by default. Requests to the API must be JSON and come from
 the page itself (Host and Origin are checked), which keeps other web sites from using a

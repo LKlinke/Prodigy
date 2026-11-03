@@ -3,7 +3,7 @@
 r"""
 Verification of user-provided EVT sub-invariants (lower induction).
 
-For a loop ``while (G) { B }`` with input distribution ``g`` and ``Phi_g(nu) = g + [[B]](<nu>_G)``:
+For a loop ``while (G) { B }`` with input distribution ``g`` and ``Phi_g(nu) = g + [[B]](<nu>_G)``::
 
     if   nu >= 0,   nu <= Phi_g(nu)  (coefficient-wise)   and   |nu| = nu(1, ..., 1) < inf,
     then <nu>_{not G} <= [[while (G) { B }]](g)   and   |[[loop]](g)| - |<nu>_{not G}| <= |Phi_g(nu)| - |nu|.

@@ -296,8 +296,8 @@ class QueryResult:
 
 def is_monotone_nonnegative(expr: Expr, program=None) -> bool:
     """True if E[expr] can only grow when probability mass is added, i.e. ``expr`` is
-    built from natural/boolean variables and non-negative literals with +, *, / (by a
-    positive literal) and ^ (by a natural literal)."""
+    built from natural/boolean variables and non-negative literals with ``+``, ``*``, ``/`` (by a
+    positive literal) and ``^`` (by a natural literal)."""
     variables = getattr(program, "variables", {}) or {}
     if isinstance(expr, VarExpr):
         typ = variables.get(expr.var)

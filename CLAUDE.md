@@ -24,6 +24,7 @@ uv run prodigy --engine ginac web    # GUI on http://localhost:8080 (restart aft
 make lint                            # pylint, must stay at 10.00/10
 make mypy                            # mypy, no errors
 make test                            # pytest with coverage, about 5 minutes
+make docs                            # Sphinx docs into docs/build/html, warnings are errors
 uv run pytest tests/analysis/test_session.py -q   # a single file
 ```
 The CI (`.github/workflows/main.yml`) runs pylint, mypy and the tests on Python 3.11 and 3.14 with

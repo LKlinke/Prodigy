@@ -145,6 +145,7 @@ poetry.lock
 !README.md
 !CLAUDE.md
 !docs/*.md
+!docs/source/*.md
 !prodigy/web/frontend/README.md
 
 # Web GUI: npm packages for rebuilding the vendored libraries

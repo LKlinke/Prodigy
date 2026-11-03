@@ -1,0 +1,62 @@
+# Builds the documentation (Sphinx, docs/source) and publishes it on GitHub Pages.
+# Pull requests only build it, so a broken docstring shows up before the merge. Only a release tag
+# v<version> is published, so the pages describe the version on PyPI: release.yml calls this
+# workflow after the release, and running it by hand on a tag publishes that tag's documentation.
+# Repository settings: Pages has "GitHub Actions" as source, and the environment github-pages
+# allows deployments from the tags v*.
+name: Documentation
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Called from release.yml, github.workflow is "Release"; the prefix keeps the group apart from main.yml's.
+  group: docs-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  UV_LOCKED: "1"
+
+jobs:
+  build:
+    name: build documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # hatch-vcs takes the version shown on the pages from the tags
+          fetch-depth: 0
+      # The content does not depend on the Python version; 3.14 gets the newest Sphinx.
+      - uses: ./.github/actions/setup
+        with:
+          python-version: "3.14"
+      # Warnings fail the build (see the Makefile).
+      - run: make docs
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs/build/html
+
+  deploy:
+    name: deploy to GitHub Pages
+    if: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/v') }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
