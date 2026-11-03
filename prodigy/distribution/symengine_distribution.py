@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import operator
 import re
+from fractions import Fraction
 from typing import Union, Generator, Sequence, Iterator, Tuple, Type, List, get_args, Callable
 
 import symengine as se
@@ -152,22 +153,7 @@ class SymengineDist(Distribution):
                     state = State(dict(zip(v, tup)))
                     yield str(prob_fun(state)), state
         else:
-            # TODO replace with symengine method
-            logger.info("Falling back to sympy")
-
-            func: sp.Expr = sp.S(self._s_func)
-            variables: set[sp.Symbol] = {sp.Symbol(v) for v in self.get_variables()}
-
-            if not func.is_polynomial(*variables):
-                func = func.expand().ratsimp().as_poly(*variables)
-            else:
-                func = func.as_poly(*variables)
-
-            assert isinstance(func, sp.Poly)
-
-            while func.as_expr() != 0:
-                yield str(func.EC()), self._monomial_to_state(func.EM().as_expr())
-                func -= func.EC() * func.EM().as_expr()
+            yield from self._iter_finite()
 
     def iter_with(self, monomial_iterator: Iterator[List[int]]) -> Iterator[Tuple[str, State]]:
         """
@@ -181,22 +167,26 @@ class SymengineDist(Distribution):
             for tup in monomial_iterator:
                 yield str(prob_fun(State(dict(zip(v, tup))))), State(dict(zip(v, tup)))
         else:
-            # TODO replace with symengine method
-            logger.info("Falling back to sympy")
+            yield from self._iter_finite()
 
-            func: sp.Expr = sp.S(self._s_func)
-            variables: set[sp.Symbol] = {sp.Symbol(v) for v in self.get_variables()}
+    def _iter_finite(self) -> Iterator[Tuple[str, State]]:
+        """
+        Iterates over the terms of a finite distribution in ascending lexicographic order of the monomials.
+        """
+        # TODO replace with symengine method
+        logger.info("Falling back to sympy")
 
-            if not func.is_polynomial(*variables):
-                func = func.expand().ratsimp().as_poly(*variables)
-            else:
-                func = func.as_poly(*variables)
+        func: sp.Expr = sp.S(self._s_func)
+        variables = [sp.Symbol(v) for v in self.get_variables()]
 
-            assert isinstance(func, sp.Poly)
+        if not func.is_polynomial(*variables):
+            func = func.expand().ratsimp()
+        poly = func.as_poly(*variables)
+        assert isinstance(poly, sp.Poly)
 
-            while func.as_expr() != 0:
-                yield str(func.EC()), self._monomial_to_state(func.EM().as_expr())
-                func -= func.EC() * func.EM().as_expr()
+        for monomial, coefficient in reversed(poly.terms()):
+            if coefficient != 0:
+                yield str(coefficient), State({str(var): exponent for var, exponent in zip(poly.gens, monomial)})
 
     # TODO integrate these functions better / move them / replace by correct signature
     def get_prob_by_diff(self, state: State) -> se.Basic:
@@ -436,6 +426,11 @@ class SymengineDist(Distribution):
         return self._s_func.is_zero
 
     def is_finite(self) -> bool:
+        # Fast path: no functions and only natural exponents means the expression is a polynomial.
+        if not self._s_func.atoms(se.Function) and all(
+                isinstance(exponent, se.Integer) and exponent >= 0
+                for _, exponent in (atom.args for atom in self._s_func.atoms(se.Pow))):
+            return True
         # todo replace once a suitable method is found within symengine
         #   cf. https://github.com/symengine/symengine.py/issues/492
         logger.info("Falling back to sympy")
@@ -713,7 +708,7 @@ class SymengineDist(Distribution):
                                 f"Cannot assign {numerator} / {denominator} to {temp_var} "
                                 "because it is not always an integer"
                             )
-                        res += self.safe_subs(update_var, 1, fun=x) * update_var ** (val_l / val_r)
+                        res += self.safe_subs(update_var, 1, fun=x) * update_var ** (val_l // val_r)
                 else:
                     val_l, val_r = state_l[numerator], div_2
                     x = self.filter(
@@ -723,7 +718,7 @@ class SymengineDist(Distribution):
                             f"Cannot assign {numerator} / {denominator} to {temp_var} "
                             "because it is not always an integer"
                         )
-                    res += self.safe_subs(update_var, 1, fun=x) * update_var ** (val_l / val_r)
+                    res += self.safe_subs(update_var, 1, fun=x) * update_var ** (val_l // val_r)
         else:
             if isinstance(marginal_r, SymengineDist):
                 for _, state_r in marginal_r:
@@ -736,7 +731,7 @@ class SymengineDist(Distribution):
                             "because it is not always an integer"
                         )
                     res += self.safe_subs(update_var,
-                                          1, fun=x) * update_var ** (val_l / val_r)
+                                          1, fun=x) * update_var ** (val_l // val_r)
             else:
                 if div_1 % div_2 != 0:
                     raise ValueError(
@@ -909,7 +904,7 @@ class SymengineDist(Distribution):
                 f"At least one variable is already known as a parameter. {self._parameters=}, {new_variables=}")
         if not (self.get_parameters() | new_variables).issuperset({str(s) for s in self._s_func.free_symbols}):
             raise ValueError("There are unknown symbols which are neither variables nor parameters.")
-        return SymenginePGF.from_expr(str(self._s_func), *new_variables)
+        return SymenginePGF.from_expr(self._s_func, *new_variables)
 
     def set_parameters(self, *parameters: str) -> SymengineDist:
         new_params = {se.Symbol(p) for p in parameters}
@@ -918,7 +913,7 @@ class SymengineDist(Distribution):
                 f"At least one parameter is already known as a variable. {self._variables=}, {new_params=}")
         if not (self._variables | new_params).issuperset(self._s_func.free_symbols):
             raise ValueError("There are unknown symbols which are neither variables nor parameters.")
-        new_gf = SymenginePGF.from_expr(str(self._s_func), *self._variables)
+        new_gf = SymenginePGF.from_expr(self._s_func, *self._variables)
         new_gf._parameters = new_params
         return new_gf
 
@@ -929,7 +924,7 @@ class SymengineDist(Distribution):
             raise ValueError(
                 "There are unknown symbols which are neither variables nor parameters: " +
                 f"{set(self._s_func.free_symbols).difference((var_sym | param_sym))}")
-        new_gf = SymenginePGF.from_expr(str(self._s_func))
+        new_gf = self.copy()
         new_gf._variables = var_sym
         new_gf._parameters = param_sym
         return new_gf
@@ -970,9 +965,8 @@ class SymengineDist(Distribution):
     def safe_subs(self, *parameters: Union[Tuple[str, str | int], str, se.Expr, int], fun: se.Expr = None) -> se.Expr:
         """
         Substitution with checks for divisions by zero.
-        First tries to use simple substitution, if result is NaN, convert to sympy,
-        then check whether it is rational and depending on that, cancel the fraction or
-        take the limit.
+        Uses plain substitution if no pole is hit (see `_hits_pole`). Otherwise, converts to sympy
+        and cancels the fraction if the function is rational, or takes the limit.
 
         :param parameters: The substitution parameters of form variable, value.
         :param fun: The function the substitution should be performed on. If not given, self._s_func is used.
@@ -990,17 +984,18 @@ class SymengineDist(Distribution):
         if fun is None:
             fun = self._s_func
         for (variable, value) in pairs:     # type: ignore
-            f = fun
-            # FIXME subs with dict instead of stepwise
-            if f.subs(variable, value).simplify() in [se.nan, se.zoo]:
-                logger.info("Falling back to sympy")
-                sympy_func: sp.Expr = sp.S(fun)
-                if sympy_func.is_Rational:
-                    fun = se.S(sympy_func.cancel().simplify())
-                else:
-                    fun = se.S(sympy_func.limit(variable, value, "-").simplify())
-            else:
+            variable, value = _parse_to_symengine(variable), _parse_to_symengine(value)
+            # Note: se.Basic.simplify() converts to sympy and runs sympy's simplify, which is very slow.
+            if not _hits_pole(fun, variable, value):
                 fun = fun.subs(variable, value)
+                continue
+            logger.info("Falling back to sympy")
+            sympy_func: sp.Expr = sp.S(fun)
+            sympy_var, sympy_value = sp.S(variable), sp.S(value)
+            if sympy_func.is_rational_function(sympy_var):
+                fun = se.S(sympy_func.cancel().subs(sympy_var, sympy_value))
+            else:
+                fun = se.S(sympy_func.limit(sympy_var, sympy_value, "-"))
 
         return fun
 
@@ -1037,26 +1032,6 @@ class SymengineDist(Distribution):
 
         raise NotImplementedError("unreachable")
 
-    # TODO replace sympy with symengine
-    def _monomial_to_state(self, monomial: sp.Expr) -> State:
-        """ Converts a `monomial` into a state representation, i.e., a (variable_name, variable_value) dict.
-            This is tied to a specific instance of a generating function as a variable and parameter context
-            is needed to resolve the types of indeterminates in the monomial.
-        """
-        result = State()
-        if monomial.free_symbols == set():
-            for var in self._variables:
-                result[str(var)] = 0
-        else:
-            variables_and_powers = monomial.as_powers_dict()
-            for var in self._variables:
-                var = sp.Symbol(str(var))
-                if var in variables_and_powers.keys():
-                    result[str(var)] = int(variables_and_powers[var])
-                else:
-                    result[str(var)] = 0
-        return result
-
 
 def _parse_to_symengine(expression) -> se.Expr:
     """
@@ -1091,10 +1066,60 @@ def _parse_to_symengine(expression) -> se.Expr:
             )
         raise ValueError(f"Unsupported type: {type(expression)}")
 
+    if isinstance(expression, se.Basic):
+        return expression
+    if isinstance(expression, int):
+        return se.Integer(expression)
     if isinstance(expression, get_args(Expr)):
         return probably_to_symengine(expression)
 
-    return se.S(str(expression))
+    if isinstance(expression, float):
+        expression = repr(expression)
+
+    # Decimal numbers are read as exact fractions, as in the sympy engine.
+    text = _DECIMAL_NUMBER.sub(lambda match: f"({Fraction(match.group(0))})", str(expression))
+
+    # SymEngine's parser reads some names as constants (`e` as Euler's number, `inf` as infinity).
+    # SymEngine never prints them this way, so in our strings they are always variables or parameters.
+    if _CONSTANT_NAMES.search(text) is None:
+        return se.S(text)
+    placeholders = {}
+
+    def protect(match: re.Match) -> str:
+        placeholder = f"{_PLACEHOLDER_PREFIX}{match.group(0)}"
+        placeholders[se.Symbol(placeholder)] = se.Symbol(match.group(0))
+        return placeholder
+
+    return se.S(_CONSTANT_NAMES.sub(protect, text)).subs(placeholders)
+
+
+_DECIMAL_NUMBER = re.compile(r"(?<![\w.])(\d+\.\d*|\.\d+|\d+(?=[eE][+-]?\d))([eE][+-]?\d+)?(?![\w.])")
+# Names that SymEngine's parser turns into constants although they are never printed by SymEngine.
+_CONSTANT_NAMES = re.compile(r"(?<![\w.])(e|inf)(?![\w(])")
+_PLACEHOLDER_PREFIX = "prodigy_placeholder_"
+
+
+def _hits_pole(function: se.Basic, variable: se.Basic, value: se.Basic) -> bool:
+    """
+    Checks whether substituting `value` for `variable` in `function` may divide by zero or take the logarithm of
+    zero. In that case, SymEngine's substitution may silently give a wrong result, e.g., `(1-x) * (y + 1/(1-x))`
+    becomes `0` for `x = 1`, so the caller has to compute a limit instead.
+    """
+    for atom in function.atoms(se.Pow, se.log):
+        if isinstance(atom, se.Pow):
+            base, exponent = atom.args
+            if isinstance(exponent, se.Integer) and exponent >= 0:
+                continue
+        else:
+            base = atom.args[0]
+        if variable not in base.free_symbols:
+            continue
+        try:
+            if se.expand(base.subs(variable, value)) == 0:
+                return True
+        except RuntimeError:
+            return True
+    return False
 
 
 class SymenginePGF(CommonDistributionsFactory):
