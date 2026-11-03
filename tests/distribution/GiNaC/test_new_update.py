@@ -197,6 +197,14 @@ def test_fractional_constants():
         FPS('1/(2-x^2)', 'x').update(parse_expr('x = 1/2*x'))
     assert 'numerator must have a finite marginal' in str(e)
 
+    # The even part of an infinite distribution stays infinite, so the division is rejected
+    # instead of leaving the distribution unchanged
+    even = ProdigyPGF.geometric('x', '1/2').filter(parse_expr('x % 2 = 0'))
+    assert not even.is_finite()
+    with raises(ValueError) as e:
+        even.update(parse_expr('x = 1/2*x'))
+    assert 'numerator must have a finite marginal' in str(e)
+
     for update in ['x = x + 1/2', 'x = x - 0.5', 'x = x % (3/2)', 'x = x^(1/2)', 'x = (1/2)^x']:
         with raises(ValueError) as e:
             gf.update(parse_expr(update))

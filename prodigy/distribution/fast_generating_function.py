@@ -53,8 +53,8 @@ class FPS(Distribution):
     @classmethod
     def _from_symbols_by_name(cls, dist: prodigy_ginac.Dist, variables: Set[str], parameters: Set[str]) -> FPS:
         """
-        Like :meth:`from_dist`, but parses the text of ``dist`` again. prodigy_ginac's iid sampling and its
-        modulo on finite distributions return expressions whose symbols are not the registered
+        Like :meth:`from_dist`, but parses the text of ``dist`` again. prodigy_ginac's iid sampling, its
+        modulo on finite distributions and its arithmetic progressions return expressions whose symbols are not the registered
         ones although they carry the same names (e.g. two different symbols ``p``). Such results
         compare unequal to equal distributions and do not cancel against them; parsing the text
         identifies every symbol by its name; symbols prodigy_ginac knows as parameters stay parameters.
@@ -262,7 +262,7 @@ class FPS(Distribution):
         Creates a list of subdistributions where at list index i, the `variable` is congruent i modulo `modulus`.
         """
         return [
-            FPS.from_dist(dist, self._variables, self._parameters)
+            FPS._from_symbols_by_name(dist, self._variables, self._parameters)
             for dist in self._dist.arithmetic_progression(variable, modulus)
         ]
 
