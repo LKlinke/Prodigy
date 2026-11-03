@@ -35,7 +35,7 @@ from prodigy.pgcl.util.lark_expr_parser import (atom, build_expr_parser, infixl,
                                             infixr, prefix)
 from prodigy.pgcl.util.ref import Mut
 
-_PGCL_GRAMMAR = """
+_PGCL_BASE_GRAMMAR = """
     start: declarations instructions queries
 
     declarations: declaration* -> declarations
@@ -151,7 +151,7 @@ The order of the operators corresponds to their precedence (earlier operators ha
 See also: :module:`prodigy.pgcl.util.lark_expr_parser`
 """
 
-_PGCL_GRAMMAR += "\n" + textwrap.indent(
+_PGCL_GRAMMAR = _PGCL_BASE_GRAMMAR + "\n" + textwrap.indent(
     build_expr_parser(_OPERATOR_TABLE, "expression"), '    ')
 # Since lark 1.0, every rule that parsing starts at must be declared here.
 _PARSER = Lark(_PGCL_GRAMMAR, start=["start", "expression"])
