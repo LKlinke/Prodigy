@@ -1,21 +1,21 @@
-   # Dependency updates arrive as pull requests, so the CI checks them before they reach main.
-   version: 2
-   updates:
-     - package-ecosystem: uv
-       directory: /
-       schedule:
-         interval: monthly
-       groups:
-         # Updates of linters and type checkers need code changes; they come as a pull request of their own.
-         linters:
-           patterns: [ "pylint", "astroid", "mypy" ]
-         python-dependencies:
-           patterns: [ "*" ]
+# Dependency updates arrive as pull requests, so the CI checks them before they reach main.
+version: 2
+updates:
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      # Updates of linters and type checkers need code changes; they come as a pull request of their own.
+      linters:
+        patterns: [ "pylint", "astroid", "mypy" ]
+      python-dependencies:
+        patterns: [ "*" ]
 
-     - package-ecosystem: github-actions
-       directories: [ "/", "/.github/actions/setup" ]
-       schedule:
-         interval: monthly
-       groups:
-         github-actions:
-           patterns: [ "*" ]
+  - package-ecosystem: github-actions
+    directories: [ "/", "/.github/actions/setup" ]
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: [ "*" ]
