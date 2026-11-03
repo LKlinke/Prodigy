@@ -1,4 +1,4 @@
-# Publishes a release when a tag v<version> is pushed (the version in pyproject.toml, e.g. v3.1.0).
+# Publishes a release when a tag v<version> is pushed (e.g. v3.1.0); the package takes its version from the tag.
 # The PyPI trusted publisher of prodigy-ppl is set up for this file name and the environment
 # "release"; renaming either breaks publishing.
 name: Release
@@ -29,15 +29,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # hatch-vcs takes the version from the tags
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           python-version: "3.11"
-      - name: Check that the tag matches the version in pyproject.toml
-        run: |
-          version="$(uv version --short)"
-          echo "tag: ${GITHUB_REF_NAME}, pyproject.toml: ${version}"
-          test "${GITHUB_REF_NAME}" = "v${version}"
       - run: uv build
+      - name: Check that the built version matches the tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          ls dist
+          test -f "dist/prodigy_ppl-${version}.tar.gz"
+          test -f "dist/prodigy_ppl-${version}-py3-none-any.whl"
       - name: Install the wheel and analyse a program with SymPy and with GiNaC
         run: |
           uv venv /tmp/smoke
@@ -104,6 +107,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # The build context has no .git, so the version comes from the tag (v3.1.0 gives 3.1.0)
+          build-args: PRODIGY_VERSION=${{ steps.meta.outputs.version }}
 
   github-release:
     name: GitHub release

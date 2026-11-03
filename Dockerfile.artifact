@@ -27,6 +27,9 @@ COPY . .
 
 # Install the dependencies exactly as locked in uv.lock into ./.venv, with the image's Python
 ENV UV_PYTHON_DOWNLOADS=never UV_LINK_MODE=copy
+# The version usually comes from the Git tag, but .git is not copied; make docker-artifact passes it in
+ARG PRODIGY_VERSION=0+unknown
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=$PRODIGY_VERSION
 RUN uv sync --locked
 RUN uv pip install z3-solver
 RUN bash -c "dos2unix load_env.sh"

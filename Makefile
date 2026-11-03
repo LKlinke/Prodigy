@@ -19,16 +19,19 @@ test:
 docs:
 	uv run bash -c "cd docs && make html"
 
+# The version from the Git tags (hatch-vcs); the Docker builds have no .git and get it as a build argument
+VERSION = $(shell uvx hatch version 2>/dev/null || echo 0+unknown)
+
 # The released image: command line and web GUI (Dockerfile)
 docker-build:
-	docker build -t prodigy .
+	docker build --build-arg PRODIGY_VERSION=$(VERSION) -t prodigy .
 
 docker-run:
 	docker run --rm -p 8080:8080 prodigy
 
 # The full environment for artifacts, with GiNaC and the sources (Dockerfile.artifact)
 docker-artifact:
-	docker build -f Dockerfile.artifact -t prodigy-artifact .
+	docker build -f Dockerfile.artifact --build-arg PRODIGY_VERSION=$(VERSION) -t prodigy-artifact .
 
 clean:
 	rm -rf docs/build

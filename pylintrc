@@ -1,5 +1,6 @@
 [MASTER]
-ignore=
+# prodigy/_version.py is written by hatch-vcs at build time
+ignore=_version.py
 load-plugins=
 
 [MESSAGES CONTROL]
