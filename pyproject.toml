@@ -57,10 +57,15 @@ dev = [
     "pytest-cov>=5",
     # hypothesis 5 registers a pytest plugin that fails to load on Python >= 3.12 (importlib.metadata)
     "hypothesis>=6",
-    # For `make docs` (not installed):
-    # sphinx-autodoc-typehints ^1.25.3, sphinx-bootstrap-theme ^0.8.1, sphinx-click ^5.0.0, sphinx-git 11.0.0,
-    # and sphinxcontrib-applehelp 2.0.0, -devhelp 2.0.0, -htmlhelp 2.1.0, -qthelp 2.0.0, -serializinghtml 2.0.0
-    # (https://stackoverflow.com/questions/77848565/sphinxcontrib-applehelp-breaking-sphinx-builds-with-sphinx-version-less-than-5-0)
+]
+# `make docs` (docs/source); not installed by default, `uv run --group docs` adds it
+docs = [
+    "furo>=2024.8.6",
+    "myst-parser>=4",
+    # Sphinx 9.0, the last 9.x for Python 3.11, fails to format the signatures of enum members; 3.11 gets 8.2
+    "sphinx>=8.2,!=9.0.*",
+    "sphinx-autodoc-typehints>=3",
+    "sphinx-click>=6",
 ]
 
 [tool.uv]

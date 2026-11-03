@@ -74,7 +74,7 @@ If you run into trouble during installation, this subsection might be of help. I
 ### CLI
 
 1. In the project directory, run prodigy with ``uv run prodigy ...`` (or activate the virtual environment with ``source .venv/bin/activate`` and type ``prodigy ...``).
-2. For more information, see the help message (``uv run prodigy --help``) or have a look into the documentation.
+2. For more information, see the help message (``uv run prodigy --help``) or have a look into the [documentation](https://lklinke.github.io/Prodigy/).
 
 
 ### Web GUI
@@ -90,3 +90,4 @@ describes the non-interactive analysis API (`prodigy analyze --json`).
 - `make lint`, `make mypy` and `make test` run the checks of the CI (pylint, mypy, and the tests with coverage; see `.github/workflows/main.yml`).
 - Releases: bump `version` in `pyproject.toml`, merge, and push a tag `v<version>` (e.g. `v3.1.0`). `.github/workflows/release.yml` runs the checks, waits for approval in the environment `release`, and publishes to PyPI, the Docker image (`Dockerfile`) to ghcr.io, and a GitHub release.
 - Dependencies are locked in `uv.lock`. After changing them in `pyproject.toml`, run `uv lock` and commit both files. `uv lock --upgrade` updates all dependencies within their constraints; Dependabot proposes such updates monthly as pull requests.
+- `make docs` builds the documentation (Sphinx, `docs/source`) into `docs/build/html`: the API reference from the docstrings, the command-line reference from the click commands, and `docs/gui.md`. Warnings fail the build. `.github/workflows/docs.yml` builds it for every pull request; a release publishes it on [GitHub Pages](https://lklinke.github.io/Prodigy/).

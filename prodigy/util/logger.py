@@ -18,12 +18,13 @@ def log_setup(name: str, level, file: str = 'test.log') -> logging.Logger:
 def print_progress_bar(iteration, total, decimals=1, length=100, print_end=""):
     """
     Call in a loop to create terminal progress bar
-    @params:
-        iteration   - Required  : current iteration (Int)
-        total       - Required  : total iterations (Int)
-        decimals    - Optional  : positive number of decimals in percent complete (Int)
-        length      - Optional  : character length of bar (Int)
-        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+
+    Args:
+        iteration: current iteration
+        total: total iterations
+        decimals: positive number of decimals in percent complete
+        length: character length of bar
+        print_end: end character, e.g. a carriage return
     """
     percent = ("{0:." + str(decimals) + "f}").format(
         100 * (iteration / float(total)))
