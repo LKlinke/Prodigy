@@ -175,7 +175,7 @@ def profile_loop(init: Measure, guard: IR, body: IR, variables: Sequence[str], i
         vmax = max((s[i] for s in support), default=0)
         exit_vals = {s[i] for s, w in explo.exit.items() if w > 1e-12}
         exit_unb = len(exit_vals) > 8
-        if vmax <= 8 and vmax == half_support_max[i]:
+        if half_support_max[i] == vmax <= 8:
             profiles.append(VariableProfile(name, "bounded", 1, 1.0, vmax, vmax, vmax, exit_unb))
             continue
         # only the part of the marginal that has converged (it did not change in the second half of the
@@ -195,7 +195,7 @@ def profile_loop(init: Measure, guard: IR, body: IR, variables: Sequence[str], i
             rho = decay_rate(marg, periods[i]) or 0.5
         else:
             kind = "persistent"
-        if kind == "persistent" and converged and vmax == half_support_max[i] and vmax <= 64:
+        if kind == "persistent" and converged and half_support_max[i] == vmax <= 64:
             # the variable keeps to a fixed small range (e.g. it is resampled in every iteration)
             profiles.append(VariableProfile(name, "bounded", 1, 1.0, vmax, vmax, vmax, exit_unb))
             continue

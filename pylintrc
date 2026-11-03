@@ -17,6 +17,9 @@ disable=
     too-many-public-methods,
     too-many-branches,
     too-many-arguments,
+    # New in pylint 3.3; like too-many-arguments above. The instruction handlers share one
+    # positional signature, and making parameters keyword-only would change every call site.
+    too-many-positional-arguments,
     too-many-statements,
     too-many-nested-blocks,
     too-many-instance-attributes,
