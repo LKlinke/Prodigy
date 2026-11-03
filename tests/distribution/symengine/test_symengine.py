@@ -565,8 +565,29 @@ class TestDistributionInterface:
         # Direct substitution leads to nan, safe_subs should not
         gf = SymengineDist("(1/11)*(1/2 + (1/2)*y)**10*(-1 + x**11)/(-1 + x)")
         assert gf._s_func.subs("x", 1).simplify() == se.nan
-        assert gf.safe_subs("x", 1) == se.S("(1/1024)*(1 + y)**10")
-        # TODO add test for limit
+        assert se.expand(gf.safe_subs("x", 1) - se.S("(1/1024)*(1 + y)**10")) == 0
+
+        # Direct substitution silently gives 0 here, the correct value is 1
+        gf = SymengineDist("(1-x)*(y + 1/(1-x))")
+        assert gf._s_func.subs("x", 1) == 0
+        assert gf.safe_subs("x", 1) == 1
+
+        # Not a rational function, so safe_subs takes the limit
+        gf = SymengineDist("(1-x)/log(x)")
+        assert gf.safe_subs("x", 1) == -1
+
+        # No pole: plain substitution
+        gf = SymengineDist("1/(1-x/2) + log(1+x)")
+        assert gf.safe_subs("x", 1) == se.S("2 + log(2)")
+
+    def test_parse_e_as_symbol(self):
+        gf = SymengineDist("e*x + inf", "x")
+        assert gf.get_parameters() == {"e", "inf"}
+        assert se.Symbol("e") in gf._s_func.free_symbols
+        assert SymengineDist("1e-1 + e") == SymengineDist("1/10 + e")
+        assert SymenginePGF.bernoulli("e", "1/2").get_variables() == {"e"}
+        # SymEngine prints Euler's number as `E`, which stays a constant
+        assert SymengineDist(str(se.exp(1) * se.Symbol("e"))) == SymengineDist(se.E * se.Symbol("e"))
 
     def test_update(self):
         gf = SymengineDist("(1-sqrt(1-c**2))/c")

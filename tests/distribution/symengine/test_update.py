@@ -87,8 +87,7 @@ def test_division():
 
 
     res = gf.update(parse_expr('o = m / n'))
-    # FIXME somehow a ".0" is introduced and breaks equality check
-    expected = SymengineDist('n^2*m^6*o^3.0')
+    expected = SymengineDist('n^2*m^6*o^3')
     assert sp.S(res._s_func).simplify().equals(sp.S(expected._s_func))
 
     with pytest.raises(ValueError, match='Cannot assign x_0 / x_1 to o because it is not always an integer'):
@@ -96,22 +95,19 @@ def test_division():
 
     gf = SymenginePGF.poisson('x', "3") * SymengineDist('y*z')
     res = gf.update(parse_expr('x = z / y'))
-    # FIXME somehow a ".0" is introduced and breaks equality check
-    expected = SymengineDist('x**1.0*y*z')
+    expected = SymengineDist('x*y*z')
     assert sp.S(res._s_func).equals(sp.S(expected._s_func))
 
     gf = SymenginePGF.poisson('x', "3") * SymengineDist('0.4*y^3*z^12 + 0.6*y^7*z^42')
 
     res = gf.update(parse_expr('y = z/y'))
-    # FIXME somehow a ".0" is introduced and breaks equality check
     expected = SymenginePGF.poisson(
-        'x', "3") * SymengineDist('0.4*y^4.0*z^12 + 0.6*y^6.0*z^42')
+        'x', "3") * SymengineDist('0.4*y^4*z^12 + 0.6*y^6*z^42')
     assert sp.S(res._s_func).equals(sp.S(expected._s_func))
 
     res = gf.update(
         parse_expr('x = z/y'))
-    # FIXME somehow a ".0" is introduced and breaks equality check
-    expected = SymengineDist('0.4*y^3*z^12*x^4.0 + 0.6*y^7*z^42*x^6.0')
+    expected = SymengineDist('0.4*y^3*z^12*x^4 + 0.6*y^7*z^42*x^6')
     print(res)
     print(expected)
     assert sp.S(res._s_func).equals(sp.S(expected._s_func))
