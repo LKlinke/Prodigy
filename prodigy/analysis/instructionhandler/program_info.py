@@ -3,7 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from prodigy.analysis.exceptions import UnsupportedFeatureError
 from prodigy.pgcl import Program, Var
+from prodigy.pgcl.pgcl_checks import (NESTED_INFERENCE_UNSUPPORTED,
+                                      find_nested_inference)
 
 
 @dataclass(frozen=True)
@@ -23,6 +26,13 @@ class ProgramInfo():
     """Pairs of variables that are independent from each other; see 
     `prodigy.analysis.static.independence.independent_vars`.
     """
+
+    def __post_init__(self) -> None:
+        # Every analysis runs on a ProgramInfo, so this rejects such programs before any
+        # instruction is executed (instead of failing deep inside Distribution.update).
+        found = find_nested_inference(self.program)
+        if found is not None:
+            raise UnsupportedFeatureError(f"{NESTED_INFERENCE_UNSUPPORTED} (found `{found}`).")
 
     def __getattr__(self, __name: str) -> Any:
         return getattr(self.program, __name)

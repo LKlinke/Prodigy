@@ -21,6 +21,7 @@ from prodigy.pgcl.check import CheckFail
 
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
+from prodigy.analysis.exceptions import UnsupportedFeatureError
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
@@ -39,8 +40,18 @@ from prodigy.util.logger import log_setup
 logger = log_setup("CLI", logging.DEBUG)
 
 
+class _CliGroup(click.Group):
+    """Reports programs the analysis cannot handle as a plain error instead of a traceback."""
+
+    def invoke(self, ctx: click.Context) -> Any:
+        try:
+            return super().invoke(ctx)
+        except UnsupportedFeatureError as exc:
+            raise click.ClickException(str(exc)) from exc
+
+
 # pylint: disable-msg=too-many-arguments
-@click.group()
+@click.group(cls=_CliGroup)
 @click.pass_context
 @click.option('--engine', type=str, required=False, default='')
 @click.option("--strategy", type=str, required=False, default='default')

@@ -6,6 +6,10 @@ class ObserveZeroEventError(ForwardAnalysisError):
     """ Observing an event that has zero probablity."""
 
 
+class UnsupportedFeatureError(ForwardAnalysisError):
+    """The program uses a language feature that the analysis has no semantics for."""
+
+
 class DistributionParameterError(ForwardAnalysisError):
     """The Parameter of a Distribution does not typematch"""
 
