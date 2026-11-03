@@ -4,10 +4,11 @@ from typing import Dict, List, Tuple, Union
 import hypothesis.strategies as st
 from hypothesis import given
 
-from prodigy.pgcl.ast import Expr, SubstExpr, Unop, UnopExpr, VarExpr
-from prodigy.pgcl.ast.walk import Walk, walk_expr
+from prodigy.pgcl.ast import (CategoricalExpr, Expr, NatLitExpr, RealLitExpr,
+                              SubstExpr, Unop, UnopExpr, VarExpr)
+from prodigy.pgcl.ast.walk import Walk, mut_expr_children, walk_expr
 from prodigy.pgcl.parser import parse_pgcl
-from prodigy.pgcl.substitute import substitute_expr
+from prodigy.pgcl.substitute import substitute_constants, substitute_expr
 from prodigy.pgcl.util.ref import Mut
 
 
@@ -80,3 +81,22 @@ def test_generated_substitution(expr: Expr):
     dumb_substitute(dumb_res)
 
     assert smart_res.val == dumb_res.val
+
+
+def test_substitute_constants_categorical():
+    program = parse_pgcl("const c := 3; nat x; x := c : 0.25 + (c + 1) : 0.75;")
+    substitute_constants(program)
+    assert str(program.instructions[0]) == "x := 3 : 0.25 + (3 + 1) : 0.75;"
+
+
+def test_mut_expr_children_categorical_pairs():
+    expr = CategoricalExpr([(VarExpr("x"), RealLitExpr("0.5")),
+                            (VarExpr("y"), RealLitExpr("0.5"))])
+    refs = list(mut_expr_children(Mut.alloc(expr)))
+    assert [ref.val for ref in refs] == [
+        VarExpr("x"), RealLitExpr("0.5"), VarExpr("y"), RealLitExpr("0.5")
+    ]
+    refs[0].val = NatLitExpr(1)
+    refs[3].val = RealLitExpr("0.25")
+    assert expr.exprs == [(NatLitExpr(1), RealLitExpr("0.5")),
+                          (VarExpr("y"), RealLitExpr("0.25"))]
