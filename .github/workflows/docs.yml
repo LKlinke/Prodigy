@@ -32,6 +32,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # hatch-vcs takes the version shown on the pages from the tags
+          fetch-depth: 0
       # The content does not depend on the Python version; 3.14 gets the newest Sphinx.
       - uses: ./.github/actions/setup
         with:
