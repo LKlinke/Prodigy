@@ -13,8 +13,11 @@ lint:
 mypy:
 	uv run mypy prodigy ${ARGS}
 
+# Coverage options; `make test COV=` runs the tests without measuring coverage
+COV = --cov=prodigy --cov-report html --cov-report term
+
 test:
-	uv run pytest --cov=prodigy --cov-report html --cov-report term --junitxml=testreport.xml ${ARGS}
+	uv run pytest ${COV} --junitxml=testreport.xml ${ARGS}
 
 docs:
 	uv run --group docs sphinx-build -M html docs/source docs/build -W --keep-going ${ARGS}
