@@ -1,12 +1,11 @@
 [project]
 # "prodigy" is taken on PyPI; the import name and the command stay prodigy
 name = "prodigy-ppl"
-version = "3.0.0"
+version = "0.1.0"
 description = "PRObability DIstributions via GeneratingfunctionologY: analysis of probabilistic programs with generating functions"
 readme = "README.md"
 authors = [
-    { name = "Lutz Klinkenberg", email = "lutz.klinkenberg@cs.rwth-aachen.de" },
-    { name = "Philipp Schröer", email = "mail@philworld.de" },
+    { name = "Lutz Klinkenberg", email = "lutz.klinkenberg@cs.rwth-aachen.de" }
 ]
 requires-python = ">=3.11"
 dependencies = [
