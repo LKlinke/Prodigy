@@ -38,7 +38,7 @@ prodigy = "prodigy.cli:cli"
 dev = [
     # pytest 7.2 rewrites assertions with ast.Str, which Python 3.14 removed; 8.4 is the first release for 3.14
     "pytest>=8.4",
-    "pylint>=2.5.2,<3",
+    "pylint>=2.5.2,<5",
     "mypy>0.770",
     "yapf>=0.30.0,<0.44",
     "jinja2==3.1.6",
