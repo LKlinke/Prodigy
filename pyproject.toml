@@ -1,7 +1,8 @@
 [project]
 # "prodigy" is taken on PyPI; the import name and the command stay prodigy
 name = "prodigy-ppl"
-version = "0.1.1"
+# From the latest Git tag v<version> (hatch-vcs, see [tool.hatch.version])
+dynamic = ["version"]
 description = "PRObability DIstributions via GeneratingfunctionologY: analysis of probabilistic programs with generating functions"
 readme = "README.md"
 authors = [
@@ -75,8 +76,16 @@ addopts = ["--doctest-modules"]
 faulthandler_timeout = 600
 
 [build-system]
-requires = ["hatchling>=1.26"]
+requires = ["hatchling>=1.26", "hatch-vcs>=0.4"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+# The version comes from the latest tag v<version> (e.g. v3.1.0 gives 3.1.0, a later commit 3.1.1.devN+g<hash>).
+# Only tags v* count; other tags such as OOPSLA24 are ignored. Without .git (Docker builds) the version is passed
+# in SETUPTOOLS_SCM_PRETEND_VERSION.
+source = "vcs"
+tag-pattern = "^v(?P<version>.+)$"
+raw-options = { git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "v*"] }
 
 [tool.hatch.build.targets.wheel]
 packages = ["prodigy"]

@@ -15,7 +15,10 @@ COPY pyproject.toml uv.lock README.md LICENSE ./
 RUN uv sync --locked --no-default-groups --no-install-project
 COPY prodigy prodigy
 COPY pgfexamples pgfexamples
-RUN uv sync --locked --no-default-groups --no-editable
+# The version usually comes from the Git tag, but the build context has no .git: the release workflow
+# and make docker-build pass it in (after the dependency layer, so that a new version keeps it cached)
+ARG PRODIGY_VERSION=0+unknown
+RUN SETUPTOOLS_SCM_PRETEND_VERSION="$PRODIGY_VERSION" uv sync --locked --no-default-groups --no-editable
 
 FROM public.ecr.aws/docker/library/python:3.11-slim
 

@@ -69,11 +69,14 @@ _INFINITY_SPELLINGS = {"\\infty", "∞", "oo", "inf", "infinity"}
 
 
 def prodigy_version() -> str:
+    """The installed version of prodigy-ppl (taken from the Git tag at build time), or ``"unknown"``
+    when the sources run without being installed."""
+    # pylint: disable=import-outside-toplevel
+    from importlib.metadata import PackageNotFoundError, version
     try:
-        from importlib.metadata import version  # pylint: disable=import-outside-toplevel
         return version("prodigy-ppl")
-    except Exception:  # pylint: disable=broad-except
-        return "3.0.0"
+    except PackageNotFoundError:
+        return "unknown"
 
 
 # ---------------------------------------------------------------------------------------
