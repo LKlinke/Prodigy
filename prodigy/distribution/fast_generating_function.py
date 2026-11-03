@@ -119,11 +119,12 @@ class FPS(Distribution):
 
     def __truediv__(self, other) -> FPS:
         if isinstance(other, str):
-            other = FPS(other)
+            other = FPS(other, *self._variables)
         if isinstance(other, FPS):
-            return FPS.from_dist(self._dist * prodigy_ginac.Dist(f"1/({str(other)})"),
+            parameters = self._parameters | other._parameters
+            return FPS.from_dist(self._dist * prodigy_ginac.Dist(f"1/({str(other)})", sorted(parameters)),
                                  self._variables | other._variables,
-                                 self._parameters | other._parameters)
+                                 parameters)
         raise NotImplementedError(
             f"Division of {type(self._dist)} and {type(other)} not supported.")
 
@@ -185,7 +186,7 @@ class FPS(Distribution):
         return self._dist.E(str(expression))
 
     def normalize(self) -> FPS:
-        return FPS(self._dist.normalize(), *self._variables)
+        return FPS.from_dist(self._dist.normalize(), self._variables, self._parameters)
 
     def get_variables(self) -> Set[str]:
         return self._variables
@@ -207,7 +208,7 @@ class FPS(Distribution):
         res = prodigy_ginac.Dist('0')
         for prob, state in self:
             if self.evaluate_condition(condition, state):
-                res += prodigy_ginac.Dist(f"{prob} * {state.to_monomial()}")
+                res += prodigy_ginac.Dist(f"{prob} * {state.to_monomial()}", sorted(self._parameters))
         return FPS.from_dist(res,
                              self._variables,
                              self._parameters,
@@ -229,32 +230,18 @@ class FPS(Distribution):
                           rhs=condition.lhs))
 
         # is normalized conditional
-        if isinstance(condition.lhs, VarExpr):
-            if condition.operator == Binop.EQ:
-                return FPS.from_dist(
-                    self._dist.filterEq(str(condition.lhs),
-                                        str(condition.rhs)), self._variables,
-                    self._parameters)
-            elif condition.operator == Binop.LT:
-                return FPS.from_dist(
-                    self._dist.filterLess(str(condition.lhs),
-                                          str(condition.rhs)), self._variables,
-                    self._parameters)
-            elif condition.operator == Binop.LEQ:
-                return FPS.from_dist(
-                    self._dist.filterLeq(str(condition.lhs),
-                                         str(condition.rhs)), self._variables,
-                    self._parameters)
-            elif condition.operator == Binop.GT:
-                return FPS.from_dist(
-                    self._dist.filterGreater(str(condition.lhs),
-                                             str(condition.rhs)),
-                    self._variables, self._parameters)
-            elif condition.operator == Binop.GEQ:
-                return FPS.from_dist(
-                    self._dist.filterGeq(str(condition.lhs),
-                                         str(condition.rhs)), self._variables,
-                    self._parameters)
+        if isinstance(condition.lhs, VarExpr) and condition.operator in (
+                Binop.EQ, Binop.LT, Binop.LEQ, Binop.GT, Binop.GEQ):
+            variable, bound = str(condition.lhs), str(condition.rhs)
+            filters = {
+                Binop.EQ: self._dist.filterEq,
+                Binop.LT: self._dist.filterLess,
+                Binop.LEQ: self._dist.filterLeq,
+                Binop.GT: self._dist.filterGreater,
+                Binop.GEQ: self._dist.filterGeq,
+            }
+            result = filters[condition.operator](variable, bound)
+            return FPS.from_dist(result, self._variables, self._parameters)
 
         raise ValueError("Parameter is not a constant condition")
 
