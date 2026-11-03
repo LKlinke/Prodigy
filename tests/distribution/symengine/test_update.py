@@ -113,6 +113,32 @@ def test_division():
     assert sp.S(res._s_func).equals(sp.S(expected._s_func))
 
 
+def test_fractional_constants():
+    # A non-natural constant factor is a division, never a fractional exponent (issue #26)
+    def assert_update(gf, update, expected):
+        res = gf.update(parse_expr(update))
+        assert sp.S(res._s_func).equals(sp.S(SymengineDist(expected)._s_func))
+
+    gf = SymengineDist('x^3', 'x', 'y')
+    for update in ['x = 1/2*x', 'x = 0.5*x', 'x = (1/2*x)*2']:
+        with pytest.raises(ValueError, match='because it is not always an integer'):
+            gf.update(parse_expr(update))
+    assert_update(gf, 'x = x/(3/2)', 'x^2')
+    assert_update(gf, 'x = x/(1/2)', 'x^6')
+
+    gf = SymengineDist('1/2*x^4 + 1/2*x^2*y', 'x', 'y')
+    assert_update(gf, 'x = 1/2*x', '1/2*x^2 + 1/2*x*y')
+    assert_update(gf, 'x = 3/2*x', '1/2*x^6 + 1/2*x^3*y')
+    assert_update(gf, 'y = x*1/2', '1/2*x^4*y^2 + 1/2*x^2*y')
+
+    with pytest.raises(ValueError, match='infinite range'):
+        SymengineDist('1/(2-x^2)', 'x').update(parse_expr('x = 1/2*x'))
+
+    for update in ['x = x + 1/2', 'x = x - 0.5', 'x = x % (3/2)', 'x = x^(1/2)', 'x = (1/2)^x']:
+        with pytest.raises(ValueError, match='is not a natural number'):
+            gf.update(parse_expr(update))
+
+
 def test_unilateral_approximation():
     gf = SymengineDist('0.7*x^3*y^5 + 0.1*x^13*y^17 + 0.15*x^21*y^25 + 0.05*x^33*y^4')
     assert gf.approximate_unilaterally(

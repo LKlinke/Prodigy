@@ -49,6 +49,33 @@ def constant_value(expression: Expr) -> Fraction | None:
     return None
 
 
+def _without_fractional_constants(expression: BinopExpr) -> BinopExpr | None:
+    """
+    Rewrites a binary expression with an operand that is a constant but not a natural number (e.g.
+    1/2 in `1/2*x`) such that every intermediate result is a natural number again, or returns None
+    if neither operand is such a constant.
+
+    A product `p/q * e` becomes `(p * e) / q` and a quotient `e / (p/q)` becomes `(q * e) / p`, so
+    the division update checks that the result is a natural number in every state, exactly as for
+    `e / q`. Any other operator with such an operand cannot yield a natural number in general and
+    raises an error.
+    """
+    left, right = constant_value(expression.lhs), constant_value(expression.rhs)
+    fraction, other = (left, expression.rhs) if left is not None and left.denominator != 1 \
+        else (right, expression.lhs)
+    if fraction is None or fraction.denominator == 1:
+        return None
+    numerator, denominator = NatLitExpr(fraction.numerator), NatLitExpr(fraction.denominator)
+    if expression.operator == Binop.TIMES:
+        return BinopExpr(Binop.DIVIDE, BinopExpr(Binop.TIMES, numerator, other), denominator)
+    if expression.operator == Binop.DIVIDE and other is expression.lhs:
+        return BinopExpr(Binop.DIVIDE, BinopExpr(Binop.TIMES, denominator, other), numerator)
+    if expression.operator == Binop.DIVIDE:
+        return BinopExpr(Binop.DIVIDE, numerator, BinopExpr(Binop.TIMES, denominator, other))
+    raise ValueError(
+        f"Cannot evaluate {expression} because the constant {fraction} is not a natural number")
+
+
 class MarginalType(Enum):
     """ Specifies the type of marginalization. """
     INCLUDE = auto()
@@ -455,6 +482,10 @@ class Distribution(ABC):
             value that is not an integer, and certain operations on infinite generating functions if the variables
             involved have an infinite marginal (such as multiplication of two variables) and approximation is disabled.
 
+            Every intermediate result that depends on a variable must be a natural number. A constant that is not a
+            natural number may therefore only be a factor or a divisor: `p/q * e` is evaluated as `(p * e) / q` and
+            is subject to the same divisibility check as a division. Any other use, such as `x + 1/2`, raises an error.
+
             The `approximate` parameter is used to determine up to which precision unilateral approximation should be
             performed if an update is not possible on infinite distributions.
 
@@ -477,6 +508,12 @@ class Distribution(ABC):
             constant = constant_value(expression) if isinstance(expression, BinopExpr) else None
             if constant is not None:
                 return function, str(constant)
+
+            # Constants that are not natural numbers are rewritten, e.g. 1/2*x becomes (1*x)/2
+            if isinstance(expression, BinopExpr):
+                rewritten = _without_fractional_constants(expression)
+                if rewritten is not None:
+                    return evaluate(function, rewritten, temp_var)
 
             # For binary operator, we need to introduce fresh variables to prevent clashes
             # and recursively evaluate the left- and right-hand side of the operator
