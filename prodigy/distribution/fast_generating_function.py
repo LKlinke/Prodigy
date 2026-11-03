@@ -52,18 +52,6 @@ class FPS(Distribution):
         result._finite = finite if finite is not None else dist.is_polynomial(variables) == prodigy_ginac.troolean.true
         return result
 
-    @classmethod
-    def _from_symbols_by_name(cls, dist: prodigy_ginac.Dist, variables: Set[str], parameters: Set[str]) -> FPS:
-        """
-        Like :meth:`from_dist`, but parses the text of ``dist`` again. prodigy_ginac's iid sampling, its
-        modulo on finite distributions and its arithmetic progressions return expressions whose symbols
-        are not the registered ones although they carry the same names (e.g. two different symbols ``p``). Such results
-        compare unequal to equal distributions and do not cancel against them; parsing the text
-        identifies every symbol by its name; symbols prodigy_ginac knows as parameters stay parameters.
-        """
-        known_parameters = set(parameters) | {name for name in dist.get_symbols() if dist.is_known_as_param(name)}
-        return cls.from_dist(prodigy_ginac.Dist(str(dist), sorted(known_parameters)), variables, parameters)
-
     @staticmethod
     def factory() -> Type[ProdigyPGF]:
         return ProdigyPGF
@@ -251,7 +239,7 @@ class FPS(Distribution):
         Creates a list of subdistributions where at list index i, the `variable` is congruent i modulo `modulus`.
         """
         return [
-            FPS._from_symbols_by_name(dist, self._variables, self._parameters)
+            FPS.from_dist(dist, self._variables, self._parameters)
             for dist in self._dist.arithmetic_progression(variable, modulus)
         ]
 
@@ -323,7 +311,7 @@ class FPS(Distribution):
 
     def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
                        approximate: str | float | None) -> FPS:
-        return FPS._from_symbols_by_name(
+        return FPS.from_dist(
             self._dist.update_modulo(temp_var, str(left), str(right),
                                      self._variables, self._finite,
                                      approximate), self._variables,
@@ -366,7 +354,7 @@ class FPS(Distribution):
     def update_iid(self, sampling_dist: Expr, count: VarExpr,
                    variable: Union[str, VarExpr]) -> FPS:
         if not isinstance(sampling_dist, FunctionCallExpr):
-            result = FPS._from_symbols_by_name(
+            result = FPS.from_dist(
                 self._dist.updateIid(str(variable),
                                      prodigy_ginac.Dist(str(sampling_dist), list(self._parameters)),
                                      str(count)), self._variables,
@@ -382,7 +370,7 @@ class FPS(Distribution):
                     f"1/(({end}) - ({start}) + 1) * test^({start}) "
                     f"* (test^(({end}) - ({start}) + 1) - 1) / (test - 1)", list(self._parameters)),
                 str(count))
-            return FPS._from_symbols_by_name(result, self._variables, self._parameters)
+            return FPS.from_dist(result, self._variables, self._parameters)
 
         if sampling_dist.function == "binomial":
             [n, p] = sampling_dist.params[0]
@@ -391,27 +379,27 @@ class FPS(Distribution):
                 str(variable),
                 prodigy_ginac.Dist(f'(1 - ({p}) + ({p}) * {variable})^({n})', list(self._parameters)),
                 str(count))
-            return FPS._from_symbols_by_name(result, self._variables, self._parameters)
+            return FPS.from_dist(result, self._variables, self._parameters)
 
         [param] = sampling_dist.params[0]
         if sampling_dist.function == "geometric":
             result = self._dist.updateIid(
                 str(variable), prodigy_ginac.geometric(str(variable), str(param)),
                 str(count))
-            return FPS._from_symbols_by_name(result, self._variables, self._parameters)
+            return FPS.from_dist(result, self._variables, self._parameters)
 
         if sampling_dist.function == "bernoulli":
             symbolic_param = prodigy_ginac.find_symbols(str(param))
             result = self._dist.updateIid(
                 str(variable),
                 prodigy_ginac.Dist(f"{param} * {variable} + (1-{param})", symbolic_param), str(count))
-            return FPS._from_symbols_by_name(result, self._variables, self._parameters)
+            return FPS.from_dist(result, self._variables, self._parameters)
 
         if sampling_dist.function == "poisson":
             result = self._dist.updateIid(
                 str(variable), prodigy_ginac.Dist(f"exp({param} * ({variable} - 1))", list(self._parameters)),
                 str(count))
-            return FPS._from_symbols_by_name(result, self._variables, self._parameters)
+            return FPS.from_dist(result, self._variables, self._parameters)
 
         if sampling_dist.function == 'logdist':
             result = self._dist.updateIid(
@@ -419,7 +407,7 @@ class FPS(Distribution):
                 prodigy_ginac.Dist(
                     f'log(1 - ({param}) * {variable}) / log(1 - ({param}))', list(self._parameters)),
                 str(count))
-            return FPS._from_symbols_by_name(result, self._variables, self._parameters)
+            return FPS.from_dist(result, self._variables, self._parameters)
 
         raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
 
