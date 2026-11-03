@@ -150,3 +150,5 @@ poetry.lock
 # Web GUI: npm packages for rebuilding the vendored libraries
 prodigy/web/frontend/node_modules/
 
+# Written by hatch-vcs at build time (see pyproject.toml)
+prodigy/_version.py

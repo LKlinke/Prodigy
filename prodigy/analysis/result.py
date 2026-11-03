@@ -69,13 +69,21 @@ _INFINITY_SPELLINGS = {"\\infty", "∞", "oo", "inf", "infinity"}
 
 
 def prodigy_version() -> str:
-    """The installed version of prodigy-ppl (taken from the Git tag at build time), or ``"unknown"``
-    when the sources run without being installed."""
+    """The version of prodigy-ppl, taken from the Git tag ``v<version>`` when it was built or installed.
+
+    It comes from the package metadata, or, when the sources run without being installed, from
+    ``prodigy/_version.py``, which every build writes (see ``[tool.hatch.build.hooks.vcs]``).
+    """
     # pylint: disable=import-outside-toplevel
     from importlib.metadata import PackageNotFoundError, version
     try:
         return version("prodigy-ppl")
     except PackageNotFoundError:
+        pass
+    try:
+        from prodigy._version import __version__  # type: ignore[import-not-found,unused-ignore]
+        return str(__version__)
+    except ImportError:
         return "unknown"
 
 
