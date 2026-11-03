@@ -10,6 +10,18 @@ built from. Expressions are parsed with the operator table of
 .. literalinclude:: _generated/pgcl.lark
    :language: text
 
+Division
+--------
+
+``/`` is rational division everywhere; it never rounds. Floor division (``//``) does not exist
+yet; it is planned in `#105 <https://github.com/LKlinke/Prodigy/issues/105>`_.
+
+- In a guard, ``x/2 <= 1`` means ``x <= 2``, not ``floor(x/2) <= 1`` (which would also hold for
+  ``x = 3``).
+- An assignment to a ``nat`` variable requires the result to be a natural number in every state,
+  e.g. ``x := x/2`` only where ``x`` is always even. Otherwise the update is rejected; it is never
+  rounded.
+
 Guards
 ------
 

@@ -3,7 +3,8 @@ Exact normalisation of linear guards (:func:`normalize_guard`).
 
 A comparison whose sides are built from variables, constants, `+`, multiplication by a constant
 and division by a constant is linear. It is compared exactly over the rationals, e.g.
-`1/2*x < 2` holds if and only if `x < 4`, and is rewritten into an equivalent guard with natural
+`1/2*x < 2` holds if and only if `x < 4`. As everywhere, `/` is rational division, so `x/2 <= 1`
+means `x <= 2` and not floor division. The comparison is rewritten into an equivalent guard with natural
 numbers only:
 
 - with one variable it becomes `x < n`, `x <= n`, `x = n`, `x > n` or `x >= n` for a natural

@@ -38,6 +38,8 @@ SINGLE_VARIABLE = [
     ("0.5*x <= 1", lambda x: x <= 2),
     ("x + 1/2 < 3", lambda x: x <= 2),
     ("x/2 < 2", lambda x: x < 4),
+    # rational, not floor division: x = 3 does not satisfy it
+    ("x/2 <= 1", lambda x: x <= 2),
     ("2*x < 8", lambda x: x < 4),
     ("1/3*x + 1/6*x <= 1", lambda x: x <= 2),
     ("x < 1/2", lambda x: x == 0),
