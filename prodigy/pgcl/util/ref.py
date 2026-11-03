@@ -116,6 +116,10 @@ class Mut(Generic[M]):
         A Mut reference to each value in the tuple. Note that tuples are immutable,
         meaning assignment to its items will result in an exception.
 
+        Prefer :meth:`mutable_tuple` when the tuple itself lives behind a
+        :class:`Mut` (for example a list item), so assignments rebuild the
+        tuple through that parent setter.
+
         .. doctest::
 
             >>> my_tuple = ('hello', 42, 3.14)
@@ -136,6 +140,37 @@ class Mut(Generic[M]):
             def setter(new_value: M, ii=i):
                 # this always raises an exception, which is what we want here
                 values[ii] = new_value  # type: ignore
+
+            yield Mut(getter, setter)
+
+    @staticmethod
+    def mutable_tuple(reference: "Mut[Tuple[M, ...]]") -> Iterable["Mut[M]"]:
+        """
+        A Mut reference to each value in a tuple that lives behind ``reference``.
+
+        Assignments rebuild the tuple and write it back through ``reference``,
+        so nested walks can substitute into structures like
+        ``List[Tuple[Expr, RealLitExpr]]`` on :class:`CategoricalExpr`.
+
+        .. doctest::
+
+            >>> holder = Mut.alloc([('hello', 42)])
+            >>> item = next(Mut.list(holder.val))
+            >>> refs = list(Mut.mutable_tuple(item))
+            >>> refs[1].val = 43
+            >>> holder.val
+            [('hello', 43)]
+        """
+
+        for i in range(len(reference.val)):
+
+            def getter(ii=i):
+                return reference.val[ii]
+
+            def setter(new_value: M, ii=i):
+                rebuilt = list(reference.val)
+                rebuilt[ii] = new_value
+                reference.val = tuple(rebuilt)
 
             yield Mut(getter, setter)
 

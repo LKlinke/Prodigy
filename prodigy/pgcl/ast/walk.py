@@ -78,7 +78,9 @@ def _mut_iterable_children(
     elif isinstance(iterable, list):
         iterator = Mut.list(iterable)
     elif isinstance(iterable, tuple):
-        iterator = Mut.tuple(iterable)
+        # Rebuild the tuple through iterable_ref so assignments stick
+        # (CategoricalExpr stores (expr, prob) pairs as tuples in a list).
+        iterator = Mut.mutable_tuple(iterable_ref)
     else:
         raise ValueError(f"Unsupported iterable type: {type(iterable)}")
 
