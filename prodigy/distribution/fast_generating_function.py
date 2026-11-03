@@ -119,11 +119,12 @@ class FPS(Distribution):
 
     def __truediv__(self, other) -> FPS:
         if isinstance(other, str):
-            other = FPS(other)
+            other = FPS(other, *self._variables)
         if isinstance(other, FPS):
-            return FPS.from_dist(self._dist * prodigy_ginac.Dist(f"1/({str(other)})"),
+            parameters = self._parameters | other._parameters
+            return FPS.from_dist(self._dist * prodigy_ginac.Dist(f"1/({str(other)})", sorted(parameters)),
                                  self._variables | other._variables,
-                                 self._parameters | other._parameters)
+                                 parameters)
         raise NotImplementedError(
             f"Division of {type(self._dist)} and {type(other)} not supported.")
 
@@ -185,7 +186,7 @@ class FPS(Distribution):
         return self._dist.E(str(expression))
 
     def normalize(self) -> FPS:
-        return FPS(self._dist.normalize(), *self._variables)
+        return FPS.from_dist(self._dist.normalize(), self._variables, self._parameters)
 
     def get_variables(self) -> Set[str]:
         return self._variables
@@ -207,7 +208,7 @@ class FPS(Distribution):
         res = prodigy_ginac.Dist('0')
         for prob, state in self:
             if self.evaluate_condition(condition, state):
-                res += prodigy_ginac.Dist(f"{prob} * {state.to_monomial()}")
+                res += prodigy_ginac.Dist(f"{prob} * {state.to_monomial()}", sorted(self._parameters))
         return FPS.from_dist(res,
                              self._variables,
                              self._parameters,
@@ -229,34 +230,44 @@ class FPS(Distribution):
                           rhs=condition.lhs))
 
         # is normalized conditional
-        if isinstance(condition.lhs, VarExpr):
-            if condition.operator == Binop.EQ:
-                return FPS.from_dist(
-                    self._dist.filterEq(str(condition.lhs),
-                                        str(condition.rhs)), self._variables,
-                    self._parameters)
-            elif condition.operator == Binop.LT:
-                return FPS.from_dist(
-                    self._dist.filterLess(str(condition.lhs),
-                                          str(condition.rhs)), self._variables,
-                    self._parameters)
+        if isinstance(condition.lhs, VarExpr) and condition.operator in (
+                Binop.EQ, Binop.LT, Binop.LEQ, Binop.GT, Binop.GEQ):
+            variable, bound = str(condition.lhs), str(condition.rhs)
+            if condition.operator == Binop.LT:
+                result = self._filter_less(variable, bound)
             elif condition.operator == Binop.LEQ:
-                return FPS.from_dist(
-                    self._dist.filterLeq(str(condition.lhs),
-                                         str(condition.rhs)), self._variables,
-                    self._parameters)
+                result = self._filter_less(variable, f"{bound}+1")
             elif condition.operator == Binop.GT:
-                return FPS.from_dist(
-                    self._dist.filterGreater(str(condition.lhs),
-                                             str(condition.rhs)),
-                    self._variables, self._parameters)
+                result = self._dist - self._filter_less(variable, f"{bound}+1")
             elif condition.operator == Binop.GEQ:
-                return FPS.from_dist(
-                    self._dist.filterGeq(str(condition.lhs),
-                                         str(condition.rhs)), self._variables,
-                    self._parameters)
+                result = self._dist - self._filter_less(variable, bound)
+            else:
+                result = self._filter_less(variable, f"{bound}+1") - self._filter_less(variable, bound)
+            return FPS.from_dist(result, self._variables, self._parameters)
 
         raise ValueError("Parameter is not a constant condition")
+
+    def _filter_less(self, variable: str, bound: str) -> prodigy_ginac.Dist:
+        """
+        The terms of this distribution in which `variable` is less than `bound`. prodigy_ginac truncates the
+        series in `variable` at `bound`, but GiNaC keeps every term of some products of polynomials, e.g.
+        `(1+x*y)*(1+x^5)` truncated at 6 still contains `x^6*y`. The terms of degree `bound` or higher are
+        therefore removed here.
+        """
+        result = self._dist.filterLess(variable, bound)
+        if result.is_polynomial({variable}) != prodigy_ginac.troolean.true:
+            raise ValueError(f"Cannot filter for {variable} < {bound}: the truncation is not a polynomial")
+        order = prodigy_ginac.evaluate(bound, {})
+        terms = result.get_terms({variable})
+        if all(vals[variable] < order for _, vals in terms):
+            return result
+        parameters = sorted(self._parameters
+                            | {name for name in result.get_symbols() if result.is_known_as_param(name)})
+        kept = prodigy_ginac.Dist("0", parameters)
+        for coefficient, vals in terms:
+            if vals[variable] < order:
+                kept += prodigy_ginac.Dist(f"({coefficient})*{variable}^{vals[variable]}", parameters)
+        return kept
 
     def _arithmetic_progression(self, variable: str,
                                 modulus: str) -> List[FPS]:
