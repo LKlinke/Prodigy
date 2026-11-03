@@ -30,7 +30,9 @@ The CI (`.github/workflows/main.yml`) runs pylint, mypy and the tests on Python 
 the locked dependencies. Check like the CI before saying something passes. GiNaC must be
 installed for pygin (the GiNaC engine).
 
-Dependencies: change `pyproject.toml`, run `uv lock`, commit both files. Dependabot opens monthly
+Dependencies: change `pyproject.toml`, run `uv lock`, commit both files. pygin is not on PyPI: `uv sync`
+installs it from GitHub through the dependency group `ginac`, and the package `prodigy-ppl` only
+names it in the extra `ginac`, so the GiNaC engine is imported lazily (`ForwardAnalysisConfig.factory`). Dependabot opens monthly
 PRs in two groups; the group `linters` (pylint, astroid, mypy) needs code changes and is handled
 on its own.
 
@@ -53,7 +55,12 @@ on its own.
 - `prodigy/web`: the GUI, a Flask app. Each analysis runs in its own process (`jobs.py`). The
   frontend is plain ES modules without a build step; CodeMirror and KaTeX are vendored under
   `static/vendor` (rebuilt via `prodigy/web/frontend`). Docs: `docs/gui.md`.
-- `pgfexamples/`: example programs, also the GUI's library and test inputs.
+- `pgfexamples/`: example programs, also the GUI's library and test inputs; the wheel contains them
+  as `prodigy/pgfexamples`.
+- Releases: a tag `v<version>` runs `.github/workflows/release.yml` (PyPI `prodigy-ppl`, image
+  `ghcr.io/lklinke/prodigy` from `Dockerfile`, GitHub release). The trusted publisher on PyPI
+  depends on the file name and the environment `release`. `Dockerfile.artifact` builds the full
+  environment for artifacts (GiNaC, sources, `load_env.sh`).
 
 ## Principles
 - Soundness first. A result may only be reported as exact, or as a lower or upper bound, if a

@@ -1,5 +1,6 @@
 [project]
-name = "prodigy"
+# "prodigy" is taken on PyPI; the import name and the command stay prodigy
+name = "prodigy-ppl"
 version = "3.0.0"
 description = "PRObability DIstributions via GeneratingfunctionologY: analysis of probabilistic programs with generating functions"
 readme = "README.md"
@@ -20,7 +21,6 @@ dependencies = [
     "networkx>=3.2,<4",
     "sympy>=1.8,<2",
     "matplotlib>=3.4.2,<4",
-    "pygin @ git+https://github.com/LKlinke/prodigy-ginac-bindings.git@dynamic-variables",
     "Flask>=3.0,<4",
     # 0.14 has wheels for Python 3.14
     "symengine>=0.14.0,<0.15",
@@ -31,10 +31,20 @@ dependencies = [
     "python-flint>=0.6",
 ]
 
+[project.optional-dependencies]
+# The GiNaC engine (--engine ginac) needs pygin, which is not on PyPI (the "pygin" there is another project,
+# hence >=1.0): pip install "pygin @ git+https://github.com/LKlinke/prodigy-ginac-bindings.git@dynamic-variables"
+ginac = ["pygin>=1.0"]
+
+[project.urls]
+Repository = "https://github.com/LKlinke/Prodigy"
+
 [project.scripts]
 prodigy = "prodigy.cli:cli"
 
 [dependency-groups]
+# uv sync installs pygin from GitHub (see [tool.uv.sources]); PyPI rejects dependencies from Git.
+ginac = ["pygin"]
 dev = [
     # pytest 7.2 rewrites assertions with ast.Str, which Python 3.14 removed; 8.4 is the first release for 3.14
     "pytest>=8.4",
@@ -56,6 +66,10 @@ dev = [
 [tool.uv]
 # uv.lock was created with uv 0.11; the CI uses the newest uv that satisfies this.
 required-version = ">=0.11"
+default-groups = ["dev", "ginac"]
+
+[tool.uv.sources]
+pygin = { git = "https://github.com/LKlinke/prodigy-ginac-bindings.git", rev = "dynamic-variables" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "prodigy"]
@@ -67,9 +81,12 @@ faulthandler_timeout = 600
 requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
 
-[tool.hatch.metadata]
-# pygin is installed from GitHub
-allow-direct-references = true
-
 [tool.hatch.build.targets.wheel]
 packages = ["prodigy"]
+
+[tool.hatch.build.targets.wheel.force-include]
+# The example library of the web GUI (prodigy/web/examples.py finds it next to the package)
+"pgfexamples" = "prodigy/pgfexamples"
+
+[tool.hatch.build.targets.sdist]
+only-include = ["prodigy", "pgfexamples", "tests", "README.md", "LICENSE"]

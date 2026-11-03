@@ -10,7 +10,6 @@ import attr
 
 from prodigy.analysis.optimization import Optimizer
 from prodigy.analysis.optimization.gf_optimizer import GFOptimizer
-from prodigy.distribution.fast_generating_function import ProdigyPGF
 from prodigy.distribution.generating_function import (GeneratingFunction,
                                                       SympyPGF)
 from prodigy.distribution.symengine_distribution import SymenginePGF
@@ -80,6 +79,14 @@ class ForwardAnalysisConfig:
         if self.engine == self.Engine.SYMPY:
             return SympyPGF
         elif self.engine == self.Engine.GINAC:
+            # pygin is optional (prodigy-ppl[ginac]); only the GiNaC engine imports it
+            try:
+                # pylint: disable=import-outside-toplevel
+                from prodigy.distribution.fast_generating_function import ProdigyPGF
+            except ImportError as error:
+                raise ConfigurationError(
+                    "The GiNaC engine needs pygin: pip install \"pygin @ "
+                    "git+https://github.com/LKlinke/prodigy-ginac-bindings.git@dynamic-variables\"") from error
             return ProdigyPGF
         elif self.engine == self.Engine.SYMENGINE:
             return SymenginePGF
