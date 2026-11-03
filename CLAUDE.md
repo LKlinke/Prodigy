@@ -84,7 +84,7 @@ on its own.
 ## Known pitfalls
 - Each `ForwardAnalysisConfig` writes `use_simplification`/`use_latex` into class attributes of
   `GeneratingFunction`; they then hold for the whole process.
-- prodigy_ginac: results of `updateModulo` on finite distributions and of `updateIid` contain symbols that
+- prodigy_ginac: results of `updateModulo` on finite distributions, of `updateIid` and of `arithmetic_progression` contain symbols that
   are not the registered ones; `FPS._from_symbols_by_name` parses them again as a workaround.
 - The GiNaC bindings print to stdout at C level; the analysis captures that output.
 - pytest prints a file's line only when the next file starts. In a hanging CI run, the hanging test

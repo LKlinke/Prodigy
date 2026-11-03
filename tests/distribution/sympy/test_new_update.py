@@ -203,6 +203,39 @@ def test_division():
         '0.4*y**3*z**12*x**4 + 0.6*y**7*z**42*x**6')
 
 
+def test_fractional_constants():
+    # A non-natural constant factor is a division, never a fractional exponent (issue #26)
+    gf = GeneratingFunction('x^3', 'x', 'y')
+    for update in ['x = 1/2*x', 'x = 0.5*x', 'x = (1/2*x)*2']:
+        with raises(ValueError) as e:
+            gf.update(parse_expr(update))
+        assert 'because it is not always an integer' in str(e)
+    assert gf.update(parse_expr('x = x/(3/2)')) == GeneratingFunction('x^2', 'x', 'y')
+    assert gf.update(parse_expr('x = x/(1/2)')) == GeneratingFunction('x^6', 'x', 'y')
+
+    gf = GeneratingFunction('1/2*x^4 + 1/2*x^2*y', 'x', 'y')
+    assert gf.update(parse_expr('x = 1/2*x')) == GeneratingFunction('1/2*x^2 + 1/2*x*y', 'x', 'y')
+    assert gf.update(parse_expr('x = 3/2*x')) == GeneratingFunction('1/2*x^6 + 1/2*x^3*y', 'x', 'y')
+    assert gf.update(parse_expr('y = x*1/2')) == GeneratingFunction('1/2*x^4*y^2 + 1/2*x^2*y', 'x', 'y')
+
+    # With an infinite marginal, the division is exact if all mass provably lies on multiples
+    assert GeneratingFunction('1/(2-x^2)', 'x').update(parse_expr('x = 1/2*x')) == GeneratingFunction('1/(2-x)', 'x')
+    assert GeneratingFunction('p/(1-(1-p)*x^3)*y', 'x', 'y').update(parse_expr('y = x/3')) \
+        == GeneratingFunction('p/(1-(1-p)*x^3*y)', 'x', 'y')
+    even = SympyPGF.geometric('x', '1/2').filter(parse_expr('x % 2 = 0'))
+    assert even.update(parse_expr('x = x/2')) == GeneratingFunction('2/(4-x)', 'x')
+    # Odd values, or a function that is not rational in x, are rejected
+    for function in ['1/(2-x)', 'exp(x^2-1)']:
+        with raises(ValueError) as e:
+            GeneratingFunction(function, 'x').update(parse_expr('x = 1/2*x'))
+        assert 'infinite range' in str(e)
+
+    for update in ['x = x + 1/2', 'x = x - 0.5', 'x = x % (3/2)', 'x = x^(1/2)', 'x = (1/2)^x']:
+        with raises(ValueError) as e:
+            gf.update(parse_expr(update))
+        assert 'is not a natural number' in str(e)
+
+
 def test_unilateral_approximation():
     gf = GeneratingFunction(
         '0.7*x**3*y**5 + 0.1*x**13*y**17 + 0.15*x**21*y**25 + 0.05*x**33*y**4')

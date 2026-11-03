@@ -12,6 +12,7 @@ from sympy.assumptions.assume import global_assumptions
 # TODO Implement these checks in prodigy.pgcl
 from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
+from prodigy.distribution.exact_division import divide_exponents
 from prodigy.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
 from prodigy.pgcl.parser import parse_expr
@@ -500,6 +501,10 @@ class GeneratingFunction(Distribution):
 
         if isinstance(marginal_l,
                       GeneratingFunction) and not marginal_l._is_finite:
+            if isinstance(div_2, sympy.Integer):
+                divided = divide_exponents(self._function, str(numerator), temp_var, int(div_2))
+                if divided is not None:
+                    return GeneratingFunction(divided, *self._variables, finite=False)
             if approximate is None:
                 raise ValueError(
                     f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'

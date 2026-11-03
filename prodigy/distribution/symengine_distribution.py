@@ -20,6 +20,7 @@ from prodigy.pgcl.util.ref import Mut
 from prodigy.pgcl.parser import parse_expr
 
 from prodigy.distribution import Distribution
+from prodigy.distribution.exact_division import divide_exponents
 from prodigy.distribution import MarginalType, State, CommonDistributionsFactory, DistributionParam
 from prodigy.util.logger import log_setup
 from prodigy.util.order import default_monomial_iterator
@@ -679,6 +680,10 @@ class SymengineDist(Distribution):
         marginal_r = self.marginal(denominator) if div_2 in self._variables else div_2
 
         if isinstance(marginal_l, SymengineDist) and not marginal_l.is_finite():
+            if isinstance(div_2, se.Integer):
+                divided = divide_exponents(sp.sympify(self._s_func), str(numerator), temp_var, int(div_2))
+                if divided is not None:
+                    return SymengineDist(se.sympify(divided), *self._variables)
             if approximate is None:
                 raise ValueError(
                     f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'
