@@ -10,8 +10,6 @@ def test_uniform_checks():
     assert isinstance(program, CheckFail)
 
 
-@pytest.mark.xfail(strict=True, reason="substitute_constants assigns into the (expr, prob) tuples of a CategoricalExpr "
-                   "(TypeError); fails in probably as well")
 def test_categorical_confusion():
     res = compile_pgcl("bool x; nat y; x := x : 0.5 + y : 0.5;")
     assert isinstance(res, CheckFail)

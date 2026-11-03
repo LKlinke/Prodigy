@@ -69,6 +69,32 @@ class Walk(Enum):
             yield root
 
 
+def _mut_tuple_items(tuple_ref: Mut[tuple]) -> Iterable[Mut]:
+    """
+    Get refs to the items of the tuple in ``tuple_ref``. Tuples are immutable,
+    so writing an item replaces the whole tuple in ``tuple_ref``.
+
+    .. doctest::
+
+        >>> pairs = [(1, 2)]
+        >>> refs = list(_mut_tuple_items(next(iter(Mut.list(pairs)))))
+        >>> refs[1].val = 3
+        >>> pairs
+        [(1, 3)]
+    """
+    for i in range(len(tuple_ref.val)):
+
+        def getter(ii=i):
+            return tuple_ref.val[ii]
+
+        def setter(new_value, ii=i):
+            items = list(tuple_ref.val)
+            items[ii] = new_value
+            tuple_ref.val = tuple(items)
+
+        yield Mut(getter, setter)
+
+
 def _mut_iterable_children(
         iterable_ref: Mut[tuple | list | dict]) -> Iterable[Mut[Expr]]:
     """Get refs to the top-level Exprs found in an iterable."""
@@ -78,7 +104,7 @@ def _mut_iterable_children(
     elif isinstance(iterable, list):
         iterator = Mut.list(iterable)
     elif isinstance(iterable, tuple):
-        iterator = Mut.tuple(iterable)
+        iterator = _mut_tuple_items(iterable_ref)
     else:
         raise ValueError(f"Unsupported iterable type: {type(iterable)}")
 
