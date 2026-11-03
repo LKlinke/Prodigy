@@ -22,7 +22,7 @@ with desired convenience methods needed, in order to abstract away from an actua
 In fact, we deliver two types of distribution backends:
 
 #. A `sympy` implementation of generating functions
-#. A `GiNaC` C++ implementation shipped as a `pybind11` module.
+#. A `GiNaC` C++ implementation shipped as the `pybind11` module `prodigy_ginac` (package `prodigy-ppl-ginac`).
 
 .. automodule:: prodigy.distribution
 

@@ -37,7 +37,7 @@ good-names=T,i,t,op,fn,R,M,ii,g,pc,tf,k,p,x,y,n,f,gf,xl,xr,e,it,s,el,eq,a,m,c,vp
 max-line-length=120
 
 [MAIN]
-extension-pkg-allow-list=pygin
+extension-pkg-allow-list=prodigy_ginac
 
 [MISCELLANEOUS]
 notes=FIXME,XXX,TODO,BUG

@@ -27,12 +27,12 @@ make test                            # pytest with coverage, about 5 minutes
 uv run pytest tests/analysis/test_session.py -q   # a single file
 ```
 The CI (`.github/workflows/main.yml`) runs pylint, mypy and the tests on Python 3.11 and 3.14 with
-the locked dependencies. Check like the CI before saying something passes. GiNaC must be
-installed for pygin (the GiNaC engine).
+the locked dependencies. Check like the CI before saying something passes.
 
-Dependencies: change `pyproject.toml`, run `uv lock`, commit both files. pygin is not on PyPI: `uv sync`
-installs it from GitHub through the dependency group `ginac`, and the package `prodigy-ppl` only
-names it in the extra `ginac`, so the GiNaC engine is imported lazily (`ForwardAnalysisConfig.factory`). Dependabot opens monthly
+Dependencies: change `pyproject.toml`, run `uv lock`, commit both files. The GiNaC engine comes from
+`prodigy-ppl-ginac` (module `prodigy_ginac`, wheels with GiNaC bundled); a marker installs it only
+where wheels exist, and the extra `ginac` installs it everywhere, so the GiNaC engine is imported
+lazily (`ForwardAnalysisConfig.factory`). Dependabot opens monthly
 PRs in two groups; the group `linters` (pylint, astroid, mypy) needs code changes and is handled
 on its own.
 
@@ -41,7 +41,7 @@ on its own.
   history (see `prodigy/pgcl/NOTICE`); `pgcl_checks.py` and `pgcl_operations.py` are Prodigy's own.
   These modules are not type-checked yet (see `mypy.ini`).
 - `prodigy/distribution`: the `Distribution` interface and its engines: SymPy
-  (`generating_function.py`, default), GiNaC via pygin (`fast_generating_function.py`), SymEngine.
+  (`generating_function.py`, default), GiNaC via prodigy_ginac (`fast_generating_function.py`), SymEngine.
 - `prodigy/analysis`: the forward analysis. `analyzer.py` dispatches instructions to
   `instructionhandler/`.
   - `session.py`: `AnalysisSession` holds one decision per loop.
@@ -81,7 +81,7 @@ on its own.
 ## Known pitfalls
 - Each `ForwardAnalysisConfig` writes `use_simplification`/`use_latex` into class attributes of
   `GeneratingFunction`; they then hold for the whole process.
-- pygin: results of `updateModulo` on finite distributions and of `updateIid` contain symbols that
+- prodigy_ginac: results of `updateModulo` on finite distributions and of `updateIid` contain symbols that
   are not the registered ones; `FPS._from_symbols_by_name` parses them again as a workaround.
 - The GiNaC bindings print to stdout at C level; the analysis captures that output.
 - pytest prints a file's line only when the next file starts. In a hanging CI run, the hanging test

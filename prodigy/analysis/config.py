@@ -79,14 +79,13 @@ class ForwardAnalysisConfig:
         if self.engine == self.Engine.SYMPY:
             return SympyPGF
         elif self.engine == self.Engine.GINAC:
-            # pygin is optional (prodigy-ppl[ginac]); only the GiNaC engine imports it
+            # prodigy-ppl-ginac is only installed where it has wheels; only the GiNaC engine imports it
             try:
                 # pylint: disable=import-outside-toplevel
                 from prodigy.distribution.fast_generating_function import ProdigyPGF
             except ImportError as error:
                 raise ConfigurationError(
-                    "The GiNaC engine needs pygin: pip install \"pygin @ "
-                    "git+https://github.com/LKlinke/prodigy-ginac-bindings.git@dynamic-variables\"") from error
+                    "The GiNaC engine needs prodigy-ppl-ginac: pip install prodigy-ppl-ginac") from error
             return ProdigyPGF
         elif self.engine == self.Engine.SYMENGINE:
             return SymenginePGF

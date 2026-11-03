@@ -20,17 +20,18 @@ Prodigy is on PyPI as `prodigy-ppl` (the command and the Python package are call
 pip install prodigy-ppl
 ```
 
-This needs Python 3.11 or newer and uses the SymPy and SymEngine engines. For the faster GiNaC engine (`--engine ginac`),
-install [GiNaC](https://www.ginac.de/Download.html) and its Python bindings first (they are not on PyPI), then the extra:
+This needs Python 3.11 or newer and contains the SymPy, SymEngine and the faster GiNaC engine (`--engine ginac`).
+The GiNaC engine comes from [`prodigy-ppl-ginac`](https://pypi.org/project/prodigy-ppl-ginac/), whose wheels bundle
+GiNaC; pip installs it on Linux (x86_64, aarch64, glibc) and macOS with Python 3.11–3.14. Elsewhere, the extra `ginac`
+builds it from source, which needs a C++17 compiler, CMake and [GiNaC](https://www.ginac.de/Download.html):
 
 ```bash
-pip install "pygin @ git+https://github.com/LKlinke/prodigy-ginac-bindings.git@dynamic-variables"
 pip install "prodigy-ppl[ginac]"
 ```
 
 ### With Docker
 
-The image contains the command line and the web GUI with the SymPy and SymEngine engines, for amd64 and arm64
+The image contains the command line and the web GUI with the SymPy, GiNaC and SymEngine engines, for amd64 and arm64
 (tags: version, e.g. `3.1.0`, minor version `3.1`, and `latest`). Without arguments it starts the web GUI on
 http://localhost:8080:
 
@@ -52,9 +53,8 @@ the development tools): `make docker-artifact`, then `docker run -ti prodigy-art
 To install Prodigy from the repository, follow these steps:
 
 1. Make sure [Python](https://www.python.org/downloads/) 3.11 or newer is installed (tested with 3.11 and 3.14).
-2. Install [GiNaC](https://www.ginac.de/Download.html), which also requires [CLN](https://www.ginac.de/CLN/).
-3. Install [uv](https://docs.astral.sh/uv/getting-started/installation/).
-4. Clone or download the Prodigy repository, open a command prompt in its root folder, and type `./install.sh`. This installs Prodigy with the dependency versions locked in `uv.lock` into `.venv`, and the Z3 solver for pysmt.
+2. Install [uv](https://docs.astral.sh/uv/getting-started/installation/).
+3. Clone or download the Prodigy repository, open a command prompt in its root folder, and type `./install.sh`. This installs Prodigy with the dependency versions locked in `uv.lock` into `.venv`, and the Z3 solver for pysmt.
 
 If no errors occurred, you have successfully installed Prodigy.
 Now there are two options on how to use the tool. You can either use the command-line interface (CLI) or the web GUI. The next section (_Basic Usage_) details how to achieve both of these things.
@@ -64,7 +64,7 @@ Now there are two options on how to use the tool. You can either use the command
 If you run into trouble during installation, this subsection might be of help. It lists some common problems that might occur during installation of Prodigy and how you can (hopefully) solve them.
 
 - If you're using Windows, don't (not even WSL). We heavily recommend using either Linux or MacOS, as some of the required libraries have compatibility problems with Windows.
-- If you're using Linux, make sure all of these packages are installed (if you're not using a Debian/Ubuntu based distribution, these might differ slightly):
+- If pip builds `prodigy-ppl-ginac` from source (no wheel for your platform, e.g. Alpine Linux), install GiNaC and make sure all of these packages are installed (if you're not using a Debian/Ubuntu based distribution, these might differ slightly):
   - `CMake`
   - `pkg-config`
   - `build-essential` (includes `make`, `g++`, `gcc`, and more)
@@ -88,6 +88,5 @@ describes the non-interactive analysis API (`prodigy analyze --json`).
 ## Development
 
 - `make lint`, `make mypy` and `make test` run the checks of the CI (pylint, mypy, and the tests with coverage; see `.github/workflows/main.yml`).
-- `uv sync` installs pygin (GiNaC) from GitHub through the dependency group `ginac`; the package on PyPI does not depend on it.
 - Releases: bump `version` in `pyproject.toml`, merge, and push a tag `v<version>` (e.g. `v3.1.0`). `.github/workflows/release.yml` runs the checks, waits for approval in the environment `release`, and publishes to PyPI, the Docker image (`Dockerfile`) to ghcr.io, and a GitHub release.
 - Dependencies are locked in `uv.lock`. After changing them in `pyproject.toml`, run `uv lock` and commit both files. `uv lock --upgrade` updates all dependencies within their constraints; Dependabot proposes such updates monthly as pull requests.

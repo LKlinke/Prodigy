@@ -11,19 +11,11 @@ ENV LANG=C.UTF-8
 RUN ln -snf /usr/share/zoneinfo/Etc/UTC /etc/localtime \
     && echo "Etc/UTC" > /etc/timezone
 
-# setup git so uv can install the dependencies from GitHub
-RUN apt update && apt install -y git
-RUN git config --global user.name "Docker" && git config --global user.email "docker@example.com"
-
 # install common text editors for convenience
-RUN apt install -y vim nano
+RUN apt update && apt install -y vim nano
 
-# Setup cmake for ginac development
-RUN apt install -y build-essential
-RUN apt install -y cmake 
 RUN apt install -y make
 RUN apt install -y graphviz
-RUN apt install -y libginac-dev
 RUN apt install -y dos2unix
 
 # Setup uv as python package manager

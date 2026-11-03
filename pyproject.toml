@@ -28,12 +28,15 @@ dependencies = [
     "numpy>=1.26",
     "scipy>=1.11",
     "python-flint>=0.6",
+    # The GiNaC engine (--engine ginac). Its wheels bundle GiNaC; the marker leaves out the platforms and Python
+    # versions without wheels, where pip would build the sdist (needs a C++17 compiler, CMake and GiNaC).
+    # A marker cannot tell musllinux from glibc, so on Alpine pip still tries to build it.
+    "prodigy-ppl-ginac>=0.0.1,<0.1; python_version < '3.15' and (sys_platform == 'darwin' or (sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')))",
 ]
 
 [project.optional-dependencies]
-# The GiNaC engine (--engine ginac) needs pygin, which is not on PyPI (the "pygin" there is another project,
-# hence >=1.0): pip install "pygin @ git+https://github.com/LKlinke/prodigy-ginac-bindings.git@dynamic-variables"
-ginac = ["pygin>=1.0"]
+# The GiNaC engine on every platform, built from the sdist where no wheel exists
+ginac = ["prodigy-ppl-ginac>=0.0.1,<0.1"]
 
 [project.urls]
 Repository = "https://github.com/LKlinke/Prodigy"
@@ -42,8 +45,6 @@ Repository = "https://github.com/LKlinke/Prodigy"
 prodigy = "prodigy.cli:cli"
 
 [dependency-groups]
-# uv sync installs pygin from GitHub (see [tool.uv.sources]); PyPI rejects dependencies from Git.
-ginac = ["pygin"]
 dev = [
     # pytest 7.2 rewrites assertions with ast.Str, which Python 3.14 removed; 8.4 is the first release for 3.14
     "pytest>=8.4",
@@ -65,10 +66,7 @@ dev = [
 [tool.uv]
 # uv.lock was created with uv 0.11; the CI uses the newest uv that satisfies this.
 required-version = ">=0.11"
-default-groups = ["dev", "ginac"]
-
-[tool.uv.sources]
-pygin = { git = "https://github.com/LKlinke/prodigy-ginac-bindings.git", rev = "dynamic-variables" }
+default-groups = ["dev"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "prodigy"]
