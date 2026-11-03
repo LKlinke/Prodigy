@@ -229,3 +229,19 @@ def test_inner_upper_bound_keeps_outer_invariant_sound():
     assert result["bounds"]["kind"] == Bound.UPPER
     loops = {loop["id"]: loop for loop in result["loops"]}
     assert loops[1]["inside_checks"] == 1 and loops[0]["kind"] == Bound.UPPER
+
+
+def test_prodigy_version_without_package_metadata(monkeypatch):
+    """Without metadata (sources not installed) the version comes from prodigy/_version.py."""
+    # pylint: disable=import-outside-toplevel
+    import importlib.metadata
+    from prodigy._version import __version__
+    from prodigy.analysis.result import prodigy_version
+
+    assert prodigy_version() == importlib.metadata.version("prodigy-ppl")
+
+    def missing(name):
+        raise importlib.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(importlib.metadata, "version", missing)
+    assert prodigy_version() == __version__ != "unknown"

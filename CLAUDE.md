@@ -59,7 +59,9 @@ on its own.
 - `pgfexamples/`: example programs, also the GUI's library and test inputs; the wheel contains them
   as `prodigy/pgfexamples`.
 - Releases: a tag `v<version>` runs `.github/workflows/release.yml` (PyPI `prodigy-ppl`, image
-  `ghcr.io/lklinke/prodigy` from `Dockerfile`, GitHub release). The trusted publisher on PyPI
+  `ghcr.io/lklinke/prodigy` from `Dockerfile`, GitHub release). The version comes from the latest
+  tag `v*` (hatch-vcs); there is no version to bump and no relock. The Docker builds have no `.git`
+  and get the version as build argument `PRODIGY_VERSION`. The trusted publisher on PyPI
   depends on the file name and the environment `release`. `Dockerfile.artifact` builds the full
   environment for artifacts (GiNaC, sources, `load_env.sh`).
 
