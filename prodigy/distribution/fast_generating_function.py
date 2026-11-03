@@ -233,41 +233,17 @@ class FPS(Distribution):
         if isinstance(condition.lhs, VarExpr) and condition.operator in (
                 Binop.EQ, Binop.LT, Binop.LEQ, Binop.GT, Binop.GEQ):
             variable, bound = str(condition.lhs), str(condition.rhs)
-            if condition.operator == Binop.LT:
-                result = self._filter_less(variable, bound)
-            elif condition.operator == Binop.LEQ:
-                result = self._filter_less(variable, f"{bound}+1")
-            elif condition.operator == Binop.GT:
-                result = self._dist - self._filter_less(variable, f"{bound}+1")
-            elif condition.operator == Binop.GEQ:
-                result = self._dist - self._filter_less(variable, bound)
-            else:
-                result = self._filter_less(variable, f"{bound}+1") - self._filter_less(variable, bound)
+            filters = {
+                Binop.EQ: self._dist.filterEq,
+                Binop.LT: self._dist.filterLess,
+                Binop.LEQ: self._dist.filterLeq,
+                Binop.GT: self._dist.filterGreater,
+                Binop.GEQ: self._dist.filterGeq,
+            }
+            result = filters[condition.operator](variable, bound)
             return FPS.from_dist(result, self._variables, self._parameters)
 
         raise ValueError("Parameter is not a constant condition")
-
-    def _filter_less(self, variable: str, bound: str) -> prodigy_ginac.Dist:
-        """
-        The terms of this distribution in which `variable` is less than `bound`. prodigy_ginac truncates the
-        series in `variable` at `bound`, but GiNaC keeps every term of some products of polynomials, e.g.
-        `(1+x*y)*(1+x^5)` truncated at 6 still contains `x^6*y`. The terms of degree `bound` or higher are
-        therefore removed here.
-        """
-        result = self._dist.filterLess(variable, bound)
-        if result.is_polynomial({variable}) != prodigy_ginac.troolean.true:
-            raise ValueError(f"Cannot filter for {variable} < {bound}: the truncation is not a polynomial")
-        order = prodigy_ginac.evaluate(bound, {})
-        terms = result.get_terms({variable})
-        if all(vals[variable] < order for _, vals in terms):
-            return result
-        parameters = sorted(self._parameters
-                            | {name for name in result.get_symbols() if result.is_known_as_param(name)})
-        kept = prodigy_ginac.Dist("0", parameters)
-        for coefficient, vals in terms:
-            if vals[variable] < order:
-                kept += prodigy_ginac.Dist(f"({coefficient})*{variable}^{vals[variable]}", parameters)
-        return kept
 
     def _arithmetic_progression(self, variable: str,
                                 modulus: str) -> List[FPS]:
