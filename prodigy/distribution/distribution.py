@@ -484,7 +484,8 @@ class Distribution(ABC):
 
             Every intermediate result that depends on a variable must be a natural number. A constant that is not a
             natural number may therefore only be a factor or a divisor: `p/q * e` is evaluated as `(p * e) / q` and
-            is subject to the same divisibility check as a division. Any other use, such as `x + 1/2`, raises an error.
+            is subject to the same divisibility check as a division, which is exact for infinite marginals of rational
+            generating functions as well. Any other use, such as `x + 1/2`, raises an error.
 
             The `approximate` parameter is used to determine up to which precision unilateral approximation should be
             performed if an update is not possible on infinite distributions.
@@ -658,7 +659,10 @@ class Distribution(ABC):
         raises an error.
 
         Infinite distributions are only supported if both sides of the division have finite range
-        (i.e., they are either literals or have a finite marginal) if approximation is disabled.
+        (i.e., they are either literals or have a finite marginal) if approximation is disabled. The
+        exception is a numerator with infinite marginal and a literal denominator: the division is
+        exact if the generating function is rational in the numerator and all its mass provably lies
+        on multiples of the denominator (see :mod:`prodigy.distribution.exact_division`).
         """
 
     @abstractmethod

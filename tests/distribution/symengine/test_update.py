@@ -131,8 +131,17 @@ def test_fractional_constants():
     assert_update(gf, 'x = 3/2*x', '1/2*x^6 + 1/2*x^3*y')
     assert_update(gf, 'y = x*1/2', '1/2*x^4*y^2 + 1/2*x^2*y')
 
-    with pytest.raises(ValueError, match='infinite range'):
-        SymengineDist('1/(2-x^2)', 'x').update(parse_expr('x = 1/2*x'))
+    # With an infinite marginal, the division is exact if all mass provably lies on multiples
+    assert_update(SymengineDist('1/(2-x^2)', 'x'), 'x = 1/2*x', '1/(2-x)')
+    res = SymengineDist('p/(1-(1-p)*x^3)*y', 'x', 'y').update(parse_expr('y = x/3'))
+    assert sp.S(res._s_func).equals(sp.S('p/(1-(1-p)*x**3*y)'))
+    # the even part (f(x) + f(-x)) / 2 of the geometric distribution
+    even = SymengineDist('(1/(2-x) + 1/(2+x)) / 2', 'x')
+    assert_update(even, 'x = x/2', '2/(4-x)')
+    # Odd values, or a function that is not rational in x, are rejected
+    for function in ['1/(2-x)', 'exp(x^2-1)']:
+        with pytest.raises(ValueError, match='infinite range'):
+            SymengineDist(function, 'x').update(parse_expr('x = 1/2*x'))
 
     for update in ['x = x + 1/2', 'x = x - 0.5', 'x = x % (3/2)', 'x = x^(1/2)', 'x = (1/2)^x']:
         with pytest.raises(ValueError, match='is not a natural number'):

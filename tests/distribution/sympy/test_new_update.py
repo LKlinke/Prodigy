@@ -218,9 +218,17 @@ def test_fractional_constants():
     assert gf.update(parse_expr('x = 3/2*x')) == GeneratingFunction('1/2*x^6 + 1/2*x^3*y', 'x', 'y')
     assert gf.update(parse_expr('y = x*1/2')) == GeneratingFunction('1/2*x^4*y^2 + 1/2*x^2*y', 'x', 'y')
 
-    with raises(ValueError) as e:
-        GeneratingFunction('1/(2-x^2)', 'x').update(parse_expr('x = 1/2*x'))
-    assert 'infinite range' in str(e)
+    # With an infinite marginal, the division is exact if all mass provably lies on multiples
+    assert GeneratingFunction('1/(2-x^2)', 'x').update(parse_expr('x = 1/2*x')) == GeneratingFunction('1/(2-x)', 'x')
+    assert GeneratingFunction('p/(1-(1-p)*x^3)*y', 'x', 'y').update(parse_expr('y = x/3')) \
+        == GeneratingFunction('p/(1-(1-p)*x^3*y)', 'x', 'y')
+    even = SympyPGF.geometric('x', '1/2').filter(parse_expr('x % 2 = 0'))
+    assert even.update(parse_expr('x = x/2')) == GeneratingFunction('2/(4-x)', 'x')
+    # Odd values, or a function that is not rational in x, are rejected
+    for function in ['1/(2-x)', 'exp(x^2-1)']:
+        with raises(ValueError) as e:
+            GeneratingFunction(function, 'x').update(parse_expr('x = 1/2*x'))
+        assert 'infinite range' in str(e)
 
     for update in ['x = x + 1/2', 'x = x - 0.5', 'x = x % (3/2)', 'x = x^(1/2)', 'x = (1/2)^x']:
         with raises(ValueError) as e:

@@ -193,17 +193,19 @@ def test_fractional_constants():
     assert gf.update(parse_expr('x = 3/2*x')) == FPS('1/2*x^6 + 1/2*x^3*y', 'x', 'y')
     assert gf.update(parse_expr('y = x*1/2')) == FPS('1/2*x^4*y^2 + 1/2*x^2*y', 'x', 'y')
 
-    with raises(ValueError) as e:
-        FPS('1/(2-x^2)', 'x').update(parse_expr('x = 1/2*x'))
-    assert 'numerator must have a finite marginal' in str(e)
-
-    # The even part of an infinite distribution stays infinite, so the division is rejected
-    # instead of leaving the distribution unchanged
+    # With an infinite marginal, the division is exact if all mass provably lies on multiples
+    assert FPS('1/(2-x^2)', 'x').update(parse_expr('x = 1/2*x')) == FPS('1/(2-x)', 'x')
+    assert FPS('p/(1-(1-p)*x^3)*y', 'x', 'y').update(parse_expr('y = x/3')) \
+        == FPS('p/(1-(1-p)*x^3*y)', 'x', 'y')
+    # The even part of an infinite distribution stays infinite (it is not left unchanged)
     even = ProdigyPGF.geometric('x', '1/2').filter(parse_expr('x % 2 = 0'))
     assert not even.is_finite()
-    with raises(ValueError) as e:
-        even.update(parse_expr('x = 1/2*x'))
-    assert 'numerator must have a finite marginal' in str(e)
+    assert even.update(parse_expr('x = 1/2*x')) == FPS('2/(4-x)', 'x')
+    # Odd values, or a function that is not rational in x, are rejected
+    for function in ['1/(2-x)', 'exp(x^2-1)']:
+        with raises(ValueError) as e:
+            FPS(function, 'x').update(parse_expr('x = 1/2*x'))
+        assert 'numerator must have a finite marginal' in str(e)
 
     for update in ['x = x + 1/2', 'x = x - 0.5', 'x = x % (3/2)', 'x = x^(1/2)', 'x = (1/2)^x']:
         with raises(ValueError) as e:

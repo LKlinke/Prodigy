@@ -4,8 +4,10 @@ from typing import (Dict, FrozenSet, Generator, Iterator, List, Set, Tuple, Type
                     Union)
 
 import prodigy_ginac  # type: ignore
-from sympy import nan, sympify
+from sympy import Symbol, nan, parse_expr, sympify
+from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
+from prodigy.distribution.exact_division import divide_exponents
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
                                                MarginalType, State)
@@ -54,8 +56,8 @@ class FPS(Distribution):
     def _from_symbols_by_name(cls, dist: prodigy_ginac.Dist, variables: Set[str], parameters: Set[str]) -> FPS:
         """
         Like :meth:`from_dist`, but parses the text of ``dist`` again. prodigy_ginac's iid sampling, its
-        modulo on finite distributions and its arithmetic progressions return expressions whose symbols are not the registered
-        ones although they carry the same names (e.g. two different symbols ``p``). Such results
+        modulo on finite distributions and its arithmetic progressions return expressions whose symbols
+        are not the registered ones although they carry the same names (e.g. two different symbols ``p``). Such results
         compare unequal to equal distributions and do not cancel against them; parsing the text
         identifies every symbol by its name; symbols prodigy_ginac knows as parameters stay parameters.
         """
@@ -343,10 +345,30 @@ class FPS(Distribution):
     def _update_division(self, temp_var: str, numerator: str | int,
                          denominator: str | int,
                          approximate: str | float | None) -> FPS:
+        if str(numerator) in self._variables and str(denominator).isdigit() \
+                and not self.marginal(str(numerator)).is_finite():
+            divided = self._divide_exponents(temp_var, str(numerator), int(str(denominator)))
+            if divided is not None:
+                return divided
         return FPS.from_dist(
             self._dist.update_division(temp_var, str(numerator),
                                        str(denominator), approximate),
             self._variables, self._parameters)
+
+    def _divide_exponents(self, temp_var: str, numerator: str, divisor: int) -> FPS | None:
+        """
+        The update `temp_var := numerator / divisor` for an infinite marginal of `numerator`, or None
+        if it is not proven that `numerator` is always a multiple of `divisor` (see
+        :mod:`prodigy.distribution.exact_division`).
+        """
+        text = str(self._dist)
+        symbols = {name: Symbol(name) for name in prodigy_ginac.find_symbols(text)}
+        function = parse_expr(text, local_dict=symbols,
+                              transformations=standard_transformations + (convert_xor,))
+        divided = divide_exponents(function, numerator, temp_var, divisor)
+        if divided is None:
+            return None
+        return FPS(str(divided).replace('**', '^'), *self._variables, finite=False)
 
     def _update_power(self, temp_var: str, base: str | int, exp: str | int,
                       approximate: str | float | None) -> Distribution:
