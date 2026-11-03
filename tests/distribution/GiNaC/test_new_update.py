@@ -1,4 +1,4 @@
-import pygin
+import prodigy_ginac
 from prodigy.pgcl.parser import parse_expr
 from pytest import raises
 
@@ -32,7 +32,7 @@ def test_addition():
         parse_expr("x % 2 = 1")) == ProdigyPGF.zero("x")
     assert gf.update(parse_expr("x = x + x")).filter(
         parse_expr("x = 30")).marginal(
-            'x', method=MarginalType.EXCLUDE)._dist == pygin.Dist(
+            'x', method=MarginalType.EXCLUDE)._dist == prodigy_ginac.Dist(
                 "(16^15 * exp(-16)) / factorial(15)")
 
     gf = FPS("x^3 * y^5")
@@ -141,7 +141,7 @@ def test_modulo():
         parse_expr('x = 5 % 3')) == FPS('x^2 * (3/10*y^4 + 3/10*y^7 + 2/5*y^8)')
     assert gf.update(parse_expr('x = 5 % (1+1+1)')) == FPS(
         'x^2 * (0.3*y^4 + 0.3*y^7 + 0.4*y^8)')
-    assert gf.update(parse_expr('x = y % (3+2)'))._dist == pygin.Dist(
+    assert gf.update(parse_expr('x = y % (3+2)'))._dist == prodigy_ginac.Dist(
         '(3/10)*y^4*x^4 + (3/10)*y^7*x^2 + (4/10)*y^8*x^3')
 
     gf = FPS('0.3*x^3*y^5*z^2 + 0.2*x^6*y^9*z^55 + 0.5*x^5*y^346*z^34')
@@ -186,13 +186,13 @@ def test_unilateral_approximation():
     gf = ProdigyPGF.poisson('x', 7) * ProdigyPGF.poisson('y', 81)
     res = gf.approximate_unilaterally('x', 0.9)
     assert res.filter(parse_expr('x = 4')) == gf.filter(parse_expr('x = 4'))
-    assert res.filter(parse_expr('x = 400'))._dist == pygin.Dist('0')
-    assert gf.filter(parse_expr('x = 400'))._dist != pygin.Dist('0')
+    assert res.filter(parse_expr('x = 400'))._dist == prodigy_ginac.Dist('0')
+    assert gf.filter(parse_expr('x = 400'))._dist != prodigy_ginac.Dist('0')
 
     gf = FPS('exp(7*x*y - 7)')
-    assert gf.filter(parse_expr('x = 100'))._dist != pygin.Dist('0')
+    assert gf.filter(parse_expr('x = 100'))._dist != prodigy_ginac.Dist('0')
     res = gf.approximate_unilaterally('x', '0.9')
-    assert res.filter(parse_expr('x = 100'))._dist == pygin.Dist('0')
+    assert res.filter(parse_expr('x = 100'))._dist == prodigy_ginac.Dist('0')
     assert res.filter(parse_expr('x = 5')) == res.filter(parse_expr('y = 5'))
 
 
@@ -202,15 +202,15 @@ def test_update():
     assert res == FPS('x^9')
     res = res.update(parse_expr('x = x*(9/2*1*2)'))
     assert res == FPS('x^81')
-    assert res._update_var('x', '0')._dist == pygin.Dist('1')
+    assert res._update_var('x', '0')._dist == prodigy_ginac.Dist('1')
     assert res.marginal('x', method=MarginalType.EXCLUDE) == FPS('1')
     assert res.update(parse_expr('x = x/9')) == FPS('x^9')
     assert res.update(parse_expr('x = 3')) == FPS('x^3')
 
     assert FPS('x').update(parse_expr('x = x*x'))._update_var(
-        'x', '0')._dist == pygin.Dist('1')
+        'x', '0')._dist == prodigy_ginac.Dist('1')
     assert FPS('x')._update_product('x', 'x', 'x', None)._update_var(
-        'x', '0')._dist == pygin.Dist('1')
+        'x', '0')._dist == prodigy_ginac.Dist('1')
     assert FPS('x').update(parse_expr('x = x*x')).get_variables() == {'x'}
 
     gf = FPS('x').set_parameters('p')

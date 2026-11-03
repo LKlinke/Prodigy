@@ -1,6 +1,6 @@
 import random
 
-import pygin
+import prodigy_ginac
 import pytest
 from prodigy.pgcl.ast import Binop, BinopExpr, NatLitExpr, VarExpr
 from prodigy.pgcl.parser import parse_expr
@@ -258,7 +258,7 @@ def test_predefined_variable_names(name):
 
     assert ProdigyPGF.bernoulli(name, '1/2') == FPS(f'1/2+1/2*{name}')
 
-    # pygin.reset_symbol_cache()
+    # prodigy_ginac.reset_symbol_cache()
     gf = FPS(f'{name}*x', 'x')
     assert len(gf.get_parameters()) == 1
     assert gf.update(parse_expr('x = 2')) == FPS(f'{name}*x^2', 'x')

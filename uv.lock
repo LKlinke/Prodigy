@@ -1516,7 +1516,6 @@ wheels = [
 name = "prodigy-ppl"
 version = "0.1.0"
 source = { editable = "." }
-default-groups = ["dev", "ginac"]
 dependencies = [
     { name = "algebraic-data-types" },
     { name = "attrs" },
@@ -1529,6 +1528,7 @@ dependencies = [
     { name = "networkx", version = "3.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "prodigy-ppl-ginac", marker = "(python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'linux') or (python_full_version < '3.15' and sys_platform == 'darwin')" },
     { name = "pysmt" },
     { name = "python-flint" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
@@ -1540,7 +1540,7 @@ dependencies = [
 
 [package.optional-dependencies]
 ginac = [
-    { name = "pygin" },
+    { name = "prodigy-ppl-ginac" },
 ]
 
 [package.dev-dependencies]
@@ -1554,9 +1554,6 @@ dev = [
     { name = "rope" },
     { name = "yapf" },
 ]
-ginac = [
-    { name = "pygin" },
-]
 
 [package.metadata]
 requires-dist = [
@@ -1569,7 +1566,8 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.4.2,<4" },
     { name = "networkx", specifier = ">=3.2,<4" },
     { name = "numpy", specifier = ">=1.26" },
-    { name = "pygin", marker = "extra == 'ginac'", git = "https://github.com/LKlinke/prodigy-ginac-bindings.git?rev=dynamic-variables" },
+    { name = "prodigy-ppl-ginac", marker = "(python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'linux') or (python_full_version < '3.15' and sys_platform == 'darwin')", specifier = ">=0.0.1,<0.1" },
+    { name = "prodigy-ppl-ginac", marker = "extra == 'ginac'", specifier = ">=0.0.1,<0.1" },
     { name = "pysmt", specifier = ">=0.9.0,<0.10" },
     { name = "python-flint", specifier = ">=0.6" },
     { name = "scipy", specifier = ">=1.11" },
@@ -1590,12 +1588,30 @@ dev = [
     { name = "rope", specifier = ">=0.17.0,<1.16" },
     { name = "yapf", specifier = ">=0.30.0,<0.44" },
 ]
-ginac = [{ name = "pygin", git = "https://github.com/LKlinke/prodigy-ginac-bindings.git?rev=dynamic-variables" }]
 
 [[package]]
-name = "pygin"
-version = "1.0"
-source = { git = "https://github.com/LKlinke/prodigy-ginac-bindings.git?rev=dynamic-variables#2971acc4404629b2b1f3d52315d3ebfe443261c5" }
+name = "prodigy-ppl-ginac"
+version = "0.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/3d/9b/1d63ea53f2a7cd84c0942d234c631e63af7432883b3d55a90db4d350a9f1/prodigy_ppl_ginac-0.0.1.tar.gz", hash = "sha256:e4adf1efc3ad9b9cf2ee13bacf074952ecf3b4cf765266082a26f918dd145c70", size = 31876, upload-time = "2026-11-03T13:25:05.204Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7e/5d/a9025d85822e34772159d9f032a73f5af4e80a826210f8dc12779642c01b/prodigy_ppl_ginac-0.0.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:a2ed2997f24730771ce250cc8ca24b2604687967f539451874c959d8d1891cf0", size = 1523109, upload-time = "2026-11-03T13:24:36.691Z" },
+    { url = "https://files.pythonhosted.org/packages/74/c1/b4bcb7d8dd0838eeb464bf6d64914f90b7720c190b7d1343ec363965e7f4/prodigy_ppl_ginac-0.0.1-cp311-cp311-macosx_11_0_x86_64.whl", hash = "sha256:b25ca44141a16ab9e84993d23fb6f33b6ce5b2e9758a43207b3c373714d91c5d", size = 1689343, upload-time = "2026-11-03T13:24:38.603Z" },
+    { url = "https://files.pythonhosted.org/packages/16/0d/c5456343f2fd897adff6c4f4fcbea459782d277f639221c22089c0ae23ab/prodigy_ppl_ginac-0.0.1-cp311-cp311-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:8cadf9473442f62fef3f19ffd1543f06136690ff729d6dc6a5328728f345ba35", size = 1658973, upload-time = "2026-11-03T13:24:40.267Z" },
+    { url = "https://files.pythonhosted.org/packages/60/69/64fe1bfa51e756c49b60c5530c297aab7c4f7f2a0cd3778a6cee2103980c/prodigy_ppl_ginac-0.0.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ffdb716c54da5699bd3beb8955cdce0100893c34361fdf691d05efcf26a73363", size = 1822429, upload-time = "2026-11-03T13:24:42.195Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/1a/1640c48cbfc9562d0a61dc93dfd43d5863ccb7df3248b348c7555cae3f59/prodigy_ppl_ginac-0.0.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:199fc7da796ea07913edb061fdf89be2e19fcce27d7e8c3744b6175a59914145", size = 1523275, upload-time = "2026-11-03T13:24:44.199Z" },
+    { url = "https://files.pythonhosted.org/packages/1c/3b/37a4c551df083937aea32ddf89d8f918671932ec8c11901c9d2d6c38fe2b/prodigy_ppl_ginac-0.0.1-cp312-cp312-macosx_11_0_x86_64.whl", hash = "sha256:d7dacca54e343df778d3f79e694d2eeee79eae33acce8fc1ca796ce861758b36", size = 1692579, upload-time = "2026-11-03T13:24:45.806Z" },
+    { url = "https://files.pythonhosted.org/packages/80/3c/8915b65cb81dd3f59d3bd5038f25d3cfccdd77e1876d2cd8db90270a48f9/prodigy_ppl_ginac-0.0.1-cp312-cp312-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:614e9ae5e20ada4b81ba656588012974f3f9bf684fa26260501ca70b7d063e9f", size = 1659141, upload-time = "2026-11-03T13:24:48.693Z" },
+    { url = "https://files.pythonhosted.org/packages/a1/86/3ba05bd92551b6226bba57e08de492cab41b51ba63d14011eb5eb60653d8/prodigy_ppl_ginac-0.0.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:dc8e27902dfd8cd9ce3da5b3f46719f3e46a6527963150136a76d38f88c1152b", size = 1823583, upload-time = "2026-11-03T13:24:50.597Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/35/e62453ef5d7709c083b75974aa3cc10251ad61617c37e83d384579ccc86a/prodigy_ppl_ginac-0.0.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:17202133f64d40d397aa6ea7e288ec6d09e2d873cea03e0687829408f7814110", size = 1523282, upload-time = "2026-11-03T13:24:52.178Z" },
+    { url = "https://files.pythonhosted.org/packages/0e/96/021b4d670862f6c1c9487401d990e91eeea3491d8922560eff0acc80effe/prodigy_ppl_ginac-0.0.1-cp313-cp313-macosx_11_0_x86_64.whl", hash = "sha256:d359f832b9eba0851c0dda3c37884b501cbe0ab8e1c7aa6846df01f49f542c95", size = 1692581, upload-time = "2026-11-03T13:24:53.633Z" },
+    { url = "https://files.pythonhosted.org/packages/b9/51/6b3940af828eb6aad5487874dd3b7b63d2d1da09284d039f9d619a27f584/prodigy_ppl_ginac-0.0.1-cp313-cp313-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f05c086457c3deea6e55489f4b6bd915be8fa05a3c6add36d76ba77be78e56ff", size = 1659261, upload-time = "2026-11-03T13:24:55.24Z" },
+    { url = "https://files.pythonhosted.org/packages/93/44/5eafc41a88bd6828a39f288f973308813a8e727ea0ab7d0418ec1052599c/prodigy_ppl_ginac-0.0.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f77ffadf66242538b844365fe6a408ff7c91b8a97ec4446ae022ff7bc6386569", size = 1823574, upload-time = "2026-11-03T13:24:56.885Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/4c/2537e62472863468c6530a1e7851778b80f411cd3dda1f9e1a0f6453e2c8/prodigy_ppl_ginac-0.0.1-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:a0a7ff02ddf632f9f1ee87a950214098134d1bd06f4b5a2c1c94e74c31c0591d", size = 1523545, upload-time = "2026-11-03T13:24:58.458Z" },
+    { url = "https://files.pythonhosted.org/packages/22/7a/37d3bef84eda7874aef0cbf9dc3e1fc91f60dcdd1fa76db864c8d57e525d/prodigy_ppl_ginac-0.0.1-cp314-cp314-macosx_11_0_x86_64.whl", hash = "sha256:eb19791c6b8e0ebeeb0118526b509e9f00e2b4d459c9ff6d09e2808e3f43006a", size = 1692985, upload-time = "2026-11-03T13:25:00.25Z" },
+    { url = "https://files.pythonhosted.org/packages/ad/87/1be478eb48cd72956740afac54c69ad06ec9c2dfd889eac095be14b60254/prodigy_ppl_ginac-0.0.1-cp314-cp314-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:2f656dca26dc3ca49695d6fcf07abd9fa984b01f601d32d395b0ee104f4a2b87", size = 1659502, upload-time = "2026-11-03T13:25:01.781Z" },
+    { url = "https://files.pythonhosted.org/packages/b9/18/7021cd6b5672429cc3ebb510353b6866b84e94f7bf1e0507abcaa9e456eb/prodigy_ppl_ginac-0.0.1-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0d1b2bacbd26c6fb296f71c3d06aedf1d7189a4fa25bc9baeae219828254730e", size = 1823874, upload-time = "2026-11-03T13:25:03.484Z" },
+]
 
 [[package]]
 name = "pygments"

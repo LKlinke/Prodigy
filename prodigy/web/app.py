@@ -42,8 +42,7 @@ def _engine_info(default_engine: str):
         available = True
         if name == "ginac":
             try:
-                # The "pygin" on PyPI is another project; the GiNaC bindings have Dist.
-                from pygin import Dist  # type: ignore  # pylint: disable=import-outside-toplevel,unused-import
+                import prodigy_ginac  # type: ignore  # pylint: disable=import-outside-toplevel,unused-import
             except ImportError:
                 available = False
         engines.append({"name": name, "label": label, "available": available,

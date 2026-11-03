@@ -1,4 +1,4 @@
-# The released image (ghcr.io/lklinke/prodigy): the command line and the web GUI with the SymPy and
+# The released image (ghcr.io/lklinke/prodigy): the command line and the web GUI with the SymPy, GiNaC and
 # SymEngine engines, as installed by pip install prodigy-ppl. Dockerfile.artifact builds the full
 # environment for artifacts.
 #   docker run -p 8080:8080 ghcr.io/lklinke/prodigy                        web GUI on http://localhost:8080
@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir uv==0.11.32
 ENV UV_PYTHON_DOWNLOADS=never UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1 UV_PROJECT_ENVIRONMENT=/opt/prodigy
 WORKDIR /src
 
-# The dependencies exactly as locked in uv.lock, without the development tools and without pygin;
+# The dependencies exactly as locked in uv.lock, without the development tools;
 # in a layer of their own, so that it stays cached when only the code changes
 COPY pyproject.toml uv.lock README.md LICENSE ./
 RUN uv sync --locked --no-default-groups --no-install-project

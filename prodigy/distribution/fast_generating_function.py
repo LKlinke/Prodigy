@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import (Dict, FrozenSet, Generator, Iterator, List, Set, Tuple, Type,
                     Union)
 
-import pygin  # type: ignore
+import prodigy_ginac  # type: ignore
 from sympy import nan, sympify
 
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
@@ -27,19 +27,19 @@ class FPS(Distribution):
                  finite: bool | None = None):
         self._variables = set(str(var) for var in variables if str(var) != "")
         self._parameters = set()
-        for var in pygin.find_symbols(expression):
+        for var in prodigy_ginac.find_symbols(expression):
             if var not in self._variables:
                 if len(variables) > 0:
                     self._parameters.add(var)
                 else:
                     self._variables.add(var)
-        self._dist = pygin.Dist(expression, list(self._parameters))
+        self._dist = prodigy_ginac.Dist(expression, list(self._parameters))
         self._finite = finite if finite is not None else self._dist.is_polynomial(
-            self._variables) == pygin.troolean.true
+            self._variables) == prodigy_ginac.troolean.true
 
     @classmethod
     def from_dist(cls,
-                  dist: pygin.Dist,
+                  dist: prodigy_ginac.Dist,
                   variables: Set[str],
                   parameters: Set[str],
                   finite: bool | None = None):
@@ -47,20 +47,20 @@ class FPS(Distribution):
         result._dist = dist
         result._variables = variables
         result._parameters = parameters
-        result._finite = finite if finite is not None else dist.is_polynomial(variables) == pygin.troolean.true
+        result._finite = finite if finite is not None else dist.is_polynomial(variables) == prodigy_ginac.troolean.true
         return result
 
     @classmethod
-    def _from_symbols_by_name(cls, dist: pygin.Dist, variables: Set[str], parameters: Set[str]) -> FPS:
+    def _from_symbols_by_name(cls, dist: prodigy_ginac.Dist, variables: Set[str], parameters: Set[str]) -> FPS:
         """
-        Like :meth:`from_dist`, but parses the text of ``dist`` again. pygin's iid sampling and its
+        Like :meth:`from_dist`, but parses the text of ``dist`` again. prodigy_ginac's iid sampling and its
         modulo on finite distributions return expressions whose symbols are not the registered
         ones although they carry the same names (e.g. two different symbols ``p``). Such results
         compare unequal to equal distributions and do not cancel against them; parsing the text
-        identifies every symbol by its name; symbols pygin knows as parameters stay parameters.
+        identifies every symbol by its name; symbols prodigy_ginac knows as parameters stay parameters.
         """
         known_parameters = set(parameters) | {name for name in dist.get_symbols() if dist.is_known_as_param(name)}
-        return cls.from_dist(pygin.Dist(str(dist), sorted(known_parameters)), variables, parameters)
+        return cls.from_dist(prodigy_ginac.Dist(str(dist), sorted(known_parameters)), variables, parameters)
 
     @staticmethod
     def factory() -> Type[ProdigyPGF]:
@@ -69,10 +69,10 @@ class FPS(Distribution):
     def __add__(self, other) -> FPS:
         if isinstance(other, (str, int)):
             return FPS.from_dist(
-                self._dist + pygin.Dist(
+                self._dist + prodigy_ginac.Dist(
                     str(other),
                     list(
-                        set(pygin.find_symbols(str(other))) -
+                        set(prodigy_ginac.find_symbols(str(other))) -
                         self._variables)), self._variables, self._parameters)
         elif isinstance(other, FPS):
             return FPS.from_dist(self._dist + other._dist,
@@ -85,10 +85,10 @@ class FPS(Distribution):
     def __sub__(self, other) -> FPS:
         if isinstance(other, (str, int)):
             return FPS.from_dist(
-                self._dist - pygin.Dist(
+                self._dist - prodigy_ginac.Dist(
                     str(other),
                     list(
-                        set(pygin.find_symbols(str(other))) -
+                        set(prodigy_ginac.find_symbols(str(other))) -
                         self._variables)), self._variables, self._parameters)
         elif isinstance(other, FPS):
             return FPS.from_dist(self._dist - other._dist,
@@ -101,10 +101,10 @@ class FPS(Distribution):
     def __mul__(self, other) -> FPS:
         if isinstance(other, (str, int)):
             return FPS.from_dist(
-                self._dist * pygin.Dist(
+                self._dist * prodigy_ginac.Dist(
                     str(other),
                     list(
-                        set(pygin.find_symbols(str(other))) -
+                        set(prodigy_ginac.find_symbols(str(other))) -
                         self._variables)), self._variables, self._parameters)
         elif isinstance(other, FPS):
             return FPS.from_dist(self._dist * other._dist,
@@ -119,7 +119,7 @@ class FPS(Distribution):
         if isinstance(other, str):
             other = FPS(other)
         if isinstance(other, FPS):
-            return FPS.from_dist(self._dist * pygin.Dist(f"1/({str(other)})"),
+            return FPS.from_dist(self._dist * prodigy_ginac.Dist(f"1/({str(other)})"),
                                  self._variables | other._variables,
                                  self._parameters | other._parameters)
         raise NotImplementedError(
@@ -192,20 +192,20 @@ class FPS(Distribution):
         return self._parameters
 
     def _find_symbols(self, expr: str) -> Set[str]:
-        return set(pygin.find_symbols(expr))
+        return set(prodigy_ginac.find_symbols(expr))
 
     def get_symbols(self) -> Set[str]:
         return set(self._dist.get_symbols())
 
     @staticmethod
     def evaluate(expression: str, state: State) -> int:
-        return pygin.evaluate(expression, state.valuations)
+        return prodigy_ginac.evaluate(expression, state.valuations)
 
     def _exhaustive_search(self, condition: Expr) -> Distribution:
-        res = pygin.Dist('0')
+        res = prodigy_ginac.Dist('0')
         for prob, state in self:
             if self.evaluate_condition(condition, state):
-                res += pygin.Dist(f"{prob} * {state.to_monomial()}")
+                res += prodigy_ginac.Dist(f"{prob} * {state.to_monomial()}")
         return FPS.from_dist(res,
                              self._variables,
                              self._parameters,
@@ -271,9 +271,9 @@ class FPS(Distribution):
 
     def is_zero_dist(self) -> bool:
         res = self._dist.is_zero()
-        if res == pygin.troolean.false:
+        if res == prodigy_ginac.troolean.false:
             return False
-        elif res == pygin.troolean.true:
+        elif res == prodigy_ginac.troolean.true:
             return True
         else:
             raise ValueError('Cannot determine whether this FPS is zero')
@@ -359,17 +359,17 @@ class FPS(Distribution):
         if not isinstance(sampling_dist, FunctionCallExpr):
             result = FPS._from_symbols_by_name(
                 self._dist.updateIid(str(variable),
-                                     pygin.Dist(str(sampling_dist), list(self._parameters)),
+                                     prodigy_ginac.Dist(str(sampling_dist), list(self._parameters)),
                                      str(count)), self._variables,
                 self._parameters)
             return result
 
         if sampling_dist.function in {"unif", "unif_d"}:
             [start, end] = sampling_dist.params[0]
-            # Note: add parameters in constructor call of pygin.Dist
+            # Note: add parameters in constructor call of prodigy_ginac.Dist
             result = self._dist.updateIid(
                 str(variable),
-                pygin.Dist(
+                prodigy_ginac.Dist(
                     f"1/(({end}) - ({start}) + 1) * test^({start}) "
                     f"* (test^(({end}) - ({start}) + 1) - 1) / (test - 1)", list(self._parameters)),
                 str(count))
@@ -377,37 +377,37 @@ class FPS(Distribution):
 
         if sampling_dist.function == "binomial":
             [n, p] = sampling_dist.params[0]
-            # Note: add parameters in constructor call of pygin.Dist
+            # Note: add parameters in constructor call of prodigy_ginac.Dist
             result = self._dist.updateIid(
                 str(variable),
-                pygin.Dist(f'(1 - ({p}) + ({p}) * {variable})^({n})', list(self._parameters)),
+                prodigy_ginac.Dist(f'(1 - ({p}) + ({p}) * {variable})^({n})', list(self._parameters)),
                 str(count))
             return FPS._from_symbols_by_name(result, self._variables, self._parameters)
 
         [param] = sampling_dist.params[0]
         if sampling_dist.function == "geometric":
             result = self._dist.updateIid(
-                str(variable), pygin.geometric(str(variable), str(param)),
+                str(variable), prodigy_ginac.geometric(str(variable), str(param)),
                 str(count))
             return FPS._from_symbols_by_name(result, self._variables, self._parameters)
 
         if sampling_dist.function == "bernoulli":
-            symbolic_param = pygin.find_symbols(str(param))
+            symbolic_param = prodigy_ginac.find_symbols(str(param))
             result = self._dist.updateIid(
                 str(variable),
-                pygin.Dist(f"{param} * {variable} + (1-{param})", symbolic_param), str(count))
+                prodigy_ginac.Dist(f"{param} * {variable} + (1-{param})", symbolic_param), str(count))
             return FPS._from_symbols_by_name(result, self._variables, self._parameters)
 
         if sampling_dist.function == "poisson":
             result = self._dist.updateIid(
-                str(variable), pygin.Dist(f"exp({param} * ({variable} - 1))", list(self._parameters)),
+                str(variable), prodigy_ginac.Dist(f"exp({param} * ({variable} - 1))", list(self._parameters)),
                 str(count))
             return FPS._from_symbols_by_name(result, self._variables, self._parameters)
 
         if sampling_dist.function == 'logdist':
             result = self._dist.updateIid(
                 str(variable),
-                pygin.Dist(
+                prodigy_ginac.Dist(
                     f'log(1 - ({param}) * {variable}) / log(1 - ({param}))', list(self._parameters)),
                 str(count))
             return FPS._from_symbols_by_name(result, self._variables, self._parameters)
@@ -471,8 +471,8 @@ class ProdigyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def geometric(var: Union[str, VarExpr], p: DistributionParam) -> FPS:
-        return FPS.from_dist(pygin.geometric(var, str(p)), {str(var)},
-                             {*pygin.find_symbols(str(p))})
+        return FPS.from_dist(prodigy_ginac.geometric(var, str(p)), {str(var)},
+                             {*prodigy_ginac.find_symbols(str(p))})
 
     @staticmethod
     def uniform(var: Union[str, VarExpr], lower: DistributionParam,
