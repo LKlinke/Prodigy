@@ -1,3 +1,6 @@
+from typing import Any, Dict, Optional
+
+
 class ForwardAnalysisError(Exception):
     """Base class for forward analysis-related exceptions."""
 
@@ -15,7 +18,12 @@ class DistributionParameterError(ForwardAnalysisError):
 
 
 class VerificationError(Exception):
-    pass
+    """A check could not establish what it was asked to. ``details`` holds the evidence, if any (e.g. the
+    negative coefficient that refutes a sub-invariant)."""
+
+    def __init__(self, message: str = "", details: Optional[Dict[str, Any]] = None):
+        super().__init__(message)
+        self.details: Dict[str, Any] = details or {}
 
 
 class SolveError(Exception):

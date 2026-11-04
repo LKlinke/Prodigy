@@ -164,6 +164,7 @@
 .rv-cert > div { display: grid; grid-template-columns: minmax(110px, 30%) 1fr; gap: 8px; }
 .rv-cert > div.rv-cert-block { grid-template-columns: 1fr; gap: 4px; }
 .rv-cert dt { color: var(--rv-text-2); }
+.rv-cert dt.rv-ai-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .rv-cert dd { margin: 0; overflow-wrap: anywhere; }
 
 .rv-pre {

@@ -100,9 +100,21 @@ Two strategies give lower bounds without a termination assumption (package
 The strategy *EVT invariant from a language model* (`ai_invariant`) asks a language model for an
 EVT invariant or a finite-mass EVT sub-invariant (parameter *Kind of candidate*). Prodigy checks
 every candidate exactly, like one typed in by hand, so the guarantee never depends on the model.
-A rejected candidate goes back to the model with the reason (e.g. Φ(I) − I), up to *Attempts*
-times. The certificate names the model and the accepted candidate; with that candidate, the check
-can be repeated without the model (strategies `evt_invariant`, `evt_subinvariant`).
+A rejected candidate goes back to the model with the reason and the full details of the check
+(e.g. Φ(I) − I, or the negative coefficient of Φ(ν) − ν and the state where it occurs). The
+model is asked up to *Attempts* times in total.
+
+Larger sub-invariants give tighter lower bounds. After a proven sub-invariant, Prodigy tells the
+model the mass of its lower bound and the mass that is not accounted for, and asks for a larger
+one while attempts are left. Each new candidate is checked exactly as well; Prodigy keeps the
+proven sub-invariant whose lower bound has the most mass and stops early once one is exact. A
+failed request after a proven sub-invariant keeps that sub-invariant.
+
+The certificate names the model and the chosen candidate and lists the other attempts with
+Prodigy's verdict in words — *Proven*, *Proven, not larger*, *Refuted*, *Not proven*, *No
+candidate* — e.g. "Φ(ν) − ν has the negative coefficient -1/4 at x = 0, c = 1, so ν ≤ Φ(ν)
+fails there". *Details of the check* shows what the model got. With the chosen candidate, the
+check can be repeated without the model (strategies `evt_invariant`, `evt_subinvariant`).
 
 The API key is read from the environment of `prodigy` and never reaches the browser:
 
