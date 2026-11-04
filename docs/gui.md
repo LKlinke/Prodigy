@@ -74,6 +74,13 @@ from x = 1, invariant synthesis finds a fixed point with infinite mass and Prodi
 Pr[x = 0] = 1 is reported as an upper bound — the true value is 1/2. Unrolling 25
 iterations gives Pr[x = 0] ∈ [0.4956, 1].
 
+An invariant that fails its check gets a verdict. *Refuted* means it is provably wrong: a
+counterexample, or Φ(I) − I is a nonzero rational function after exact cancellation.
+*Not proven* means the check could neither prove nor refute it, e.g. for non-rational
+closed forms such as `sin(c)^2 + cos(c)^2 - 1`, which SymPy simplifies to 0 but SymEngine and
+GiNaC cannot, or for a template whose parameters the solver could not determine; such an
+invariant may still be correct. The result JSON carries the verdict as `error.verdict`.
+
 Two strategies give lower bounds without a termination assumption (package
 `prodigy.analysis.lowerbounds`, see the README):
 

@@ -40,6 +40,16 @@ were used for the loops (``bounds.kind``):
   conditioning the violation mass is over-approximated as well, so values are upper bounds.
 * ``unknown``: no guaranteed direction (e.g. lower and upper approximations were mixed,
   or a side condition could not be checked); values are reported without interval.
+
+Failed invariant checks
+-----------------------
+If a proposed invariant is not certified, ``status`` is ``error`` and ``error.verdict`` (also in
+``error.details`` and in the loop's certificates) says why:
+
+* ``refuted``: the invariant is provably wrong (a counterexample, or Φ(I) − I is a nonzero rational
+  function after exact cancellation).
+* ``unknown``: the check could neither prove nor refute it (e.g. non-rational expressions, an
+  engine whose equality is incomplete, or no parameter values found); the invariant may be correct.
 """
 from __future__ import annotations
 
@@ -607,8 +617,11 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
         except (VerificationError, ForwardAnalysisError) as exc:
             analysis_time = time.perf_counter() - started
             result.status = "error"
-            result.error = {"type": type(exc).__name__, "message": str(exc),
-                            "details": getattr(exc, "details", None)}
+            details = getattr(exc, "details", None)
+            result.error = {"type": type(exc).__name__, "message": str(exc), "details": details}
+            verdict = details.get("verdict") if isinstance(details, dict) else None
+            if verdict in ("refuted", "unknown"):
+                result.error["verdict"] = verdict
         except Exception as exc:  # pylint: disable=broad-except
             analysis_time = time.perf_counter() - started
             result.status = "error"

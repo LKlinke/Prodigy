@@ -42,9 +42,51 @@ def test_exact_invariant_is_certified(engine):
 
 
 @pytest.mark.parametrize("engine", ENGINES)
-def test_nearly_exact_invariant_is_not_certified(engine):
+def test_nearly_exact_invariant_is_refuted(engine):
     result = analyse(evt_invariant("(x + 1/2)/(1 - 50000000000000000001/100000000000000000000*c)"), engine)
     assert result["status"] == "error"
+    assert result["error"]["verdict"] == "refuted"
+
+
+# Refuted vs. not proven (#123)
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_wrong_rational_invariant_is_refuted(engine):
+    result = analyse(evt_invariant("(x + 1/3)/(1 - c/2)"), engine)
+    assert result["status"] == "error"
+    assert result["error"]["verdict"] == "refuted"
+    assert result["error"]["details"]["verdict"] == "refuted"
+    assert result["error"]["details"]["difference"]
+    assert result["loops"][0]["certificates"][0]["verdict"] == "refuted"
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_non_rational_difference_is_not_refuted(engine):
+    # wrong (Φ(I) - I = 1 + c - exp(c)), but exact cancellation cannot show that exp(c) - 1 - c is nonzero
+    result = analyse(evt_invariant("(x + 1/2)/(1 - c/2) + exp(c) - 1 - c"), engine)
+    assert result["status"] == "error"
+    assert result["error"]["verdict"] == "unknown"
+    assert "not proven" in result["error"]["message"]
+
+
+@pytest.mark.parametrize("engine, status, verdict", [
+    (ForwardAnalysisConfig.Engine.SYMPY, "ok", None),
+    (ForwardAnalysisConfig.Engine.SYMENGINE, "error", "unknown"),
+    (ForwardAnalysisConfig.Engine.GINAC, "error", "unknown"),
+])
+def test_correct_but_unproven_invariant_is_not_refuted(engine, status, verdict):
+    # sin(c)^2 + cos(c)^2 - 1 = 0: SymPy's simplify proves it, SymEngine and GiNaC cannot
+    result = analyse(evt_invariant("(x + 1/2)/(1 - c/2) + sin(c)^2 + cos(c)^2 - 1"), engine)
+    assert result["status"] == status
+    assert (result["error"] or {}).get("verdict") == verdict
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_template_without_solution_is_not_refuted(engine):
+    # (x + a)/(1 - c/3) is wrong for every a, but the solver's search is incomplete
+    result = analyse(evt_invariant("(x + a)/(1 - c/3)"), engine)
+    assert result["status"] == "error"
+    assert result["error"]["verdict"] == "unknown"
 
 
 def test_solved_parameter_is_certified():
@@ -90,3 +132,16 @@ def test_wrong_solution_of_the_synthesis_solver_is_not_certified(monkeypatch, en
     monkeypatch.setattr(invariant_synthesis.SolverType, "make", lambda *args, **kwargs: WrongSolver())
     result = analyse("evt_synthesis", engine)
     assert result["status"] == "error"
+
+
+@pytest.mark.parametrize("invariant, verdict", [
+    ("(x + 1/3)/(1 - c/2)", "Verdict: refuted"),
+    ("(x + 1/2)/(1 - c/2) + exp(c) - 1 - c", "Verdict: not proven"),
+])
+def test_cli_shows_the_verdict(tmp_path, invariant, verdict):
+    from click.testing import CliRunner  # pylint: disable=import-outside-toplevel
+    from prodigy.cli import cli  # pylint: disable=import-outside-toplevel
+    program = tmp_path / "geometric.pgcl"
+    program.write_text(GEOMETRIC)
+    result = CliRunner().invoke(cli, ["analyze", str(program), "--loop", f"0=evt_invariant:invariant={invariant}"])
+    assert verdict in result.output

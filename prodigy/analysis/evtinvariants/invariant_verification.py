@@ -20,6 +20,19 @@ Analyzer = Callable[[Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, D
 """Computes the semantics of instructions (``compute_semantics``)."""
 
 
+class FixedPointCheckFailed(VerificationError):
+    """
+    The EVT invariant was not certified. ``verdict`` is ``"refuted"`` if I ≠ Φ(I) is proven (and no
+    parameter values are left to try), otherwise ``"unknown"``: equality was neither proven nor refuted,
+    so the invariant may still be correct. ``difference`` is Φ(I) − I.
+    """
+
+    def __init__(self, message: str, verdict: str, difference: str):
+        super().__init__(message)
+        self.verdict = verdict
+        self.difference = difference
+
+
 def evt_operator(loop: WhileInstr,
                  prog_info: ProgramInfo,
                  distribution: Distribution,
@@ -41,7 +54,7 @@ def is_evt_fixed_point(loop: WhileInstr,
     Whether ``invariant`` is provably a fixed point of the EVT operator. Parameter values found by a solver
     are only proposals; an invariant with these values substituted has to pass this check.
     """
-    return invariant == evt_operator(loop, prog_info, distribution, invariant, config, analyzer)
+    return invariant.decide_equal(evt_operator(loop, prog_info, distribution, invariant, config, analyzer)) is True
 
 
 def evt_invariant_check(loop: WhileInstr,
@@ -56,7 +69,8 @@ def evt_invariant_check(loop: WhileInstr,
 
     :returns: the terminating part ⟨I⟩_¬guard, the invariant I itself (with the first solution
         substituted) and all solutions found.
-    :raises VerificationError: if the invariant cannot be validated.
+    :raises FixedPointCheckFailed: if the invariant cannot be validated, with the verdict ``refuted`` or
+        ``unknown``.
     """
     logger.debug("Invariant Verification for loop %s with initial distribution %s.", loop, distribution)
     print(f"{Style.YELLOW}Invariant verification initiated...{Style.RESET}")
@@ -67,14 +81,17 @@ def evt_invariant_check(loop: WhileInstr,
     # Validate the invariant.
     logger.debug("Trying to validate invariant: %s", invariant)
     logger.debug("Phi(inv) = %s", phi)
-    if invariant == phi:
+    verdict = invariant.decide_equal(phi)
+    if verdict is True:
         print(f"{Style.OKGREEN}Invariant validated!{Style.RESET}")
         print(f"{Style.GREEN}Invariant: {invariant}{Style.RESET}{Style.CLEARTOEND}")
         return invariant - invariant.filter(loop.cond), invariant, []
 
     # If the invariant does not match, we need to find a solution.
     diff = invariant - phi
-    solution_candidates = sympy.solve(sympy.S(str(diff)), invariant.get_parameters(), dict=True)
+    # Without parameters there is nothing to solve for (and sympy.solve rejects an empty set of symbols).
+    solution_candidates = sympy.solve(sympy.S(str(diff)), invariant.get_parameters(), dict=True) \
+        if invariant.get_parameters() else []
     print(f"Solution candidates: {solution_candidates}")
     solutions = []
 
@@ -108,8 +125,18 @@ def evt_invariant_check(loop: WhileInstr,
         print(f"{Style.GREEN}Invariant: {sol_dist}{Style.RESET}{Style.CLEARTOEND}")
         return sol_dist, full_dist, [{str(k): str(v) for k, v in candidate.items()} for candidate, _ in verified]
 
-    # No solution found.
-    raise VerificationError(f"Invariant {invariant} could not be verified for loop {loop}.")
+    # No solution found. A proven difference refutes the invariant only if it has no parameters, since the
+    # solver's search for parameter values is incomplete.
+    difference = str(phi - invariant)
+    if verdict is False and not invariant.get_parameters():
+        print(f"{Style.OKRED}Invariant refuted: Phi(I) - I = {difference} is not zero.{Style.RESET}")
+        raise FixedPointCheckFailed(f"Invariant {invariant} is refuted for loop {loop}: it is not a fixed point, "
+                                    f"Φ(I) - I = {difference}.", "refuted", difference)
+    reason = "no parameter values were found that make it a fixed point" if invariant.get_parameters() \
+        else "the fixed-point equation I = Φ(I) could be neither proven nor refuted"
+    print(f"{Style.OKRED}Invariant not proven: {reason}.{Style.RESET}")
+    raise FixedPointCheckFailed(f"Invariant {invariant} could not be verified for loop {loop}: {reason}; "
+                                "it may still be correct.", "unknown", difference)
 
 
 def evt_invariant_verification(loop: WhileInstr,

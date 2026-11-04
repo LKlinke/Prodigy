@@ -83,10 +83,25 @@ const STATUS_TITLES = {
   crashed: "The analysis process stopped",
 };
 
+/** Verdicts of an invariant check: "refuted" is proven wrong, "unknown" is neither proven nor refuted. */
+const VERDICTS = {
+  verified: "verified",
+  refuted: "refuted — the invariant is provably wrong",
+  unknown: "not proven — neither proven nor refuted; the invariant may still be correct",
+};
+
+function verdictText(verdict) {
+  return VERDICTS[verdict] || verdict;
+}
+
+const VERDICT_TITLES = { refuted: "Invariant refuted", unknown: "Invariant not proven" };
+
 function errorView(result, options) {
   const error = result.error || {};
   const status = result.status === "error" && error.type === "crash" ? "crashed" : result.status;
-  const children = [h("h3", { class: "rv-error-title" }, STATUS_TITLES[status] || "The analysis failed"),
+  const verdict = status === "error" ? error.verdict : undefined;
+  const title = VERDICT_TITLES[verdict] || STATUS_TITLES[status] || "The analysis failed";
+  const children = [h("h3", { class: "rv-error-title" }, title),
     h("p", { class: "rv-error-message" }, error.message || "")];
   if (status === "needs_decision" && error.loop && options.onSelectLoop) {
     children.push(h("p", {}, h("button", { type: "button", class: "button", onclick: () => options.onSelectLoop(error.loop.id) },
@@ -96,18 +111,20 @@ function errorView(result, options) {
     children.push(h("p", { class: "rv-muted" }, "Try fewer iterations, the GiNaC engine, or a strategy that certifies a closed form."));
   }
   const details = error.details;
+  if (verdict) children.push(h("p", {}, `Verdict: ${verdictText(verdict)}.`));
   if (details?.counterexample) {
     children.push(h("p", {}, "Counterexample (a state on which the invariant and one unrolling of the loop differ): ",
       h("code", {}, Object.entries(details.counterexample).map(([k, v]) => `${k} = ${v}`).join(", ") || "—")));
   }
   if (details?.difference) {
-    children.push(h("p", {}, "Φ(I) − I does not vanish: ", h("code", { class: "rv-wrap" }, details.difference)));
+    const label = verdict === "refuted" ? "Φ(I) − I does not vanish: " : "Φ(I) − I could not be shown to vanish: ";
+    children.push(h("p", {}, label, h("code", { class: "rv-wrap" }, details.difference)));
   }
   if (error.traceback) {
     children.push(h("details", { class: "disclosure rv-trace" }, h("summary", {}, "Technical details"),
       h("pre", { class: "rv-pre" }, error.traceback)));
   }
-  const kind = status === "cancelled" ? "neutral" : status === "timeout" ? "warning" : "error";
+  const kind = status === "cancelled" ? "neutral" : status === "timeout" || verdict === "unknown" ? "warning" : "error";
   return h("div", { class: "rv-error", "data-tone": kind, role: status === "cancelled" ? null : "alert" }, ...children);
 }
 
@@ -324,15 +341,18 @@ function certificateView(cert) {
       break;
     case "invariant":
       add("Rule", "Park's lemma: Φ(I) = I for all inputs");
-      add("Verdict", cert.verdict);
+      add("Verdict", verdictText(cert.verdict));
       if (cert.constraints?.length) add("Constraints", h("code", {}, JSON.stringify(cert.constraints)));
       if (cert.counterexample) add("Counterexample", h("code", {}, JSON.stringify(cert.counterexample)));
       rows.push(h("div", { class: "rv-cert-block" }, h("dt", {}, "Invariant I"), h("dd", {}, h("pre", { class: "rv-pre" }, (cert.invariant || "").trim()))));
       break;
     case "evt_invariant":
     case "evt_synthesis":
-      add("Equation", h("code", {}, cert.equation));
+      add("Verdict", cert.verdict ? verdictText(cert.verdict) : null);
+      add("Equation", cert.equation ? h("code", {}, cert.equation) : null);
       add("Invariant I", h("code", { class: "rv-wrap" }, cert.invariant));
+      add("Φ(I) − I", cert.difference ? h("code", { class: "rv-wrap" }, cert.difference) : null);
+      if (cert.verdict === "refuted" || cert.verdict === "unknown") break;
       add("Non-negative coefficients", yesNo(cert.nonnegative, "yes", "no"));
       add("Finite mass", cert.finite_mass === true ? `yes, |I| = ${cert.mass}` : yesNo(cert.finite_mass, "yes", "no — may be a spurious fixed point"));
       if (cert.candidates?.length > 1) {
@@ -376,6 +396,17 @@ function certificateView(cert) {
   return h("dl", { class: "rv-cert" }, ...rows);
 }
 
+/** Badge of a failed loop: "Not proven" if its last certificate is an invariant that was neither proven nor refuted. */
+function failedBadge(loop) {
+  const certs = loop.certificates || [];
+  const verdict = certs.length ? certs[certs.length - 1].verdict : undefined;
+  if (verdict === "unknown") {
+    return h("span", { class: "rv-badge", "data-kind": "unknown" }, h("span", { class: "glyph", "aria-hidden": "true" }, "?"), "Not proven");
+  }
+  const label = verdict === "refuted" ? "Refuted" : "Failed";
+  return h("span", { class: "rv-badge", "data-kind": "error" }, h("span", { class: "glyph", "aria-hidden": "true" }, "×"), label);
+}
+
 function loopsSection(result, options) {
   const loops = result.loops || [];
   if (!loops.length) return null;
@@ -392,7 +423,7 @@ function loopsSection(result, options) {
           loop.invocations > 1 ? ` · entered ${loop.invocations}×` : "",
           loop.inside_checks ? ` · ${loop.inside_checks === loop.invocations ? "only" : `${loop.inside_checks}×`} inside another loop's check` : "",
           loop.time ? ` · ${formatSeconds(loop.time)}` : "")),
-      loop.failed ? h("span", { class: "rv-badge", "data-kind": "error" }, h("span", { class: "glyph" }, "×"), "Failed") : guaranteeBadge(kind));
+      loop.failed ? failedBadge(loop) : guaranteeBadge(kind));
     const messages = (loop.messages || []).map((m) => h("p", { class: "rv-loop-message" }, m));
     const certs = loop.certificates || [];
     const details = certs.length ? h("details", { class: "disclosure" },

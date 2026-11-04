@@ -457,6 +457,10 @@ def _print_summary(result: Dict[str, Any]) -> None:
     if status != "ok":
         error = result.get("error") or {}
         print(f"{Style.OKRED}{status}:{Style.RESET} {error.get('message', '')}")
+        if error.get("verdict") == "refuted":
+            print("Verdict: refuted (the invariant is provably wrong).")
+        elif error.get("verdict") == "unknown":
+            print("Verdict: not proven (neither proven nor refuted; the invariant may still be correct).")
         if status == "needs_decision":
             print("Choose strategies with --loop ID=STRATEGY[:NAME=VALUE,...]; "
                   "`prodigy outline FILE` lists the loops, `prodigy loop_strategies` the strategies.")

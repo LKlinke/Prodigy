@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import operator
 from fractions import Fraction
-from typing import (Any, Callable, FrozenSet, Generator, Iterator, List, Set,
+from typing import (Any, Callable, FrozenSet, Generator, Iterator, List, Optional, Set,
                     Tuple, Type, Union, get_args)
 
 import sympy
@@ -11,6 +11,7 @@ import sympy
 # TODO Implement these checks in prodigy.pgcl
 from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
+from prodigy.distribution.equality import decide_equal
 from prodigy.distribution.exact_division import divide_exponents
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
@@ -124,31 +125,8 @@ def _sympy_symbol(name: Any, real=True, **kwargs) -> sympy.Symbol:
 
 
 def provably_equal(lhs: sympy.Expr, rhs: sympy.Expr) -> bool:
-    """
-    Decides ``lhs == rhs`` such that True is backed by a symbolic proof.
-
-    * Floating-point numbers make arithmetic inexact (``1e20 + 1 - 1e20`` is 0), so expressions containing
-      them are only equal if they are identical.
-    * The difference is put over a common denominator and cancelled. This is exact polynomial arithmetic
-      over the rationals in which every non-rational subterm (e.g. ``exp(p*x)``) is an indeterminate, so a
-      zero result proves the difference zero. For rational functions it also decides inequality.
-    * Otherwise SymPy's ``Expr.equals`` decides. It returns True only if ``simplify`` turns the
-      difference into 0 or, for constant differences, by an algebraic proof (minimal polynomials); its
-      evaluation at random points only ever yields False or None. Both count as "not proven".
-    """
-    if lhs == rhs:
-        return True
-    if lhs.has(sympy.Float) or rhs.has(sympy.Float):
-        return False
-    difference = lhs - rhs
-    try:
-        if sympy.cancel(sympy.together(difference)) == 0:
-            return True
-    except sympy.PolynomialError:
-        pass
-    if difference.is_rational_function():
-        return False
-    return difference.equals(0) is True
+    """Decides ``lhs == rhs`` such that True is backed by a symbolic proof (see :func:`decide_equal`)."""
+    return decide_equal(lhs, rhs) is True
 
 
 class GeneratingFunction(Distribution):
@@ -1192,6 +1170,12 @@ class GeneratingFunction(Distribution):
         return self._variables == other._variables \
             and self._parameters == other._parameters \
             and provably_equal(self._function, other._function)
+
+    def decide_equal(self, other) -> Optional[bool]:
+        if isinstance(other, GeneratingFunction) and self._variables == other._variables \
+                and self._parameters == other._parameters:
+            return decide_equal(self._function, other._function)
+        return super().decide_equal(other)
 
     def __iter__(self) -> Iterator[Tuple[str, State]]:
         """ Iterates over the generating function yielding (coefficient, state) pairs.
