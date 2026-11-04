@@ -148,9 +148,9 @@ class LoopRegistry:
         positions = token_positions(source, _WHILE_RE) if source is not None else []
         if len(positions) != len(found):
             positions = []
-        for index, (instr, depth, function) in enumerate(found):
+        for index, (instr, depth, function_name) in enumerate(found):
             line, column = positions[index] if positions else (None, None)
-            info = LoopInfo(id=index, cond=str(instr.cond), depth=depth, function=function,
+            info = LoopInfo(id=index, cond=str(instr.cond), depth=depth, function=function_name,
                             line=line, column=column)
             self.loops.append(info)
             self._by_identity[id(instr)] = info

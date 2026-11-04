@@ -336,8 +336,10 @@ def is_monotone_nonnegative(expr: Expr, program=None) -> bool:
 def _positive_literal(expr: Expr) -> bool:
     if isinstance(expr, NatLitExpr):
         return expr.value > 0
+    if not isinstance(expr, RealLitExpr):
+        return False
     try:
-        return expr.to_fraction() > 0  # type: ignore[attr-defined]
+        return expr.to_fraction() > 0
     except Exception:  # pylint: disable=broad-except
         return False
 

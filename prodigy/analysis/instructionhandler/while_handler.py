@@ -791,13 +791,13 @@ class WhileHandler(InstructionHandler):
 
     @staticmethod
     def compute(
-            instruction: Instr,
-            prog_info: Program,
+            instruction: Union[Instr, Sequence[Instr]],
+            prog_info: ProgramInfo,
             distribution: Distribution,
             error_prob: Distribution,
             config: ForwardAnalysisConfig,
             analyzer: Analyzer
     ) -> tuple[Distribution, Distribution]:
 
-        _assume(instruction, WhileInstr, 'WhileHandler')
+        instruction = _assume(instruction, WhileInstr, 'WhileHandler')
         return WhileHandler._run(None, instruction, prog_info, distribution, error_prob, config, analyzer)

@@ -6,7 +6,7 @@ Type Checking
 """
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional, Set, TypeVar, Union
+from typing import Dict, Iterable, List, Mapping, Optional, Set, TypeVar, Union
 
 import attr
 # mypy complains here, but this isn't actually wrong
@@ -74,7 +74,7 @@ class CheckFail:
         return output
 
 
-sample_predefined_functions: Dict[Var, List[VarDecl]] = frozendict({
+sample_predefined_functions: Mapping[Var, List[VarDecl]] = frozendict({
     'unif_d': [VarDecl('start', NatType(None)),
                VarDecl('end', NatType(None))],
     'unif': [VarDecl('start', NatType(None)),
@@ -96,7 +96,7 @@ sample_predefined_functions: Dict[Var, List[VarDecl]] = frozendict({
 
 def _check_function_call(
         program: Program, expr: FunctionCallExpr,
-        predefined_functions: Dict[Var, List[VarDecl]]) -> Optional[CheckFail]:
+        predefined_functions: Mapping[Var, List[VarDecl]]) -> Optional[CheckFail]:
     param_list: List[VarDecl]
     if expr.function in program.functions:
         param_list = program.functions[expr.function].declarations
@@ -141,7 +141,7 @@ def get_type(
     program: Program,
     expr: Expr,
     check=True,
-    predefined_functions: Dict[Var,
+    predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions
 ) -> Union[Type, CheckFail]:
     """
@@ -352,7 +352,7 @@ def is_compatible(lhs: Type, rhs: Type) -> bool:
 
 
 # the widening order bool ⊑ nat ⊑ real
-_NUMERIC_RANK = {BoolType: 0, NatType: 1, RealType: 2}
+_NUMERIC_RANK: Dict[type, int] = {BoolType: 0, NatType: 1, RealType: 2}
 
 
 def _is_numeric(typ: Type) -> bool:
@@ -453,7 +453,7 @@ def _check_constant_declarations(program: Program) -> Optional[CheckFail]:
 
 def _check_declaration_list(
         program: Program,
-        predefined_functions: Dict[Var, List[VarDecl]]) -> Optional[CheckFail]:
+        predefined_functions: Mapping[Var, List[VarDecl]]) -> Optional[CheckFail]:
     """
     Check that all variables/constants are defined at most once.
 
@@ -479,7 +479,7 @@ def _check_declaration_list(
 
 def _check_instrs(
         program: Program, *instrs: List[Instr],
-        predefined_functions: Dict[Var, List[VarDecl]]) -> Optional[CheckFail]:
+        predefined_functions: Mapping[Var, List[VarDecl]]) -> Optional[CheckFail]:
     for instrs_list in instrs:
         for instr in instrs_list:
             res = check_instr(program,
@@ -494,7 +494,7 @@ def _check_instrs(
 def check_instr(
     program: Program,
     instr: Instr,
-    predefined_functions: Dict[Var,
+    predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions
 ) -> Optional[CheckFail]:
     """
@@ -722,7 +722,7 @@ def check_instr(
 
 def check_program(
     program: Program,
-    predefined_functions: Dict[Var,
+    predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions
 ) -> Optional[CheckFail]:
     """Check a program for type-safety."""
@@ -740,7 +740,7 @@ def check_program(
 def check_expression(
     program,
     expr: Expr,
-    predefined_functions: Dict[Var,
+    predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions
 ) -> Optional[CheckFail]:
     """
@@ -767,7 +767,7 @@ def check_expression(
 def check_expectation(
     program,
     expr: Expr,
-    predefined_functions: Dict[Var,
+    predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions
 ) -> Optional[CheckFail]:
     """Check an expectation for type-safety."""
@@ -783,7 +783,7 @@ def check_expectation(
 def check_function(
     function: Function,
     context: Program,
-    predefined_functions: Dict[Var,
+    predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions
 ) -> Optional[CheckFail]:
     """

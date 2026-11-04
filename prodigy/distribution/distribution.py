@@ -440,7 +440,7 @@ class Distribution(ABC):
         """ Evaluates the expression in a given state. """
 
     @classmethod
-    def evaluate_condition(cls, condition: BinopExpr | UnopExpr,
+    def evaluate_condition(cls, condition: Expr,
                            state: State) -> bool:
         """Evaluates whether the condition holds in the specified state."""
 

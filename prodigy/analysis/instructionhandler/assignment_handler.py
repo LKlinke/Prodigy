@@ -19,7 +19,7 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 class AssignmentHandler(InstructionHandler):
     @staticmethod
     def compute(
-            instruction: Instr, prog_info: ProgramInfo,
+            instruction: Union[Instr, Sequence[Instr]], prog_info: ProgramInfo,
             distribution: Distribution, error_prob: Distribution,
             config: ForwardAnalysisConfig,
             analyzer: Callable[
@@ -27,7 +27,7 @@ class AssignmentHandler(InstructionHandler):
                 tuple[Distribution, Distribution]
             ]
     ) -> tuple[Distribution, Distribution]:
-        _assume(instruction, AsgnInstr, 'AssignmentHandler')
+        instruction = _assume(instruction, AsgnInstr, 'AssignmentHandler')
 
         # rhs is a categorical expression (explicit finite distr)
         if isinstance(instruction.rhs, CategoricalExpr):

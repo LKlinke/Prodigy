@@ -20,7 +20,7 @@ class SampleHandler(InstructionHandler):
     @staticmethod
     @abstractmethod
     def compute(
-            instruction: Instr, prog_info: ProgramInfo,
+            instruction: Union[Instr, Sequence[Instr]], prog_info: ProgramInfo,
             distribution: Distribution, error_prob: Distribution,
             config: ForwardAnalysisConfig,
             analyzer: Callable[
@@ -28,7 +28,7 @@ class SampleHandler(InstructionHandler):
                 tuple[Distribution, Distribution]
             ]
     ) -> tuple[Distribution, Distribution]:
-        _assume(instruction, AsgnInstr, 'SampleHandler')
+        instruction = _assume(instruction, AsgnInstr, 'SampleHandler')
         assert isinstance(instruction.rhs, FunctionCallExpr), "The Instruction handled by a SampleHandler must be of" \
                                                               f" type FunctionCallExpr, got {type(instruction)}"
         assert instruction.rhs.function in distr_functions, f"Not a pre-defined function: {instruction.rhs.function}"
@@ -52,8 +52,10 @@ class SampleHandler(InstructionHandler):
         # rhs is an iid sampling expression
         if distr == "iid":
             dist, count = instruction.rhs.params[0]
-            return distribution.update_iid(dist, count, instruction.lhs), \
-                error_prob
+            # The pGCL type checker only demands a nat here, but update_iid needs a variable:
+            # iid(geometric(1/2), 3) passes the check and then fails with an AttributeError.
+            updated = distribution.update_iid(dist, count, instruction.lhs)  # type: ignore[arg-type]
+            return updated, error_prob
 
         if distr == "sample_pgf":
             dist_expr = instruction.rhs.params[0][0]
@@ -62,7 +64,7 @@ class SampleHandler(InstructionHandler):
                 raise NotImplementedError(
                     "Sampling from multi-variate distributions is currently not supported."
                 )
-            if dist_vars[0].var != variable:
+            if dist_vars[0].var != variable:  # type: ignore[union-attr]  # see iid above
                 raise NotImplementedError(
                     "Sampling form a conditional distribution is currently not supported."
                 )

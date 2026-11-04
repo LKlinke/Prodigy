@@ -37,7 +37,7 @@ This makes it hard to forget calling a recursive traversal call, which could eas
 from __future__ import annotations
 
 from enum import Enum, auto
-from typing import Callable, Dict, Iterable, List, TypeVar
+from typing import Any, Callable, Dict, Iterable, List, TypeVar
 
 from prodigy.pgcl.util.ref import Mut
 
@@ -96,7 +96,7 @@ def _mut_tuple_items(tuple_ref: Mut[tuple]) -> Iterable[Mut]:
 
 
 def _mut_iterable_children(
-        iterable_ref: Mut[tuple | list | dict]) -> Iterable[Mut[Expr]]:
+        iterable_ref: Mut[Any]) -> Iterable[Mut[Expr]]:
     """Get refs to the top-level Exprs found in an iterable."""
     iterable = iterable_ref.val
     if isinstance(iterable, dict):
