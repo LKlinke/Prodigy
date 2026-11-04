@@ -91,7 +91,7 @@ def test_wrong_assignment():
         x := f(x := 10);
     """)
     assert isinstance(prog, CheckFail)
-    assert prog.message == "Expected value of type BoolType(), got NatType(bounds=None)."
+    assert prog.message == "Expected value of type BoolType(), got NatType(bounds=None) that is not provably 0 or 1."
 
 
 def test_wrong_input_distribution():
