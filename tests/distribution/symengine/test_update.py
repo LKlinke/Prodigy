@@ -32,9 +32,8 @@ def test_addition():
     assert gf.update(parse_expr("x = 3 + 5 + 8")) == SymengineDist("x**16", "x")
     assert gf.update(parse_expr("x = x + x")).filter(
         parse_expr("x = 5")) == SymenginePGF.undefined("x")
-    # FIXME fails because of hadamard product
-    #   assert gf.update(parse_expr("x = x + x")).filter(
-    #   parse_expr("x % 2 = 1")) == SymenginePGF.undefined("x")
+    assert gf.update(parse_expr("x = x + x")).filter(
+        parse_expr("x % 2 = 1")) == SymenginePGF.undefined("x")
     assert sp.S(gf.update(parse_expr("x = x + x")).filter(
         parse_expr("x = 30")).marginal(
             'x', method=MarginalType.EXCLUDE)._s_func).equals(sp.S(
