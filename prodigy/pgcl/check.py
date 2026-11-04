@@ -94,6 +94,32 @@ sample_predefined_functions: Mapping[Var, List[VarDecl]] = frozendict({
 })
 
 
+def _check_sample_count(program: Program,
+                        expr: FunctionCallExpr) -> Optional[CheckFail]:
+    """
+    Check the second argument of ``iid`` and ``sample_pgf``.
+
+    ``iid(D, n)`` sums ``n`` independent samples of ``D``; ``n`` must be a program variable or a
+    natural number (constants are substituted before), the analysis cannot handle arbitrary
+    expressions or parameters there. ``sample_pgf(G, x)`` reads ``G`` as a generating function in
+    the program variable ``x``.
+    """
+    if expr.function not in ('iid', 'sample_pgf') or len(expr.params[0]) < 2:
+        return None
+    arg = expr.params[0][1]
+    if isinstance(arg, VarExpr) and arg.var in program.variables:
+        return None
+    if expr.function == 'iid':
+        if isinstance(arg, NatLitExpr):
+            return None
+        return CheckFail(
+            arg, f"The number of samples in {expr} must be a program variable "
+            f"or a natural number, got {arg}.")
+    return CheckFail(
+        arg, f"The second argument of {expr} must be the program variable "
+        f"of the generating function, got {arg}.")
+
+
 def _check_function_call(
         program: Program, expr: FunctionCallExpr,
         predefined_functions: Mapping[Var, List[VarDecl]]) -> Optional[CheckFail]:
@@ -104,6 +130,15 @@ def _check_function_call(
         if expr.function not in predefined_functions:
             return CheckFail(expr, f"Unknown function: {expr.function}")
         param_list = predefined_functions[expr.function]
+        # the analysis reads the parameters of the predefined distributions by position, and they
+        # have no default values
+        if expr.params[1]:
+            return CheckFail(expr, f"{expr.function} takes no named parameters")
+        if len(expr.params[0]) < len(param_list):
+            return CheckFail(expr, "Too few parameters")
+        sample_fail = _check_sample_count(program, expr)
+        if sample_fail is not None:
+            return sample_fail
 
     if len(expr.params[0]) > len(param_list):
         return CheckFail(expr, "Too many parameters")
@@ -571,6 +606,13 @@ def check_instr(
                             predefined_functions=predefined_functions)
         if isinstance(rhs_type, CheckFail):
             return rhs_type
+        if isinstance(instr.rhs, FunctionCallExpr) and instr.rhs.function == 'sample_pgf' \
+                and instr.rhs.function not in program.functions \
+                and instr.rhs.params[0][1] != VarExpr(instr.lhs):
+            return CheckFail(
+                instr, f"{instr.rhs} samples a generating function in "
+                f"{instr.rhs.params[0][1]}, but only sampling in the assigned variable "
+                f"{instr.lhs} is supported.")
         if is_compatible(lhs_type, rhs_type):
             return None
         # narrowing to bool is fine if the value is provably 0 or 1

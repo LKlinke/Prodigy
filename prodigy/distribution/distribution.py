@@ -706,7 +706,7 @@ class Distribution(ABC):
         """
 
     @abstractmethod
-    def update_iid(self, sampling_dist: Expr, count: VarExpr,
+    def update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
                    variable: Union[str, VarExpr]) -> 'Distribution':
         """ Updates the distribution by the the iid-sampling rules. """
 

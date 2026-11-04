@@ -4,7 +4,8 @@ import logging
 from abc import abstractmethod
 from typing import Callable, Sequence, Union
 
-from prodigy.pgcl import Instr, AsgnInstr, FunctionCallExpr, sample_predefined_functions as distr_functions, Var
+from prodigy.pgcl import (Instr, AsgnInstr, FunctionCallExpr, NatLitExpr, Var, VarExpr,
+                          sample_predefined_functions as distr_functions)
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
@@ -52,23 +53,20 @@ class SampleHandler(InstructionHandler):
         # rhs is an iid sampling expression
         if distr == "iid":
             dist, count = instruction.rhs.params[0]
-            # The pGCL type checker only demands a nat here, but update_iid needs a variable:
-            # iid(geometric(1/2), 3) passes the check and then fails with an AttributeError.
-            updated = distribution.update_iid(dist, count, instruction.lhs)  # type: ignore[arg-type]
+            # the type checker only admits a program variable or a natural number as count
+            if not isinstance(count, (VarExpr, NatLitExpr)):
+                raise ValueError(f"The number of samples in {instruction.rhs} must be a program "
+                                 f"variable or a natural number, got {count}.")
+            updated = distribution.update_iid(dist, count, instruction.lhs)
             return updated, error_prob
 
         if distr == "sample_pgf":
-            dist_expr = instruction.rhs.params[0][0]
-            dist_vars = instruction.rhs.params[0][1:]
-            if len(dist_vars) > 1:
-                raise NotImplementedError(
-                    "Sampling from multi-variate distributions is currently not supported."
-                )
-            if dist_vars[0].var != variable:  # type: ignore[union-attr]  # see iid above
-                raise NotImplementedError(
-                    "Sampling form a conditional distribution is currently not supported."
-                )
-            sampled_dist = factory.from_expr(dist_expr, *dist_vars)
+            dist_expr, dist_var = instruction.rhs.params[0]
+            # the type checker only admits sampling in the assigned variable
+            if dist_var != VarExpr(variable):
+                raise ValueError(f"{instruction.rhs} samples a generating function in {dist_var}, "
+                                 f"but only sampling in the assigned variable {variable} is supported.")
+            sampled_dist = factory.from_expr(dist_expr, variable)
             return marginal * sampled_dist, error_prob
 
         # all remaining distributions have only one parameter
