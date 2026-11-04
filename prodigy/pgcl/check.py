@@ -17,7 +17,7 @@ from frozendict import frozendict
 from prodigy.pgcl.ast.declarations import Function, FunctionDecl, VarDecl
 from prodigy.pgcl.ast.expressions import (FunctionCallExpr, InferExpr,
                                            SampleExpr)
-from prodigy.pgcl.ast.instructions import QueryInstr
+from prodigy.pgcl.ast.instructions import AbortInstr, QueryInstr
 from prodigy.pgcl.ast.types import DistributionType
 from prodigy.pgcl.util.ref import Mut
 
@@ -81,13 +81,15 @@ sample_predefined_functions: Dict[Var, List[VarDecl]] = frozendict({
              VarDecl('end', NatType(None))],
     'geometric': [VarDecl('p', RealType())],
     'bernoulli': [VarDecl('p', RealType())],
-    'poisson': [VarDecl('p', NatType(None))],
+    'poisson': [VarDecl('p', RealType())],
     'logdist': [VarDecl('p', RealType())],
     'binomial': [VarDecl('n', NatType(None)),
                  VarDecl('p', RealType())],
-    'iid': [VarDecl('dist', NatType(None)),
+    # the distribution of iid/sample_pgf is a distribution expression or a generating function,
+    # whose coefficients are real
+    'iid': [VarDecl('dist', RealType()),
             VarDecl('var', NatType(None))],
-    'sample_pgf': [VarDecl("dist", NatType(None)),
+    'sample_pgf': [VarDecl("dist", RealType()),
                    VarDecl("var", NatType(None))]
 })
 
@@ -223,26 +225,15 @@ def get_type(
                             operand, BoolType(), typ)
             return BoolType()
 
-        # the rest of binops take numeric operands, so check those
-        lhs_typ = get_type(program, expr.lhs, check, predefined_functions)
-        if isinstance(lhs_typ, CheckFail):
-            return lhs_typ
-        if not isinstance(lhs_typ, (NatType, RealType)):
-            return CheckFail.expected_numeric_got(expr.lhs, lhs_typ)
-
-        if check and expr.operator in [
-                Binop.LEQ, Binop.LT, Binop.GEQ, Binop.GT, Binop.EQ, Binop.PLUS,
-                Binop.MINUS, Binop.TIMES, Binop.MODULO, Binop.POWER,
-                Binop.DIVIDE
-        ]:
-            rhs_typ = get_type(program, expr.rhs, check, predefined_functions)
-            if isinstance(rhs_typ, CheckFail):
-                return rhs_typ
-            if not isinstance(rhs_typ, (NatType, RealType)):
-                return CheckFail.expected_numeric_got(expr.rhs, rhs_typ)
-
-            if not is_compatible(lhs_typ, rhs_typ):
-                return CheckFail.expected_type_got(expr, lhs_typ, rhs_typ)
+        # the rest of binops take numeric operands (a bool counts as 0/1), so check those
+        operand_types: List[Type] = []
+        for operand in [expr.lhs, expr.rhs]:
+            typ = get_type(program, operand, check, predefined_functions)
+            if isinstance(typ, CheckFail):
+                return typ
+            if not _is_numeric(typ):
+                return CheckFail.expected_numeric_got(operand, typ)
+            operand_types.append(typ)
 
         # binops that take numeric operands and return a boolean
         if expr.operator in [
@@ -250,15 +241,13 @@ def get_type(
         ]:
             return BoolType()
 
-        # binops that take numeric operands and return a numeric value
+        # binops that take numeric operands and return a numeric value: the
+        # result has the wider operand type, but at least nat (true + true = 2)
         if expr.operator in [
                 Binop.PLUS, Binop.MINUS, Binop.TIMES, Binop.MODULO,
                 Binop.POWER, Binop.DIVIDE
         ]:
-            # intentionally lose the bounds on NatType (see NatType documentation)
-            if isinstance(lhs_typ, NatType) and lhs_typ.bounds is not None:
-                return NatType(bounds=None)
-            return lhs_typ
+            return _join(NatType(bounds=None), *operand_types)
 
     if isinstance(expr, CategoricalExpr):
         first_expr = expr.exprs[0][0]
@@ -271,7 +260,9 @@ def get_type(
                                      predefined_functions)
                 if isinstance(other_typ, CheckFail):
                     return other_typ
-                if not is_compatible(typ, other_typ):
+                if is_compatible(other_typ, typ):
+                    typ = other_typ
+                elif not is_compatible(typ, other_typ):
                     return CheckFail.expected_type_got(expr, typ, other_typ)
         return typ
 
@@ -322,10 +313,16 @@ def is_compatible(lhs: Type, rhs: Type) -> bool:
     Compatibility is not only important for which values can be used as the right-hand side of an assignment, but compatibility
     rules are also checked when operators are used.
 
-    The only rules for compatibility currently implemented are:
+    The rules for compatibility are:
 
     * Natural numbers are compatible with variables of every other type of number (bounded or unbounded).
+    * Widening along ``bool ⊑ nat ⊑ real`` never loses a value: a boolean is the number 0 or 1, and a
+      natural number is a real number. So ``bool`` is compatible with ``nat`` and ``real``, and ``nat``
+      with ``real``.
     * Otherwise the types must be exactly equal for values to be compatible.
+
+    Narrowing (e.g. a natural number where a boolean is expected) is not compatible. Assignments to
+    ``bool`` variables additionally accept values that are provably 0 or 1, see :func:`check_instr`.
 
     .. doctest::
 
@@ -340,12 +337,83 @@ def is_compatible(lhs: Type, rhs: Type) -> bool:
         >>> is_compatible(NatType(bounds=Bounds(NatLitExpr(1), NatLitExpr(5))), NatType(bounds=None))
         True
 
+        >>> is_compatible(NatType(bounds=None), BoolType())
+        True
+        >>> is_compatible(RealType(), NatType(bounds=None))
+        True
         >>> is_compatible(BoolType(), NatType(bounds=None))
         False
+        >>> is_compatible(NatType(bounds=None), RealType())
+        False
     """
-    if isinstance(lhs, NatType) and isinstance(rhs, NatType):
-        return True
+    if _is_numeric(lhs) and _is_numeric(rhs):
+        return _NUMERIC_RANK[type(lhs)] >= _NUMERIC_RANK[type(rhs)]
     return lhs == rhs
+
+
+# the widening order bool ⊑ nat ⊑ real
+_NUMERIC_RANK = {BoolType: 0, NatType: 1, RealType: 2}
+
+
+def _is_numeric(typ: Type) -> bool:
+    """Whether a value of this type can be used as a number (a bool counts as 0/1)."""
+    return type(typ) in _NUMERIC_RANK
+
+
+def _join(*types: Type) -> Type:
+    """
+    The widest of the given numeric types, i.e., their least upper bound in ``bool ⊑ nat ⊑ real``.
+    Bounds of natural numbers are dropped (see :class:`NatType`).
+
+    .. doctest::
+
+        >>> _join(BoolType(), NatType(bounds=None), RealType())
+        RealType()
+        >>> _join(NatType(bounds=None), BoolType())
+        NatType(bounds=None)
+    """
+    widest = max(types, key=lambda typ: _NUMERIC_RANK[type(typ)])
+    if isinstance(widest, NatType):
+        return NatType(bounds=None)
+    return widest
+
+
+_ZERO_ONE_DISTRIBUTIONS = {'bernoulli'}
+_RANGE_DISTRIBUTIONS = {'unif', 'unif_d'}
+
+
+def _is_zero_or_one(program: Program, expr: Expr) -> bool:
+    """
+    Whether every value of ``expr`` is provably 0 or 1, so it may be assigned to a ``bool``
+    variable. This is a cheap syntactic check: the literals 0 and 1, boolean expressions, Iverson
+    brackets, ``bernoulli(p)``, uniform distributions with bounds in {0, 1}, and categorical choices
+    between such values.
+
+    .. doctest::
+
+        >>> from .parser import parse_expr
+        >>> program = Program(list(), dict(), dict(), dict(), dict(), list())
+        >>> _is_zero_or_one(program, parse_expr("bernoulli(1/3)"))
+        True
+        >>> _is_zero_or_one(program, parse_expr("unif(0, 2)"))
+        False
+    """
+    if isinstance(expr, NatLitExpr):
+        return expr.value in (0, 1)
+    if isinstance(expr, UnopExpr) and expr.operator == Unop.IVERSON:
+        return True
+    if isinstance(expr, CategoricalExpr):
+        return all(
+            _is_zero_or_one(program, value) for value, _prob in expr.exprs)
+    if isinstance(expr, FunctionCallExpr) and expr.function not in program.functions:
+        if expr.function in _ZERO_ONE_DISTRIBUTIONS:
+            return True
+        if expr.function in _RANGE_DISTRIBUTIONS:
+            bounds = list(expr.params[0]) + list(expr.params[1].values())
+            return len(bounds) == 2 and all(
+                _is_zero_or_one(program, bound) for bound in bounds)
+        return False
+    return isinstance(get_type(program, expr, check=False), BoolType)
 
 
 def _check_constant_declarations(program: Program) -> Optional[CheckFail]:
@@ -441,7 +509,17 @@ def check_instr(
 
         >>> program = parse_pgcl("nat x; x := true")
         >>> check_instr(program, program.instructions[0])
-        CheckFail(location=..., message='Expected value of type NatType(bounds=None), got BoolType().')
+
+        >>> program = parse_pgcl("bool x; x := bernoulli(1/2)")
+        >>> check_instr(program, program.instructions[0])
+
+        >>> program = parse_pgcl("bool x; x := 2")
+        >>> check_instr(program, program.instructions[0])
+        CheckFail(location=..., message='Expected value of type BoolType(), got NatType(bounds=None) that is not provably 0 or 1.')
+
+        >>> program = parse_pgcl("nat x; x := 1/2")
+        >>> check_instr(program, program.instructions[0])
+        CheckFail(location=..., message='Expected value of type NatType(bounds=None), got RealType().')
 
         >>> program = parse_pgcl("const x := true; x := true")
         >>> check_instr(program, program.instructions[0])
@@ -453,7 +531,7 @@ def check_instr(
         >>> program = parse_pgcl("nat x [1,5]; nat y; x := x + 3")
         >>> check_instr(program, program.instructions[0])
     """
-    if isinstance(instr, SkipInstr):
+    if isinstance(instr, (SkipInstr, AbortInstr)):
         return None
 
     if isinstance(instr, WhileInstr):
@@ -493,9 +571,18 @@ def check_instr(
                             predefined_functions=predefined_functions)
         if isinstance(rhs_type, CheckFail):
             return rhs_type
-        if not is_compatible(lhs_type, rhs_type):
-            return CheckFail.expected_type_got(instr, lhs_type, rhs_type)
-        return None
+        if is_compatible(lhs_type, rhs_type):
+            return None
+        # narrowing to bool is fine if the value is provably 0 or 1
+        if isinstance(lhs_type, BoolType) and _is_numeric(
+                rhs_type) and _is_zero_or_one(program, instr.rhs):
+            return None
+        if isinstance(lhs_type, BoolType) and _is_numeric(rhs_type):
+            return CheckFail(
+                instr,
+                f'Expected value of type {lhs_type}, got {rhs_type} that is not provably 0 or 1.'
+            )
+        return CheckFail.expected_type_got(instr, lhs_type, rhs_type)
 
     if isinstance(instr, ChoiceInstr):
         prob_type = get_type(program,

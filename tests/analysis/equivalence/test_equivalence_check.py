@@ -5,7 +5,6 @@ from os.path import isfile
 
 import pytest
 import sympy
-from prodigy.pgcl import parse_pgcl
 from prodigy.pgcl.ast import Program
 from prodigy.pgcl.compiler import compile_pgcl
 
@@ -151,8 +150,8 @@ def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
         inv = "\n".join(f.readlines())
 
     # Compile them to a program object
-    prog1 = parse_pgcl(file)
-    prog2 = parse_pgcl(inv)
+    prog1 = compile_pgcl(file)
+    prog2 = compile_pgcl(inv)
 
     assert (isinstance(prog1, Program))
     assert (isinstance(prog2, Program))
