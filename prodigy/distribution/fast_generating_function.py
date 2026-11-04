@@ -168,7 +168,7 @@ class FPS(Distribution):
         return FPS.from_dist(self._dist, self._variables, self._parameters,
                              self._finite)
 
-    def get_probability_mass(self) -> Union[Expr, str]:
+    def get_probability_mass(self) -> str:
         return self._dist.mass(self._variables & set(self._dist.get_symbols()))
 
     def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
@@ -203,7 +203,7 @@ class FPS(Distribution):
                              self._parameters,
                              finite=True)
 
-    def _filter_constant_condition(self, condition: Expr) -> FPS:
+    def _filter_constant_condition(self, condition: BinopExpr) -> FPS:
         # Normalize the conditional to variables on the lhs from the relation symbol.
         if isinstance(condition.rhs, VarExpr):
             switch_comparison = {
@@ -261,7 +261,7 @@ class FPS(Distribution):
     def is_finite(self) -> bool:
         return self._finite
 
-    def old_update(self, expression: Expr) -> FPS:
+    def old_update(self, expression: BinopExpr) -> FPS:
         return FPS.from_dist(
             self._dist.update(str(expression.lhs), str(expression.rhs)),
             self._variables, self._parameters, self._finite)

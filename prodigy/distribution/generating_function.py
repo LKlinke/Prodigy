@@ -208,7 +208,7 @@ class GeneratingFunction(Distribution):
         return SympyPGF
 
     def _filter_constant_condition(self,
-                                   condition: Expr) -> GeneratingFunction:
+                                   condition: BinopExpr) -> GeneratingFunction:
         # TODO refactor this in superclass?
         # Normalize the condition into the format _var_ (< | <= | =) const. I.e., having the variable on the lhs.
 
@@ -260,6 +260,9 @@ class GeneratingFunction(Distribution):
 
         # Now we have an expression of the form _var_ (< | <=, =) _const_.
         variable = _sympy_symbol(str(condition.lhs))
+        if not isinstance(condition.rhs, NatLitExpr):
+            raise ValueError(
+                f"Cannot filter for {condition}: the bound is not a natural number")
         constant = condition.rhs.value
         result = 0
         ranges = {
@@ -529,9 +532,9 @@ class GeneratingFunction(Distribution):
             raise ValueError('Division containing parameters is not allowed')
 
         marginal_l = self.marginal(
-            numerator) if div_1 in self._variables else div_1
+            str(numerator)) if div_1 in self._variables else div_1
         marginal_r = self.marginal(
-            denominator) if div_2 in self._variables else div_2
+            str(denominator)) if div_2 in self._variables else div_2
 
         if isinstance(marginal_l,
                       GeneratingFunction) and not marginal_l._is_finite:
@@ -927,7 +930,7 @@ class GeneratingFunction(Distribution):
 
         # variable to the power of a literal
         elif pow_1 in self._variables:
-            marginal = self.marginal(base)
+            marginal = self.marginal(str(base))
 
             if not marginal._is_finite:
                 raise ValueError(
@@ -941,7 +944,7 @@ class GeneratingFunction(Distribution):
 
         # literal to the power of a variable
         elif pow_2 in self._variables:
-            marginal = self.marginal(exp)
+            marginal = self.marginal(str(exp))
 
             if not marginal._is_finite:
                 raise ValueError(
@@ -1354,7 +1357,7 @@ class GeneratingFunction(Distribution):
         return s_exp
 
     @classmethod
-    def evaluate_condition(cls, condition: BinopExpr, state: State) -> bool:
+    def evaluate_condition(cls, condition: Expr, state: State) -> bool:
         logger.debug("evaluate_condition() call")
         return super().evaluate_condition(condition, state)
 
