@@ -122,7 +122,7 @@ def compute_semantics(
         return distribution, error_prob
 
     elif isinstance(instruction, AbortInstr):
-        return distribution.factory().undefined(
+        return distribution.factory().zero(
             *distribution.get_variables()), error_prob
 
     elif isinstance(instruction, WhileInstr):

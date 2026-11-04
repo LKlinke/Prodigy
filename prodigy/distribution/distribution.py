@@ -706,7 +706,7 @@ class Distribution(ABC):
         """
 
     @abstractmethod
-    def update_iid(self, sampling_dist: Expr, count: VarExpr,
+    def update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
                    variable: Union[str, VarExpr]) -> 'Distribution':
         """ Updates the distribution by the the iid-sampling rules. """
 
@@ -834,8 +834,10 @@ class CommonDistributionsFactory(ABC):
 
     @staticmethod
     @abstractmethod
-    def undefined(*variables: Union[str, VarExpr]) -> Distribution:
-        """ A distribution where actually no information about the states is given."""
+    def zero(*variables: Union[str, VarExpr]) -> Distribution:
+        """ The zero distribution over `variables`: no mass on any state.
+
+        This is the result of `abort`, where all mass goes to non-termination."""
 
     @staticmethod
     @abstractmethod

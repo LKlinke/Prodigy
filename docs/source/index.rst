@@ -15,4 +15,5 @@ The sources, installation instructions and issue tracker are on
    gui
    cli
    grammar
+   language-design
    api

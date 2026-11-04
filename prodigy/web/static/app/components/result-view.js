@@ -306,24 +306,45 @@ function yesNo(value, yes = "yes", no = "no") {
   return "undecided";
 }
 
-/** The attempts of a language model (strategy ai_invariant): candidate, verdict, full answer. */
+/** How Prodigy's check ended for one answer of a language model: badge kind, glyph, label. */
+const AI_VERDICTS = {
+  proven: ["lower", "✓", "Proven"],
+  not_larger: ["unknown", "=", "Proven, not larger"],
+  refuted: ["error", "×", "Refuted"],
+  unknown: ["unknown", "?", "Not proven"],
+  rejected: ["error", "×", "Rejected"],
+  no_candidate: ["error", "×", "No candidate"],
+  error: ["error", "!", "Request failed"],
+};
+
+function aiVerdictBadge(attempt) {
+  const verdict = attempt.verdict || (attempt.candidate ? "rejected" : "no_candidate");
+  const [kind, glyph, label] = AI_VERDICTS[verdict] || AI_VERDICTS.rejected;
+  return h("span", { class: "rv-badge", "data-kind": kind }, h("span", { class: "glyph", "aria-hidden": "true" }, glyph), label);
+}
+
+/** The attempts of a language model (strategy ai_invariant): candidate, Prodigy's verdict in words, full answer. */
 function aiAttempts(attempts) {
   return attempts.map((a) => h("div", { class: "rv-cert-block" },
-    h("dt", {}, `Attempt ${a.attempt}`),
+    h("dt", { class: "rv-ai-head" }, `Attempt ${a.attempt}`, " ", aiVerdictBadge(a)),
     h("dd", {},
-      h("div", {}, a.candidate ? h("code", { class: "rv-wrap" }, a.candidate) : "No candidate in the answer",
+      h("div", {}, a.candidate ? h("code", { class: "rv-wrap" }, a.candidate) : (a.verdict === "error" ? null : "No candidate in the answer"),
         a.stop_reason && !["end_turn", "stop"].includes(a.stop_reason) ? ` · stopped: ${a.stop_reason}` : ""),
+      a.mass && a.verdict === "proven" ? h("div", {}, `Lower bound with mass ${a.mass}; mass ${a.missing_mass} not accounted for.`) : null,
       a.reason ? h("div", {}, a.reason) : null,
-      h("details", {}, h("summary", {}, "Answer of the model"), h("pre", { class: "rv-pre" }, a.answer || "(no text)")))));
+      a.details ? h("details", {}, h("summary", {}, "Details of the check"), h("pre", { class: "rv-pre" }, JSON.stringify(a.details, null, 2))) : null,
+      a.verdict === "error" ? null
+        : h("details", {}, h("summary", {}, "Answer of the model"), h("pre", { class: "rv-pre" }, a.answer || "(no text)")))));
 }
 
 function certificateView(cert) {
   const rows = [];
   const add = (label, value) => { if (value !== null && value !== undefined && value !== "") rows.push(h("div", {}, h("dt", {}, label), h("dd", {}, value))); };
   if (cert.ai) {
-    const rejected = cert.ai.rejected?.length ? `, after ${cert.ai.rejected.length} rejected` : "";
-    add("Candidate from", `${cert.ai.model} (attempt ${cert.ai.attempts}${rejected}), checked by Prodigy`);
-    if (cert.ai.rejected?.length) rows.push(...aiAttempts(cert.ai.rejected));
+    const others = cert.ai.history || cert.ai.rejected || [];
+    const asked = cert.ai.asked ?? others.length + 1;
+    add("Candidate from", `${cert.ai.model} (attempt ${cert.ai.attempts} of ${asked}), checked by Prodigy`);
+    if (others.length) rows.push(...aiAttempts(others));
   }
   switch (cert.type) {
     case "unrolling":

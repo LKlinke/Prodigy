@@ -169,25 +169,88 @@ _TASKS = {
         "finite mass nu(1, ..., 1) such that nu <= G + B(<nu>_guard) coefficient-wise, where G is the PGF "
         "entering the loop, <F>_guard keeps the terms of F whose states satisfy the guard, and B is the "
         "PGF transformer of one execution of the loop body. Then <nu>_(not guard) is a lower bound on the "
-        "output distribution. The expected visiting times are the best choice if their mass is finite; "
-        "otherwise choose a smaller nu with finite mass."),
+        "output distribution. Larger sub-invariants give tighter bounds: the mass that the lower bound "
+        "misses shrinks as nu approaches the expected visiting times, so keep as much of the loop's "
+        "behaviour (every branch of the body) as you can. The expected visiting times are the best choice "
+        "if their mass is finite; otherwise choose a smaller nu with finite mass."),
 }
 
 _EXAMPLE = ("Example: for `nat x; nat c; x := 1; while (x = 1) { {x := 0} [1/2] {c := c + 1} }` the loop "
             "is entered with G = x, and its expected visiting times are (x + 1/2)/(1 - c/2).")
 
 
+@dataclass(frozen=True)
+class Proven:
+    """The best sub-invariant Prodigy has proven so far, for the request for a larger one."""
+    candidate: str
+    mass: str
+    """Mass of the lower bound <nu>_(not guard): the loop terminates with at least this probability."""
+    missing: str
+    """Mass the lower bound misses at most."""
+
+
 def prompt(form: str, program: str, loop: str, variables: Sequence[str], parameters: Sequence[str],
-           entering: str, rejected: Sequence[Tuple[str, str]]) -> str:
-    """The request for a candidate of kind ``form`` (see :data:`FORMS`) for ``loop``."""
+           entering: str, rejected: Sequence[Tuple[str, str]], proven: Optional[Proven] = None) -> str:
+    """The request for a candidate of kind ``form`` (see :data:`FORMS`) for ``loop``.
+
+    ``rejected`` lists earlier candidates with Prodigy's verdict; with ``proven``, the request asks for a
+    sub-invariant larger than that one."""
     parts = [f"Program:\n{program}", f"The loop:\n{loop}",
              f"Program variables: {', '.join(variables)}",
              f"Parameters (unknown constants): {', '.join(parameters) if parameters else 'none'}",
              f"G, the PGF entering the loop: {entering}", _TASKS[form], _EXAMPLE]
     if rejected:
-        parts.append("Prodigy rejected these candidates; do not propose them again:\n"
-                     + "\n".join(f"- {candidate}: {reason}" for candidate, reason in rejected))
+        parts.append("These earlier candidates did not help (Prodigy's verdict after each); do not propose "
+                     "them again:\n" + "\n".join(f"- {candidate}: {reason}" for candidate, reason in rejected))
+    if proven is not None:
+        parts.append(f"Prodigy proved the sub-invariant nu = {proven.candidate}. Its lower bound "
+                     f"<nu>_(not guard) has mass {proven.mass}, and mass {proven.missing} is not accounted "
+                     "for. Find a larger sub-invariant, one whose lower bound has more mass, e.g. by keeping "
+                     "branches of the body that nu leaves out. Prodigy checks it exactly and keeps the better "
+                     "of the two.")
     return "\n\n".join(parts)
+
+
+def _state(at: Any) -> str:
+    if isinstance(at, Mapping):
+        return ", ".join(f"{name} = {value}" for name, value in at.items())
+    return str(at)
+
+
+def _shorten(text: Any, limit: int = 300) -> str:
+    text = str(text)
+    return text if len(text) <= limit else text[:limit] + " …"
+
+
+def describe_rejection(message: str, details: Optional[Mapping[str, Any]]) -> str:
+    """Why Prodigy's check rejected a candidate, in words, from the exception's ``message`` and ``details``
+    (e.g. "Φ(ν) − ν has the negative coefficient -1/4 at x = 0, c = 1, so ν ≤ Φ(ν) fails.")."""
+    details = details or {}
+    kind, verdict, condition = details.get("type"), details.get("verdict"), details.get("condition")
+    negative = (f"the negative coefficient {details['coefficient']} at {_state(details.get('at'))}"
+                if "coefficient" in details else None)
+    if kind == "evt_subinvariant":
+        if condition == "nonnegative":
+            if negative:
+                return f"ν has {negative}, but a sub-invariant needs non-negative coefficients."
+            return f"Prodigy could not establish that ν has non-negative coefficients ({details.get('method')})."
+        if condition == "subinvariance":
+            if negative:
+                return f"Φ(ν) − ν has {negative}, so ν ≤ Φ(ν) fails there."
+            return (f"Prodigy could not establish ν ≤ Φ(ν) coefficient-wise ({details.get('method')}); "
+                    f"Φ(ν) − ν = {_shorten(details.get('difference'))}.")
+        if condition == "finite_mass":
+            return "ν has infinite mass, but a sub-invariant needs finite mass."
+    if kind == "evt_invariant":
+        difference = details.get("difference")
+        if verdict == "refuted" and difference is not None:
+            return f"I is not a fixed point: Φ(I) − I = {_shorten(difference)} is not zero."
+        if verdict == "unknown":
+            reason = details.get("reason") or message
+            if difference is not None:
+                return f"Not proven: {reason} Φ(I) − I = {_shorten(difference)}."
+            return f"Not proven: {reason}"
+    return message
 
 
 _FENCE = re.compile(r"```[A-Za-z]*\n?(.*?)```", re.S)

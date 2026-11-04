@@ -111,7 +111,7 @@ def test_modulo_guard_probability(engine):
 
 def test_symengine_odd_part_of_even_poisson_is_zero():
     gf = SymenginePGF.poisson("x", "16").update(parse_expr("x = x + x"))
-    assert gf.filter(parse_expr("x % 2 = 1")) == SymenginePGF.undefined("x")
+    assert gf.filter(parse_expr("x % 2 = 1")) == SymenginePGF.zero("x")
 
 
 @pytest.mark.parametrize("engine", ENGINES)

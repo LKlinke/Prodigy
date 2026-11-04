@@ -13,7 +13,7 @@ from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
                                                MarginalType, State)
-from prodigy.pgcl import Binop, BinopExpr, Expr, FunctionCallExpr, VarExpr
+from prodigy.pgcl import Binop, BinopExpr, Expr, FunctionCallExpr, NatLitExpr, VarExpr
 
 from prodigy.util.order import default_monomial_iterator
 
@@ -357,7 +357,7 @@ class FPS(Distribution):
             self._dist.update_power(temp_var, base, exp, approximate),
             self._variables, self._parameters)
 
-    def update_iid(self, sampling_dist: Expr, count: VarExpr,
+    def update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
                    variable: Union[str, VarExpr]) -> FPS:
         if not isinstance(sampling_dist, FunctionCallExpr):
             result = FPS.from_dist(
@@ -503,10 +503,6 @@ class ProdigyPGF(CommonDistributionsFactory):
                  p: DistributionParam) -> FPS:
         function = f"(({p})*{var} + (1-({p})))^({n})"
         return FPS(function, str(var))
-
-    @staticmethod
-    def undefined(*variables: Union[str, VarExpr]) -> FPS:
-        return FPS("0", *variables, finite=True)
 
     @staticmethod
     def one(*variables: Union[str, VarExpr]) -> FPS:

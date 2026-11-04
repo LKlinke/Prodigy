@@ -100,9 +100,13 @@ def nonneg_by_construction(expr_str: str, variables: Sequence[str]) -> bool:
         return False
 
 
-def decide_nonneg(expr_str: str, variables: Sequence[str], config: ForwardAnalysisConfig) -> Tuple[Optional[bool], str]:
+def decide_nonneg(expr_str: str, variables: Sequence[str], config: ForwardAnalysisConfig,
+                  negative: Optional[Dict[str, Any]] = None) -> Tuple[Optional[bool], str]:
     """Coefficient-wise nonnegativity: exact for product denominators, then a sufficient criterion for rational
-    functions, otherwise Prodigy's heuristics."""
+    functions, otherwise Prodigy's heuristics.
+
+    ``negative``, if given, receives the first negative coefficient found (``coefficient``, and the state ``at``
+    as a mapping from variables to values)."""
     form = to_product_form(expr_str, variables)
     if form is not None:
         numer, den = form
@@ -110,7 +114,10 @@ def decide_nonneg(expr_str: str, variables: Sequence[str], config: ForwardAnalys
         neg = calc.first_negative(numer)
         if neg is None:
             return True, "exact (finite positivity check)"
-        return False, f"exact: coefficient {neg[1]} at {dict(zip(variables, neg[0]))}"
+        state = dict(zip(variables, neg[0]))
+        if negative is not None:
+            negative.update(coefficient=str(neg[1]), at=state)
+        return False, f"exact: coefficient {neg[1]} at {state}"
     if nonneg_by_construction(expr_str, variables):
         return True, "P / prod (c - R) with non-negative P and R"
     from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
@@ -174,12 +181,20 @@ def evt_subinvariant_verification(loop: WhileInstr, prog_info: ProgramInfo, dist
     phi = distribution + body_out
     residual = phi - invariant
     logger.debug("Phi(nu) - nu = %s", residual)
-    nonneg_nu, how1 = decide_nonneg(str(invariant), variables, config)
+    negative: Dict[str, Any] = {}
+    nonneg_nu, how1 = decide_nonneg(str(invariant), variables, config, negative)
     if nonneg_nu is not True:
-        raise VerificationError(f"Could not establish nu >= 0 ({how1}).")
-    nonneg_res, how2 = decide_nonneg(str(residual), variables, config)
+        raise VerificationError(f"Could not establish nu >= 0 ({how1}).",
+                                details={"type": "evt_subinvariant", "condition": "nonnegative",
+                                         "verdict": "refuted" if nonneg_nu is False else "unknown",
+                                         "subinvariant": str(invariant), "method": how1, **negative})
+    nonneg_res, how2 = decide_nonneg(str(residual), variables, config, negative)
     if nonneg_res is not True:
-        raise VerificationError(f"Could not establish nu <= Phi(nu) ({how2}).")
+        raise VerificationError(f"Could not establish nu <= Phi(nu) ({how2}).",
+                                details={"type": "evt_subinvariant", "condition": "subinvariance",
+                                         "verdict": "refuted" if nonneg_res is False else "unknown",
+                                         "subinvariant": str(invariant), "difference": str(residual),
+                                         "method": how2, **negative})
     mass = exact_mass(str(invariant), variables)
     if mass is None:
         try:
@@ -191,7 +206,9 @@ def evt_subinvariant_verification(loop: WhileInstr, prog_info: ProgramInfo, dist
                                     "and evaluating "
                                     "it at 1 is only sound inside the radius of convergence.")
     if mass == math.inf:
-        raise VerificationError("nu has infinite mass; lower induction needs |nu| < inf.")
+        raise VerificationError("nu has infinite mass; lower induction needs |nu| < inf.",
+                                details={"type": "evt_subinvariant", "condition": "finite_mass", "verdict": "refuted",
+                                         "subinvariant": str(invariant)})
     exit_part = invariant - invariant.filter(loop.cond)
     gap = exact_mass(str(residual), variables)
     exit_mass = exact_mass(str(exit_part), variables)
