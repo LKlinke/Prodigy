@@ -49,7 +49,8 @@ def test_unequal_rational_functions_are_not_equal(factory, lhs, rhs):
     SympyPGF,
     SymenginePGF,
     pytest.param(ProdigyPGF, marks=pytest.mark.xfail(
-        strict=True, reason="prodigy_ginac parses decimal literals as floating-point numbers")),
+        strict=True, reason="prodigy_ginac parses decimal literals as floating-point numbers "
+                       "(LKlinke/prodigy-ginac-bindings#9)")),
 ])
 def test_decimal_literals_are_exact(factory):
     assert not equal(factory, "1.00000000000000000001*x", "x", "x")
