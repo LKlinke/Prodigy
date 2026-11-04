@@ -1,0 +1,258 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="1024"
+  height="1024"
+  viewBox="0 0 256 256"
+  role="img"
+  aria-labelledby="title desc"
+>
+  <title id="title">Prodigy</title>
+  <desc id="desc">
+    Ein leuchtender Programmbaum auf nachtblauem Hintergrund.
+    Eine gläserne Lupe liegt über einem seiner Verzweigungspunkte.
+  </desc>
+
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#1B2540"/>
+      <stop offset="1" stop-color="#080D1B"/>
+    </linearGradient>
+
+    <radialGradient id="ambient" cx="54%" cy="38%" r="65%">
+      <stop stop-color="#695BD8" stop-opacity=".23"/>
+      <stop offset="1" stop-color="#695BD8" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Lichtleiter -->
+    <linearGradient
+      id="trunk"
+      gradientUnits="userSpaceOnUse"
+      x1="106" y1="202" x2="78" y2="72"
+    >
+      <stop stop-color="#F2FAFF"/>
+      <stop offset=".4" stop-color="#B6F5FF"/>
+      <stop offset="1" stop-color="#58DED9"/>
+    </linearGradient>
+
+    <linearGradient
+      id="branch"
+      gradientUnits="userSpaceOnUse"
+      x1="78" y1="164" x2="132" y2="54"
+    >
+      <stop stop-color="#C6F5FF"/>
+      <stop offset=".45" stop-color="#B9BEFF"/>
+      <stop offset="1" stop-color="#B99AFF"/>
+    </linearGradient>
+
+    <linearGradient
+      id="twig"
+      gradientUnits="userSpaceOnUse"
+      x1="132" y1="116" x2="186" y2="76"
+    >
+      <stop stop-color="#C4B6FF"/>
+      <stop offset=".6" stop-color="#EFABD9"/>
+      <stop offset="1" stop-color="#FFBF9A"/>
+    </linearGradient>
+
+    <radialGradient id="nodeLight" cx="30%" cy="20%" r="80%">
+      <stop stop-color="#FFFFFF" stop-opacity=".8"/>
+      <stop offset=".55" stop-color="#FFFFFF" stop-opacity=".08"/>
+      <stop offset="1" stop-color="#162448" stop-opacity=".22"/>
+    </radialGradient>
+
+    <!-- Material der Lupe -->
+    <linearGradient
+      id="lensGlass"
+      gradientUnits="userSpaceOnUse"
+      x1="101" y1="84" x2="151" y2="158"
+    >
+      <stop stop-color="#E4F5FF" stop-opacity=".16"/>
+      <stop offset=".45" stop-color="#C1DBFF" stop-opacity=".035"/>
+      <stop offset="1" stop-color="#8FADFF" stop-opacity=".09"/>
+    </linearGradient>
+
+    <linearGradient
+      id="lensRim"
+      gradientUnits="userSpaceOnUse"
+      x1="96" y1="83" x2="166" y2="161"
+    >
+      <stop stop-color="#FFFFFF"/>
+      <stop offset=".28" stop-color="#E0EDFF"/>
+      <stop offset=".58" stop-color="#93ABC9"/>
+      <stop offset=".82" stop-color="#C6D9F2"/>
+      <stop offset="1" stop-color="#F0F6FF"/>
+    </linearGradient>
+
+    <linearGradient
+      id="handle"
+      gradientUnits="userSpaceOnUse"
+      x1="174" y1="176" x2="186" y2="164"
+    >
+      <stop stop-color="#627B9F"/>
+      <stop offset=".5" stop-color="#B1C6E4"/>
+      <stop offset="1" stop-color="#E0ECFC"/>
+    </linearGradient>
+
+    <filter
+      id="glow"
+      x="-40%" y="-40%"
+      width="180%" height="180%"
+      color-interpolation-filters="sRGB"
+    >
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+
+    <filter
+      id="shadow"
+      x="-35%" y="-30%"
+      width="170%" height="170%"
+      color-interpolation-filters="sRGB"
+    >
+      <feDropShadow
+        dx="0" dy="5" stdDeviation="4"
+        flood-color="#020612"
+        flood-opacity=".5"
+      />
+    </filter>
+
+    <g
+      id="paths"
+      fill="none"
+      stroke-width="14"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path
+        d="M106 202 V192 C106 177 78 181 78 164 V72"
+        stroke="url(#trunk)"
+      />
+      <path
+        d="M78 164 C78 135 132 145 132 116 V54"
+        stroke="url(#branch)"
+      />
+      <path
+        d="M132 116 C132 88 186 104 186 76"
+        stroke="url(#twig)"
+      />
+    </g>
+
+    <g id="terminals">
+      <circle cx="106" cy="202" r="14" fill="#EAF8FF"/>
+      <circle cx="78" cy="72" r="16" fill="#69E8E2"/>
+      <circle cx="132" cy="54" r="16" fill="#BFA3FF"/>
+      <circle cx="186" cy="76" r="16" fill="#FFC19F"/>
+    </g>
+  </defs>
+
+  <!-- Hintergrund -->
+  <rect
+    width="256" height="256"
+    rx="56"
+    fill="url(#background)"
+  />
+  <rect
+    width="256" height="256"
+    rx="56"
+    fill="url(#ambient)"
+  />
+
+  <!-- Lichtschein hinter dem Programmbaum -->
+  <g opacity=".38" filter="url(#glow)">
+    <use href="#paths"/>
+    <use href="#terminals"/>
+  </g>
+
+  <!-- Programmbaum -->
+  <g filter="url(#shadow)">
+    <use href="#paths"/>
+
+    <!-- Feine Reflexe auf den Lichtleitern -->
+    <g
+      fill="none"
+      stroke="#FFFFFF"
+      stroke-width="2"
+      stroke-linecap="round"
+      opacity=".32"
+      transform="translate(-1.5 -1)"
+    >
+      <path d="M106 202 V192 C106 177 78 181 78 164 V72"/>
+      <path d="M78 164 C78 135 132 145 132 116 V54"/>
+      <path d="M132 116 C132 88 186 104 186 76"/>
+    </g>
+
+    <!-- Verzweigungspunkte -->
+    <circle cx="78" cy="164" r="11" fill="#D0F5FF"/>
+    <circle cx="132" cy="116" r="11" fill="#CCBEFF"/>
+
+    <circle cx="78" cy="164" r="4.5" fill="#344A68"/>
+    <circle cx="132" cy="116" r="4.5" fill="#514675"/>
+
+    <use href="#terminals"/>
+
+    <g fill="url(#nodeLight)">
+      <circle cx="106" cy="202" r="14"/>
+      <circle cx="78" cy="72" r="16"/>
+      <circle cx="132" cy="54" r="16"/>
+      <circle cx="186" cy="76" r="16"/>
+    </g>
+  </g>
+
+  <!-- Lupe über dem zentralen Verzweigungspunkt -->
+  <g filter="url(#shadow)">
+
+    <!-- Griff zuerst, damit sein Ansatz unter dem Ring liegt -->
+    <path
+      d="M159 151 L203 195"
+      fill="none"
+      stroke="url(#handle)"
+      stroke-width="18"
+      stroke-linecap="round"
+    />
+
+    <!-- Kurzer Griffanschluss -->
+    <path
+      d="M158 150 L168 160"
+      fill="none"
+      stroke="#B8CBE5"
+      stroke-width="12"
+      stroke-linecap="round"
+    />
+
+    <!-- Schmaler Lichtreflex auf dem Griff -->
+    <path
+      d="M174 162 L204 192"
+      fill="none"
+      stroke="#F5FAFF"
+      stroke-width="2"
+      stroke-linecap="round"
+      opacity=".42"
+    />
+
+    <!-- Transparente Linse und metallischer Rand -->
+    <circle
+      cx="128" cy="120" r="44"
+      fill="url(#lensGlass)"
+      stroke="url(#lensRim)"
+      stroke-width="7"
+    />
+
+    <!-- Dezente Innenkante -->
+    <circle
+      cx="128" cy="120" r="39.5"
+      fill="none"
+      stroke="#E4F3FF"
+      stroke-width="1"
+      opacity=".16"
+    />
+
+    <!-- Ein einzelner Glasreflex, ohne den Knoten zu verdecken -->
+    <path
+      d="M95 117 A34 34 0 0 1 120 87"
+      fill="none"
+      stroke="#FFFFFF"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      opacity=".38"
+    />
+  </g>
+</svg>
