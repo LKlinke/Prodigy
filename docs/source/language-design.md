@@ -1,9 +1,9 @@
 # Design: a Python-like surface syntax (`.ppy`)
 
-Status: **agreed design, not implemented yet** ([#105](https://github.com/LKlinke/Prodigy/issues/105)).
-Implementation: [#106](https://github.com/LKlinke/Prodigy/issues/106). Semantics of nested inference:
-[#104](https://github.com/LKlinke/Prodigy/issues/104). The implementation starts after the next
-stable release.
+Status: **agreed design** ([#105](https://github.com/LKlinke/Prodigy/issues/105)). Implementation:
+[#106](https://github.com/LKlinke/Prodigy/issues/106); the parser and the pretty printer exist
+(`prodigy/pgcl/ppy_parser.py`, `prodigy/pgcl/ppy_printer.py`), the CLI and the GUI still use
+`.pgcl`. Semantics of nested inference: [#104](https://github.com/LKlinke/Prodigy/issues/104).
 
 ## Goals
 
@@ -42,8 +42,8 @@ stable release.
 | Queries | `?Pr[…]`, `?Ex[…]`, `!Print`, `!Plot[…]`, `?Opt[…]` | `query Pr[…]`, `query Ex[…]`, `print`, `plot(…)`, `optimize(…)` |
 
 `skip`, `abort`, `while`, `loop(n)`, `observe(g)`, `tick(e)`, the built-in distributions (`unif`,
-`geometric`, `poisson`, `binomial`, `bernoulli`, `iid`, …), Iverson brackets `[g]` and comments
-`#` / `//` stay as they are.
+`geometric`, `poisson`, `binomial`, `bernoulli`, `iid`, …) and Iverson brackets `[g]` stay as they
+are. Comments start with `#`. `//` is floor division in `.ppy`, so it no longer starts a comment.
 
 ## Decisions in detail
 
@@ -57,7 +57,8 @@ answers of language models) simple.
 
 `=` assigns, `==` compares. Boolean operators are accepted in both spellings: `and`/`or`/`not` and
 `&&`/`||`/`!`. The canonical spelling, used by the converter and the pretty printer, is
-`and`/`or`/`not`.
+`and`/`or`/`not`. `!` binds like `not`, as in Python weaker than the comparisons: `!x == y` means
+`!(x == y)`. Comparisons do not chain; `a < b < c` is a syntax error.
 
 `/` is rational division, as in Python. In guards, `x/2 <= 1` means `x <= 2`. An assignment to a
 `nat` variable requires a natural result and is rejected otherwise; it never rounds (see the
@@ -81,7 +82,12 @@ param p: real;
 - **At the end of its block, a variable is marginalised out of the generating function.** This
   keeps generating functions small, and helper variables of a loop body do not appear in the loop's
   invariant. Variables needed at the end of the program are declared at the outermost level.
-- Every variable must be declared. Nothing is assumed implicitly.
+- Every variable must be declared. Nothing is assumed implicitly. Using a variable before its
+  declaration is an error.
+- At the top level, declarations before the first statement declare the program's inputs, as in
+  `.pgcl`: without a value they start at 0 unless an input distribution is given. A declaration
+  after the first statement always starts at 0 (or at its value).
+- `const`, `param` and `def` are allowed at the top level only.
 
 ### Constants and parameters
 
@@ -120,7 +126,8 @@ switch (c) {
   commas. `default` is optional.
 - Semantically, each `case` filters on `c == k`, and the results of the branches are added. This is
   computed exactly with the existing operations.
-- `switch` works on every variable, not only on sampled ones.
+- `switch` works on every variable, not only on sampled ones. It takes a variable, not an
+  expression, because each `case` refers to it again.
 - If `c` is declared in a block and not used after the `switch`, it is marginalised out at the end
   of the block (see "Declarations and scope"), so the extra variable costs nothing afterwards.
 - `{A} [p] {B}` stays as shorthand for the binary case.
@@ -130,8 +137,9 @@ switch (c) {
 - Main form: `categorical({v1: p1, v2: p2, …})`, pairs of value and probability as in a Python
   dict.
 - Short form: `categorical(p0, p1, …, pn)` for the values `0, 1, …, n`.
-- The probabilities must sum to 1. For literal probabilities the parser checks this; if parameters
-  are involved, the analysis checks it.
+- The probabilities must sum to 1. For literal probabilities the parser checks this. For now the
+  probabilities must be literals; probabilities with parameters, which the analysis would have to
+  check, are not implemented yet.
 
 ### Functions
 
@@ -173,7 +181,7 @@ plot(x, y);
 ```
 
 Queries are statements at the end of the program, introduced by keywords instead of the prefixes
-`?` and `!`.
+`?` and `!`. No other statement may follow a query.
 
 ## Example side by side
 
@@ -221,3 +229,11 @@ of the whole program.
 - The exact form of `plot` and `optimize`.
 - Whether the `.pgcl` files in `pgfexamples/` are converted in the repository, and when the old
   syntax is retired.
+
+## Notes for the converter
+
+- Comments are not part of the AST; the converter has to carry them over separately or loses them.
+- Variables whose names are keywords in `.ppy` (`switch`, `case`, `default`, `def`, `param`,
+  `print`, …) must be renamed, e.g. `switch` in
+  `pgfexamples/inference/loop_free/conditioning/monty_hall_nested.pgcl`. The pretty printer refuses
+  such names.
