@@ -208,3 +208,28 @@ def test_equivalence_fail(engine):
 
     res, subs = check_equivalence(prog1, prog2, ForwardAnalysisConfig(engine=engine), compute_semantics)
     assert not res
+
+
+@pytest.mark.parametrize(
+    'engine',
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE])
+def test_equivalence_check_decrement_under_guard(engine):
+    # Issue #143: in the second-order generating functions of the equivalence check, the marginal of `n` diverges,
+    # so the check for negative values of `n := n-1` has to be decided on the joint function.
+    if engine == ForwardAnalysisConfig.Engine.GINAC:
+        pytest.importorskip("prodigy_ginac")
+    prog = compile_pgcl("""
+        nat n; nat m; nat tmp;
+        while (0 < n) { tmp := unif(1,6); m := m + tmp; tmp := 0; n := n-1 }
+    """)
+    assert isinstance(prog, Program)
+
+    inv = compile_pgcl("""
+        nat n; nat m; nat tmp;
+        if (0 < n) { tmp := iid(unif(1,6), n); m := m+tmp; n := 0; tmp := 0 } else {skip}
+    """)
+    assert isinstance(inv, Program)
+
+    res, subs = check_equivalence(cav_phi(prog, inv), inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
+    assert res
+    assert subs == []
