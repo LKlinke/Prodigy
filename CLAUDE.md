@@ -82,8 +82,10 @@ on its own.
   - everything works from the keyboard.
 
 ## Known pitfalls
-- Each `ForwardAnalysisConfig` writes `use_simplification`/`use_latex` into class attributes of
-  `GeneratingFunction`; they then hold for the whole process.
+- `use_simplification`/`use_latex` of a `ForwardAnalysisConfig` only hold inside
+  `config.activate()` (a context variable); `compute_discrete_distribution`, `AnalysisSession.run`
+  and the CLI enter it. Code that calls the SymPy engine outside of them (e.g. handlers directly)
+  gets the defaults; `tests/conftest.py` fails a test whose settings leak.
 - The GiNaC bindings print to stdout at C level; the analysis captures that output.
 - pytest prints a file's line only when the next file starts. In a hanging CI run, the hanging test
   is in the file after the last complete line. `faulthandler_timeout` dumps the stacks after
