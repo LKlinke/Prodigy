@@ -21,6 +21,7 @@ from prodigy.pgcl.parser import parse_expr
 
 from prodigy.distribution import Distribution
 from prodigy.distribution.exact_division import divide_exponents
+from prodigy.distribution.multisection import rational_multisection
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.distribution import MarginalType, State, CommonDistributionsFactory, DistributionParam
 from prodigy.util.logger import log_setup
@@ -370,25 +371,24 @@ class SymengineDist(Distribution):
     def _arithmetic_progression(self, variable: str, modulus: str) -> Sequence[SymengineDist]:
         a = se.S(modulus)
         var = se.S(variable)
-        require_single_valued(sp.sympify(self._s_func), variable, f"{variable} % {modulus}")
+        function = sp.sympify(self._s_func)
+        require_single_valued(function, variable, f"{variable} % {modulus}")
 
-        # This should be a faster variant for univariate distributions.
-        if self._variables == {var}:
-            result = []
-            for remainder in range(int(modulus)):
-                other = SymengineDist(f"({var}^{remainder})/(1-{var}^{modulus})", *self._variables)
-                result.append(self.hadamard_product(other))
-            return result
+        # Univariate rational functions: exact multisection without roots of unity, which SymEngine
+        # cannot simplify away.
+        if self._variables == {var} and function.is_rational_function(sp.Symbol(variable)):
+            return [SymengineDist(se.sympify(section), *self._variables)
+                    for section in rational_multisection(function, sp.Symbol(variable), int(modulus))]
 
-        # This is the general algorithm
-        primitive_uroot = se.exp(2 * se.pi * se.I / a)
+        # This is the general algorithm. The q-th roots of unity are written as cos + I*sin, which SymEngine
+        # evaluates for small q (exp(2*I*pi/q) stays unevaluated).
+        q = int(a)  # type: ignore
+        roots = [se.cos(2 * se.pi * k / q) + se.I * se.sin(2 * se.pi * k / q) for k in range(q)]
         result = []
-        for remainder in range(int(a)):  # type: ignore
+        for remainder in range(q):
             psum = 0
-            for m in range(int(a)):  # type: ignore
-                psum += primitive_uroot ** (-m *
-                                            remainder) * self.safe_subs(
-                    var, (primitive_uroot ** m) * var)
+            for m in range(q):
+                psum += roots[(-m * remainder) % q] * self.safe_subs(var, roots[m] * var)
             result.append(
                 SymengineDist(f"(1/{a}) * ({psum})", *self._variables)
             )
