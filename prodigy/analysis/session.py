@@ -529,6 +529,8 @@ class AnalysisSession:
         self.warnings: List[str] = []
         # bounds of a loop strategy for the queries right after its loop (LoopOutcome.query_bounds)
         self._loop_query_bounds: Dict[Tuple[str, str], Tuple[Any, Any]] = {}
+        # exact query values on the distribution the loop returned (LoopOutcome.query_values)
+        self._loop_query_values: Tuple[Any, Dict[Tuple[str, str], Any]] = (None, {})
         self.log = io.StringIO()
         self._scopes: List[_Scope] = [_Scope(silent=False)]
         self._query_index = 0
@@ -672,6 +674,7 @@ class AnalysisSession:
         scope = self.scope
         if not self.silent:
             self._loop_query_bounds = self._sound_query_bounds(scope.kind, outcome.query_bounds)
+            self._loop_query_values = (outcome.distribution, dict(outcome.query_values))
         scope.kind = Bound.combine(scope.kind, outcome.kind)
         if outcome.kind == Bound.LOWER and not self.silent:
             from prodigy.analysis.result import sym  # pylint: disable=import-outside-toplevel
@@ -694,12 +697,28 @@ class AnalysisSession:
 
     def on_instruction(self, instruction: Any) -> None:
         """Called for every instruction before it is executed (see ``compute_semantics``)."""
-        if self._loop_query_bounds and not isinstance(instruction, _QUERY_INSTRS):
+        if not isinstance(instruction, _QUERY_INSTRS):
             self._loop_query_bounds = {}
+            self._loop_query_values = (None, {})
 
     def loop_query_bounds(self, kind: str, expression: str) -> Optional[Tuple[Any, Any]]:
         """Bounds that the strategy of the loop right before this query computed for it."""
         return self._loop_query_bounds.get((kind, expression))
+
+    def same_measure(self, before: Any, after: Any) -> None:
+        """Notes that ``after`` is the same measure as ``before`` (e.g. ``before`` divided by one), so
+        that the query values of the loop that returned ``before`` hold for ``after`` as well."""
+        returned, values = self._loop_query_values
+        if returned is not None and before is returned:
+            self._loop_query_values = (after, values)
+
+    def loop_query_value(self, kind: str, expression: str, distribution: Any) -> Optional[Any]:
+        """The exact value of a query that the strategy of the loop right before it computed, if
+        ``distribution`` is the very distribution that loop returned (``None`` otherwise)."""
+        returned, values = self._loop_query_values
+        if returned is None or distribution is not returned:
+            return None
+        return values.get((kind, expression))
 
     def note(self, task: LoopTask, message: str) -> None:
         record = task.record

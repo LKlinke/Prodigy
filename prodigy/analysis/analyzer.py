@@ -141,9 +141,14 @@ def compute_semantics(
     elif isinstance(instruction, get_args(Query)):
         logger.info("%s gets handled", instruction)
         if config.normalize:
-            distribution, error_prob = condition_distribution(
+            unconditioned = error_prob.is_zero_dist()
+            conditioned, error_prob = condition_distribution(
                 distribution, error_prob,
                 config)  # evaluate queries on conditioned distribution
+            if unconditioned:
+                # dividing by one does not change the measure
+                current_session().same_measure(distribution, conditioned)
+            distribution = conditioned
             error_prob *= "0"
         return QueryHandler.compute(instruction, prog_info, distribution,
                                     error_prob, config, compute_semantics)

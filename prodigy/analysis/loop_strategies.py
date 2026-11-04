@@ -189,6 +189,11 @@ class LoopOutcome:
     ``(kind, expression) -> (lower, upper)`` with kind ``"?Pr"`` or ``"?Ex"`` and ``None`` for an
     unknown side. They refer to the incoming distribution of the loop and tighten the intervals of
     exactly these queries (e.g. the upper bounds of an EVT super-invariant)."""
+    query_values: Dict[Tuple[str, str], Any] = field(default_factory=dict)
+    """Exact values of the queries directly after the loop on ``distribution`` itself, keyed like
+    ``query_bounds``, if the strategy knows them anyway (e.g. from its certificate). They must be
+    exactly what evaluating the query on ``distribution`` gives; the query handler then skips that
+    evaluation, which can be expensive for large closed forms."""
 
 
 @dataclass
