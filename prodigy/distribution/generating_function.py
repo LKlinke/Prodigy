@@ -13,6 +13,7 @@ from sympy.assumptions.assume import global_assumptions
 from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
 from prodigy.distribution.exact_division import divide_exponents
+from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
 from prodigy.pgcl.parser import parse_expr
@@ -287,6 +288,7 @@ class GeneratingFunction(Distribution):
         """
         a = _parse_to_sympy(modulus)
         var = _sympy_symbol(variable)
+        require_single_valued(self._function, variable, f"{variable} % {modulus}")
 
         # This should be a faster variant for univariate distributions.
         if self._variables == {var} and self._function.is_rational_function():
