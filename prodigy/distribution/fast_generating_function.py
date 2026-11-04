@@ -4,10 +4,11 @@ from typing import (Dict, FrozenSet, Generator, Iterator, List, Set, Tuple, Type
                     Union)
 
 import prodigy_ginac  # type: ignore
-from sympy import Expr as Expr_, Symbol, nan, parse_expr, sympify
+from sympy import Expr as Expr_, Symbol, parse_expr
 from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
 from prodigy.distribution.exact_division import divide_exponents
+from prodigy.distribution.negative_values import can_be_negative, operand, require_non_negative
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
@@ -296,20 +297,15 @@ class FPS(Distribution):
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> Distribution:
+        # The bindings decide subtractions with a constant exactly (`filterLess`/`filterGreater` on the series), and
+        # subtractions of two variables only on finite supports; decide the latter here for every support.
+        variables = self.get_variables() | {temp_var}
+        if str(sub_from) in variables and str(sub) in variables:
+            require_non_negative(
+                can_be_negative(self._sympy_function(), {Symbol(var) for var in variables},
+                                operand(sub_from, variables), operand(sub, variables)),
+                temp_var, sub_from, sub)
         res = self._dist.update_subtraction(temp_var, str(sub_from), str(sub))
-
-        variables = self.get_variables()
-        if sub_from in variables and sub in variables and not self.is_finite():
-            # TODO this should be implemented in GiNaC, which might not be possible
-            test = sympify(str(res))
-            for var in self._variables - {temp_var}:
-                test = test.limit(sympify(var), 1)
-            test = test.subs(sympify(temp_var), 0)
-            if test.has(sympify("zoo")) or test == nan:
-                raise ValueError(
-                    f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it can be negative"
-                )
-
         return FPS.from_dist(res, self._variables, self._parameters)
 
     def _update_modulo(self, temp_var: str, left: str | int, right: str | int,

@@ -16,7 +16,7 @@ from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
 from prodigy.distribution.equality import decide_equal
 from prodigy.distribution.exact_division import divide_exponents
-from prodigy.distribution.negative_values import has_negative_powers
+from prodigy.distribution.negative_values import can_be_negative, require_non_negative as _require_non_negative
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
@@ -732,24 +732,9 @@ class GeneratingFunction(Distribution):
         gf = GeneratingFunction(result,
                                 *self._variables).set_parameters(
             *self.get_parameters())
-        marginal: sympy.Expr = gf.marginal(temp_var)._function
-        infinities = (sympy.zoo, sympy.nan, sympy.oo, -sympy.oo)
-        negative: bool | None
-        if marginal.has(*infinities, sympy.Limit):
-            # Another variable has infinite mass, e.g. in the second-order generating functions of the equivalence
-            # check, so the marginal cannot decide; decide exactly on the joint function.
-            negative = has_negative_powers(result, update_var)
-            if negative is None:
-                raise ValueError(
-                    f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it cannot be proven that it is "
-                    "never negative"
-                )
-        else:
-            negative = marginal.subs(update_var, 0).has(*infinities)
-        if negative:
-            raise ValueError(
-                f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it can be negative"
-            )
+        _require_non_negative(
+            can_be_negative(self._function, set(self._variables) | {update_var}, sub_1, sub_2),
+            temp_var, sub_from, sub)
         return gf
 
     def _update_product(self, temp_var: str, first_factor: str,
