@@ -609,8 +609,13 @@ def _strategy_evt_sandwich(task: LoopTask) -> LoopOutcome:
         certificate[name] = summary
     query_bounds = {(bound.query.kind, bound.query.text): (_exact(bound.lower), _exact(bound.upper))
                     for bound in result.bounds}
+    # the values on the lower bound itself, computed from the certificate (no epilogue: `lower` is its exit part)
+    query_values = {}
+    if problem.epilogue == ("seq", []):
+        query_values = {(bound.query.kind, bound.query.text): _exact(bound.value)
+                        for bound in result.bounds if bound.value is not None}
     return LoopOutcome(lower, task.error_prob, kind=Bound.LOWER, residual=residual, certificate=certificate,
-                       query_bounds=query_bounds)
+                       query_bounds=query_bounds, query_values=query_values)
 
 
 register_loop_strategy(LoopStrategy(

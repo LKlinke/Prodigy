@@ -36,6 +36,10 @@ class QueryBound:
     query: Query
     lower: object
     upper: object
+    value: object = None
+    """The exact value of the query on the output of the lower certificate (``None`` without one or if it is
+    infinite): ``L(A)`` for ``?Pr[A]`` and ``E_L[e]`` for ``?Ex[e]``.  It equals what evaluating the query on the
+    generating function of the lower bound gives, so callers need not expand that (often huge) closed form."""
 
     def to_json(self) -> dict:
         out = dict(query=f"{self.query.kind}[{self.query.text}]", lower=str(self.lower), upper=str(self.upper),
@@ -314,17 +318,17 @@ def query_bounds(problem: LoopProblem, lower: Optional[Certificate], upper: Opti
         uac = upper_mass(("not", event), (k, flip))
         lo = max(la, l_mass - uac) if uac != INF else la
         hi = min(ua, mass_hi - lac)
-        return lo, hi
+        return lo, hi, la
 
     out = []
     for k, q in enumerate(problem.queries):
         if q.kind == "?Pr":
-            lo, hi = event_bounds(q.expr, k)
-            out.append(QueryBound(q, lo, hi))
+            lo, hi, la = event_bounds(q.expr, k)
+            out.append(QueryBound(q, lo, hi, la if lower else None))
         else:
             lo = _moment_bound(lower.calc, lpost, q.expr) if lower else Fraction(0)
             hi = _moment_bound(upper.calc, upost, q.expr) if upper is not None and upost is not None else INF
-            out.append(QueryBound(q, lo, hi))
+            out.append(QueryBound(q, lo, hi, lo if lower and lo != INF else None))
     return out, (mass_lo, mass_hi)
 
 
