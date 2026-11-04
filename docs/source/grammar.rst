@@ -32,3 +32,15 @@ natural numbers only:
 
 .. automodule:: prodigy.distribution.linear_guards
    :no-index:
+
+Modulo
+------
+
+``x % q`` with a natural number ``q`` can be used on infinite distributions, both in guards
+(``x % 2 = 0``) and in assignments. The residue classes are extracted with complex roots of unity,
+which is exact if the generating function is rational in ``x`` (more generally, single-valued, see
+below). On other generating functions, e.g. after a loop whose invariant contains a root, the
+instruction is rejected:
+
+.. automodule:: prodigy.distribution.roots_of_unity
+   :no-index:

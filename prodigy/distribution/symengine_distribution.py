@@ -21,6 +21,7 @@ from prodigy.pgcl.parser import parse_expr
 
 from prodigy.distribution import Distribution
 from prodigy.distribution.exact_division import divide_exponents
+from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.distribution import MarginalType, State, CommonDistributionsFactory, DistributionParam
 from prodigy.util.logger import log_setup
 from prodigy.util.order import default_monomial_iterator
@@ -369,6 +370,7 @@ class SymengineDist(Distribution):
     def _arithmetic_progression(self, variable: str, modulus: str) -> Sequence[SymengineDist]:
         a = se.S(modulus)
         var = se.S(variable)
+        require_single_valued(sp.sympify(self._s_func), variable, f"{variable} % {modulus}")
 
         # This should be a faster variant for univariate distributions.
         if self._variables == {var}:
