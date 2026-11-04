@@ -119,50 +119,69 @@ def test_equivalence_loop_free_benchmarks(engine, file_path):
     assert res
     assert subs == []
 
+LOOPY_DIR = "pgfexamples/equivalence/loopy"
+
+# Programs marked `# skip` in their first line, with the reason. A new skip needs an entry here.
+LOOPY_SKIPPED = {
+    "condand": "the loop has no closed-form invariant (see invariants/condand_invariant.pgcl), "
+               "so there is nothing to check equivalence against",
+}
+
+
+def _loopy_invariants(file_path: str) -> tuple[str, list[str]]:
+    """The loop-free counterpart of a loopy example and the invariants for its loops.
+
+    The counterpart is ``invariants/<name>_invariant.pgcl``. A program with several loops has one
+    invariant per loop, ``invariants/<name>_invariant1.pgcl``, ``..._invariant2.pgcl`` and so on, in
+    the order the analysis asks for them (pgfexamples/README.md); for nested loops the invariant of
+    the outermost loop is the counterpart, so ``<name>_invariant.pgcl`` may be missing then.
+    """
+    stem = os.path.join(os.path.dirname(file_path), "invariants",
+                        os.path.basename(file_path).removesuffix(".pgcl"))
+    numbered = []
+    while isfile(f"{stem}_invariant{len(numbered) + 1}.pgcl"):
+        numbered.append(f"{stem}_invariant{len(numbered) + 1}.pgcl")
+    counterpart = f"{stem}_invariant.pgcl"
+    if not isfile(counterpart):
+        assert numbered, f"no invariant for {file_path}"
+        counterpart = numbered[0]
+    return counterpart, numbered or [counterpart]
+
+
 @pytest.mark.parametrize(
     "engine",
-    [ ForwardAnalysisConfig.Engine.GINAC,ForwardAnalysisConfig.Engine.SYMPY,
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY,
      # ForwardAnalysisConfig.Engine.SYMENGINE
      ]
 )
 @pytest.mark.parametrize(
-    "file_path",
-    [y for x in os.walk("pgfexamples/equivalence/loopy") for y in glob(os.path.join(x[0], '*.pgcl')) if
-     not "invariants" in y]
+    "file_path", sorted(glob(os.path.join(LOOPY_DIR, "*.pgcl"))), ids=lambda path: os.path.basename(path)
 )
 def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
-    # FIXME this file leads to timeouts
-    if "17_die_even" in file_path:
-        pytest.skip()
+    with open(file_path, "r", encoding="utf-8") as f:
+        source = f.read()
+    name = os.path.basename(file_path).removesuffix(".pgcl")
+    if source.split("\n", 1)[0].lstrip("#").strip() == "skip":
+        assert name in LOOPY_SKIPPED, f"{file_path} is marked as skipped without a reason in LOOPY_SKIPPED"
+        pytest.skip(LOOPY_SKIPPED[name])
+    assert name not in LOOPY_SKIPPED, f"{file_path} is in LOOPY_SKIPPED but not marked as skipped"
 
-    # Read the body of the program files
-    with open(file_path, "r") as f:
-        lines = f.readlines()
-        if "skip" in lines[0]:
-            pytest.skip("File marked as skipped")
-        file = "\n".join(lines)
+    counterpart, invariants = _loopy_invariants(file_path)
+    with open(counterpart, "r", encoding="utf-8") as f:
+        other_source = f.read()
 
-    invariant_path = file_path.replace("loopy/", "loopy/invariants/").replace(".pgcl", "_invariant.pgcl")
-    if not isfile(invariant_path):
-        pytest.skip("File has multiple invariants")
+    prog1 = compile_pgcl(source)
+    prog2 = compile_pgcl(other_source)
+    assert isinstance(prog1, Program)
+    assert isinstance(prog2, Program)
 
-    with open(invariant_path, "r") as f:
-        inv = "\n".join(f.readlines())
-
-    # Compile them to a program object
-    prog1 = compile_pgcl(file)
-    prog2 = compile_pgcl(inv)
-
-    assert (isinstance(prog1, Program))
-    assert (isinstance(prog2, Program))
-
-    inputs = iter(["1", invariant_path])
-    # Simulate the input for the invariant files
+    # The analysis asks for every loop: strategy 1 (invariant), then the invariant file.
+    inputs = iter([answer for invariant in invariants for answer in ("1", invariant)])
     with monkeypatch.context() as m:
-        m.setattr("builtins.input", lambda _: next(inputs))  # Select invariant file1
-        # Run the main program
+        m.setattr("builtins.input", lambda _: next(inputs))
         res, subs = check_equivalence(prog1, prog2, ForwardAnalysisConfig(engine=engine), compute_semantics)
 
+    assert next(inputs, None) is None, "not every invariant was used"
     assert res
     assert subs == []
 
