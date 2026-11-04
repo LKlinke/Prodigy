@@ -19,7 +19,7 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 class ITEHandler(InstructionHandler):
     @staticmethod
     def compute(
-            instruction: Instr, prog_info: ProgramInfo,
+            instruction: Union[Instr, Sequence[Instr]], prog_info: ProgramInfo,
             distribution: Distribution, error_prob: Distribution,
             config: ForwardAnalysisConfig,
             analyzer: Callable[
@@ -27,7 +27,7 @@ class ITEHandler(InstructionHandler):
                 tuple[Distribution, Distribution]
             ]
     ) -> tuple[Distribution, Distribution]:
-        _assume(instruction, IfInstr, 'ITEHandler')
+        instruction = _assume(instruction, IfInstr, 'ITEHandler')
 
         logger.info("Filtering the guard %s", instruction.cond)
         sat_part = distribution.filter(instruction.cond)

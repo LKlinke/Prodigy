@@ -18,7 +18,7 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 class ObserveHandler(InstructionHandler):
     @staticmethod
     def compute(
-            instruction: Instr, prog_info: ProgramInfo,
+            instruction: Union[Instr, Sequence[Instr]], prog_info: ProgramInfo,
             distribution: Distribution, error_prob: Distribution,
             config: ForwardAnalysisConfig,
             analyzer: Callable[
@@ -26,7 +26,7 @@ class ObserveHandler(InstructionHandler):
                 tuple[Distribution, Distribution]
             ]
     ) -> tuple[Distribution, Distribution]:
-        _assume(instruction, ObserveInstr, 'ObserverHandler')
+        instruction = _assume(instruction, ObserveInstr, 'ObserverHandler')
 
         sat_part = distribution.filter(instruction.cond)
         unsat_part = distribution - sat_part

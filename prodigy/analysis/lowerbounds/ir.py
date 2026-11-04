@@ -104,7 +104,9 @@ def split_program(program: Program) -> Tuple[List[Instr], WhileInstr, List[Instr
     if len(loops) != 1:
         raise UnsupportedProgram(f"expected exactly one top-level loop, found {len(loops)}")
     k = loops[0]
-    return list(program.instructions[:k]), program.instructions[k], list(program.instructions[k + 1:])
+    loop = program.instructions[k]
+    assert isinstance(loop, WhileInstr)
+    return list(program.instructions[:k]), loop, list(program.instructions[k + 1:])
 
 
 def queries_of(instructions: Sequence[Instr]) -> List[Tuple[str, IR, str]]:

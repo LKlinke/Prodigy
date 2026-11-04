@@ -317,12 +317,14 @@ def invariant_synthesis(ctx, program_file: IO, invariant: str, input_dist: str):
     # Create the strategy to do invariant synthesis and start synthesis.
     strategy = SynthesisStrategies.from_config(config, prog.variables.keys())
     start = time.perf_counter()
+    loop = prog.instructions[loops.index(1)]
+    assert isinstance(loop, WhileInstr)
     if invariant:
         invariant_dist = config.factory.from_expr(invariant, *prog.variables.keys())
-        evt_invariant_verification(prog.instructions[loops.index(1)],
+        evt_invariant_verification(loop,
                                    ProgramInfo(prog), dist, invariant_dist, config, compute_semantics)
     else:
-        evt_invariant_synthesis(prog.instructions[loops.index(1)],
+        evt_invariant_synthesis(loop,
                                             ProgramInfo(prog), dist, config, strategy, compute_semantics)
 
     stop = time.perf_counter()

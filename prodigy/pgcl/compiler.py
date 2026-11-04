@@ -11,7 +11,7 @@ Refer to :mod:`prodigy.pgcl.parser` and :mod:`prodigy.pgcl.check` for the parser
 Variable/constant substituion is implemented in :mod:`prodigy.pgcl.substitute`.
 """
 
-from typing import Dict, List, Union
+from typing import List, Mapping, Union
 
 from prodigy.pgcl import substitute
 from prodigy.pgcl.util.ref import Mut
@@ -26,7 +26,7 @@ def compile_pgcl(
     code: str,
     *,
     substitute_constants=True,
-    predefined_functions: Dict[Var,
+    predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions
 ) -> Union[Program, CheckFail]:
     """
@@ -58,7 +58,7 @@ def compile_expr(
     code: str,
     *,
     substitute_constants=True,
-    predefined_functions: Dict[Var,
+    predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions
 ) -> Union[Expr, CheckFail]:
     """
@@ -85,7 +85,7 @@ def compile_expectation(
     code: str,
     *,
     substitute_constants=True,
-    predefined_functions: Dict[Var,
+    predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions
 ) -> Union[Expr, CheckFail]:
     """

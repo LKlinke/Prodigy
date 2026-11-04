@@ -18,7 +18,7 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 class LoopHandler(InstructionHandler):
     @staticmethod
     def compute(
-            instruction: Instr,
+            instruction: Union[Instr, Sequence[Instr]],
             prog_info: ProgramInfo,
             distribution: Distribution,
             error_prob: Distribution,
@@ -28,7 +28,7 @@ class LoopHandler(InstructionHandler):
                 tuple[Distribution, Distribution]
             ]
     ) -> tuple[Distribution, Distribution]:
-        _assume(instruction, LoopInstr, 'LoopHandler')
+        instruction = _assume(instruction, LoopInstr, 'LoopHandler')
         for i in range(instruction.iterations.value):
             logger.info("Computing iteration %d out of %d", i + 1,
                         instruction.iterations.value)

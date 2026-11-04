@@ -1,4 +1,4 @@
-from typing import List, Union, get_args
+from typing import List, Union
 
 import sympy
 from prodigy.pgcl import Expr, OptimizationType, VarExpr
@@ -23,7 +23,7 @@ class GFOptimizer(Optimizer):
                 "We currently do not support multivariate optimization.")
 
         # Make sure, that the condition is a parsed expression.
-        if not isinstance(condition, get_args(Expr)):
+        if isinstance(condition, str):
             expr = parse_expr(condition)
         else:
             expr = condition

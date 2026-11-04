@@ -26,7 +26,7 @@ class QueryHandler(InstructionHandler):
 
     @staticmethod
     def compute(
-            instruction: Instr, prog_info: ProgramInfo,
+            instruction: Union[Instr, Sequence[Instr]], prog_info: ProgramInfo,
             distribution: Distribution, error_prob: Distribution,
             config: ForwardAnalysisConfig,
             analyzer: Callable[
