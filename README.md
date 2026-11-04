@@ -1,3 +1,5 @@
+<img src="icon.svg" alt="Prodigy icon" width="96" align="right">
+
 # prodigy: PRObability DIstributions via GeneratingfunctionologY
 
 prodigy is a prototypical tool for the analysis of probabilistic non-negative integer programs with `while`-loops. It is based on (probability) generating functions.

@@ -38,6 +38,8 @@ templates_path = ['_templates']
 
 # Furo follows the system's light or dark mode.
 html_theme = 'furo'
+html_logo = '../../icon.svg'
+html_favicon = '../../prodigy/web/static/app/favicon.svg'
 html_title = f'Prodigy {release}'
 html_theme_options = {
     'source_repository': 'https://github.com/LKlinke/Prodigy/',
