@@ -1542,17 +1542,7 @@ class SympyPGF(CommonDistributionsFactory):
                                   finite=True)
 
     @staticmethod
-    def zero(*variables: Union[str, sympy.Symbol]) -> GeneratingFunction:
-        if variables:
-            return GeneratingFunction("0",
-                                      *variables,
-                                      closed=True,
-                                      finite=True)
-        return GeneratingFunction("0", closed=True, finite=True)
-
-    @staticmethod
-    def undefined(*variables: Union[str, VarExpr]) -> GeneratingFunction:
-        """ A distribution where actually no information about the states is given."""
+    def zero(*variables: Union[str, VarExpr]) -> GeneratingFunction:
         return GeneratingFunction("0",
                                   *variables,
                                   closed=True,

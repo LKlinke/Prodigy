@@ -71,14 +71,14 @@ class TestDistributionInterface:
         g = SymengineDist("x")
 
         # SymengineDist * int
-        assert g * 0 == SymenginePGF.undefined("x")
+        assert g * 0 == SymenginePGF.zero("x")
 
         # SymengineDist * float
         # TODO ".0" is addes and breaks equality
         assert g * 0.0 == SymenginePGF.from_expr("0.0", "x")
 
         # SymengineDist * string
-        assert g * "0" == SymenginePGF.undefined("x")
+        assert g * "0" == SymenginePGF.zero("x")
 
         # No other types allowed
         with pytest.raises(SyntaxError, match=re.escape("You cannot multiply")):
@@ -92,7 +92,7 @@ class TestDistributionInterface:
 
         # x - x should be 0 (with variable "x")
         h = SymengineDist("x", "x")
-        assert g - h == SymenginePGF.undefined("x")
+        assert g - h == SymenginePGF.zero("x")
 
         g = SymengineDist("x + 2", "x")
         res = SymengineDist("x", "x")
@@ -118,7 +118,7 @@ class TestDistributionInterface:
 
         # Division by zero results in se.zoo
         # TODO is this intended? Should a div by zero check be implemented?
-        h = SymenginePGF.undefined("x")
+        h = SymenginePGF.zero("x")
         assert g / h == SymenginePGF.from_expr("zoo", "x")
 
         g = SymengineDist("2 * x", "x")
@@ -307,14 +307,14 @@ class TestDistributionInterface:
         gf = SymengineDist("(1-sqrt(1-x**2))/x")
         assert gf.get_probability_of(parse_expr("x <= 3")) == "5/8"
 
-        gf = SymenginePGF.undefined("z", "y")
+        gf = SymenginePGF.zero("z", "y")
         assert gf.get_probability_of(parse_expr("not (z*y < 12)")) == "0"
 
     def test_get_probability_mass(self):
         gf = SymengineDist("(1-sqrt(1-x**2))/x")
         assert gf.get_probability_mass() == "1"
 
-        gf = SymenginePGF.undefined("x")
+        gf = SymenginePGF.zero("x")
         assert gf.get_probability_mass() == "0"
 
         gf = SymenginePGF.uniform("x", "3", "10")
@@ -324,7 +324,7 @@ class TestDistributionInterface:
         gf = SymengineDist("(1-sqrt(1-x**2))/x")
         assert gf.get_expected_value_of("x") == "Infinity"
 
-        gf = SymenginePGF.undefined("x")
+        gf = SymenginePGF.zero("x")
         assert gf.get_expected_value_of("x") == "0"
 
         gf = SymenginePGF.uniform("x", "3", "10")
@@ -386,7 +386,7 @@ class TestDistributionInterface:
             f"Should be {{'a', 'b'}}, is {gf.get_parameters()}."
 
     def test_filter(self):
-        gf = SymenginePGF.undefined("x", "y")
+        gf = SymenginePGF.zero("x", "y")
         assert gf.filter(parse_expr("x*3 < 25*y")) == gf
 
         # check filter on infinite GF
@@ -412,13 +412,13 @@ class TestDistributionInterface:
     def test_is_zero_dist(self):
         gf = create_random_gf(4, 10)
         # Sometimes Symengine is not sure whether it's a zero dist
-        assert (gf == SymenginePGF.undefined(*gf.get_variables())) == gf.is_zero_dist() or gf.is_zero_dist() is None
+        assert (gf == SymenginePGF.zero(*gf.get_variables())) == gf.is_zero_dist() or gf.is_zero_dist() is None
 
-        gf = SymenginePGF.undefined("x")
-        assert (gf == SymenginePGF.undefined(*gf.get_variables())) == gf.is_zero_dist()
+        gf = SymenginePGF.zero("x")
+        assert (gf == SymenginePGF.zero(*gf.get_variables())) == gf.is_zero_dist()
 
         gf = SymenginePGF.from_expr("x - x", "x")
-        assert (gf == SymenginePGF.undefined(*gf.get_variables())) == gf.is_zero_dist()
+        assert (gf == SymenginePGF.zero(*gf.get_variables())) == gf.is_zero_dist()
 
         gf = SymenginePGF.one("")
         assert not gf.is_zero_dist()
@@ -595,13 +595,13 @@ class TestDistributionInterface:
         updated_gf = gf.update(BinopExpr(Binop.EQ, VarExpr('c'), BinopExpr(Binop.PLUS, VarExpr('c'), NatLitExpr(1))))
         assert updated_gf == SymengineDist("c*(1-sqrt(1-c**2))/c")
 
-        gf = SymenginePGF.undefined("x")
+        gf = SymenginePGF.zero("x")
         expr = BinopExpr(
             Binop.EQ, VarExpr('x'),
             BinopExpr(Binop.PLUS,
                       BinopExpr(Binop.TIMES, VarExpr('x'), NatLitExpr(5)),
                       NatLitExpr(1)))
-        assert gf.update(expr) == SymenginePGF.undefined("x")
+        assert gf.update(expr) == SymenginePGF.zero("x")
 
         gf = SymenginePGF.uniform("x", "0", "5")
         expr = BinopExpr(Binop.EQ, VarExpr('x'),
@@ -663,7 +663,7 @@ class TestDistributionInterface:
             "1/2*x + 1/4*x**2 + 1/8 * x**3 + 1/16 * x**4"
             "+ 1/32 * x**5 + 1/64 * x**6 + 1/128 * x**7")
 
-        gf = SymenginePGF.undefined("x", 'y')
+        gf = SymenginePGF.zero("x", 'y')
         for dist in gf.approximate(10):
             assert dist.is_zero_dist()
 
