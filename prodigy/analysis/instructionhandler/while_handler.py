@@ -110,7 +110,7 @@ def _positivity(config: ForwardAnalysisConfig, variables, invariant: Any) -> Opt
     if nonneg_by_construction(str(invariant), [str(v) for v in variables]):
         return True
     try:
-        strategy: SynthesisStrategy = SynthesisStrategies.make(config.strategy, variables, config.factory)
+        strategy: SynthesisStrategy = SynthesisStrategies.from_config(config, variables)
         verdict = strategy.positivity_heuristics.is_positive(sympy.S(str(invariant).replace("^", "**")))
         return verdict if verdict in (True, False) else None
     except Exception:  # pylint: disable=broad-except
@@ -393,8 +393,7 @@ def _strategy_evt_synthesis(task: LoopTask) -> LoopOutcome:
     logger.debug("Using invariant synthesis.")
 
     # Build the strategy.
-    strategy: SynthesisStrategy = SynthesisStrategies.make(config.strategy, prog_info.variables.keys(),
-                                                           config.factory)
+    strategy: SynthesisStrategy = SynthesisStrategies.from_config(config, prog_info.variables.keys())
 
     # generate the invariants using the strategy
     with task.session.sub_analysis("EVT invariant synthesis") as scope:

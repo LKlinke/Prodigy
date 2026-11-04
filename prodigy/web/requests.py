@@ -13,6 +13,8 @@ A request looks like::
       "coefficients": 30,                    # coefficients per marginal in the result
       "record_steps": false,
       "synthesis_strategy": "default",       # for EVT invariant synthesis
+      "template_heuristic": "default",       # only with synthesis_strategy "from_heuristics"
+      "positivity_heuristic": "default",     # only with synthesis_strategy "from_heuristics"
       "solver": "sympy" | "z3"
     }
 """
@@ -32,7 +34,9 @@ MAX_COEFFICIENTS = 200
 def validate_request(request: Dict[str, Any]) -> List[str]:
     """Problems that can be found without running the analysis."""
     # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.evtinvariants.heuristics.strategies import SELECTABLE_POSITIVITY_HEURISTICS
     from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
+    from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
     from prodigy.analysis.session import parse_decisions, validate_decisions
     from prodigy.analysis.solver.solver_type import SolverType
 
@@ -49,6 +53,10 @@ def validate_request(request: Dict[str, Any]) -> List[str]:
         problems.append("Coefficients must be a number.")
     if str(request.get("synthesis_strategy", "default")).upper() not in SynthesisStrategies.__members__:
         problems.append(f"Unknown synthesis strategy {request.get('synthesis_strategy')!r}.")
+    if str(request.get("template_heuristic", "default")).upper() not in TemplateHeuristics.__members__:
+        problems.append(f"Unknown template heuristic {request.get('template_heuristic')!r}.")
+    if str(request.get("positivity_heuristic", "default")).lower() not in SELECTABLE_POSITIVITY_HEURISTICS:
+        problems.append(f"Unknown positivity heuristic {request.get('positivity_heuristic')!r}.")
     if str(request.get("solver", "sympy")).upper() not in SolverType.__members__:
         problems.append(f"Unknown solver {request.get('solver')!r}.")
     try:
@@ -62,13 +70,17 @@ def validate_request(request: Dict[str, Any]) -> List[str]:
 def make_config(request: Dict[str, Any]):
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.config import ForwardAnalysisConfig
+    from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
     from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
+    from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
     from prodigy.analysis.solver.solver_type import SolverType
     return ForwardAnalysisConfig(
         engine=ForwardAnalysisConfig.Engine[str(request.get("engine", "sympy")).upper()],
         use_simplification=bool(request.get("simplification", True)),
         normalize=bool(request.get("normalize", True)),
         strategy=SynthesisStrategies[str(request.get("synthesis_strategy", "default")).upper()],
+        templ_heuristic=TemplateHeuristics[str(request.get("template_heuristic", "default")).upper()],
+        positivity_heuristic=PositivityHeuristics[str(request.get("positivity_heuristic", "default")).upper()],
         solver_type=SolverType[str(request.get("solver", "sympy")).upper()],
     )
 

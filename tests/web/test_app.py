@@ -111,3 +111,23 @@ def test_examples(client):
     decision = loaded["suggestion"]["decisions"]["0"]
     assert decision["strategy"] == "invariant" and "geometric(1/2)" in decision["params"]["invariant"]
     assert client.get("/api/examples/../../pyproject.toml", headers=HOST).status_code == 404
+
+
+def test_from_heuristics_with_chosen_heuristics(client):
+    meta = client.get("/api/meta", headers=HOST).get_json()
+    assert "from_heuristics" in meta["synthesis_strategies"]
+    assert meta["template_heuristics"] == ["default", "poly"]
+    assert "polynomial" in meta["positivity_heuristics"] and "or" not in meta["positivity_heuristics"]
+    source = "nat x;\nx := 1\nwhile (x = 1) { {x := x - 1} [1/2] {skip} }\n"
+    rejected = client.post("/api/analyze", json={"source": source, "synthesis_strategy": "from_heuristics",
+                                                 "positivity_heuristic": "or"}, headers=HOST)
+    assert rejected.status_code == 400 and "positivity heuristic" in rejected.get_json()["error"]
+    response = client.post("/api/analyze", json={
+        "source": source, "engine": "sympy", "decisions": {"0": {"strategy": "evt_synthesis"}},
+        "synthesis_strategy": "from_heuristics", "template_heuristic": "poly",
+        "positivity_heuristic": "polynomial"}, headers=HOST)
+    assert response.status_code == 202
+    status = wait_for(client, response.get_json()["job"])
+    assert status["state"] == "done"
+    certificate = status["result"]["loops"][0]["certificates"][0]
+    assert certificate["synthesis_strategy"] == "FROM_HEURISTICS" and certificate["invariant"] == "2*x + 1"

@@ -21,10 +21,10 @@ from prodigy.pgcl.check import CheckFail
 
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.exceptions import UnsupportedFeatureError
+from prodigy.analysis.exceptions import HeuristicsError, UnsupportedFeatureError
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
-from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
+from prodigy.analysis.evtinvariants.heuristics.strategies import SELECTABLE_POSITIVITY_HEURISTICS, SynthesisStrategies
 from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
 from prodigy.analysis.evtinvariants.invariant_verification import evt_invariant_verification
@@ -46,7 +46,7 @@ class _CliGroup(click.Group):
     def invoke(self, ctx: click.Context) -> Any:
         try:
             return super().invoke(ctx)
-        except UnsupportedFeatureError as exc:
+        except (UnsupportedFeatureError, HeuristicsError) as exc:
             raise click.ClickException(str(exc)) from exc
 
 
@@ -54,10 +54,20 @@ class _CliGroup(click.Group):
 @click.group(cls=_CliGroup)
 @click.pass_context
 @click.option('--engine', type=str, required=False, default='')
-@click.option("--strategy", type=str, required=False, default='default')
+@click.option("--strategy",
+              type=click.Choice([name.lower() for name in SynthesisStrategies.__members__], case_sensitive=False),
+              required=False, default='default', show_default=True,
+              help="Strategy for EVT invariant synthesis. 'from_heuristics' combines the heuristics given with "
+                   "--template-heuristic and --pos-heuristic.")
 @click.option("--solver", type=str, required=False, default='sympy')
-@click.option("--template-heuristic", type=str, required=False, default='default')
-@click.option("--pos-heuristic", type=str, required=False, default='default')
+@click.option("--template-heuristic",
+              type=click.Choice([name.lower() for name in TemplateHeuristics.__members__], case_sensitive=False),
+              required=False, default=None,
+              help="Template heuristic for --strategy from_heuristics (default: default, rational functions).")
+@click.option("--pos-heuristic",
+              type=click.Choice(SELECTABLE_POSITIVITY_HEURISTICS, case_sensitive=False),
+              required=False, default=None,
+              help="Positivity heuristic for --strategy from_heuristics (default: default, i.e. mixed_rat_func).")
 @click.option('--intermediate-results', is_flag=True, required=False, default=False)
 @click.option("--stepwise", is_flag=True, required=False, default=False)
 @click.option('--no-simplification', is_flag=True, required=False, default=False)
@@ -65,12 +75,15 @@ class _CliGroup(click.Group):
 @click.option("--no-normalize", is_flag=True, required=False, default=False)
 @click.option("--show-all-invs", is_flag=True, required=False, default=False)
 def cli(ctx,
-        engine: str, strategy: str, solver: str, template_heuristic: str, pos_heuristic: str,
+        engine: str, strategy: str, solver: str, template_heuristic: Optional[str], pos_heuristic: Optional[str],
         intermediate_results: bool, stepwise: bool, no_simplification: bool, use_latex: bool, no_normalize: bool,
         show_all_invs: bool):
     ctx.ensure_object(dict)
     if solver.upper() not in SolverType.__members__:
         raise ValueError(f"Solver {solver} is not known.")
+    synthesis_strategy = SynthesisStrategies.__members__[strategy.upper()]
+    if synthesis_strategy != SynthesisStrategies.FROM_HEURISTICS and (template_heuristic or pos_heuristic):
+        raise click.UsageError("--template-heuristic and --pos-heuristic only apply to --strategy from_heuristics.")
     ctx.obj['CONFIG'] = \
         ForwardAnalysisConfig(
             engine=ForwardAnalysisConfig.Engine.GINAC if engine == 'ginac'
@@ -81,9 +94,9 @@ def cli(ctx,
             use_simplification=not no_simplification,
             use_latex=use_latex,
             normalize=not no_normalize,
-            strategy=SynthesisStrategies.__members__[strategy.upper()],
-            templ_heuristic=TemplateHeuristics.__members__[template_heuristic.upper()],
-            positivity_heuristic=PositivityHeuristics.__members__[pos_heuristic.upper()],
+            strategy=synthesis_strategy,
+            templ_heuristic=TemplateHeuristics.__members__[(template_heuristic or 'default').upper()],
+            positivity_heuristic=PositivityHeuristics.__members__[(pos_heuristic or 'default').upper()],
             show_all_invs=show_all_invs,
             solver_type=SolverType.__members__[solver.upper()]
         )
@@ -302,7 +315,7 @@ def invariant_synthesis(ctx, program_file: IO, invariant: str, input_dist: str):
                                   )
 
     # Create the strategy to do invariant synthesis and start synthesis.
-    strategy = SynthesisStrategies.make(config.strategy, prog.variables.keys(), config.factory)
+    strategy = SynthesisStrategies.from_config(config, prog.variables.keys())
     start = time.perf_counter()
     if invariant:
         invariant_dist = config.factory.from_expr(invariant, *prog.variables.keys())
@@ -420,9 +433,9 @@ def print_strategies():
 
 @cli.command()
 def print_pos_heuristics():
-    print("Currently implemented positivity heuristics are: ")
-    for heuristic in PositivityHeuristics:
-        print(heuristic.name)
+    print("Positivity heuristics for --pos-heuristic (with --strategy from_heuristics): ")
+    for name in SELECTABLE_POSITIVITY_HEURISTICS:
+        print(name.upper())
 
 
 @cli.command()

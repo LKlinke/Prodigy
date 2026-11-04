@@ -54,7 +54,9 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
                examples_dir: Optional[str] = None, default_engine: str = "sympy",
                host: str = "127.0.0.1", allowed_hosts: Sequence[str] = ()) -> Flask:
     # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.evtinvariants.heuristics.strategies import SELECTABLE_POSITIVITY_HEURISTICS
     from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
+    from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
     from prodigy.analysis.loop_strategies import loop_strategies
     from prodigy.analysis.result import prodigy_version
     from prodigy.web.diagnostics import check_source
@@ -119,6 +121,8 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
             "engines": _engine_info(default_engine),
             "strategies": strategies_json,
             "synthesis_strategies": [s.name.lower() for s in SynthesisStrategies],
+            "template_heuristics": [name.lower() for name in TemplateHeuristics.__members__],
+            "positivity_heuristics": list(SELECTABLE_POSITIVITY_HEURISTICS),
             "solvers": ["sympy", "z3"],
             "limits": {"time_limit": jobs.time_limit, "max_jobs": jobs.max_jobs,
                        "max_coefficients": MAX_COEFFICIENTS},
@@ -141,7 +145,8 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
             return jsonify({"error": " ".join(problems), "problems": problems}), 400
         analysis_request = {key: payload.get(key) for key in (
             "source", "input_distribution", "engine", "normalize", "simplification", "decisions",
-            "coefficients", "record_steps", "synthesis_strategy", "solver") if key in payload}
+            "coefficients", "record_steps", "synthesis_strategy", "template_heuristic",
+            "positivity_heuristic", "solver") if key in payload}
         try:
             job = jobs.submit(analysis_request, time_limit=payload.get("time_limit"))
         except BusyError as exc:
