@@ -69,6 +69,7 @@ def test_missing_decision_is_reported_not_asked():
     assert result["status"] == "needs_decision"
     assert result["error"]["loop"]["id"] == 0
     assert result["error"]["loop"]["line"] == 3
+    assert result["bounds"]["kind"] == Bound.UNKNOWN
 
 
 def test_unrolling_gives_sound_interval_with_residual_mass():
@@ -245,3 +246,31 @@ def test_prodigy_version_without_package_metadata(monkeypatch):
 
     monkeypatch.setattr(importlib.metadata, "version", missing)
     assert prodigy_version() == __version__ != "unknown"
+
+
+@pytest.mark.parametrize("engine", ["SYMPY", "SYMENGINE", "GINAC"])
+@pytest.mark.parametrize("invariant", ["(x + 1/3)/(1 - c/2)", "x/(1 - c)"])
+def test_refuted_invariant_carries_no_guarantee(engine, invariant):
+    # Issue #121: the error result used to report bounds.kind = "exact".
+    if engine == "GINAC":
+        pytest.importorskip("prodigy_ginac")
+    config = ForwardAnalysisConfig(engine=getattr(ForwardAnalysisConfig.Engine, engine),
+                                   use_simplification=True)
+    decisions = {"0": {"strategy": "evt_invariant", "params": {"invariant": invariant}}}
+    session = AnalysisSession(parse_pgcl(GEOMETRIC), source=GEOMETRIC, config=config,
+                              decisions=decisions, capture_output=True)
+    result = session.run().to_json()
+    assert result["status"] == "error"
+    assert result["bounds"]["kind"] == Bound.UNKNOWN
+    assert result["bounds"]["residual_mass"] is None
+    assert result["distribution"] is None
+    assert result["loops"][0]["kind"] == Bound.UNKNOWN and result["loops"][0]["failed"]
+
+
+@pytest.mark.parametrize("status", ["error", "needs_decision", "timeout", "cancelled"])
+def test_unsuccessful_result_never_reports_a_guarantee(status):
+    from prodigy.analysis.result import AnalysisResult  # pylint: disable=import-outside-toplevel
+    for kind in (Bound.EXACT, Bound.LOWER, Bound.UPPER):
+        result = AnalysisResult(status=status, bounds={"kind": kind, "residual_mass": "0"})
+        assert result.to_json()["bounds"]["kind"] == Bound.UNKNOWN
+    assert AnalysisResult(bounds={"kind": Bound.EXACT}).to_json()["bounds"]["kind"] == Bound.EXACT

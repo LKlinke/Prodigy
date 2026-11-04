@@ -41,6 +41,12 @@ were used for the loops (``bounds.kind``):
 * ``unknown``: no guaranteed direction (e.g. lower and upper approximations were mixed,
   or a side condition could not be checked); values are reported without interval.
 
+A result whose ``status`` is not ``ok`` (``error``, ``needs_decision``, and ``timeout`` or
+``cancelled`` from front ends) never carries a guarantee: its ``bounds.kind`` is ``unknown``
+(results made up by a front end may omit ``bounds``) and its residual mass is ``null``.
+Queries answered before the failure keep their own intervals, which were computed from the
+distribution at that point.
+
 Failed invariant checks
 -----------------------
 If a proposed invariant is not certified, ``status`` is ``error`` and ``error.verdict`` (also in
@@ -466,6 +472,20 @@ def bounds_explanation(kind: str, residual: Optional[str]) -> str:
             "combined or a side condition could not be checked.")
 
 
+def failure_bounds(status: str) -> Dict[str, Any]:
+    """``bounds`` of a result that did not finish (``status`` other than ``ok``): no guarantee.
+
+    The bound state of the session at the moment of a failure describes a distribution that was
+    never computed (e.g. the loop whose invariant was refuted has not been booked), so it must
+    not be reported."""
+    return {
+        "kind": Bound.UNKNOWN,
+        "residual_mass": None,
+        "residual_mass_float": None,
+        "explanation": f"No guarantee: the analysis did not finish (status '{status}').",
+    }
+
+
 # ---------------------------------------------------------------------------------------
 # Program outline
 # ---------------------------------------------------------------------------------------
@@ -540,6 +560,8 @@ class AnalysisResult:
         if distribution is not None:
             distribution["error_probability"] = self.error_probability
             distribution["error_probability_float"] = self.error_probability_float
+        # A result that did not finish never carries a guarantee, whoever set ``bounds``.
+        bounds = self.bounds if self.status == "ok" else failure_bounds(self.status)
         return {
             "schema": SCHEMA,
             "prodigy_version": prodigy_version(),
@@ -548,7 +570,7 @@ class AnalysisResult:
             "program": self.program,
             "input": self.input,
             "distribution": distribution,
-            "bounds": self.bounds,
+            "bounds": bounds,
             "queries": [q.to_json() for q in self.queries],
             "loops": self.loops,
             "steps": self.steps,
@@ -631,10 +653,7 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
                             "traceback": traceback.format_exc()}
 
     if result.status != "ok":
-        residual, residual_float = exact_and_float(session.residual)
-        result.bounds = {"kind": session.bound_kind, "residual_mass": residual,
-                         "residual_mass_float": residual_float,
-                         "explanation": bounds_explanation(session.bound_kind, residual)}
+        result.bounds = failure_bounds(result.status)
 
     result.queries = list(session.queries)
     result.loops = [record.to_json() for record in session.loop_records.values()]

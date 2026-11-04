@@ -150,6 +150,10 @@ session = AnalysisSession(parse_pgcl(source), source=source,
 result = session.run().to_json()      # schema "prodigy/analysis-result@1"
 ```
 
+`result["bounds"]["kind"]` (`exact`, `lower`, `upper`, `unknown`) is the guarantee of the
+result. It holds only for `result["status"] == "ok"`; a result that failed or stopped
+(`error`, `needs_decision`, `timeout`, `cancelled`) has kind `unknown` or no `bounds` at all.
+
 From the command line:
 
 ```sh
