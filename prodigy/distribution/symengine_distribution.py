@@ -1178,10 +1178,6 @@ class SymenginePGF(CommonDistributionsFactory):
         return SymengineDist(f"(({p})*{var} + (1-({p})))^({n})", str(var))
 
     @staticmethod
-    def undefined(*variables: Union[str, VarExpr]) -> SymengineDist:
-        return SymengineDist("0", *map(str, variables))
-
-    @staticmethod
     def zero(*variables: Union[str, VarExpr]) -> SymengineDist:
         return SymengineDist("0", *map(str, variables))
 

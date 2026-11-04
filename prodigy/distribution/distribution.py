@@ -834,8 +834,10 @@ class CommonDistributionsFactory(ABC):
 
     @staticmethod
     @abstractmethod
-    def undefined(*variables: Union[str, VarExpr]) -> Distribution:
-        """ A distribution where actually no information about the states is given."""
+    def zero(*variables: Union[str, VarExpr]) -> Distribution:
+        """ The zero distribution over `variables`: no mass on any state.
+
+        This is the result of `abort`, where all mass goes to non-termination."""
 
     @staticmethod
     @abstractmethod

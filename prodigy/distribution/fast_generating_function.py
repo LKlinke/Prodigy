@@ -509,10 +509,6 @@ class ProdigyPGF(CommonDistributionsFactory):
         return FPS(function, str(var))
 
     @staticmethod
-    def undefined(*variables: Union[str, VarExpr]) -> FPS:
-        return FPS("0", *variables, finite=True)
-
-    @staticmethod
     def one(*variables: Union[str, VarExpr]) -> FPS:
         return FPS("1", *variables, finite=True)
 
