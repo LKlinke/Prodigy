@@ -44,5 +44,9 @@ pgfexamples/
       invariants folder
     * If there are multiple invariant files for one program, e.g. for a nested loop, the invariants are to be marked
       with numbers indicating the order they should be used (i.e. the invariant for the outer-most while loop has number
-      1 and so on)
+      1 and so on). The equivalence test compares the program with `file_name_invariant.pgcl`, the loop-free
+      counterpart of the whole program (e.g. for sequential loops); for nested loops it may be missing, and the
+      invariant of the outer-most loop (number 1) is used instead
+    * A program that the equivalence test should skip is marked with `skip`, and the test states the reason
+      (`LOOPY_SKIPPED` in `tests/analysis/equivalence/test_equivalence_check.py`)
     * Invariants and second programs are to be marked with `skip`
