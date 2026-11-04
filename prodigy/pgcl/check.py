@@ -17,7 +17,8 @@ from frozendict import frozendict
 from prodigy.pgcl.ast.declarations import Function, FunctionDecl, VarDecl
 from prodigy.pgcl.ast.expressions import (FunctionCallExpr, InferExpr,
                                            SampleExpr)
-from prodigy.pgcl.ast.instructions import AbortInstr, QueryInstr
+from prodigy.pgcl.ast.instructions import (AbortInstr, LocalDeclInstr,
+                                            QueryInstr)
 from prodigy.pgcl.ast.types import DistributionType
 from prodigy.pgcl.util.ref import Mut
 
@@ -247,6 +248,11 @@ def get_type(
             return RealType()
 
     if isinstance(expr, BinopExpr):
+        if expr.operator == Binop.FLOOR_DIVIDE:
+            # never let the analysis see an operator it has no exact update for
+            return CheckFail(
+                expr, "Floor division '//' is not implemented yet.")
+
         # binops that take boolean operands and return a boolean
         if expr.operator in [Binop.OR, Binop.AND]:
             if check:
@@ -505,6 +511,16 @@ def _check_declaration_list(
             return CheckFail(decl,
                              "Already declared variable/constant before.")
         declared[decl.var] = decl
+        if isinstance(decl, VarDecl) and isinstance(decl.typ, NatType) \
+                and decl.typ.bounds is not None:
+            # bounds are not type-checked; at least keep '//' out of them
+            for bound in (decl.typ.bounds.lower, decl.typ.bounds.upper):
+                for sub_expr in walk_expr(Walk.DOWN, Mut.alloc(bound)):
+                    if isinstance(sub_expr.val, BinopExpr) \
+                            and sub_expr.val.operator == Binop.FLOOR_DIVIDE:
+                        return CheckFail(
+                            sub_expr.val,
+                            "Floor division '//' is not implemented yet.")
         if isinstance(decl, FunctionDecl):
             res = check_function(decl.body, program, predefined_functions)
             if isinstance(res, CheckFail):
@@ -755,6 +771,14 @@ def check_instr(
         return _check_instrs(program,
                              instr.instrs,
                              predefined_functions=predefined_functions)
+
+    if isinstance(instr, LocalDeclInstr):
+        # Block scope needs marginalisation at the end of the block, which the
+        # analysis does not do yet; reject instead of silently widening the scope.
+        return CheckFail(
+            instr,
+            f"Declarations inside a block are not implemented yet: declare "
+            f"'{instr.decl.var}' at the top level of the program or function.")
 
     raise Exception("unreachable")
 

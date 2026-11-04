@@ -199,6 +199,8 @@ class Binop(Enum):
     POWER = auto()
     DIVIDE = auto()
     MODULO = auto()
+    FLOOR_DIVIDE = auto()
+    """Floor division ``//``, only in the ``.ppy`` syntax. Not implemented by the analysis yet."""
 
     def is_associative(self) -> bool:
         """Is this operator associative?"""
@@ -234,6 +236,7 @@ class Binop(Enum):
             Binop.POWER: "^",
             Binop.DIVIDE: "/",
             Binop.MODULO: "%",
+            Binop.FLOOR_DIVIDE: "//",
         })[self]
 
 
