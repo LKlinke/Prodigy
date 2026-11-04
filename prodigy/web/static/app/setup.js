@@ -215,6 +215,15 @@ export function renderSetup(container, ctx) {
   }
 
   const options = setup.options;
+  const label = (name) => name.replace(/_/g, " ");
+  const heuristicRows = [
+    selectRow("Template heuristic", "Candidate shapes for the strategy “from heuristics”.", options.templateHeuristic,
+      meta.template_heuristics.map((t) => [t, label(t)]), (v) => { options.templateHeuristic = v; onChange(); }),
+    selectRow("Positivity heuristic", "Check that a candidate has no negative coefficients, for “from heuristics”.",
+      options.positivityHeuristic, meta.positivity_heuristics.map((p) => [p, label(p)]),
+      (v) => { options.positivityHeuristic = v; onChange(); }),
+  ];
+  for (const row of heuristicRows) row.hidden = options.synthesis !== "from_heuristics";
   const optionsBody = h("div", { class: "disclosure-body options-grid" },
     engineControl(meta, options, onChange),
     toggleRow("Condition on observations", "Divide by the probability that all observe statements hold.", options.normalize,
@@ -228,7 +237,12 @@ export function renderSetup(container, ctx) {
     numberRow("Time limit (seconds)", `At most ${meta.limits.time_limit} s on this server.`, options.timeLimit,
       { min: 1, max: meta.limits.time_limit }, (v) => { options.timeLimit = v; onChange(); }),
     selectRow("EVT synthesis strategy", "Templates and positivity checks used by “Synthesise EVT invariant”.",
-      options.synthesis, meta.synthesis_strategies.map((s) => [s, s.replace(/_/g, " ")]), (v) => { options.synthesis = v; onChange(); }),
+      options.synthesis, meta.synthesis_strategies.map((s) => [s, s.replace(/_/g, " ")]), (v) => {
+        options.synthesis = v;
+        for (const row of heuristicRows) row.hidden = v !== "from_heuristics";
+        onChange();
+      }),
+    ...heuristicRows,
     selectRow("Solver", "For equation systems during invariant checks.", options.solver,
       meta.solvers.map((s) => [s, s === "z3" ? "Z3" : "SymPy"]), (v) => { options.solver = v; onChange(); }),
   );

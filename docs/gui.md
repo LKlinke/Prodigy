@@ -23,7 +23,10 @@ Prodigy is tested with Python 3.11 and 3.14.
   certified. After each `?Pr`/`?Ex` query the value appears inline.
 * **Setup** (right): initial distribution, one strategy per loop with its parameters,
   analysis options (engine, conditioning, simplification, number of coefficients, time
-  limit, EVT synthesis strategy, solver, recording of intermediate distributions).
+  limit, EVT synthesis strategy, solver, recording of intermediate distributions). The
+  synthesis strategy *from heuristics* combines a template heuristic and a positivity
+  heuristic chosen below it (on the command line: `--strategy from_heuristics
+  --template-heuristic … --pos-heuristic …`).
 * **Result** (right): a summary of the guarantee, the queries with sound intervals, the
   output distribution (closed form, mass, expectations, marginal bar charts and tables), the
   certificate of every loop, console output, and the full result as JSON.
@@ -162,9 +165,9 @@ The strategy then appears in the CLI menu (after the six historic entries), in
 
 | Endpoint | |
 | --- | --- |
-| `GET /api/meta` | version, engines, loop strategies with parameter specs, limits |
+| `GET /api/meta` | version, engines, loop strategies with parameter specs, synthesis strategies and heuristics, limits |
 | `POST /api/check` `{source}` | diagnostics `{severity, message, line, column, end_line, end_column}` and outline (variables, loops with ids and lines, queries) |
-| `POST /api/analyze` | starts an analysis (`source, input_distribution, engine, normalize, simplification, decisions, coefficients, record_steps, synthesis_strategy, solver, time_limit`) and returns a job id |
+| `POST /api/analyze` | starts an analysis (`source, input_distribution, engine, normalize, simplification, decisions, coefficients, record_steps, synthesis_strategy, template_heuristic, positivity_heuristic, solver, time_limit`; the two heuristics only apply to `synthesis_strategy` `from_heuristics`) and returns a job id |
 | `GET /api/jobs/<id>?log_offset=n` | state (`running`, `done`, `timeout`, `cancelled`, `crashed`), new console output, progress per loop, result |
 | `DELETE /api/jobs/<id>` | cancels the analysis |
 | `GET /api/examples`, `GET /api/examples/<path>` | example library and suggested setup |

@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Collection
+from typing import Collection, Optional
 
+from prodigy.analysis.exceptions import HeuristicsError
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic
 from prodigy.analysis.evtinvariants.heuristics.templates.templates import TemplateHeuristic
@@ -102,14 +103,70 @@ class AllOrPartialRational(SynthesisStrategy):
             PositivityHeuristics.create(PositivityHeuristics.OR, sum_heur, mixed_rat_func))
 
 
+# Positivity heuristics that combine other heuristics; they can only be used inside a predefined strategy.
+COMBINING_POSITIVITY_HEURISTICS = frozenset({
+    PositivityHeuristics.OR, PositivityHeuristics.AND, PositivityHeuristics.NOT, PositivityHeuristics.INDIVIDUAL_SUM
+})
+
+SELECTABLE_POSITIVITY_HEURISTICS = tuple(
+    name.lower() for name, heuristic in PositivityHeuristics.__members__.items()
+    if heuristic not in COMBINING_POSITIVITY_HEURISTICS)
+"""Names (lower case, aliases included) of the positivity heuristics that ``FROM_HEURISTICS`` accepts."""
+
+
+@dataclass
+class FromHeuristics(SynthesisStrategy):
+    """A strategy made of one template heuristic and one positivity heuristic chosen by the user."""
+    variables: Collection[str]
+    dist_factory: CommonDistributionsFactory
+    templ_heuristic: TemplateHeuristics
+    positivity_heuristic: PositivityHeuristics
+    max_degree: int = 10
+
+    def __post_init__(self):
+        if self.templ_heuristic == TemplateHeuristics.POLY:
+            self.template_heuristics = TemplateHeuristics.create(
+                TemplateHeuristics.POLY, self.variables, self.dist_factory, self.max_degree)
+        else:
+            self.template_heuristics = TemplateHeuristics.create(
+                self.templ_heuristic, self.max_degree, self.variables, self.dist_factory)
+
+        if self.positivity_heuristic in COMBINING_POSITIVITY_HEURISTICS:
+            raise HeuristicsError(
+                f"The positivity heuristic {self.positivity_heuristic.name.lower()} combines other heuristics and "
+                f"cannot be used on its own. Choose one of {', '.join(SELECTABLE_POSITIVITY_HEURISTICS)}.")
+        if self.positivity_heuristic in (PositivityHeuristics.POLYNOMIAL, PositivityHeuristics.TRUE_RAT_FUNC):
+            self.positivity_heuristics = PositivityHeuristics.create(self.positivity_heuristic)
+        else:
+            self.positivity_heuristics = PositivityHeuristics.create(self.positivity_heuristic, self.dist_factory)
+
+
 class SynthesisStrategies(Enum):
     DEFAULT = DefaultStrategy
     SUM_THEN_RATIONAL = PartialRational
     APART_OR_TOGETHER = AllOrPartialRational
     INF_POLY = InfinitePolynomial
     FIN_POLY = FinitePolynomial
-    FROM_HEURISTICS = SynthesisStrategy
+    FROM_HEURISTICS = FromHeuristics
 
     @classmethod
-    def make(cls, st: 'SynthesisStrategies', *args, **kwargs) -> SynthesisStrategy:
-        return st.value(*args, **kwargs)
+    def make(cls, st: 'SynthesisStrategies', variables: Collection[str], dist_factory: CommonDistributionsFactory,
+             templ_heuristic: Optional[TemplateHeuristics] = None,
+             positivity_heuristic: Optional[PositivityHeuristics] = None) -> SynthesisStrategy:
+        """Builds the strategy ``st``.
+
+        The heuristics are only used by ``FROM_HEURISTICS``, which needs both of them; the other strategies
+        fix their own heuristics."""
+        if st != SynthesisStrategies.FROM_HEURISTICS:
+            return st.value(variables, dist_factory)
+        if templ_heuristic is None or positivity_heuristic is None:
+            missing = [name for name, value in (("template heuristic", templ_heuristic),
+                                                ("positivity heuristic", positivity_heuristic)) if value is None]
+            raise HeuristicsError(f"The synthesis strategy from_heuristics needs a {' and a '.join(missing)}.")
+        return FromHeuristics(variables, dist_factory, templ_heuristic, positivity_heuristic)
+
+    @classmethod
+    def from_config(cls, config, variables: Collection[str]) -> SynthesisStrategy:
+        """Builds the strategy chosen in a :class:`ForwardAnalysisConfig`."""
+        return cls.make(config.strategy, variables, config.factory,
+                        templ_heuristic=config.templ_heuristic, positivity_heuristic=config.positivity_heuristic)

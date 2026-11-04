@@ -196,6 +196,7 @@ function defaultSetup(meta) {
     options: {
       engine, normalize: true, simplification: true, coefficients: 30,
       timeLimit: Math.min(120, meta.limits.time_limit), synthesis: "default", solver: "sympy", recordSteps: false,
+      templateHeuristic: "default", positivityHeuristic: "default",
     },
   };
 }
@@ -348,6 +349,8 @@ function buildRequest() {
     coefficients: options.coefficients,
     record_steps: options.recordSteps,
     synthesis_strategy: options.synthesis,
+    ...(options.synthesis === "from_heuristics"
+      ? { template_heuristic: options.templateHeuristic, positivity_heuristic: options.positivityHeuristic } : {}),
     solver: options.solver,
     time_limit: options.timeLimit,
   };
