@@ -21,7 +21,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategy, SynthesisStrategies
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
-from prodigy.analysis.evtinvariants.invariant_verification import evt_invariant_check
+from prodigy.analysis.evtinvariants.invariant_verification import FixedPointCheckFailed, evt_invariant_check
 from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
@@ -48,7 +48,10 @@ class UnsupportedLoopError(ForwardAnalysisError):
 
 
 class InvariantRefutedError(VerificationError):
-    """A proposed invariant is not an invariant; ``details`` holds the evidence."""
+    """
+    A proposed invariant was not certified. ``details`` holds the evidence; its ``verdict`` is ``refuted``
+    if the invariant is provably wrong and ``unknown`` if it could be neither proven nor refuted.
+    """
 
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(message)
@@ -375,10 +378,16 @@ def _strategy_evt_invariant(task: LoopTask) -> LoopOutcome:
         with task.session.sub_analysis("EVT invariant check") as scope:
             solution, full_invariant, solutions = evt_invariant_check(instruction, prog_info, task.distribution,
                                                                       evt_inv, config, analyzer)
+    except FixedPointCheckFailed as exc:
+        message = f"The EVT invariant {evt_inv} is refuted" if exc.verdict == "refuted" \
+            else f"The EVT invariant {evt_inv} is not proven (it may still be correct)"
+        raise InvariantRefutedError(message, details={"type": "evt_invariant", "invariant": str(evt_inv),
+                                                      "verdict": exc.verdict, "difference": exc.difference,
+                                                      "reason": str(exc)}) from exc
     except VerificationError as exc:
         raise InvariantRefutedError(f"Could not validate the EVT invariant {evt_inv}",
                                     details={"type": "evt_invariant", "invariant": str(evt_inv),
-                                             "verdict": "refuted", "reason": str(exc)}) from exc
+                                             "verdict": "unknown", "reason": str(exc)}) from exc
     print(f"{Style.OKGREEN}Continuing with {solution}{Style.RESET}")
     kind, certificate, messages = _evt_certificate("evt_invariant", full_invariant, variables, config,
                                                    scope.kind, instruction.cond)
