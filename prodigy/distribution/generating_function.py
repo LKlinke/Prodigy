@@ -1,7 +1,10 @@
 # pylint: disable=protected-access
 from __future__ import annotations
 
+import contextlib
 import operator
+from contextvars import ContextVar
+from dataclasses import dataclass
 from fractions import Fraction
 from typing import (Any, Callable, FrozenSet, Generator, Iterator, List, Optional, Set,
                     Tuple, Type, Union, get_args)
@@ -22,6 +25,21 @@ from prodigy.pgcl.util.ref import Mut
 from prodigy.util.logger import log_setup, logging
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG, file="GF_operations.log")
+
+
+@dataclass(frozen=True)
+class GeneratingFunctionSettings:
+    """How the SymPy engine simplifies and prints; set per analysis, see :meth:`GeneratingFunction.configured`."""
+
+    simplification: bool = False
+    """Factor numerator and denominator after each arithmetic operation."""
+
+    latex_output: bool = False
+    """``str()`` gives LaTeX instead of a SymPy expression."""
+
+
+_SETTINGS: ContextVar[GeneratingFunctionSettings] = ContextVar(
+    "generating_function_settings", default=GeneratingFunctionSettings())
 
 
 def _term_generator(function: sympy.Poly):
@@ -136,8 +154,24 @@ class GeneratingFunction(Distribution):
     This class does not ensure to be in a healthy state (i.e., every coefficient is non-negative).
     """
 
-    use_simplification = False
-    use_latex_output = False
+    @staticmethod
+    def settings() -> GeneratingFunctionSettings:
+        """The settings that hold for the current analysis (the defaults outside one)."""
+        return _SETTINGS.get()
+
+    @staticmethod
+    @contextlib.contextmanager
+    def configured(*, simplification: bool, latex_output: bool) -> Iterator[GeneratingFunctionSettings]:
+        """
+        Applies the settings within the ``with`` block of the current thread or task only and restores
+        the previous ones afterwards, so analyses with different settings do not influence each other.
+        """
+        settings = GeneratingFunctionSettings(simplification=simplification, latex_output=latex_output)
+        token = _SETTINGS.set(settings)
+        try:
+            yield settings
+        finally:
+            _SETTINGS.reset(token)
 
     # ==================================== CONSTRUCTORS ====================================
 
@@ -1078,7 +1112,7 @@ class GeneratingFunction(Distribution):
             function = op(self._function, other._function)
 
             # simplify the result if demanded.
-            if GeneratingFunction.use_simplification:
+            if GeneratingFunction.settings().simplification:
                 nominator, denominator = sympy.fraction(function)
                 nominator = nominator.factor()
                 denominator = denominator.factor()
@@ -1120,7 +1154,7 @@ class GeneratingFunction(Distribution):
         return self._arithmetic(other, operator.truediv)
 
     def __str__(self) -> str:
-        if GeneratingFunction.use_latex_output:
+        if GeneratingFunction.settings().latex_output:
             return sympy.latex(self._function)
         else:
             output = f"{self._function}"
@@ -1266,7 +1300,7 @@ class GeneratingFunction(Distribution):
     def coefficient_sum(self) -> sympy.Expr:
         logger.debug("coefficient_sum() call")
         coefficient_sum = self._function.simplify(
-        ) if GeneratingFunction.use_simplification else self._function
+        ) if GeneratingFunction.settings().simplification else self._function
         for var in self._variables:
             coefficient_sum = coefficient_sum.limit(
                 var, 1, "-") if self._is_closed_form else coefficient_sum.subs(

@@ -583,7 +583,7 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
         result.program = outline_program(session.program, session.source)
 
     analysis_time = 0.0
-    with session.activate(), session._output():  # pylint: disable=protected-access
+    with session.activate(), config.activate(), session._output():  # pylint: disable=protected-access
         try:
             program = session.program
             assert program is not None

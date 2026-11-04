@@ -100,6 +100,8 @@ def cli(ctx,
             show_all_invs=show_all_invs,
             solver_type=SolverType.__members__[solver.upper()]
         )
+    # The engine settings (simplification, LaTeX output) hold for this command, printing included.
+    ctx.with_resource(ctx.obj['CONFIG'].activate())
 
 
 # pylint: enable-msg=too-many-arguments
