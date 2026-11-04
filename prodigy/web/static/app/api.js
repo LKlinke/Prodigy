@@ -38,6 +38,7 @@ export const api = {
   meta: () => request("GET", "api/meta"),
   check: (source, signal) => request("POST", "api/check", { source }, { signal }),
   analyze: (payload) => request("POST", "api/analyze", payload),
+  suggest: (payload) => request("POST", "api/suggest", payload),
   job: (id, logOffset = 0) => request("GET", `api/jobs/${encodeURIComponent(id)}?log_offset=${logOffset}`),
   cancel: (id) => request("DELETE", `api/jobs/${encodeURIComponent(id)}`),
   examples: () => request("GET", "api/examples"),

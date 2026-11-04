@@ -1,17 +1,20 @@
 # pylint: disable=protected-access
 from __future__ import annotations
 
+import contextlib
 import operator
+from contextvars import ContextVar
+from dataclasses import dataclass
 from fractions import Fraction
-from typing import (Any, Callable, FrozenSet, Generator, Iterator, List, Set,
+from typing import (Any, Callable, FrozenSet, Generator, Iterator, List, Optional, Set,
                     Tuple, Type, Union, get_args)
 
 import sympy
-from sympy.assumptions.assume import global_assumptions
 
 # TODO Implement these checks in prodigy.pgcl
 from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
+from prodigy.distribution.equality import decide_equal
 from prodigy.distribution.exact_division import divide_exponents
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
@@ -22,6 +25,21 @@ from prodigy.pgcl.util.ref import Mut
 from prodigy.util.logger import log_setup, logging
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG, file="GF_operations.log")
+
+
+@dataclass(frozen=True)
+class GeneratingFunctionSettings:
+    """How the SymPy engine simplifies and prints; set per analysis, see :meth:`GeneratingFunction.configured`."""
+
+    simplification: bool = False
+    """Factor numerator and denominator after each arithmetic operation."""
+
+    latex_output: bool = False
+    """``str()`` gives LaTeX instead of a SymPy expression."""
+
+
+_SETTINGS: ContextVar[GeneratingFunctionSettings] = ContextVar(
+    "generating_function_settings", default=GeneratingFunctionSettings())
 
 
 def _term_generator(function: sympy.Poly):
@@ -124,6 +142,11 @@ def _sympy_symbol(name: Any, real=True, **kwargs) -> sympy.Symbol:
     return sympy.Symbol(name, real=real, **kwargs)
 
 
+def provably_equal(lhs: sympy.Expr, rhs: sympy.Expr) -> bool:
+    """Decides ``lhs == rhs`` such that True is backed by a symbolic proof (see :func:`decide_equal`)."""
+    return decide_equal(lhs, rhs) is True
+
+
 class GeneratingFunction(Distribution):
     """
     This class represents a generating function. It wraps the sympy library.
@@ -131,8 +154,24 @@ class GeneratingFunction(Distribution):
     This class does not ensure to be in a healthy state (i.e., every coefficient is non-negative).
     """
 
-    use_simplification = False
-    use_latex_output = False
+    @staticmethod
+    def settings() -> GeneratingFunctionSettings:
+        """The settings that hold for the current analysis (the defaults outside one)."""
+        return _SETTINGS.get()
+
+    @staticmethod
+    @contextlib.contextmanager
+    def configured(*, simplification: bool, latex_output: bool) -> Iterator[GeneratingFunctionSettings]:
+        """
+        Applies the settings within the ``with`` block of the current thread or task only and restores
+        the previous ones afterwards, so analyses with different settings do not influence each other.
+        """
+        settings = GeneratingFunctionSettings(simplification=simplification, latex_output=latex_output)
+        token = _SETTINGS.set(settings)
+        try:
+            yield settings
+        finally:
+            _SETTINGS.reset(token)
 
     # ==================================== CONSTRUCTORS ====================================
 
@@ -157,13 +196,6 @@ class GeneratingFunction(Distribution):
                 map(lambda v: _sympy_symbol(str(v)),
                     filter(lambda v: v != "", variables)))
             self._variables -= self._parameters
-
-        # pylint: disable = too-many-function-args
-        for var in self._variables:
-            global_assumptions.add(sympy.Q.nonnegative(var))
-        for param in self._parameters:
-            global_assumptions.add(sympy.Q.positive(param))
-        # pylint: enable = too-many-function-args
 
         # Do closed form and finiteness heuristics
         self._is_closed_form = closed if closed else not self._function.is_polynomial(
@@ -1080,7 +1112,7 @@ class GeneratingFunction(Distribution):
             function = op(self._function, other._function)
 
             # simplify the result if demanded.
-            if GeneratingFunction.use_simplification:
+            if GeneratingFunction.settings().simplification:
                 nominator, denominator = sympy.fraction(function)
                 nominator = nominator.factor()
                 denominator = denominator.factor()
@@ -1122,7 +1154,7 @@ class GeneratingFunction(Distribution):
         return self._arithmetic(other, operator.truediv)
 
     def __str__(self) -> str:
-        if GeneratingFunction.use_latex_output:
+        if GeneratingFunction.settings().latex_output:
             return sympy.latex(self._function)
         else:
             output = f"{self._function}"
@@ -1163,13 +1195,21 @@ class GeneratingFunction(Distribution):
         )
 
     def __eq__(self, other) -> bool:
+        """
+        True only if the two generating functions are provably equal (see :func:`provably_equal`).
+        False means "not shown equal", which is not a proof of inequality for non-rational functions.
+        """
         if not isinstance(other, GeneratingFunction):
             return False
-        # We rely on simplification of __sympy__ here. Thus, we cannot guarantee to detect equality when
-        # simplification fails.
-        return bool(self._function.equals(other._function)) \
-            and self._variables == other._variables \
-            and self._parameters == other._parameters
+        return self._variables == other._variables \
+            and self._parameters == other._parameters \
+            and provably_equal(self._function, other._function)
+
+    def decide_equal(self, other) -> Optional[bool]:
+        if isinstance(other, GeneratingFunction) and self._variables == other._variables \
+                and self._parameters == other._parameters:
+            return decide_equal(self._function, other._function)
+        return super().decide_equal(other)
 
     def __iter__(self) -> Iterator[Tuple[str, State]]:
         """ Iterates over the generating function yielding (coefficient, state) pairs.
@@ -1260,7 +1300,7 @@ class GeneratingFunction(Distribution):
     def coefficient_sum(self) -> sympy.Expr:
         logger.debug("coefficient_sum() call")
         coefficient_sum = self._function.simplify(
-        ) if GeneratingFunction.use_simplification else self._function
+        ) if GeneratingFunction.settings().simplification else self._function
         for var in self._variables:
             coefficient_sum = coefficient_sum.limit(
                 var, 1, "-") if self._is_closed_form else coefficient_sum.subs(

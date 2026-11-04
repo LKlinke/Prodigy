@@ -10,6 +10,7 @@ A small Flask application: one page (``templates/app.html`` with the ES modules 
 ``POST /api/analyze``         starts an analysis in its own process, returns a job id
 ``GET  /api/jobs/<id>``       state, new console output, progress, result when done
 ``DELETE /api/jobs/<id>``     cancels the analysis
+``POST /api/suggest``         asks a language model for a loop invariant candidate (a job)
 ``GET  /api/examples``        the example library (``pgfexamples``)
 ``GET  /api/examples/<id>``   source of an example and a suggested setup
 ============================  ==========================================================
@@ -31,7 +32,7 @@ from flask import Flask, abort, jsonify, render_template, request
 
 from prodigy.web.examples import ExampleLibrary, default_examples_dir
 from prodigy.web.jobs import BusyError, JobManager
-from prodigy.web.requests import ENGINES, MAX_COEFFICIENTS, validate_request
+from prodigy.web.requests import ENGINES, MAX_COEFFICIENTS, ai_status, validate_request, validate_suggestion
 
 _LOOPBACK = {"localhost", "127.0.0.1", "::1", "[::1]"}
 
@@ -127,6 +128,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
             "limits": {"time_limit": jobs.time_limit, "max_jobs": jobs.max_jobs,
                        "max_coefficients": MAX_COEFFICIENTS},
             "examples": library.root is not None,
+            "ai": ai_status(),
         })
 
     @app.post("/api/check")
@@ -149,6 +151,27 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
             "positivity_heuristic", "solver") if key in payload}
         try:
             job = jobs.submit(analysis_request, time_limit=payload.get("time_limit"))
+        except BusyError as exc:
+            return jsonify({"error": f"{exc}. Wait for one to finish or cancel it."}), 429
+        return jsonify({"job": job.id, "time_limit": job.time_limit}), 202
+
+    @app.post("/api/suggest")
+    def suggest():
+        """Starts a job that asks the language model for one candidate for a loop; the API key
+        stays in the job process (see :func:`prodigy.web.requests.run_suggestion`)."""
+        payload: Dict[str, Any] = request.get_json(silent=True) or {}
+        problems = validate_suggestion(payload)
+        if problems:
+            return jsonify({"error": " ".join(problems), "problems": problems}), 400
+        status = ai_status()
+        if not status["available"]:
+            return jsonify({"error": status["reason"]}), 503
+        suggestion_request = {key: payload.get(key) for key in (
+            "source", "input_distribution", "engine", "normalize", "simplification", "decisions",
+            "synthesis_strategy", "template_heuristic", "positivity_heuristic", "solver", "loop", "form")
+            if key in payload}
+        try:
+            job = jobs.submit(suggestion_request, time_limit=payload.get("time_limit"), kind="suggest")
         except BusyError as exc:
             return jsonify({"error": f"{exc}. Wait for one to finish or cancel it."}), 429
         return jsonify({"job": job.id, "time_limit": job.time_limit}), 202

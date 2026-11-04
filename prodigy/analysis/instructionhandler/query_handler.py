@@ -26,7 +26,7 @@ class QueryHandler(InstructionHandler):
 
     @staticmethod
     def compute(
-            instruction: Instr, prog_info: ProgramInfo,
+            instruction: Union[Instr, Sequence[Instr]], prog_info: ProgramInfo,
             distribution: Distribution, error_prob: Distribution,
             config: ForwardAnalysisConfig,
             analyzer: Callable[
@@ -40,19 +40,16 @@ class QueryHandler(InstructionHandler):
         # User wants to compute an expected value of an expression
         if isinstance(instruction, ExpectationInstr):
             expression = instruction.expr
-            if isinstance(expression, (VarExpr, NatLitExpr, RealLitExpr)):
-                result = distribution.get_expected_value_of(expression)
-            elif isinstance(expression, BinopExpr):
-                if expression.operator in (Binop.PLUS, Binop.MINUS,
-                                           Binop.TIMES):
-                    result = distribution.get_expected_value_of(expression)
-                else:
+            if isinstance(expression, BinopExpr):
+                if expression.operator not in (Binop.PLUS, Binop.MINUS, Binop.TIMES):
                     raise SyntaxError("Expression cannot be a condition.")
-            elif isinstance(expression,
-                            UnopExpr) and expression.operator == Unop.NEG:
-                result = distribution.get_expected_value_of(expression)
-            else:
+            elif not (isinstance(expression, (VarExpr, NatLitExpr, RealLitExpr))
+                      or (isinstance(expression, UnopExpr) and expression.operator == Unop.NEG)):
                 raise SyntaxError("Expression has wrong format.")
+            # the loop strategy right before may know the exact value already (e.g. from its certificate)
+            result = session.loop_query_value("?Ex", str(expression), distribution)
+            if result is None:
+                result = distribution.get_expected_value_of(expression)
 
             print(f"Expected value: {result}")
             session.record_query(finish_query(
@@ -199,8 +196,10 @@ class QueryHandler(InstructionHandler):
             session.record_query(query)
         # Probability of condition computation.
         else:
-            sat_part = dist.filter(expression)
-            prob = sat_part.get_probability_mass()
+            # the loop strategy right before may know the exact value already (e.g. from its certificate)
+            prob = session.loop_query_value("?Pr", str(expression), dist)
+            if prob is None:
+                prob = dist.filter(expression).get_probability_mass()
             print(f"Probability of {expression}: {prob}")
             session.record_query(finish_query(session, QueryResult("probability", str(expression), value=prob),
                                               monotone=True, probability=True,

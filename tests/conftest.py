@@ -2,7 +2,7 @@ import random
 
 import pytest
 
-from prodigy.distribution.generating_function import GeneratingFunction
+from prodigy.distribution.generating_function import GeneratingFunction, GeneratingFunctionSettings
 
 
 @pytest.fixture(autouse=True)
@@ -18,14 +18,12 @@ def reproducible_random(request):
 
 
 @pytest.fixture(autouse=True)
-def isolated_generating_function_settings():
+def generating_function_settings_stay_scoped():
     """
-    Every ForwardAnalysisConfig writes its use_simplification and use_latex flags into class
-    attributes of GeneratingFunction, which then hold for the whole process. Without restoring
-    them, a test that analyses with simplification makes all later tests simplify as well:
-    test_get_parameters in tests/distribution/sympy then factors a random polynomial in up to ten
-    variables, which does not finish.
+    The engine settings of an analysis (ForwardAnalysisConfig.activate) must not outlive it. A
+    leaked simplification once made test_get_parameters in tests/distribution/sympy factor a random
+    polynomial in up to ten variables, which does not finish; fail at the leaking test instead.
     """
-    settings = GeneratingFunction.use_simplification, GeneratingFunction.use_latex_output
     yield
-    GeneratingFunction.use_simplification, GeneratingFunction.use_latex_output = settings
+    assert GeneratingFunction.settings() == GeneratingFunctionSettings(), \
+        "generating function settings leaked out of an analysis"

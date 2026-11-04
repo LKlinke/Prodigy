@@ -18,7 +18,7 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 class PChoiceHandler(InstructionHandler):
     @staticmethod
     def compute(
-            instruction: Instr, prog_info: ProgramInfo,
+            instruction: Union[Instr, Sequence[Instr]], prog_info: ProgramInfo,
             distribution: Distribution, error_prob: Distribution,
             config: ForwardAnalysisConfig,
             analyzer: Callable[
@@ -26,7 +26,7 @@ class PChoiceHandler(InstructionHandler):
                 tuple[Distribution, Distribution]
             ]
     ) -> tuple[Distribution, Distribution]:
-        _assume(instruction, ChoiceInstr, 'PChoiceHandlerGF')
+        instruction = _assume(instruction, ChoiceInstr, 'PChoiceHandlerGF')
 
         lhs_block, lhs_error_prob = analyzer(instruction.lhs, prog_info, distribution, error_prob, config)
         rhs_block, rhs_error_prob = analyzer(instruction.rhs, prog_info, distribution, error_prob, config)

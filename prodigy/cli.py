@@ -100,6 +100,8 @@ def cli(ctx,
             show_all_invs=show_all_invs,
             solver_type=SolverType.__members__[solver.upper()]
         )
+    # The engine settings (simplification, LaTeX output) hold for this command, printing included.
+    ctx.with_resource(ctx.obj['CONFIG'].activate())
 
 
 # pylint: enable-msg=too-many-arguments
@@ -317,12 +319,14 @@ def invariant_synthesis(ctx, program_file: IO, invariant: str, input_dist: str):
     # Create the strategy to do invariant synthesis and start synthesis.
     strategy = SynthesisStrategies.from_config(config, prog.variables.keys())
     start = time.perf_counter()
+    loop = prog.instructions[loops.index(1)]
+    assert isinstance(loop, WhileInstr)
     if invariant:
         invariant_dist = config.factory.from_expr(invariant, *prog.variables.keys())
-        evt_invariant_verification(prog.instructions[loops.index(1)],
+        evt_invariant_verification(loop,
                                    ProgramInfo(prog), dist, invariant_dist, config, compute_semantics)
     else:
-        evt_invariant_synthesis(prog.instructions[loops.index(1)],
+        evt_invariant_synthesis(loop,
                                             ProgramInfo(prog), dist, config, strategy, compute_semantics)
 
     stop = time.perf_counter()
@@ -457,6 +461,10 @@ def _print_summary(result: Dict[str, Any]) -> None:
     if status != "ok":
         error = result.get("error") or {}
         print(f"{Style.OKRED}{status}:{Style.RESET} {error.get('message', '')}")
+        if error.get("verdict") == "refuted":
+            print("Verdict: refuted (the invariant is provably wrong).")
+        elif error.get("verdict") == "unknown":
+            print("Verdict: not proven (neither proven nor refuted; the invariant may still be correct).")
         if status == "needs_decision":
             print("Choose strategies with --loop ID=STRATEGY[:NAME=VALUE,...]; "
                   "`prodigy outline FILE` lists the loops, `prodigy loop_strategies` the strategies.")

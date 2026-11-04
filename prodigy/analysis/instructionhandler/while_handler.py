@@ -21,7 +21,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategy, SynthesisStrategies
 from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
-from prodigy.analysis.evtinvariants.invariant_verification import evt_invariant_check
+from prodigy.analysis.evtinvariants.invariant_verification import FixedPointCheckFailed, evt_invariant_check
 from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
@@ -48,7 +48,10 @@ class UnsupportedLoopError(ForwardAnalysisError):
 
 
 class InvariantRefutedError(VerificationError):
-    """A proposed invariant is not an invariant; ``details`` holds the evidence."""
+    """
+    A proposed invariant was not certified. ``details`` holds the evidence; its ``verdict`` is ``refuted``
+    if the invariant is provably wrong and ``unknown`` if it could be neither proven nor refuted.
+    """
 
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(message)
@@ -375,10 +378,16 @@ def _strategy_evt_invariant(task: LoopTask) -> LoopOutcome:
         with task.session.sub_analysis("EVT invariant check") as scope:
             solution, full_invariant, solutions = evt_invariant_check(instruction, prog_info, task.distribution,
                                                                       evt_inv, config, analyzer)
+    except FixedPointCheckFailed as exc:
+        message = f"The EVT invariant {evt_inv} is refuted" if exc.verdict == "refuted" \
+            else f"The EVT invariant {evt_inv} is not proven (it may still be correct)"
+        raise InvariantRefutedError(message, details={"type": "evt_invariant", "invariant": str(evt_inv),
+                                                      "verdict": exc.verdict, "difference": exc.difference,
+                                                      "reason": str(exc)}) from exc
     except VerificationError as exc:
         raise InvariantRefutedError(f"Could not validate the EVT invariant {evt_inv}",
                                     details={"type": "evt_invariant", "invariant": str(evt_inv),
-                                             "verdict": "refuted", "reason": str(exc)}) from exc
+                                             "verdict": "unknown", "reason": str(exc)}) from exc
     print(f"{Style.OKGREEN}Continuing with {solution}{Style.RESET}")
     kind, certificate, messages = _evt_certificate("evt_invariant", full_invariant, variables, config,
                                                    scope.kind, instruction.cond)
@@ -609,8 +618,13 @@ def _strategy_evt_sandwich(task: LoopTask) -> LoopOutcome:
         certificate[name] = summary
     query_bounds = {(bound.query.kind, bound.query.text): (_exact(bound.lower), _exact(bound.upper))
                     for bound in result.bounds}
+    # the values on the lower bound itself, computed from the certificate (no epilogue: `lower` is its exit part)
+    query_values = {}
+    if problem.epilogue == ("seq", []):
+        query_values = {(bound.query.kind, bound.query.text): _exact(bound.value)
+                        for bound in result.bounds if bound.value is not None}
     return LoopOutcome(lower, task.error_prob, kind=Bound.LOWER, residual=residual, certificate=certificate,
-                       query_bounds=query_bounds)
+                       query_bounds=query_bounds, query_values=query_values)
 
 
 register_loop_strategy(LoopStrategy(
@@ -648,9 +662,6 @@ register_loop_strategy(LoopStrategy(
 # Candidates from a language model (prodigy.analysis.ai_candidates)
 # ---------------------------------------------------------------------------------------
 
-_AI_TARGETS = {"evt_invariant": "invariant", "evt_subinvariant": "subinvariant"}
-
-
 def _strategy_ai_invariant(task: LoopTask) -> LoopOutcome:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis import ai_candidates
@@ -685,7 +696,7 @@ def _strategy_ai_invariant(task: LoopTask) -> LoopOutcome:
         entry["candidate"] = candidate
         # The candidate goes through the same check as one typed in by hand.
         attempt_task = dataclasses.replace(task, strategy=target,
-                                           decision=LoopDecision(form, {_AI_TARGETS[form]: candidate}))
+                                           decision=LoopDecision(form, {ai_candidates.TARGET_PARAMS[form]: candidate}))
         try:
             outcome = target.run(attempt_task)
         except Exception as exc:  # pylint: disable=broad-except  # any failed check rejects the candidate
@@ -780,13 +791,13 @@ class WhileHandler(InstructionHandler):
 
     @staticmethod
     def compute(
-            instruction: Instr,
-            prog_info: Program,
+            instruction: Union[Instr, Sequence[Instr]],
+            prog_info: ProgramInfo,
             distribution: Distribution,
             error_prob: Distribution,
             config: ForwardAnalysisConfig,
             analyzer: Analyzer
     ) -> tuple[Distribution, Distribution]:
 
-        _assume(instruction, WhileInstr, 'WhileHandler')
+        instruction = _assume(instruction, WhileInstr, 'WhileHandler')
         return WhileHandler._run(None, instruction, prog_info, distribution, error_prob, config, analyzer)

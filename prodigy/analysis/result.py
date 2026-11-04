@@ -46,6 +46,16 @@ A result whose ``status`` is not ``ok`` (``error``, ``needs_decision``, and ``ti
 (results made up by a front end may omit ``bounds``) and its residual mass is ``null``.
 Queries answered before the failure keep their own intervals, which were computed from the
 distribution at that point.
+
+Failed invariant checks
+-----------------------
+If a proposed invariant is not certified, ``status`` is ``error`` and ``error.verdict`` (also in
+``error.details`` and in the loop's certificates) says why:
+
+* ``refuted``: the invariant is provably wrong (a counterexample, or Φ(I) − I is a nonzero rational
+  function after exact cancellation).
+* ``unknown``: the check could neither prove nor refute it (e.g. non-rational expressions, an
+  engine whose equality is incomplete, or no parameter values found); the invariant may be correct.
 """
 from __future__ import annotations
 
@@ -332,8 +342,10 @@ def is_monotone_nonnegative(expr: Expr, program=None) -> bool:
 def _positive_literal(expr: Expr) -> bool:
     if isinstance(expr, NatLitExpr):
         return expr.value > 0
+    if not isinstance(expr, RealLitExpr):
+        return False
     try:
-        return expr.to_fraction() > 0  # type: ignore[attr-defined]
+        return expr.to_fraction() > 0
     except Exception:  # pylint: disable=broad-except
         return False
 
@@ -593,7 +605,7 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
         result.program = outline_program(session.program, session.source)
 
     analysis_time = 0.0
-    with session.activate(), session._output():  # pylint: disable=protected-access
+    with session.activate(), config.activate(), session._output():  # pylint: disable=protected-access
         try:
             program = session.program
             assert program is not None
@@ -629,8 +641,11 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
         except (VerificationError, ForwardAnalysisError) as exc:
             analysis_time = time.perf_counter() - started
             result.status = "error"
-            result.error = {"type": type(exc).__name__, "message": str(exc),
-                            "details": getattr(exc, "details", None)}
+            details = getattr(exc, "details", None)
+            result.error = {"type": type(exc).__name__, "message": str(exc), "details": details}
+            verdict = details.get("verdict") if isinstance(details, dict) else None
+            if verdict in ("refuted", "unknown"):
+                result.error["verdict"] = verdict
         except Exception as exc:  # pylint: disable=broad-except
             analysis_time = time.perf_counter() - started
             result.status = "error"

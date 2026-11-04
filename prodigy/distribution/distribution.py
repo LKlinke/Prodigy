@@ -5,12 +5,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from fractions import Fraction
-from typing import (Dict, FrozenSet, Generator, Iterator, List, Sequence, Set,
-                    Tuple, Type, Union)
+from typing import (Dict, FrozenSet, Generator, Iterator, List, Optional, Sequence,
+                    Set, Tuple, Type, Union)
 
 from prodigy.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr,
                            RealLitExpr, Unop, UnopExpr, VarExpr)
 from prodigy.pgcl.parser import parse_expr
+from prodigy.distribution.equality import decide_equal_strings
 from prodigy.distribution.linear_guards import normalize_guard
 
 from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
@@ -176,7 +177,25 @@ class Distribution(ABC):
 
     @abstractmethod
     def __eq__(self, other) -> bool:
-        """ Checks whether two distributions are equal. """
+        """
+        Checks whether two distributions are equal. True must be backed by a proof; False only means
+        "not shown equal" (see :meth:`decide_equal`).
+        """
+
+    def decide_equal(self, other) -> Optional[bool]:
+        """
+        Three-valued equality: True if ``self == other`` is proven, False if ``self != other`` is proven
+        (e.g. the difference is a nonzero rational function with rational coefficients), None if neither.
+
+        The default takes True from ``==`` and otherwise decides on the string forms with SymPy's exact
+        cancellation (:func:`prodigy.distribution.equality.decide_equal_strings`).
+        """
+        if self == other:
+            return True
+        if not isinstance(other, Distribution):
+            return None
+        names = self.get_variables() | self.get_parameters() | other.get_variables() | other.get_parameters()
+        return decide_equal_strings(str(self), str(other), names)
 
     @abstractmethod
     def __le__(self, other) -> bool:
@@ -421,7 +440,7 @@ class Distribution(ABC):
         """ Evaluates the expression in a given state. """
 
     @classmethod
-    def evaluate_condition(cls, condition: BinopExpr | UnopExpr,
+    def evaluate_condition(cls, condition: Expr,
                            state: State) -> bool:
         """Evaluates whether the condition holds in the specified state."""
 

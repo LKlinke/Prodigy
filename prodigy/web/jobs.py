@@ -86,14 +86,17 @@ def _limit_memory(megabytes: Optional[int]) -> None:
         pass
 
 
-def _worker(request: Dict[str, Any], conn, memory_limit: Optional[int]) -> None:
-    """Entry point of the analysis process."""
+def _worker(request: Dict[str, Any], conn, memory_limit: Optional[int], kind: str = "analysis") -> None:
+    """Entry point of the analysis process; ``kind`` "suggest" asks a language model for a
+    candidate instead (:func:`prodigy.web.requests.run_suggestion`)."""
     _limit_memory(memory_limit)
     sender = _Sender(conn)
     try:
         sender.send("state", "running")
-        from prodigy.web.requests import run_analysis  # pylint: disable=import-outside-toplevel
-        result = run_analysis(request, output=sender.log, progress=sender.progress)
+        # pylint: disable=import-outside-toplevel
+        from prodigy.web.requests import run_analysis, run_suggestion
+        run = run_suggestion if kind == "suggest" else run_analysis
+        result = run(request, output=sender.log, progress=sender.progress)
         sender.flush()
         sender.send("result", result)
     except BaseException as exc:  # pylint: disable=broad-except
@@ -191,19 +194,20 @@ class JobManager:
 
     # -- public ------------------------------------------------------------------------
 
-    def submit(self, request: Dict[str, Any], time_limit: Optional[float] = None) -> Job:
+    def submit(self, request: Dict[str, Any], time_limit: Optional[float] = None, kind: str = "analysis") -> Job:
         limit = self.time_limit if time_limit is None else min(float(time_limit), self.time_limit)
         with self._lock:
             if sum(1 for job in self._jobs.values() if job.running) >= self.max_jobs:
                 raise BusyError(f"{self.max_jobs} analyses are already running")
             receiver, sender = self._context.Pipe(duplex=False)
-            process = self._context.Process(target=_worker, args=(request, sender, self.memory_limit),
+            process = self._context.Process(target=_worker, args=(request, sender, self.memory_limit, kind),
                                             name="prodigy-analysis", daemon=True)
             with _importable_main():
                 process.start()
             sender.close()
             job = Job(id=uuid.uuid4().hex[:12], process=process, conn=receiver, time_limit=limit,
-                      summary={"engine": request.get("engine"), "decisions": request.get("decisions")})
+                      summary={"kind": kind, "engine": request.get("engine"),
+                               "decisions": request.get("decisions")})
             self._jobs[job.id] = job
             self._prune()
             return job
@@ -300,8 +304,9 @@ class JobManager:
             job.process.kill()
             job.process.join(timeout=1)
         job.state = state
-        message = ("The analysis was stopped after the time limit of "
-                   f"{job.time_limit:g} s." if state == "timeout" else "The analysis was cancelled.")
+        what = "The request to the language model" if job.summary.get("kind") == "suggest" else "The analysis"
+        message = (f"{what} was stopped after the time limit of {job.time_limit:g} s." if state == "timeout"
+                   else f"{what} was cancelled.")
         job.result = {"status": state, "error": {"type": state, "message": message}}
         job.finished = time.monotonic()
         try:

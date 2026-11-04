@@ -93,8 +93,8 @@ def test_for_instr_errors():
     assert isinstance(check_program(program), CheckFail)
 
     program = parse_pgcl("""
-        real x
-        x := 5
+        nat x
+        x := 0.5
     """)
     assert isinstance(check_program(program), CheckFail)
 
@@ -110,7 +110,8 @@ def test_for_instr_errors():
             skip
         }
     """)
-    assert isinstance(check_program(program), CheckFail)
+    # a bool is widened to the probability 0 or 1
+    assert check_program(program) is None
 
     program = parse_pgcl("""
         nparam x

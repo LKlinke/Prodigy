@@ -21,7 +21,7 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 class FunctionHandler(InstructionHandler):
     @staticmethod
     def compute(
-            instruction: Instr, prog_info: ProgramInfo,
+            instruction: Union[Instr, Sequence[Instr]], prog_info: ProgramInfo,
             distribution: Distribution, error_prob: Distribution,
             config: ForwardAnalysisConfig,
             analyzer: Callable[
@@ -29,7 +29,7 @@ class FunctionHandler(InstructionHandler):
                 tuple[Distribution, Distribution]
             ]
     ) -> tuple[Distribution, Distribution]:
-        _assume(instruction, AsgnInstr, 'FunctionCallHandler')
+        instruction = _assume(instruction, AsgnInstr, 'FunctionCallHandler')
         assert isinstance(instruction.rhs, FunctionCallExpr)
 
         if instruction.rhs.function in distr_functions:

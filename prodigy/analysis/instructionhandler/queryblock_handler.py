@@ -27,8 +27,8 @@ class QueryBlockHandler(InstructionHandler):
                 tuple[Distribution, Distribution]
             ]
     ) -> tuple[Distribution, Distribution]:
-        _assume(instruction, QueryInstr, "QueryBlockHandler")
-        instrs = instruction.instrs  # type: ignore
+        instruction = _assume(instruction, QueryInstr, "QueryBlockHandler")
+        instrs = instruction.instrs
         assert len(instrs) == 2
         assert isinstance(instrs[0], AsgnInstr)
         assert isinstance(instrs[1], ObserveInstr)

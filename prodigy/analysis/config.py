@@ -3,6 +3,7 @@
 Forward Analysis Config
 -----------------------
 """
+from contextlib import AbstractContextManager
 from enum import Enum, auto
 from typing import Type
 
@@ -11,6 +12,7 @@ import attr
 from prodigy.analysis.optimization import Optimizer
 from prodigy.analysis.optimization.gf_optimizer import GFOptimizer
 from prodigy.distribution.generating_function import (GeneratingFunction,
+                                                      GeneratingFunctionSettings,
                                                       SympyPGF)
 from prodigy.distribution.symengine_distribution import SymenginePGF
 from .evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
@@ -40,10 +42,10 @@ class ForwardAnalysisConfig:
     """Enables step-by-step computation"""
 
     use_simplification: bool = attr.ib(default=False)
-    """Enables simplification heuristics for expressions."""
+    """Enables simplification heuristics for expressions (SymPy engine; see :meth:`activate`)."""
 
     use_latex: bool = attr.ib(default=False)
-    """Toggle to print LaTeX-Code instead of ASCII expressions."""
+    """Toggle to print LaTeX-Code instead of ASCII expressions (SymPy engine; see :meth:`activate`)."""
 
     engine: Engine = attr.ib(default=Engine.SYMPY)
     """Selects the distribution backend."""
@@ -92,6 +94,13 @@ class ForwardAnalysisConfig:
         else:
             return CommonDistributionsFactory
 
-    def __attrs_post_init__(self):
-        GeneratingFunction.use_latex_output = self.use_latex
-        GeneratingFunction.use_simplification = self.use_simplification
+    def activate(self) -> AbstractContextManager[GeneratingFunctionSettings]:
+        """
+        Applies ``use_simplification`` and ``use_latex`` within a ``with`` block only.
+
+        :func:`~prodigy.analysis.analyzer.compute_discrete_distribution` and
+        :meth:`~prodigy.analysis.session.AnalysisSession.run` do this themselves; code that works
+        with the distributions outside of them (e.g. printing a result) enters it as well.
+        """
+        return GeneratingFunction.configured(simplification=self.use_simplification,
+                                             latex_output=self.use_latex)

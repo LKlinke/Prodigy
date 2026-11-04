@@ -95,7 +95,7 @@ class SymengineDist(Distribution):
             return False
         if not other._parameters == self._parameters:
             return False
-        return self._s_func == other._s_func
+        return _provably_equal(self._s_func, other._s_func)
 
     def __le__(self, other: SymengineDist) -> bool:
         if not isinstance(other, SymengineDist):
@@ -1038,6 +1038,25 @@ class SymengineDist(Distribution):
                 return SymengineDist(result, *self._variables)
 
         raise NotImplementedError("unreachable")
+
+
+def _provably_equal(lhs: se.Expr, rhs: se.Expr) -> bool:
+    """
+    Decides ``lhs == rhs`` such that True is backed by exact arithmetic.
+
+    SymEngine's ``==`` compares canonical forms structurally: identical forms are equal, but equal rational
+    functions may have different forms (``1/(1-x)`` and ``1 + x/(1-x)``). So the difference is also brought to
+    numerator/denominator form and the numerator expanded; expansion is exact polynomial arithmetic over the
+    rationals in which non-rational subterms are indeterminates, so a zero numerator proves equality.
+    Floating-point numbers make arithmetic inexact (``1e20 + 1 - 1e20`` is 0), so expressions containing them
+    are only equal if they are identical.
+    """
+    if lhs == rhs:
+        return True
+    if lhs.atoms(se.Float) or rhs.atoms(se.Float):
+        return False
+    numerator, denominator = (lhs - rhs).as_numer_denom()
+    return se.expand(numerator) == 0 and se.expand(denominator) != 0
 
 
 def _parse_to_symengine(expression) -> se.Expr:

@@ -1,6 +1,7 @@
 # skip
 nat x;
 nat y;
+nat c;
 nat temp;
 
 if(y=1){

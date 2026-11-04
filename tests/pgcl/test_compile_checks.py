@@ -13,7 +13,7 @@ def test_uniform_checks():
 def test_categorical_confusion():
     res = compile_pgcl("bool x; nat y; x := x : 0.5 + y : 0.5;")
     assert isinstance(res, CheckFail)
-    assert res.message == 'Expected value of type BoolType(), got NatType(bounds=None).'
+    assert res.message == 'Expected value of type BoolType(), got NatType(bounds=None) that is not provably 0 or 1.'
 
     with pytest.raises(ValueError) as excinfo:
         compile_pgcl("bool x; x := x : 0.9 + x : 0.5;")

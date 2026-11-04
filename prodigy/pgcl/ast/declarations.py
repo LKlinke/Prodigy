@@ -137,7 +137,7 @@ class Function(Node):
         res.update({var: NatLitExpr(0) for var in self.variables - res.keys()})
         return res
 
-    def __str__(self):
+    def __str__(self) -> str:
         instrs: List[Any] = list(self.declarations)
         instrs.extend(self.instructions)
         res = "\n\t".join(map(str, instrs))

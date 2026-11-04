@@ -51,6 +51,15 @@ def compute_discrete_distribution(
     :param step_callback: if given, called with (instruction, distribution, error_prob) after each
         top-level instruction.
     """
+    with config.activate():
+        return _compute_discrete_distribution(program, dist, config, step_callback)
+
+
+def _compute_discrete_distribution(
+        program: Program | ProgramInfo, dist: Distribution,
+        config: ForwardAnalysisConfig,
+        step_callback: Optional[Callable[[Instr, Distribution, Distribution], None]]
+) -> tuple[Distribution, Distribution]:
     logger.debug("Compute the distribution for\n%s\nand distribution %s", str(program), dist)
 
     # Inject the context from the parsed program into the initial distribution.
@@ -141,9 +150,14 @@ def compute_semantics(
     elif isinstance(instruction, get_args(Query)):
         logger.info("%s gets handled", instruction)
         if config.normalize:
-            distribution, error_prob = condition_distribution(
+            unconditioned = error_prob.is_zero_dist()
+            conditioned, error_prob = condition_distribution(
                 distribution, error_prob,
                 config)  # evaluate queries on conditioned distribution
+            if unconditioned:
+                # dividing by one does not change the measure
+                current_session().same_measure(distribution, conditioned)
+            distribution = conditioned
             error_prob *= "0"
         return QueryHandler.compute(instruction, prog_info, distribution,
                                     error_prob, config, compute_semantics)
