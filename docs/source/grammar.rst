@@ -44,3 +44,17 @@ instruction is rejected:
 
 .. automodule:: prodigy.distribution.roots_of_unity
    :no-index:
+
+Sampling
+--------
+
+``x := D`` samples ``x`` from one of the predefined distributions ``bernoulli(p)``,
+``geometric(p)``, ``poisson(p)``, ``logdist(p)``, ``binomial(n, p)``, ``unif(a, b)`` (also
+``unif_d``); all parameters are positional and required. Two forms take a distribution as
+argument:
+
+- ``x := iid(D, n)`` sets ``x`` to the sum of ``n`` independent samples of ``D``. ``D`` is a
+  predefined distribution or a generating function in ``x``. ``n`` is a program variable or a
+  natural number (a ``const`` counts as one); other expressions and parameters are rejected.
+- ``x := sample_pgf(G, x)`` samples ``x`` from the generating function ``G`` in ``x``. The second
+  argument must be the assigned variable; sampling in another variable is rejected.

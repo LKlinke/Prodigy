@@ -966,17 +966,20 @@ class GeneratingFunction(Distribution):
             finite=self._is_finite,
             closed=self._is_closed_form).set_parameters(*self.get_parameters())
 
-    def update_iid(self, sampling_dist: Expr, count: VarExpr,
+    def update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
                    variable: Union[str, VarExpr]) -> Distribution:
 
-        subst_var = count.var
+        subst_var = count.var if isinstance(count, VarExpr) else None
 
         def subs(dist_gf, subst_var, variable):
             result = self.marginal(
                 variable,
                 method=MarginalType.EXCLUDE) if subst_var != variable else self
             result = result.set_variables(*self.get_variables(), str(variable))
-            if subst_var == variable:
+            if subst_var is None:
+                # a fixed number of samples: the sum has the generating function dist_gf^count
+                result._function = result._function * dist_gf ** _parse_to_sympy(str(count))
+            elif subst_var == variable:
                 result._function = result._function.subs(
                     _sympy_symbol(subst_var), dist_gf)
             else:

@@ -827,14 +827,18 @@ class SymengineDist(Distribution):
 
         return SymengineDist(res).set_variables_and_parameters(self.get_variables(), self.get_parameters())
 
-    def update_iid(self, sampling_dist: Expr, count: VarExpr, variable: Union[str, VarExpr]) -> SymengineDist:
-        subst_var = count.var
+    def update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
+                   variable: Union[str, VarExpr]) -> SymengineDist:
+        subst_var = count.var if isinstance(count, VarExpr) else None
 
         def subs(dist_gf, subst_var, variable) -> SymengineDist:
             result = self.marginal(
                 variable,
                 method=MarginalType.EXCLUDE) if subst_var != variable else self
-            if subst_var == variable:
+            if subst_var is None:
+                # a fixed number of samples: the sum has the generating function dist_gf^count
+                result._s_func = result._s_func * dist_gf ** se.S(str(count))
+            elif subst_var == variable:
                 result._s_func = result.safe_subs(
                     se.S(subst_var), dist_gf)
             else:
