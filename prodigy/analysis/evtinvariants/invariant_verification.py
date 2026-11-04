@@ -20,6 +20,30 @@ Analyzer = Callable[[Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, D
 """Computes the semantics of instructions (``compute_semantics``)."""
 
 
+def evt_operator(loop: WhileInstr,
+                 prog_info: ProgramInfo,
+                 distribution: Distribution,
+                 invariant: Distribution,
+                 config: ForwardAnalysisConfig,
+                 analyzer: Analyzer) -> Distribution:
+    """Applies the EVT operator Ψ(I) = distribution + ⟦body⟧(⟨I⟩_guard) to ``invariant``."""
+    zero_dist = config.factory.from_expr("0", *prog_info.program.variables.keys())
+    return distribution + analyzer(loop.body, prog_info, invariant.filter(loop.cond), zero_dist, config)[0]
+
+
+def is_evt_fixed_point(loop: WhileInstr,
+                       prog_info: ProgramInfo,
+                       distribution: Distribution,
+                       invariant: Distribution,
+                       config: ForwardAnalysisConfig,
+                       analyzer: Analyzer) -> bool:
+    """
+    Whether ``invariant`` is provably a fixed point of the EVT operator. Parameter values found by a solver
+    are only proposals; an invariant with these values substituted has to pass this check.
+    """
+    return invariant == evt_operator(loop, prog_info, distribution, invariant, config, analyzer)
+
+
 def evt_invariant_check(loop: WhileInstr,
                         prog_info: ProgramInfo,
                         distribution: Distribution,
@@ -37,12 +61,8 @@ def evt_invariant_check(loop: WhileInstr,
     logger.debug("Invariant Verification for loop %s with initial distribution %s.", loop, distribution)
     print(f"{Style.YELLOW}Invariant verification initiated...{Style.RESET}")
 
-    zero_dist = config.factory.from_expr("0", *prog_info.program.variables.keys())
-
     # Compute one iteration step.
-    phi = distribution + \
-              analyzer(loop.body, prog_info, invariant.filter(loop.cond), zero_dist, config)[0]
-
+    phi = evt_operator(loop, prog_info, distribution, invariant, config, analyzer)
 
     # Validate the invariant.
     logger.debug("Trying to validate invariant: %s", invariant)
@@ -67,19 +87,26 @@ def evt_invariant_check(loop: WhileInstr,
             if not all(map(lambda x: x == 0, candidate.values())):
                 solutions.append(candidate)
 
-    if len(solutions) > 0:
-        print(f"All solutions: {solutions}")
+    # The solver's solutions are only proposals: keep those that make the invariant a proven fixed point.
+    variables = prog_info.program.variables.keys()
+    verified = []
+    for candidate in solutions:
+        full = str(sympy.S(str(invariant)).subs(candidate)).replace("**", "^")
+        full_dist = config.factory.from_expr(full, *variables)
+        if is_evt_fixed_point(loop, prog_info, distribution, full_dist, config, analyzer):
+            verified.append((candidate, full_dist))
+        else:
+            logger.info("Discarding the solution %s: the fixed-point equation is not proven.", candidate)
+
+    if len(verified) > 0:
+        print(f"All solutions: {[candidate for candidate, _ in verified]}")
         logger.info("Using the first solution to continue.")
         # Use the first solution to continue.
         # This is a heuristic, as there might be multiple solutions.
-        solution = str(sympy.S(str(invariant - invariant.filter(loop.cond))).subs(solutions[0])).replace("**", "^")
-        sol_dist = config.factory.from_expr(
-            solution, *prog_info.program.variables.keys()
-        )
-        full = str(sympy.S(str(invariant)).subs(solutions[0])).replace("**", "^")
-        full_dist = config.factory.from_expr(full, *prog_info.program.variables.keys())
+        full_dist = verified[0][1]
+        sol_dist = full_dist - full_dist.filter(loop.cond)
         print(f"{Style.GREEN}Invariant: {sol_dist}{Style.RESET}{Style.CLEARTOEND}")
-        return sol_dist, full_dist, [{str(k): str(v) for k, v in s.items()} for s in solutions]
+        return sol_dist, full_dist, [{str(k): str(v) for k, v in candidate.items()} for candidate, _ in verified]
 
     # No solution found.
     raise VerificationError(f"Invariant {invariant} could not be verified for loop {loop}.")

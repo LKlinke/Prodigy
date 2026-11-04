@@ -6,6 +6,7 @@ from prodigy.pgcl import WhileInstr, Instr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategy
+from prodigy.analysis.evtinvariants.invariant_verification import is_evt_fixed_point
 from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
@@ -75,17 +76,20 @@ def evt_invariant_synthesis(loop: WhileInstr,
 
             for sol in solutions:
                 sol_inv = sympy.S(str(evt_inv)).subs(sol).ratsimp()
+                # The solver's solution is only a proposal (its values pass through string conversions).
+                sol_dist = config.factory.from_expr(str(sol_inv).replace("**", "^"), *prog_info.program.variables)
+                if not is_evt_fixed_point(loop, prog_info, distribution, sol_dist, config, analyzer):
+                    logger.info("Discarding the solution %s: the fixed-point equation is not proven.", sol)
+                    continue
                 sol_is_positive = strategy.positivity_heuristics.is_positive(sol_inv)
 
                 logger.debug("Possible solution: %s", sol)
                 if sol_is_positive is None:
                     print(f"{Style.CYAN}Possible invariant: {sol_inv}{Style.RESET}{Style.CLEARTOEND}")
-                    sol_inv = config.factory.from_expr(str(sol_inv).replace("**", "^"), *prog_info.program.variables)
-                    result.append((sol_inv, sol_is_positive))
+                    result.append((sol_dist, sol_is_positive))
                 elif sol_is_positive is True:
                     print(f"{Style.GREEN}Invariant: {sol_inv}{Style.RESET}{Style.CLEARTOEND}")
-                    sol_inv = config.factory.from_expr(str(sol_inv).replace("**", "^"), *prog_info.program.variables)
-                    result.append((sol_inv, sol_is_positive))
+                    result.append((sol_dist, sol_is_positive))
                     inv_found = True
                 else:
                     if config.show_all_invs:
