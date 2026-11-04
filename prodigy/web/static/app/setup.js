@@ -53,7 +53,7 @@ function observeBefore(source, line) {
 let uid = 0;
 const nextId = (prefix) => `${prefix}-${++uid}`;
 
-function paramField(param, value, onInput) {
+function paramField(param, value, onInput, suggest = null) {
   const id = nextId(`param-${param.name}`);
   const errorId = `${id}-error`;
   const label = h("label", { for: id }, param.label, param.optional ? h("span", { class: "optional" }, " (optional)") : null);
@@ -84,8 +84,127 @@ function paramField(param, value, onInput) {
   const problem = value !== undefined && value !== "" ? validateParam(param, control.value) : "";
   error.textContent = problem;
   if (problem) control.setAttribute("aria-invalid", "true");
-  return h("div", { class: "form-row" }, label, control, error,
+  const action = suggest ? suggest(control) : null;
+  return h("div", { class: "form-row" }, label,
+    action ? h("div", { class: "field-with-action" }, control, action.button) : control,
+    error, action ? action.status : null,
     param.help ? h("p", { class: "help", id: `${id}-help` }, param.help) : null);
+}
+
+// ---- "Suggest": one candidate from a language model (POST /api/suggest) ----------------------
+
+/** Requests in flight or finished, by loop and strategy; they outlive re-renders of the panel. */
+const suggestions = new Map();
+
+/** The Suggest button and its status line for the candidate field of an EVT strategy.
+ * ctx.suggest(loopId, form, {signal, onProgress}) runs the request and resolves to its result. */
+function suggestAction(ctx, loop, strategy, param, control) {
+  const ai = ctx.meta.ai || { available: false, reason: "This server does not offer suggestions." };
+  const key = `${loop.id}:${strategy.name}`;
+  const statusId = nextId("suggest-status");
+  const button = h("button", { type: "button", class: "button", "aria-describedby": statusId });
+  const status = h("div", { class: "suggest-status", id: statusId });
+  const model = ai.model || "the language model";
+
+  const fill = (entry) => {
+    // the field may have been rendered again meanwhile: fill the decision and the current field
+    const decision = ctx.setup.decisions[String(loop.id)];
+    if (!decision || decision.strategy !== strategy.name) return false;
+    entry.previous = decision.params[param.name] ?? "";
+    decision.params[param.name] = entry.candidate;
+    const field = entry.control?.isConnected ? entry.control : null;
+    if (field) {
+      field.value = entry.candidate;
+      field.dispatchEvent(new Event("input"));
+    } else {
+      ctx.onChange();
+    }
+    return true;
+  };
+
+  const view = () => {
+    const entry = suggestions.get(key);
+    const running = entry?.state === "running";
+    button.disabled = !ai.available;
+    button.setAttribute("aria-label", running ? `Stop asking ${model}` : `Suggest a candidate with ${model}`);
+    button.title = ai.available ? (running ? "Stop the request" : `Ask ${model} for a candidate`) : ai.reason;
+    button.replaceChildren(running ? "Stop" : "Suggest");
+    if (!ai.available) {
+      status.replaceChildren(h("p", { class: "help" }, `Suggest needs a language model on the server. ${ai.reason}`));
+      return;
+    }
+    if (!entry) {
+      status.replaceChildren();
+      return;
+    }
+    const answer = entry.answer ? h("details", { class: "suggest-answer" },
+      h("summary", {}, `Answer of ${entry.model || model}`), h("pre", { class: "mono" }, entry.answer)) : null;
+    if (running) {
+      status.replaceChildren(h("p", { class: "suggest-progress" }, h("span", { class: "spinner", "aria-hidden": "true" }),
+        h("span", { role: "status" }, `Asking ${model}…`),
+        h("span", { class: "suggest-elapsed", "aria-hidden": "true" }, entry.elapsed ? `${Math.round(entry.elapsed)} s` : "")));
+    } else if (entry.state === "done") {
+      const undo = entry.previous ? h("button", { type: "button", class: "link-button" }, "Restore previous") : null;
+      undo?.addEventListener("click", () => {
+        entry.candidate = entry.previous;
+        fill(entry);
+        suggestions.delete(key);
+        view();
+        entry.control?.focus();
+      });
+      status.replaceChildren(h("div", { class: "notice", role: "status" }, icon("info"),
+        h("div", {}, h("p", {}, `Proposed by ${entry.model}. Only a proposal: review or edit it, then analyse; Prodigy checks it. `, undo),
+          answer)));
+    } else {
+      status.replaceChildren(h("div", { class: "notice error", role: "alert" }, icon("error"),
+        h("div", {}, h("p", {}, entry.message), answer)));
+    }
+  };
+
+  const start = async () => {
+    const entry = { state: "running", elapsed: 0, controller: new AbortController(), control, view, source: ctx.currentSource() };
+    suggestions.set(key, entry);
+    view();
+    let result;
+    try {
+      result = await ctx.suggest(loop.id, strategy.name, {
+        signal: entry.controller.signal,
+        onProgress: (elapsed) => {
+          entry.elapsed = elapsed;
+          if (suggestions.get(key) === entry) entry.view?.();
+        },
+      });
+    } catch (error) {
+      result = { status: "error", error: { message: error.message } };
+    }
+    if (suggestions.get(key) !== entry) return;
+    const suggestion = result.suggestion || result.error?.suggestion || {};
+    Object.assign(entry, { model: suggestion.model, answer: suggestion.answer, candidate: suggestion.candidate });
+    if (result.status === "ok" && suggestion.candidate) {
+      if (ctx.currentSource() !== entry.source) {
+        Object.assign(entry, { state: "error", message: `The program changed while ${model} was asked; ask again.` });
+      } else if (fill(entry)) {
+        entry.state = "done";
+      } else {
+        suggestions.delete(key);
+      }
+    } else if (result.status === "cancelled") {
+      suggestions.delete(key);
+    } else {
+      Object.assign(entry, { state: "error", message: result.error?.message || result.status || "The request failed." });
+    }
+    entry.view?.();
+  };
+
+  button.addEventListener("click", () => {
+    const entry = suggestions.get(key);
+    if (entry?.state === "running") entry.controller.abort();
+    else start();
+  });
+  const entry = suggestions.get(key);
+  if (entry) Object.assign(entry, { control, view }); // the field on screen now
+  view();
+  return { button, status };
 }
 
 function strategySelect(strategies, current, onChange) {
@@ -101,6 +220,11 @@ function strategySelect(strategies, current, onChange) {
   select.value = current;
   select.addEventListener("change", () => onChange(select.value));
   return h("div", { class: "form-row" }, h("label", { for: id }, "Strategy"), select);
+}
+
+function canSuggest(ctx, strategy, param) {
+  const forms = ctx.meta.ai?.forms || [];
+  return Boolean(ctx.suggest) && param.kind === "expression" && forms.includes(strategy.name);
 }
 
 function loopCard(loop, ctx) {
@@ -140,7 +264,7 @@ function loopCard(loop, ctx) {
       params.length ? h("div", { class: "params" }, ...params.map((param) => paramField(param, decision.params[param.name], (value) => {
         decision.params[param.name] = value;
         onChange();
-      }))) : null,
+      }, canSuggest(ctx, strategy, param) ? (control) => suggestAction(ctx, loop, strategy, param, control) : null))) : null,
     );
   };
   render();
@@ -198,7 +322,8 @@ function engineControl(meta, options, onChange) {
     h("p", { class: "help" }, "GiNaC is usually much faster; SymPy is the reference implementation."));
 }
 
-/** Renders the setup panel. ctx: {outline, setup, strategies, meta, source, onChange, focusLoop} */
+/** Renders the setup panel. ctx: {outline, setup, strategies, meta, source, onChange, focusLoop,
+ * suggest(loopId, form, {signal, onProgress}), currentSource()} */
 export function renderSetup(container, ctx) {
   const { outline, setup, meta, onChange } = ctx;
   const inputId = nextId("input");

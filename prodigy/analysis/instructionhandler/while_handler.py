@@ -657,9 +657,6 @@ register_loop_strategy(LoopStrategy(
 # Candidates from a language model (prodigy.analysis.ai_candidates)
 # ---------------------------------------------------------------------------------------
 
-_AI_TARGETS = {"evt_invariant": "invariant", "evt_subinvariant": "subinvariant"}
-
-
 def _strategy_ai_invariant(task: LoopTask) -> LoopOutcome:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis import ai_candidates
@@ -694,7 +691,7 @@ def _strategy_ai_invariant(task: LoopTask) -> LoopOutcome:
         entry["candidate"] = candidate
         # The candidate goes through the same check as one typed in by hand.
         attempt_task = dataclasses.replace(task, strategy=target,
-                                           decision=LoopDecision(form, {_AI_TARGETS[form]: candidate}))
+                                           decision=LoopDecision(form, {ai_candidates.TARGET_PARAMS[form]: candidate}))
         try:
             outcome = target.run(attempt_task)
         except Exception as exc:  # pylint: disable=broad-except  # any failed check rejects the candidate

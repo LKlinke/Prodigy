@@ -238,7 +238,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 .button:focus-visible, .field:focus-visible, select:focus-visible, textarea:focus-visible,
 .segmented button:focus-visible, .divider:focus-visible, .chip-button:focus-visible,
 .disclosure > summary:focus-visible, .library-row:focus-visible, .problems:focus-visible,
-.link-button:focus-visible, .toggle input:focus-visible + span {
+.link-button:focus-visible, .toggle input:focus-visible + span, .suggest-answer > summary:focus-visible {
   outline: none; box-shadow: var(--focus-ring);
 }
 .button:disabled { opacity: 0.45; }
@@ -343,6 +343,20 @@ select { appearance: auto; padding: 2px 6px; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .params { display: grid; gap: 10px; }
+
+/* the Suggest button next to an invariant field and its status */
+.field-with-action { display: flex; gap: 8px; align-items: center; }
+.field-with-action > .field { flex: 1; min-width: 0; }
+.suggest-status:empty { display: none; }
+.suggest-status p { margin: 0; }
+.suggest-progress { display: flex; gap: 8px; align-items: center; font-size: var(--text-callout); color: var(--text-2); }
+.suggest-elapsed { font-variant-numeric: tabular-nums; }
+.suggest-answer { margin-top: 6px; }
+.suggest-answer > summary { cursor: default; border-radius: 3px; }
+.suggest-answer > pre {
+  margin: 6px 0 0; max-height: 220px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+  font-size: 12px; background: var(--surface-sunken); border-radius: 6px; padding: 6px 8px;
+}
 
 .notice {
   display: flex; gap: 8px; align-items: flex-start;

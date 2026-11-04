@@ -119,3 +119,143 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
         coefficient_limit=int(request.get("coefficients", 30)),
     )
     return session.run().to_json()
+
+
+# ---------------------------------------------------------------------------------------
+# Suggestions of a language model (POST /api/suggest)
+# ---------------------------------------------------------------------------------------
+
+def ai_status() -> Dict[str, Any]:
+    """Whether a language model is configured, for the GUI; never contains the API key."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.ai_candidates import FORMS, AIConfigurationError, get_provider
+    try:
+        provider = get_provider()
+    except (AIConfigurationError, ValueError) as exc:
+        return {"available": False, "reason": str(exc), "forms": list(FORMS)}
+    return {"available": True, "provider": provider.name, "model": provider.model, "forms": list(FORMS)}
+
+
+def validate_suggestion(request: Dict[str, Any]) -> List[str]:
+    """Problems with a suggestion request: an analysis request plus ``loop`` and ``form``."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.ai_candidates import FORMS
+    problems = []
+    loop = request.get("loop")
+    if isinstance(loop, bool) or not isinstance(loop, (int, str)) or not str(loop).isdigit():
+        problems.append("'loop' must be the id of a loop.")
+    if request.get("form") not in FORMS:
+        problems.append(f"'form' must be one of {', '.join(FORMS)}.")
+    if problems:
+        return problems
+    return validate_request(suggestion_analysis_request(request))
+
+
+def suggestion_analysis_request(request: Dict[str, Any]) -> Dict[str, Any]:
+    """The analysis that leads up to the loop: the loop itself gets the strategy ``form``
+    without its candidate (it never runs)."""
+    decisions = dict(request.get("decisions") or {})
+    decisions[str(request["loop"])] = {"strategy": request["form"]}
+    return {**request, "decisions": decisions}
+
+
+class _LoopReached(BaseException):
+    """Stops the analysis at the loop to suggest a candidate for. A ``BaseException``, so
+    that handlers which turn failures of a strategy into results do not catch it."""
+
+    def __init__(self, task):
+        super().__init__("loop reached")
+        self.task = task
+
+
+def _stopping_session(target: int, **kwargs):
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.session import AnalysisSession
+
+    class StoppingSession(AnalysisSession):
+        """Analyses the program up to the first time loop ``target`` is reached outside of
+        another strategy's checks."""
+
+        def run_loop(self, task):
+            if task.loop is not None and task.loop.id == target and not self.silent:
+                raise _LoopReached(task)
+            return super().run_loop(task)
+
+    return StoppingSession(**kwargs)
+
+
+def _error(kind: str, message: str, **extra: Any) -> Dict[str, Any]:
+    return {"status": "error", "error": {"type": kind, "message": message, **extra}}
+
+
+def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], None]] = None,
+                   progress: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
+    """Asks the configured language model for one candidate for loop ``request["loop"]`` (an
+    EVT invariant or sub-invariant, ``request["form"]``).
+
+    The analysis runs up to the loop to find the distribution entering it. The model's answer is
+    untrusted: :func:`~prodigy.analysis.ai_candidates.candidate_from_answer` admits only
+    expressions over the program's variables and parameters. The candidate is a proposal; it is
+    checked when the user runs the analysis with it."""
+    # pylint: disable=import-outside-toplevel,too-many-locals
+    from prodigy.analysis import ai_candidates
+    from prodigy.analysis.analyzer import compute_discrete_distribution
+    from prodigy.pgcl import parse_pgcl
+
+    problems = validate_suggestion(request)
+    if problems:
+        return _error("request", " ".join(problems), problems=problems)
+    try:
+        provider = ai_candidates.get_provider()
+    except (ai_candidates.AIConfigurationError, ValueError) as exc:
+        return _error("configuration", str(exc))
+    analysis = suggestion_analysis_request(request)
+    try:
+        program = parse_pgcl(analysis["source"])
+    except Exception as exc:  # pylint: disable=broad-except
+        return _error("syntax", str(exc).split("\n", maxsplit=1)[0])
+    loop_id, form = int(request["loop"]), request["form"]
+    session = _stopping_session(
+        loop_id, program=program, source=analysis["source"], config=make_config(analysis),
+        decisions=analysis["decisions"], allow_files=False, capture_output=True,
+        output_callback=output, progress_callback=progress)
+    if loop_id not in {loop.id for loop in session.loops}:
+        return _error("request", f"The program has no loop {loop_id}.")
+    input_distribution = analysis.get("input_distribution")
+    task = None
+    with session.activate(), session._output():  # pylint: disable=protected-access
+        try:
+            variables = list(program.variables.keys())
+            if isinstance(input_distribution, str) and input_distribution.strip():
+                dist = session.config.factory.from_expr(input_distribution, *variables)
+            else:
+                dist = session.config.factory.one(*variables)
+            compute_discrete_distribution(program, dist, session.config)
+        except _LoopReached as reached:
+            task = reached.task
+        except Exception as exc:  # pylint: disable=broad-except
+            return _error(type(exc).__name__, f"The distribution entering loop {loop_id} could not be "
+                                              f"computed: {str(exc) or type(exc).__name__}")
+        if task is None:
+            return _error("unreachable", f"The analysis never reaches loop {loop_id}, so there is nothing "
+                                         "to suggest.")
+        names = [str(v) for v in program.variables.keys()]
+        parameters = [str(p) for p in program.parameters.keys()]
+        entering = str(task.distribution)
+        print(f"Asking {provider.model} for an {form} candidate for loop {loop_id} (entered with {entering}).")
+        try:
+            answer = provider.ask(ai_candidates.SYSTEM_PROMPT, ai_candidates.prompt(
+                form, str(program), str(task.instruction), names, parameters, entering, []))
+        except ai_candidates.AIRequestError as exc:
+            return _error("ai_request", str(exc))
+    suggestion = {"loop": loop_id, "form": form, "param": ai_candidates.TARGET_PARAMS[form], "provider": provider.name,
+                  "model": provider.model, "entering": entering, "answer": answer.strip()[-2000:]}
+    try:
+        suggestion["candidate"] = ai_candidates.candidate_from_answer(answer, names + parameters)
+    except ai_candidates.CandidateError as exc:
+        reason = str(exc)
+        if not answer.strip() and provider.diagnostics:
+            reason += f" The model stopped with {provider.diagnostics.get('stop_reason')}."
+        return _error("candidate", f"The answer of {provider.model} contains no usable candidate: {reason}",
+                      suggestion=suggestion)
+    return {"status": "ok", "suggestion": suggestion}

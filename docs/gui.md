@@ -121,6 +121,19 @@ both are configured. Answers are untrusted input: a candidate may only contain n
 program's variables and parameters, `+ - * / ^`, parentheses, `sqrt` and `exp` before any
 computer algebra system sees it.
 
+### The Suggest button
+
+For teaching, a human in the loop is often better than the automatic strategy: the field *EVT
+invariant I* of *Check EVT invariant* and the field *EVT sub-invariant nu* of *EVT
+sub-invariant* have a **Suggest** button. It analyses the program up to the loop (earlier loops
+with their strategies from Setup), asks the model once for a candidate for this loop and fills it
+into the field. The candidate is only a proposal: look at it, edit it if needed, and press
+Analyze; Prodigy's exact check decides, as for a candidate typed in by hand. *Restore previous*
+puts back what was in the field before, *Answer of …* shows the model's full answer, and the
+button turns into **Stop** while the request runs. The request runs in its own process like an
+analysis, with the server's time limit (`--time-limit`), so the API key stays on the server.
+If no model is configured, the button is disabled and the reason is shown below the field.
+
 ## Non-interactive analysis API
 
 The while handler no longer asks questions itself. An `AnalysisSession`
@@ -177,6 +190,7 @@ The strategy then appears in the CLI menu (after the six historic entries), in
 | `POST /api/analyze` | starts an analysis (`source, input_distribution, engine, normalize, simplification, decisions, coefficients, record_steps, synthesis_strategy, template_heuristic, positivity_heuristic, solver, time_limit`; the two heuristics only apply to `synthesis_strategy` `from_heuristics`) and returns a job id |
 | `GET /api/jobs/<id>?log_offset=n` | state (`running`, `done`, `timeout`, `cancelled`, `crashed`), new console output, progress per loop, result |
 | `DELETE /api/jobs/<id>` | cancels the analysis |
+| `POST /api/suggest` | asks the language model for one candidate for a loop: an analysis request without `coefficients` and `record_steps`, plus `loop` (id) and `form` (`evt_invariant` or `evt_subinvariant`), `time_limit` optional (default: the server's); returns a job id. The job's result is `{status: "ok", suggestion: {candidate, param, answer, model, provider, entering, loop, form}}` or an error (the model's answer in `error.suggestion` if it held no admissible candidate). `GET /api/meta` says under `ai` whether a model is configured. |
 | `GET /api/examples`, `GET /api/examples/<path>` | example library and suggested setup |
 
 ## Security and hosting

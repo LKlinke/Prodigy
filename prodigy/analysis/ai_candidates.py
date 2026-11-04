@@ -36,6 +36,8 @@ ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2026-10-21"
 FUNCTIONS = frozenset({"sqrt", "exp"})
 FORMS = ("evt_invariant", "evt_subinvariant")
+TARGET_PARAMS = {"evt_invariant": "invariant", "evt_subinvariant": "subinvariant"}
+"""The parameter of each strategy in :data:`FORMS` that takes the candidate."""
 
 
 class AIConfigurationError(Exception):

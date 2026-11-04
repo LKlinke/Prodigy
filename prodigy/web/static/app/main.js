@@ -216,6 +216,8 @@ function renderSetupPanel() {
       markStale();
       updateAnnotations();
     },
+    suggest: requestSuggestion,
+    currentSource: () => editor.getSource(),
   });
   save("setup", state.setup);
 }
@@ -354,6 +356,26 @@ function buildRequest() {
     solver: options.solver,
     time_limit: options.timeLimit,
   };
+}
+
+/** Asks the server's language model for a candidate for one loop (a job like an analysis, with
+ * the server's time limit) and resolves to the job's result; aborting the signal cancels it. */
+async function requestSuggestion(loopId, form, { signal, onProgress }) {
+  const { time_limit: _limit, coefficients: _c, record_steps: _r, ...analysis } = buildRequest();
+  const response = await api.suggest({ ...analysis, loop: loopId, form });
+  for (;;) {
+    if (signal.aborted) {
+      const status = await api.cancel(response.job);
+      return status.result || { status: "cancelled" };
+    }
+    const status = await api.job(response.job);
+    onProgress(status.elapsed);
+    if (status.state !== "starting" && status.state !== "running") return status.result || { status: status.state };
+    await new Promise((resolve) => {
+      const timer = setTimeout(resolve, status.elapsed < 2 ? 200 : 500);
+      signal.addEventListener("abort", () => { clearTimeout(timer); resolve(); }, { once: true });
+    });
+  }
 }
 
 async function run() {
