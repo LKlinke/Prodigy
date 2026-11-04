@@ -305,7 +305,7 @@ class SymengineDist(Distribution):
             *self._variables
         )
 
-    def _filter_constant_condition(self, condition: Expr) -> SymengineDist:
+    def _filter_constant_condition(self, condition: BinopExpr) -> SymengineDist:
         # Mapping of operator from expression
         #   <const> <op> <var>
         # to
@@ -354,6 +354,9 @@ class SymengineDist(Distribution):
 
         # Now we have an expression of the form _var_ (< | <=, =) _const_.
         variable = se.S(str(condition.lhs))
+        if not isinstance(condition.rhs, NatLitExpr):
+            raise ValueError(
+                f"Cannot filter for {condition}: the bound is not a natural number")
         constant = condition.rhs.value
         result = 0
         ranges = {
@@ -678,8 +681,8 @@ class SymengineDist(Distribution):
         if div_1 in self._parameters or div_2 in self._parameters:
             raise ValueError('Division containing parameters is not allowed')
 
-        marginal_l = self.marginal(numerator) if div_1 in self._variables else div_1
-        marginal_r = self.marginal(denominator) if div_2 in self._variables else div_2
+        marginal_l = self.marginal(str(numerator)) if div_1 in self._variables else div_1
+        marginal_r = self.marginal(str(denominator)) if div_2 in self._variables else div_2
 
         if isinstance(marginal_l, SymengineDist) and not marginal_l.is_finite():
             if isinstance(div_2, se.Integer):
@@ -792,7 +795,7 @@ class SymengineDist(Distribution):
 
         # variable to the power of a literal
         elif pow_1 in self._variables:
-            marginal = self.marginal(base)
+            marginal = self.marginal(str(base))
 
             if not marginal.is_finite():
                 raise ValueError(
@@ -806,7 +809,7 @@ class SymengineDist(Distribution):
 
         # literal to the power of a variable
         elif pow_2 in self._variables:
-            marginal = self.marginal(exp)
+            marginal = self.marginal(str(exp))
 
             if not marginal.is_finite():
                 raise ValueError(

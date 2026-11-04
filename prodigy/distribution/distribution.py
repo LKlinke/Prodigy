@@ -15,7 +15,7 @@ from prodigy.distribution.equality import decide_equal_strings
 from prodigy.distribution.linear_guards import normalize_guard
 
 from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
-                                      check_is_modulus_condition, has_variable)
+                                      has_variable, modulus_condition)
 from prodigy.pgcl.pgcl_operations import state_to_equality_expression
 
 
@@ -312,10 +312,11 @@ class Distribution(ABC):
             )
 
         # Modulo extractions
-        if check_is_modulus_condition(condition):
+        modulus = modulus_condition(condition)
+        if modulus is not None:
             return self._arithmetic_progression(
-                str(condition.lhs.lhs),
-                str(condition.lhs.rhs))[condition.rhs.value]
+                str(modulus.variable),
+                str(modulus.modulus))[modulus.remainder.value]
 
         # Constant expressions
         if check_is_constant_constraint(condition, self.get_parameters()):
@@ -339,7 +340,8 @@ class Distribution(ABC):
         """
 
     @abstractmethod
-    def _filter_constant_condition(self, condition: Expr) -> Distribution:
+    def _filter_constant_condition(self,
+                                   condition: BinopExpr) -> Distribution:
         """
         Filters out the terms that satisfy a constant condition, e.g., (var <= 5) (var > 5) (var = 5).
 
@@ -357,6 +359,10 @@ class Distribution(ABC):
 
         :return: The disjunction condition of explicitly encoded state conditions.
         """
+        if not isinstance(condition, BinopExpr):
+            raise NotImplementedError(
+                f"Instruction {condition} is not computable on infinite generating function"
+                f" {self}")
         expr: str = str(condition.rhs)
         syms = self._find_symbols(expr)
         if not len(syms) == 0:

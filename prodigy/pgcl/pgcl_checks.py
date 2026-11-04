@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional, Set
+from typing import Iterable, List, NamedTuple, Optional, Set, TypeGuard
 
 from prodigy.pgcl import (Binop, BinopExpr, Expr, Instr, NatLitExpr, Program,
                            Unop, UnopExpr, VarDecl, VarExpr)
@@ -30,7 +30,19 @@ def has_variable(expr: Expr, params: Optional[Set[str]]) -> bool:
     return False
 
 
-def check_is_modulus_condition(expression: Expr) -> bool:
+class ModulusCondition(NamedTuple):
+    """The parts of a condition ``var % modulus = remainder``."""
+    variable: VarExpr
+    modulus: NatLitExpr
+    remainder: NatLitExpr
+
+
+def modulus_condition(expression: Expr) -> Optional[ModulusCondition]:
+    """
+    Returns the parts of ``expression`` if it has the form
+    ``var % modulus = remainder`` with natural literals ``modulus`` and
+    ``remainder``, otherwise ``None``.
+    """
     if isinstance(expression, BinopExpr) \
             and expression.operator == Binop.EQ \
             and isinstance(expression.rhs, NatLitExpr) \
@@ -39,12 +51,17 @@ def check_is_modulus_condition(expression: Expr) -> bool:
         mod_expr = expression.lhs
         if isinstance(mod_expr.lhs, VarExpr) and isinstance(
                 mod_expr.rhs, NatLitExpr):
-            return True
-    return False
+            return ModulusCondition(mod_expr.lhs, mod_expr.rhs,
+                                    expression.rhs)
+    return None
 
 
-def check_is_constant_constraint(expression: Expr,
-                                 params: Optional[Set[str]]) -> bool:
+def check_is_modulus_condition(expression: Expr) -> bool:
+    return modulus_condition(expression) is not None
+
+
+def check_is_constant_constraint(
+        expression: Expr, params: Optional[Set[str]]) -> TypeGuard[BinopExpr]:
     if not isinstance(expression, BinopExpr) or expression.operator not in (
             Binop.EQ, Binop.LEQ, Binop.LT, Binop.GT, Binop.GEQ):
         return False
