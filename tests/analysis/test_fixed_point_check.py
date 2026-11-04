@@ -69,7 +69,7 @@ class WrongSolver:
         return True, [{p: sympy.Rational(1, 2) + sympy.Rational(1, 10 ** 20) for p in params}]
 
 
-def one_template(_strategy, variables, factory):
+def one_template(_strategy, variables, factory, **_heuristics):
     """A synthesis strategy with the single template (x + a)/(1 - c/2) (the enumeration is endless)."""
     template = factory.from_expr("(x + a)/(1 - c/2)", *variables)
     return SimpleNamespace(name="one template",
