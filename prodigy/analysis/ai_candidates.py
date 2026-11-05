@@ -8,7 +8,8 @@ next request tells the model why (e.g. Φ(I) − I), so it can correct itself.
 
 Answers are untrusted input. Before any computer algebra system sees a candidate (SymPy's parser
 evaluates Python code), it must consist of numbers, the program's variables and parameters,
-``+ - * / ^``, parentheses, ``sqrt`` and ``exp``, and parse as a pGCL expression.
+``+ - * / ^``, parentheses, ``sqrt`` and ``exp``, and parse as an expression of the program's
+syntax (pGCL or ``.ppy``, see :func:`admissible_expression`).
 
 Configuration, read from the environment of ``prodigy`` (it never reaches the browser):
 
@@ -27,14 +28,17 @@ import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
+from typing import AbstractSet, Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.parser import parse_expectation
 
 DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5-5"
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2026-10-21"
 FUNCTIONS = frozenset({"sqrt", "exp"})
+"""Functions a candidate of a language model may use."""
+MATH_FUNCTIONS = frozenset({"sqrt", "exp", "log", "sin", "cos", "tan"})
+"""Functions a generating function typed in by a person may use (see :func:`admissible_expression`)."""
 FORMS = ("evt_invariant", "evt_subinvariant")
 TARGET_PARAMS = {"evt_invariant": "invariant", "evt_subinvariant": "subinvariant"}
 """The parameter of each strategy in :data:`FORMS` that takes the candidate."""
@@ -258,14 +262,62 @@ _ANSWER = re.compile(r"^[\s*_#>]*ANSWER[\s*_]*:[\s*_`$]*(.*?)[\s*_`$]*$", re.I |
 _PREFIX = re.compile(r"^(?:[A-Za-z_]\w*\s*(?:\([^)]*\))?\s*=\s*)+")
 _ALLOWED = re.compile(r"[0-9A-Za-z_+\-*/^().\s]+")
 _IDENTIFIER = re.compile(r"[A-Za-z_]\w*")
+_CALL = re.compile(r"([A-Za-z_]\w*)\s*\(")
 
 
-def candidate_from_answer(answer: str, names: Sequence[str]) -> str:
+def to_syntax(expression: str, syntax: str) -> str:
+    """``expression`` with the power operator of ``syntax`` (``^`` in pGCL, ``**`` in ``.ppy``)."""
+    return expression.replace("^", "**") if syntax == "ppy" else expression.replace("**", "^")
+
+
+def admissible_expression(text: str, names: Optional[Sequence[str]] = None, syntax: str = "pgcl",
+                          functions: AbstractSet[str] = FUNCTIONS) -> str:
+    """Checks that ``text`` is a generating function that is safe to give to a computer algebra
+    system and returns it in the engines' spelling (powers as ``^``).
+
+    ``text`` must consist of numbers, names, ``+ - * /``, powers (``^`` or ``**``, both
+    syntaxes accept both), parentheses and calls of ``functions``, and parse as an expression of
+    ``syntax``. With ``names``, every other name is rejected as well.
+
+    Raises :class:`CandidateError` otherwise."""
+    text = to_syntax(text, syntax)
+    if not _ALLOWED.fullmatch(text):
+        raise CandidateError(f"{text!r} contains characters other than numbers, names, "
+                             f"+ - * / {'**' if syntax == 'ppy' else '^'} and parentheses.")
+    if "//" in text:
+        # floor division in .ppy and Python, a comment in pGCL: neither belongs into a generating function
+        raise CandidateError(f"{text!r} contains '//', which is not an operation on generating functions.")
+    called = sorted({match.group(1) for match in _CALL.finditer(text)} - set(functions))
+    if called:
+        raise CandidateError(f"{text!r} calls {', '.join(called)}; allowed functions are "
+                             f"{', '.join(sorted(functions))}.")
+    if any(name.startswith("__") for name in _IDENTIFIER.findall(text)):
+        raise CandidateError(f"{text!r} uses a name that starts with '__'.")
+    if names is not None:
+        unknown = sorted(set(_IDENTIFIER.findall(text)) - set(names) - set(functions))
+        if unknown:
+            raise CandidateError(f"{text!r} uses {', '.join(unknown)}, which are neither program "
+                                 "variables nor parameters.")
+    try:
+        if syntax == "ppy":
+            # pylint: disable=import-outside-toplevel
+            from prodigy.pgcl.ppy_parser import parse_ppy_expr
+            parse_ppy_expr(text)
+        else:
+            parse_expectation(text)
+    except Exception as exc:  # pylint: disable=broad-except  # lark raises several error types
+        raise CandidateError(f"{text!r} is not a well-formed expression: {exc}") from exc
+    return text.replace("**", "^")
+
+
+def candidate_from_answer(answer: str, names: Sequence[str], syntax: str = "pgcl") -> str:
     """The candidate in a model's answer: its last ``ANSWER:`` line, else the last line of its last
-    code block or of the answer.
+    code block or of the answer, written with the power operator of ``syntax`` (``^`` for pGCL,
+    ``**`` for ``.ppy``).
 
     Raises :class:`CandidateError` unless it is an expression over ``names``, numbers,
-    ``+ - * / ^``, parentheses, ``sqrt`` and ``exp`` that parses as a pGCL expression."""
+    ``+ - * / ^``, parentheses, ``sqrt`` and ``exp`` that parses as an expression of ``syntax``
+    (:func:`admissible_expression`)."""
     marked = _ANSWER.findall(answer)
     if marked:
         line = marked[-1].strip()
@@ -277,16 +329,6 @@ def candidate_from_answer(answer: str, names: Sequence[str]) -> str:
         if not lines:
             raise CandidateError("The answer contains no text.")
         line = lines[-1]
-    candidate = _PREFIX.sub("", line.strip("`$ ")).rstrip(".;").strip().replace("**", "^")
-    if not _ALLOWED.fullmatch(candidate):
-        raise CandidateError(f"{candidate!r} contains characters other than numbers, variables, "
-                             "+ - * / ^ and parentheses.")
-    unknown = sorted(set(_IDENTIFIER.findall(candidate)) - set(names) - FUNCTIONS)
-    if unknown:
-        raise CandidateError(f"{candidate!r} uses {', '.join(unknown)}, which are neither program "
-                             "variables nor parameters.")
-    try:
-        parse_expr(candidate)
-    except Exception as exc:  # pylint: disable=broad-except  # lark raises several error types
-        raise CandidateError(f"{candidate!r} is not a well-formed expression: {exc}") from exc
+    candidate = to_syntax(_PREFIX.sub("", line.strip("`$ ")).rstrip(".;").strip(), syntax)
+    admissible_expression(candidate, names, syntax)
     return candidate

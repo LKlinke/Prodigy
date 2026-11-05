@@ -1,7 +1,7 @@
 // Prodigy web GUI: wires the editor, the setup panel, the analysis jobs and the result view.
 import { api } from "./api.js";
 import { canWriteFiles, createDocument } from "./document.js";
-import { createEditor } from "./editor.js";
+import { createEditor, SYNTAXES } from "./editor.js";
 import { createLibrary } from "./library.js";
 import { defaultDecision, focusLoopCard, renderSetup, setupProblems } from "./setup.js";
 import { load, save } from "./store.js";
@@ -9,19 +9,18 @@ import { h, icon } from "./components/dom.js";
 import { BOUND_TEXT, formatSeconds, formatValue, qualify } from "./components/format.js";
 import { renderResult, renderRunning } from "./components/result-view.js";
 
-const WELCOME = `// A fair coin is flipped until it shows heads; c counts the tails.
-// Press Analyze (⌘↩). How the loop is analysed is set in Setup.
-nat x;
-nat c;
+const WELCOME = `# A fair coin is flipped until it shows heads; c counts the tails.
+# Press Analyze (⌘↩). How the loop is analysed is set in Setup.
+x: nat = 1;
+c: nat;
 
-x := 1
-while (x = 1) {
-    {x := 0} [1/2] {c := c + 1}
+while (x == 1) {
+    { x = 0; } [1/2] { c = c + 1; }
 }
 
-?Pr[c = 0]
-?Pr[c < 3]
-?Ex[c]
+query Pr[c == 0];
+query Pr[c < 3];
+query Ex[c];
 `;
 
 const $ = (id) => document.getElementById(id);
@@ -141,11 +140,12 @@ function scheduleCheck(delay = 350) {
 
 async function runCheck() {
   const source = editor.getSource();
+  const syntax = editor.getSyntax();
   checkController?.abort();
   checkController = new AbortController();
   try {
-    const result = await api.check(source, checkController.signal);
-    if (source !== editor.getSource()) return;
+    const result = await api.check(source, syntax, checkController.signal);
+    if (source !== editor.getSource() || syntax !== editor.getSyntax()) return;
     state.diagnostics = result.diagnostics;
     editor.setDiagnostics(result.diagnostics);
     renderProblems();
@@ -208,6 +208,7 @@ function renderSetupPanel() {
     strategies: state.strategies,
     meta: state.meta,
     source: editor.getSource(),
+    syntax: editor.getSyntax(),
     outlineStale: Boolean(state.outlineStale && state.outline),
     optionsOpen: state.optionsOpen,
     onOptionsToggle: (open) => { state.optionsOpen = open; },
@@ -343,6 +344,7 @@ function buildRequest() {
   }
   return {
     source: editor.getSource(),
+    syntax: editor.getSyntax(),
     input_distribution: state.setup.input?.trim() || null,
     engine: options.engine,
     normalize: options.normalize,
@@ -458,16 +460,16 @@ async function stop() {
 
 // ---- examples -----------------------------------------------------------------------------------------
 
-async function loadExample(example) {
+async function loadExample(example, syntax = "pgcl") {
   if (!(await documents.confirmClose())) return;
   let data;
   try {
-    data = await api.example(example.id);
+    data = await api.example(example.id, syntax);
   } catch (error) {
     showRunMessage(error.message);
     return;
   }
-  editor.setSource(data.source);
+  editor.setSource(data.source, data.syntax || "pgcl");
   const suggestion = data.suggestion || {};
   state.setup.decisions = {};
   for (const [key, decision] of Object.entries(suggestion.decisions || {})) {
@@ -480,7 +482,9 @@ async function loadExample(example) {
   state.resultStale = false;
   documents.exampleLoaded(example, data.source);
   renderResultPanel();
-  showRunMessage(suggestion.note ? `${suggestion.note} ⌘Z restores your program.` : "Example loaded. ⌘Z restores your program.", "info");
+  const renamed = renamingText(data.renamings);
+  const note = [suggestion.note, renamed].filter(Boolean).join(" ");
+  showRunMessage(note ? `${note} ⌘Z restores your program.` : "Example loaded. ⌘Z restores your program.", "info");
   await runCheck();
   if (state.pendingDefault) {
     for (const loop of state.outline?.loops || []) {
@@ -493,6 +497,62 @@ async function loadExample(example) {
     updateAnnotations();
   }
   selectTab("setup");
+}
+
+// ---- syntax: pGCL or .ppy ------------------------------------------------------------------------
+
+function renamingText(renamings) {
+  if (!renamings?.length) return "";
+  const list = renamings.map((r) => `${r.from} → ${r.to}`).join(", ");
+  return `Renamed ${list} (keywords in .ppy).`;
+}
+
+function renderSyntax() {
+  const syntax = editor.getSyntax();
+  $("syntax-label").textContent = SYNTAXES[syntax].label;
+  $("syntax-label").setAttribute("aria-label", `Syntax: ${SYNTAXES[syntax].label}`);
+  $("btn-convert").hidden = syntax !== "pgcl";
+  $("btn-save").title = canWriteFiles ? "Save (⌘S) · Save As… (⇧⌘S)"
+    : `Download the program as a ${SYNTAXES[syntax].extension} file (⌘S)`;
+}
+
+/** The syntax changed (New, Open…, an example, Convert to .ppy, or undoing one of them). */
+function syntaxChanged(syntax) {
+  save("syntax", syntax);
+  renderSyntax();
+  documents?.changed();
+  renderSetupPanel();
+  scheduleCheck(0);
+}
+
+/** Convert to .ppy: one undoable change of text and syntax; invariant programs in the setup are
+ * converted as well. */
+async function convertProgram() {
+  if (editor.getSyntax() !== "pgcl") return;
+  const source = editor.getSource();
+  let converted;
+  try {
+    converted = await api.convert(source);
+  } catch (error) {
+    showRunMessage(error.message);
+    if (error.data?.line) editor.revealLine(error.data.line);
+    return;
+  }
+  if (source !== editor.getSource()) return;
+  for (const decision of Object.values(state.setup.decisions)) {
+    const invariant = decision.strategy === "invariant" ? decision.params?.invariant : null;
+    if (typeof invariant !== "string" || !invariant.trim()) continue;
+    try {
+      decision.params.invariant = (await api.convert(invariant)).source;
+    } catch {
+      // left as it is: the setup reports it when the analysis runs
+    }
+  }
+  save("setup", state.setup);
+  editor.setSource(converted.source, "ppy");
+  const renamed = renamingText(converted.renamings);
+  notify(`Converted to .ppy.${renamed ? ` ${renamed}` : ""} ⌘Z undoes it.`, "info");
+  editor.focus();
 }
 
 // ---- boot -----------------------------------------------------------------------------------------------
@@ -520,8 +580,12 @@ async function boot() {
     state.setup.options.timeLimit = Math.min(state.setup.options.timeLimit || 120, state.meta.limits.time_limit);
   }
 
+  const storedSource = load("source", null);
   editor = createEditor($("editor"), {
-    doc: load("source", WELCOME),
+    doc: storedSource ?? WELCOME,
+    // a program kept by a version without .ppy support is pGCL
+    syntax: load("syntax", storedSource === null ? "ppy" : "pgcl") === "ppy" ? "ppy" : "pgcl",
+    onSyntaxChange: syntaxChanged,
     onChange: (source) => {
       save("source", source);
       documents?.changed();
@@ -531,6 +595,7 @@ async function boot() {
     onRun: run,
     onStop: stop,
   });
+  save("syntax", editor.getSyntax());
   documents = createDocument({ editor, initialText: editor.getSource(), onReplace: programReplaced, notify,
     onChange: renderTitle });
   documents.changed();
@@ -539,7 +604,8 @@ async function boot() {
   $("btn-new").addEventListener("click", () => documents.new());
   $("btn-open").addEventListener("click", () => documents.open());
   $("btn-save").addEventListener("click", () => documents.save());
-  $("btn-save").title = canWriteFiles ? "Save (⌘S) · Save As… (⇧⌘S)" : "Download the program as a .pgcl file (⌘S)";
+  $("btn-convert").addEventListener("click", convertProgram);
+  renderSyntax();
   $("btn-examples").addEventListener("click", () => library.open());
   $("btn-run").addEventListener("click", run);
   $("btn-stop").addEventListener("click", stop);

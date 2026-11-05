@@ -4,7 +4,8 @@ Status: **agreed design** ([#105](https://github.com/LKlinke/Prodigy/issues/105)
 [#106](https://github.com/LKlinke/Prodigy/issues/106); the parser, the pretty printer and the
 converter exist (`prodigy/pgcl/ppy_parser.py`, `prodigy/pgcl/ppy_printer.py`,
 `prodigy/pgcl/converter.py`). The CLI reads `.ppy` files and converts `.pgcl` files with
-`prodigy convert` (see {doc}`cli`); the GUI and the examples in `pgfexamples/` still use `.pgcl`.
+`prodigy convert` (see {doc}`cli`); the GUI opens and saves both syntaxes and converts programs
+and examples to `.ppy` (see {doc}`gui`). The examples in `pgfexamples/` still use `.pgcl`.
 Block-scoped declarations and `//` are parsed but not implemented yet. Semantics of nested
 inference: [#104](https://github.com/LKlinke/Prodigy/issues/104).
 

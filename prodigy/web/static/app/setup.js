@@ -53,13 +53,22 @@ function observeBefore(source, line) {
 let uid = 0;
 const nextId = (prefix) => `${prefix}-${++uid}`;
 
+// placeholders in the syntax of the program (set by renderSetup)
+const PLACEHOLDERS = {
+  pgcl: { program: "nat x;\nif (x = 1) { … } else { skip }", expression: "1/(1 - c/2)" },
+  ppy: { program: "x: nat;\nif (x == 1) { … } else { skip; }", expression: "1/(1 - c/2)" },
+};
+let placeholders = PLACEHOLDERS.pgcl;
+
 function paramField(param, value, onInput, suggest = null) {
   const id = nextId(`param-${param.name}`);
   const errorId = `${id}-error`;
-  const label = h("label", { for: id }, param.label, param.optional ? h("span", { class: "optional" }, " (optional)") : null);
+  // an invariant program is written in the syntax of the program
+  const text = placeholders === PLACEHOLDERS.ppy ? param.label.replace("pGCL program", ".ppy program") : param.label;
+  const label = h("label", { for: id }, text, param.optional ? h("span", { class: "optional" }, " (optional)") : null);
   let control;
   if (param.kind === "pgcl") {
-    control = h("textarea", { id, class: "mono", rows: "7", spellcheck: "false", placeholder: "nat x;\nif (x = 1) { … } else { skip }" });
+    control = h("textarea", { id, class: "mono", rows: "7", spellcheck: "false", placeholder: placeholders.program });
   } else if (param.kind === "choice") {
     control = h("select", { id }, ...param.choices.map((choice) => h("option", { value: choice }, choice)));
   } else {
@@ -68,7 +77,7 @@ function paramField(param, value, onInput, suggest = null) {
       id, class: `field${numeric ? "" : " mono"}`, type: numeric ? "number" : "text",
       min: numeric && param.minimum !== null ? String(param.minimum) : null, step: numeric ? "1" : null,
       inputmode: numeric ? "numeric" : null, spellcheck: "false", autocomplete: "off",
-      placeholder: param.kind === "probability" ? "0.99" : param.kind === "expression" ? "1/(1 - c/2)" : "",
+      placeholder: param.kind === "probability" ? "0.99" : param.kind === "expression" ? placeholders.expression : "",
     });
   }
   control.value = value ?? "";
@@ -326,6 +335,7 @@ function engineControl(meta, options, onChange) {
  * suggest(loopId, form, {signal, onProgress}), currentSource()} */
 export function renderSetup(container, ctx) {
   const { outline, setup, meta, onChange } = ctx;
+  placeholders = PLACEHOLDERS[ctx.syntax] || PLACEHOLDERS.pgcl;
   const inputId = nextId("input");
   const input = h("input", { id: inputId, class: "field mono", type: "text", spellcheck: "false", autocomplete: "off",
     placeholder: "1   (every variable starts at 0)" });
@@ -387,7 +397,9 @@ export function renderSetup(container, ctx) {
     h("section", { class: "section", "aria-labelledby": "input-title" },
       h("div", { class: "section-header" }, h("h3", { class: "section-title", id: "input-title" }, "Input")),
       h("div", { class: "form-row" }, h("label", { for: inputId }, "Initial distribution"), input,
-        h("p", { class: "help" }, "A generating function over the program variables, e.g. x^3 for x = 3, or (x + x^2)/2."))),
+        h("p", { class: "help" }, ctx.syntax === "ppy"
+          ? "A generating function over the program variables, e.g. x**3 for x = 3, or (x + x**2)/2."
+          : "A generating function over the program variables, e.g. x^3 for x = 3, or (x + x^2)/2."))),
     loopsSection,
     h("section", { class: "section" }, optionsDisclosure),
   );

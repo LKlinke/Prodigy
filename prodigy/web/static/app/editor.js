@@ -1,12 +1,25 @@
-// The program editor: CodeMirror 6 with pGCL highlighting, diagnostics from the server and
-// inline annotations (the strategy above each loop, the result after each query).
+// The program editor: CodeMirror 6 with pGCL and .ppy highlighting, diagnostics from the server
+// and inline annotations (the strategy above each loop, the result after each query).
+//
+// The syntax ("pgcl" or "ppy") is part of the editor state, so that undoing a conversion to .ppy
+// also brings the old syntax back (invertedEffects).
 import {
   EditorState, StateField, StateEffect, Compartment, EditorView, keymap, lineNumbers, highlightActiveLine,
   highlightActiveLineGutter, drawSelection, Decoration, WidgetType, defaultKeymap, history,
   historyKeymap, indentWithTab, syntaxHighlighting, HighlightStyle, bracketMatching, indentOnInput,
   indentUnit, tags, lintGutter, setDiagnostics, lintKeymap, searchKeymap, highlightSelectionMatches,
-  autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap, pgcl, PGCL_WORDS, placeholder,
+  autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap, pgcl, PGCL_WORDS, ppy, PPY_WORDS,
+  placeholder, invertedEffects,
 } from "../vendor/codemirror.js";
+
+export const SYNTAXES = {
+  pgcl: { label: "pGCL", extension: ".pgcl", language: pgcl, words: PGCL_WORDS,
+    queries: ["?Pr[", "?Ex[", "!Print", "!Plot["],
+    declaration: /\b(?:nat|bool|real|rparam|nparam|const|dist)\s+([A-Za-z_]\w*)/g },
+  ppy: { label: ".ppy", extension: ".ppy", language: ppy, words: PPY_WORDS,
+    queries: ["query Pr[", "query Ex["],
+    declaration: /(?:^|[;{]\s*|\b(?:const|param|def)\s+)([A-Za-z_]\w*)(?=\s*[:=(])/gm },
+};
 
 // The editor's look, in the app's colour tokens. As a CodeMirror theme it takes precedence over
 // CodeMirror's base theme (plain CSS rules in app.css would lose to its scoped selectors).
@@ -143,17 +156,39 @@ function buildAnnotations(state, { loops = [], queries = [] }) {
 
 // ---- completion ------------------------------------------------------------------------
 
+// ---- syntax ---------------------------------------------------------------------------
+
+const setSyntax = StateEffect.define();
+
+const syntaxField = StateField.define({
+  create: () => "pgcl",
+  update(value, transaction) {
+    for (const effect of transaction.effects) {
+      if (effect.is(setSyntax)) value = effect.value;
+    }
+    return value;
+  },
+});
+
+// undo and redo of a change that switched the syntax switch it back
+const invertSyntax = invertedEffects.of((transaction) => {
+  const before = transaction.startState.field(syntaxField);
+  return transaction.effects.some((e) => e.is(setSyntax)) ? [setSyntax.of(before)] : [];
+});
+
 function completions(context) {
   const word = context.matchBefore(/[\w?!]+/);
   if (!word || (word.from === word.to && !context.explicit)) return null;
+  const syntax = SYNTAXES[context.state.field(syntaxField)];
   const declared = new Set();
   const text = context.state.doc.toString();
-  for (const match of text.matchAll(/\b(?:nat|bool|real|rparam|nparam|const|dist)\s+([A-Za-z_]\w*)/g)) declared.add(match[1]);
+  const keywords = new Set(syntax.words.keywords.concat(syntax.words.types));
+  for (const match of text.matchAll(syntax.declaration)) if (!keywords.has(match[1])) declared.add(match[1]);
   const options = [
-    ...PGCL_WORDS.keywords.map((label) => ({ label, type: "keyword" })),
-    ...PGCL_WORDS.types.map((label) => ({ label, type: "type" })),
-    ...PGCL_WORDS.builtins.map((label) => ({ label, type: "function", apply: `${label}(` })),
-    ...["?Pr[", "?Ex[", "!Print", "!Plot["].map((label) => ({ label, type: "keyword" })),
+    ...syntax.words.keywords.map((label) => ({ label, type: "keyword" })),
+    ...syntax.words.types.map((label) => ({ label, type: "type" })),
+    ...syntax.words.builtins.map((label) => ({ label, type: "function", apply: `${label}(` })),
+    ...syntax.queries.map((label) => ({ label, type: "keyword" })),
     ...[...declared].map((label) => ({ label, type: "variable" })),
   ];
   return { from: word.from, options, validFor: /^[\w?!]*$/ };
@@ -161,12 +196,23 @@ function completions(context) {
 
 // ---- public API ---------------------------------------------------------------------------
 
-export function createEditor(parent, { doc = "", onChange, onRun, onStop } = {}) {
+function languageFor(syntax) {
+  const spec = SYNTAXES[syntax];
+  return [
+    spec.language,
+    placeholder(`Write a ${spec.label} program, or choose Open… or Examples.`),
+    EditorView.contentAttributes.of({ "aria-label": `${spec.label} program` }),
+  ];
+}
+
+/** onSyntaxChange(syntax) is called whenever the syntax changes, also by undo and redo. */
+export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSyntaxChange, onRun, onStop } = {}) {
   const shortcuts = keymap.of([
     { key: "Mod-Enter", run: () => { onRun?.(); return true; } },
     { key: "Mod-.", run: () => { onStop?.(); return true; } },
   ]);
   const appearance = new Compartment();
+  const language = new Compartment();
   const extensions = [
     shortcuts,
     appTheme,
@@ -184,17 +230,27 @@ export function createEditor(parent, { doc = "", onChange, onRun, onStop } = {})
     indentUnit.of("    "),
     keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...searchKeymap, ...historyKeymap,
       ...completionKeymap, ...lintKeymap, indentWithTab]),
-    pgcl,
+    invertSyntax,
     syntaxHighlighting(highlightStyle),
     lintGutter(),
     annotationField,
-    placeholder("Write a pGCL program, or choose Open… or Examples."),
-    EditorView.contentAttributes.of({ "aria-label": "pGCL program", spellcheck: "false", autocorrect: "off", autocapitalize: "off" }),
+    EditorView.contentAttributes.of({ spellcheck: "false", autocorrect: "off", autocapitalize: "off" }),
     EditorView.updateListener.of((update) => {
+      const before = update.startState.field(syntaxField);
+      const after = update.state.field(syntaxField);
+      if (before !== after) {
+        // the language follows the syntax (also on undo); reconfiguring needs its own transaction
+        queueMicrotask(() => view.dispatch({ effects: language.reconfigure(languageFor(view.state.field(syntaxField))) }));
+        onSyntaxChange?.(after);
+      }
       if (update.docChanged) onChange?.(update.state.doc.toString());
     }),
   ];
-  const view = new EditorView({ state: EditorState.create({ doc, extensions }), parent });
+  const createState = (text, initialSyntax) => EditorState.create({
+    doc: text,
+    extensions: [extensions, syntaxField.init(() => initialSyntax), language.of(languageFor(initialSyntax))],
+  });
+  const view = new EditorView({ state: createState(doc, syntax), parent });
   darkScheme?.addEventListener?.("change", (event) => {
     view.dispatch({ effects: appearance.reconfigure(EditorView.darkTheme.of(event.matches)) });
   });
@@ -202,15 +258,19 @@ export function createEditor(parent, { doc = "", onChange, onRun, onStop } = {})
   return {
     view,
     getSource: () => view.state.doc.toString(),
-    /** Replaces the program as one undoable change. */
-    setSource(text) {
+    getSyntax: () => view.state.field(syntaxField),
+    /** Replaces the program (and its syntax, if given) as one undoable change. */
+    setSource(text, syntax = null) {
+      const effects = syntax && syntax !== view.state.field(syntaxField) ? [setSyntax.of(syntax)] : [];
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text }, selection: { anchor: 0 },
-        scrollIntoView: true });
+        effects, scrollIntoView: true });
     },
     /** Starts over with this program: a fresh state without undo history. */
-    load(text) {
-      view.setState(EditorState.create({ doc: text, extensions }));
+    load(text, syntax = view.state.field(syntaxField)) {
+      const before = view.state.field(syntaxField);
+      view.setState(createState(text, syntax));
       view.dispatch({ effects: appearance.reconfigure(EditorView.darkTheme.of(Boolean(darkScheme?.matches))) });
+      if (before !== syntax) onSyntaxChange?.(syntax);
       onChange?.(text);
     },
     setDiagnostics(diagnostics) {

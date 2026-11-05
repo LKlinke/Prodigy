@@ -5,6 +5,10 @@ The first line of every example says how it is meant to be run (see
 ``pgfexamples/README.md``), e.g. ``# check_equality prog.pgcl invariants/prog_invariant.pgcl``.
 From that line the library derives a suggested setup for the GUI: an invariant for the loop,
 invariant synthesis, or plain analysis.
+
+The examples are ``.pgcl`` files; :meth:`ExampleLibrary.load` with ``syntax="ppy"`` converts an
+example and its invariants into the ``.ppy`` syntax on the fly
+(:func:`prodigy.pgcl.converter.convert_pgcl`).
 """
 from __future__ import annotations
 
@@ -112,13 +116,27 @@ class ExampleLibrary:
             raise FileNotFoundError(example_id)
         return path
 
-    def load(self, example_id: str) -> Dict[str, Any]:
+    def load(self, example_id: str, syntax: str = "pgcl") -> Dict[str, Any]:
+        """Source, example data and suggested setup of an example, in ``syntax`` (``pgcl`` or
+        ``ppy``; converted on the fly). Raises ``FileNotFoundError`` for an unknown example and
+        ``ValueError`` if it cannot be converted."""
         path = self._resolve(example_id)
         source = path.read_text(encoding="utf-8")
         example = next((e for e in self.examples if e.id == example_id), None)
         suggestion = self._suggest(path, source, example)
-        return {"id": example_id, "source": source,
-                "example": example.to_json() if example else None, "suggestion": suggestion}
+        data: Dict[str, Any] = {"id": example_id, "syntax": "pgcl", "source": source,
+                                "example": example.to_json() if example else None, "suggestion": suggestion}
+        if syntax == "ppy":
+            data.update(syntax="ppy", **convert(source))
+            data["file_name"] = f"{path.stem}.ppy"
+            for decision in suggestion["decisions"].values():
+                if decision["strategy"] == "invariant" and "invariant" in decision["params"]:
+                    decision["params"]["invariant"] = convert(decision["params"]["invariant"])["source"]
+            if suggestion["input_distribution"]:
+                suggestion["input_distribution"] = _to_ppy_expression(suggestion["input_distribution"])
+        else:
+            data["file_name"] = path.name
+        return data
 
     def _resolve_arg(self, arg: str) -> Optional[Path]:
         """Paths in the first line are relative to the repository root (``pgfexamples/...``)."""
@@ -187,3 +205,39 @@ def _count_loops(source: str) -> int:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.session import LoopRegistry
     return len(LoopRegistry(parse_pgcl(source), source))
+
+
+def convert(source: str) -> Dict[str, Any]:
+    """``source`` (pGCL) in the ``.ppy`` syntax, with the renamed names. Raises ``ValueError``
+    with line and column if ``source`` is not a valid pGCL program or has no ``.ppy`` form."""
+    # pylint: disable=import-outside-toplevel
+    from lark.exceptions import UnexpectedInput
+
+    from prodigy.pgcl.converter import convert_pgcl
+    from prodigy.pgcl.ppy_printer import PpyPrintError
+    try:
+        conversion = convert_pgcl(source)
+    except UnexpectedInput as exc:
+        raise ConversionError(f"The program is not valid pGCL (line {exc.line}, column {exc.column}); "
+                              "fix it before converting.", exc.line, exc.column) from exc
+    except PpyPrintError as exc:
+        raise ConversionError(f"The program has no .ppy form: {exc}") from exc
+    except Exception as exc:  # pylint: disable=broad-except  # the pGCL parser raises plain exceptions
+        raise ConversionError(f"The program cannot be converted: {str(exc).splitlines()[0] if str(exc) else exc}") \
+            from exc
+    return {"source": conversion.text,
+            "renamings": [{"from": old, "to": new} for old, new in conversion.renamings.items()],
+            "messages": conversion.messages()}
+
+
+class ConversionError(ValueError):
+    """A program cannot be converted to ``.ppy``; ``line``/``column`` locate a syntax error."""
+
+    def __init__(self, message: str, line: Optional[int] = None, column: Optional[int] = None):
+        super().__init__(message)
+        self.line = line
+        self.column = column
+
+
+def _to_ppy_expression(expression: str) -> str:
+    return expression.replace("^", "**")
