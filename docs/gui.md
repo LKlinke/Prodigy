@@ -69,9 +69,6 @@ distribution, EVT invariants and sub-invariants, candidates of *Suggest*) accept
 and `**` in both syntaxes; a candidate of the language model is shown with the program's power
 operator.
 
-Block-scoped declarations and `//` (floor division) parse in `.ppy`, but Prodigy cannot analyse
-them yet: the editor marks them as errors ("not implemented yet").
-
 ## Guarantees
 
 Every loop strategy reports what is known about its result, and the session combines this

@@ -48,15 +48,16 @@ def test_ppy_syntax_errors_have_positions(client):
     assert "x = e" in error["message"]
 
 
-def test_not_implemented_features_are_errors(client):
-    source = "x: nat;\nif (x == 0) { y: nat = 1; x = y; }\nx = x // 2;\nquery Ex[x];\n"
+def test_block_scope_and_floor_division(client):
+    source = ("x: nat = 7;\nc: nat;\nwhile (x > 0) {\n    t: nat = x // 2;\n"
+              "    { x = t; } [1/2] { x = x - 1; }\n    c = c + 1;\n}\nquery Pr[x == 0];\n")
     result = client.post("/api/check", json={"source": source, "syntax": "ppy"}, headers=HOST).get_json()
-    assert not result["ok"]
-    error = result["diagnostics"][0]
-    assert error["severity"] == "error" and "not implemented" in error["message"] and error["line"] == 2
-    floor = "x: nat;\nx = x // 2;\nquery Ex[x];\n"
-    error = client.post("/api/check", json={"source": floor, "syntax": "ppy"}, headers=HOST).get_json()["diagnostics"][0]
-    assert (error["severity"], error["line"]) == ("error", 2) and "'//'" in error["message"]
+    assert result["ok"] and result["diagnostics"] == []
+    assert [loop["line"] for loop in result["outline"]["loops"]] == [3]
+    analysis = run_analysis({"source": source, "syntax": "ppy",
+                             "decisions": {"0": {"strategy": "unroll", "params": {"iterations": 20}}}})
+    assert analysis["status"] == "ok", analysis.get("error")
+    assert analysis["queries"][0]["expr"] == "x == 0" and analysis["queries"][0]["value"] == "1"
 
 
 def test_convert(client):

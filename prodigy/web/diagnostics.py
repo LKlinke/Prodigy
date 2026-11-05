@@ -185,10 +185,6 @@ def _check_failure(source: str, failure: CheckFail, syntax: str = "pgcl") -> Dic
         match = re.match(r"(\w+) is not", failure.message)
         if match:
             where = _locate_name(source, match.group(1), syntax)
-    if "not implemented yet" in failure.message:
-        # block-scoped declarations and '//' parse, but Prodigy cannot analyse them yet
-        return _diagnostic("error", message, where, source,
-                           hint="Prodigy rejects the program when it is analysed.")
     return _diagnostic("warning", message, where, source,
                        hint="Reported by the pGCL type checker; Prodigy may still be able to analyse the "
                             "program.")
