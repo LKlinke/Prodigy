@@ -17,6 +17,7 @@ from prodigy.distribution import (CommonDistributionsFactory, Distribution,
 from prodigy.distribution.equality import decide_equal
 from prodigy.distribution.exact_division import divide_exponents
 from prodigy.distribution.negative_values import can_be_negative, require_non_negative as _require_non_negative
+from prodigy.distribution.multisection import rational_sections
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
@@ -324,16 +325,22 @@ class GeneratingFunction(Distribution):
         """
         a = _parse_to_sympy(modulus)
         var = _sympy_symbol(variable)
-        require_single_valued(self._function, variable, f"{variable} % {modulus}")
 
-        # This should be a faster variant for univariate distributions.
-        if self._variables == {var} and self._function.is_rational_function():
+        # Rational in var: exact multisection without roots of unity.
+        sections = rational_sections(self._function, var, int(a))
+        if sections is not None:
             result = []
-            for remainder in range(a):
-                other = GeneratingFunction(f"({var}^{remainder})/(1-{var}^{modulus})", *self._variables)
-                result.append(self.hadamard_product(other))
+            for section in sections:
+                # the sections are reduced fractions: finite iff the denominator has no variable
+                finite = self._is_finite or not sympy.denom(section).free_symbols & self._variables
+                # (the flags are set afterwards: passing False makes the constructor run its heuristics)
+                gf = GeneratingFunction(section, *self._variables, closed=True, finite=True)
+                gf._is_closed_form, gf._is_finite = not finite, finite
+                gf._parameters = set(self._parameters)
+                result.append(gf)
             return result
 
+        require_single_valued(self._function, variable, f"{variable} % {modulus}")
         # This is the general algorithm
         primitive_uroot = sympy.exp(2 * sympy.pi * sympy.I / a)
         result = []

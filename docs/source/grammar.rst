@@ -37,10 +37,15 @@ Modulo
 ------
 
 ``x % q`` with a natural number ``q`` can be used on infinite distributions, both in guards
-(``x % 2 = 0``) and in assignments. The residue classes are extracted with complex roots of unity,
-which is exact if the generating function is rational in ``x`` (more generally, single-valued, see
-below). On other generating functions, e.g. after a loop whose invariant contains a root, the
-instruction is rejected:
+(``x % 2 = 0``) and in assignments. If the generating function is rational in ``x``, the residue
+classes are computed exactly without roots of unity, and the results are rational again:
+
+.. automodule:: prodigy.distribution.multisection
+   :no-index:
+
+Otherwise they are extracted with complex roots of unity, which is exact if the generating function
+is single-valued in ``x``, e.g. ``exp(l*(x - 1))``. On other generating functions, e.g. after a loop
+whose invariant contains a root, the instruction is rejected:
 
 .. automodule:: prodigy.distribution.roots_of_unity
    :no-index:

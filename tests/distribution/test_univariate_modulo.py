@@ -64,17 +64,8 @@ def _assert_section(result, expression, keep):
 @pytest.mark.parametrize("expression", SINGLE_VALUED)
 @pytest.mark.parametrize("modulus, remainder", GUARDS)
 def test_modulo_guard_matches_series(engine, expression, modulus, remainder):
-    if engine is GeneratingFunction and expression in IMPROPER:
-        pytest.skip("SymPy's Hadamard product, see test_sympy_hadamard_product_of_improper_function")
     result = engine(expression, "x").filter(parse_expr(f"x % {modulus} = {remainder}"))
     _assert_section(result, expression, lambda i: i % modulus == remainder)
-
-
-@pytest.mark.xfail(strict=True, reason="SymPy's Hadamard product is wrong if deg numerator >= deg denominator")
-def test_sympy_hadamard_product_of_improper_function():
-    expression = IMPROPER[0]
-    result = GeneratingFunction(expression, "x").filter(parse_expr("x % 2 = 0"))
-    _assert_section(result, expression, lambda i: i % 2 == 0)
 
 
 @pytest.mark.parametrize("modulus, remainder", GUARDS)
