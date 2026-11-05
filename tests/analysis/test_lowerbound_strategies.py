@@ -11,8 +11,8 @@ from prodigy.pgcl import parse_pgcl
 EXAMPLES = Path(__file__).resolve().parents[2] / "pgfexamples" / "lower_bounds"
 
 
-def analyse(source, decision):
-    session = AnalysisSession(parse_pgcl(source), source=source, config=ForwardAnalysisConfig(),
+def analyse(source, decision, syntax="ppy"):
+    session = AnalysisSession(parse_pgcl(source, syntax), source=source, syntax=syntax, config=ForwardAnalysisConfig(),
                               decisions={"0": decision}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result.get("error")
@@ -28,7 +28,7 @@ def exact(value):
 
 
 def test_sandwich_bounds_the_queries_after_the_loop_from_both_sides():
-    result = analyse((EXAMPLES / "sandwich" / "escape_walk.pgcl").read_text(), "evt_sandwich")
+    result = analyse((EXAMPLES / "sandwich" / "escape_walk.ppy").read_text(), "evt_sandwich")
     loop = result["loops"][0]
     assert loop["strategy"] == "evt_sandwich" and loop["kind"] == "lower"
     total = query(result, "true")
@@ -38,14 +38,14 @@ def test_sandwich_bounds_the_queries_after_the_loop_from_both_sides():
 
 
 def test_sandwich_gives_finite_upper_bounds_for_expectations():
-    result = analyse((EXAMPLES / "sandwich" / "rw_counter_23.pgcl").read_text(), "evt_sandwich")
+    result = analyse((EXAMPLES / "sandwich" / "rw_counter_23.ppy").read_text(), "evt_sandwich")
     steps = query(result, "c")
     assert steps["lower"] is not None and steps["upper"] is not None
     assert 2.999 < steps["lower_float"] < steps["upper_float"] < 3.01
 
 
 def test_query_bounds_of_the_loop_end_at_the_next_instruction():
-    source = (EXAMPLES / "sandwich" / "rw_counter_23.pgcl").read_text().replace("?Pr[c >= 20]", "skip;\n?Pr[c >= 20]")
+    source = (EXAMPLES / "sandwich" / "rw_counter_23.ppy").read_text().replace("query Pr[c >= 20]", "skip;\nquery Pr[c >= 20]")
     steps = query(analyse(source, "evt_sandwich"), "c")
     # without the super-invariant's bound, an expectation only has a lower bound
     assert steps["lower"] is not None and steps["upper"] is None
@@ -67,23 +67,23 @@ while (x > 0) { {x := x + 1} [2/3] {x := x - 1} }
 
 
 def test_subinvariant_that_is_the_occupation_measure_is_exact():
-    result = analyse((EXAMPLES / "exact" / "lossy_retransmission.pgcl").read_text(),
+    result = analyse((EXAMPLES / "exact" / "lossy_retransmission.ppy").read_text(),
                      "evt_subinvariant:subinvariant=(1 + d/3) / (1 - 3/5*c)")
     assert result["loops"][0]["kind"] == "exact"
     assert exact(query(result, "c")["value"]) == Fraction(5, 4)
-    assert query(result, "c = 2")["bound"] == "exact"
+    assert query(result, "c == 2")["bound"] == "exact"
 
 
 def test_subinvariant_below_the_occupation_measure_gives_intervals():
-    result = analyse((EXAMPLES / "exact" / "lossy_retransmission.pgcl").read_text(),
+    result = analyse((EXAMPLES / "exact" / "lossy_retransmission.ppy").read_text(),
                      "evt_subinvariant:subinvariant=(1 + d/3) / (1 - 3/5*c) / 2")
-    probability = query(result, "c = 2")
+    probability = query(result, "c == 2")
     assert result["loops"][0]["kind"] == "lower"
     assert exact(probability["lower"]) < Fraction(3, 25) < exact(probability["upper"])
 
 
 def test_subinvariant_that_is_too_large_is_refuted():
-    session = AnalysisSession(parse_pgcl((EXAMPLES / "exact" / "lossy_retransmission.pgcl").read_text()),
+    session = AnalysisSession(parse_pgcl((EXAMPLES / "exact" / "lossy_retransmission.ppy").read_text(), "ppy"),
                               config=ForwardAnalysisConfig(),
                               decisions={"0": "evt_subinvariant:subinvariant=2 * (1 + d/3) / (1 - 3/5*c)"},
                               capture_output=True)
@@ -104,17 +104,17 @@ def test_nonneg_by_construction():
 def test_subinvariant_whose_denominator_is_not_a_product():
     """A language model's candidate for quadrant_timeout. Prodigy's positivity heuristic could not show nu >= 0;
     the criterion for P / prod (c - R) can, for nu and for Phi(nu) - nu."""
-    result = analyse((EXAMPLES / "sandwich" / "quadrant_timeout.pgcl").read_text(),
+    result = analyse((EXAMPLES / "sandwich" / "quadrant_timeout.ppy").read_text(),
                      "evt_subinvariant:subinvariant=x*y/(1-9/50*(x+y))*(1+z/10)")
     assert result["loops"][0]["kind"] == "lower"
-    assert exact(query(result, "z = 1")["lower"]) == Fraction(5, 32)
+    assert exact(query(result, "z == 1")["lower"]) == Fraction(5, 32)
 
 
 def test_evt_invariant_that_is_a_polynomial_in_several_variables_is_exact():
     """A language model's EVT invariant for the fast dice roller: the positivity heuristic failed on it
     (multivariate partial fractions), the sound criterion recognises the non-negative polynomial."""
     invariant = "v + (2/3)*v^2*(1+c) + (1/3)*v^4*(1+c+c^2+c^3) + (1/6)*v^8*flag*(1+c+c^2+c^3+c^4+c^5)"
-    result = analyse((EXAMPLES / "exact" / "fast_dice_roller.pgcl").read_text(),
+    result = analyse((EXAMPLES / "exact" / "fast_dice_roller.ppy").read_text(),
                      {"strategy": "evt_invariant", "params": {"invariant": invariant}})
     certificate = result["loops"][0]["certificates"][0]
     assert certificate["nonnegative"] is True and certificate["finite_mass"] is True

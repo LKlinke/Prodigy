@@ -43,6 +43,6 @@ export const api = {
   job: (id, logOffset = 0) => request("GET", `api/jobs/${encodeURIComponent(id)}?log_offset=${logOffset}`),
   cancel: (id) => request("DELETE", `api/jobs/${encodeURIComponent(id)}`),
   examples: () => request("GET", "api/examples"),
-  example: (id, syntax = "pgcl") =>
+  example: (id, syntax = "ppy") =>
     request("GET", `api/examples/${id.split("/").map(encodeURIComponent).join("/")}?syntax=${encodeURIComponent(syntax)}`),
 };

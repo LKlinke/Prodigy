@@ -1,0 +1,12 @@
+# check_equality pgfexamples/equivalence/loopy/dep_bern.pgcl pgfexamples/equivalence/loopy/invariants/dep_bern_invariant.pgcl
+nat c;
+nat m;
+nat n;
+nat tmp;
+
+
+while( c > 0 ){
+    {m := m+1} [1/2] {n:= n+1}
+    c := c-1
+    tmp := 0
+}

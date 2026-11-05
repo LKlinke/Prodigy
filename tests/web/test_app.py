@@ -105,9 +105,9 @@ def test_cancel_and_time_limit(client):
 def test_examples(client):
     examples = client.get("/api/examples", headers=HOST).get_json()["examples"]
     ids = {e["id"] for e in examples}
-    assert "equivalence/loopy/geometric.pgcl" in ids
+    assert "equivalence/loopy/geometric.ppy" in ids
     assert not any("/invariants/" in i for i in ids)
-    loaded = client.get("/api/examples/equivalence/loopy/geometric.pgcl", headers=HOST).get_json()
+    loaded = client.get("/api/examples/equivalence/loopy/geometric.ppy", headers=HOST).get_json()
     decision = loaded["suggestion"]["decisions"]["0"]
     assert decision["strategy"] == "invariant" and "geometric(1/2)" in decision["params"]["invariant"]
     assert client.get("/api/examples/../../pyproject.toml", headers=HOST).status_code == 404

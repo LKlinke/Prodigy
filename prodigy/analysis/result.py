@@ -8,7 +8,7 @@ everything it recorded into an :class:`AnalysisResult`. :meth:`AnalysisResult.to
 is the exchange format between Prodigy and its front ends (``prodigy analyze --json``,
 the web GUI, a language server). Its top-level keys::
 
-    schema, prodigy_version, status, error,
+    schema, prodigy_version, status, error, syntax,
     program      variables, parameters, constants, functions, loops, queries
     input        distribution, engine, normalize, decisions
     distribution closed_form, latex, variables, parameters, finite_support, mass,
@@ -19,7 +19,9 @@ the web GUI, a language server). Its top-level keys::
     steps, warnings, log, timing
 
 Exact values are strings in Prodigy's notation; every exact value that is a number also
-comes as ``..._float``.
+comes as ``..._float``. Expressions taken from the program (query expressions, loop guards,
+the instructions of ``steps``) are written in the program's syntax, which ``syntax`` states
+(``ppy`` or ``pgcl``): ``x == 1 and y ** 2 < 3`` for ``.ppy``, ``(x = 1) & (y^2 < 3)`` for ``.pgcl``.
 
 Sound intervals
 ---------------
@@ -502,8 +504,8 @@ def outline_program(program, source: Optional[str] = None, syntax: str = "pgcl")
         queries.append({"index": index, "kind": _query_kind(instr), "text": _query_text(instr, syntax),
                         "line": line, "column": column})
     return {
-        "variables": {name: type_name(typ) for name, typ in program.variables.items()},
-        "parameters": {name: type_name(typ) for name, typ in program.parameters.items()},
+        "variables": {name: type_name(typ, syntax) for name, typ in program.variables.items()},
+        "parameters": {name: type_name(typ, syntax) for name, typ in program.parameters.items()},
         "constants": {name: str(value) for name, value in program.constants.items()},
         "functions": list(program.functions.keys()),
         "loops": [loop.to_json() for loop in loops],
@@ -512,19 +514,19 @@ def outline_program(program, source: Optional[str] = None, syntax: str = "pgcl")
 
 
 def _query_text(instr, syntax: str) -> str:
-    if syntax == "ppy":
-        # pylint: disable=import-outside-toplevel
-        from prodigy.pgcl.ppy_printer import instr_to_ppy
-        return instr_to_ppy(instr)
-    return str(instr)
+    from prodigy.analysis.session import spell  # pylint: disable=import-outside-toplevel
+    return spell(instr, syntax)
 
 
-def type_name(typ) -> str:
-    """pGCL spelling of a declared type (``nat``, ``nat [0, 5]``, ``bool``, ``real``, ...)."""
+def type_name(typ, syntax: str = "pgcl") -> str:
+    """Spelling of a declared type in ``syntax`` (``nat``, ``nat [0, 5]`` or ``nat[0, 5]`` in
+    ``.ppy``, ``bool``, ``real``, ...)."""
     name = type(typ).__name__
     if name == "NatType":
         bounds = getattr(typ, "bounds", None)
-        return f"nat [{bounds.lower}, {bounds.upper}]" if bounds is not None else "nat"
+        if bounds is None:
+            return "nat"
+        return f"nat{'' if syntax == 'ppy' else ' '}[{bounds.lower}, {bounds.upper}]"
     return {"BoolType": "bool", "RealType": "real", "DistributionType": "dist"}.get(name, str(typ))
 
 
@@ -549,6 +551,8 @@ def _query_kind(instr) -> str:
 class AnalysisResult:
     status: str = "ok"
     """``ok``, ``needs_decision``, ``error``; front ends add ``timeout`` and ``cancelled``."""
+    syntax: str = "pgcl"
+    """Syntax of the program (``pgcl`` or ``ppy``); expressions from the program use it."""
     error: Optional[Dict[str, Any]] = None
     program: Optional[Dict[str, Any]] = None
     input: Dict[str, Any] = field(default_factory=dict)
@@ -575,6 +579,7 @@ class AnalysisResult:
             "prodigy_version": prodigy_version(),
             "status": self.status,
             "error": self.error,
+            "syntax": self.syntax,
             "program": self.program,
             "input": self.input,
             "distribution": distribution,
@@ -599,7 +604,7 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
     from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
     from prodigy.analysis.session import DecisionRequired
 
-    result = AnalysisResult()
+    result = AnalysisResult(syntax=session.syntax)
     config = session.config
     started = time.perf_counter()
     decisions = {str(k): v.to_json() for k, v in session.provider.decisions.items()}
@@ -610,7 +615,7 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
         "decisions": decisions,
     }
     if session.program is not None:
-        result.program = outline_program(session.program, session.source)
+        result.program = outline_program(session.program, session.source, session.syntax)
 
     analysis_time = 0.0
     with session.activate(), config.activate(), session._output():  # pylint: disable=protected-access

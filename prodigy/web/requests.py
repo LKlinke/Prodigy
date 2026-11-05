@@ -184,29 +184,7 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
         record_steps=bool(request.get("record_steps", False)),
         coefficient_limit=int(request.get("coefficients", 30)),
     )
-    result = session.run().to_json()
-    if syntax == "ppy":
-        _queries_in_ppy(result, program)
-    return result
-
-
-def _queries_in_ppy(result: Dict[str, Any], program: Any) -> None:
-    """Writes the expressions of the result's queries in the ``.ppy`` syntax (the analysis
-    reports them in pGCL spelling, ``x = 1``)."""
-    # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.session import query_instructions
-    from prodigy.pgcl.ppy_printer import expr_to_ppy
-    instructions = query_instructions(program)
-    for query in result.get("queries") or []:
-        index = query.get("index")
-        if not isinstance(index, int) or not 0 <= index < len(instructions) or query.get("expr") is None:
-            continue
-        expr = getattr(instructions[index], "expr", None)
-        if expr is not None:
-            try:
-                query["expr"] = expr_to_ppy(expr)
-            except Exception:  # pylint: disable=broad-except  # keep the pGCL spelling
-                pass
+    return session.run().to_json()
 
 
 # ---------------------------------------------------------------------------------------

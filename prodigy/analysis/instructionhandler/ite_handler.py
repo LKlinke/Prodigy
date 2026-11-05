@@ -9,6 +9,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+from prodigy.analysis.session import current_session
 from prodigy.distribution import Distribution
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
@@ -34,12 +35,13 @@ class ITEHandler(InstructionHandler):
         non_sat_part = distribution - sat_part
         zero = error_prob * "0"
         if config.show_intermediate_steps:
+            cond = current_session().spell(instruction.cond)
             print(
-                f"\n{Style.YELLOW}Filter:{Style.RESET} {instruction.cond} \t " \
+                f"\n{Style.YELLOW}Filter:{Style.RESET} {cond} \t " \
                 f"{Style.GREEN}Result:{Style.RESET} {sat_part}"
             )
             print(
-                f"\n{Style.YELLOW} If-branch: ({instruction.cond}){Style.RESET}"
+                f"\n{Style.YELLOW} If-branch: ({cond}){Style.RESET}"
             )
             if_branch, if_error_prob = analyzer(
                 instruction.true, prog_info, sat_part, zero, config)

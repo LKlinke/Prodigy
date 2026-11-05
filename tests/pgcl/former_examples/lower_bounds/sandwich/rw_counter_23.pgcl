@@ -1,0 +1,15 @@
+// Biased random walk (step down w.p. 2/3) with a step counter c.  PAST, but the output distribution
+// of c (first-passage time) has an ALGEBRAIC, non-rational generating function
+//   (1 - sqrt(1 - 8C^2/9)) / (2/3 C),  so no rational occupation invariant is exact.
+// Sandwich: rational sub-/superinvariants with denominators (1 - r C^2) resp. (1 - r' X^2)(1 - r'' C^2).
+nat x;
+nat c;
+x := 1;
+c := 0;
+while (x > 0) {
+  {x := x - 1} [2/3] {x := x + 1}
+  c := c + 1
+}
+?Pr[c >= 20]
+?Pr[c = 11]
+?Ex[c]

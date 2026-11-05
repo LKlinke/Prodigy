@@ -44,7 +44,7 @@ docker run --rm -p 8080:8080 ghcr.io/lklinke/prodigy
 Arguments are passed to `prodigy`; mount the folder with your programs to use the command line:
 
 ```bash
-docker run --rm -v "$PWD":/work ghcr.io/lklinke/prodigy main /work/example.pgcl
+docker run --rm -v "$PWD":/work ghcr.io/lklinke/prodigy main /work/example.ppy
 ```
 
 `Dockerfile.artifact` builds the full environment for artifacts (all engines including GiNaC, the sources and

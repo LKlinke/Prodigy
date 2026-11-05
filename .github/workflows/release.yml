@@ -45,8 +45,8 @@ jobs:
         run: |
           uv venv /tmp/smoke
           uv pip install --python /tmp/smoke dist/*.whl
-          /tmp/smoke/bin/prodigy main example.pgcl
-          /tmp/smoke/bin/prodigy --engine ginac main example.pgcl
+          /tmp/smoke/bin/prodigy main example.ppy
+          /tmp/smoke/bin/prodigy --engine ginac main example.ppy
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist

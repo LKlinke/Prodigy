@@ -12,7 +12,7 @@ import prodigy.pgcl as pgcl
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 
-PROGRAM = "pgfexamples/inference/loop_free/prob_collatz.pgcl"
+PROGRAM = "pgfexamples/inference/loop_free/prob_collatz.ppy"
 DEGREE = 6
 
 
@@ -37,7 +37,7 @@ def expected_coefficients() -> list[Fraction]:
 def test_prob_collatz(engine):
     config = ForwardAnalysisConfig(engine=engine)
     with open(PROGRAM, encoding="utf-8") as file:
-        program = pgcl.parse_pgcl(file.read())
+        program = pgcl.parse_pgcl(file.read(), path=PROGRAM)
     result, error_prob = compute_discrete_distribution(
         program, config.factory.one(*program.variables), config)
 

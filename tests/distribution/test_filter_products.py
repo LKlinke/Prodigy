@@ -57,9 +57,9 @@ def test_parameters_survive_filter_and_division(engine):
     assert sympy.simplify(_to_sympy(str(filtered.normalize()), symbols) - X * Y) == 0
 
 
-def _run(engine, source: str):
+def _run(engine, source: str, syntax: str = "pgcl"):
     config = ForwardAnalysisConfig(engine=engine)
-    program = pgcl.parse_pgcl(source)
+    program = pgcl.parse_pgcl(source, syntax)
     result, error_prob = compute_discrete_distribution(program, config.factory.one(*program.variables), config)
     symbols = {name: sympy.Symbol(name) for name in [*program.variables, *program.parameters]}
     return _to_sympy(str(result), symbols), _to_sympy(str(error_prob), symbols), symbols
@@ -85,8 +85,8 @@ def test_subtraction_in_branch(engine):
 
 @pytest.mark.parametrize('engine', [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINAC])
 def test_caesar(engine):
-    with open("pgfexamples/inference/loop_free/conditioning/caesar.pgcl", encoding="utf-8") as file:
-        result, error_prob, symbols = _run(engine, file.read())
+    with open("pgfexamples/inference/loop_free/conditioning/caesar.ppy", encoding="utf-8") as file:
+        result, error_prob, symbols = _run(engine, file.read(), syntax="ppy")
     p = symbols['p']
     assert sympy.simplify(error_prob - sympy.Rational(29, 36) * (1 - p)) == 0
     # the observation leaves cipher = 4, unless the run failed (fail = 1)

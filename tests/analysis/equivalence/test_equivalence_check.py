@@ -11,6 +11,7 @@ from prodigy.pgcl.compiler import compile_pgcl
 from prodigy.analysis.analyzer import compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
+from prodigy.analysis.session import AnalysisSession
 from prodigy.pgcl.pgcl_operations import cav_phi
 
 
@@ -96,20 +97,20 @@ def test_equivalence_check_parameter(engine):
 )
 @pytest.mark.parametrize(
     "file_path",
-    [y for x in os.walk("pgfexamples/equivalence/loop_free") for y in glob(os.path.join(x[0], '*.pgcl')) if
-     not y.endswith('2.pgcl')]
+    [y for x in os.walk("pgfexamples/equivalence/loop_free") for y in glob(os.path.join(x[0], '*.ppy')) if
+     not y.endswith('2.ppy')]
 )
 def test_equivalence_loop_free_benchmarks(engine, file_path):
     # Read the body of the program files
     with open(file_path, "r") as f:
         file = "\n".join(f.readlines())
-    file2_path = file_path.replace(".pgcl", "2.pgcl")
+    file2_path = file_path.replace(".ppy", "2.ppy")
     with open(file2_path, "r") as f:
         inv = "\n".join(f.readlines())
 
     # Compile them to a program object
-    prog1 = compile_pgcl(file)
-    prog2 = compile_pgcl(inv)
+    prog1 = compile_pgcl(file, path=file_path)
+    prog2 = compile_pgcl(inv, path=file2_path)
 
     assert (isinstance(prog1, Program))
     assert (isinstance(prog2, Program))
@@ -123,7 +124,7 @@ LOOPY_DIR = "pgfexamples/equivalence/loopy"
 
 # Programs marked `# skip` in their first line, with the reason. A new skip needs an entry here.
 LOOPY_SKIPPED = {
-    "condand": "the loop has no closed-form invariant (see invariants/condand_invariant.pgcl), "
+    "condand": "the loop has no closed-form invariant (see invariants/condand_invariant.ppy), "
                "so there is nothing to check equivalence against",
 }
 
@@ -131,17 +132,17 @@ LOOPY_SKIPPED = {
 def _loopy_invariants(file_path: str) -> tuple[str, list[str]]:
     """The loop-free counterpart of a loopy example and the invariants for its loops.
 
-    The counterpart is ``invariants/<name>_invariant.pgcl``. A program with several loops has one
-    invariant per loop, ``invariants/<name>_invariant1.pgcl``, ``..._invariant2.pgcl`` and so on, in
+    The counterpart is ``invariants/<name>_invariant.ppy``. A program with several loops has one
+    invariant per loop, ``invariants/<name>_invariant1.ppy``, ``..._invariant2.ppy`` and so on, in
     the order the analysis asks for them (pgfexamples/README.md); for nested loops the invariant of
-    the outermost loop is the counterpart, so ``<name>_invariant.pgcl`` may be missing then.
+    the outermost loop is the counterpart, so ``<name>_invariant.ppy`` may be missing then.
     """
     stem = os.path.join(os.path.dirname(file_path), "invariants",
-                        os.path.basename(file_path).removesuffix(".pgcl"))
+                        os.path.basename(file_path).removesuffix(".ppy"))
     numbered = []
-    while isfile(f"{stem}_invariant{len(numbered) + 1}.pgcl"):
-        numbered.append(f"{stem}_invariant{len(numbered) + 1}.pgcl")
-    counterpart = f"{stem}_invariant.pgcl"
+    while isfile(f"{stem}_invariant{len(numbered) + 1}.ppy"):
+        numbered.append(f"{stem}_invariant{len(numbered) + 1}.ppy")
+    counterpart = f"{stem}_invariant.ppy"
     if not isfile(counterpart):
         assert numbered, f"no invariant for {file_path}"
         counterpart = numbered[0]
@@ -155,12 +156,12 @@ def _loopy_invariants(file_path: str) -> tuple[str, list[str]]:
      ]
 )
 @pytest.mark.parametrize(
-    "file_path", sorted(glob(os.path.join(LOOPY_DIR, "*.pgcl"))), ids=lambda path: os.path.basename(path)
+    "file_path", sorted(glob(os.path.join(LOOPY_DIR, "*.ppy"))), ids=lambda path: os.path.basename(path)
 )
 def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
     with open(file_path, "r", encoding="utf-8") as f:
         source = f.read()
-    name = os.path.basename(file_path).removesuffix(".pgcl")
+    name = os.path.basename(file_path).removesuffix(".ppy")
     if source.split("\n", 1)[0].lstrip("#").strip() == "skip":
         assert name in LOOPY_SKIPPED, f"{file_path} is marked as skipped without a reason in LOOPY_SKIPPED"
         pytest.skip(LOOPY_SKIPPED[name])
@@ -170,14 +171,15 @@ def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
     with open(counterpart, "r", encoding="utf-8") as f:
         other_source = f.read()
 
-    prog1 = compile_pgcl(source)
-    prog2 = compile_pgcl(other_source)
+    prog1 = compile_pgcl(source, syntax="ppy")
+    prog2 = compile_pgcl(other_source, syntax="ppy")
     assert isinstance(prog1, Program)
     assert isinstance(prog2, Program)
 
-    # The analysis asks for every loop: strategy 1 (invariant), then the invariant file.
+    # The analysis asks for every loop: strategy 1 (invariant), then the invariant file, which is
+    # read in the syntax of the program (as by `prodigy check_equality`).
     inputs = iter([answer for invariant in invariants for answer in ("1", invariant)])
-    with monkeypatch.context() as m:
+    with monkeypatch.context() as m, AnalysisSession.detached("ppy").activate():
         m.setattr("builtins.input", lambda _: next(inputs))
         res, subs = check_equivalence(prog1, prog2, ForwardAnalysisConfig(engine=engine), compute_semantics)
 

@@ -220,11 +220,13 @@ def check_equality(ctx, program_file: IO, other_program_file: IO, syntax: Option
     Checks whether a certain loop-free program is an invariant of a specified while loop.
     Each file is read in the syntax of its extension, unless --syntax is given.
     """
-    _, prog, _ = _read_program(program_file, syntax)
+    _, prog, program_syntax = _read_program(program_file, syntax)
     _, other_prog, _ = _read_program(other_program_file, syntax)
 
     start = time.perf_counter()
-    equiv, result = check_equivalence(prog, other_prog, ctx.obj['CONFIG'], compute_semantics)
+    # invariant files asked for on the terminal are read in the syntax of the program
+    with AnalysisSession.detached(program_syntax).activate():
+        equiv, result = check_equivalence(prog, other_prog, ctx.obj['CONFIG'], compute_semantics)
     stop = time.perf_counter()
     if equiv is True:
         assert isinstance(result, list)
@@ -316,7 +318,12 @@ def invariant_synthesis(ctx, program_file: IO, invariant: str, input_dist: str, 
     """
 
     # read the program source file and parse it into a program object.
-    _, prog, _ = _read_program(program_file, syntax)
+    _, prog, syntax = _read_program(program_file, syntax)
+    with AnalysisSession.detached(syntax).activate():
+        _invariant_synthesis(ctx.obj["CONFIG"], prog, invariant, input_dist)
+
+
+def _invariant_synthesis(config: ForwardAnalysisConfig, prog: Program, invariant: str, input_dist: str) -> None:
 
     # isolate the initial distribution description from the actual while loop.
     loops = [1 if isinstance(instr, WhileInstr) else 0 for instr in prog.instructions]
@@ -324,7 +331,6 @@ def invariant_synthesis(ctx, program_file: IO, invariant: str, input_dist: str, 
         raise ValueError(f"There are {sum(loops)} loops in the program. Only 1 is supported.")
 
     # compute the initial distribution with respect to the user specified configuration
-    config = ctx.obj["CONFIG"]
     dist = config.factory.one(*prog.variables.keys())
     if input_dist is not None:
         dist = config.factory.from_expr(input_dist, *prog.variables.keys())
@@ -375,19 +381,20 @@ def evt_lower_bound(ctx, program_file: IO, invariant: str, input_dist: str, synt
     """
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.lowerbounds.subinvariant import evt_subinvariant_verification
-    _, prog, _ = _read_program(program_file, syntax)
+    _, prog, syntax = _read_program(program_file, syntax)
     prefix, loop, rest = _loop_parts(prog)
     config = ctx.obj["CONFIG"]
     variables = list(prog.variables.keys())
     dist = config.factory.one(*variables) if input_dist is None else config.factory.from_expr(input_dist, *variables)
     zero = config.factory.from_expr("0", *variables)
-    dist, err = compute_semantics(prefix, ProgramInfo(prog), dist, zero, config)
-    start = time.perf_counter()
-    subinvariant = config.factory.from_expr(invariant, *variables)
-    lower = evt_subinvariant_verification(loop, ProgramInfo(prog), dist, subinvariant, config, compute_semantics)
-    print(f"{Style.CYAN}Queries below are evaluated on the lower bound (they are lower bounds for the unnormalised "
-          f"probabilities and expectations).{Style.RESET}")
-    compute_semantics(rest, ProgramInfo(prog), lower, err, config)
+    with AnalysisSession.detached(syntax).activate():
+        dist, err = compute_semantics(prefix, ProgramInfo(prog), dist, zero, config)
+        start = time.perf_counter()
+        subinvariant = config.factory.from_expr(invariant, *variables)
+        lower = evt_subinvariant_verification(loop, ProgramInfo(prog), dist, subinvariant, config, compute_semantics)
+        print(f"{Style.CYAN}Queries below are evaluated on the lower bound (they are lower bounds for the "
+              f"unnormalised probabilities and expectations).{Style.RESET}")
+        compute_semantics(rest, ProgramInfo(prog), lower, err, config)
     print(f"CPU-time elapsed: {time.perf_counter() - start:04f} seconds")
 
 

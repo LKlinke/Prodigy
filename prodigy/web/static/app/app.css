@@ -502,4 +502,3 @@ dialog.alert::backdrop { background: rgba(0, 0, 0, 0.28); }
 
 .pane-title-group { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .syntax-chip { font-family: var(--font-mono); }
-.library-syntax { display: flex; align-items: center; gap: 8px; font-size: var(--text-callout); color: var(--text-2); }

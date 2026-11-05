@@ -2,7 +2,7 @@
 # SymEngine engines, as installed by pip install prodigy-ppl. Dockerfile.artifact builds the full
 # environment for artifacts.
 #   docker run -p 8080:8080 ghcr.io/lklinke/prodigy                        web GUI on http://localhost:8080
-#   docker run -v "$PWD":/work ghcr.io/lklinke/prodigy main /work/prog.pgcl   command line
+#   docker run -v "$PWD":/work ghcr.io/lklinke/prodigy main /work/prog.ppy   command line
 FROM public.ecr.aws/docker/library/python:3.11-slim AS build
 
 RUN pip install --no-cache-dir uv==0.11.32

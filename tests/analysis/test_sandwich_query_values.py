@@ -16,19 +16,19 @@ from prodigy.pgcl import parse_pgcl
 from prodigy.pgcl.ast import ExpectationInstr, ProbabilityQueryInstr, WhileInstr
 
 LOOP = (Path(__file__).resolve().parents[2] / "pgfexamples" / "lower_bounds" / "sandwich"
-        / "rw_counter_23.pgcl").read_text().split("?Pr", 1)[0]
-QUERIES = """?Pr[c >= 5]
-?Pr[c = 3]
-!Print
-?Ex[c]
-?Ex[x]
-?Pr[c <= 6 & x = 0]
-?Pr[not (c = 1)]
-?Pr[c]
+        / "rw_counter_23.ppy").read_text().split("query Pr", 1)[0]
+QUERIES = """query Pr[c >= 5];
+query Pr[c == 3];
+print;
+query Ex[c];
+query Ex[x];
+query Pr[c <= 6 and x == 0];
+query Pr[not c == 1];
+query Pr[c];
 """
 SOURCE = LOOP + QUERIES
 # GiNaC's expectation only takes a variable, so affine expectations are compared on the other engines only
-AFFINE = "?Ex[2*c + 1]\n"
+AFFINE = "query Ex[2*c + 1];\n"
 # small fixed templates, so that the test does not depend on (and wait for) the parameter search
 LOWER = [TemplateShape([Fraction(0), Fraction(17, 20)], [1, 2], [6, 12], reach_box=[6, 14])]
 UPPER = [TemplateShape([Fraction(1, 2), Fraction(9, 10)], [2, 2], [8, 16])]
@@ -41,7 +41,7 @@ def _fixed_sandwich(problem, **kwargs):
 
 @pytest.fixture(name="result", scope="module")
 def fixture_result():
-    program = parse_pgcl(SOURCE + AFFINE)
+    program = parse_pgcl(SOURCE + AFFINE, "ppy")
     problem = load_problem(program)
     assert problem.epilogue == ("seq", [])
     loop = next(ins for ins in program.instructions if isinstance(ins, WhileInstr))
@@ -53,7 +53,7 @@ def fixture_result():
 def test_query_values_equal_the_values_on_the_lower_bound(engine, result):
     config = ForwardAnalysisConfig(engine=engine)
     lower = config.factory.from_expr(result.lower.calc.to_expr(result.lower.exit_numerator), "x", "c")
-    program = parse_pgcl(SOURCE + AFFINE)
+    program = parse_pgcl(SOURCE + AFFINE, "ppy")
     queries = [ins for ins in program.instructions if isinstance(ins, (ProbabilityQueryInstr, ExpectationInstr))]
     by_text = {(b.query.kind, b.query.text): b for b in result.bounds}
     checked = 0
@@ -90,7 +90,7 @@ def _session_queries(monkeypatch, engine, *, shortcut: bool):
         used.append(value is not None)
         return value
     monkeypatch.setattr(AnalysisSession, "loop_query_value", spy)
-    session = AnalysisSession(parse_pgcl(SOURCE), source=SOURCE, config=ForwardAnalysisConfig(engine=engine),
+    session = AnalysisSession(parse_pgcl(SOURCE, "ppy"), source=SOURCE, syntax="ppy", config=ForwardAnalysisConfig(engine=engine),
                               decisions={"0": "evt_sandwich"}, capture_output=True)
     out = session.run().to_json()
     assert out["status"] == "ok", out.get("error")
@@ -131,7 +131,7 @@ def test_values_end_at_the_next_instruction(monkeypatch):
         used.append(value is not None)
         return value
     monkeypatch.setattr(AnalysisSession, "loop_query_value", spy)
-    session = AnalysisSession(parse_pgcl(source), source=source, config=ForwardAnalysisConfig(),
+    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=ForwardAnalysisConfig(),
                               decisions={"0": "evt_sandwich"}, capture_output=True)
     assert session.run().to_json()["status"] == "ok"
     assert used == [False] * 6
