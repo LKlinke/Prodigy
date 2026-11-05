@@ -1,22 +1,24 @@
 # skip
-# Loop-free counterpart of the whole program: sequential_loops_invariant1.pgcl (first loop)
-# followed by sequential_loops_invariant2.pgcl (second loop).
-nat c;
-nat m;
-nat n;
-nat tmp;
+# Loop-free counterpart of the whole program: sequential_loops_invariant1.ppy (first loop)
+# followed by sequential_loops_invariant2.ppy (second loop).
+c: nat;
+m: nat;
+n: nat;
+tmp: nat;
 
-if (0 < n){
-    tmp := iid(unif(1,6), n)
-    m := m+tmp
-    n := 0
-    tmp := 0
-} else {skip}
-if(m > 0){
-    tmp := iid( ((1-(1-(c*c))^(1/2))/c), m)
-    c := c + tmp
-    tmp := 0
-    m := 0
+if (0 < n) {
+    tmp = iid(unif(1, 6), n);
+    m = m + tmp;
+    n = 0;
+    tmp = 0;
 } else {
-    skip
+    skip;
+}
+if (m > 0) {
+    tmp = iid((1 - (1 - c * c) ** (1/2)) / c, m);
+    c = c + tmp;
+    tmp = 0;
+    m = 0;
+} else {
+    skip;
 }

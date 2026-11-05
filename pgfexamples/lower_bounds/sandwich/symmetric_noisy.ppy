@@ -1,14 +1,22 @@
-// ADVERSARIAL: symmetric random walk (null-recurrent: AST but not PAST) with a noisy counter y.
-// The distribution of y has a heavy tail, Pr(y >= k) ~ c/sqrt(k), so no finite-mass certificate is exact
-// (Theorem "exact completeness") and geometric templates converge slowly.
-nat x;
-nat y;
-x := 1;
-y := 0;
+# ADVERSARIAL: symmetric random walk (null-recurrent: AST but not PAST) with a noisy counter y.
+# The distribution of y has a heavy tail, Pr(y >= k) ~ c/sqrt(k), so no finite-mass certificate is exact
+# (Theorem "exact completeness") and geometric templates converge slowly.
+x: nat;
+y: nat;
+x = 1;
+y = 0;
 while (x > 0) {
-  {x := x - 1} [1/2] {x := x + 1}
-  {y := y + 1} [1/2] {skip}
+    {
+        x = x - 1;
+    } [1/2] {
+        x = x + 1;
+    }
+    {
+        y = y + 1;
+    } [1/2] {
+        skip;
+    }
 }
-?Pr[y = 3]
-?Pr[y >= 10]
-?Pr[true]
+query Pr[y == 3];
+query Pr[y >= 10];
+query Pr[true];

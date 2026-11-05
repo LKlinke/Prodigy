@@ -1,12 +1,14 @@
 # skip
-nat n;
-nat c;
-nat tmp;
-rparam p;
+n: nat;
+c: nat;
+tmp: nat;
+param p: real;
 
-if (n > 0){
-    tmp := iid(geometric(p), n);
-    c := c + tmp
-    n := 0
-    tmp := 0
-} else {skip}
+if (n > 0) {
+    tmp = iid(geometric(p), n);
+    c = c + tmp;
+    n = 0;
+    tmp = 0;
+} else {
+    skip;
+}

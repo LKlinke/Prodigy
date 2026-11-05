@@ -1,11 +1,13 @@
 # skip
-nat x;
-nat c;
-nat temp;
+x: nat;
+c: nat;
+temp: nat;
 
-if(x=1){
-    temp := geometric(1/2)
-    c := c + temp
-    x := 0
-    temp := 0
-} else {skip}
+if (x == 1) {
+    temp = geometric(1/2);
+    c = c + temp;
+    x = 0;
+    temp = 0;
+} else {
+    skip;
+}

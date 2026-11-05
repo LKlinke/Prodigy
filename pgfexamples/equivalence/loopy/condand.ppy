@@ -1,10 +1,14 @@
 # skip
-nat n;
-nat m;
+n: nat;
+m: nat;
 
-while ((0 < n & 0 < m)) {
-{n := n - 1;} [1/2] {m := m - 1;}
+while (0 < n and 0 < m) {
+    {
+        n = n - 1;
+    } [1/2] {
+        m = m - 1;
+    }
 }
-!Plot[n, \infty]
-!Plot[m, \infty]
-!Plot[n, m, \infty]
+plot(n, ∞);
+plot(m, ∞);
+plot(n, m, ∞);

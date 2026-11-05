@@ -1,16 +1,16 @@
 # skip
-nat x;
-nat y;
-nat c;
-nat temp;
+x: nat;
+y: nat;
+c: nat;
+temp: nat;
 
-if (x > 0){
-    temp := c
-    c := iid(1-(1-c)^(1/2), x)
-    c := c + temp
-    x := 0;
-    y := 0;
-    temp := 0;
+if (x > 0) {
+    temp = c;
+    c = iid(1 - (1 - c) ** (1/2), x);
+    c = c + temp;
+    x = 0;
+    y = 0;
+    temp = 0;
 } else {
- skip
+    skip;
 }

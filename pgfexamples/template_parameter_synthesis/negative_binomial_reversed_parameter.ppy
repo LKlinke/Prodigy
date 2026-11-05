@@ -1,14 +1,18 @@
-# check_equality pgfexamples/template_parameter_synthesis/negative_binomial_reversed_parameter.pgcl pgfexamples/template_parameter_synthesis/invariants/negative_binomial_reversed_parameter_invariant.pgcl
-nat n;
-nat i;
-nat temp;
+# check_equality pgfexamples/template_parameter_synthesis/negative_binomial_reversed_parameter.ppy pgfexamples/template_parameter_synthesis/invariants/negative_binomial_reversed_parameter_invariant.ppy
+n: nat;
+i: nat;
+temp: nat;
 
-rparam p;
+param p: real;
 
 while (0 < n) {
-  {skip} [p] {n := n - 1}
-  i := i + 1
-  temp := 0
+    {
+        skip;
+    } [p] {
+        n = n - 1;
+    }
+    i = i + 1;
+    temp = 0;
 }
 
 #!Plot[i, \infty]

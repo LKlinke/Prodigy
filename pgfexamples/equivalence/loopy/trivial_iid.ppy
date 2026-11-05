@@ -1,12 +1,11 @@
-# check_equality pgfexamples/equivalence/loopy/trivial_iid.pgcl pgfexamples/equivalence/loopy/invariants/trivial_iid_invariant.pgcl
-nat n;
-nat m;
-nat tmp;
+# check_equality pgfexamples/equivalence/loopy/trivial_iid.ppy pgfexamples/equivalence/loopy/invariants/trivial_iid_invariant.ppy
+n: nat;
+m: nat;
+tmp: nat;
 
 while (0 < n) {
- tmp := unif(1,6);
- m := m + tmp;
- tmp := 0;
- n := n-1
+    tmp = unif(1, 6);
+    m = m + tmp;
+    tmp = 0;
+    n = n - 1;
 }
-

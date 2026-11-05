@@ -1,8 +1,10 @@
-# main pgfexamples/inference/loop_free/poor_scale.pgcl
-nat n;
-nat x;
+# main pgfexamples/inference/loop_free/poor_scale.ppy
+n: nat;
+x: nat;
 
-x:=geometric(1/2);
-if (x > 1000){
-  skip;
-} else { x:=0}
+x = geometric(1/2);
+if (x > 1000) {
+    skip;
+} else {
+    x = 0;
+}

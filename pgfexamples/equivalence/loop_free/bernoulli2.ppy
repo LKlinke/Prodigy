@@ -1,4 +1,4 @@
 # skip
-nat x;
+x: nat;
 
-x := bernoulli(2/3);
+x = bernoulli(2/3);

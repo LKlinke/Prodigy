@@ -1,12 +1,14 @@
 # skip
-nat x;
-nat y;
-nat c;
-nat temp;
+x: nat;
+y: nat;
+c: nat;
+temp: nat;
 
-if(y=1){
-    temp := geometric(1/2)
-    x := x + temp
-    y := 0
-    temp := 0
-} else {skip}
+if (y == 1) {
+    temp = geometric(1/2);
+    x = x + temp;
+    y = 0;
+    temp = 0;
+} else {
+    skip;
+}

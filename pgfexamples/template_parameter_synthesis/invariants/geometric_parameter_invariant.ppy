@@ -1,12 +1,14 @@
 # skip
-nat x;
-nat c;
-nat temp;
-rparam p;
+x: nat;
+c: nat;
+temp: nat;
+param p: real;
 
-if(x=1){
-    temp := geometric(p)
-    c := c + temp
-    x := 0
-    temp := 0
-} else {skip}
+if (x == 1) {
+    temp = geometric(p);
+    c = c + temp;
+    x = 0;
+    temp = 0;
+} else {
+    skip;
+}

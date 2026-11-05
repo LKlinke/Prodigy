@@ -1,17 +1,18 @@
-# main pgfexamples/inference/loop_free/conditioning/twocoins.pgcl
-nat firstCoin;
-nat secondCoin;
-nat bothHeads;
+# main pgfexamples/inference/loop_free/conditioning/twocoins.ppy
+firstCoin: nat;
+secondCoin: nat;
+bothHeads: nat;
 
-
-firstCoin := bernoulli(1/2);
-secondCoin := bernoulli(1/2);
-if (firstCoin=1 & secondCoin =1){
-    bothHeads := 1;
-} else {bothHeads := 0}
-observe(bothHeads = 0);
-?Pr[firstCoin]
-?Pr[secondCoin]
-!Print
+firstCoin = bernoulli(1/2);
+secondCoin = bernoulli(1/2);
+if (firstCoin == 1 and secondCoin == 1) {
+    bothHeads = 1;
+} else {
+    bothHeads = 0;
+}
+observe(bothHeads == 0);
+query Pr[firstCoin];
+query Pr[secondCoin];
+print;
 #!Plot[firstCoin, secondCoin, \infty]
-// expected: firstCoin/3 + secondCoin/3 + 1/3
+# expected: firstCoin/3 + secondCoin/3 + 1/3

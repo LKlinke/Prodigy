@@ -1,7 +1,15 @@
-# invariant_synthesis pgfexamples/invariant_synthesis/subdist_enter.pgcl
-nat x;
+# invariant_synthesis pgfexamples/invariant_synthesis/subdist_enter.ppy
+x: nat;
 
-{x:=1}[1/2]{x:=3}
-while (x > 2){
-  {skip}[1/2]{x:=x-1}
+{
+    x = 1;
+} [1/2] {
+    x = 3;
+}
+while (x > 2) {
+    {
+        skip;
+    } [1/2] {
+        x = x - 1;
+    }
 }

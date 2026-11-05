@@ -1,8 +1,12 @@
 # skip
-# --solver z3 invariant_synthesis pgfexamples/invariant_synthesis/nontermination.pgcl
-nat x;
+# --solver z3 invariant_synthesis pgfexamples/invariant_synthesis/nontermination.ppy
+x: nat;
 
-{x:=1}[1/2]{x:=2}
-while(x=1){
-  skip
+{
+    x = 1;
+} [1/2] {
+    x = 2;
+}
+while (x == 1) {
+    skip;
 }

@@ -1,13 +1,15 @@
 # skip
-nat n;
-nat i;
-nat temp;
+n: nat;
+i: nat;
+temp: nat;
 
-rparam p;
+param p: real;
 
-if (0 < n){
- temp := iid(p*i/(1-(1-p)*i), n)
- i := i + temp
- n := 0
- temp := 0
-} else { skip }
+if (0 < n) {
+    temp = iid(p * i / (1 - (1 - p) * i), n);
+    i = i + temp;
+    n = 0;
+    temp = 0;
+} else {
+    skip;
+}

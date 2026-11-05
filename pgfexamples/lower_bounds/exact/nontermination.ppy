@@ -1,6 +1,10 @@
-nat x;
+x: nat;
 
-{x:=1}[1/2]{x:=2}
-while(x=1){
-  skip
+{
+    x = 1;
+} [1/2] {
+    x = 2;
+}
+while (x == 1) {
+    skip;
 }

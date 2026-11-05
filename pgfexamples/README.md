@@ -21,10 +21,14 @@ pgfexamples/
 
 ## File structure
 
+The programs are written in the `.ppy` syntax (see the language reference in the documentation).
+They were converted from the original pGCL syntax with `prodigy convert`; `.pgcl` programs are
+still supported.
+
 * Files have a comment in the first line indicating which arguments should be used in order to execute it
 
 > ```bash
->python prodigy/cli.py METHOD FILE ARGS 
+>prodigy METHOD FILE ARGS
 >```
 > results in
 >```
@@ -37,14 +41,14 @@ pgfexamples/
 > if the file should not be automatically tested.
 
 * Naming convention:
-    * In `pgfexamples/equivalence/loop_free` the files are named `file_name.pgcl` for the first and
-      `file_name2.pgcl` for the second program
+    * In `pgfexamples/equivalence/loop_free` the files are named `file_name.ppy` for the first and
+      `file_name2.ppy` for the second program
     * In `pgfexamples/equivalence/loopy` and `pgfexamples/template_parameter_synthesis` the files are named
-      `file_name.pgcl` in the main folder and their corresponding invariants with `file_name_invariant.pgcl` in the
+      `file_name.ppy` in the main folder and their corresponding invariants with `file_name_invariant.ppy` in the
       invariants folder
     * If there are multiple invariant files for one program, e.g. for a nested loop, the invariants are to be marked
       with numbers indicating the order they should be used (i.e. the invariant for the outer-most while loop has number
-      1 and so on). The equivalence test compares the program with `file_name_invariant.pgcl`, the loop-free
+      1 and so on). The equivalence test compares the program with `file_name_invariant.ppy`, the loop-free
       counterpart of the whole program (e.g. for sequential loops); for nested loops it may be missing, and the
       invariant of the outer-most loop (number 1) is used instead
     * A program that the equivalence test should skip is marked with `skip`, and the test states the reason

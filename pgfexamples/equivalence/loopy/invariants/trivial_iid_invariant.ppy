@@ -1,11 +1,13 @@
 # skip
-nat n;
-nat m;
-nat tmp;
+n: nat;
+m: nat;
+tmp: nat;
 
-if (0 < n){
-    tmp := iid(unif(1,6), n)
-    m := m+tmp
-    n := 0
-    tmp := 0
-} else {skip}
+if (0 < n) {
+    tmp = iid(unif(1, 6), n);
+    m = m + tmp;
+    n = 0;
+    tmp = 0;
+} else {
+    skip;
+}

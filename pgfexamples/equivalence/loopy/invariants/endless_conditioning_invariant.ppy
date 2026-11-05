@@ -1,6 +1,8 @@
 # skip
-nat x;
+x: nat;
 
-if (x = 1){
-  observe(false)
-} else {skip}
+if (x == 1) {
+    observe(false);
+} else {
+    skip;
+}

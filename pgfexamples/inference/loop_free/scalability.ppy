@@ -1,9 +1,13 @@
-# main pgfexamples/inference/loop_free/scalability.pgcl
-nat x;
+# main pgfexamples/inference/loop_free/scalability.ppy
+x: nat;
 
-x := geometric(1/2);
-loop(120){
- if(x > 15){
-   {x := x+1}[1/2]{x := x-1}
- }{}
+x = geometric(1/2);
+loop(120) {
+    if (x > 15) {
+        {
+            x = x + 1;
+        } [1/2] {
+            x = x - 1;
+        }
+    }
 }

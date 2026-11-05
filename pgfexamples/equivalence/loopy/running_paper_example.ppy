@@ -1,9 +1,13 @@
-# check_equality pgfexamples/equivalence/loopy/running_paper_example.pgcl pgfexamples/equivalence/loopy/invariants/running_paper_example_invariant.pgcl
-nat x;
-nat c;
-nat tmp;
+# check_equality pgfexamples/equivalence/loopy/running_paper_example.ppy pgfexamples/equivalence/loopy/invariants/running_paper_example_invariant.ppy
+x: nat;
+c: nat;
+tmp: nat;
 
-while(x > 0) {
- { x := x-1 } [1/2] { c := c+1 }
- tmp := 0;
+while (x > 0) {
+    {
+        x = x - 1;
+    } [1/2] {
+        c = c + 1;
+    }
+    tmp = 0;
 }

@@ -1,8 +1,8 @@
 # skip
-nat n;
-nat m;
+n: nat;
+m: nat;
 
-if ((0 < n ) & (0 < m)){
+if (0 < n and 0 < m) {
     # The "closed-form" solution for this program is
     #
     #
@@ -11,6 +11,7 @@ if ((0 < n ) & (0 < m)){
     #
     #
     # which does not admit a nice closed-form.
-
-    skip
-} else {skip}
+    skip;
+} else {
+    skip;
+}

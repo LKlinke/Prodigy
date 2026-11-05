@@ -1,15 +1,20 @@
 # skip
-nat c
-nat x
-nat temp
-rparam p
-rparam q
+c: nat;
+x: nat;
+temp: nat;
+param p: real;
+param q: real;
 
 if (x < 6) {
-    temp := geometric(p)
-    x := 6
-    c := c + temp + 1
-    {skip}[q]{observe(false)}
-    temp := 0
+    temp = geometric(p);
+    x = 6;
+    c = c + temp + 1;
+    {
+        skip;
+    } [q] {
+        observe(false);
+    }
+    temp = 0;
+} else {
+    skip;
 }
-else {skip}

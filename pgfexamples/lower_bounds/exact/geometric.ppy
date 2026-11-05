@@ -1,6 +1,10 @@
-nat x;
+x: nat;
 
-x := 1
-while (x = 1){
- {x := 0} [1/2] {skip}
+x = 1;
+while (x == 1) {
+    {
+        x = 0;
+    } [1/2] {
+        skip;
+    }
 }
