@@ -172,6 +172,28 @@ def _check_function_call(
     return None
 
 
+def _floor_division_type(
+        program: Program, expr: BinopExpr, check: bool,
+        predefined_functions: Mapping[Var, List[VarDecl]]) -> Union[Type, CheckFail]:
+    """
+    ``e // q`` rounds down; it is implemented for a natural ``e`` and a positive natural
+    literal ``q`` (constants are substituted before type checking).
+    """
+    divisor = expr.rhs
+    if not isinstance(divisor, NatLitExpr) or divisor.value < 1:
+        return CheckFail(
+            expr,
+            "Floor division 'e // q' is only implemented for a positive natural constant q.")
+    typ = get_type(program, expr.lhs, check, predefined_functions)
+    if isinstance(typ, CheckFail):
+        return typ
+    if not isinstance(typ, (NatType, BoolType)):
+        return CheckFail(
+            expr,
+            f"Floor division 'e // q' is only implemented for a natural number e, got {typ}.")
+    return NatType(bounds=None)
+
+
 # pylint: disable = too-many-statements
 def get_type(
     program: Program,
@@ -249,9 +271,8 @@ def get_type(
 
     if isinstance(expr, BinopExpr):
         if expr.operator == Binop.FLOOR_DIVIDE:
-            # never let the analysis see an operator it has no exact update for
-            return CheckFail(
-                expr, "Floor division '//' is not implemented yet.")
+            return _floor_division_type(program, expr, check,
+                                        predefined_functions)
 
         # binops that take boolean operands and return a boolean
         if expr.operator in [Binop.OR, Binop.AND]:
@@ -513,14 +534,14 @@ def _check_declaration_list(
         declared[decl.var] = decl
         if isinstance(decl, VarDecl) and isinstance(decl.typ, NatType) \
                 and decl.typ.bounds is not None:
-            # bounds are not type-checked; at least keep '//' out of them
+            # bounds are not type-checked or evaluated; keep '//' out of them
             for bound in (decl.typ.bounds.lower, decl.typ.bounds.upper):
                 for sub_expr in walk_expr(Walk.DOWN, Mut.alloc(bound)):
                     if isinstance(sub_expr.val, BinopExpr) \
                             and sub_expr.val.operator == Binop.FLOOR_DIVIDE:
                         return CheckFail(
                             sub_expr.val,
-                            "Floor division '//' is not implemented yet.")
+                            "Floor division '//' is not implemented in bounds.")
         if isinstance(decl, FunctionDecl):
             res = check_function(decl.body, program, predefined_functions)
             if isinstance(res, CheckFail):
@@ -773,12 +794,12 @@ def check_instr(
                              predefined_functions=predefined_functions)
 
     if isinstance(instr, LocalDeclInstr):
-        # Block scope needs marginalisation at the end of the block, which the
-        # analysis does not do yet; reject instead of silently widening the scope.
+        # Block scope is lowered into plain assignments before type checking
+        # (prodigy.pgcl.scope.lower_block_scope, done by parse_pgcl).
         return CheckFail(
             instr,
-            f"Declarations inside a block are not implemented yet: declare "
-            f"'{instr.decl.var}' at the top level of the program or function.")
+            f"The declaration of '{instr.decl.var}' inside a block has not been "
+            f"lowered; parse the program with parse_pgcl or compile_pgcl.")
 
     raise Exception("unreachable")
 
