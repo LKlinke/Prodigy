@@ -49,9 +49,7 @@ def test_unequal_rational_functions_are_not_equal(factory, lhs, rhs):
 @pytest.mark.parametrize("factory", [
     SympyPGF,
     SymenginePGF,
-    pytest.param(ProdigyPGF, marks=pytest.mark.xfail(
-        strict=True, reason="prodigy_ginac parses decimal literals as floating-point numbers "
-                       "(LKlinke/prodigy-ginac-bindings#9)")),
+    ProdigyPGF,
 ])
 def test_decimal_literals_are_exact(factory):
     assert not equal(factory, "1.00000000000000000001*x", "x", "x")
@@ -112,9 +110,10 @@ def test_decide_equal_reports_unproven_equality_as_unknown(factory, verdict):
     assert lhs.decide_equal(factory.from_expr("1", "x", "c")) is verdict
 
 
-@pytest.mark.parametrize("factory, verdict", [(SympyPGF, False), (SymenginePGF, False), (ProdigyPGF, None)])
+@pytest.mark.parametrize("factory, verdict", [(SympyPGF, False), (SymenginePGF, False), (ProdigyPGF, False)])
 def test_decide_equal_floats_prove_nothing(factory, verdict):
-    # SymPy and SymEngine parse decimals as exact rationals; GiNaC keeps floating-point numbers
+    # all engines parse decimals as exact rationals (GiNaC since prodigy-ppl-ginac 0.0.3), so 0.5 = 1/2
+    # decides; only a genuine floating-point number proves nothing
     assert factory.from_expr("0.5*x", "x").decide_equal(factory.from_expr("x/3", "x")) is verdict
     x = sympy.Symbol("x")
     assert decide_equal(sympy.Float("0.5") * x, x / 3) is None
