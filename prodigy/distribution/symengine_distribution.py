@@ -20,7 +20,7 @@ from prodigy.pgcl.parser import parse_expr
 
 from prodigy.distribution import Distribution
 from prodigy.distribution.exact_division import divide_exponents
-from prodigy.distribution.multisection import rational_multisection
+from prodigy.distribution.multisection import rational_sections
 from prodigy.distribution.negative_values import can_be_negative, operand, require_non_negative
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.distribution import MarginalType, State, CommonDistributionsFactory, DistributionParam
@@ -375,14 +375,14 @@ class SymengineDist(Distribution):
         a = se.S(modulus)
         var = se.S(variable)
         function = sp.sympify(self._s_func)
+
+        # Rational in var: exact multisection without roots of unity, which SymEngine cannot simplify away.
+        sections = rational_sections(function, sp.Symbol(variable), int(modulus))
+        if sections is not None:
+            return [SymengineDist(se.sympify(section)).set_variables_and_parameters(
+                self.get_variables(), self.get_parameters()) for section in sections]
+
         require_single_valued(function, variable, f"{variable} % {modulus}")
-
-        # Univariate rational functions: exact multisection without roots of unity, which SymEngine
-        # cannot simplify away.
-        if self._variables == {var} and function.is_rational_function(sp.Symbol(variable)):
-            return [SymengineDist(se.sympify(section), *self._variables)
-                    for section in rational_multisection(function, sp.Symbol(variable), int(modulus))]
-
         # This is the general algorithm. The q-th roots of unity are written as cos + I*sin, which SymEngine
         # evaluates for small q (exp(2*I*pi/q) stays unevaluated).
         q = int(a)  # type: ignore
