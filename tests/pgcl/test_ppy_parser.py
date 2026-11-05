@@ -10,6 +10,7 @@ from prodigy.pgcl.ast import (AsgnInstr, Binop, BinopExpr, CategoricalExpr,
                               VarExpr)
 from prodigy.pgcl.check import CheckFail
 from prodigy.pgcl.compiler import compile_pgcl
+from prodigy.pgcl.converter import convert_pgcl, rename
 from prodigy.pgcl.parser import parse_expectation, parse_pgcl, select_syntax
 from prodigy.pgcl.ppy_parser import PpySyntaxError, parse_ppy, parse_ppy_expr
 from prodigy.pgcl.ppy_printer import (PpyPrintError, expr_to_ppy,
@@ -18,8 +19,8 @@ from prodigy.pgcl.ppy_printer import (PpyPrintError, expr_to_ppy,
 EXAMPLES = Path(__file__).parents[2] / "pgfexamples"
 ALL_EXAMPLES = sorted(EXAMPLES.rglob("*.pgcl"))
 
-# Examples that cannot be written in .ppy as they are, with the reason.
-NOT_CONVERTIBLE = {
+# Examples the printer refuses as they are (the converter renames), with the reason.
+NOT_PRINTABLE = {
     "inference/loop_free/conditioning/monty_hall_nested.pgcl":
     "the variable 'switch' is a keyword in .ppy",
 }
@@ -45,23 +46,29 @@ def test_examples_exist():
 
 @pytest.mark.parametrize("path", ALL_EXAMPLES, ids=lambda p: str(p.relative_to(EXAMPLES)))
 def test_round_trip_example(path: Path):
-    old = parse_pgcl(path.read_text())
-    reason = NOT_CONVERTIBLE.get(path.relative_to(EXAMPLES).as_posix())
-    if reason is not None:
+    """Every example converts, and the result parses to the same AST up to the renaming."""
+    source = path.read_text()
+    old = parse_pgcl(source)
+    conversion = convert_pgcl(source)
+    new = parse_ppy(conversion.text)
+    _same(new, rename(old, conversion.renamings))
+    # printing is stable
+    assert parse_ppy(program_to_ppy(new)) == new
+    if path.relative_to(EXAMPLES).as_posix() in NOT_PRINTABLE:
+        assert conversion.renamings
         with pytest.raises(PpyPrintError):
             program_to_ppy(old)
-        return
-    text = program_to_ppy(old)
-    new = parse_ppy(text)
-    _same(new, old)
-    # printing is stable
-    assert program_to_ppy(new) == text
+    else:
+        assert not conversion.renamings
+        _same(parse_ppy(program_to_ppy(old)), old)
 
 
 def test_round_trip_after_renaming_keyword():
     path = EXAMPLES / "inference/loop_free/conditioning/monty_hall_nested.pgcl"
-    old = parse_pgcl(path.read_text().replace("switch", "switched"))
-    _same(parse_ppy(program_to_ppy(old)), old)
+    conversion = convert_pgcl(path.read_text())
+    assert conversion.renamings == {"switch": "switch_"}
+    assert "switch_ = unif(1, 3);" in conversion.text
+    assert conversion.messages() == ["renamed 'switch' to 'switch_' ('switch' is a keyword in .ppy)"]
 
 
 # --- declarations -------------------------------------------------------------

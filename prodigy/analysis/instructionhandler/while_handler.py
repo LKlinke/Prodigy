@@ -15,6 +15,8 @@ from fractions import Fraction
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import sympy
+from lark.exceptions import LarkError
+
 from prodigy.pgcl import Instr, parse_pgcl, Program, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -162,7 +164,13 @@ def _evt_outcome_kind(scope_kind: str, positive: Optional[bool], finite: Optiona
 def _strategy_invariant(task: LoopTask) -> LoopOutcome:
     instruction, prog_info, config = task.instruction, task.prog_info, task.config
     inv_src = task.param("invariant")
-    inv_prog = parse_pgcl(inv_src)
+    # an invariant is written in the syntax of the program
+    syntax = task.session.syntax
+    try:
+        inv_prog = parse_pgcl(inv_src, syntax)
+    except (SyntaxError, LarkError) as exc:
+        raise ValueError(f"The invariant is not a valid program in the {syntax} syntax "
+                         f"(an invariant uses the syntax of the program): {exc}") from exc
 
     prog = Program(declarations=[],
                    variables=prog_info.variables,

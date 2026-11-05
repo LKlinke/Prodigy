@@ -16,8 +16,10 @@ from itertools import combinations
 from typing import IO, Any, Dict, Optional, Set, Tuple
 
 import click
-from prodigy.pgcl import Var, compiler, WhileInstr
-from prodigy.pgcl.check import CheckFail
+from lark.exceptions import UnexpectedInput
+from prodigy.pgcl import Program, Var, compiler, WhileInstr
+from prodigy.pgcl.parser import SYNTAXES, select_syntax
+from prodigy.pgcl.ppy_parser import PpySyntaxError
 
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -107,6 +109,40 @@ def cli(ctx,
 # pylint: enable-msg=too-many-arguments
 
 
+_SYNTAX_HELP = ("Syntax of the program files, pgcl or ppy (default: by file extension, '.ppy' is ppy, "
+                "everything else pgcl). Invariants given as program text use the program's syntax.")
+
+
+def _syntax_option(command):
+    return click.option('--syntax', type=click.Choice(SYNTAXES), default=None, help=_SYNTAX_HELP)(command)
+
+
+def _with_source_line(message: str, source: str, line: Optional[int], column: Optional[int]) -> str:
+    lines = source.split("\n")
+    if line is None or column is None or not 1 <= line <= len(lines):
+        return message
+    return f"{message}\n    {lines[line - 1]}\n    {' ' * (column - 1)}^"
+
+
+def _pgcl_syntax_error(name: str, source: str, exc: UnexpectedInput) -> click.ClickException:
+    return click.ClickException(f"{name}: syntax error in line {exc.line}, column {exc.column} (pgcl syntax).\n"
+                                f"{exc.get_context(source)}")
+
+
+def _read_program(program_file: IO, syntax: Optional[str]) -> Tuple[str, Program, str]:
+    """Read and parse a program file; the syntax is chosen by ``syntax`` or the file extension."""
+    source = program_file.read()
+    name = getattr(program_file, "name", "<program>")
+    chosen = select_syntax(syntax, name)
+    try:
+        program = compiler.parse_pgcl(source, chosen)
+    except PpySyntaxError as exc:
+        raise click.ClickException(_with_source_line(f"{name}: {exc}", source, exc.line, exc.column)) from exc
+    except UnexpectedInput as exc:
+        raise _pgcl_syntax_error(name, source, exc) from exc
+    return source, program, chosen
+
+
 _LOOP_OPTION_HELP = ("Strategy for a loop, as ID=STRATEGY[:NAME=VALUE,...], e.g. 0=unroll:iterations=100 or "
                      "'*=evt_synthesis' for all loops. See `prodigy loop_strategies`.")
 
@@ -136,8 +172,9 @@ def _collect_decisions(loop_specs: Tuple[str, ...], decisions_file: Optional[IO]
               default=False)
 @click.option('--loop', 'loop_specs', multiple=True,
               help=_LOOP_OPTION_HELP + " Loops without a decision are asked for.")
-def main(ctx, program_file: IO, input_dist: str,
-         show_input_program: bool, loop_specs: Tuple[str, ...]) -> None:
+@_syntax_option
+def main(ctx, program_file: IO, input_dist: str,  # pylint: disable=too-many-arguments
+         show_input_program: bool, loop_specs: Tuple[str, ...], syntax: Optional[str]) -> None:
     """
     Compile the given program and print some information about it.
     """
@@ -147,11 +184,7 @@ def main(ctx, program_file: IO, input_dist: str,
     # Parse and the input and do typechecking.
     logger.debug("Read file %s", program_file.name)
     logger.debug("Input distribution: %s", input_dist)
-    program_source = program_file.read()
-    program = compiler.parse_pgcl(program_source)
-    # if isinstance(program, CheckFail):
-    #    print("Error:", program)
-    #    return
+    program_source, program, syntax = _read_program(program_file, syntax)
 
     if show_input_program:
         print("Program source:")
@@ -164,7 +197,7 @@ def main(ctx, program_file: IO, input_dist: str,
         dist = config.factory.from_expr(input_dist, *program.variables.keys())
 
     logger.debug("Start analysis.")
-    session = AnalysisSession.interactive(program, source=program_source, config=config,
+    session = AnalysisSession.interactive(program, source=program_source, syntax=syntax, config=config,
                                           decisions=_collect_decisions(loop_specs, None))
     start = time.perf_counter()
     with session.activate():
@@ -181,23 +214,14 @@ def main(ctx, program_file: IO, input_dist: str,
 @click.pass_context
 @click.argument('program_file', type=click.File('r'))
 @click.argument('other_program_file', type=click.File('r'))
-def check_equality(ctx, program_file: IO, other_program_file: IO):
+@_syntax_option
+def check_equality(ctx, program_file: IO, other_program_file: IO, syntax: Optional[str]):
     """
     Checks whether a certain loop-free program is an invariant of a specified while loop.
-    :param program_file: the file containing the while-loop
-    :param invariant_file: the provided invariant
-    :return:
+    Each file is read in the syntax of its extension, unless --syntax is given.
     """
-    prog_src = program_file.read()
-    other_prog_src = other_program_file.read()
-
-    prog = compiler.parse_pgcl(prog_src)
-    if isinstance(prog, CheckFail):
-        raise ValueError(f"Could not compile the Program. {prog}")
-
-    other_prog = compiler.parse_pgcl(other_prog_src)
-    if isinstance(other_prog, CheckFail):
-        raise ValueError(f"Could not compile invariant. {other_prog}")
+    _, prog, _ = _read_program(program_file, syntax)
+    _, other_prog, _ = _read_program(other_program_file, syntax)
 
     start = time.perf_counter()
     equiv, result = check_equivalence(prog, other_prog, ctx.obj['CONFIG'], compute_semantics)
@@ -233,7 +257,8 @@ def check_equality(ctx, program_file: IO, other_program_file: IO):
 @click.pass_context
 @click.argument('program_file', type=click.File('r'))
 @click.option('--compute-exact', is_flag=True, required=False, default=False)
-def independent_vars(ctx, program_file: IO, compute_exact: bool):
+@_syntax_option
+def independent_vars(ctx, program_file: IO, compute_exact: bool, syntax: Optional[str]):
     """
     Outputs an under-approximation or the actual result of the pairwise stochastic independence relation.
 
@@ -241,11 +266,7 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
     :param compute_exact: if True, also compute and return the actual stochastic independencies
     :return: under-approximation or the actual relation
     """
-    prog_src = program_file.read()
-
-    prog = compiler.parse_pgcl(prog_src)
-    if isinstance(prog, CheckFail):
-        raise ValueError(f"Could not compile the Program. {prog}")
+    _, prog, _ = _read_program(program_file, syntax)
 
     start = time.perf_counter()
     indep_rel: Set[frozenset[Var]] = get_independent_vars_of(prog) #, program_file, compute_exact)
@@ -287,17 +308,15 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool):
 @click.argument('program_file', type=click.File('r'))
 @click.option('--invariant', is_flag=False, type=str, required=False)
 @click.argument('input_dist', type=str, required=False)
-def invariant_synthesis(ctx, program_file: IO, invariant: str, input_dist: str):
+@_syntax_option
+def invariant_synthesis(ctx, program_file: IO, invariant: str, input_dist: str, syntax: Optional[str]):
     """
     Tries to synthesize an EVT Invariant for the given input file.
     Supports a loop-free program to prefix the actual loop describing an initial distribution.
     """
 
     # read the program source file and parse it into a program object.
-    prog_src = program_file.read()
-    prog = compiler.parse_pgcl(prog_src)
-    if isinstance(prog, CheckFail):
-        raise ValueError(f"Could not compile the Program. {prog}")
+    _, prog, _ = _read_program(program_file, syntax)
 
     # isolate the initial distribution description from the actual while loop.
     loops = [1 if isinstance(instr, WhileInstr) else 0 for instr in prog.instructions]
@@ -347,7 +366,8 @@ def _loop_parts(prog):
 @click.option('--invariant', type=str, required=True,
               help="EVT sub-invariant nu (a generating function in the program variables).")
 @click.argument('input_dist', type=str, required=False)
-def evt_lower_bound(ctx, program_file: IO, invariant: str, input_dist: str):
+@_syntax_option
+def evt_lower_bound(ctx, program_file: IO, invariant: str, input_dist: str, syntax: Optional[str]):
     """
     Lower induction: verifies that NU is an EVT sub-invariant of finite mass (NU <= Phi(NU) coefficient-wise and
     NU(1,...,1) < oo) and continues the analysis with the resulting lower bound on the output distribution of the
@@ -355,9 +375,7 @@ def evt_lower_bound(ctx, program_file: IO, invariant: str, input_dist: str):
     """
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.lowerbounds.subinvariant import evt_subinvariant_verification
-    prog = compiler.parse_pgcl(program_file.read())
-    if isinstance(prog, CheckFail):
-        raise ValueError(f"Could not compile the Program. {prog}")
+    _, prog, _ = _read_program(program_file, syntax)
     prefix, loop, rest = _loop_parts(prog)
     config = ctx.obj["CONFIG"]
     variables = list(prog.variables.keys())
@@ -404,9 +422,10 @@ def _parse_shape(spec: str):
                    "(default: only if its exit mass is infinite).")
 @click.option('--show-certificates', is_flag=True, default=False)
 @click.option('--json', 'json_path', type=str, default=None, help="Write certificates and bounds to this file.")
+@_syntax_option
 def evt_sandwich(  # pylint: disable=too-many-arguments
         program_file: IO, size: int, lower_specs, upper_specs, no_upper: bool, objective: str,
-        per_query, show_certificates: bool, json_path: str):
+        per_query, show_certificates: bool, json_path: str, syntax: Optional[str]):
     # pylint: disable=import-outside-toplevel
     """
     Sandwich bounds for a program with one loop: synthesises an EVT sub-invariant of finite mass (lower bound,
@@ -415,9 +434,7 @@ def evt_sandwich(  # pylint: disable=too-many-arguments
     """
     from prodigy.analysis.lowerbounds.problem import load_problem
     from prodigy.analysis.lowerbounds.sandwich import evt_sandwich as run_sandwich, print_result, write_json
-    prog = compiler.parse_pgcl(program_file.read())
-    if isinstance(prog, CheckFail):
-        raise ValueError(f"Could not compile the Program. {prog}")
+    _, prog, _ = _read_program(program_file, syntax)
     problem = load_problem(prog)
     lower = [_parse_shape(s) for s in lower_specs] or None
     upper = [_parse_shape(s) for s in upper_specs] or None
@@ -512,24 +529,24 @@ def _print_summary(result: Dict[str, Any]) -> None:
               help="Number of coefficients per marginal in the result (0 to skip).")
 @click.option('--steps', is_flag=True, default=False, help="Record the distribution after each instruction.")
 @click.option('--output', type=click.File('w'), required=False, help="Write the JSON result to this file.")
+@_syntax_option
 def analyze(  # pylint: disable=too-many-arguments
         ctx, program_file: IO, input_dist: Optional[str], loop_specs: Tuple[str, ...],
         decisions_file: Optional[IO], as_json: bool, coefficients: int, steps: bool,
-        output: Optional[IO]) -> None:
+        output: Optional[IO], syntax: Optional[str]) -> None:
     """
     Analyse a program without asking questions: every loop needs a strategy (--loop or
     --decisions). Queries are answered with sound intervals.
     """
-    program_source = program_file.read()
-    program = compiler.parse_pgcl(program_source)
+    program_source, program, syntax = _read_program(program_file, syntax)
     config: ForwardAnalysisConfig = ctx.obj['CONFIG']
     decisions = parse_decisions(_collect_decisions(loop_specs, decisions_file))
-    problems = validate_decisions(decisions, LoopRegistry(program, program_source))
+    problems = validate_decisions(decisions, LoopRegistry(program, program_source, syntax))
     if problems:
         for problem in problems:
             print(f"{Style.OKRED}Error:{Style.RESET} {problem}", file=sys.stderr)
         sys.exit(2)
-    session = AnalysisSession(program, source=program_source, config=config, decisions=decisions,
+    session = AnalysisSession(program, source=program_source, syntax=syntax, config=config, decisions=decisions,
                               input_distribution=input_dist, capture_output=True,
                               record_steps=steps, coefficient_limit=coefficients)
     result = session.run().to_json()
@@ -548,14 +565,15 @@ def analyze(  # pylint: disable=too-many-arguments
 @cli.command('outline')
 @click.argument('program_file', type=click.File('r'))
 @click.option('--json', 'as_json', is_flag=True, default=False)
-def outline(program_file: IO, as_json: bool) -> None:
+@_syntax_option
+def outline(program_file: IO, as_json: bool, syntax: Optional[str]) -> None:
     """
     List the loops (with the ids used by --loop) and queries of a program.
     """
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import outline_program
-    source = program_file.read()
-    info = outline_program(compiler.parse_pgcl(source), source)
+    source, program, syntax = _read_program(program_file, syntax)
+    info = outline_program(program, source, syntax)
     if as_json:
         print(json.dumps(info, indent=2))
         return
@@ -567,6 +585,38 @@ def outline(program_file: IO, as_json: bool) -> None:
         print(f"loop {loop['id']} ({where}, depth {loop['depth']}): while ({loop['cond']})")
     for query in info["queries"]:
         print(f"query {query['index']} (line {query['line']}): {query['text']}")
+
+
+@cli.command('convert')
+@click.argument('program_file', type=click.File('r'))
+@click.option('-o', '--output', type=click.File('w'), default=None,
+              help="Write the .ppy program to this file instead of printing it.")
+def convert(program_file: IO, output: Optional[IO]) -> None:
+    """
+    Convert a program from the .pgcl syntax into the .ppy syntax.
+
+    Names that are keywords in .ppy (e.g. a variable 'switch') are renamed by appending '_'; every
+    renaming is reported on stderr. Comments are kept, at approximately their original place.
+    """
+    # pylint: disable=import-outside-toplevel
+    from prodigy.pgcl.converter import convert_pgcl
+    from prodigy.pgcl.ppy_printer import PpyPrintError
+    name = getattr(program_file, "name", "<program>")
+    if select_syntax(path=name) == "ppy":
+        raise click.ClickException(f"{name} is already a .ppy program.")
+    source = program_file.read()
+    try:
+        result = convert_pgcl(source)
+    except UnexpectedInput as exc:
+        raise _pgcl_syntax_error(name, source, exc) from exc
+    except PpyPrintError as exc:
+        raise click.ClickException(f"{name}: {exc}") from exc
+    for message in result.messages():
+        click.echo(f"{name}: {message}", err=True)
+    if output is None:
+        click.echo(result.text, nl=False)
+    else:
+        output.write(result.text)
 
 
 @cli.command('loop_strategies')

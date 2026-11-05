@@ -7,7 +7,7 @@ Prints a pGCL AST in the ``.ppy`` syntax, with the canonical spelling ``and``,
 ``or`` and ``not``. Parsing the output with :func:`prodigy.pgcl.ppy_parser.parse_ppy`
 gives back an equal AST; the converter from ``.pgcl`` is built on this.
 
-Comments are not part of the AST and are lost.
+Comments are not part of the AST; :mod:`prodigy.pgcl.converter` carries them over.
 
 .. doctest::
 
@@ -195,23 +195,8 @@ def _constant_type(value: Expr) -> str:
     return ""  # the type annotation is optional
 
 
-def _block(instrs: List[Instr]) -> str:
-    if not instrs:
-        return "{ }"
-    lines = "\n".join(instr_to_ppy(instr) for instr in instrs)
-    return "{\n" + _indent(lines) + "\n}"
-
-
 def _indent(text: str) -> str:
     return "\n".join(_INDENT + line if line else line for line in text.split("\n"))
-
-
-def _else(instrs: List[Instr]) -> str:
-    if not instrs:
-        return ""
-    if len(instrs) == 1 and isinstance(instrs[0], IfInstr):
-        return f" else {instr_to_ppy(instrs[0])}"
-    return f" else {_block(instrs)}"
 
 
 def _plot(instr: PlotInstr) -> str:
@@ -225,68 +210,115 @@ def _plot(instr: PlotInstr) -> str:
     return f"plot({', '.join(arguments)});"
 
 
-# pylint: disable=too-many-return-statements,too-many-branches
+class PpyPrinter:
+    """
+    Prints instructions, declarations and programs in the ``.ppy`` syntax.
+
+    Subclasses can decorate the text of single instructions and declarations
+    (the converter adds comments this way) by overriding :meth:`instr` and
+    :meth:`decl`; blocks and function bodies are printed through them.
+    """
+
+    def instr(self, instr: Instr) -> str:
+        """Print an instruction (or query)."""
+        return self._instr(instr)
+
+    def decl(self, decl: Decl) -> str:
+        """Print a declaration."""
+        return self._decl(decl)
+
+    def program(self, program: Program) -> str:
+        """Print a program, declarations first."""
+        lines = [self.decl(decl) for decl in program.declarations]
+        lines.extend(self.instr(instr) for instr in program.instructions)
+        return "\n".join(lines) + "\n"
+
+    def block(self, instrs: List[Instr]) -> str:
+        """Print a block in curly braces."""
+        if not instrs:
+            return "{ }"
+        lines = "\n".join(self.instr(instr) for instr in instrs)
+        return "{\n" + _indent(lines) + "\n}"
+
+    def _else(self, instrs: List[Instr]) -> str:
+        if not instrs:
+            return ""
+        if len(instrs) == 1 and isinstance(instrs[0], IfInstr):
+            text = self.instr(instrs[0])
+            if text.startswith("if "):  # nothing printed before the nested if
+                return f" else {text}"
+        return f" else {self.block(instrs)}"
+
+    # pylint: disable=too-many-return-statements,too-many-branches
+    def _instr(self, instr: Instr) -> str:
+        if isinstance(instr, SkipInstr):
+            return "skip;"
+        if isinstance(instr, AbortInstr):
+            return "abort;"
+        if isinstance(instr, AsgnInstr):
+            return f"{_name(instr.lhs)} = {expr_to_ppy(instr.rhs)};"
+        if isinstance(instr, WhileInstr):
+            return f"while ({expr_to_ppy(instr.cond)}) {self.block(instr.body)}"
+        if isinstance(instr, IfInstr):
+            return f"if ({expr_to_ppy(instr.cond)}) {self.block(instr.true)}{self._else(instr.false)}"
+        if isinstance(instr, ChoiceInstr):
+            return f"{self.block(instr.lhs)} [{expr_to_ppy(instr.prob)}] {self.block(instr.rhs)}"
+        if isinstance(instr, LoopInstr):
+            return f"loop({instr.iterations.value}) {self.block(instr.body)}"
+        if isinstance(instr, TickInstr):
+            return f"tick({expr_to_ppy(instr.expr)});"
+        if isinstance(instr, ObserveInstr):
+            return f"observe({expr_to_ppy(instr.cond)});"
+        if isinstance(instr, QueryInstr):
+            return f"query {self.block(instr.instrs)}"
+        if isinstance(instr, LocalDeclInstr):
+            value = "" if instr.value is None else f" = {expr_to_ppy(instr.value)}"
+            return f"{_name(instr.decl.var)}: {_type(instr.decl.typ)}{value};"
+        if isinstance(instr, ProbabilityQueryInstr):
+            return f"query Pr[{expr_to_ppy(instr.expr)}];"
+        if isinstance(instr, ExpectationInstr):
+            return f"query Ex[{expr_to_ppy(instr.expr)}];"
+        if isinstance(instr, PrintInstr):
+            return "print;"
+        if isinstance(instr, PlotInstr):
+            return _plot(instr)
+        if isinstance(instr, OptimizationQuery):
+            mode = "MAX" if instr.type == OptimizationType.MAXIMIZE else "MIN"
+            return f"optimize({expr_to_ppy(instr.expr)}, {_name(instr.parameter)}, {mode});"
+        raise PpyPrintError(f"{type(instr).__name__} has no .ppy syntax.")
+
+    def _decl(self, decl: Decl) -> str:
+        if isinstance(decl, VarDecl):
+            return f"{_name(decl.var)}: {_type(decl.typ)};"
+        if isinstance(decl, ConstDecl):
+            return f"const {_name(decl.var)}{_constant_type(decl.value)} = {expr_to_ppy(decl.value)};"
+        if isinstance(decl, ParameterDecl):
+            if isinstance(decl.typ, NatType) and decl.typ.bounds is not None:
+                raise PpyPrintError("A parameter with bounds has no .ppy syntax.")
+            return f"param {_name(decl.var)}: {_type(decl.typ)};"
+        if isinstance(decl, FunctionDecl):
+            function = decl.body
+            # all declarations of a function are its parameters in the old syntax
+            params = ", ".join(f"{_name(var.var)}: {_type(var.typ)}" for var in function.declarations)
+            body = [self.instr(instr) for instr in function.instructions]
+            body.append(f"return {expr_to_ppy(function.returns)};")
+            return f"def {_name(decl.var)}({params}) -> nat {{\n{_indent(chr(10).join(body))}\n}}"
+        raise PpyPrintError(f"{type(decl).__name__} has no .ppy syntax.")
+
+
+_PRINTER = PpyPrinter()
+
+
 def instr_to_ppy(instr: Instr) -> str:
     """Print an instruction (or query) in the ``.ppy`` syntax."""
-    if isinstance(instr, SkipInstr):
-        return "skip;"
-    if isinstance(instr, AbortInstr):
-        return "abort;"
-    if isinstance(instr, AsgnInstr):
-        return f"{_name(instr.lhs)} = {expr_to_ppy(instr.rhs)};"
-    if isinstance(instr, WhileInstr):
-        return f"while ({expr_to_ppy(instr.cond)}) {_block(instr.body)}"
-    if isinstance(instr, IfInstr):
-        return f"if ({expr_to_ppy(instr.cond)}) {_block(instr.true)}{_else(instr.false)}"
-    if isinstance(instr, ChoiceInstr):
-        return f"{_block(instr.lhs)} [{expr_to_ppy(instr.prob)}] {_block(instr.rhs)}"
-    if isinstance(instr, LoopInstr):
-        return f"loop({instr.iterations.value}) {_block(instr.body)}"
-    if isinstance(instr, TickInstr):
-        return f"tick({expr_to_ppy(instr.expr)});"
-    if isinstance(instr, ObserveInstr):
-        return f"observe({expr_to_ppy(instr.cond)});"
-    if isinstance(instr, QueryInstr):
-        return f"query {_block(instr.instrs)}"
-    if isinstance(instr, LocalDeclInstr):
-        value = "" if instr.value is None else f" = {expr_to_ppy(instr.value)}"
-        return f"{_name(instr.decl.var)}: {_type(instr.decl.typ)}{value};"
-    if isinstance(instr, ProbabilityQueryInstr):
-        return f"query Pr[{expr_to_ppy(instr.expr)}];"
-    if isinstance(instr, ExpectationInstr):
-        return f"query Ex[{expr_to_ppy(instr.expr)}];"
-    if isinstance(instr, PrintInstr):
-        return "print;"
-    if isinstance(instr, PlotInstr):
-        return _plot(instr)
-    if isinstance(instr, OptimizationQuery):
-        mode = "MAX" if instr.type == OptimizationType.MAXIMIZE else "MIN"
-        return f"optimize({expr_to_ppy(instr.expr)}, {_name(instr.parameter)}, {mode});"
-    raise PpyPrintError(f"{type(instr).__name__} has no .ppy syntax.")
+    return _PRINTER.instr(instr)
 
 
 def decl_to_ppy(decl: Decl) -> str:
     """Print a declaration in the ``.ppy`` syntax."""
-    if isinstance(decl, VarDecl):
-        return f"{_name(decl.var)}: {_type(decl.typ)};"
-    if isinstance(decl, ConstDecl):
-        return f"const {_name(decl.var)}{_constant_type(decl.value)} = {expr_to_ppy(decl.value)};"
-    if isinstance(decl, ParameterDecl):
-        if isinstance(decl.typ, NatType) and decl.typ.bounds is not None:
-            raise PpyPrintError("A parameter with bounds has no .ppy syntax.")
-        return f"param {_name(decl.var)}: {_type(decl.typ)};"
-    if isinstance(decl, FunctionDecl):
-        function = decl.body
-        # all declarations of a function are its parameters in the old syntax
-        params = ", ".join(f"{_name(var.var)}: {_type(var.typ)}" for var in function.declarations)
-        body = [instr_to_ppy(instr) for instr in function.instructions]
-        body.append(f"return {expr_to_ppy(function.returns)};")
-        return f"def {_name(decl.var)}({params}) -> nat {{\n{_indent(chr(10).join(body))}\n}}"
-    raise PpyPrintError(f"{type(decl).__name__} has no .ppy syntax.")
+    return _PRINTER.decl(decl)
 
 
 def program_to_ppy(program: Program) -> str:
     """Print a program in the ``.ppy`` syntax, declarations first."""
-    lines = [decl_to_ppy(decl) for decl in program.declarations]
-    lines.extend(instr_to_ppy(instr) for instr in program.instructions)
-    return "\n".join(lines) + "\n"
+    return _PRINTER.program(program)

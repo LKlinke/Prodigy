@@ -490,16 +490,16 @@ def failure_bounds(status: str) -> Dict[str, Any]:
 # Program outline
 # ---------------------------------------------------------------------------------------
 
-def outline_program(program, source: Optional[str] = None) -> Dict[str, Any]:
+def outline_program(program, source: Optional[str] = None, syntax: str = "pgcl") -> Dict[str, Any]:
     """Variables, parameters, loops and queries of ``program`` (for editors and forms)."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.session import _QUERY_RE, LoopRegistry, query_instructions, token_positions
-    loops = LoopRegistry(program, source)
-    positions = token_positions(source, _QUERY_RE) if source is not None else []
+    from prodigy.analysis.session import LoopRegistry, query_instructions, query_positions
+    loops = LoopRegistry(program, source, syntax)
+    positions = query_positions(source, syntax) if source is not None else []
     queries = []
     for index, instr in enumerate(query_instructions(program)):
         line, column = positions[index] if index < len(positions) else (None, None)
-        queries.append({"index": index, "kind": _query_kind(instr), "text": str(instr),
+        queries.append({"index": index, "kind": _query_kind(instr), "text": _query_text(instr, syntax),
                         "line": line, "column": column})
     return {
         "variables": {name: type_name(typ) for name, typ in program.variables.items()},
@@ -509,6 +509,14 @@ def outline_program(program, source: Optional[str] = None) -> Dict[str, Any]:
         "loops": [loop.to_json() for loop in loops],
         "queries": queries,
     }
+
+
+def _query_text(instr, syntax: str) -> str:
+    if syntax == "ppy":
+        # pylint: disable=import-outside-toplevel
+        from prodigy.pgcl.ppy_printer import instr_to_ppy
+        return instr_to_ppy(instr)
+    return str(instr)
 
 
 def type_name(typ) -> str:

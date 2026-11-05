@@ -56,25 +56,64 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 # ---------------------------------------------------------------------------------------
 
 _COMMENT_RE = re.compile(r"(#|//).*$", re.M)
+_PPY_COMMENT_RE = re.compile(r"#.*$", re.M)  # '//' is floor division in .ppy
 _WHILE_RE = re.compile(r"\bwhile\b")
 _QUERY_RE = re.compile(r"\?Pr\b|\?Ex\b|\?Opt\b|!Print\b|!Plot\b")
+_PPY_QUERY_RE = re.compile(r"\bquery\s+(?:Pr|Ex)\b|\bprint\s*;|\bplot\s*\(|\boptimize\s*\(")
 _QUERY_INSTRS = (ExpectationInstr, OptimizationQuery, PlotInstr, PrintInstr, ProbabilityQueryInstr, QueryInstr)
 
 
-def _blank_comments(source: str) -> str:
+def _blank_comments(source: str, syntax: str = "pgcl") -> str:
     """Replaces comments by spaces so that offsets stay valid."""
-    return _COMMENT_RE.sub(lambda m: " " * len(m.group(0)), source)
+    pattern = _PPY_COMMENT_RE if syntax == "ppy" else _COMMENT_RE
+    return pattern.sub(lambda m: " " * len(m.group(0)), source)
 
 
-def token_positions(source: str, pattern: "re.Pattern[str]") -> List[Tuple[int, int]]:
+def token_positions(source: str, pattern: "re.Pattern[str]", syntax: str = "pgcl") -> List[Tuple[int, int]]:
     """1-based (line, column) of every match of ``pattern`` outside of comments."""
-    text = _blank_comments(source)
+    text = _blank_comments(source, syntax)
     positions = []
     for match in pattern.finditer(text):
         line = text.count("\n", 0, match.start()) + 1
         column = match.start() - (text.rfind("\n", 0, match.start()) + 1) + 1
         positions.append((line, column))
     return positions
+
+
+def _offset_position(text: str, offset: int) -> Tuple[int, int]:
+    line = text.count("\n", 0, offset) + 1
+    return line, offset - (text.rfind("\n", 0, offset) + 1) + 1
+
+
+def _ppy_while_positions(source: str, functions: List[str]) -> List[Tuple[int, int]]:
+    """
+    Positions of the while loops of a ``.ppy`` program in the order of :class:`LoopRegistry`:
+    the loops of the functions (in the order of ``functions``), then those of the program.
+    In ``.ppy`` a ``def`` may follow statements, so the textual order can differ.
+    """
+    text = _blank_comments(source, "ppy")
+    spans: Dict[str, Tuple[int, int]] = {}
+    for match in re.finditer(r"\bdef\s+(\w+)", text):
+        start = text.find("{", match.end())
+        depth, end = 0, len(text)
+        for index in range(max(start, 0), len(text)):
+            depth += {"{": 1, "}": -1}.get(text[index], 0)
+            if depth == 0:
+                end = index
+                break
+        spans[match.group(1)] = (match.start(), end)
+    loops = [match.start() for match in _WHILE_RE.finditer(text)]
+    ordered: List[int] = []
+    for name in functions:
+        first, last = spans.get(name, (0, -1))
+        ordered.extend(offset for offset in loops if first <= offset <= last)
+    ordered.extend(offset for offset in loops if not any(a <= offset <= b for a, b in spans.values()))
+    return [_offset_position(text, offset) for offset in ordered]
+
+
+def query_positions(source: str, syntax: str = "pgcl") -> List[Tuple[int, int]]:
+    """1-based (line, column) of the queries (``?Pr``, ``query Pr``, ...) of a program in ``syntax``."""
+    return token_positions(source, _PPY_QUERY_RE if syntax == "ppy" else _QUERY_RE, syntax)
 
 
 @dataclass(frozen=True)
@@ -135,7 +174,7 @@ def _collect_loops(instrs: List[Instr], depth: int, function: Optional[str],
 class LoopRegistry:
     """Assigns stable ids to the while loops of a program (textual pre-order)."""
 
-    def __init__(self, program: Optional[Program], source: Optional[str] = None):
+    def __init__(self, program: Optional[Program], source: Optional[str] = None, syntax: str = "pgcl"):
         self.loops: List[LoopInfo] = []
         self._by_identity: Dict[int, LoopInfo] = {}
         self._by_text: Dict[str, List[LoopInfo]] = {}
@@ -145,7 +184,12 @@ class LoopRegistry:
         for name, function in program.functions.items():
             _collect_loops(function.instructions, 0, name, found)
         _collect_loops(program.instructions, 0, None, found)
-        positions = token_positions(source, _WHILE_RE) if source is not None else []
+        if source is None:
+            positions: List[Tuple[int, int]] = []
+        elif syntax == "ppy":
+            positions = _ppy_while_positions(source, list(program.functions))
+        else:
+            positions = token_positions(source, _WHILE_RE)
         if len(positions) != len(found):
             positions = []
         for index, (instr, depth, function_name) in enumerate(found):
@@ -493,6 +537,7 @@ class AnalysisSession:
                  program: Optional[Program],
                  *,
                  source: Optional[str] = None,
+                 syntax: str = "pgcl",
                  config=None,
                  provider: Optional[DecisionProvider] = None,
                  decisions: Optional[Mapping[Any, Any]] = None,
@@ -507,6 +552,8 @@ class AnalysisSession:
         from prodigy.analysis.config import ForwardAnalysisConfig
         self.program = program
         self.source = source
+        self.syntax = syntax
+        """Syntax of the program (``pgcl`` or ``ppy``); invariants given as program text use it too."""
         self.config = config if config is not None else ForwardAnalysisConfig()
         if provider is None:
             provider = FixedDecisions(parse_decisions(decisions))
@@ -521,8 +568,8 @@ class AnalysisSession:
         self.record_steps = record_steps
         self.coefficient_limit = coefficient_limit
 
-        self.loops = LoopRegistry(program, source)
-        self.query_positions = token_positions(source, _QUERY_RE) if source is not None else []
+        self.loops = LoopRegistry(program, source, syntax)
+        self.query_positions = query_positions(source, syntax) if source is not None else []
         self.loop_records: Dict[Any, LoopRecord] = {}
         self.queries: List[Any] = []
         self.steps: List[Dict[str, Any]] = []
