@@ -9,7 +9,6 @@ from typing import Union, Generator, Sequence, Iterator, Tuple, Type, List, get_
 
 import symengine as se
 # pylint: disable-msg=no-name-in-module
-from symengine.lib.symengine_wrapper import NegativeInfinity
 # pylint: enable-msg=no-name-in-module
 
 # todo remove once methods in symengine
@@ -22,7 +21,7 @@ from prodigy.pgcl.parser import parse_expr
 from prodigy.distribution import Distribution
 from prodigy.distribution.exact_division import divide_exponents
 from prodigy.distribution.multisection import rational_multisection
-from prodigy.distribution.negative_values import has_negative_powers
+from prodigy.distribution.negative_values import can_be_negative, operand, require_non_negative
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.distribution import MarginalType, State, CommonDistributionsFactory, DistributionParam
 from prodigy.util.logger import log_setup
@@ -602,25 +601,11 @@ class SymengineDist(Distribution):
         res = se.expand(res)
         expr = SymengineDist(res).set_variables_and_parameters(self.get_variables(), self.get_parameters())
 
-        marginal: SymengineDist = expr.marginal(temp_var)
-        negative: bool | None
-        if _diverges(marginal._s_func):
-            # Another variable has infinite mass, e.g. in the second-order generating functions of the equivalence
-            # check, so the marginal cannot decide; decide exactly on the joint function.
-            negative = has_negative_powers(sp.S(res), sp.Symbol(temp_var))
-            if negative is None:
-                raise ValueError(
-                    f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it cannot be proven that it is "
-                    "never negative"
-                )
-        else:
-            test_fun: se.Basic = marginal.safe_subs(update_var, 0)
-            # Safe_subs returns NegativeInfinity when called with x^{-1}[x/0]
-            negative = test_fun.simplify() in [se.nan, se.zoo] or isinstance(test_fun, NegativeInfinity)
-        if negative:
-            raise ValueError(
-                f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it can be negative"
-            )
+        names = {str(var) for var in self._variables} | {temp_var}
+        require_non_negative(
+            can_be_negative(sp.S(self._s_func), {sp.Symbol(name) for name in names},
+                            operand(sub_from, names), operand(sub, names)),
+            temp_var, sub_from, sub)
         return expr
 
     def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
@@ -1144,11 +1129,6 @@ _DECIMAL_NUMBER = re.compile(r"(?<![\w.])(\d+\.\d*|\.\d+|\d+(?=[eE][+-]?\d))([eE
 # Names that SymEngine's parser turns into constants although they are never printed by SymEngine.
 _CONSTANT_NAMES = re.compile(r"(?<![\w.])(e|inf)(?![\w(])")
 _PLACEHOLDER_PREFIX = "prodigy_placeholder_"
-
-
-def _diverges(function: se.Basic) -> bool:
-    """Whether `function` contains an infinity or nan, e.g. a marginal of a variable with infinite mass."""
-    return any(function.has(value) for value in (se.zoo, se.nan, se.oo, -se.oo))
 
 
 def _hits_pole(function: se.Basic, variable: se.Basic, value: se.Basic) -> bool:
