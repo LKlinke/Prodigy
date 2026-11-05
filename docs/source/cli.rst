@@ -7,7 +7,7 @@ Program syntax
 The commands that read programs (``analyze``, ``main``, ``outline``, ``check_equality``,
 ``independent_vars``, ``invariant_synthesis``, ``evt_lower_bound``, ``evt_sandwich``) accept both
 surface syntaxes. The file extension decides: ``.ppy`` is read in the Python-like syntax (see
-:doc:`language-design`), every other file in the original pGCL syntax. ``--syntax pgcl`` or
+:doc:`language`), every other file in the original pGCL syntax (see :ref:`pgcl_grammar`). ``--syntax pgcl`` or
 ``--syntax ppy`` overrides the extension, e.g. for files without one. ``check_equality`` reads each
 of its two files by its own extension, unless ``--syntax`` is given.
 
@@ -15,6 +15,11 @@ An invariant given as program text, with ``--loop ID=invariant:invariant=...`` o
 ``invariant_file=...``, is read in the syntax of the program. Generating functions (``--invariant``
 of ``invariant_synthesis`` and ``evt_lower_bound``, the EVT strategies) are not program text and
 keep their own syntax.
+
+Output speaks the syntax of the program: queries, loop guards and certificates are written as
+``x == 1 and y < 3`` for a ``.ppy`` program and as ``(x = 1) & (y < 3)`` for a ``.pgcl`` program, in
+the summary of ``analyze``, the output of ``main`` and the JSON result (whose key ``syntax``
+states the syntax).
 
 Syntax errors in ``.ppy`` programs are reported with line and column, the source line and a hint
 for constructs of the old syntax, e.g.:
