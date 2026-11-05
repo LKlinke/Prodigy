@@ -600,7 +600,9 @@ def parse_pgcl(code: str,
     """
     Parse a program. The syntax is chosen by :func:`select_syntax`: ``syntax``
     (``"pgcl"`` or ``"ppy"``), else the extension of ``path``, else pGCL. The
-    ``.ppy`` syntax is parsed by :func:`prodigy.pgcl.ppy_parser.parse_ppy`.
+    ``.ppy`` syntax is parsed by :func:`prodigy.pgcl.ppy_parser.parse_ppy`, and its
+    declarations inside blocks are lowered into plain assignments
+    (:func:`prodigy.pgcl.scope.lower_block_scope`).
 
     .. doctest::
 
@@ -617,7 +619,9 @@ def parse_pgcl(code: str,
         # imported here: ppy_parser builds its own Lark parser on import
         from prodigy.pgcl.ppy_parser import \
             parse_ppy  # pylint: disable=import-outside-toplevel
-        return parse_ppy(code)
+        from prodigy.pgcl.scope import \
+            lower_block_scope  # pylint: disable=import-outside-toplevel
+        return lower_block_scope(parse_ppy(code))
     tree = _PARSER.parse(code, start="start")
     return _parse_program(tree)
 

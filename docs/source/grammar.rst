@@ -13,8 +13,8 @@ built from. Expressions are parsed with the operator table of
 Division
 --------
 
-``/`` is rational division everywhere; it never rounds. Floor division (``//``) does not exist
-yet; it is planned in `#105 <https://github.com/LKlinke/Prodigy/issues/105>`_.
+``/`` is rational division everywhere; it never rounds. Rounding division is ``//`` (``.ppy``
+only, see "Floor division" below).
 
 - In a guard, ``x/2 <= 1`` means ``x <= 2``, not ``floor(x/2) <= 1`` (which would also hold for
   ``x = 3``).
@@ -48,6 +48,31 @@ is single-valued in ``x``, e.g. ``exp(l*(x - 1))``. On other generating function
 whose invariant contains a root, the instruction is rejected:
 
 .. automodule:: prodigy.distribution.roots_of_unity
+   :no-index:
+
+Floor division
+--------------
+
+``e // q`` (``.ppy`` only; in ``.pgcl`` ``//`` starts a comment) rounds down, as in Python:
+``7 // 2 == 3``. It is implemented for a natural expression ``e`` and a positive natural constant
+``q`` (a literal or a ``const``); other divisors are rejected by the type checker. Guards and
+assignments round alike, so ``x // 2 <= 1`` holds for ``x = 3``.
+
+As an update, ``t := e // q`` splits the distribution into the residue classes of ``e`` modulo
+``q`` (as for ``e % q`` above) and divides ``e - r`` by ``q`` exactly on the class of ``r``. This
+is exact for finite marginals of ``e`` and for generating functions that are rational in ``e``; for
+other infinite marginals (e.g. ``poisson``) the update is rejected. A guard or an expectation with
+``e // q`` is computed through a fresh variable ``t := e // q``, which is marginalised out again.
+Floor division is not supported in the bounds of a declaration or by the lower-bound strategies
+(``evt_subinvariant``, ``evt_sandwich``), which reject such loops.
+
+Block-scoped declarations
+-------------------------
+
+In ``.ppy``, a declaration inside a block (a loop body, a branch, a ``case``) declares a variable
+visible to the end of that block:
+
+.. automodule:: prodigy.pgcl.scope
    :no-index:
 
 Sampling

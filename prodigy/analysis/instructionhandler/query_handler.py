@@ -41,7 +41,7 @@ class QueryHandler(InstructionHandler):
         if isinstance(instruction, ExpectationInstr):
             expression = instruction.expr
             if isinstance(expression, BinopExpr):
-                if expression.operator not in (Binop.PLUS, Binop.MINUS, Binop.TIMES):
+                if expression.operator not in (Binop.PLUS, Binop.MINUS, Binop.TIMES, Binop.FLOOR_DIVIDE):
                     raise SyntaxError("Expression cannot be a condition.")
             elif not (isinstance(expression, (VarExpr, NatLitExpr, RealLitExpr))
                       or (isinstance(expression, UnopExpr) and expression.operator == Unop.NEG)):
@@ -49,7 +49,9 @@ class QueryHandler(InstructionHandler):
             # the loop strategy right before may know the exact value already (e.g. from its certificate)
             result = session.loop_query_value("?Ex", str(expression), distribution)
             if result is None:
-                result = distribution.get_expected_value_of(expression)
+                # the engines do not know '//': compute it into fresh variables first
+                extended, replaced, _ = distribution.without_floor_division(expression)
+                result = extended.get_expected_value_of(replaced)
 
             print(f"Expected value: {result}")
             session.record_query(finish_query(

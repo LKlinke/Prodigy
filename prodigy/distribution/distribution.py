@@ -46,6 +46,10 @@ def constant_value(expression: Expr) -> Fraction | None:
         if left.denominator == 1 and right.denominator == 1 and right != 0:
             return Fraction(left.numerator % right.numerator)
         return None
+    if expression.operator == Binop.FLOOR_DIVIDE:
+        if left.denominator == 1 and right.denominator == 1 and right != 0:
+            return Fraction(left.numerator // right.numerator)
+        return None
     if expression.operator == Binop.POWER:
         return left**right.numerator if right.denominator == 1 else None
     return None
@@ -76,6 +80,30 @@ def _without_fractional_constants(expression: BinopExpr) -> BinopExpr | None:
         return BinopExpr(Binop.DIVIDE, numerator, BinopExpr(Binop.TIMES, denominator, other))
     raise ValueError(
         f"Cannot evaluate {expression} because the constant {fraction} is not a natural number")
+
+
+def _floor_division_term(expression: Expr) -> BinopExpr | None:
+    """An innermost floor division `e // q` in `expression`, or None."""
+    if isinstance(expression, UnopExpr):
+        return _floor_division_term(expression.expr)
+    if not isinstance(expression, BinopExpr):
+        return None
+    inner = _floor_division_term(expression.lhs) or _floor_division_term(expression.rhs)
+    if inner is not None:
+        return inner
+    return expression if expression.operator == Binop.FLOOR_DIVIDE else None
+
+
+def _replace_term(expression: Expr, term: Expr, replacement: Expr) -> Expr:
+    """`expression` with the subexpression `term` (by identity) replaced."""
+    if expression is term:
+        return replacement
+    if isinstance(expression, UnopExpr):
+        return UnopExpr(expression.operator, _replace_term(expression.expr, term, replacement))
+    if isinstance(expression, BinopExpr):
+        return BinopExpr(expression.operator, _replace_term(expression.lhs, term, replacement),
+                         _replace_term(expression.rhs, term, replacement))
+    return expression
 
 
 class MarginalType(Enum):
@@ -293,6 +321,13 @@ class Distribution(ABC):
                 f"We do not support filtering for {type(Unop.IVERSON)} expressions."
             )
 
+        # Floor divisions are computed into fresh variables first, e.g. x // 2 < 3 becomes t < 3
+        # for t := x // 2 (an exact update); t is a function of the state, so it can be dropped again
+        if _floor_division_term(condition) is not None:
+            extended, replaced, fresh = self.without_floor_division(condition)
+            filtered = extended.filter(replaced)
+            return filtered.marginal(*fresh, method=MarginalType.EXCLUDE) if fresh else filtered
+
         # Linear comparisons are evaluated exactly, e.g. 1/2*x < 2 becomes x < 4
         normalized = normalize_guard(condition, self.get_variables())
         if normalized is not None and normalized != condition:
@@ -331,6 +366,30 @@ class Distribution(ABC):
         # exhaustive search again. If this is not possible, we raise an NotComputableException
         expression = self._explicit_state_unfolding(condition)
         return self.filter(expression)
+
+    def without_floor_division(self, expression: Expr) -> Tuple[Distribution, Expr, List[str]]:
+        """
+        Replaces every floor division `e // q` in `expression` by its value: a literal if `e` is
+        constant, else a fresh variable `t` with the update `t := e // q` applied to this distribution.
+        Returns the extended distribution, the expression without floor divisions and the fresh
+        variables (each a function of the state, so they can be marginalised out afterwards).
+        """
+        dist: Distribution = self
+        fresh: List[str] = []
+        term = _floor_division_term(expression)
+        while term is not None:
+            constant = constant_value(term)
+            if constant is not None:
+                replacement: Expr = NatLitExpr(int(constant))
+            else:
+                name = dist.get_fresh_variable()
+                dist = dist.set_variables(*dist.get_variables(), name).update(
+                    BinopExpr(Binop.EQ, VarExpr(name), term))
+                fresh.append(name)
+                replacement = VarExpr(name)
+            expression = _replace_term(expression, term, replacement)
+            term = _floor_division_term(expression)
+        return dist, expression, fresh
 
     @abstractmethod
     def _exhaustive_search(self, condition: Expr) -> Distribution:
@@ -575,6 +634,8 @@ class Distribution(ABC):
                     f = f._update_division(temp_var, t_1, t_2, approximate)
                 elif expression.operator == Binop.POWER:
                     f = f._update_power(temp_var, t_1, t_2, approximate)
+                elif expression.operator == Binop.FLOOR_DIVIDE:
+                    f = f._update_floor_division(temp_var, t_1, t_2, approximate)
                 else:
                     raise ValueError(
                         f"Unsupported binary operator: {expression.operator}")
@@ -695,6 +756,50 @@ class Distribution(ABC):
         exact if the generating function is rational in the numerator and all its mass provably lies
         on multiples of the denominator (see :mod:`prodigy.distribution.exact_division`).
         """
+
+    def _update_floor_division(self, temp_var: str, numerator: str | int, divisor: str | int,
+                               approximate: str | float | None) -> Distribution:
+        """
+        Applies the expression `temp_var = numerator // divisor` (rounding down) to this distribution. The
+        divisor must be a positive natural literal.
+
+        With a variable `numerator`, the distribution is split into the residue classes of `numerator`
+        modulo `divisor` (exact multisection, see :meth:`_arithmetic_progression`). On the class of r,
+        `numerator // divisor` is `(numerator - r) / divisor`, an exact division. If the division
+        cannot be proven exact (an infinite marginal of `numerator` that is not rational, without
+        approximation), this raises an error.
+        """
+        if not str(divisor).isdigit() or int(str(divisor)) < 1:
+            raise ValueError(f"Cannot compute {numerator} // {divisor}: the divisor must be a positive natural "
+                             f"constant (not implemented otherwise).")
+        q = int(str(divisor))
+        if str(numerator) not in self.get_variables():
+            value = Fraction(str(numerator))
+            if value.denominator != 1:
+                raise ValueError(f"Cannot compute {numerator} // {divisor}: not a natural number")
+            return self._update_var(temp_var, value.numerator // q)
+        if q == 1:
+            return self._update_var(temp_var, str(numerator))
+        shifted = self.get_fresh_variable({temp_var})
+        result: Distribution | None = None
+        # pylint: disable=protected-access
+        for remainder, section in enumerate(self._arithmetic_progression(str(numerator), str(q))):
+            if section.is_zero_dist():
+                continue
+            part = section.set_variables(*section.get_variables(), shifted)
+            part = part._update_subtraction(shifted, str(numerator), str(remainder))
+            try:
+                part = part._update_division(temp_var, shifted, str(q), approximate)
+            except ValueError as exc:
+                raise ValueError(
+                    f"Cannot compute the floor division by {q} exactly: it is implemented for a dividend with "
+                    f"finite support or with a generating function that is rational in it ({exc}).") from exc
+            part = part.marginal(shifted, method=MarginalType.EXCLUDE)
+            result = part if result is None else result + part
+        # pylint: enable=protected-access
+        if result is None:
+            return self._update_var(temp_var, 0)  # the zero distribution
+        return result.set_variables(*self.get_variables()).set_parameters(*self.get_parameters())
 
     @abstractmethod
     def _update_power(self, temp_var: str, base: str | int, exp: str | int,

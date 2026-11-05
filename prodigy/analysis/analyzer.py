@@ -5,7 +5,7 @@ import logging
 from typing import Callable, Optional, Union, Sequence, get_args
 
 from prodigy.pgcl import Program, Instr, SkipInstr, AbortInstr, WhileInstr, LoopInstr, QueryInstr, Query, \
-    ObserveInstr, ChoiceInstr, AsgnInstr, IfInstr
+    ObserveInstr, ChoiceInstr, AsgnInstr, IfInstr, Binop, BinopExpr, NatLitExpr, VarExpr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import ObserveZeroEventError
@@ -19,7 +19,7 @@ from prodigy.analysis.instructionhandler.query_handler import QueryHandler
 from prodigy.analysis.instructionhandler.queryblock_handler import QueryBlockHandler
 from prodigy.analysis.instructionhandler.while_handler import WhileHandler
 from prodigy.analysis.session import current_session
-from prodigy.distribution import Distribution
+from prodigy.distribution import Distribution, MarginalType
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
@@ -68,6 +68,11 @@ def _compute_discrete_distribution(
     variables = set(prog_info.variables.keys()).union(dist.get_variables())
     parameters = set(prog_info.parameters.keys()).union(dist.get_parameters())
     initial_dist = dist.set_variables(*variables).set_parameters(*parameters)
+    # Variables declared in blocks are 0 outside their block: an input value for them is dropped.
+    block_variables = sorted(prog_info.program.block_variables)
+    for var in block_variables:
+        if var in dist.get_variables():
+            initial_dist = initial_dist.update(BinopExpr(Binop.EQ, VarExpr(var), NatLitExpr(0)))
     error_prob = config.factory.one(*variables) * 0
     if step_callback is None:
         dist, error_prob = compute_semantics(prog_info.instructions,
@@ -80,6 +85,9 @@ def _compute_discrete_distribution(
             step_callback(instr, dist, error_prob)
     if config.normalize:
         dist, error_prob = condition_distribution(dist, error_prob, config)
+    if block_variables and not dist.get_variables() <= set(block_variables):
+        # they are 0 here, so this only removes them from the variables of the result
+        dist = dist.marginal(*block_variables, method=MarginalType.EXCLUDE)
     return dist, error_prob
 
 

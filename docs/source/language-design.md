@@ -5,8 +5,9 @@ Status: **agreed design** ([#105](https://github.com/LKlinke/Prodigy/issues/105)
 converter exist (`prodigy/pgcl/ppy_parser.py`, `prodigy/pgcl/ppy_printer.py`,
 `prodigy/pgcl/converter.py`). The CLI reads `.ppy` files and converts `.pgcl` files with
 `prodigy convert` (see {doc}`cli`); the GUI and the examples in `pgfexamples/` still use `.pgcl`.
-Block-scoped declarations and `//` are parsed but not implemented yet. Semantics of nested
-inference: [#104](https://github.com/LKlinke/Prodigy/issues/104).
+Block-scoped declarations and `//` are implemented (see {ref}`pgcl_grammar`, sections "Floor
+division" and "Block-scoped declarations"). Semantics of nested inference:
+[#104](https://github.com/LKlinke/Prodigy/issues/104).
 
 ## Goals
 
@@ -66,8 +67,10 @@ answers of language models) simple.
 `/` is rational division, as in Python. In guards, `x/2 <= 1` means `x <= 2`. An assignment to a
 `nat` variable requires a natural result and is rejected otherwise; it never rounds (see the
 section "Division" in the grammar page). `//` is floor division, as in Python (`7 // 2 == 3`). It
-rounds the same way in guards and in assignments. As an update of a generating function it needs
-its own exact implementation, via the residue classes modulo the divisor, as for `x % q`.
+rounds the same way in guards and in assignments. As an update of a generating function it is
+computed exactly via the residue classes modulo the divisor, as for `x % q`. Implemented: `e // q`
+for a natural expression `e` and a positive natural constant `q`, exact if `e` has a finite marginal
+or the generating function is rational in it; other cases end with an error.
 
 ### Declarations and scope
 
@@ -91,6 +94,15 @@ param p: real;
   `.pgcl`: without a value they start at 0 unless an input distribution is given. A declaration
   after the first statement always starts at 0 (or at its value).
 - `const`, `param` and `def` are allowed at the top level only.
+- A declaration inside a block may not hide another name (a variable of the program or function,
+  a constant, a parameter or a variable of an enclosing block). The same name may be declared in
+  blocks that do not contain each other, with the same type. Only `nat` and `bool` variables can be
+  declared in a block.
+- Implementation: the compiler lowers a declaration inside a block into an assignment of its
+  initial value and an assignment `x = 0` at the end of the block (`prodigy.pgcl.scope`). Setting
+  `x` to 0 is the marginalisation (the generating function `G(x, …)` becomes `G(1, …)`), so the
+  engines need nothing new, and outside its block the variable is always 0. Input values for it
+  are ignored, and it is left out of the output distribution.
 
 ### Constants and parameters
 
