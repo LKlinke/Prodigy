@@ -18,8 +18,10 @@ Individual weights attached to probabilities are saved in a temporary
 we collect all `LikelyExpr` and flatten them into a single
 :class:`CategoricalExpr`. `LikelyExpr` never occur outside of this parser.
 """
+import functools
 import os
 import textwrap
+from contextvars import ContextVar
 from decimal import Decimal
 from fractions import Fraction
 from pathlib import Path
@@ -158,6 +160,23 @@ _PGCL_GRAMMAR = _PGCL_BASE_GRAMMAR + "\n" + textwrap.indent(
 # Since lark 1.0, every rule that parsing starts at must be declared here.
 _PARSER = Lark(_PGCL_GRAMMAR, start=["start", "expression"])
 
+# The parser with source positions, only built when needed (see parse_pgcl_with_lines).
+_POSITIONS_PARSER: Optional[Lark] = None
+# While parse_pgcl_with_lines runs: id of a declaration or instruction -> (node, first line, last line)
+_LINES: ContextVar[Optional[Dict[int, Tuple[object, int, int]]]] = ContextVar("_LINES", default=None)
+
+
+def _record_lines(parse):
+    """Records the lines of the parsed node while :func:`parse_pgcl_with_lines` runs."""
+    @functools.wraps(parse)
+    def wrapper(t: Tree):
+        node = parse(t)
+        lines = _LINES.get()
+        if lines is not None and not t.meta.empty:
+            lines[id(node)] = (node, t.meta.line, t.meta.end_line)
+        return node
+    return wrapper
+
 
 def _doc_parser_grammar():
     raise Exception(
@@ -230,6 +249,7 @@ def _parse_function(t: Tree) -> Function:
     return Function.from_parse(var_decls, instructions, returns)
 
 
+@_record_lines
 def _parse_declaration(t: Tree) -> Decl:
     def var0():
         return _parse_var(_child_tree(t, 0))
@@ -426,6 +446,7 @@ def _parse_rvalue(t: Tree) -> Expr:
     return expr
 
 
+@_record_lines
 def _parse_instr(t: Tree) -> Instr:
     if t.data == 'skip':
         return SkipInstr()
@@ -469,6 +490,7 @@ def _parse_queries(t: Tree) -> List[Instr]:
     return [_parse_query(_as_tree(t)) for t in t.children]
 
 
+@_record_lines
 def _parse_query(t: Tree):
     if t.data == 'expectation':
         return ExpectationInstr(_parse_expr(_child_tree(t, 0)))
@@ -598,6 +620,32 @@ def parse_pgcl(code: str,
         return parse_ppy(code)
     tree = _PARSER.parse(code, start="start")
     return _parse_program(tree)
+
+
+def parse_pgcl_with_lines(code: str) -> Tuple[Program, Dict[int, Tuple[object, int, int]]]:
+    """
+    Parse a program in the original pGCL syntax and return, for every declaration,
+    instruction and query, the first and last line of its source text (1-based).
+    The table is keyed by ``id()`` of the AST node and holds the node itself, so
+    look-ups can check identity (``entry[0] is node``). Used by the converter to
+    carry over comments.
+
+    .. doctest::
+
+        >>> program, lines = parse_pgcl_with_lines("nat x;\\nwhile (x < 3) {\\n  x := x + 1\\n}")
+        >>> lines[id(program.instructions[0])][1:], lines[id(program.instructions[0].body[0])][1:]
+        ((2, 4), (3, 3))
+    """
+    global _POSITIONS_PARSER  # pylint: disable=global-statement
+    if _POSITIONS_PARSER is None:
+        _POSITIONS_PARSER = Lark(_PGCL_GRAMMAR, start=["start", "expression"], propagate_positions=True)
+    lines: Dict[int, Tuple[object, int, int]] = {}
+    token = _LINES.set(lines)
+    try:
+        program = _parse_program(_POSITIONS_PARSER.parse(code, start="start"))
+    finally:
+        _LINES.reset(token)
+    return program, lines
 
 
 def parse_expr(code: str) -> Expr:

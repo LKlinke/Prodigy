@@ -1,9 +1,12 @@
 # Design: a Python-like surface syntax (`.ppy`)
 
 Status: **agreed design** ([#105](https://github.com/LKlinke/Prodigy/issues/105)). Implementation:
-[#106](https://github.com/LKlinke/Prodigy/issues/106); the parser and the pretty printer exist
-(`prodigy/pgcl/ppy_parser.py`, `prodigy/pgcl/ppy_printer.py`), the CLI and the GUI still use
-`.pgcl`. Semantics of nested inference: [#104](https://github.com/LKlinke/Prodigy/issues/104).
+[#106](https://github.com/LKlinke/Prodigy/issues/106); the parser, the pretty printer and the
+converter exist (`prodigy/pgcl/ppy_parser.py`, `prodigy/pgcl/ppy_printer.py`,
+`prodigy/pgcl/converter.py`). The CLI reads `.ppy` files and converts `.pgcl` files with
+`prodigy convert` (see {doc}`cli`); the GUI and the examples in `pgfexamples/` still use `.pgcl`.
+Block-scoped declarations and `//` are parsed but not implemented yet. Semantics of nested
+inference: [#104](https://github.com/LKlinke/Prodigy/issues/104).
 
 ## Goals
 
@@ -232,8 +235,11 @@ of the whole program.
 
 ## Notes for the converter
 
-- Comments are not part of the AST; the converter has to carry them over separately or loses them.
-- Variables whose names are keywords in `.ppy` (`switch`, `case`, `default`, `def`, `param`,
-  `print`, …) must be renamed, e.g. `switch` in
-  `pgfexamples/inference/loop_free/conditioning/monty_hall_nested.pgcl`. The pretty printer refuses
-  such names.
+`prodigy convert` (see {doc}`cli`) is built on the AST and the pretty printer.
+
+- Comments are not part of the AST. The converter carries them over by their lines, so their
+  position in the output is approximate (a comment at the end of a block moves behind the block).
+- Names that are keywords in `.ppy` (`switch`, `case`, `default`, `def`, `param`, `print`, …) are
+  renamed by appending `_` until the name is neither a keyword nor another name of the program,
+  e.g. `switch` in `pgfexamples/inference/loop_free/conditioning/monty_hall_nested.pgcl` becomes
+  `switch_`. The converter reports every renaming. The pretty printer alone refuses such names.
