@@ -118,8 +118,6 @@ def rename(node: T, renamings: Dict[str, str]) -> T:
         >>> rename(parse_pgcl("nat a; a := a + 1"), {"a": "b"}).instructions
         [AsgnInstr(lhs='b', rhs=BinopExpr(operator=Binop.PLUS, lhs=VarExpr('b'), rhs=NatLitExpr(1)))]
     """
-    if not renamings:
-        return copy.deepcopy(node)
     return _rename(node, renamings)
 
 
@@ -132,6 +130,8 @@ def _rename(node: Any, renamings: Dict[str, str]) -> Any:
     if isinstance(node, tuple):
         return tuple(_rename(item, renamings) for item in node)
     if isinstance(node, (set, frozenset)):
+        if not any(item in renamings for item in node):
+            return node.copy()  # keeps the iteration order, so the repr stays the same
         return type(node)(_rename(item, renamings) for item in node)
     if isinstance(node, dict):
         return {_rename(key, renamings): _rename(value, renamings) for key, value in node.items()}
