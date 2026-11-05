@@ -25,6 +25,7 @@ inference: [#104](https://github.com/LKlinke/Prodigy/issues/104).
 | Construct | `.pgcl` today | `.ppy` |
 |---|---|---|
 | Blocks | `{ … }` | `{ … }`, unchanged |
+| Comments | `# …`, `// …` | `# …` to the end of the line, `/* … */` (not nested, may span lines) |
 | Assignment | `x := e` | `x = e` |
 | Equality | `x = e` | `x == e` |
 | Boolean operators | `&`, `\|\|`, `not` | `and`, `or`, `not`; also `&&`, `\|\|`, `!` |
@@ -47,7 +48,9 @@ inference: [#104](https://github.com/LKlinke/Prodigy/issues/104).
 
 `skip`, `abort`, `while`, `loop(n)`, `observe(g)`, `tick(e)`, the built-in distributions (`unif`,
 `geometric`, `poisson`, `binomial`, `bernoulli`, `iid`, …) and Iverson brackets `[g]` stay as they
-are. Comments start with `#`. `//` is floor division in `.ppy`, so it no longer starts a comment.
+are. Comments start with `#` and run to the end of the line, or are enclosed in `/* … */` (not
+nested; they may span lines and stand inside expressions). `//` is floor division in `.ppy`, so it
+no longer starts a comment.
 
 ## Decisions in detail
 

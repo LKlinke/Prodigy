@@ -36,6 +36,7 @@ Errors are raised as :class:`PpySyntaxError` with line and column.
 from __future__ import annotations
 
 import copy
+import re
 from decimal import Decimal
 from fractions import Fraction
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
@@ -177,7 +178,9 @@ PPY_GRAMMAR = r"""
     %import common.WS
 
     COMMENT: /#[^\n]*/
+    BLOCK_COMMENT: /\/\*(.|\n)*?\*\//
     %ignore COMMENT
+    %ignore BLOCK_COMMENT
     %ignore WS
 """
 """The Lark grammar of ``.ppy``. Precedences follow Python: ``or`` < ``and`` <
@@ -788,7 +791,23 @@ def _expected(names: Set[str]) -> str:
     return ", expected " + " or ".join(described)
 
 
+_COMMENTS = re.compile(r"#[^\n]*|/\*[\s\S]*?\*/")
+
+
+def _unterminated_comment(source: str) -> Optional[PpySyntaxError]:
+    """A '/*' outside of comments that is never closed (the parse fails on it)."""
+    start = _COMMENTS.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), source).find("/*")
+    if start < 0:
+        return None
+    line = source.count("\n", 0, start) + 1
+    return PpySyntaxError("The comment '/*' is never closed with '*/'.", line,
+                          start - (source.rfind("\n", 0, start) + 1) + 1)
+
+
 def _lark_error(source: str, exc: UnexpectedInput) -> PpySyntaxError:
+    unterminated = _unterminated_comment(source)
+    if unterminated is not None:
+        return unterminated
     if isinstance(exc, UnexpectedToken) and exc.token.type == "$END":
         return PpySyntaxError("The program ends unexpectedly" + _expected(exc.expected) + ".",
                               *_end_position(source))

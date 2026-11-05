@@ -141,3 +141,14 @@ def test_examples_as_ppy(client):
     original = client.get(f"/api/examples/{with_invariant['id']}", headers=HOST).get_json()
     assert original["syntax"] == "pgcl" and original["file_name"] == "dep_bern.pgcl"
     assert client.get(f"/api/examples/{with_invariant['id']}?syntax=java", headers=HOST).status_code == 400
+
+
+def test_block_comments_keep_positions(client):
+    source = "/* while (x == 1) {\n   query Pr[x == 0];\n*/\n" + GEOMETRIC
+    result = client.post("/api/check", json={"source": source, "syntax": "ppy"}, headers=HOST).get_json()
+    assert result["ok"]
+    assert [loop["line"] for loop in result["outline"]["loops"]] == [7]
+    assert [q["line"] for q in result["outline"]["queries"]] == [10, 11]
+    error = client.post("/api/check", json={"source": "x: nat;\n/* open\nx = 1;", "syntax": "ppy"},
+                        headers=HOST).get_json()["diagnostics"][0]
+    assert (error["line"], error["column"]) == (2, 1) and "never closed" in error["message"]

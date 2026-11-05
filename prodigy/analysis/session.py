@@ -56,7 +56,8 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 # ---------------------------------------------------------------------------------------
 
 _COMMENT_RE = re.compile(r"(#|//).*$", re.M)
-_PPY_COMMENT_RE = re.compile(r"#.*$", re.M)  # '//' is floor division in .ppy
+# '//' is floor division in .ppy; block comments /* … */ may span lines
+_PPY_COMMENT_RE = re.compile(r"#.*$|/\*[\s\S]*?\*/", re.M)
 _WHILE_RE = re.compile(r"\bwhile\b")
 _QUERY_RE = re.compile(r"\?Pr\b|\?Ex\b|\?Opt\b|!Print\b|!Plot\b")
 _PPY_QUERY_RE = re.compile(r"\bquery\s+(?:Pr|Ex)\b|\bprint\s*;|\bplot\s*\(|\boptimize\s*\(")
@@ -64,9 +65,9 @@ _QUERY_INSTRS = (ExpectationInstr, OptimizationQuery, PlotInstr, PrintInstr, Pro
 
 
 def _blank_comments(source: str, syntax: str = "pgcl") -> str:
-    """Replaces comments by spaces so that offsets stay valid."""
+    """Replaces comments by spaces (keeping line breaks) so that offsets stay valid."""
     pattern = _PPY_COMMENT_RE if syntax == "ppy" else _COMMENT_RE
-    return pattern.sub(lambda m: " " * len(m.group(0)), source)
+    return pattern.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), source)
 
 
 def token_positions(source: str, pattern: "re.Pattern[str]", syntax: str = "pgcl") -> List[Tuple[int, int]]:

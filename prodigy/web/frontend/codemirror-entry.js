@@ -70,12 +70,22 @@ const PPY_TYPES = new Set(["nat", "bool", "real", "dist"]);
 
 export const PPY_WORDS = { keywords: [...PPY_KEYWORDS], types: [...PPY_TYPES], builtins: [...BUILTINS] };
 
-/** The Python-like .ppy syntax (prodigy/pgcl/ppy_parser.py): comments start with '#' only, since
- * '//' is floor division; declarations are 'x, y: nat'; queries are 'query Pr[…]'. */
+/** The Python-like .ppy syntax (prodigy/pgcl/ppy_parser.py): comments are '#' to the end of the
+ * line and '/* … *\/' (not nested, may span lines), since '//' is floor division; declarations are
+ * 'x, y: nat'; queries are 'query Pr[…]'. */
 export const ppy = StreamLanguage.define({
   name: "ppy",
-  startState: () => ({ statementStart: true, declaring: false, afterDef: false, afterQuery: false }),
+  startState: () => ({ statementStart: true, declaring: false, afterDef: false, afterQuery: false, inComment: false }),
   token(stream, state) {
+    if (state.inComment || stream.match("/*")) {
+      // a block comment, possibly continued from an earlier line
+      state.inComment = true;
+      while (!stream.eol()) {
+        if (stream.match("*/")) { state.inComment = false; break; }
+        stream.next();
+      }
+      return "comment";
+    }
     if (stream.eatSpace()) return null;
     if (stream.peek() === "#") {
       stream.skipToEnd();
@@ -123,7 +133,7 @@ export const ppy = StreamLanguage.define({
     return null;
   },
   languageData: {
-    commentTokens: { line: "#" },
+    commentTokens: { line: "#", block: { open: "/*", close: "*/" } },
     closeBrackets: { brackets: ["(", "[", "{"] },
   },
 });

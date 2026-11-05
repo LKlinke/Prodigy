@@ -101,9 +101,9 @@ def _locate_name(source: str, name: str, syntax: str = "pgcl") -> Optional[Tuple
 
 
 def _blank_comments(source: str, syntax: str = "pgcl") -> str:
-    # in .ppy, '//' is floor division; comments start with '#' only
-    pattern = r"#.*$" if syntax == "ppy" else r"(#|//).*$"
-    return re.sub(pattern, lambda m: " " * len(m.group(0)), source, flags=re.M)
+    # in .ppy, '//' is floor division; comments are '#' and '/* … */' (keep their line breaks)
+    pattern = r"#.*$|/\*[\s\S]*?\*/" if syntax == "ppy" else r"(#|//).*$"
+    return re.sub(pattern, lambda m: re.sub(r"[^\n]", " ", m.group(0)), source, flags=re.M)
 
 
 def _diagnostic(severity: str, message: str, where: Optional[Tuple[int, int, int, int]],

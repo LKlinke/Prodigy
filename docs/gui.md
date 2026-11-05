@@ -54,8 +54,8 @@ for websites (Settings → General → Website appearance).
 The GUI reads and writes both syntaxes: the Python-like `.ppy` and the original pGCL
 (`.pgcl`). The file extension decides when a file is opened; **New** asks which one to use
 (Return chooses `.ppy`, the syntax for new programs); an example opens as `.pgcl` unless
-*Open as `.ppy`* is chosen in the library. Highlighting, comments (`#` in `.ppy`; `#` and `//`
-in pGCL), completion, diagnostics and the loop pills follow the syntax.
+*Open as `.ppy`* is chosen in the library. Highlighting, comments (`#` and `/* … */` in `.ppy`;
+`#` and `//` in pGCL), completion, diagnostics and the loop pills follow the syntax.
 
 **Convert to .ppy** (next to the syntax chip of a pGCL program) converts the program with the
 same converter as `prodigy convert`. Names that are keywords in `.ppy` are renamed (`switch`
