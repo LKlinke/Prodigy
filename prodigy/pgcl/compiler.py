@@ -11,7 +11,8 @@ Refer to :mod:`prodigy.pgcl.parser` and :mod:`prodigy.pgcl.check` for the parser
 Variable/constant substituion is implemented in :mod:`prodigy.pgcl.substitute`.
 """
 
-from typing import List, Mapping, Union
+import os
+from typing import List, Mapping, Optional, Union
 
 from prodigy.pgcl import substitute
 from prodigy.pgcl.util.ref import Mut
@@ -25,6 +26,8 @@ from .parser import parse_expectation, parse_expr, parse_pgcl
 def compile_pgcl(
     code: str,
     *,
+    syntax: Optional[str] = None,
+    path: Union[str, os.PathLike, None] = None,
     substitute_constants=True,
     predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions
@@ -42,9 +45,12 @@ def compile_pgcl(
 
     Args:
         code:
+        syntax: ``"pgcl"`` or ``"ppy"``; by default chosen from the extension of ``path``, else pGCL
+            (see :func:`prodigy.pgcl.parser.select_syntax`).
+        path: The file the code comes from, only used to choose the syntax.
         substitute_constants: Whether constant substitution is done on the program, defaults to `True`.
     """
-    program = parse_pgcl(code)
+    program = parse_pgcl(code, syntax, path=path)
     if substitute_constants:
         substitute.substitute_constants(program)
     check_result = check_program(program, predefined_functions)

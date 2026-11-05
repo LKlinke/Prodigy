@@ -3,12 +3,15 @@ from __future__ import annotations
 from abc import abstractmethod
 from enum import Enum, auto
 from textwrap import indent
-from typing import List, Union
+from typing import TYPE_CHECKING, List, Optional, Union
 
 import attr
 
 from .ast import Node, Var
 from .expressions import Expr, NatLitExpr, RealLitExpr, VarExpr
+
+if TYPE_CHECKING:
+    from .declarations import VarDecl
 
 
 class InstrClass(Node):
@@ -209,10 +212,31 @@ class QueryInstr(InstrClass):
         return f"query {{{newline}{f';{newline}'.join(map(str, self.instrs))}{newline}}}"
 
 
+@attr.s
+class LocalDeclInstr(InstrClass):
+    """
+    A declaration inside a block (``.ppy`` syntax only), visible until the end of
+    the enclosing block, with an optional initial value. Without a value the
+    variable starts at 0. At the end of the block the variable is marginalised
+    out.
+
+    The analysis does not implement block scope yet: the type checker rejects
+    this instruction (see :func:`prodigy.pgcl.check.check_instr`).
+    """
+    decl: VarDecl = attr.ib()
+    value: Optional[Expr] = attr.ib(default=None)
+
+    def __str__(self) -> str:
+        # The old syntax has no block-scoped declarations; show the .ppy form.
+        value = "" if self.value is None else f" = {self.value}"
+        return f"local {str(self.decl)[:-1]}{value};"
+
+
 Query = Union[ProbabilityQueryInstr, ExpectationInstr, PlotInstr, PrintInstr,
               OptimizationQuery]
 """Union type for all query objects. See :class:`QueryInstr` for use with isinstance."""
 
 Instr = Union[SkipInstr, AbortInstr, WhileInstr, IfInstr, AsgnInstr, ChoiceInstr,
-              LoopInstr, TickInstr, ObserveInstr, QueryInstr, Query]
+              LoopInstr, TickInstr, ObserveInstr, QueryInstr, LocalDeclInstr,
+              Query]
 """Union type for all instruction objects. See :class:`InstrClass` for use with isinstance."""

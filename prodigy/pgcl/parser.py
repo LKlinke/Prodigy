@@ -18,9 +18,11 @@ Individual weights attached to probabilities are saved in a temporary
 we collect all `LikelyExpr` and flatten them into a single
 :class:`CategoricalExpr`. `LikelyExpr` never occur outside of this parser.
 """
+import os
 import textwrap
 from decimal import Decimal
 from fractions import Fraction
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import attr
@@ -545,9 +547,38 @@ def _parse_program(t: Tree) -> Program:
     return Program.from_parse(declarations, instructions)
 
 
-def parse_pgcl(code: str) -> Program:
+SYNTAXES = ("pgcl", "ppy")
+"""The surface syntaxes: the original ``pgcl`` and the Python-like ``ppy``."""
+
+
+def select_syntax(syntax: Optional[str] = None,
+                  path: Union[str, os.PathLike, None] = None) -> str:
     """
-    Parse a pGCL program with an optional :py:class:`prodigy.pgcl.ast.ProgramConfig`.
+    Choose the syntax of a program: an explicit ``syntax`` wins, otherwise the
+    file extension of ``path`` (``.ppy``), otherwise ``pgcl``.
+
+    .. doctest::
+
+        >>> select_syntax(path="examples/dice.ppy"), select_syntax(path="dice.pgcl"), select_syntax()
+        ('ppy', 'pgcl', 'pgcl')
+    """
+    if syntax is not None:
+        if syntax not in SYNTAXES:
+            raise ValueError(f"Unknown syntax {syntax!r}, expected one of {', '.join(SYNTAXES)}.")
+        return syntax
+    if path is not None and Path(path).suffix == ".ppy":
+        return "ppy"
+    return "pgcl"
+
+
+def parse_pgcl(code: str,
+               syntax: Optional[str] = None,
+               *,
+               path: Union[str, os.PathLike, None] = None) -> Program:
+    """
+    Parse a program. The syntax is chosen by :func:`select_syntax`: ``syntax``
+    (``"pgcl"`` or ``"ppy"``), else the extension of ``path``, else pGCL. The
+    ``.ppy`` syntax is parsed by :func:`prodigy.pgcl.ppy_parser.parse_ppy`.
 
     .. doctest::
 
@@ -560,6 +591,11 @@ def parse_pgcl(code: str) -> Program:
         >>> parse_pgcl("x := x : 1/3 + y : 2/3").instructions[0]
         AsgnInstr(lhs='x', rhs=CategoricalExpr(exprs=[(VarExpr('x'), RealLitExpr("1/3")), (VarExpr('y'), RealLitExpr("2/3"))]))
     """
+    if select_syntax(syntax, path) == "ppy":
+        # imported here: ppy_parser builds its own Lark parser on import
+        from prodigy.pgcl.ppy_parser import \
+            parse_ppy  # pylint: disable=import-outside-toplevel
+        return parse_ppy(code)
     tree = _PARSER.parse(code, start="start")
     return _parse_program(tree)
 

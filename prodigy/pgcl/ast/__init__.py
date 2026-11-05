@@ -99,6 +99,7 @@ Instructions
 .. autoclass:: ProbabilityQueryInstr
 .. autoclass:: PrintInstr
 .. autoclass:: PlotInstr
+.. autoclass:: LocalDeclInstr
 
 Superclasses
 ############
@@ -129,7 +130,8 @@ from .expressions import (Binop, BinopExpr, BoolLitExpr, CategoricalExpr, Expr,
                           RealLitExpr, SampleExpr, SubstExpr, TickExpr, Unop,
                           UnopExpr, VarExpr, expr_str_parens)
 from .instructions import (AsgnInstr, ChoiceInstr, ExpectationInstr, IfInstr,
-                           Instr, InstrClass, LoopInstr, ObserveInstr,
+                           Instr, InstrClass, LocalDeclInstr, LoopInstr,
+                           ObserveInstr,
                            OptimizationQuery, OptimizationType, PlotInstr,
                            PrintInstr, ProbabilityQueryInstr, Query,
                            QueryInstr, SkipInstr, TickInstr, WhileInstr, AbortInstr)
