@@ -36,11 +36,13 @@ async function request(method, path, body, { signal } = {}) {
 
 export const api = {
   meta: () => request("GET", "api/meta"),
-  check: (source, signal) => request("POST", "api/check", { source }, { signal }),
+  check: (source, syntax, signal) => request("POST", "api/check", { source, syntax }, { signal }),
+  convert: (source) => request("POST", "api/convert", { source }),
   analyze: (payload) => request("POST", "api/analyze", payload),
   suggest: (payload) => request("POST", "api/suggest", payload),
   job: (id, logOffset = 0) => request("GET", `api/jobs/${encodeURIComponent(id)}?log_offset=${logOffset}`),
   cancel: (id) => request("DELETE", `api/jobs/${encodeURIComponent(id)}`),
   examples: () => request("GET", "api/examples"),
-  example: (id) => request("GET", `api/examples/${id.split("/").map(encodeURIComponent).join("/")}`),
+  example: (id, syntax = "pgcl") =>
+    request("GET", `api/examples/${id.split("/").map(encodeURIComponent).join("/")}?syntax=${encodeURIComponent(syntax)}`),
 };

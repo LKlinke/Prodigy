@@ -41,7 +41,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Tuple, Union
 
-from prodigy.pgcl import (ChoiceInstr, ExpectationInstr, IfInstr, Instr, LoopInstr, OptimizationQuery, PlotInstr,
+from prodigy.pgcl import (ChoiceInstr, ExpectationInstr, Expr, IfInstr, Instr, LoopInstr, OptimizationQuery, PlotInstr,
                           PrintInstr, ProbabilityQueryInstr, Program, QueryInstr, WhileInstr)
 
 from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
@@ -56,7 +56,8 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 # ---------------------------------------------------------------------------------------
 
 _COMMENT_RE = re.compile(r"(#|//).*$", re.M)
-_PPY_COMMENT_RE = re.compile(r"#.*$", re.M)  # '//' is floor division in .ppy
+# '//' is floor division in .ppy; block comments /* … */ may span lines
+_PPY_COMMENT_RE = re.compile(r"#.*$|/\*[\s\S]*?\*/", re.M)
 _WHILE_RE = re.compile(r"\bwhile\b")
 _QUERY_RE = re.compile(r"\?Pr\b|\?Ex\b|\?Opt\b|!Print\b|!Plot\b")
 _PPY_QUERY_RE = re.compile(r"\bquery\s+(?:Pr|Ex)\b|\bprint\s*;|\bplot\s*\(|\boptimize\s*\(")
@@ -64,9 +65,9 @@ _QUERY_INSTRS = (ExpectationInstr, OptimizationQuery, PlotInstr, PrintInstr, Pro
 
 
 def _blank_comments(source: str, syntax: str = "pgcl") -> str:
-    """Replaces comments by spaces so that offsets stay valid."""
+    """Replaces comments by spaces (keeping line breaks) so that offsets stay valid."""
     pattern = _PPY_COMMENT_RE if syntax == "ppy" else _COMMENT_RE
-    return pattern.sub(lambda m: " " * len(m.group(0)), source)
+    return pattern.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), source)
 
 
 def token_positions(source: str, pattern: "re.Pattern[str]", syntax: str = "pgcl") -> List[Tuple[int, int]]:
@@ -123,7 +124,7 @@ class LoopInfo:
     id: int  # pylint: disable=invalid-name
     """Index of the loop in textual order (0-based); the key for decisions."""
     cond: str
-    """The loop guard as pGCL text."""
+    """The loop guard as text in the program's syntax."""
     depth: int
     """Number of enclosing while loops."""
     function: Optional[str] = None
@@ -171,6 +172,13 @@ def _collect_loops(instrs: List[Instr], depth: int, function: Optional[str],
                 _collect_loops(block, depth, function, out)
 
 
+def _spell(expr: Expr, syntax: str) -> str:
+    if syntax == "ppy":
+        from prodigy.pgcl.ppy_printer import expr_to_ppy  # pylint: disable=import-outside-toplevel
+        return expr_to_ppy(expr)
+    return str(expr)
+
+
 class LoopRegistry:
     """Assigns stable ids to the while loops of a program (textual pre-order)."""
 
@@ -194,7 +202,7 @@ class LoopRegistry:
             positions = []
         for index, (instr, depth, function_name) in enumerate(found):
             line, column = positions[index] if positions else (None, None)
-            info = LoopInfo(id=index, cond=str(instr.cond), depth=depth, function=function_name,
+            info = LoopInfo(id=index, cond=_spell(instr.cond, syntax), depth=depth, function=function_name,
                             line=line, column=column)
             self.loops.append(info)
             self._by_identity[id(instr)] = info
@@ -690,7 +698,7 @@ class AnalysisSession:
         key = task.loop.id if task.loop is not None else f"while ({task.instruction.cond})"
         record = self.loop_records.get(key)
         if record is None:
-            record = LoopRecord(loop=task.loop, cond=str(task.instruction.cond),
+            record = LoopRecord(loop=task.loop, cond=_spell(task.instruction.cond, self.syntax),
                                 strategy=task.strategy.name,
                                 params=dict(task.decision.params))
             self.loop_records[key] = record

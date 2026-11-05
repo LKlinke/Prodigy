@@ -4,7 +4,8 @@ Status: **agreed design** ([#105](https://github.com/LKlinke/Prodigy/issues/105)
 [#106](https://github.com/LKlinke/Prodigy/issues/106); the parser, the pretty printer and the
 converter exist (`prodigy/pgcl/ppy_parser.py`, `prodigy/pgcl/ppy_printer.py`,
 `prodigy/pgcl/converter.py`). The CLI reads `.ppy` files and converts `.pgcl` files with
-`prodigy convert` (see {doc}`cli`); the GUI and the examples in `pgfexamples/` still use `.pgcl`.
+`prodigy convert` (see {doc}`cli`); the GUI opens and saves both syntaxes and converts programs
+and examples to `.ppy` (see {doc}`gui`). The examples in `pgfexamples/` still use `.pgcl`.
 Block-scoped declarations and `//` are implemented (see {ref}`pgcl_grammar`, sections "Floor
 division" and "Block-scoped declarations"). Semantics of nested inference:
 [#104](https://github.com/LKlinke/Prodigy/issues/104).
@@ -25,6 +26,7 @@ division" and "Block-scoped declarations"). Semantics of nested inference:
 | Construct | `.pgcl` today | `.ppy` |
 |---|---|---|
 | Blocks | `{ … }` | `{ … }`, unchanged |
+| Comments | `# …`, `// …` | `# …` to the end of the line, `/* … */` (not nested, may span lines) |
 | Assignment | `x := e` | `x = e` |
 | Equality | `x = e` | `x == e` |
 | Boolean operators | `&`, `\|\|`, `not` | `and`, `or`, `not`; also `&&`, `\|\|`, `!` |
@@ -47,7 +49,9 @@ division" and "Block-scoped declarations"). Semantics of nested inference:
 
 `skip`, `abort`, `while`, `loop(n)`, `observe(g)`, `tick(e)`, the built-in distributions (`unif`,
 `geometric`, `poisson`, `binomial`, `bernoulli`, `iid`, …) and Iverson brackets `[g]` stay as they
-are. Comments start with `#`. `//` is floor division in `.ppy`, so it no longer starts a comment.
+are. Comments start with `#` and run to the end of the line, or are enclosed in `/* … */` (not
+nested; they may span lines and stand inside expressions). `//` is floor division in `.ppy`, so it
+no longer starts a comment.
 
 ## Decisions in detail
 

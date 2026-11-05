@@ -18,9 +18,10 @@ Prodigy is tested with Python 3.11 and 3.14.
 
 ## What the GUI shows
 
-* **Program** (left): editor with pGCL highlighting, syntax errors (and type-checker
-  warnings) as you type. Above each loop a pill shows its strategy and, after a run, what it
-  certified. After each `?Pr`/`?Ex` query the value appears inline.
+* **Program** (left): editor with highlighting for both syntaxes, syntax errors (and
+  type-checker warnings) as you type. Above each loop a pill shows its strategy and, after a
+  run, what it certified. After each query (`query Pr[…]`, `?Pr[…]`) the value appears inline.
+  The chip next to the title shows the syntax of the program; see [Two syntaxes](#two-syntaxes).
 * **Setup** (right): initial distribution, one strategy per loop with its parameters,
   analysis options (engine, conditioning, simplification, number of coefficients, time
   limit, EVT synthesis strategy, solver, recording of intermediate distributions). The
@@ -31,9 +32,11 @@ Prodigy is tested with Python 3.11 and 3.14.
   output distribution (closed form, mass, expectations, marginal bar charts and tables), the
   certificate of every loop, console output, and the full result as JSON.
 * **Examples**: the programs in `pgfexamples/`, with a suggested setup derived from their
-  first line (e.g. `check_equality` examples come with their invariant).
-* **New, Open…, Save** (toolbar): in Chrome and Edge, Open and Save work directly on `.pgcl`
-  files on disk, and the file stays linked across reloads; Save As… (⇧⌘S) picks another file.
+  first line (e.g. `check_equality` examples come with their invariant). *Open as* chooses
+  whether an example opens as it is (`.pgcl`) or converted to `.ppy` on the fly (with its
+  invariants).
+* **New, Open…, Save** (toolbar): in Chrome and Edge, Open and Save work directly on `.ppy` and
+  `.pgcl` files on disk, and the file stays linked across reloads; Save As… (⇧⌘S) picks another file.
   Safari and Firefox cannot write to a folder: Open reads the chosen file, Save downloads the
   program. The program is also kept in the browser, so a reload never loses it; replacing a
   program with unsaved changes (New, Open…, an example) asks first.
@@ -45,6 +48,26 @@ at any time.
 The GUI follows the system appearance (light or dark, macOS: System Settings → Appearance);
 following Apple's guidelines it has no switch of its own. Firefox can override the appearance
 for websites (Settings → General → Website appearance).
+
+## Two syntaxes
+
+The GUI reads and writes both syntaxes: the Python-like `.ppy` and the original pGCL
+(`.pgcl`). The file extension decides when a file is opened; **New** asks which one to use
+(Return chooses `.ppy`, the syntax for new programs); an example opens as `.pgcl` unless
+*Open as `.ppy`* is chosen in the library. Highlighting, comments (`#` and `/* … */` in `.ppy`;
+`#` and `//` in pGCL), completion, diagnostics and the loop pills follow the syntax.
+
+**Convert to .ppy** (next to the syntax chip of a pGCL program) converts the program with the
+same converter as `prodigy convert`. Names that are keywords in `.ppy` are renamed (`switch`
+becomes `switch_`); the notice lists the renamings. Invariant programs in the setup are
+converted as well. The conversion is one undoable change: ⌘Z restores the pGCL program and its
+syntax. A converted file is not written over the `.pgcl` file: Save asks for a new `.ppy` file.
+
+Everything typed into the setup is read in the program's syntax: an invariant program of
+*Check invariant* is a loop-free program in that syntax. Generating functions (the initial
+distribution, EVT invariants and sub-invariants, candidates of *Suggest*) accept powers as `^`
+and `**` in both syntaxes; a candidate of the language model is shown with the program's power
+operator.
 
 ## Guarantees
 
@@ -130,8 +153,8 @@ export PRODIGY_AI_BASE_URL=http://localhost:11434/v1 PRODIGY_AI_MODEL=<model>
 `ANTHROPIC_WORKSPACE_ID` is needed for a Claude API key that is not scoped to a workspace,
 `OPENAI_API_KEY` for OpenAI's API; `PRODIGY_AI_PROVIDER` (`anthropic` or `openai`) chooses if
 both are configured. Answers are untrusted input: a candidate may only contain numbers, the
-program's variables and parameters, `+ - * / ^`, parentheses, `sqrt` and `exp` before any
-computer algebra system sees it.
+program's variables and parameters, `+ - * / ^` (or `**`), parentheses, `sqrt` and `exp`, and
+must parse as an expression of the program's syntax, before any computer algebra system sees it.
 
 ### The Suggest button
 
@@ -202,12 +225,16 @@ The strategy then appears in the CLI menu (after the six historic entries), in
 | Endpoint | |
 | --- | --- |
 | `GET /api/meta` | version, engines, loop strategies with parameter specs, synthesis strategies and heuristics, limits |
-| `POST /api/check` `{source}` | diagnostics `{severity, message, line, column, end_line, end_column}` and outline (variables, loops with ids and lines, queries) |
-| `POST /api/analyze` | starts an analysis (`source, input_distribution, engine, normalize, simplification, decisions, coefficients, record_steps, synthesis_strategy, template_heuristic, positivity_heuristic, solver, time_limit`; the two heuristics only apply to `synthesis_strategy` `from_heuristics`) and returns a job id |
+| `POST /api/check` `{source, syntax}` | diagnostics `{severity, message, line, column, end_line, end_column}` and outline (variables, loops with ids and lines, queries) |
+| `POST /api/convert` `{source}` | the pGCL program in `.ppy`: `{source, renamings: [{from, to}], messages}`; 422 with `line`/`column` if it is not valid pGCL |
+| `POST /api/analyze` | starts an analysis (`source, syntax, input_distribution, engine, normalize, simplification, decisions, coefficients, record_steps, synthesis_strategy, template_heuristic, positivity_heuristic, solver, time_limit`; the two heuristics only apply to `synthesis_strategy` `from_heuristics`) and returns a job id |
 | `GET /api/jobs/<id>?log_offset=n` | state (`running`, `done`, `timeout`, `cancelled`, `crashed`), new console output, progress per loop, result |
 | `DELETE /api/jobs/<id>` | cancels the analysis |
 | `POST /api/suggest` | asks the language model for one candidate for a loop: an analysis request without `coefficients` and `record_steps`, plus `loop` (id) and `form` (`evt_invariant` or `evt_subinvariant`), `time_limit` optional (default: the server's); returns a job id. The job's result is `{status: "ok", suggestion: {candidate, param, answer, model, provider, entering, loop, form}}` or an error (the model's answer in `error.suggestion` if it held no admissible candidate). `GET /api/meta` says under `ai` whether a model is configured. |
-| `GET /api/examples`, `GET /api/examples/<path>` | example library and suggested setup |
+| `GET /api/examples`, `GET /api/examples/<path>?syntax=pgcl\|ppy` | example library; source (converted to `.ppy` with `syntax=ppy`, with `renamings`), `file_name` and suggested setup |
+
+Every request with a program takes `syntax` (`pgcl` or `ppy`) or `file_name` (its extension
+decides); without either the program is pGCL.
 
 ## Security and hosting
 
@@ -215,7 +242,9 @@ The server binds to localhost. API requests must be JSON and come from the page 
 (Host and Origin are checked), which keeps other web sites from driving a local server.
 
 Prodigy parses distributions and invariants with SymPy, whose parser evaluates Python code.
-**Do not expose the server to untrusted users without a sandbox** (container without
+The server admits a generating function from the setup only if it consists of numbers, names,
+`+ - * / ^ **`, parentheses and the functions `sqrt exp log sin cos tan`, and parses as an
+expression of the program's syntax. Still, **do not expose the server to untrusted users without a sandbox** (container without
 network and file system access, resource limits). For a hosted teaching instance:
 `--host 0.0.0.0 --allowed-host prodigy.example.org --max-jobs 4 --time-limit 60
 --memory-limit 2048` behind a reverse proxy, inside such a container.

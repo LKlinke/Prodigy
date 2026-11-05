@@ -55,7 +55,12 @@
   <main class="split" id="split">
     <section class="pane editor-pane" aria-labelledby="program-heading">
       <div class="pane-header">
-        <h2 class="pane-title" id="program-heading">Program</h2>
+        <div class="pane-title-group">
+          <h2 class="pane-title" id="program-heading">Program</h2>
+          <span class="chip syntax-chip" id="syntax-label" title="The syntax of the program"></span>
+          <button type="button" class="button small" id="btn-convert" hidden
+                  title="Convert the program to the .ppy syntax (⌘Z undoes it)">Convert to .ppy</button>
+        </div>
         <button type="button" class="problems" id="problems" aria-live="polite"></button>
       </div>
       <div class="editor-host" id="editor"></div>
@@ -86,6 +91,13 @@
     <header class="sheet-header">
       <h2 id="library-title">Examples</h2>
       <p class="sheet-subtitle">Programs from <code>pgfexamples</code>. Loading replaces the program; ⌘Z brings yours back.</p>
+      <div class="library-syntax">
+        <span id="library-syntax-label">Open as</span>
+        <div class="segmented small" role="group" aria-labelledby="library-syntax-label" id="library-syntax">
+          <button type="button" data-syntax="pgcl" aria-pressed="true" title="Open the example as it is in pgfexamples">.pgcl</button>
+          <button type="button" data-syntax="ppy" aria-pressed="false" title="Convert the example to the .ppy syntax when opening it">.ppy</button>
+        </div>
+      </div>
       <input type="search" class="field" id="library-search" placeholder="Search examples" aria-label="Search examples" autocomplete="off">
     </header>
     <div class="sheet-body" id="library-list" role="listbox" aria-label="Examples"></div>
@@ -106,13 +118,26 @@
   </form>
 </dialog>
 
+<dialog class="alert" id="new-alert" aria-labelledby="new-alert-title" aria-describedby="new-alert-message">
+  <form method="dialog" class="alert-inner">
+    <h2 class="alert-title" id="new-alert-title">New Program</h2>
+    <p class="alert-message" id="new-alert-message">Write the program in the Python-like .ppy syntax, or in the
+      original pGCL syntax (.pgcl)? Convert to .ppy turns a pGCL program into .ppy later.</p>
+    <div class="alert-buttons">
+      <button type="button" class="button" value="cancel">Cancel</button>
+      <button type="button" class="button" value="pgcl">pGCL</button>
+      <button type="submit" class="button prominent" value="ppy" autofocus>.ppy</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog class="alert" id="name-alert" aria-labelledby="name-alert-title" aria-describedby="name-alert-message">
   <form method="dialog" class="alert-inner">
     <h2 class="alert-title" id="name-alert-title">Save Program</h2>
     <label class="alert-field"><span>Save As:</span>
       <input class="field" id="name-alert-field" autocomplete="off" spellcheck="false" required>
     </label>
-    <p class="alert-message" id="name-alert-message">This browser can’t save into a folder directly, so the program is downloaded as a .pgcl file.</p>
+    <p class="alert-message" id="name-alert-message">This browser can’t save into a folder directly, so the program is downloaded as a <span id="name-alert-extension">.pgcl</span> file.</p>
     <div class="alert-buttons">
       <button type="button" class="button" value="cancel">Cancel</button>
       <button type="submit" class="button prominent" value="save">Download</button>

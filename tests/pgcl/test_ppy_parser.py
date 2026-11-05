@@ -499,6 +499,32 @@ def test_comments():
     _agree("# a comment\nx: nat; # another\nx = 1;", "nat x; x := 1")
 
 
+def test_block_comments():
+    # at the start of a line, inside an expression, spanning lines, next to '//' and '#'
+    _agree("/* head */ x: nat;\nx = 1 /* one */ + /* two\n lines # not a line comment */ 2;",
+           "nat x; x := 1 + 2")
+    assert parse_ppy("x: nat; x = 7 // /* floor */ 2;") == parse_ppy("x: nat; x = 7 // 2;")
+    # '//*' is floor division followed by '*', as the longest token wins
+    with pytest.raises(PpySyntaxError, match="Unexpected '\\*'"):
+        parse_ppy("x: nat; x = 7 //* 3 */ 2;")
+    assert parse_ppy("x: nat; # /* not opened\nx = 1;") == parse_ppy("x: nat; x = 1;")
+    # positions after a multi-line comment stay right
+    with pytest.raises(PpySyntaxError) as error:
+        parse_ppy("/* a\nb\n*/\nx: nat;\nx = = 1;")
+    assert (error.value.line, error.value.column) == (5, 5)
+
+
+@pytest.mark.parametrize("source, line, column", [
+    ("x: nat;\n/* never closed\nx = 1;", 2, 1),
+    ("x: nat;\nx = 1 /* open", 2, 7),
+    ("/* closed */ x: nat; /* open", 1, 22),
+])
+def test_unterminated_block_comment(source, line, column):
+    with pytest.raises(PpySyntaxError, match="never closed") as error:
+        parse_ppy(source)
+    assert (error.value.line, error.value.column) == (line, column)
+
+
 # --- selecting the syntax -------------------------------------------------------
 
 

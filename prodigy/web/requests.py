@@ -5,6 +5,8 @@ A request looks like::
 
     {
       "source": "nat x; ...",
+      "syntax": "pgcl" | "ppy",              # optional, else from "file_name", else pgcl
+      "file_name": "dice.ppy",               # optional, only its extension is used
       "input_distribution": "x^3",          # optional, default: all variables 0
       "engine": "sympy" | "ginac" | "symengine",
       "normalize": true,                     # condition on observations
@@ -17,10 +19,16 @@ A request looks like::
       "positivity_heuristic": "default",     # only with synthesis_strategy "from_heuristics"
       "solver": "sympy" | "z3"
     }
+
+Generating functions (``input_distribution`` and the ``expression`` parameters of the loop
+strategies) are untrusted text for SymPy's parser: :func:`validate_request` admits only
+expressions in the program's syntax (:func:`prodigy.analysis.ai_candidates.admissible_expression`),
+and :func:`prepare_request` turns them into the engines' spelling (``x**2`` -> ``x^2``).
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+import copy
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 ENGINES = {
     "sympy": "SymPy",
@@ -31,18 +39,74 @@ ENGINES = {
 MAX_COEFFICIENTS = 200
 
 
+def request_syntax(request: Dict[str, Any]) -> str:
+    """The syntax of the request's program: ``syntax``, else the extension of ``file_name``, else
+    pGCL. Raises ``ValueError`` for an unknown syntax."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.pgcl.parser import select_syntax
+    syntax = request.get("syntax")
+    file_name = request.get("file_name")
+    return select_syntax(syntax if isinstance(syntax, str) else None,
+                         file_name if isinstance(file_name, str) else None)
+
+
+def _expressions(request: Dict[str, Any]) -> List[Tuple[str, Dict[str, Any], str]]:
+    """(label, container, key) of every generating function in the request:
+    ``container[key]`` is a non-empty string."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.loop_strategies import get_loop_strategy
+    found: List[Tuple[str, Dict[str, Any], str]] = []
+    if isinstance(request.get("input_distribution"), str) and request["input_distribution"].strip():
+        found.append(("Initial distribution", request, "input_distribution"))
+    decisions = request.get("decisions")
+    for key, decision in (decisions.items() if isinstance(decisions, dict) else ()):
+        if not isinstance(decision, dict) or not isinstance(decision.get("params"), dict):
+            continue
+        try:
+            strategy = get_loop_strategy(str(decision.get("strategy")))
+        except KeyError:
+            continue
+        params = decision["params"]
+        for param in strategy.params:
+            value = params.get(param.name)
+            if param.kind == "expression" and isinstance(value, str) and value.strip():
+                where = "default decision" if str(key) == "*" else f"loop {key}"
+                found.append((f"{where}: {param.label}", params, param.name))
+    return found
+
+
+def prepare_request(request: Dict[str, Any]) -> Dict[str, Any]:
+    """A copy of a valid request with its generating functions in the engines' spelling
+    (``x**2`` -> ``x^2``, which GiNaC needs)."""
+    prepared = copy.deepcopy(request)
+    for _, container, key in _expressions(prepared):
+        container[key] = container[key].replace("**", "^")
+    return prepared
+
+
 def validate_request(request: Dict[str, Any]) -> List[str]:
     """Problems that can be found without running the analysis."""
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.evtinvariants.heuristics.strategies import SELECTABLE_POSITIVITY_HEURISTICS
     from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
     from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
+    from prodigy.analysis.ai_candidates import MATH_FUNCTIONS, CandidateError, admissible_expression
     from prodigy.analysis.session import parse_decisions, validate_decisions
     from prodigy.analysis.solver.solver_type import SolverType
 
     problems = []
     if not isinstance(request.get("source"), str) or not request["source"].strip():
         problems.append("The program is empty.")
+    try:
+        syntax = request_syntax(request)
+    except ValueError as exc:
+        problems.append(str(exc))
+        syntax = "pgcl"
+    for label, container, key in _expressions(request):
+        try:
+            admissible_expression(container[key], syntax=syntax, functions=MATH_FUNCTIONS)
+        except CandidateError as exc:
+            problems.append(f"{label}: {exc}")
     if request.get("engine", "sympy") not in ENGINES:
         problems.append(f"Unknown engine {request.get('engine')!r}.")
     try:
@@ -97,9 +161,10 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
     if problems:
         return {"status": "error", "error": {"type": "request", "message": " ".join(problems),
                                              "problems": problems}}
-    source = request["source"]
+    request = prepare_request(request)
+    source, syntax = request["source"], request_syntax(request)
     try:
-        program = parse_pgcl(source)
+        program = parse_pgcl(source, syntax)
     except Exception as exc:  # pylint: disable=broad-except
         return {"status": "error", "error": {"type": "syntax", "message": str(exc).split("\n", maxsplit=1)[0]}}
     input_distribution = request.get("input_distribution")
@@ -108,6 +173,7 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
     session = AnalysisSession(
         program,
         source=source,
+        syntax=syntax,
         config=make_config(request),
         decisions=request.get("decisions") or {},
         input_distribution=input_distribution,
@@ -118,7 +184,29 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
         record_steps=bool(request.get("record_steps", False)),
         coefficient_limit=int(request.get("coefficients", 30)),
     )
-    return session.run().to_json()
+    result = session.run().to_json()
+    if syntax == "ppy":
+        _queries_in_ppy(result, program)
+    return result
+
+
+def _queries_in_ppy(result: Dict[str, Any], program: Any) -> None:
+    """Writes the expressions of the result's queries in the ``.ppy`` syntax (the analysis
+    reports them in pGCL spelling, ``x = 1``)."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.session import query_instructions
+    from prodigy.pgcl.ppy_printer import expr_to_ppy
+    instructions = query_instructions(program)
+    for query in result.get("queries") or []:
+        index = query.get("index")
+        if not isinstance(index, int) or not 0 <= index < len(instructions) or query.get("expr") is None:
+            continue
+        expr = getattr(instructions[index], "expr", None)
+        if expr is not None:
+            try:
+                query["expr"] = expr_to_ppy(expr)
+            except Exception:  # pylint: disable=broad-except  # keep the pGCL spelling
+                pass
 
 
 # ---------------------------------------------------------------------------------------
@@ -195,7 +283,8 @@ def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], 
 
     The analysis runs up to the loop to find the distribution entering it. The model's answer is
     untrusted: :func:`~prodigy.analysis.ai_candidates.candidate_from_answer` admits only
-    expressions over the program's variables and parameters. The candidate is a proposal; it is
+    expressions over the program's variables and parameters, in the program's syntax. The candidate
+    is a proposal; it is
     checked when the user runs the analysis with it."""
     # pylint: disable=import-outside-toplevel,too-many-locals
     from prodigy.analysis import ai_candidates
@@ -209,14 +298,15 @@ def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], 
         provider = ai_candidates.get_provider()
     except (ai_candidates.AIConfigurationError, ValueError) as exc:
         return _error("configuration", str(exc))
-    analysis = suggestion_analysis_request(request)
+    analysis = prepare_request(suggestion_analysis_request(request))
+    syntax = request_syntax(analysis)
     try:
-        program = parse_pgcl(analysis["source"])
+        program = parse_pgcl(analysis["source"], syntax)
     except Exception as exc:  # pylint: disable=broad-except
         return _error("syntax", str(exc).split("\n", maxsplit=1)[0])
     loop_id, form = int(request["loop"]), request["form"]
     session = _stopping_session(
-        loop_id, program=program, source=analysis["source"], config=make_config(analysis),
+        loop_id, program=program, source=analysis["source"], syntax=syntax, config=make_config(analysis),
         decisions=analysis["decisions"], allow_files=False, capture_output=True,
         output_callback=output, progress_callback=progress)
     if loop_id not in {loop.id for loop in session.loops}:
@@ -251,7 +341,7 @@ def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], 
     suggestion = {"loop": loop_id, "form": form, "param": ai_candidates.TARGET_PARAMS[form], "provider": provider.name,
                   "model": provider.model, "entering": entering, "answer": answer.strip()[-2000:]}
     try:
-        suggestion["candidate"] = ai_candidates.candidate_from_answer(answer, names + parameters)
+        suggestion["candidate"] = ai_candidates.candidate_from_answer(answer, names + parameters, syntax)
     except ai_candidates.CandidateError as exc:
         reason = str(exc)
         if not answer.strip() and provider.diagnostics:

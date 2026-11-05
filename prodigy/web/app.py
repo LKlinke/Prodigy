@@ -7,13 +7,18 @@ A small Flask application: one page (``templates/app.html`` with the ES modules 
 ============================  ==========================================================
 ``GET  /api/meta``            version, engines, loop strategies with their parameters
 ``POST /api/check``           diagnostics (syntax/type errors with positions) and outline
+``POST /api/convert``         a pGCL program in the ``.ppy`` syntax, with the renamed names
 ``POST /api/analyze``         starts an analysis in its own process, returns a job id
 ``GET  /api/jobs/<id>``       state, new console output, progress, result when done
 ``DELETE /api/jobs/<id>``     cancels the analysis
 ``POST /api/suggest``         asks a language model for a loop invariant candidate (a job)
 ``GET  /api/examples``        the example library (``pgfexamples``)
-``GET  /api/examples/<id>``   source of an example and a suggested setup
+``GET  /api/examples/<id>``   source of an example and a suggested setup (``?syntax=ppy``:
+                              converted to ``.ppy``)
 ============================  ==========================================================
+
+Requests with a program take ``syntax`` (``pgcl`` or ``ppy``) or ``file_name`` (its extension
+decides); without either, the program is pGCL.
 
 The server binds to localhost by default. Requests to the API must be JSON and come from
 the page itself (Host and Origin are checked), which keeps other web sites from using a
@@ -30,9 +35,10 @@ from urllib.parse import urlparse
 
 from flask import Flask, abort, jsonify, render_template, request
 
-from prodigy.web.examples import ExampleLibrary, default_examples_dir
+from prodigy.web.examples import ConversionError, ExampleLibrary, convert, default_examples_dir
 from prodigy.web.jobs import BusyError, JobManager
-from prodigy.web.requests import ENGINES, MAX_COEFFICIENTS, ai_status, validate_request, validate_suggestion
+from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, request_syntax, validate_request,
+                                  validate_suggestion)
 
 _LOOPBACK = {"localhost", "127.0.0.1", "::1", "[::1]"}
 
@@ -137,7 +143,22 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         source = payload.get("source")
         if not isinstance(source, str):
             abort(400, description="'source' is missing.")
-        return jsonify(check_source(source))
+        try:
+            syntax = request_syntax(payload)
+        except ValueError as exc:
+            abort(400, description=str(exc))
+        return jsonify({**check_source(source, syntax), "syntax": syntax})
+
+    @app.post("/api/convert")
+    def convert_program():
+        payload = request.get_json(silent=True) or {}
+        source = payload.get("source")
+        if not isinstance(source, str):
+            abort(400, description="'source' is missing.")
+        try:
+            return jsonify({**convert(source), "syntax": "ppy"})
+        except ConversionError as exc:
+            return jsonify({"error": str(exc), "line": exc.line, "column": exc.column}), 422
 
     @app.post("/api/analyze")
     def analyze():
@@ -146,8 +167,8 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         if problems:
             return jsonify({"error": " ".join(problems), "problems": problems}), 400
         analysis_request = {key: payload.get(key) for key in (
-            "source", "input_distribution", "engine", "normalize", "simplification", "decisions",
-            "coefficients", "record_steps", "synthesis_strategy", "template_heuristic",
+            "source", "syntax", "file_name", "input_distribution", "engine", "normalize", "simplification",
+            "decisions", "coefficients", "record_steps", "synthesis_strategy", "template_heuristic",
             "positivity_heuristic", "solver") if key in payload}
         try:
             job = jobs.submit(analysis_request, time_limit=payload.get("time_limit"))
@@ -167,8 +188,8 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         if not status["available"]:
             return jsonify({"error": status["reason"]}), 503
         suggestion_request = {key: payload.get(key) for key in (
-            "source", "input_distribution", "engine", "normalize", "simplification", "decisions",
-            "synthesis_strategy", "template_heuristic", "positivity_heuristic", "solver", "loop", "form")
+            "source", "syntax", "file_name", "input_distribution", "engine", "normalize", "simplification",
+            "decisions", "synthesis_strategy", "template_heuristic", "positivity_heuristic", "solver", "loop", "form")
             if key in payload}
         try:
             job = jobs.submit(suggestion_request, time_limit=payload.get("time_limit"), kind="suggest")
@@ -200,10 +221,15 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
 
     @app.get("/api/examples/<path:example_id>")
     def example(example_id: str):
+        syntax = request.args.get("syntax", "pgcl")
+        if syntax not in ("pgcl", "ppy"):
+            abort(400, description=f"Unknown syntax {syntax!r}, expected pgcl or ppy.")
         try:
-            return jsonify(library.load(example_id))
+            return jsonify(library.load(example_id, syntax))
         except (FileNotFoundError, OSError):
             abort(404, description="Unknown example.")
+        except ConversionError as exc:
+            return jsonify({"error": f"{example_id} cannot be opened as .ppy: {exc}"}), 422
 
     return app
 
