@@ -220,8 +220,9 @@ class LocalDeclInstr(InstrClass):
     variable starts at 0. At the end of the block the variable is marginalised
     out.
 
-    The analysis does not implement block scope yet: the type checker rejects
-    this instruction (see :func:`prodigy.pgcl.check.check_instr`).
+    :func:`prodigy.pgcl.scope.lower_block_scope` lowers it into plain
+    assignments (done by :func:`prodigy.pgcl.parser.parse_pgcl`); the type
+    checker and the analysis never see it.
     """
     decl: VarDecl = attr.ib()
     value: Optional[Expr] = attr.ib(default=None)

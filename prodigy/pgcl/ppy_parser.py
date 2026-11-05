@@ -21,10 +21,11 @@ Sugar is translated into the existing AST:
   the declaration;
 - ``loop(N)`` with a constant ``N`` uses the constant's literal value.
 
-Two constructs have no counterpart in the old AST. They are parsed into
-:class:`~prodigy.pgcl.ast.LocalDeclInstr` (a declaration inside a block) and
-``Binop.FLOOR_DIVIDE`` (``//``), and the type checker rejects both as not
-implemented yet.
+Two constructs have no counterpart in the old syntax. A declaration inside a
+block is parsed into :class:`~prodigy.pgcl.ast.LocalDeclInstr`; its scope is
+checked here (see :mod:`prodigy.pgcl.scope`), and
+:func:`prodigy.pgcl.parser.parse_pgcl` lowers it into plain assignments.
+Floor division ``//`` is ``Binop.FLOOR_DIVIDE``.
 
 Errors are raised as :class:`PpySyntaxError` with line and column.
 
@@ -61,6 +62,7 @@ from prodigy.pgcl.ast import (AbortInstr, AsgnInstr, Binop, BinopExpr,
                               VarExpr, WhileInstr)
 from prodigy.pgcl.ast.types import DistributionType
 from prodigy.pgcl.ast.walk import Walk, walk_expr, walk_instr_exprs, walk_instrs
+from prodigy.pgcl.scope import ScopeError, lower_block_scope
 from prodigy.pgcl.util.ref import Mut
 
 PPY_GRAMMAR = r"""
@@ -299,6 +301,7 @@ class _ToAst(Transformer):
         self.calls: List[Tuple[FunctionCallExpr, Meta]] = []
         self.parameter_counts: Dict[str, int] = {}
         self.function_decls: List[FunctionDecl] = []
+        self.local_decls: Dict[int, Meta] = {}
 
     # --- names and checks -------------------------------------------------
 
@@ -573,7 +576,9 @@ class _ToAst(Transformer):
                 continue
             if isinstance(child, _VarDeclStatement):
                 for decl in child.decls:
-                    instrs.append(LocalDeclInstr(decl, child.value))
+                    local = LocalDeclInstr(decl, child.value)
+                    self.local_decls[id(local)] = child.meta
+                    instrs.append(local)
             else:
                 instrs.append(child)
         return instrs
@@ -682,7 +687,13 @@ class _ToAst(Transformer):
         constants = {decl.var: decl.value for decl in declarations if isinstance(decl, ConstDecl)}
         self._resolve_loops(constants)
         self._check_calls()
-        return Program.from_parse(declarations, instructions + queries)
+        program = Program.from_parse(declarations, instructions + queries)
+        try:
+            lower_block_scope(program)
+        except ScopeError as exc:
+            where = None if exc.declaration is None else self.local_decls.get(id(exc.declaration))
+            raise _error(where, exc.message) from None
+        return program
 
     def _resolve_loops(self, constants: Dict[str, Expr]) -> None:
         for instr, name, meta in self.pending_loops:

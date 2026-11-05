@@ -112,15 +112,20 @@ def test_declarations_inside_blocks():
     assert "y" not in program.variables
 
 
-@pytest.mark.parametrize("source", [
-    "x: nat; while (x < 3) { y: nat = 1; x = x + y; }",
-    "x: nat; if (x == 0) { y: nat; } else { skip; }",
-    "def f(a: nat) -> nat { while (a > 0) { t: nat; a = a - 1; } return a; } x: nat; x = f(2);",
+@pytest.mark.parametrize("source, expected", [
+    ("x: nat; while (x < 3) { y: nat = 1; x = x + y; }",
+     "nat x; nat y; while (x < 3) { y := 1; x := x + y; y := 0 }"),
+    ("x: nat; if (x == 0) { y: nat; } else { skip; }",
+     "nat x; nat y; if (x = 0) { y := 0 } else { skip }"),
+    ("x: nat; if (x == 0) { b: bool = x == 0; if (b) { x = 2; } }",
+     "nat x; bool b; if (x = 0) { b := x = 0; if (b) { x := 2 } else { } b := false } else { }"),
+    ("def f(a: nat) -> nat { while (a > 0) { t: nat = a; a = a - 1; } return a; } x: nat; x = f(2);",
+     "fun f := { nat a; nat t; while (a > 0) { t := a; a := a - 1; t := 0 } return a; }; nat x; x := f(2)"),
 ])
-def test_block_declarations_are_not_implemented(source):
+def test_block_declarations_are_lowered(source, expected):
     result = compile_pgcl(source, syntax="ppy")
-    assert isinstance(result, CheckFail)
-    assert "not implemented" in result.message
+    assert not isinstance(result, CheckFail), result
+    assert result == compile_pgcl(expected)
 
 
 def test_const_type_mismatch():
@@ -256,14 +261,26 @@ def test_expressions(ppy, pgcl):
     _same(parse_ppy_expr(ppy), parse_expectation(pgcl))
 
 
-def test_floor_division_is_parsed_and_rejected():
+def test_floor_division_is_parsed_and_checked():
     assert parse_ppy_expr("x // 2") == BinopExpr(Binop.FLOOR_DIVIDE, VarExpr("x"), NatLitExpr(2))
     assert parse_ppy_expr("x // 2 * 3").lhs.operator == Binop.FLOOR_DIVIDE
     for source in ["x: nat; x = 7 // 2;", "x: nat; while (x // 2 < 3) { x = x + 1; }",
-                   "x: nat[0, 10 // 2];", "x: nat; query Ex[x // 2];"]:
-        result = compile_pgcl(source, syntax="ppy")
-        assert isinstance(result, CheckFail), source
-        assert result.message == "Floor division '//' is not implemented yet."
+                   "x: nat; query Ex[x // 2];", "const Q: nat = 3; x, y: nat; y = (x + 1) // Q;",
+                   "x: nat; b: bool; x = b // 2;"]:
+        assert not isinstance(compile_pgcl(source, syntax="ppy"), CheckFail), source
+
+
+@pytest.mark.parametrize("source, message", [
+    ("x, y: nat; x = x // y;", "only implemented for a positive natural constant q"),
+    ("x: nat; x = x // 0;", "only implemented for a positive natural constant q"),
+    ("x: nat; x = x // 1.5;", "only implemented for a positive natural constant q"),
+    ("x: nat; param p: real; x = [p == 1] // 2;", "only implemented for a natural number e"),
+    ("x: nat[0, 10 // 2];", "not implemented in bounds"),
+])
+def test_floor_division_rejected(source, message):
+    result = compile_pgcl(source, syntax="ppy")
+    assert isinstance(result, CheckFail), source
+    assert message in result.message
 
 
 def test_comparisons_do_not_chain():
@@ -440,7 +457,9 @@ def test_design_example():
     assert isinstance(program.instructions[0].body[1], LocalDeclInstr)
     assert isinstance(program.instructions[0].body[2], IfInstr)
     result = compile_pgcl(ppy, syntax="ppy")
-    assert isinstance(result, CheckFail) and "not implemented" in result.message
+    assert not isinstance(result, CheckFail), result
+    assert "c" in result.variables
+    assert str(result.instructions[0].body[-1]) == "c := 0;"
 
 
 # --- syntax errors ------------------------------------------------------------

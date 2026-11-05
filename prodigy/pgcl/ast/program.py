@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import copy
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Set
 
 import attr
 
@@ -44,6 +44,13 @@ class Program:
     functions: Dict[Var, Function] = attr.ib()
 
     instructions: List[Instr] = attr.ib()
+
+    block_variables: Set[Var] = attr.ib(factory=set, repr=False, eq=False)
+    """
+    The variables of :attr:`variables` that were declared inside a block (``.ppy``) and lowered by
+    :func:`prodigy.pgcl.scope.lower_block_scope`. They are 0 outside their block, so the analysis
+    ignores input values for them and leaves them out of the output distribution.
+    """
 
     @staticmethod
     def from_parse(declarations: List[Decl],
