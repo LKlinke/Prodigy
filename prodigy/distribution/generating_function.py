@@ -16,6 +16,7 @@ from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
 from prodigy.distribution.equality import decide_equal
 from prodigy.distribution.exact_division import divide_exponents
+from prodigy.distribution.rational_series import rational_taylor_coefficients
 from prodigy.distribution.negative_values import can_be_negative, require_non_negative as _require_non_negative
 from prodigy.distribution.multisection import rational_sections
 from prodigy.distribution.roots_of_unity import require_single_valued
@@ -142,6 +143,22 @@ def _sympy_symbol(name: Any, real=True, **kwargs) -> sympy.Symbol:
     with the same name but different domains are not considered equal by sympy.
     """
     return sympy.Symbol(name, real=real, **kwargs)
+
+
+def _taylor_coefficient_by_limit(function: sympy.Expr, variable: sympy.Symbol, index: int) -> sympy.Expr:
+    """The coefficient of `variable`^`index` in the power series of `function`, via derivatives and a limit."""
+    return (function.diff(variable, index) / sympy.factorial(index)).limit(variable, 0, '-')
+
+
+def _taylor_coefficient(function: sympy.Expr, variable: sympy.Symbol, index: int) -> sympy.Expr:
+    """
+    The coefficient of `variable`^`index` in the power series of `function`: exactly from the recursion for
+    rational functions (see `rational_series`), otherwise via derivatives and a limit.
+    """
+    coefficients = rational_taylor_coefficients(function, variable, index + 1)
+    if coefficients is None:
+        return _taylor_coefficient_by_limit(function, variable, index)
+    return coefficients[index] if index < len(coefficients) else sympy.Integer(0)
 
 
 def provably_equal(lhs: sympy.Expr, rhs: sympy.Expr) -> bool:
@@ -274,9 +291,14 @@ class GeneratingFunction(Distribution):
         }
 
         # Compute the probabilities of the states _var_ = i where i ranges depending on the operator (< , <=, =).
-        for i in ranges[condition.operator]:
-            result += (self._function.diff(variable, i) / sympy.factorial(i)
-                       ).limit(variable, 0, '-') * variable ** i
+        indices = ranges[condition.operator]
+        coefficients = rational_taylor_coefficients(self._function, variable, indices[-1] + 1) if indices else []
+        for i in indices:
+            if coefficients is None:
+                coefficient = _taylor_coefficient_by_limit(self._function, variable, i)
+            else:
+                coefficient = coefficients[i] if i < len(coefficients) else sympy.Integer(0)
+            result += coefficient * variable ** i
 
         return GeneratingFunction(result,
                                   *self._variables,
@@ -476,9 +498,7 @@ class GeneratingFunction(Distribution):
         if self._is_closed_form or not self._is_finite:
             result = self._function
             for variable, value in complete_state.items():
-                result = result.diff(_sympy_symbol(variable), value)
-                result /= sympy.factorial(value)
-                result = result.limit(_sympy_symbol(variable), 0, "-")
+                result = _taylor_coefficient(result, _sympy_symbol(variable), value)
             return result
         # Otherwise use poly module and simply extract the correct coefficient from it
         else:
