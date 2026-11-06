@@ -50,6 +50,11 @@ class SampleHandler(InstructionHandler):
             n, p = instruction.rhs.params[0]
             return marginal * factory.binomial(variable, n, p), error_prob
 
+        # rhs is a negative binomial distribution
+        if distr == "negative_binomial":
+            r, p = instruction.rhs.params[0]
+            return marginal * factory.negative_binomial(variable, r, p), error_prob
+
         # rhs is an iid sampling expression
         if distr == "iid":
             dist, count = instruction.rhs.params[0]

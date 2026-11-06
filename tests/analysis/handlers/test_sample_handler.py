@@ -16,6 +16,7 @@ def test_iid_predefined_distributions(engine, factory):
     distributions = {
         "geometric(p)": factory.geometric("x", "p").set_parameters("p", "n"),
         "binomial(n,p)": factory.binomial("x", "n", "p"),
+        "negative_binomial(3,p)": factory.negative_binomial("x", 3, "p").set_parameters("p", "n"),
         "poisson(n)": factory.poisson("x", "n").set_parameters("p", "n"),
         "bernoulli(p)": factory.bernoulli("x", "p").set_parameters("p", "n"),
         "unif(n, n+10)": factory.uniform("x", "n",

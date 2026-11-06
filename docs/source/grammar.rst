@@ -85,8 +85,11 @@ Sampling
 --------
 
 ``x := D`` samples ``x`` from one of the predefined distributions ``bernoulli(p)``,
-``geometric(p)``, ``poisson(p)``, ``logdist(p)``, ``binomial(n, p)``, ``unif(a, b)`` (also
-``unif_d``); all parameters are positional and required. Two forms take a distribution as
+``geometric(p)``, ``poisson(p)``, ``logdist(p)``, ``binomial(n, p)``, ``negative_binomial(r, p)``,
+``unif(a, b)`` (also ``unif_d``); all parameters are positional and required.
+``negative_binomial(r, p)`` is the number of failures before the ``r``-th success, i.e.
+``iid(geometric(p), r)``; ``r`` is a natural number (a ``const`` counts as one) and ``p`` a
+probability in ``(0, 1]`` or an expression in parameters. Two forms take a distribution as
 argument:
 
 - ``x := iid(D, n)`` sets ``x`` to the sum of ``n`` independent samples of ``D``. ``D`` is a

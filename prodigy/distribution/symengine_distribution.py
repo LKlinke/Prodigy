@@ -858,6 +858,11 @@ class SymengineDist(Distribution):
             dist_gf = (1 - p + p * se.S(variable)) ** n
             return subs(dist_gf, subst_var, variable)
 
+        if sampling_dist.function == "negative_binomial":
+            r, p = map(_parse_to_symengine, sampling_dist.params[0])
+            dist_gf = (p / (1 - (1 - p) * se.S(variable))) ** r
+            return subs(dist_gf, subst_var, variable)
+
         if sampling_dist.function in {"unif", "unif_d"}:
             start, end = map(_parse_to_symengine, sampling_dist.params[0])
             var = se.S(variable)
@@ -1179,6 +1184,10 @@ class SymenginePGF(CommonDistributionsFactory):
     @staticmethod
     def binomial(var: Union[str, VarExpr], n: DistributionParam, p: DistributionParam) -> SymengineDist:
         return SymengineDist(f"(({p})*{var} + (1-({p})))^({n})", str(var))
+
+    @staticmethod
+    def negative_binomial(var: Union[str, VarExpr], r: DistributionParam, p: DistributionParam) -> SymengineDist:
+        return SymengineDist(f"(({p}) / (1 - (1-({p})) * {var}))^({r})", str(var))
 
     @staticmethod
     def zero(*variables: Union[str, VarExpr]) -> SymengineDist:

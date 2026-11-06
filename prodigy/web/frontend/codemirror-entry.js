@@ -21,7 +21,7 @@ const KEYWORDS = new Set(["while", "if", "else", "skip", "abort", "observe", "lo
   "return", "infer", "sample", "fun", "not"]);
 const TYPES = new Set(["nat", "bool", "real", "const", "rparam", "nparam", "dist"]);
 const BUILTINS = new Set(["unif", "unif_d", "unif_c", "geometric", "poisson", "logdist", "binomial",
-  "bernoulli", "iid", "sample_pgf"]);
+  "negative_binomial", "bernoulli", "iid", "sample_pgf"]);
 const ATOMS = new Set(["true", "false"]);
 
 export const PGCL_WORDS = { keywords: [...KEYWORDS], types: [...TYPES], builtins: [...BUILTINS] };

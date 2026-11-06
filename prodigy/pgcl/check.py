@@ -6,6 +6,7 @@ Type Checking
 """
 from __future__ import annotations
 
+from fractions import Fraction
 from typing import Dict, Iterable, List, Mapping, Optional, Set, TypeVar, Union
 
 import attr
@@ -86,6 +87,8 @@ sample_predefined_functions: Mapping[Var, List[VarDecl]] = frozendict({
     'logdist': [VarDecl('p', RealType())],
     'binomial': [VarDecl('n', NatType(None)),
                  VarDecl('p', RealType())],
+    'negative_binomial': [VarDecl('r', NatType(None)),
+                          VarDecl('p', RealType())],
     # the distribution of iid/sample_pgf is a distribution expression or a generating function,
     # whose coefficients are real
     'iid': [VarDecl('dist', RealType()),
@@ -121,6 +124,59 @@ def _check_sample_count(program: Program,
         f"of the generating function, got {arg}.")
 
 
+def _literal_value(expr: Expr) -> Optional[Fraction]:
+    """The value of an expression built from number literals with ``+``, ``-``, ``*`` and ``/``,
+    or None if it contains anything else (variables, parameters, other operators)."""
+    if isinstance(expr, NatLitExpr):
+        return Fraction(expr.value)
+    if isinstance(expr, RealLitExpr):
+        return None if expr.is_infinite() else expr.to_fraction()
+    if isinstance(expr, UnopExpr) and expr.operator == Unop.NEG:
+        value = _literal_value(expr.expr)
+        return None if value is None else -value
+    if isinstance(expr, BinopExpr) and expr.operator in (Binop.PLUS, Binop.MINUS, Binop.TIMES,
+                                                          Binop.DIVIDE):
+        lhs, rhs = _literal_value(expr.lhs), _literal_value(expr.rhs)
+        if lhs is None or rhs is None:
+            return None
+        if expr.operator == Binop.PLUS:
+            return lhs + rhs
+        if expr.operator == Binop.MINUS:
+            return lhs - rhs
+        if expr.operator == Binop.TIMES:
+            return lhs * rhs
+        return None if rhs == 0 else lhs / rhs
+    return None
+
+
+def _check_negative_binomial(program: Program,
+                             expr: FunctionCallExpr) -> Optional[CheckFail]:
+    """
+    Check the arguments of ``negative_binomial(r, p)``.
+
+    ``r`` must be a natural number (constants are substituted before), because the analysis takes
+    the ``r``-th power of the generating function of ``geometric(p)``. ``p`` must lie in ``(0, 1]``;
+    it may depend on parameters, but not on program variables. A value outside of ``(0, 1]``
+    would not be a distribution, and the result would be reported without a guarantee.
+    """
+    if expr.function != 'negative_binomial' or len(expr.params[0]) != 2:
+        return None
+    r, p = expr.params[0]
+    if not isinstance(r, NatLitExpr):
+        return CheckFail(
+            r, f"The number of successes in {expr} must be a natural number, got {r}.")
+    for ref in walk_expr(Walk.DOWN, Mut.alloc(p)):
+        if isinstance(ref.val, VarExpr) and ref.val.var not in program.parameters:
+            return CheckFail(
+                p, f"The success probability in {expr} must not depend on the program "
+                f"variable {ref.val.var}.")
+    value = _literal_value(p)
+    if value is not None and not 0 < value <= 1:
+        return CheckFail(
+            p, f"The success probability in {expr} must be in (0, 1], got {p}.")
+    return None
+
+
 def _check_function_call(
         program: Program, expr: FunctionCallExpr,
         predefined_functions: Mapping[Var, List[VarDecl]]) -> Optional[CheckFail]:
@@ -137,7 +193,7 @@ def _check_function_call(
             return CheckFail(expr, f"{expr.function} takes no named parameters")
         if len(expr.params[0]) < len(param_list):
             return CheckFail(expr, "Too few parameters")
-        sample_fail = _check_sample_count(program, expr)
+        sample_fail = _check_sample_count(program, expr) or _check_negative_binomial(program, expr)
         if sample_fail is not None:
             return sample_fail
 
