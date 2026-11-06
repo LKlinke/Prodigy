@@ -173,6 +173,7 @@ and required.
 | `poisson(l)` | Poisson with mean `l` |
 | `logdist(p)` | logarithmic distribution |
 | `binomial(n, p)` | binomial with `n` trials |
+| `negative_binomial(r, p)` | the number of failures before the `r`-th success: `k` with probability `C(k + r − 1, k) (1 − p)^k p^r`, `k ≥ 0`; the same as `iid(geometric(p), r)`. `r` is a natural number, `p` lies in `(0, 1]` |
 | `unif(a, b)` | uniform on `a, …, b` (also `unif_d`) |
 | `iid(D, n)` | the sum of `n` independent samples of `D`; `n` is a variable or a natural number |
 | `sample_pgf(G, x)` | `x` drawn from the generating function `G` in `x` (the second argument is the assigned variable) |

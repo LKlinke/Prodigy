@@ -394,6 +394,14 @@ class FPS(Distribution):
                 str(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
+        if sampling_dist.function == "negative_binomial":
+            [r, p] = sampling_dist.params[0]
+            result = self._dist.updateIid(
+                str(variable),
+                prodigy_ginac.Dist(f'(({p}) / (1 - (1 - ({p})) * {variable}))^({r})', list(self._parameters)),
+                str(count))
+            return FPS.from_dist(result, self._variables, self._parameters)
+
         [param] = sampling_dist.params[0]
         if sampling_dist.function == "geometric":
             result = self._dist.updateIid(
@@ -509,6 +517,12 @@ class ProdigyPGF(CommonDistributionsFactory):
     def binomial(var: Union[str, VarExpr], n: DistributionParam,
                  p: DistributionParam) -> FPS:
         function = f"(({p})*{var} + (1-({p})))^({n})"
+        return FPS(function, str(var))
+
+    @staticmethod
+    def negative_binomial(var: Union[str, VarExpr], r: DistributionParam,
+                          p: DistributionParam) -> FPS:
+        function = f"(({p}) / (1 - (1-({p})) * {var}))^({r})"
         return FPS(function, str(var))
 
     @staticmethod

@@ -8,9 +8,9 @@ x: nat;  # number of claims
 
 alpha = bernoulli(1/10);
 if (alpha == 0) {
-    x = iid(geometric(1/2), 1);  # negative binomial distribution NB(1, 1/2)
+    x = negative_binomial(1, 1/2);  # number of failures before the first success
 } else {
-    x = iid(geometric(1/2), 2);  # negative binomial distribution NB(2, 1/2)
+    x = negative_binomial(2, 1/2);  # number of failures before the second success
 }
 
 observe(x >= 2);  # a given policyholder has filed at least 2 claims

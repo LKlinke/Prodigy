@@ -198,7 +198,7 @@ PPY_KEYWORDS = frozenset({
 
 _ILLEGAL_FUNCTION_NAMES = {
     'unif_d', 'unif_c', 'unif', 'geometric', 'poisson', 'logdist', 'binomial',
-    'bernoulli', 'iid', 'sample_pgf'
+    'negative_binomial', 'bernoulli', 'iid', 'sample_pgf'
 }
 
 _PARSER = Lark(PPY_GRAMMAR,

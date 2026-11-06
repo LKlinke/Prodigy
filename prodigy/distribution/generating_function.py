@@ -1029,6 +1029,10 @@ class GeneratingFunction(Distribution):
             n, p = map(_parse_to_sympy, sampling_dist.params[0])
             dist_gf = (1 - p + p * _sympy_symbol(variable)) ** n
             return subs(dist_gf, subst_var, variable)
+        if sampling_dist.function == "negative_binomial":
+            r, p = map(_parse_to_sympy, sampling_dist.params[0])
+            dist_gf = (p / (1 - (1 - p) * _sympy_symbol(variable))) ** r
+            return subs(dist_gf, subst_var, variable)
         if sampling_dist.function in {"unif", "unif_d"}:
             start, end = map(_parse_to_sympy, sampling_dist.params[0])
             var = _sympy_symbol(variable)
@@ -1567,6 +1571,24 @@ class SympyPGF(CommonDistributionsFactory):
                                   str(var),
                                   closed=True,
                                   finite=True)
+
+    @staticmethod
+    def negative_binomial(var: Union[str, VarExpr], r: DistributionParam,
+                          p: DistributionParam) -> GeneratingFunction:
+        expr_p = p if isinstance(p, get_args(Expr)) else parse_expr(str(p))
+        if not has_variable(expr_p, None) and not 0 < _parse_to_sympy(p) <= 1:
+            raise ValueError(
+                f"Parameter p of Negative Binomial Distribution must be in (0,1], but was {p}"
+            )
+        expr_r = r if isinstance(r, get_args(Expr)) else parse_expr(str(r))
+        if not isinstance(expr_r, NatLitExpr):
+            raise ValueError(
+                f"Parameter r of Negative Binomial Distribution must be a natural number, but was {r}"
+            )
+        return GeneratingFunction(f"(({p}) / (1 - (1-({p})) * {var}))**({r})",
+                                  str(var),
+                                  closed=True,
+                                  finite=expr_r.value == 0)
 
     @staticmethod
     def zero(*variables: Union[str, VarExpr]) -> GeneratingFunction:

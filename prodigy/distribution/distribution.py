@@ -939,6 +939,14 @@ class CommonDistributionsFactory(ABC):
 
     @staticmethod
     @abstractmethod
+    def negative_binomial(var: Union[str, VarExpr], r: DistributionParam,
+                          p: DistributionParam) -> Distribution:
+        """ A negative binomial distribution: the number of failures before the `r`-th success with success
+        probability `p`, i.e., `(p / (1 - (1-p)*x))^r`. It is the sum of `r` independent samples of
+        :meth:`geometric` with parameter `p`."""
+
+    @staticmethod
+    @abstractmethod
     def zero(*variables: Union[str, VarExpr]) -> Distribution:
         """ The zero distribution over `variables`: no mass on any state.
 
