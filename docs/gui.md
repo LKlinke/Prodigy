@@ -190,6 +190,8 @@ instructions of `steps` are written in it (`x == 1` in `.ppy`, `x = 1` in pGCL).
 `result["bounds"]["kind"]` (`exact`, `lower`, `upper`, `unknown`) is the guarantee of the
 result. It holds only for `result["status"] == "ok"`; a result that failed or stopped
 (`error`, `needs_decision`, `timeout`, `cancelled`) has kind `unknown` or no `bounds` at all.
+A distribution, mass or query value with `nan` or ∞ in it is never `ok`: the result has status
+`error` with `error.type` `NonFiniteResult` (the value ∞ of an expectation query is allowed).
 
 From the command line:
 

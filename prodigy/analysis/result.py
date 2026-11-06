@@ -49,6 +49,13 @@ A result whose ``status`` is not ``ok`` (``error``, ``needs_decision``, and ``ti
 Queries answered before the failure keep their own intervals, which were computed from the
 distribution at that point.
 
+Undefined values
+----------------
+A distribution, mass or query value that contains ``nan``, ``zoo`` (complex infinity) or ``oo`` is
+not a result: such a run ends with ``status`` ``error`` and ``error.type`` ``NonFiniteResult``, and
+the affected queries get ``bound`` ``unknown`` without interval. The only exception is the value ∞
+of an expectation query (``Ex[x]`` may diverge).
+
 Failed invariant checks
 -----------------------
 If a proposed invariant is not certified, ``status`` is ``error`` and ``error.verdict`` (also in
@@ -155,6 +162,64 @@ def exact_and_float(value: Any) -> Tuple[Optional[str], Optional[float]]:
     except Exception:  # pylint: disable=broad-except
         return str(value), None
     return show(expr), to_float(expr)
+
+
+_NON_FINITE_NAMES = frozenset({"nan", "NaN", "zoo", "oo", "inf", "Inf", "infinity", "Infinity",
+                                "ComplexInfinity", "UnsignedInfinity"})
+
+
+def is_non_finite(value: Any, *, names: frozenset = frozenset(), infinity: bool = False) -> bool:
+    """Whether ``value`` (a SymPy expression or a string in any engine's notation) contains ``nan``,
+    ``zoo`` or ``oo``; ``infinity=True`` accepts a value that is exactly ∞.
+
+    ``names`` are the program's variables and parameters, which are never taken for one of
+    the spellings of ``nan`` or ∞ (a variable may be called ``inf``).
+    """
+    if value is None:
+        return False
+    if isinstance(value, sympy.Basic):
+        expr: Optional[sympy.Basic] = value
+    else:
+        try:
+            expr = sym(value)
+        except Exception:  # pylint: disable=broad-except
+            expr = None
+    if expr is not None:
+        if infinity and expr == sympy.oo:
+            return False
+        if expr.has(sympy.nan, sympy.zoo, sympy.oo, -sympy.oo):
+            return True
+        return any(str(symbol) in _NON_FINITE_NAMES and str(symbol) not in names
+                   for symbol in expr.free_symbols)
+    text = str(value).strip()
+    if infinity and text in _INFINITY_SPELLINGS:
+        return False
+    tokens = set(re.findall(r"[A-Za-z_]\w*", text))
+    return "∞" in text or bool((tokens & _NON_FINITE_NAMES) - names)
+
+
+def _non_finite_parts(result: "AnalysisResult", dist: "Distribution") -> List[str]:
+    """The parts of an otherwise finished ``result`` that are undefined (see :func:`is_non_finite`);
+    the affected queries lose their interval."""
+    names = frozenset(map(str, dist.get_variables())) | frozenset(map(str, dist.get_parameters()))
+    parts = []
+    if is_non_finite(to_sympy(dist), names=names) or is_non_finite(str(dist), names=names):
+        parts.append("the distribution")
+    if result.distribution is not None and is_non_finite(result.distribution.get("mass"), names=names):
+        parts.append("its mass")
+    if is_non_finite(result.error_probability, names=names):
+        parts.append("the error probability")
+    for query in result.queries:
+        if (is_non_finite(query.value, names=names, infinity=query.kind == "expectation")
+                or is_non_finite(query.lower, names=names)
+                or is_non_finite(query.upper, names=names, infinity=True)):
+            query.bound = Bound.UNKNOWN
+            query.lower = query.upper = None
+            query.lower_float = query.upper_float = None
+            query.note = "Undefined value (nan or ∞): no guarantee."
+            where = f" (line {query.line})" if query.line is not None else ""
+            parts.append(f"the query {query.expr}{where}")
+    return parts
 
 
 def to_sympy(dist: "Distribution") -> Optional[sympy.Expr]:
@@ -618,6 +683,7 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
         result.program = outline_program(session.program, session.source, session.syntax)
 
     analysis_time = 0.0
+    final: Optional["Distribution"] = None
     with session.activate(), config.activate(), session._output():  # pylint: disable=protected-access
         try:
             program = session.program
@@ -665,10 +731,19 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
             result.error = {"type": type(exc).__name__, "message": str(exc) or type(exc).__name__,
                             "traceback": traceback.format_exc()}
 
+    result.queries = list(session.queries)
+    if result.status == "ok" and final is not None:
+        parts = _non_finite_parts(result, final)
+        if parts:
+            result.status = "error"
+            result.error = {
+                "type": "NonFiniteResult",
+                "message": f"Undefined value (nan or ∞) in {', '.join(parts)}; the result has no guarantee.",
+                "details": {"parts": parts},
+            }
     if result.status != "ok":
         result.bounds = failure_bounds(result.status)
 
-    result.queries = list(session.queries)
     result.loops = [record.to_json() for record in session.loop_records.values()]
     result.loops.sort(key=lambda r: (r["id"] is None, r["id"] if r["id"] is not None else 0))
     result.steps = session.steps
