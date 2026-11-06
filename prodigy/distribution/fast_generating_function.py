@@ -173,6 +173,13 @@ class FPS(Distribution):
         return self._dist.mass(self._variables & set(self._dist.get_symbols()))
 
     def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
+        # The bindings treat symbols that are neither variables nor parameters as 0, which would give a wrong
+        # value; reject them, as the SymPy engine does.
+        symbols = self._find_symbols(str(expression))
+        if not symbols & self._variables:
+            return str(expression)
+        if not symbols <= self._variables | self._parameters:
+            raise ValueError(f"Cannot compute expected value of {expression} because it contains unknown symbols")
         return self._dist.E(str(expression))
 
     def normalize(self) -> FPS:
