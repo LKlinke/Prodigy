@@ -184,11 +184,52 @@ x = sample(d);
 
 - `infer(f, args…)` takes a function and its arguments and gives the normalised output distribution
   of the call as a value of type `dist`. `sample(d)` draws independently from it.
-- The syntax allows every case. For cases the analysis cannot handle yet, it ends with "not
-  implemented" and a clear message. The semantics is designed in
-  [#104](https://github.com/LKlinke/Prodigy/issues/104). Example: an argument that depends on the
-  random state together with `observe` in `f`, where the normalising constant depends on that
-  argument.
+- **Syntax and semantics are separate.** Every program whose semantics is well defined is a valid
+  program: the parser and the type checker accept it. Whether the analysis can compute it is a
+  separate question. If it cannot (yet), it ends with a clear "not implemented" message that names
+  the construct, never with a wrong or approximate result.
+
+#### Semantics
+
+The semantics is defined for every valid program, whether the analysis can compute it or not.
+
+- A value of type `dist` is a probability distribution on ℕ. With `dist` values, the state space is
+  no longer countable, but it is measurable, so the semantics stays well defined.
+- `infer(f, a)` in a state σ: let μ be the sub-distribution of the results of `f(a)` over the runs
+  that terminate and pass every `observe`, and let Z = |μ| be its mass.
+  - If Z > 0, the value is the conditional distribution μ / Z.
+  - If Z = 0, the conditional distribution is undefined, and the run ends in an error state. The
+    analysis reports this as an error, not as a violated observation.
+- `sample(d)` draws a value from `d`, independently of all other draws. Several calls `sample(d)`
+  give independent draws. `d2 = d` copies the distribution.
+- `Pr[d == k]` and `Ex[d]` inside the program are expressions of type `real`. `Ex[d]` may be ∞.
+  They may appear wherever a `real` expression is allowed, e.g. in guards: `if (Ex[d] > 3) { … }`.
+- `dist` values may be passed to functions, `def g(d: dist) -> nat { … }`, and may be part of a
+  loop's state, e.g. sequential updates `d = infer(update, d, obs)`.
+
+#### What the analysis can compute
+
+The semantics above is the specification. The table says which cases have an exact encoding with
+generating functions. The other cases are valid programs that end with "not implemented".
+
+| Case | Encoding | Exact |
+|---|---|---|
+| `d` does not depend on the state | closed-form PGF G_d(z) of the result; `x = sample(d)` marginalises `x` and multiplies by G_d(x), as `iid` does | yes, if the PGF of `f` is computable and Z > 0 is proven |
+| copies and several draws from such a `d` | one factor G_d per draw | yes |
+| `Pr[d == k]`, `Ex[d]` for such a `d` | a coefficient, or the derivative at 1: a number | yes |
+| `d` depends on the state through arguments with finite support | case split over the values; each case as above | yes |
+| `d` depends on the state, `f` has no `observe` and terminates almost surely (Z ≡ 1) | `sample(infer(f, a))` is a fresh call `f(a)` | yes, as function calls today |
+| `d` depends on the state with infinite support, and Z depends on it | the joint distribution is Σₐ p(a)·μₐ/Z(a); dividing by Z(a) coefficient by coefficient is not an operation on the generating function | only special cases, e.g. Z(a) = c·rᵃ by the substitution a ↦ a/r; otherwise not implemented |
+| `Pr`/`Ex` of a state-dependent `d` in guards or assignments | a filter by a non-linear predicate g(a) > c | not in general; possibly when {a : g(a) > c} is finite, cofinite or semilinear |
+| `dist` values in a loop's state | a generating function cannot carry infinitely many different distributions as states | not in general; possibly when the family is indexed by a `nat` statistic, as for conjugate families, which can be encoded by the index |
+
+The last three rows are research questions and get their own issues.
+
+#### Results
+
+The result JSON gets a section `distributions` with the closed-form PGF of each `dist` variable,
+separate from the joint generating function of the program state. The GUI shows it as a card of its
+own.
 
 ### Queries
 
@@ -243,8 +284,6 @@ of the whole program.
 
 ## Still open
 
-- How `dist` values appear in the result JSON and in the GUI
-  ([#104](https://github.com/LKlinke/Prodigy/issues/104)).
 - The exact form of `plot` and `optimize`.
 - When the old syntax is retired. The examples are converted (`.ppy` only in `pgfexamples/`); a
   representative set of their former `.pgcl` versions is kept in `tests/pgcl/former_examples/`, so
