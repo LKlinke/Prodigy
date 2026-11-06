@@ -1,7 +1,7 @@
 from typing import Iterable, List, NamedTuple, Optional, Set, TypeGuard
 
 from prodigy.pgcl import (Binop, BinopExpr, Expr, Instr, NatLitExpr, Program,
-                           Unop, UnopExpr, VarDecl, VarExpr)
+                           VarDecl, VarExpr)
 from prodigy.pgcl.ast.expressions import InferExpr, SampleExpr
 from prodigy.pgcl.ast.types import DistributionType
 from prodigy.pgcl.ast.walk import (Walk, mut_expr_children, walk_expr,
@@ -19,8 +19,6 @@ def has_variable(expr: Expr, params: Optional[Set[str]]) -> bool:
     `params` set are not considered variables.
     """
 
-    if isinstance(expr, UnopExpr) and expr.operator == Unop.IVERSON:
-        return False
     if isinstance(expr, VarExpr) and (params is None
                                       or expr.var not in params):
         return True

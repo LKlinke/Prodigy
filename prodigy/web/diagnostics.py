@@ -117,7 +117,7 @@ def _diagnostic(severity: str, message: str, where: Optional[Tuple[int, int, int
 
 def _parse_error(source: str, exc: Exception) -> Dict[str, Any]:
     name = type(exc).__name__
-    if name == "PpySyntaxError":
+    if name in ("PpySyntaxError", "ProgramSyntaxError"):
         line, column = getattr(exc, "line", None), getattr(exc, "column", None)
         message = _sentence(getattr(exc, "message", str(exc)))
         if line is None:

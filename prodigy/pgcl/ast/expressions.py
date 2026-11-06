@@ -160,7 +160,6 @@ class RealLitExpr(ExprClass):
 class Unop(Enum):
     """What unary operator is it?"""
     NEG = auto()
-    IVERSON = auto()
     MINUS = auto()
 
     def __repr__(self) -> str:
@@ -177,8 +176,6 @@ class UnopExpr(ExprClass):
     def __str__(self) -> str:
         if self.operator == Unop.NEG:
             return f'not {expr_str_parens(self.expr)}'
-        elif self.operator == Unop.IVERSON:
-            return f'[{self.expr}]'
         elif self.operator == Unop.MINUS:
             return f'-{expr_str_parens(self.expr)}'
         raise Exception("Invalid Unop operator")
@@ -359,22 +356,6 @@ class SubstExpr(ExprClass):
 
 
 @attr.s
-class TickExpr(ExprClass):
-    """
-    Generated only by the weakest pre-expectation semantics of
-    :class:`TickInstr`.
-    """
-    expr: Expr = attr.ib()
-
-    def is_zero(self) -> bool:
-        """Whether this expression represents exactly zero ticks."""
-        return self.expr == NatLitExpr(0)
-
-    def __str__(self) -> str:
-        return f"tick({self.expr})"
-
-
-@attr.s
 class FunctionCallExpr(ExprClass):
     """
     Performs the body of the corresponding function and then samples a value
@@ -423,6 +404,6 @@ def expr_str_parens(expr: ExprClass) -> str:
 
 
 Expr = Union[VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr,
-             BinopExpr, CategoricalExpr, SubstExpr, TickExpr, FunctionCallExpr,
+             BinopExpr, CategoricalExpr, SubstExpr, FunctionCallExpr,
              InferExpr, SampleExpr]
 """Union type for all expression objects. See :class:`ExprClass` for use with isinstance."""

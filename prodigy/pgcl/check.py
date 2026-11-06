@@ -27,7 +27,7 @@ from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
                   IfInstr, Instr, LoopInstr, NatLitExpr, NatType, Node,
                   ObserveInstr, OptimizationQuery, PlotInstr, PrintInstr,
                   ProbabilityQueryInstr, Program, RealLitExpr, RealType,
-                  SkipInstr, TickExpr, TickInstr, Type, Unop, UnopExpr, Var,
+                  SkipInstr, Type, Unop, UnopExpr, Var,
                   VarExpr, WhileInstr)
 from .ast.walk import Walk, walk_expr
 
@@ -219,8 +219,8 @@ def get_type(
         >>> get_type(program, VarExpr('x'))
         CheckFail(location=VarExpr('x'), message='variable is not declared')
 
-        >>> get_type(program, UnopExpr(Unop.IVERSON, BoolLitExpr(True)))
-        RealType()
+        >>> get_type(program, UnopExpr(Unop.NEG, BoolLitExpr(True)))
+        BoolType()
     """
 
     if isinstance(expr, VarExpr):
@@ -254,7 +254,7 @@ def get_type(
     if isinstance(expr, UnopExpr):
         if check:
             # Currently, all unary operators take boolean operands
-            assert expr.operator in [Unop.NEG, Unop.IVERSON]
+            assert expr.operator == Unop.NEG
 
             typ = get_type(program, expr.expr, check, predefined_functions)
             if isinstance(typ, CheckFail):
@@ -265,9 +265,6 @@ def get_type(
 
         if expr.operator == Unop.NEG:
             return BoolType()
-
-        if expr.operator == Unop.IVERSON:
-            return RealType()
 
     if isinstance(expr, BinopExpr):
         if expr.operator == Binop.FLOOR_DIVIDE:
@@ -326,14 +323,6 @@ def get_type(
                     typ = other_typ
                 elif not is_compatible(typ, other_typ):
                     return CheckFail.expected_type_got(expr, typ, other_typ)
-        return typ
-
-    if isinstance(expr, TickExpr):
-        typ = get_type(program, expr.expr, check, predefined_functions)
-        if isinstance(typ, CheckFail):
-            return typ
-        if check and not is_compatible(NatType(bounds=None), typ):
-            return CheckFail.expected_type_got(expr.expr, NatType(None), typ)
         return typ
 
     if isinstance(expr, FunctionCallExpr):
@@ -447,8 +436,8 @@ _RANGE_DISTRIBUTIONS = {'unif', 'unif_d'}
 def _is_zero_or_one(program: Program, expr: Expr) -> bool:
     """
     Whether every value of ``expr`` is provably 0 or 1, so it may be assigned to a ``bool``
-    variable. This is a cheap syntactic check: the literals 0 and 1, boolean expressions, Iverson
-    brackets, ``bernoulli(p)``, uniform distributions with bounds in {0, 1}, and categorical choices
+    variable. This is a cheap syntactic check: the literals 0 and 1, boolean expressions,
+    ``bernoulli(p)``, uniform distributions with bounds in {0, 1}, and categorical choices
     between such values.
 
     .. doctest::
@@ -462,8 +451,6 @@ def _is_zero_or_one(program: Program, expr: Expr) -> bool:
     """
     if isinstance(expr, NatLitExpr):
         return expr.value in (0, 1)
-    if isinstance(expr, UnopExpr) and expr.operator == Unop.IVERSON:
-        return True
     if isinstance(expr, CategoricalExpr):
         return all(
             _is_zero_or_one(program, value) for value, _prob in expr.exprs)
@@ -776,17 +763,6 @@ def check_instr(
         return _check_instrs(program,
                              instr.body,
                              predefined_functions=predefined_functions)
-
-    if isinstance(instr, TickInstr):
-        typ = get_type(program,
-                       instr.expr,
-                       check=True,
-                       predefined_functions=predefined_functions)
-        if isinstance(typ, CheckFail):
-            return typ
-        if not is_compatible(NatType(bounds=None), typ):
-            return CheckFail.expected_type_got(instr.expr, NatType(None), typ)
-        return None
 
     if isinstance(instr, QueryInstr):
         return _check_instrs(program,

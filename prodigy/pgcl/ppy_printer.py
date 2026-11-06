@@ -38,7 +38,7 @@ from prodigy.pgcl.ast import (AbortInstr, AsgnInstr, Binop, BinopExpr,
                               ParameterDecl, PlotInstr, PrintInstr,
                               ProbabilityQueryInstr, Program, QueryInstr,
                               RealLitExpr, RealType, SampleExpr, SkipInstr,
-                              TickInstr, Type, Unop, UnopExpr, VarDecl,
+                              Type, Unop, UnopExpr, VarDecl,
                               VarExpr, WhileInstr)
 from prodigy.pgcl.ast.types import DistributionType
 from prodigy.pgcl.ppy_parser import PPY_KEYWORDS
@@ -129,8 +129,6 @@ def _expr(expr: Expr) -> Tuple[str, int]:
     if isinstance(expr, UnopExpr):
         if expr.operator == Unop.NEG:
             return f"not {_wrap(expr.expr, _NOT)}", _NOT
-        if expr.operator == Unop.IVERSON:
-            return f"[{expr_to_ppy(expr.expr)}]", _ATOM
         raise PpyPrintError(f"The unary operator {expr.operator} has no .ppy syntax.")
     if isinstance(expr, BinopExpr):
         if _is_negation(expr):
@@ -265,8 +263,6 @@ class PpyPrinter:
             return f"{self.block(instr.lhs)} [{expr_to_ppy(instr.prob)}] {self.block(instr.rhs)}"
         if isinstance(instr, LoopInstr):
             return f"loop({instr.iterations.value}) {self.block(instr.body)}"
-        if isinstance(instr, TickInstr):
-            return f"tick({expr_to_ppy(instr.expr)});"
         if isinstance(instr, ObserveInstr):
             return f"observe({expr_to_ppy(instr.cond)});"
         if isinstance(instr, QueryInstr):

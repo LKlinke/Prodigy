@@ -47,9 +47,9 @@ program. Not analysed yet: nested inference (`infer`, `sample`), whose semantics
 | Nested inference | `d := infer { f(2) }`, `x := sample { d }` | `d = infer(f, 2)`, `x = sample(d)` |
 | Queries | `?Pr[…]`, `?Ex[…]`, `!Print`, `!Plot[…]`, `?Opt[…]` | `query Pr[…]`, `query Ex[…]`, `print`, `plot(…)`, `optimize(…)` |
 
-`skip`, `abort`, `while`, `loop(n)`, `observe(g)`, `tick(e)`, the built-in distributions (`unif`,
-`geometric`, `poisson`, `binomial`, `bernoulli`, `iid`, …) and Iverson brackets `[g]` stay as they
-are. Comments start with `#` and run to the end of the line, or are enclosed in `/* … */` (not
+`skip`, `abort`, `while`, `loop(n)`, `observe(g)` and the built-in distributions (`unif`,
+`geometric`, `poisson`, `binomial`, `bernoulli`, `iid`, …) stay as they are. `tick(e)` and Iverson
+brackets `[g]` are not part of either syntax; Prodigy's analysis never supported them. Comments start with `#` and run to the end of the line, or are enclosed in `/* … */` (not
 nested; they may span lines and stand inside expressions). `//` is floor division in `.ppy`, so it
 no longer starts a comment.
 

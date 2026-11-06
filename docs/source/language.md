@@ -41,7 +41,7 @@ and cannot be used as names:
 
 `abort`, `and`, `bool`, `case`, `categorical`, `const`, `def`, `default`, `dist`, `else`,
 `false`, `if`, `infer`, `loop`, `nat`, `not`, `observe`, `optimize`, `or`, `param`, `plot`,
-`print`, `query`, `real`, `return`, `sample`, `skip`, `switch`, `tick`, `true`, `while`.
+`print`, `query`, `real`, `return`, `sample`, `skip`, `switch`, `true`, `while`.
 
 The names of the built-in distributions (`unif`, `geometric`, …) cannot be used for functions.
 `prodigy convert` renames variables of a `.pgcl` program whose name is reserved in `.ppy` by
@@ -121,7 +121,6 @@ values of it. Parameters have no bounds.
 | `switch (x) { case 1: { … } case 2, 3: { … } default: { … } }` | runs the block of the first `case` whose value equals `x`; `default` (optional) otherwise. No fall-through. `switch` takes a variable, not an expression |
 | `while (g) { … }` | loop; how it is analysed is chosen per loop (loop strategies, see {doc}`gui` and {doc}`cli`) |
 | `loop(n) { … }` | runs the block `n` times; `n` is a natural literal or a constant |
-| `tick(e);` | part of the syntax for reward programs; the forward analysis rejects it |
 | `query { x = e; observe(g); }` | kept from `.pgcl`: a block of exactly one assignment and one observation, analysed on a finite distribution |
 | `;` | an empty statement |
 
@@ -147,8 +146,9 @@ From the weakest to the strongest binding:
 
 The canonical spelling is `and`/`or`/`not`; `prodigy convert` and the pretty printer write it.
 As in Python, `not` (and `!`) binds weaker than the comparisons: `not x == 1` is `not (x == 1)`.
-Parentheses group as usual; `[g]` is an Iverson bracket (1 if `g` holds, else 0), which the
-forward analysis does not support in assignments yet.
+Parentheses group as usual. Square brackets are not an expression: there are no Iverson brackets
+`[g]` (a condition as the number 0 or 1); a program that uses them, or the former `tick(e)`
+statement, is rejected with a syntax error at its position.
 
 **Division.** `/` is rational division and never rounds: in a guard, `x / 2 <= 1` means
 `x <= 2`; assigned to a `nat` variable, the result must be a natural number. `e // q` rounds down

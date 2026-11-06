@@ -19,7 +19,7 @@ import click
 from lark.exceptions import UnexpectedInput
 from prodigy.pgcl import Program, Var, compiler, WhileInstr
 from prodigy.pgcl.parser import SYNTAXES, select_syntax
-from prodigy.pgcl.ppy_parser import PpySyntaxError
+from prodigy.pgcl.syntax_errors import ProgramSyntaxError
 
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -136,7 +136,7 @@ def _read_program(program_file: IO, syntax: Optional[str]) -> Tuple[str, Program
     chosen = select_syntax(syntax, name)
     try:
         program = compiler.parse_pgcl(source, chosen)
-    except PpySyntaxError as exc:
+    except ProgramSyntaxError as exc:
         raise click.ClickException(_with_source_line(f"{name}: {exc}", source, exc.line, exc.column)) from exc
     except UnexpectedInput as exc:
         raise _pgcl_syntax_error(name, source, exc) from exc
@@ -614,6 +614,8 @@ def convert(program_file: IO, output: Optional[IO]) -> None:
     source = program_file.read()
     try:
         result = convert_pgcl(source)
+    except ProgramSyntaxError as exc:
+        raise click.ClickException(_with_source_line(f"{name}: {exc}", source, exc.line, exc.column)) from exc
     except UnexpectedInput as exc:
         raise _pgcl_syntax_error(name, source, exc) from exc
     except PpyPrintError as exc:

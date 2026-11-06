@@ -318,7 +318,7 @@ class Distribution(ABC):
             if condition.operator == Unop.NEG:
                 return self - self.filter(condition.expr)
             raise SyntaxError(
-                f"We do not support filtering for {type(Unop.IVERSON)} expressions."
+                f"We do not support filtering for {condition.operator} expressions."
             )
 
         # Floor divisions are computed into fresh variables first, e.g. x // 2 < 3 becomes t < 3
