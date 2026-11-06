@@ -76,7 +76,7 @@ program's queries:
        → x
        mass 1 · exact · 0.000138 s
        Pr[c == 0] = 1
-   line 4: while (x == 1) {
+   line 4: while (x == 1)
        → c**7/256 + c**6/128 + c**5/64 + c**4/32 + c**3/16 + c**2/8 + c/4 + 1/2
        mass 255/256 · lower bound, residual mass 1/256 · 0.0869 s
        loop 0 (unroll): 9 iterate(s) recorded, 8 iteration(s)

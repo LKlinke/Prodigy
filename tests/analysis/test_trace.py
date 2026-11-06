@@ -309,7 +309,7 @@ def test_analyze_steps_json_and_text(tmp_path):
     assert result["trace"]["watches"] == [{"text": "Pr[c == 0]", "kind": "probability"}]
     out = runner.invoke(cli, ["analyze", "--steps", "--loop", "0=unroll:iterations=4", path])
     assert out.exit_code == 0, out.output
-    assert "line 4: while (x == 1) {" in out.output and "  line 8: [then] c = 2;" in out.output
+    assert "line 4: while (x == 1)\n" in out.output and "  line 8: [then] c = 2;" in out.output
     assert "Hint:" in out.output
 
 
@@ -325,7 +325,7 @@ def test_intermediate_results_and_stepwise_print_the_trace(tmp_path):
     path = _program_file(tmp_path)
     out = CliRunner().invoke(cli, ["--intermediate-results", "main", path, "--loop", "0=unroll:iterations=3"])
     assert out.exit_code == 0, out.output
-    assert "line 2: x = 1;" in out.output and "line 4: while (x == 1) {" in out.output
+    assert "line 2: x = 1;" in out.output and "line 4: while (x == 1)\n" in out.output
     out = CliRunner().invoke(cli, ["--stepwise", "main", path, "--loop", "0=unroll:iterations=3"], input="\n" * 20)
     assert out.exit_code == 0, out.output
     assert out.output.count("Next step [Enter]") >= 8

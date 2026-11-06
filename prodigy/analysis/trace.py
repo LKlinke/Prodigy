@@ -334,7 +334,9 @@ def _first_line(text: str) -> str:
     lines = [line.strip() for line in text.strip().split("\n") if line.strip()]
     if not lines:
         return ""
-    return lines[0] + (" …" if len(lines) > 1 and not lines[0].endswith("{") else "")
+    if lines[0].endswith("{"):  # a compound statement: its head, e.g. "while (x == 1)"
+        return lines[0][:-1].rstrip()
+    return lines[0] + (" …" if len(lines) > 1 else "")
 
 
 class Tracer:
@@ -674,7 +676,7 @@ class Tracer:
         done = [s for s in self.steps if s.get("size_after") is not None]
 
         def where(step: Dict[str, Any]) -> str:
-            return f"line {step['line']} ({step['summary']})" if step["line"] else step["summary"]
+            return f"line {step['line']} ({step['summary'].rstrip(';')})" if step["line"] else step["summary"]
 
         if done:
             growth = max(done, key=lambda s: s["size_after"] - s["size_before"])
