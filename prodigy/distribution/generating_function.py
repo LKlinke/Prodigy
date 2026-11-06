@@ -145,6 +145,20 @@ def _sympy_symbol(name: Any, real=True, **kwargs) -> sympy.Symbol:
     return sympy.Symbol(name, real=real, **kwargs)
 
 
+def _substitute_one(function: sympy.Expr, variable: sympy.Symbol) -> sympy.Expr:
+    """
+    The value of `function` at `variable` = 1, i.e. the variable marginalised out.
+
+    A closed form that is not simplified may have a removable singularity at 1, e.g. `(x**3 - 1)/(x - 1)`;
+    plain substitution then gives `nan` (0/0) or `zoo`. As a generating function is the limit of its power
+    series from below, the value is then computed as that limit.
+    """
+    value = sympy.sympify(function).subs(variable, 1)
+    if value.has(sympy.nan, sympy.zoo, sympy.oo, -sympy.oo):
+        value = sympy.sympify(function).limit(variable, 1, '-')
+    return value
+
+
 def _taylor_coefficient_by_limit(function: sympy.Expr, variable: sympy.Symbol, index: int) -> sympy.Expr:
     """The coefficient of `variable`^`index` in the power series of `function`, via derivatives and a limit."""
     return (function.diff(variable, index) / sympy.factorial(index)).limit(variable, 0, '-')
@@ -602,8 +616,7 @@ class GeneratingFunction(Distribution):
                                 f"Cannot assign {numerator} / {denominator} to {temp_var} " \
                                 "because it is not always an integer"
                             )
-                        result += x.subs(update_var,
-                                         1) * update_var ** (val_l / val_r)
+                        result += _substitute_one(x, update_var) * update_var ** (val_l / val_r)
                 else:
                     val_l, val_r = state_l[numerator], div_2
                     x = self.filter(
@@ -613,8 +626,7 @@ class GeneratingFunction(Distribution):
                             f"Cannot assign {numerator} / {denominator} to {temp_var} " \
                             "because it is not always an integer"
                         )
-                    result += x.subs(update_var,
-                                     1) * update_var ** (val_l / val_r)
+                    result += _substitute_one(x, update_var) * update_var ** (val_l / val_r)
         else:
             if isinstance(marginal_r, GeneratingFunction):
                 for _, state_r in marginal_r:
@@ -626,15 +638,13 @@ class GeneratingFunction(Distribution):
                             f"Cannot assign {numerator} / {denominator} to {temp_var} " \
                             "because it is not always an integer"
                         )
-                    result += x.subs(update_var,
-                                     1) * update_var ** (val_l / val_r)
+                    result += _substitute_one(x, update_var) * update_var ** (val_l / val_r)
             else:
                 if div_1 % div_2 != 0:
                     raise ValueError(
                         f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
                     )
-                result = self._function.subs(update_var,
-                                             1) * update_var ** (div_1 / div_2)
+                result = _substitute_one(self._function, update_var) * update_var ** (div_1 / div_2)
 
         return GeneratingFunction(
             result,
@@ -697,8 +707,7 @@ class GeneratingFunction(Distribution):
                 for index, gf in enumerate(
                         self._arithmetic_progression(left, str(right))):
                     # TODO this seems to compute the correct result, but it can't always be simplified to 0
-                    result = result + gf._function.subs(update_var,
-                                                        1) * update_var ** index
+                    result = result + _substitute_one(gf._function, update_var) * update_var ** index
 
         # If both are not variables, simply compute the result
         else:
@@ -720,21 +729,19 @@ class GeneratingFunction(Distribution):
         if sub_1 in self._variables and sub_2 in self._variables:
             if sub_2 == update_var:
                 if sub_1 == update_var:
-                    result = result.subs(update_var, 1)
+                    result = _substitute_one(result, update_var)
                 else:
                     result = result.subs([(update_var, update_var ** (-1)),
                                           (sub_1, sub_1 * update_var)])
             else:
                 if not sub_1 == update_var:
-                    result = result.subs([(update_var, 1),
-                                          (sub_1, sub_1 * update_var)])
+                    result = _substitute_one(result, update_var).subs(sub_1, sub_1 * update_var)
                 result = result.subs(sub_2, sub_2 * update_var ** (-1))
 
         # we subtract a literal / parameter from a variable
         elif sub_1 in self._variables:
             if not update_var == sub_1:
-                result = result.subs([(update_var, 1),
-                                      (sub_1, sub_1 * update_var)])
+                result = _substitute_one(result, update_var).subs(sub_1, sub_1 * update_var)
             result = result * update_var ** (-sub_2)
 
         # we subtract a variable from a literal / parameter
@@ -743,7 +750,7 @@ class GeneratingFunction(Distribution):
                 result = result.subs(update_var, update_var
                                      ** (-1)) * update_var ** sub_1
             else:
-                result = result.subs(update_var, 1) * update_var ** sub_1
+                result = _substitute_one(result, update_var) * update_var ** sub_1
                 result = result.subs(sub_2, sub_2 * update_var ** (-1))
 
         # we subtract two literals / parameters from each other
@@ -753,7 +760,7 @@ class GeneratingFunction(Distribution):
                 raise ValueError(
                     f"Cannot assign '{sub_from} - {sub}' to '{temp_var}' because it is negative"
                 )
-            result = result.subs(update_var, 1) * update_var ** diff
+            result = _substitute_one(result, update_var) * update_var ** diff
 
         result = sympy.expand(result)
         gf = GeneratingFunction(result,
@@ -823,15 +830,13 @@ class GeneratingFunction(Distribution):
                 result = result.subs(update_var,
                                      update_var_with_assumptions ** lit)
             else:
-                result = result.subs([
-                    (update_var, 1),
-                    (var, var * update_var_with_assumptions ** lit)
-                ])
+                result = _substitute_one(result, update_var).subs(
+                    var, var * update_var_with_assumptions ** lit)
 
         # we multiply two literals
         else:
-            result = result.subs(update_var, 1) * (update_var_with_assumptions
-                                                   ** (prod_1 * prod_2))
+            result = _substitute_one(result, update_var) * (
+                update_var_with_assumptions ** (prod_1 * prod_2))
 
         return GeneratingFunction(
             # remove the nonnegativity assumption from all symbols
@@ -851,15 +856,11 @@ class GeneratingFunction(Distribution):
 
         if not updated_var == assign_var:
             if _parse_to_sympy(assign_var) in self._variables:
-                result = self._function.subs([
-                    (_sympy_symbol(updated_var), 1),
-                    (_parse_to_sympy(assign_var),
-                     _parse_to_sympy(assign_var) * _sympy_symbol(updated_var))
-                ])
+                result = _substitute_one(self._function, _sympy_symbol(updated_var)).subs(
+                    _parse_to_sympy(assign_var), _parse_to_sympy(assign_var) * _sympy_symbol(updated_var))
             else:
-                result = self._function.subs(
-                    _sympy_symbol(updated_var), 1) * _sympy_symbol(
-                    updated_var) ** _parse_to_sympy(assign_var)
+                result = _substitute_one(self._function, _sympy_symbol(updated_var)) \
+                    * _sympy_symbol(updated_var) ** _parse_to_sympy(assign_var)
             return GeneratingFunction(
                 result,
                 *self._variables,
@@ -885,9 +886,8 @@ class GeneratingFunction(Distribution):
                 else:
                     result = result.subs(sum_2, sum_2 * update_var)
             else:
-                result = result.subs([(update_var, 1),
-                                      (sum_1, sum_1 * update_var),
-                                      (sum_2, sum_2 * update_var)])
+                result = _substitute_one(result, update_var).subs([(sum_1, sum_1 * update_var),
+                                                                   (sum_2, sum_2 * update_var)])
 
         # we add a variable and a literal / parameter
         elif sum_1 in self._variables or sum_2 in self._variables:
@@ -898,13 +898,12 @@ class GeneratingFunction(Distribution):
                 var = sum_2
                 lit = sum_1
             if not var == update_var:
-                result = result.subs([(update_var, 1),
-                                      (var, update_var * var)])
+                result = _substitute_one(result, update_var).subs(var, update_var * var)
             result = result * (update_var ** lit)
 
         # we add two literals / parameters
         else:
-            result = result.subs(update_var, 1) * (update_var ** (sum_1 + sum_2))
+            result = _substitute_one(result, update_var) * (update_var ** (sum_1 + sum_2))
 
         return GeneratingFunction(
             result,
@@ -950,7 +949,7 @@ class GeneratingFunction(Distribution):
                             f'{base}={state_l[base]} & {exp}={state_r[exp]}')
                     )._function
                     res -= x
-                    res += x.subs(update_var, 1) * update_var ** (state_l[base] **
+                    res += _substitute_one(x, update_var) * update_var ** (state_l[base] **
                                                                   state_r[exp])
 
         # variable to the power of a literal
@@ -965,7 +964,7 @@ class GeneratingFunction(Distribution):
             for _, state in marginal:
                 x = self.filter(parse_expr(f'{base}={state[base]}'))._function
                 res -= x
-                res += x.subs(update_var, 1) * update_var ** (state[base] ** pow_2)
+                res += _substitute_one(x, update_var) * update_var ** (state[base] ** pow_2)
 
         # literal to the power of a variable
         elif pow_2 in self._variables:
@@ -979,11 +978,11 @@ class GeneratingFunction(Distribution):
             for _, state in marginal:
                 x = self.filter(parse_expr(f'{exp}={state[exp]}'))._function
                 res -= x
-                res += x.subs(update_var, 1) * update_var ** (pow_1 ** state[exp])
+                res += _substitute_one(x, update_var) * update_var ** (pow_1 ** state[exp])
 
         # literal to the power of a literal
         else:
-            res = res.subs(update_var, 1) * update_var ** (pow_1 ** pow_2)
+            res = _substitute_one(res, update_var) * update_var ** (pow_1 ** pow_2)
 
         return GeneratingFunction(
             res,
