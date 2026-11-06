@@ -365,7 +365,7 @@ export function renderSetup(container, ctx) {
       (v) => { options.normalize = v; onChange(); }),
     toggleRow("Simplify expressions", "Slower, but gives shorter closed forms.", options.simplification,
       (v) => { options.simplification = v; onChange(); }),
-    toggleRow("Record each step", "Keep the distribution after every top-level instruction.", options.recordSteps,
+    toggleRow("Record each step", "Record the trace for the Steps tab: the distribution at each instruction, loop iterates and certificate checks.", options.recordSteps,
       (v) => { options.recordSteps = v; onChange(); }),
     numberRow("Coefficients per marginal", "How many values the charts and tables show.", options.coefficients,
       { min: 0, max: meta.limits.max_coefficients }, (v) => { options.coefficients = v; onChange(); }),

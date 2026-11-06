@@ -63,6 +63,19 @@ const appTheme = EditorView.theme({
   },
   ".cm-button": { backgroundImage: "none", backgroundColor: "var(--fill)", color: "var(--text)", border: "none", borderRadius: "var(--radius-control)" },
   ".cm-placeholder": { color: "var(--text-2)", fontFamily: "var(--font-ui)" },
+  // room left of the code for the breakpoint (●) and current-step (▶) markers
+  ".cm-line": { position: "relative", paddingLeft: "20px" },
+  ".cm-step-line": { backgroundColor: "var(--step-line)" },
+  ".cm-step-range": { outline: "1px solid var(--step-outline)", borderRadius: "2px" },
+  ".cm-step-first::before": {
+    content: '"▶"', position: "absolute", left: "10px", top: "0", color: "var(--accent)", fontSize: "9px",
+    lineHeight: "inherit",
+  },
+  ".cm-breakpoint::after": {
+    content: '"●"', position: "absolute", left: "1px", top: "0", color: "var(--breakpoint)", fontSize: "10px",
+    lineHeight: "inherit",
+  },
+  ".cm-lineNumbers .cm-gutterElement:hover": { color: "var(--text)", cursor: "pointer" },
 });
 
 // CodeMirror picks its own defaults for anything the theme does not set from this flag; it follows
@@ -154,6 +167,75 @@ function buildAnnotations(state, { loops = [], queries = [] }) {
   return Decoration.set(ranges, true);
 }
 
+// ---- stepper: current step and breakpoints ----------------------------------------------
+
+const setStep = StateEffect.define();
+
+/** The instruction of the step shown in the stepper: its lines get a background, its text a frame. */
+const stepField = StateField.define({
+  create: () => Decoration.none,
+  update(decorations, transaction) {
+    let result = decorations.map(transaction.changes);
+    for (const effect of transaction.effects) {
+      if (effect.is(setStep)) result = effect.value;
+    }
+    return result;
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
+
+function buildStep(state, step) {
+  if (!step?.line || step.line > state.doc.lines) return Decoration.none;
+  const doc = state.doc;
+  const first = doc.line(step.line);
+  const endLine = doc.line(Math.min(Math.max(step.end_line || step.line, step.line), doc.lines));
+  const from = Math.min(first.to, first.from + Math.max(0, (step.column || 1) - 1));
+  let to = step.end_column ? Math.min(endLine.to, endLine.from + Math.max(0, step.end_column - 1)) : endLine.to;
+  if (to <= from) to = Math.min(first.to, from + 1);
+  const ranges = [Decoration.line({ class: "cm-step-line cm-step-first", attributes: { "data-step": step.label || "" } }).range(first.from)];
+  for (let n = step.line + 1; n <= endLine.number; n += 1) {
+    ranges.push(Decoration.line({ class: "cm-step-line" }).range(doc.line(n).from));
+  }
+  if (to > from) ranges.push(Decoration.mark({ class: "cm-step-range" }).range(from, to));
+  return Decoration.set(ranges, true);
+}
+
+const toggleBreakpointEffect = StateEffect.define();
+const setBreakpointsEffect = StateEffect.define();
+
+/** Lines with a breakpoint (as line decorations, so they move with edits). */
+const breakpointField = StateField.define({
+  create: () => Decoration.none,
+  update(decorations, transaction) {
+    let result = decorations.map(transaction.changes);
+    for (const effect of transaction.effects) {
+      if (effect.is(setBreakpointsEffect)) result = effect.value;
+      if (effect.is(toggleBreakpointEffect)) {
+        const position = effect.value;
+        let found = false;
+        result.between(position, position, () => { found = true; });
+        result = found
+          ? result.update({ filter: (from) => from !== position })
+          : result.update({ add: [breakpointMark.range(position)], sort: true });
+      }
+    }
+    return result;
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
+
+const breakpointMark = Decoration.line({ class: "cm-breakpoint", attributes: { "aria-label": "Breakpoint" } });
+
+function breakpointLines(state) {
+  const lines = [];
+  const iter = state.field(breakpointField).iter();
+  while (iter.value) {
+    lines.push(state.doc.lineAt(iter.from).number);
+    iter.next();
+  }
+  return [...new Set(lines)].sort((a, b) => a - b);
+}
+
 // ---- completion ------------------------------------------------------------------------
 
 // ---- syntax ---------------------------------------------------------------------------
@@ -206,10 +288,17 @@ function languageFor(syntax) {
 }
 
 /** onSyntaxChange(syntax) is called whenever the syntax changes, also by undo and redo. */
-export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSyntaxChange, onRun, onStop } = {}) {
+export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSyntaxChange, onRun, onStop,
+  onBreakpointsChange, stepKeys = {} } = {}) {
+  const toggleAt = (view, position) => {
+    view.dispatch({ effects: toggleBreakpointEffect.of(view.state.doc.lineAt(position).from) });
+    return true;
+  };
   const shortcuts = keymap.of([
     { key: "Mod-Enter", run: () => { onRun?.(); return true; } },
     { key: "Mod-.", run: () => { onStop?.(); return true; } },
+    { key: "F9", run: (view) => toggleAt(view, view.state.selection.main.head) },
+    ...Object.entries(stepKeys).map(([key, run]) => ({ key, run: () => run() !== false })),
   ]);
   const appearance = new Compartment();
   const language = new Compartment();
@@ -217,7 +306,12 @@ export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSy
     shortcuts,
     appTheme,
     appearance.of(EditorView.darkTheme.of(Boolean(darkScheme?.matches))),
-    lineNumbers(),
+    lineNumbers({
+      domEventHandlers: {
+        // a click on a line number sets or clears a breakpoint on that line (F9 at the cursor does the same)
+        mousedown: (view, line) => toggleAt(view, line.from),
+      },
+    }),
     highlightActiveLineGutter(),
     history(),
     drawSelection(),
@@ -234,6 +328,8 @@ export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSy
     syntaxHighlighting(highlightStyle),
     lintGutter(),
     annotationField,
+    stepField,
+    breakpointField,
     EditorView.contentAttributes.of({ spellcheck: "false", autocorrect: "off", autocapitalize: "off" }),
     EditorView.updateListener.of((update) => {
       const before = update.startState.field(syntaxField);
@@ -244,6 +340,10 @@ export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSy
         onSyntaxChange?.(after);
       }
       if (update.docChanged) onChange?.(update.state.doc.toString());
+      const marksBefore = update.startState.field(breakpointField);
+      if (marksBefore !== update.state.field(breakpointField) || (update.docChanged && marksBefore.size)) {
+        onBreakpointsChange?.(breakpointLines(update.state));
+      }
     }),
   ];
   const createState = (text, initialSyntax) => EditorState.create({
@@ -298,6 +398,24 @@ export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSy
       const line = doc.line(Math.min(Math.max(1, lineNumber), doc.lines));
       view.dispatch({ selection: { anchor: line.from }, effects: EditorView.scrollIntoView(line.from, { y: "center" }) });
       view.focus();
+    },
+    /** Highlights the instruction of a step ({line, column, end_line, end_column, label}); null clears it. */
+    showStep(step, { scroll = true } = {}) {
+      const effects = [setStep.of(buildStep(view.state, step))];
+      if (step?.line && scroll && step.line <= view.state.doc.lines) {
+        effects.push(EditorView.scrollIntoView(view.state.doc.line(step.line).from, { y: "nearest", yMargin: 48 }));
+      }
+      view.dispatch({ effects });
+    },
+    getBreakpoints: () => breakpointLines(view.state),
+    toggleBreakpoint(lineNumber) {
+      if (lineNumber >= 1 && lineNumber <= view.state.doc.lines) toggleAt(view, view.state.doc.line(lineNumber).from);
+    },
+    setBreakpoints(lines) {
+      const doc = view.state.doc;
+      const marks = [...new Set(lines)].filter((n) => n >= 1 && n <= doc.lines).sort((a, b) => a - b)
+        .map((n) => breakpointMark.range(doc.line(n).from));
+      view.dispatch({ effects: setBreakpointsEffect.of(Decoration.set(marks, true)) });
     },
     focus: () => view.focus(),
   };

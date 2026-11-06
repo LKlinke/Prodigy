@@ -5,7 +5,7 @@ import { formatNumber, formatValue } from "./format.js";
 
 let patternCounter = 0;
 
-function hatchPattern(id) {
+export function hatchPattern(id) {
   return s("pattern", { id, width: 6, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" },
     s("rect", { width: 6, height: 6, class: "hatch-bg" }),
     s("line", { x1: 0, y1: 0, x2: 0, y2: 6, class: "hatch-line" }));
@@ -40,7 +40,7 @@ export function intervalBar({ value, lower, upper, bound }, label) {
     role: "img", "aria-label": label }, ...parts);
 }
 
-function niceMax(value) {
+export function niceMax(value) {
   if (!(value > 0)) return 1;
   const exponent = Math.floor(Math.log10(value));
   const base = 10 ** exponent;

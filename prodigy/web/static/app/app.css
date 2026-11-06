@@ -47,6 +47,9 @@
   --focus-ring: 0 0 0 3px rgba(0, 102, 204, 0.35);
   --selection: rgba(0, 102, 204, 0.18);
   --active-line: rgba(118, 118, 128, 0.06);
+  --step-line: rgba(0, 102, 204, 0.09);
+  --step-outline: rgba(0, 102, 204, 0.55);
+  --breakpoint: #C4161C;
 
   --data: #48484A;
   --exact: #1F7A35;
@@ -85,6 +88,9 @@
     --focus-ring: 0 0 0 3px rgba(74, 163, 255, 0.45);
     --selection: rgba(74, 163, 255, 0.28);
     --active-line: rgba(255, 255, 255, 0.045);
+    --step-line: rgba(74, 163, 255, 0.14);
+    --step-outline: rgba(74, 163, 255, 0.7);
+    --breakpoint: #FF6B61;
 
     --data: #C7C7CC;
     --exact: #4CD47A;
