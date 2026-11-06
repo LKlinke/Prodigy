@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import contextlib
 import functools
 import logging
-from typing import Callable, Optional, Union, Sequence, get_args
+import time
+from typing import Callable, Iterator, Optional, Union, Sequence, get_args
 
 from prodigy.pgcl import Program, Instr, SkipInstr, AbortInstr, WhileInstr, LoopInstr, QueryInstr, Query, \
     ObserveInstr, ChoiceInstr, AsgnInstr, IfInstr, Binop, BinopExpr, NatLitExpr, VarExpr
@@ -20,7 +22,6 @@ from prodigy.analysis.instructionhandler.queryblock_handler import QueryBlockHan
 from prodigy.analysis.instructionhandler.while_handler import WhileHandler
 from prodigy.analysis.session import current_session
 from prodigy.distribution import Distribution, MarginalType
-from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
@@ -50,9 +51,39 @@ def compute_discrete_distribution(
 
     :param step_callback: if given, called with (instruction, distribution, error_prob) after each
         top-level instruction.
+
+    With ``config.show_intermediate_steps`` (or ``config.step_wise``) every step of the trace
+    (:mod:`prodigy.analysis.trace`) is printed when it is done, with its line (and the analysis
+    waits for Enter after each step); a session that records steps itself is left alone.
     """
-    with config.activate():
+    with config.activate(), _printed_steps(config):
         return _compute_discrete_distribution(program, dist, config, step_callback)
+
+
+@contextlib.contextmanager
+def _printed_steps(config: ForwardAnalysisConfig) -> Iterator[None]:
+    """Prints the steps of the trace while the analysis runs (``--intermediate-results``, ``--stepwise``)."""
+    if not (config.show_intermediate_steps or config.step_wise):
+        yield
+        return
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.trace import TraceLimits, Tracer, print_step
+    session = current_session()
+    if session.tracer is not None:
+        yield
+        return
+
+    def on_step(step):
+        print_step(step)
+        if config.step_wise:
+            session.provider.next_step()
+
+    session.tracer = Tracer(session, TraceLimits(coefficients=0), on_step=on_step)
+    try:
+        with session.activate():
+            yield
+    finally:
+        session.tracer = None
 
 
 def _compute_discrete_distribution(
@@ -84,7 +115,13 @@ def _compute_discrete_distribution(
             dist, error_prob = compute_semantics([instr], prog_info, dist, error_prob, config)
             step_callback(instr, dist, error_prob)
     if config.normalize:
+        tracer = current_session().tracer
+        started = time.perf_counter()
+        before, error_before = dist, error_prob
         dist, error_prob = condition_distribution(dist, error_prob, config)
+        if tracer is not None and not error_before.is_zero_dist():
+            tracer.pseudo_step("normalize", "condition on the observations", before, error_before, dist,
+                               error_prob, started)
     if block_variables and not dist.get_variables() <= set(block_variables):
         # they are 0 here, so this only removes them from the variables of the result
         dist = dist.marginal(*block_variables, method=MarginalType.EXCLUDE)
@@ -98,36 +135,41 @@ def compute_semantics(
         error_prob: Distribution,
         config=ForwardAnalysisConfig()
 ) -> tuple[Distribution, Distribution]:
-    def _show_steps(inp: tuple[Distribution, Distribution],
-                    instr: Instr) -> tuple[Distribution, Distribution]:
-        dist, error_prob = inp
-        res, error_prob = compute_semantics(instr, prog_info, dist,
-                                            error_prob, config)
-        if isinstance(instr, (WhileInstr, IfInstr, LoopInstr)):
-            print("\n")
-        output = f"\n{Style.BLUE}Instruction:{Style.RESET} {instr}\t {Style.GREEN}Result:{Style.RESET} {res}"
-        print(output, prog_info.so_vars)
-        if config.step_wise:
-            current_session().provider.next_step()
-        return res, error_prob
-
-    def _dont_show_steps(
-            inp: tuple[Distribution, Distribution],
-            instr: Instr) -> tuple[Distribution, Distribution]:
-        dist, error_prob = inp
-        return compute_semantics(instr, prog_info, dist, error_prob,
-                                 config)
-
-    if not isinstance(instruction, list):
-        current_session().on_instruction(instruction)
-
+    """The semantics of ``instruction`` (or a list of instructions) applied to ``distribution``.
+    Every single instruction passes the session (:meth:`AnalysisSession.on_instruction`) and its
+    step trace, if one is recorded (:mod:`prodigy.analysis.trace`)."""
     if isinstance(instruction, list):
-        func = _show_steps if config.show_intermediate_steps else _dont_show_steps
-        return functools.reduce(func, instruction,
-                                (distribution, error_prob))
+        return functools.reduce(
+            lambda state, instr: compute_semantics(instr, prog_info, state[0], state[1], config),
+            instruction, (distribution, error_prob))
 
-    elif isinstance(instruction, SkipInstr):
+    session = current_session()
+    session.on_instruction(instruction)
+    tracer = session.tracer
+    token = tracer.begin(instruction, distribution, error_prob) if tracer is not None else None
+    if token is None:
+        return _semantics(instruction, prog_info, distribution, error_prob, config)
+    assert tracer is not None
+    try:
+        result = _semantics(instruction, prog_info, distribution, error_prob, config)
+    except BaseException as exc:
+        tracer.fail(token, exc)
+        raise
+    tracer.finish(token, *result)
+    return result
+
+
+def _semantics(
+        instruction: Union[Instr, Sequence[Instr]],
+        prog_info: ProgramInfo,
+        distribution: Distribution,
+        error_prob: Distribution,
+        config: ForwardAnalysisConfig
+) -> tuple[Distribution, Distribution]:
+    # pylint: disable=too-many-return-statements
+    if isinstance(instruction, SkipInstr):
         return distribution, error_prob
+
 
     elif isinstance(instruction, AbortInstr):
         return distribution.factory().zero(

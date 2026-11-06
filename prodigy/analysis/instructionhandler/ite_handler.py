@@ -9,9 +9,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.analysis.session import current_session
 from prodigy.distribution import Distribution
-from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
@@ -34,26 +32,10 @@ class ITEHandler(InstructionHandler):
         sat_part = distribution.filter(instruction.cond)
         non_sat_part = distribution - sat_part
         zero = error_prob * "0"
-        if config.show_intermediate_steps:
-            cond = current_session().spell(instruction.cond)
-            print(
-                f"\n{Style.YELLOW}Filter:{Style.RESET} {cond} \t " \
-                f"{Style.GREEN}Result:{Style.RESET} {sat_part}"
-            )
-            print(
-                f"\n{Style.YELLOW} If-branch: ({cond}){Style.RESET}"
-            )
-            if_branch, if_error_prob = analyzer(
-                instruction.true, prog_info, sat_part, zero, config)
-            print(f"\n{Style.YELLOW} Else-branch:{Style.RESET}")
-            else_branch, else_error_prob = analyzer(
-                instruction.false, prog_info, non_sat_part, zero, config)
-            print(f"\n{Style.YELLOW}Combined:{Style.RESET}")
-        else:
-            if_branch, if_error_prob = analyzer(
-                instruction.true, prog_info, sat_part, zero, config)
-            else_branch, else_error_prob = analyzer(
-                instruction.false, prog_info, non_sat_part, zero, config)
+        if_branch, if_error_prob = analyzer(
+            instruction.true, prog_info, sat_part, zero, config)
+        else_branch, else_error_prob = analyzer(
+            instruction.false, prog_info, non_sat_part, zero, config)
         result = if_branch + else_branch
         res_error_prob = error_prob + if_error_prob + else_error_prob
         logger.info("Combining if-branches.\n%s", instruction)

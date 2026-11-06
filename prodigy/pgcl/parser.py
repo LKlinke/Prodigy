@@ -36,6 +36,7 @@ from prodigy.pgcl.ast.expressions import InferExpr, SampleExpr
 from prodigy.pgcl.ast.instructions import QueryInstr, AbortInstr
 from prodigy.pgcl.ast.types import DistributionType
 from prodigy.pgcl.ast.walk import Walk, walk_expr
+from prodigy.pgcl.positions import set_span, span_from_meta
 from prodigy.pgcl.syntax_errors import ProgramSyntaxError, position, removed_construct
 from prodigy.pgcl.util.lark_expr_parser import (atom, build_expr_parser, infixl,
                                             infixr, prefix)
@@ -157,11 +158,9 @@ See also: :module:`prodigy.pgcl.util.lark_expr_parser`
 
 _PGCL_GRAMMAR = _PGCL_BASE_GRAMMAR + "\n" + textwrap.indent(
     build_expr_parser(_OPERATOR_TABLE, "expression"), '    ')
-# Since lark 1.0, every rule that parsing starts at must be declared here.
-_PARSER = Lark(_PGCL_GRAMMAR, start=["start", "expression"])
-
-# The parser with source positions, only built when needed (see parse_pgcl_with_lines).
-_POSITIONS_PARSER: Optional[Lark] = None
+# Since lark 1.0, every rule that parsing starts at must be declared here. Positions are kept for
+# the source spans of instructions (prodigy.pgcl.positions) and for parse_pgcl_with_lines.
+_PARSER = Lark(_PGCL_GRAMMAR, start=["start", "expression"], propagate_positions=True)
 # While parse_pgcl_with_lines runs: id of a declaration or instruction -> (node, first line, last line)
 _LINES: ContextVar[Optional[Dict[int, Tuple[object, int, int]]]] = ContextVar("_LINES", default=None)
 
@@ -185,10 +184,12 @@ def _parse_tree(parser: Lark, code: str, start: str) -> Tree:
 
 
 def _record_lines(parse):
-    """Records the lines of the parsed node while :func:`parse_pgcl_with_lines` runs."""
+    """Attaches the source span to the parsed node (:mod:`prodigy.pgcl.positions`) and records its
+    lines while :func:`parse_pgcl_with_lines` runs."""
     @functools.wraps(parse)
     def wrapper(t: Tree):
         node = parse(t)
+        set_span(node, span_from_meta(t.meta))
         lines = _LINES.get()
         if lines is not None and not t.meta.empty:
             lines[id(node)] = (node, t.meta.line, t.meta.end_line)
@@ -654,13 +655,10 @@ def parse_pgcl_with_lines(code: str) -> Tuple[Program, Dict[int, Tuple[object, i
         >>> lines[id(program.instructions[0])][1:], lines[id(program.instructions[0].body[0])][1:]
         ((2, 4), (3, 3))
     """
-    global _POSITIONS_PARSER  # pylint: disable=global-statement
-    if _POSITIONS_PARSER is None:
-        _POSITIONS_PARSER = Lark(_PGCL_GRAMMAR, start=["start", "expression"], propagate_positions=True)
     lines: Dict[int, Tuple[object, int, int]] = {}
     token = _LINES.set(lines)
     try:
-        program = _parse_program(_parse_tree(_POSITIONS_PARSER, code, "start"))
+        program = _parse_program(_parse_tree(_PARSER, code, "start"))
     finally:
         _LINES.reset(token)
     return program, lines

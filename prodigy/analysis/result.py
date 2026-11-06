@@ -16,7 +16,9 @@ the web GUI, a language server). Its top-level keys::
     bounds       kind, residual_mass, explanation
     queries      kind, expr, value, lower, upper, bound, line, data
     loops        id, line, cond, strategy, params, kind, residual_mass, certificates, ...
-    steps, warnings, log, timing
+    steps        index, line, column, kind, instruction, before, after, bound, time, loop, watches, ...
+    trace        limits, watches, hints
+    warnings, log, timing
 
 Exact values are strings in Prodigy's notation; every exact value that is a number also
 comes as ``..._float``. Expressions taken from the program (query expressions, loop guards,
@@ -628,6 +630,8 @@ class AnalysisResult:
     queries: List[QueryResult] = field(default_factory=list)
     loops: List[Dict[str, Any]] = field(default_factory=list)
     steps: List[Dict[str, Any]] = field(default_factory=list)
+    trace: Optional[Dict[str, Any]] = None
+    """Limits, watches and diagnosis hints of the step trace (see :mod:`prodigy.analysis.trace`)."""
     warnings: List[str] = field(default_factory=list)
     log: str = ""
     timing: Dict[str, float] = field(default_factory=dict)
@@ -652,6 +656,7 @@ class AnalysisResult:
             "queries": [q.to_json() for q in self.queries],
             "loops": self.loops,
             "steps": self.steps,
+            "trace": self.trace,
             "warnings": self.warnings,
             "log": self.log,
             "timing": self.timing,
@@ -695,9 +700,7 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
             else:
                 dist = session.input_distribution
             analysis_start = time.perf_counter()
-            final, error_prob = compute_discrete_distribution(
-                program, dist, config,
-                step_callback=session.record_step if session.record_steps else None)
+            final, error_prob = compute_discrete_distribution(program, dist, config)
             analysis_time = time.perf_counter() - analysis_start
             residual, residual_float = exact_and_float(session.residual)
             result.bounds = {
@@ -747,6 +750,7 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
     result.loops = [record.to_json() for record in session.loop_records.values()]
     result.loops.sort(key=lambda r: (r["id"] is None, r["id"] if r["id"] is not None else 0))
     result.steps = session.steps
+    result.trace = session.tracer.to_json() if session.tracer is not None else None
     result.warnings = list(session.warnings)
     result.log = _ANSI.sub("", session.log.getvalue())
     result.timing["analysis"] = round(analysis_time, 6)

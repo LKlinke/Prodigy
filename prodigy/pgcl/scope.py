@@ -56,6 +56,7 @@ from prodigy.pgcl.ast import (AsgnInstr, BoolLitExpr, BoolType, ChoiceInstr,
                               LocalDeclInstr, LoopInstr, NatLitExpr, NatType,
                               OptimizationQuery, Program, QueryInstr,
                               SampleExpr, Type, VarDecl, VarExpr, WhileInstr)
+from prodigy.pgcl.positions import copy_span
 from prodigy.pgcl.ast.walk import Walk, instr_exprs, walk_expr, walk_instrs
 from prodigy.pgcl.util.ref import Mut
 
@@ -167,9 +168,12 @@ class _Lowering:
                 f"names.", instr)
         if instr.value is not None:
             self.check_uses(_expr_names(instr.value), visible)
-        return AsgnInstr(name, _zero(typ) if instr.value is None else instr.value)
+        return copy_span(instr, AsgnInstr(name, _zero(typ) if instr.value is None else instr.value))
 
     def _compound(self, instr: Instr, visible: Set[str]) -> Instr:
+        return copy_span(instr, self._lower_compound(instr, visible))
+
+    def _lower_compound(self, instr: Instr, visible: Set[str]) -> Instr:
         if isinstance(instr, WhileInstr):
             return attr.evolve(instr, body=self.block(instr.body, visible))
         if isinstance(instr, LoopInstr):

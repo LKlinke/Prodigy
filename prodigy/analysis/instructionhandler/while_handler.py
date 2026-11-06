@@ -9,6 +9,7 @@ they show up in the same menu, with the same prompts, as before.
 from __future__ import annotations
 
 import dataclasses
+import functools
 import json
 import logging
 from fractions import Fraction
@@ -68,6 +69,11 @@ def _mass(dist: Distribution) -> sympy.Expr:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import sym
     return sym(dist.get_probability_mass())
+
+
+def _exit_part(dist: Distribution, cond) -> Distribution:
+    """The part of ``dist`` that leaves a loop with guard ``cond``."""
+    return dist - dist.filter(cond)
 
 
 def _require_unconditioned(task: LoopTask) -> None:
@@ -254,6 +260,7 @@ def _strategy_unroll(task: LoopTask) -> LoopOutcome:
 
     sat_part = task.distribution.filter(instruction.cond)
     non_sat_part = task.distribution - sat_part
+    task.iterate(0, non_sat_part, inside=sat_part)
     fixpoint_after = None
     for i in range(max_iter):
         task.progress(i + 1, max_iter)
@@ -269,6 +276,7 @@ def _strategy_unroll(task: LoopTask) -> LoopOutcome:
             break
         non_sat_part += iterated_non_sat
         sat_part = iterated_sat
+        task.iterate(i + 1, non_sat_part, inside=sat_part)
 
     remaining = _mass(sat_part)
     certificate: Dict[str, Any] = {"type": "unrolling", "iterations": max_iter,
@@ -300,6 +308,7 @@ def _strategy_mass_threshold(task: LoopTask) -> LoopOutcome:
     non_sat_part = task.distribution - sat_part
     captured_part = non_sat_part + error_prob
     iterations = 0
+    task.iterate(0, non_sat_part, inside=sat_part)
     while Fraction(captured_part.get_probability_mass()
                    ) < captured_probability_threshold:
         if max_iterations is not None and iterations >= max_iterations:
@@ -315,6 +324,7 @@ def _strategy_mass_threshold(task: LoopTask) -> LoopOutcome:
         captured_part = non_sat_part + error_prob
         sat_part = iterated_sat
         iterations += 1
+        task.iterate(iterations, non_sat_part, inside=sat_part)
         task.progress(min(100, int(
             (Fraction(captured_part.get_probability_mass()) /
              captured_probability_threshold) * 100)), 100,
@@ -339,14 +349,20 @@ def _strategy_evt_iterate(task: LoopTask) -> LoopOutcome:
     logger.debug("Compute %i iterations of EVT operator", max_iter)
 
     evt = distribution * 0
+    mass_in = _mass(distribution)
     with task.session.sub_analysis("EVT iteration") as scope:
         for i in range(max_iter):
             logger.debug("Iteration %i", i)
             task.progress(i + 1, max_iter)
             evt = distribution + \
                   analyzer(instruction.body, prog_info, evt.filter(instruction.cond), error_prob, config)[0]
+            # the terminating part of the i-th iterate, a lower bound unless inner loops were
+            # over-approximated; the mass not accounted for is what has not left the loop yet
+            task.iterate(i + 1, functools.partial(_exit_part, evt, instruction.cond),
+                         residual=lambda exit_dist: mass_in - _mass(exit_dist),
+                         kind=Bound.LOWER if scope.kind in (Bound.EXACT, Bound.LOWER) else Bound.UNKNOWN)
     result = evt - evt.filter(instruction.cond)
-    remaining = sympy.simplify(_mass(distribution) - _mass(result))
+    remaining = sympy.simplify(mass_in - _mass(result))
     certificate = {"type": "evt_iteration", "iterations": max_iter, "remaining_mass": str(remaining),
                    "evt": str(evt)}
     if scope.kind not in (Bound.EXACT, Bound.LOWER):

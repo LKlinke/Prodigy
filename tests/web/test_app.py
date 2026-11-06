@@ -131,3 +131,32 @@ def test_from_heuristics_with_chosen_heuristics(client):
     assert status["state"] == "done"
     certificate = status["result"]["loops"][0]["certificates"][0]
     assert certificate["synthesis_strategy"] == "FROM_HEURISTICS" and certificate["invariant"] == "2*x + 1"
+
+
+def test_analysis_records_the_step_trace(client):
+    response = client.post("/api/analyze", json={
+        "source": GEOMETRIC, "engine": "sympy", "record_steps": True, "watches": ["Pr[c = 0]"], "step_iterations": 2,
+        "decisions": {"0": {"strategy": "unroll", "params": {"iterations": 4}}}}, headers=HOST)
+    assert response.status_code == 202
+    result = wait_for(client, response.get_json()["job"])["result"]
+    assert result["status"] == "ok"
+    steps = result["steps"]
+    assert [(s["line"], s["kind"]) for s in steps] == [(2, "assign"), (3, "while"), (4, "query")]
+    loop = steps[1]["loop"]
+    assert [i["iteration"] for i in loop["iterates"]][-1] == 4 and len(loop["iterates"]) <= 4
+    assert steps[1]["watches"][0]["lower"] == "1/2" and steps[1]["watches"][0]["upper"] == "9/16"
+    assert result["trace"]["watches"] == [{"text": "Pr[c = 0]", "kind": "probability"}]
+
+
+def test_bad_watches_are_rejected_before_running(client):
+    for payload in ({"watches": ["Pr[c = "]}, {"watches": "Pr[c = 0]"}, {"watches": ["Pr[c = 0]"] * 9},
+                    {"step_iterations": 0}, {"step_iterations": True}):
+        response = client.post("/api/analyze", json={"source": GEOMETRIC, "record_steps": True, **payload},
+                               headers=HOST)
+        assert response.status_code == 400, payload
+    # a name that is not a variable is found once the program is parsed
+    response = client.post("/api/analyze", json={
+        "source": GEOMETRIC, "record_steps": True, "watches": ["Pr[y = 0]"],
+        "decisions": {"0": {"strategy": "unroll", "params": {"iterations": 2}}}}, headers=HOST)
+    result = wait_for(client, response.get_json()["job"])["result"]
+    assert result["status"] == "error" and "not a variable" in result["error"]["message"]
