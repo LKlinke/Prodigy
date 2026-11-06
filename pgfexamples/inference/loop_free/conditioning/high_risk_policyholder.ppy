@@ -1,0 +1,18 @@
+# Example taken from:
+# Dominik Geißler and Tobias Winkler: "Probabilistic programming meets automata theory: Exact
+# inference using weighted automata". Theoretical Computer Science, Volume 1087, 2026, 116224,
+# ISSN 0304-3975, https://doi.org/10.1016/j.tcs.2026.116224.
+
+alpha: nat;  # 0: low risk, 1: high risk
+x: nat;  # number of claims
+
+alpha = bernoulli(1/10);
+if (alpha == 0) {
+    x = iid(geometric(1/2), 1);  # negative binomial distribution NB(1, 1/2)
+} else {
+    x = iid(geometric(1/2), 2);  # negative binomial distribution NB(2, 1/2)
+}
+
+observe(x >= 2);  # a given policyholder has filed at least 2 claims
+query Pr[alpha == 1];
+# expected: 2/11
