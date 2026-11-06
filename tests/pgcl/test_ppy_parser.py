@@ -148,8 +148,8 @@ def test_initial_value_needs_single_variable():
 
 
 def test_simple_statements():
-    _agree("x: nat; skip; abort; x = 1; tick(x + 1); observe(x > 0);",
-           "nat x; skip; abort; x := 1; tick(x + 1); observe(x > 0);")
+    _agree("x: nat; skip; abort; x = 1; observe(x > 0);",
+           "nat x; skip; abort; x := 1; observe(x > 0);")
 
 
 def test_empty_statements_are_ignored():
@@ -238,7 +238,6 @@ def test_query_block():
     ("0.5", "0.5"),
     ("∞", "∞"),
     ("\\infty", "∞"),
-    ("[x == 1]", "[x = 1]"),
     ("not x < 2 and y", "(not (x < 2)) & y"),
     ("x < 2 or y >= 3 and z", "(x < 2) || ((y >= 3) & z)"),
     ("x <= 1 and x > 0", "x <= 1 & x > 0"),
@@ -262,7 +261,7 @@ def test_floor_division_is_parsed_and_checked():
     ("x, y: nat; x = x // y;", "only implemented for a positive natural constant q"),
     ("x: nat; x = x // 0;", "only implemented for a positive natural constant q"),
     ("x: nat; x = x // 1.5;", "only implemented for a positive natural constant q"),
-    ("x: nat; param p: real; x = [p == 1] // 2;", "only implemented for a natural number e"),
+    ("x: nat; param p: real; x = p // 2;", "only implemented for a natural number e"),
     ("x: nat[0, 10 // 2];", "not implemented in bounds"),
 ])
 def test_floor_division_rejected(source, message):

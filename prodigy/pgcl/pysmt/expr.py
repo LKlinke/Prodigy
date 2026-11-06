@@ -10,7 +10,7 @@ Translation of pGCL expressions to pySMT formulas.
 from fractions import Fraction
 
 from pysmt.fnode import FNode
-from pysmt.shortcuts import (FALSE, LE, LT, TRUE, And, EqualsOrIff, Int, Ite,
+from pysmt.shortcuts import (FALSE, LE, LT, TRUE, And, EqualsOrIff, Int,
                              Minus, Not, Or, Plus, Real, Times, ToReal, Pow,
                              get_type)
 from pysmt.typing import INT
@@ -78,8 +78,6 @@ def expr_to_pysmt(context: TranslationContext,
                                 allow_infinity=allow_infinity)
         if expr.operator == Unop.NEG:
             return Not(operand)
-        elif expr.operator == Unop.IVERSON:
-            return Ite(operand, Real(1), Real(0))
         elif expr.operator == Unop.MINUS:
             return Times(Real(-1), operand)
     elif isinstance(expr, BinopExpr):

@@ -117,21 +117,6 @@ class LoopInstr(InstrClass):
 
 
 @attr.s
-class TickInstr(InstrClass):
-    """
-    An instruction that does not modify the program state, but only increases
-    the runtime by the value of the expression in the current state. Its only
-    use is its translation to :class:`TickExpr` by weakest pre-expectations.
-
-    The type of ``expr`` must be :class:`NatType`.
-    """
-    expr: Expr = attr.ib()
-
-    def __str__(self) -> str:
-        return f"tick({self.expr});"
-
-
-@attr.s
 class ObserveInstr(InstrClass):
     """
     Updates the current distribution according to the observation (forward analysis only).
@@ -238,6 +223,6 @@ Query = Union[ProbabilityQueryInstr, ExpectationInstr, PlotInstr, PrintInstr,
 """Union type for all query objects. See :class:`QueryInstr` for use with isinstance."""
 
 Instr = Union[SkipInstr, AbortInstr, WhileInstr, IfInstr, AsgnInstr, ChoiceInstr,
-              LoopInstr, TickInstr, ObserveInstr, QueryInstr, LocalDeclInstr,
+              LoopInstr, ObserveInstr, QueryInstr, LocalDeclInstr,
               Query]
 """Union type for all instruction objects. See :class:`InstrClass` for use with isinstance."""

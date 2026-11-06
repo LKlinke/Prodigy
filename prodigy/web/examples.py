@@ -238,8 +238,12 @@ def convert(source: str) -> Dict[str, Any]:
 
     from prodigy.pgcl.converter import convert_pgcl
     from prodigy.pgcl.ppy_printer import PpyPrintError
+    from prodigy.pgcl.syntax_errors import ProgramSyntaxError
     try:
         conversion = convert_pgcl(source)
+    except ProgramSyntaxError as exc:
+        raise ConversionError(f"The program is not valid pGCL ({exc}); fix it before converting.",
+                              exc.line, exc.column) from exc
     except UnexpectedInput as exc:
         raise ConversionError(f"The program is not valid pGCL (line {exc.line}, column {exc.column}); "
                               "fix it before converting.", exc.line, exc.column) from exc

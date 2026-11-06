@@ -8,7 +8,7 @@ from typing import Iterable, List, Set, Tuple
 from prodigy.pgcl import (AsgnInstr, Binop, BinopExpr, BoolLitExpr,
                            ChoiceInstr, ExpectationInstr, FunctionCallExpr,
                            IfInstr, Instr, LoopInstr, NatLitExpr, NatType,
-                           ObserveInstr, Program, SkipInstr, TickInstr, Var,
+                           ObserveInstr, Program, SkipInstr, Var,
                            VarExpr, WhileInstr)
 from prodigy.pgcl.ast.walk import Walk, walk_instrs
 
@@ -22,8 +22,6 @@ def _statement_handling(statement: Instr,
                         graph: List[Tuple[Var, Var]]) -> List[Tuple[Var, Var]]:
     """Together with _statement_list_handling, inductively looks at program statements for dependencies."""
     if isinstance(statement, SkipInstr):
-        return graph
-    elif isinstance(statement, TickInstr):
         return graph
     elif isinstance(statement, AsgnInstr):
         expr_vars = _vars_of_expr(statement.rhs)

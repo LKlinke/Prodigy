@@ -19,7 +19,6 @@ def test_correct_program():
         } {
             {
                 loop(300) {
-                    // tick(77)
                     skip
                 }
             } [y] {

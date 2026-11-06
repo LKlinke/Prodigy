@@ -29,12 +29,14 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import attr
 from lark import Lark, Tree
+from lark.exceptions import UnexpectedCharacters, UnexpectedInput, UnexpectedToken
 
 from prodigy.pgcl.ast import *
 from prodigy.pgcl.ast.expressions import InferExpr, SampleExpr
 from prodigy.pgcl.ast.instructions import QueryInstr, AbortInstr
 from prodigy.pgcl.ast.types import DistributionType
 from prodigy.pgcl.ast.walk import Walk, walk_expr
+from prodigy.pgcl.syntax_errors import ProgramSyntaxError, position, removed_construct
 from prodigy.pgcl.util.lark_expr_parser import (atom, build_expr_parser, infixl,
                                             infixr, prefix)
 from prodigy.pgcl.util.ref import Mut
@@ -67,7 +69,6 @@ _PGCL_BASE_GRAMMAR = """
                | "if" "(" expression ")" block "else"? block -> if
                | var ":=" rvalue                             -> assign
                | block "[" expression "]" block              -> choice
-               | "tick" "(" expression ")"                   -> tick
                | "observe" "(" expression ")"                -> observe
                | "loop" "(" INT ")" block                    -> loop
                | "query" "{" instructions "}"                -> query
@@ -145,7 +146,6 @@ _OPERATOR_TABLE = [[infixl("or", "||")], [infixl("and", "&")],
                    [
                        prefix("neg", "not "),
                        atom("parens", '"(" expression ")"'),
-                       atom("iverson", '"[" expression "]"'),
                        atom("literal", "literal"),
                        atom("var", "var"),
                        atom("function_call", "function_call")
@@ -164,6 +164,24 @@ _PARSER = Lark(_PGCL_GRAMMAR, start=["start", "expression"])
 _POSITIONS_PARSER: Optional[Lark] = None
 # While parse_pgcl_with_lines runs: id of a declaration or instruction -> (node, first line, last line)
 _LINES: ContextVar[Optional[Dict[int, Tuple[object, int, int]]]] = ContextVar("_LINES", default=None)
+
+
+def _parse_tree(parser: Lark, code: str, start: str) -> Tree:
+    """Parse ``code`` from the rule ``start``. A removed construct (see
+    :mod:`prodigy.pgcl.syntax_errors`) raises a :class:`ProgramSyntaxError`, other syntax errors
+    are Lark's."""
+    try:
+        return parser.parse(code, start=start)
+    except UnexpectedInput as exc:
+        removed = None
+        if isinstance(exc, UnexpectedCharacters):
+            removed = removed_construct(code, exc.pos_in_stream, "INT" in (exc.allowed or ()))
+        elif isinstance(exc, UnexpectedToken):
+            removed = removed_construct(code, exc.token.start_pos, "INT" in exc.expected)
+        if removed is None:
+            raise
+        message, offset = removed
+        raise ProgramSyntaxError(message + ".", *position(code, offset)) from None
 
 
 def _record_lines(parse):
@@ -340,8 +358,6 @@ def _parse_expr(t: Tree) -> Expr:
         return _LikelyExpr(expr0(), prob_expr)  # type:ignore
     elif t.data == 'neg':
         return UnopExpr(Unop.NEG, expr0())
-    elif t.data == 'iverson':
-        return UnopExpr(Unop.IVERSON, expr0())
     elif t.data == 'parens':
         return _parse_expr(_child_tree(t, 0))
     else:
@@ -466,8 +482,6 @@ def _parse_instr(t: Tree) -> Instr:
         return ChoiceInstr(_parse_expr(_child_tree(t, 1)),
                            _parse_instrs(_child_tree(t, 0)),
                            _parse_instrs(_child_tree(t, 2)))
-    elif t.data == 'tick':
-        return TickInstr(_parse_expr(_child_tree(t, 0)))
     elif t.data == 'observe':
         return ObserveInstr(_parse_expr(_child_tree(t, 0)))
     elif t.data == 'loop':
@@ -622,7 +636,7 @@ def parse_pgcl(code: str,
         from prodigy.pgcl.scope import \
             lower_block_scope  # pylint: disable=import-outside-toplevel
         return lower_block_scope(parse_ppy(code))
-    tree = _PARSER.parse(code, start="start")
+    tree = _parse_tree(_PARSER, code, "start")
     return _parse_program(tree)
 
 
@@ -646,7 +660,7 @@ def parse_pgcl_with_lines(code: str) -> Tuple[Program, Dict[int, Tuple[object, i
     lines: Dict[int, Tuple[object, int, int]] = {}
     token = _LINES.set(lines)
     try:
-        program = _parse_program(_POSITIONS_PARSER.parse(code, start="start"))
+        program = _parse_program(_parse_tree(_POSITIONS_PARSER, code, "start"))
     finally:
         _LINES.reset(token)
     return program, lines
@@ -656,8 +670,6 @@ def parse_expr(code: str) -> Expr:
     """
     Parse a pGCL expression.
 
-    As a program expression, it may not contain Iverson bracket expressions.
-
     .. doctest::
 
         >>> parse_expr("x < y & z")
@@ -666,29 +678,17 @@ def parse_expr(code: str) -> Expr:
         >>> parse_expr("[x]")
         Traceback (most recent call last):
             ...
-        Exception: parse_expr: Expression may not contain an Iverson bracket expression.
+        prodigy.pgcl.syntax_errors.ProgramSyntaxError: line 1, column 1: Iverson brackets '[g]' are not supported.
     """
-    tree = _PARSER.parse(code, start="expression")
-    expr = _parse_expr(tree)
-
-    for sub_expr in walk_expr(Walk.DOWN, Mut.alloc(expr)):
-        if isinstance(sub_expr.val, UnopExpr):
-            if sub_expr.val.operator == Unop.IVERSON:
-                raise Exception(
-                    "parse_expr: Expression may not contain an Iverson bracket expression."
-                )
-
-    return expr
+    tree = _parse_tree(_PARSER, code, "expression")
+    return _parse_expr(tree)
 
 
 def parse_expectation(code: str) -> Expr:
     """
-    Parse a pGCL expectation. This allows all kind of expressions.
+    Parse a pGCL expectation, an arithmetic expression over the program variables.
 
     .. doctest::
-
-        >>> parse_expectation("[x]")
-        UnopExpr(operator=Unop.IVERSON, expr=VarExpr('x'))
 
         >>> parse_expectation("0.2")
         RealLitExpr("0.2")
@@ -699,5 +699,4 @@ def parse_expectation(code: str) -> Expr:
         >>> parse_expectation("∞")
         RealLitExpr("Infinity")
     """
-    tree = _PARSER.parse(code, start="expression")
-    return _parse_expr(tree)
+    return parse_expr(code)

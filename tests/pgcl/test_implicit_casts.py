@@ -41,7 +41,6 @@ def test_widening_is_accepted(code):
     "bool b; b := 1",
     "bool b; bool c; b := c",
     "bool b; nat x; b := x < 3",
-    "bool b; nat x; b := [x < 3]",
     "bool b; b := unif(0, 1)",
     "bool b; bool c; b := c : 1/3 + 1 : 2/3",
 ])

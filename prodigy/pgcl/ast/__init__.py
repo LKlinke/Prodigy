@@ -78,7 +78,6 @@ mapping of states to *expected values*: :math:`\Sigma \to \mathbb{R}`.
 .. autoclass:: IidSampleExpr
 .. autoclass:: CategoricalExpr
 .. autoclass:: SubstExpr
-.. autoclass:: TickExpr
 .. autoclass:: FunctionCallExpr
 
 Instructions
@@ -91,7 +90,6 @@ Instructions
 .. autoclass:: AsgnInstr
 .. autoclass:: ChoiceInstr
 .. autoclass:: LoopInstr
-.. autoclass:: TickInstr
 .. autoclass:: ObserveInstr
 .. autoclass:: ExpectationInstr
 .. autoclass:: OptimizationType
@@ -127,14 +125,14 @@ from .declarations import (ConstDecl, Decl, Function, FunctionDecl,
                            ParameterDecl, VarDecl)
 from .expressions import (Binop, BinopExpr, BoolLitExpr, CategoricalExpr, Expr,
                           ExprClass, FunctionCallExpr, InferExpr, NatLitExpr,
-                          RealLitExpr, SampleExpr, SubstExpr, TickExpr, Unop,
+                          RealLitExpr, SampleExpr, SubstExpr, Unop,
                           UnopExpr, VarExpr, expr_str_parens)
 from .instructions import (AsgnInstr, ChoiceInstr, ExpectationInstr, IfInstr,
                            Instr, InstrClass, LocalDeclInstr, LoopInstr,
                            ObserveInstr,
                            OptimizationQuery, OptimizationType, PlotInstr,
                            PrintInstr, ProbabilityQueryInstr, Query,
-                           QueryInstr, SkipInstr, TickInstr, WhileInstr, AbortInstr)
+                           QueryInstr, SkipInstr, WhileInstr, AbortInstr)
 from .program import Program
 from .types import BoolType, Bounds, NatType, RealType, Type
 from .walk import *

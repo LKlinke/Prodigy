@@ -58,11 +58,13 @@ from prodigy.pgcl.ast import (AbortInstr, AsgnInstr, Binop, BinopExpr,
                               ParameterDecl, PlotInstr, PrintInstr,
                               ProbabilityQueryInstr, Program, QueryInstr,
                               RealLitExpr, RealType, SampleExpr, SkipInstr,
-                              TickInstr, Type, Unop, UnopExpr, VarDecl,
+                              Type, Unop, UnopExpr, VarDecl,
                               VarExpr, WhileInstr)
 from prodigy.pgcl.ast.types import DistributionType
 from prodigy.pgcl.ast.walk import Walk, walk_expr, walk_instr_exprs, walk_instrs
 from prodigy.pgcl.scope import ScopeError, lower_block_scope
+from prodigy.pgcl.syntax_errors import (ProgramSyntaxError, position,
+                                        removed_construct)
 from prodigy.pgcl.util.ref import Mut
 
 PPY_GRAMMAR = r"""
@@ -84,7 +86,6 @@ PPY_GRAMMAR = r"""
               | "abort" ";"                                -> abort
               | NAME "=" expression ";"                    -> assign
               | names ":" type ("=" expression)? ";"       -> var_decl
-              | "tick" "(" expression ")" ";"              -> tick
               | "observe" "(" expression ")" ";"           -> observe
               | "while" "(" expression ")" block           -> while_
               | if_statement
@@ -162,7 +163,6 @@ PPY_GRAMMAR = r"""
          | "infer" "(" NAME ("," arguments)? ")" -> infer
          | "sample" "(" NAME ")"         -> sample
          | "(" expression ")"
-         | "[" expression "]"            -> iverson
 
     arguments: argument ("," argument)*
     ?argument: expression
@@ -192,7 +192,7 @@ PPY_KEYWORDS = frozenset({
     "abort", "and", "bool", "case", "categorical", "const", "def", "default",
     "dist", "else", "false", "if", "infer", "loop", "nat", "not", "observe",
     "optimize", "or", "param", "plot", "print", "query", "real", "return",
-    "sample", "skip", "switch", "tick", "true", "while"
+    "sample", "skip", "switch", "true", "while"
 })
 """Words that cannot be used as names in ``.ppy``."""
 
@@ -215,21 +215,8 @@ _HINTS = {
 }
 
 
-class PpySyntaxError(SyntaxError):
+class PpySyntaxError(ProgramSyntaxError):
     """A syntax error in a ``.ppy`` program, with line and column (1-based)."""
-    def __init__(self, message: str, line: Optional[int],
-                 column: Optional[int]):
-        self.message = message
-        self.line = line
-        self.column = column
-        where = "" if line is None else f"line {line}, column {column}: "
-        self.text_message = where + message
-        super().__init__(self.text_message)
-        self.lineno = line
-        self.offset = column
-
-    def __str__(self) -> str:
-        return self.text_message
 
 
 def _error(where: Union[Meta, Token, None], message: str) -> PpySyntaxError:
@@ -398,9 +385,6 @@ class _ToAst(Transformer):
         return BinopExpr(Binop.TIMES, RealLitExpr(Fraction(-1)),
                          self._plain(children[0], meta))
 
-    def iverson(self, meta: Meta, children: List[Any]) -> Any:
-        return UnopExpr(Unop.IVERSON, self._plain(children[0], meta))
-
     def arguments(self, meta: Meta, children: List[Any]) -> Any:
         positional: List[Expr] = []
         named: Dict[str, Expr] = {}
@@ -562,9 +546,6 @@ class _ToAst(Transformer):
 
     def assign(self, meta: Meta, children: List[Any]) -> Any:
         return AsgnInstr(self._name(children[0]), children[1])
-
-    def tick(self, meta: Meta, children: List[Any]) -> Any:
-        return TickInstr(self._plain(children[0], meta))
 
     def observe(self, meta: Meta, children: List[Any]) -> Any:
         return ObserveInstr(self._plain(children[0], meta))
@@ -825,6 +806,10 @@ def _lark_error(source: str, exc: UnexpectedInput) -> PpySyntaxError:
     if isinstance(exc, UnexpectedEOF):
         return PpySyntaxError("The program ends unexpectedly" + _expected(set(exc.expected)) + ".",
                               *_end_position(source))
+    removed = _removed_construct(source, exc)
+    if removed is not None:
+        message, start = removed
+        return PpySyntaxError(message + ".", *position(source, start))
     if isinstance(exc, UnexpectedToken):
         text = str(exc.token)
         message = f"Unexpected '{text}'" + _expected(exc.expected)
@@ -844,6 +829,14 @@ def _lark_error(source: str, exc: UnexpectedInput) -> PpySyntaxError:
     if hint is not None:
         message += f" ({hint})"
     return PpySyntaxError(message + ".", exc.line, exc.column)
+
+
+def _removed_construct(source: str, exc: UnexpectedInput) -> Optional[Tuple[str, int]]:
+    if isinstance(exc, UnexpectedToken):
+        return removed_construct(source, exc.token.start_pos, "INT" in exc.expected)
+    if isinstance(exc, UnexpectedCharacters):
+        return removed_construct(source, exc.pos_in_stream, "INT" in (exc.allowed or ()))
+    return None
 
 
 def _end_position(source: str) -> Tuple[int, int]:

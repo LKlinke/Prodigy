@@ -17,7 +17,7 @@ export { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap, c
 
 import { StreamLanguage } from "@codemirror/language";
 
-const KEYWORDS = new Set(["while", "if", "else", "skip", "abort", "observe", "loop", "query", "tick",
+const KEYWORDS = new Set(["while", "if", "else", "skip", "abort", "observe", "loop", "query",
   "return", "infer", "sample", "fun", "not"]);
 const TYPES = new Set(["nat", "bool", "real", "const", "rparam", "nparam", "dist"]);
 const BUILTINS = new Set(["unif", "unif_d", "unif_c", "geometric", "poisson", "logdist", "binomial",
@@ -63,7 +63,7 @@ export const pgcl = StreamLanguage.define({
   },
 });
 
-const PPY_KEYWORDS = new Set(["while", "if", "else", "skip", "abort", "observe", "loop", "query", "tick",
+const PPY_KEYWORDS = new Set(["while", "if", "else", "skip", "abort", "observe", "loop", "query",
   "return", "infer", "sample", "def", "switch", "case", "default", "const", "param", "print", "plot", "optimize",
   "and", "or", "not", "categorical"]);
 const PPY_TYPES = new Set(["nat", "bool", "real", "dist"]);
