@@ -1,0 +1,11 @@
+firstCoin: nat;
+secondCoin: nat;
+equal: nat;
+
+firstCoin = bernoulli(1/2);
+secondCoin = bernoulli(1/2);
+if (firstCoin == secondCoin) {
+    equal = 1;
+} else {
+    equal = 0;
+}

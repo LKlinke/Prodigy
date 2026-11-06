@@ -1,0 +1,6 @@
+# check_equality pgfexamples/equivalence/loopy/rejection_sampling.ppy pgfexamples/equivalence/loopy/invariants/rejection_sampling_invariant.ppy
+c: nat;
+
+while (c % 2 == 0) {
+    c = geometric(1/2);
+}

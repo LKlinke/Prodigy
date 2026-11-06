@@ -173,7 +173,7 @@ def test_floor_division_in_loop_guard_and_query(engine):
              "query Pr[x == 1];\nquery Ex[(y + 1) // 2];\n"
     result = analyse(source, {"0": "unroll:iterations=20"}, engine)
     assert result["status"] == "ok" and result["bounds"]["kind"] == Bound.EXACT
-    assert query(result, "x = 1")["value"] == "9/10"
+    assert query(result, "x == 1")["value"] == "9/10"
     # y = 0, 0, 1, ..., 8 for x = 0, ..., 9
     assert query(result, "(y + 1) // 2")["value"] == "2"
 
@@ -254,7 +254,7 @@ def test_evt_invariant_does_not_mention_block_variable(engine):
     assert result["status"] == "ok" and result["bounds"]["kind"] == Bound.EXACT
     assert result["distribution"]["variables"] == ["c", "x"]
     assert query(result, "c")["value"] == "1"
-    assert query(result, "c = 0")["value"] == "1/2"
+    assert query(result, "c == 0")["value"] == "1/2"
 
 
 @pytest.mark.parametrize("engine", ENGINES)
@@ -270,12 +270,12 @@ def test_synthesised_invariant_does_not_need_block_variable(engine):
 def test_unrolling_with_block_variable(engine):
     result = analyse(GEOMETRIC_PPY, {"0": "unroll:iterations=5"}, engine)
     assert result["bounds"]["kind"] == Bound.LOWER
-    pr = query(result, "c = 0")
+    pr = query(result, "c == 0")
     assert (Fraction(pr["lower"]), Fraction(pr["upper"])) == (Fraction(1, 2), Fraction(17, 32))
 
 
 def test_sandwich_with_block_variable():
     result = analyse(GEOMETRIC_PPY, {"0": "evt_sandwich"})
     assert result["status"] == "ok"
-    pr = query(result, "c = 0")
+    pr = query(result, "c == 0")
     assert Fraction(pr["lower"]) <= Fraction(1, 2) <= Fraction(pr["upper"])

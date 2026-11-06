@@ -1,7 +1,13 @@
 .. _pgcl_grammar:
 
-pGCL grammar
-============
+pGCL grammar (``.pgcl``)
+========================
+
+This page is the reference for the original pGCL syntax, which Prodigy still reads (files that do
+not end in ``.ppy``). Programs are written in ``.ppy`` now (see :doc:`language`);
+``prodigy convert`` translates a ``.pgcl`` program into it. The notes on division, guards, modulo,
+floor division, block-scoped declarations and sampling below describe the semantics and hold for
+both syntaxes.
 
 The `Lark <https://lark-parser.readthedocs.io/>`_ grammar that :mod:`prodigy.pgcl.parser` is
 built from. Expressions are parsed with the operator table of

@@ -56,8 +56,11 @@ on its own.
 - `prodigy/web`: the GUI, a Flask app. Each analysis runs in its own process (`jobs.py`). The
   frontend is plain ES modules without a build step; CodeMirror and KaTeX are vendored under
   `static/vendor` (rebuilt via `prodigy/web/frontend`). Docs: `docs/gui.md`.
-- `pgfexamples/`: example programs, also the GUI's library and test inputs; the wheel contains them
-  as `prodigy/pgfexamples`.
+- `pgfexamples/`: example programs in `.ppy` (converted from `.pgcl`), also the GUI's library and
+  test inputs; the wheel contains them as `prodigy/pgfexamples`. Former `.pgcl` versions of a
+  representative set are in `tests/pgcl/former_examples/` with their results (keeps `.pgcl` tested).
+- Language: `.ppy` is the default syntax (`docs/source/language.md`); `.pgcl` is still read
+  (`docs/source/grammar.rst`). Results write expressions in the program's syntax (`session.spell`).
 - Releases: a tag `v<version>` runs `.github/workflows/release.yml` (PyPI `prodigy-ppl`, image
   `ghcr.io/lklinke/prodigy` from `Dockerfile`, GitHub release). The version comes from the latest
   tag `v*` (hatch-vcs); there is no version to bump and no relock. The Docker builds have no `.git`

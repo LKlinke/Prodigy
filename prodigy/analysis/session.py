@@ -39,7 +39,7 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Tuple, Union, cast, get_args
 
 from prodigy.pgcl import (ChoiceInstr, ExpectationInstr, Expr, IfInstr, Instr, LoopInstr, OptimizationQuery, PlotInstr,
                           PrintInstr, ProbabilityQueryInstr, Program, QueryInstr, WhileInstr)
@@ -172,11 +172,19 @@ def _collect_loops(instrs: List[Instr], depth: int, function: Optional[str],
                 _collect_loops(block, depth, function, out)
 
 
-def _spell(expr: Expr, syntax: str) -> str:
+def spell(node: Union[Expr, Instr], syntax: str) -> str:
+    """An expression or instruction as text in ``syntax`` (``pgcl`` or ``ppy``), for output to
+    the user. Falls back to the pGCL spelling if ``node`` has no ``.ppy`` form."""
     if syntax == "ppy":
-        from prodigy.pgcl.ppy_printer import expr_to_ppy  # pylint: disable=import-outside-toplevel
-        return expr_to_ppy(expr)
-    return str(expr)
+        # pylint: disable=import-outside-toplevel
+        from prodigy.pgcl.ppy_printer import PpyPrintError, expr_to_ppy, instr_to_ppy
+        try:
+            if isinstance(node, get_args(Expr)):
+                return expr_to_ppy(cast(Expr, node))
+            return instr_to_ppy(cast(Instr, node))
+        except PpyPrintError:
+            pass
+    return str(node)
 
 
 class LoopRegistry:
@@ -202,7 +210,7 @@ class LoopRegistry:
             positions = []
         for index, (instr, depth, function_name) in enumerate(found):
             line, column = positions[index] if positions else (None, None)
-            info = LoopInfo(id=index, cond=_spell(instr.cond, syntax), depth=depth, function=function_name,
+            info = LoopInfo(id=index, cond=spell(instr.cond, syntax), depth=depth, function=function_name,
                             line=line, column=column)
             self.loops.append(info)
             self._by_identity[id(instr)] = info
@@ -441,7 +449,7 @@ class FixedDecisions(DecisionProvider):
         preset = self.preset(loop)
         if preset is not None:
             return preset
-        what = loop.describe() if loop is not None else f"while ({instruction.cond})"
+        what = loop.describe() if loop is not None else f"while ({session.spell(instruction.cond)})"
         raise DecisionRequired(f"No strategy chosen for {what}", loop=loop)
 
     def ask_param(self, session, task, spec):
@@ -591,12 +599,17 @@ class AnalysisSession:
         self._query_index = 0
         self.detached_session = False
 
+    def spell(self, node: Union[Expr, Instr]) -> str:
+        """``node`` as text in the syntax of the program (see :func:`spell`)."""
+        return spell(node, self.syntax)
+
     # -- construction helpers ------------------------------------------------------------
 
     @classmethod
-    def detached(cls) -> "AnalysisSession":
-        """Session for code that runs handlers without setting up a session."""
-        session = cls(None, provider=InteractiveDecisions())
+    def detached(cls, syntax: str = "pgcl") -> "AnalysisSession":
+        """Session for code that runs handlers without setting up a session. Activate one with
+        ``syntax="ppy"`` to have invariant programs read and queries printed in ``.ppy``."""
+        session = cls(None, syntax=syntax, provider=InteractiveDecisions())
         session.detached_session = True
         return session
 
@@ -698,7 +711,7 @@ class AnalysisSession:
         key = task.loop.id if task.loop is not None else f"while ({task.instruction.cond})"
         record = self.loop_records.get(key)
         if record is None:
-            record = LoopRecord(loop=task.loop, cond=_spell(task.instruction.cond, self.syntax),
+            record = LoopRecord(loop=task.loop, cond=self.spell(task.instruction.cond),
                                 strategy=task.strategy.name,
                                 params=dict(task.decision.params))
             self.loop_records[key] = record
@@ -826,7 +839,7 @@ class AnalysisSession:
         mass, mass_float = exact_and_float(_safe(distribution.get_probability_mass))
         self.steps.append({
             "index": len(self.steps),
-            "instruction": str(instruction),
+            "instruction": self.spell(instruction),
             "distribution": str(distribution),
             "mass": mass,
             "mass_float": mass_float,

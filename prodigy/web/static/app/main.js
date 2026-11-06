@@ -460,7 +460,7 @@ async function stop() {
 
 // ---- examples -----------------------------------------------------------------------------------------
 
-async function loadExample(example, syntax = "pgcl") {
+async function loadExample(example, syntax = "ppy") {
   if (!(await documents.confirmClose())) return;
   let data;
   try {
@@ -469,7 +469,7 @@ async function loadExample(example, syntax = "pgcl") {
     showRunMessage(error.message);
     return;
   }
-  editor.setSource(data.source, data.syntax || "pgcl");
+  editor.setSource(data.source, data.syntax || "ppy");
   const suggestion = data.suggestion || {};
   state.setup.decisions = {};
   for (const [key, decision] of Object.entries(suggestion.decisions || {})) {

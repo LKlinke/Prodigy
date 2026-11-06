@@ -1,0 +1,20 @@
+# main pgfexamples/inference/loop_free/conditioning/monty_hall_nested.ppy
+prize: nat;
+player: nat;
+door: nat;
+switch_: nat;
+
+prize = unif(1, 3);
+player = unif(1, 3);
+query {
+    door = unif(1, 3);
+    observe(not (prize == door or player == door));
+}
+# switch?
+query {
+    switch_ = unif(1, 3);
+    observe(not (switch_ == player or switch_ == door));
+}
+player = switch_;
+switch_ = 0;
+query Pr[player == prize];

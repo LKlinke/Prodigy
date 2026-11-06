@@ -1,0 +1,14 @@
+# skip
+c: nat;
+m: nat;
+n: nat;
+tmp: nat;
+
+if (0 < n) {
+    tmp = iid(unif(1, 6), n);
+    m = m + tmp;
+    n = 0;
+    tmp = 0;
+} else {
+    skip;
+}

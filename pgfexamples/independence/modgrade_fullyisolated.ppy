@@ -1,0 +1,26 @@
+d: nat;
+i: nat;
+g: nat;
+s: nat;
+e: nat;
+f: nat;
+
+d = bernoulli(3/5);
+i = bernoulli(7/10);
+e = bernoulli(7/10);
+if (i == 0) {
+    g = bernoulli(3/10);
+} else {
+    g = bernoulli(1/2);
+}
+if (i == 0) {
+    s = bernoulli(1/5);
+} else {
+    s = bernoulli(9/10);
+}
+
+if (e == 0) {
+    f = bernoulli(7/10);
+} else {
+    f = bernoulli(4/5);
+}

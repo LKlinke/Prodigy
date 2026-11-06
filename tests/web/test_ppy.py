@@ -1,5 +1,7 @@
 """The .ppy syntax in the web GUI's API: checking, converting, analysing, examples and the
 generating functions typed into the setup."""
+from pathlib import Path
+
 import pytest
 
 from prodigy.analysis import ai_candidates
@@ -128,20 +130,43 @@ def test_suggestion_for_a_ppy_program(monkeypatch):
     assert result["suggestion"]["candidate"] == "1/(2 - c)**1"
 
 
-def test_examples_as_ppy(client):
-    data = client.get("/api/examples/inference/loop_free/conditioning/monty_hall_nested.pgcl?syntax=ppy",
-                      headers=HOST).get_json()
-    assert data["syntax"] == "ppy" and data["file_name"] == "monty_hall_nested.ppy"
-    assert data["renamings"] == [{"from": "switch", "to": "switch_"}]
-    assert client.post("/api/check", json={"source": data["source"], "syntax": "ppy"}, headers=HOST).get_json()["ok"]
+def test_examples_are_ppy(client):
     examples = client.get("/api/examples", headers=HOST).get_json()["examples"]
-    with_invariant = next(e for e in examples if e["id"].endswith("loopy/dep_bern.pgcl"))
-    data = client.get(f"/api/examples/{with_invariant['id']}?syntax=ppy", headers=HOST).get_json()
+    assert examples and all(e["id"].endswith(".ppy") for e in examples)
+    with_invariant = next(e for e in examples if e["id"].endswith("loopy/dep_bern.ppy"))
+    data = client.get(f"/api/examples/{with_invariant['id']}", headers=HOST).get_json()
+    assert data["syntax"] == "ppy" and data["file_name"] == "dep_bern.ppy" and "renamings" not in data
     invariant = data["suggestion"]["decisions"]["0"]["params"]["invariant"]
     assert "if (c > 0) {" in invariant and ":=" not in invariant
-    original = client.get(f"/api/examples/{with_invariant['id']}", headers=HOST).get_json()
-    assert original["syntax"] == "pgcl" and original["file_name"] == "dep_bern.pgcl"
+    # a .ppy example cannot be converted to pGCL; asking for it changes nothing
+    assert client.get(f"/api/examples/{with_invariant['id']}?syntax=pgcl", headers=HOST).get_json() == data
     assert client.get(f"/api/examples/{with_invariant['id']}?syntax=java", headers=HOST).status_code == 400
+
+
+def test_pgcl_examples_are_converted_on_the_fly(tmp_path):
+    """A folder of .pgcl examples (prodigy web --examples) opens as it is, or converted with syntax=ppy."""
+    former = Path(__file__).parents[1] / "pgcl" / "former_examples"
+    for name in ("inference/loop_free/conditioning/monty_hall_nested.pgcl", "equivalence/loopy/dep_bern.pgcl",
+                 "equivalence/loopy/invariants/dep_bern_invariant.pgcl"):
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text((former / name).read_text().replace("pgfexamples/", ""))
+    app = create_app(time_limit=30, max_jobs=1, examples_dir=str(tmp_path))
+    client = app.test_client()
+    try:
+        data = client.get("/api/examples/inference/loop_free/conditioning/monty_hall_nested.pgcl?syntax=ppy",
+                          headers=HOST).get_json()
+        assert data["syntax"] == "ppy" and data["file_name"] == "monty_hall_nested.ppy"
+        assert data["renamings"] == [{"from": "switch", "to": "switch_"}]
+        assert client.post("/api/check", json={"source": data["source"], "syntax": "ppy"},
+                           headers=HOST).get_json()["ok"]
+        data = client.get("/api/examples/equivalence/loopy/dep_bern.pgcl?syntax=ppy", headers=HOST).get_json()
+        invariant = data["suggestion"]["decisions"]["0"]["params"]["invariant"]
+        assert "if (c > 0) {" in invariant and ":=" not in invariant
+        original = client.get("/api/examples/equivalence/loopy/dep_bern.pgcl", headers=HOST).get_json()
+        assert original["syntax"] == "pgcl" and original["file_name"] == "dep_bern.pgcl"
+        assert ":=" in original["suggestion"]["decisions"]["0"]["params"]["invariant"]
+    finally:
+        app.extensions["prodigy_jobs"].shutdown()
 
 
 def test_block_comments_keep_positions(client):
@@ -153,3 +178,13 @@ def test_block_comments_keep_positions(client):
     error = client.post("/api/check", json={"source": "x: nat;\n/* open\nx = 1;", "syntax": "ppy"},
                         headers=HOST).get_json()["diagnostics"][0]
     assert (error["line"], error["column"]) == (2, 1) and "never closed" in error["message"]
+
+
+def test_first_line_comment_is_not_a_command(tmp_path):
+    from prodigy.web.examples import ExampleLibrary  # pylint: disable=import-outside-toplevel
+    (tmp_path / "walk.ppy").write_text("# Bob's walk: an ordinary comment\nx: nat;\nx = 1;\n")
+    (tmp_path / "dice.ppy").write_text('# main dice.ppy "1/2 * x + 1/2"\nx: nat;\n')
+    examples = {e.id: e for e in ExampleLibrary(tmp_path).examples}
+    assert examples["walk.ppy"].command == "main" and examples["walk.ppy"].args == []
+    assert examples["dice.ppy"].command == "main"
+    assert ExampleLibrary(tmp_path).load("dice.ppy")["suggestion"]["input_distribution"] == "1/2 * x + 1/2"

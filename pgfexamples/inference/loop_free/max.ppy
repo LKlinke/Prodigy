@@ -1,0 +1,21 @@
+# main pgfexamples/inference/loop_free/max.ppy
+def max(x: nat, y: nat, res: nat) -> nat {
+    if (x > y) {
+        res = x;
+    } else {
+        res = y;
+    }
+    return res;
+}
+
+a: nat;
+b: nat;
+r: nat;
+
+a = bernoulli(1/2);
+b = bernoulli(1/2);
+r = max(a, b);
+a = 0;
+b = 0;
+
+query Pr[r == 1];

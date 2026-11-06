@@ -1,0 +1,13 @@
+# skip
+sum: nat;
+c: nat;
+temp: nat;
+
+sum = 0;
+c = 0;
+while (sum < 10) {
+    temp = unif(0, 10);
+    sum = sum + temp;
+    c = c + 1;
+}
+query Ex[c];

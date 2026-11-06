@@ -1,13 +1,13 @@
 # Design: a Python-like surface syntax (`.ppy`)
 
-Status: **agreed design** ([#105](https://github.com/LKlinke/Prodigy/issues/105)). Implementation:
-[#106](https://github.com/LKlinke/Prodigy/issues/106); the parser, the pretty printer and the
-converter exist (`prodigy/pgcl/ppy_parser.py`, `prodigy/pgcl/ppy_printer.py`,
-`prodigy/pgcl/converter.py`). The CLI reads `.ppy` files and converts `.pgcl` files with
-`prodigy convert` (see {doc}`cli`); the GUI opens and saves both syntaxes and converts programs
-and examples to `.ppy` (see {doc}`gui`). The examples in `pgfexamples/` still use `.pgcl`.
-Block-scoped declarations and `//` are implemented (see {ref}`pgcl_grammar`, sections "Floor
-division" and "Block-scoped declarations"). Semantics of nested inference:
+Status: **implemented** ([#105](https://github.com/LKlinke/Prodigy/issues/105) design,
+[#106](https://github.com/LKlinke/Prodigy/issues/106) implementation). `.ppy` is the syntax of
+new programs and of the examples in `pgfexamples/`, which were converted with `prodigy convert`;
+`.pgcl` is still read everywhere. The language is described in {doc}`language`; this page keeps
+the reasons for the design. Parser, pretty printer and converter: `prodigy/pgcl/ppy_parser.py`,
+`prodigy/pgcl/ppy_printer.py`, `prodigy/pgcl/converter.py`. The CLI (see {doc}`cli`) and the GUI
+(see {doc}`gui`) read and write both syntaxes, and results write expressions in the syntax of the
+program. Not analysed yet: nested inference (`infer`, `sample`), whose semantics is designed in
 [#104](https://github.com/LKlinke/Prodigy/issues/104).
 
 ## Goals
@@ -246,8 +246,9 @@ of the whole program.
 - How `dist` values appear in the result JSON and in the GUI
   ([#104](https://github.com/LKlinke/Prodigy/issues/104)).
 - The exact form of `plot` and `optimize`.
-- Whether the `.pgcl` files in `pgfexamples/` are converted in the repository, and when the old
-  syntax is retired.
+- When the old syntax is retired. The examples are converted (`.ppy` only in `pgfexamples/`); a
+  representative set of their former `.pgcl` versions is kept in `tests/pgcl/former_examples/`, so
+  the old syntax stays tested.
 
 ## Notes for the converter
 
@@ -257,5 +258,5 @@ of the whole program.
   position in the output is approximate (a comment at the end of a block moves behind the block).
 - Names that are keywords in `.ppy` (`switch`, `case`, `default`, `def`, `param`, `print`, …) are
   renamed by appending `_` until the name is neither a keyword nor another name of the program,
-  e.g. `switch` in `pgfexamples/inference/loop_free/conditioning/monty_hall_nested.pgcl` becomes
-  `switch_`. The converter reports every renaming. The pretty printer alone refuses such names.
+  e.g. `switch` in the former `monty_hall_nested.pgcl` (`pgfexamples/inference/loop_free/conditioning/`)
+  became `switch_`; it was the only renaming when the examples were converted. The converter reports every renaming. The pretty printer alone refuses such names.

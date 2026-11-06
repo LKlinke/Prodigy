@@ -1,0 +1,4 @@
+# skip
+x: nat;
+
+x = bernoulli(2/3);

@@ -1,0 +1,11 @@
+# invariant_synthesis pgfexamples/invariant_synthesis/random_walk.ppy
+x: nat;
+
+x = 1;
+while (x > 0) {
+    {
+        x = x - 1;
+    } [1/2] {
+        x = x + 1;
+    }
+}

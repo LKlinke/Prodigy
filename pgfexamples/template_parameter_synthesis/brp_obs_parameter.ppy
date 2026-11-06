@@ -1,0 +1,19 @@
+# check_equality pgfexamples/template_parameter_synthesis/brp_obs_parameter.ppy pgfexamples/template_parameter_synthesis/invariants/brp_obs_parameter_invariant.ppy
+s: nat;
+f: nat;
+h: nat;
+t: nat;
+
+while (s > 0 and f < 5) {
+    {
+        observe(s < 10);
+        f = f + 1;
+    } [1/100] {
+        f = 0;
+        s = s - 1;
+    }
+    h = 0;
+    t = 0;
+}
+
+query Pr[f >= 5];

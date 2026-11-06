@@ -1,0 +1,12 @@
+# invariant_synthesis pgfexamples/invariant_synthesis/geometric_counter.ppy
+x: nat;
+c: nat;
+
+x = 1;
+while (x == 1) {
+    {
+        x = x - 1;
+    } [1/2] {
+        c = c + 1;
+    }
+}

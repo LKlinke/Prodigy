@@ -1,0 +1,8 @@
+# skip
+x: nat;
+
+if (x == 1) {
+    observe(false);
+} else {
+    skip;
+}

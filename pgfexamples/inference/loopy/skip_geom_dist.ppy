@@ -1,0 +1,14 @@
+# skip
+x: nat;
+c: nat;
+
+x = 1;
+c = 0;
+while (not x == 0) {
+    {
+        skip;
+    } [1/2] {
+        x = 0;
+    }
+    c = c + 1;
+}

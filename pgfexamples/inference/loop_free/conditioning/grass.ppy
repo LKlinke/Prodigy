@@ -1,0 +1,37 @@
+# main pgfexamples/inference/loop_free/conditioning/grass.ppy
+cloudy: nat;
+rain: nat;
+sprinkler: nat;
+wetRoof: nat;
+wetGrass: nat;
+temp1: nat;
+temp2: nat;
+temp3: nat;
+
+# didItRain
+cloudy = bernoulli(1/2);
+
+if (cloudy == 1) {
+    rain = bernoulli(4/5);
+    sprinkler = bernoulli(1/10);
+} else {
+    rain = bernoulli(1/5);
+    sprinkler = bernoulli(1/2);
+}
+
+temp1 = bernoulli(7/10);
+if (temp1 == 1 and rain == 1) {
+    wetRoof = 1;
+} else {
+    skip;
+}
+temp2 = bernoulli(9/10);
+temp3 = bernoulli(9/10);
+if (temp2 == 1 and rain == 1 or temp3 == 1 and sprinkler == 1) {
+    wetGrass = 1;
+} else {
+    wetGrass = 0;
+}
+
+observe(wetGrass == 1);
+query Ex[rain];  # expected: δ(509/719)[r]

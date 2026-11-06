@@ -1,0 +1,16 @@
+# main pgfexamples/inference/loop_free/prob_collatz.ppy
+n: nat;
+x: nat;
+
+x = geometric(1/2);
+loop(3) {
+    if (x % 2 == 0) {
+        {
+            x = 3 * x + 1;
+        } [1/10] {
+            x = 1/2 * x;
+        }
+    } else {
+        x = 3 * x + 1;
+    }
+}

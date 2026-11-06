@@ -1,0 +1,14 @@
+# check_equality pgfexamples/template_parameter_synthesis/n_geometric_parameter.ppy pgfexamples/template_parameter_synthesis/invariants/n_geometric_parameter_invariant.ppy
+n: nat;
+c: nat;
+tmp: nat;
+param q: real;
+
+while (n > 0) {
+    {
+        n = n - 1;
+    } [1/3 * q] {
+        c = c + 1;
+    }
+    tmp = 0;
+}

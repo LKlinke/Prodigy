@@ -1,0 +1,6 @@
+# main pgfexamples/inference/loop_free/function.ppy
+def f(a: nat) -> nat {
+    return 20 * a + 2;
+}
+x: nat;
+x = f(2);

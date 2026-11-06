@@ -1,6 +1,0 @@
-# check_equality pgfexamples/equivalence/loopy/rejection_sampling.pgcl pgfexamples/equivalence/loopy/invariants/rejection_sampling_invariant.pgcl
-nat c;
-
-while (c%2=0){
-  c := geometric(1/2)
-}

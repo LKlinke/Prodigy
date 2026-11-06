@@ -1,0 +1,14 @@
+# skip
+x: nat;
+c: nat;
+temp: nat;
+param p: real;
+
+if (x > 0) {
+    temp = geometric(p);
+    c = c + temp + 3;
+    x = 0;
+    temp = 0;
+} else {
+    skip;
+}

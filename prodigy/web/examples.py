@@ -2,13 +2,13 @@
 The example library of the web GUI: the programs in ``pgfexamples/``.
 
 The first line of every example says how it is meant to be run (see
-``pgfexamples/README.md``), e.g. ``# check_equality prog.pgcl invariants/prog_invariant.pgcl``.
+``pgfexamples/README.md``), e.g. ``# check_equality prog.ppy invariants/prog_invariant.ppy``.
 From that line the library derives a suggested setup for the GUI: an invariant for the loop,
 invariant synthesis, or plain analysis.
 
-The examples are ``.pgcl`` files; :meth:`ExampleLibrary.load` with ``syntax="ppy"`` converts an
-example and its invariants into the ``.ppy`` syntax on the fly
-(:func:`prodigy.pgcl.converter.convert_pgcl`).
+The examples are ``.ppy`` files. A folder given with ``prodigy web --examples`` may also hold
+``.pgcl`` files; :meth:`ExampleLibrary.load` with ``syntax="ppy"`` converts such an example and
+its invariants into the ``.ppy`` syntax on the fly (:func:`prodigy.pgcl.converter.convert_pgcl`).
 """
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from prodigy.pgcl import parse_pgcl
+from prodigy.pgcl.parser import select_syntax
 
 _CATEGORY_TITLES = {
     "inference": "Inference",
@@ -30,6 +31,9 @@ _CATEGORY_TITLES = {
     "loopy": "with loops",
     "conditioning": "conditioning",
 }
+
+EXTENSIONS = (".ppy", ".pgcl")
+"""File extensions of example programs."""
 
 
 def default_examples_dir() -> Optional[Path]:
@@ -79,7 +83,7 @@ class ExampleLibrary:
         if self.root is None or not self.root.is_dir():
             return []
         examples = []
-        for path in sorted(self.root.rglob("*.pgcl")):
+        for path in sorted(p for p in self.root.rglob("*") if p.suffix in EXTENSIONS):
             relative = path.relative_to(self.root)
             parts = list(relative.parts[:-1])
             if "invariants" in parts:
@@ -91,7 +95,7 @@ class ExampleLibrary:
                 first = path.read_text(encoding="utf-8").split("\n", 1)[0].strip()
             except OSError:
                 continue
-            words = shlex.split(first.lstrip("#").strip()) if first.startswith("#") else []
+            words = _command_words(first)
             command = words[0] if words else "main"
             known_issue = command == "skip" or path.stem.startswith("skip_")
             examples.append(Example(id=relative.as_posix(), title=_title(path.stem.removeprefix("skip_")),
@@ -112,30 +116,31 @@ class ExampleLibrary:
         if self.root is None:
             raise FileNotFoundError(example_id)
         path = (self.root / example_id).resolve()
-        if self.root not in path.parents or path.suffix != ".pgcl" or not path.is_file():
+        if self.root not in path.parents or path.suffix not in EXTENSIONS or not path.is_file():
             raise FileNotFoundError(example_id)
         return path
 
-    def load(self, example_id: str, syntax: str = "pgcl") -> Dict[str, Any]:
-        """Source, example data and suggested setup of an example, in ``syntax`` (``pgcl`` or
-        ``ppy``; converted on the fly). Raises ``FileNotFoundError`` for an unknown example and
-        ``ValueError`` if it cannot be converted."""
+    def load(self, example_id: str, syntax: Optional[str] = None) -> Dict[str, Any]:
+        """Source, example data and suggested setup of an example. The example comes in the syntax
+        of its file; with ``syntax="ppy"``, a ``.pgcl`` example is converted on the fly (``.ppy``
+        examples cannot be converted to ``.pgcl``, so ``syntax="pgcl"`` changes nothing). Raises
+        ``FileNotFoundError`` for an unknown example and ``ValueError`` if it cannot be converted."""
         path = self._resolve(example_id)
         source = path.read_text(encoding="utf-8")
+        file_syntax = select_syntax(path=path.name)
         example = next((e for e in self.examples if e.id == example_id), None)
-        suggestion = self._suggest(path, source, example)
-        data: Dict[str, Any] = {"id": example_id, "syntax": "pgcl", "source": source,
-                                "example": example.to_json() if example else None, "suggestion": suggestion}
-        if syntax == "ppy":
+        suggestion = self._suggest(path, source, example, file_syntax)
+        data: Dict[str, Any] = {"id": example_id, "syntax": file_syntax, "source": source,
+                                "example": example.to_json() if example else None, "suggestion": suggestion,
+                                "file_name": path.name}
+        if syntax == "ppy" and file_syntax == "pgcl":
             data.update(syntax="ppy", **convert(source))
             data["file_name"] = f"{path.stem}.ppy"
             for decision in suggestion["decisions"].values():
                 if decision["strategy"] == "invariant" and "invariant" in decision["params"]:
                     decision["params"]["invariant"] = convert(decision["params"]["invariant"])["source"]
-            if suggestion["input_distribution"]:
-                suggestion["input_distribution"] = _to_ppy_expression(suggestion["input_distribution"])
-        else:
-            data["file_name"] = path.name
+        if data["syntax"] == "ppy" and suggestion["input_distribution"]:
+            suggestion["input_distribution"] = _to_ppy_expression(suggestion["input_distribution"])
         return data
 
     def _resolve_arg(self, arg: str) -> Optional[Path]:
@@ -150,18 +155,19 @@ class ExampleLibrary:
 
     @staticmethod
     def _numbered_invariants(path: Path, loops: int) -> List[Path]:
-        """``invariants/<name>_invariant1.pgcl`` … for programs with several loops (pgfexamples/README.md)."""
+        """``invariants/<name>_invariant1.ppy`` … for programs with several loops (pgfexamples/README.md)."""
         if loops < 2:
             return []
-        files = [path.parent / "invariants" / f"{path.stem}_invariant{k}.pgcl" for k in range(1, loops + 1)]
+        files = [path.parent / "invariants" / f"{path.stem}_invariant{k}{path.suffix}" for k in range(1, loops + 1)]
         return files if all(f.is_file() for f in files) else []
 
-    def _suggest(self, path: Path, source: str, example: Optional[Example]) -> Dict[str, Any]:
+    def _suggest(self, path: Path, source: str, example: Optional[Example],
+                 syntax: str = "ppy") -> Dict[str, Any]:
         suggestion: Dict[str, Any] = {"decisions": {}, "input_distribution": None, "note": ""}
         if example is None:
             return suggestion
         try:
-            loops = _count_loops(source)
+            loops = _count_loops(source, syntax)
         except Exception:  # pylint: disable=broad-except
             loops = 0
         numbered = self._numbered_invariants(path, loops) if example.command == "check_equality" else []
@@ -201,10 +207,27 @@ class ExampleLibrary:
         return suggestion
 
 
-def _count_loops(source: str) -> int:
+_COMMANDS = {"main", "skip", "check_equality", "invariant_synthesis", "independent_vars"}
+
+
+def _command_words(first_line: str) -> List[str]:
+    """The command in the first line of an example (``# check_equality prog.ppy inv.ppy``), or no
+    words if the first line is an ordinary comment."""
+    if not first_line.startswith("#"):
+        return []
+    text = first_line.lstrip("#").strip()
+    if text.split(" ", 1)[0] not in _COMMANDS:
+        return []
+    try:
+        return shlex.split(text)
+    except ValueError:  # e.g. an unmatched quote
+        return text.split()
+
+
+def _count_loops(source: str, syntax: str) -> int:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.session import LoopRegistry
-    return len(LoopRegistry(parse_pgcl(source), source))
+    return len(LoopRegistry(parse_pgcl(source, syntax), source, syntax))
 
 
 def convert(source: str) -> Dict[str, Any]:

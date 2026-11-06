@@ -1,0 +1,15 @@
+# check_equality pgfexamples/template_parameter_synthesis/random_walk_parameter.ppy pgfexamples/template_parameter_synthesis/invariants/random_walk_parameter_invariant.ppy
+s: nat;
+c: nat;
+tmp: nat;
+param p: real;
+
+while (s > 0) {
+    {
+        s = s + 1;
+    } [p] {
+        s = s - 1;
+    }
+    c = c + 1;
+    tmp = 0;
+}

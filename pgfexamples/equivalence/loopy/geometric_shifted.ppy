@@ -1,0 +1,15 @@
+# check_equality pgfexamples/equivalence/loopy/geometric_shifted.ppy pgfexamples/equivalence/loopy/invariants/geometric_shifted_invariant.ppy
+x: nat;
+c: nat;
+temp: nat;
+param p: real;
+
+while (x > 0) {
+    {
+        x = 0;
+        c = c + 3;
+    } [1/2] {
+        c = c + 1;
+    }
+    temp = 0;
+}

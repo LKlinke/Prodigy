@@ -9,8 +9,8 @@ import re
 
 # All files in the pgfexamples folder
 # https://stackoverflow.com/a/18394205
-all_files: list[str] = [y for x in os.walk("pgfexamples") for y in glob(os.path.join(x[0], '*.pgcl'))] + [
-    "example.pgcl"]
+all_files: list[str] = [y for x in os.walk("pgfexamples") for ext in ("*.ppy", "*.pgcl")
+                        for y in glob(os.path.join(x[0], ext))] + ["example.ppy"]
 
 # Timeouts / Exception runs
 # If files are not present, an empty list is returned
@@ -93,12 +93,13 @@ class Configuration:
         if input_files == "all":
             # All files should be tested
             self.files = all_files
-        elif "pgcl" in input_files:
+        elif input_files.endswith((".ppy", ".pgcl")):
             # A single file should be tested
             self.files = [args.input]
         elif os.path.isdir(input_files):
             # A folder is given, only test files in the folder
-            self.files = [y for x in os.walk(args.input) for y in glob(os.path.join(x[0], '*.pgcl'))]
+            self.files = [y for x in os.walk(args.input) for ext in ("*.ppy", "*.pgcl")
+                          for y in glob(os.path.join(x[0], ext))]
         else:
             # A file containing files that should be tested
             self.files = list(map(str.strip, open(input_files, "r").readlines()))
@@ -127,8 +128,8 @@ def create_parser() -> argparse.ArgumentParser:
         "input",
         metavar="INPUT",
         help="File to be analyzed. If set to \"all\", all files in the pgfexamples folder will be analyzed. " +
-             "If a folder is provided, all files with '.pgcl' extensions in the folder or its subfolders are tested. " +
-             "If  file does not have a .pgcl extension, it is interpreted to be a file containing files to be tested.",
+             "If a folder is provided, all files with a '.ppy' or '.pgcl' extension in the folder or its subfolders are " +
+             "tested. If the file has neither extension, it is interpreted to be a file containing files to be tested.",
         type=str
     )
 
@@ -377,10 +378,11 @@ def obtain_inputs(instructions: list[str]) -> bytes:
     other_file = instructions[2]
     input_cmd = b""
     if method == "check_equality" and ("loopy" in other_file or "template_parameter_synthesis"):
-        if other_file.endswith("1.pgcl"):
+        stem, ext = os.path.splitext(other_file)
+        if stem.endswith("1"):
             # We have multiple invariants
             input_cmd = str.encode("".join("1\n" + inv_file + "\n" for inv_file in
-                                           list(sorted(glob(other_file.replace("1.pgcl", "*"))))))
+                                           list(sorted(glob(stem[:-1] + "*" + ext)))))
         else:
             # Select invariant file for loopy programs
             input_cmd = b"1\n" + str.encode(other_file + "\n")

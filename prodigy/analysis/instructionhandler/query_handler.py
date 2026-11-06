@@ -55,7 +55,7 @@ class QueryHandler(InstructionHandler):
 
             print(f"Expected value: {result}")
             session.record_query(finish_query(
-                session, QueryResult("expectation", str(expression), value=result),
+                session, QueryResult("expectation", session.spell(expression), value=result),
                 monotone=is_monotone_nonnegative(expression, prog_info.program), probability=False,
                 known=session.loop_query_bounds("?Ex", str(expression))))
             return distribution, error_prob
@@ -109,7 +109,7 @@ class QueryHandler(InstructionHandler):
             print(
                 f"The maximal values can be achieved choosing the parameter {instr.parameter} in {result}."
             )
-        query = QueryResult("optimization", str(instr.expr),
+        query = QueryResult("optimization", session.spell(instr.expr),
                             value=", ".join(str(r) for r in result) if result else None)
         query.data = {"parameter": str(instr.parameter),
                       "goal": "maximize" if instr.type == OptimizationType.MAXIMIZE else "minimize",
@@ -189,8 +189,8 @@ class QueryHandler(InstructionHandler):
         # Marginal computation
         if isinstance(expression, VarExpr):
             marginal = dist.marginal(expression, method=MarginalType.INCLUDE)
-            print(f"Marginal distribution of {expression}: {marginal}")
-            query = QueryResult("marginal", str(expression), value=str(marginal), bound=session.bound_kind)
+            print(f"Marginal distribution of {session.spell(expression)}: {marginal}")
+            query = QueryResult("marginal", session.spell(expression), value=str(marginal), bound=session.bound_kind)
             if session.collect_details:
                 query.data = {"marginal": univariate_table(dist, expression.var, session.coefficient_limit,
                                                            kind=session.bound_kind,
@@ -202,8 +202,9 @@ class QueryHandler(InstructionHandler):
             prob = session.loop_query_value("?Pr", str(expression), dist)
             if prob is None:
                 prob = dist.filter(expression).get_probability_mass()
-            print(f"Probability of {expression}: {prob}")
-            session.record_query(finish_query(session, QueryResult("probability", str(expression), value=prob),
+            text = session.spell(expression)
+            print(f"Probability of {text}: {prob}")
+            session.record_query(finish_query(session, QueryResult("probability", text, value=prob),
                                               monotone=True, probability=True,
                                               known=session.loop_query_bounds("?Pr", str(expression))))
         return dist

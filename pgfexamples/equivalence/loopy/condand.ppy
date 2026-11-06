@@ -1,0 +1,14 @@
+# skip
+n: nat;
+m: nat;
+
+while (0 < n and 0 < m) {
+    {
+        n = n - 1;
+    } [1/2] {
+        m = m - 1;
+    }
+}
+plot(n, ∞);
+plot(m, ∞);
+plot(n, m, ∞);

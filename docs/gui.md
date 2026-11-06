@@ -31,9 +31,9 @@ Prodigy is tested with Python 3.11 and 3.14.
 * **Result** (right): a summary of the guarantee, the queries with sound intervals, the
   output distribution (closed form, mass, expectations, marginal bar charts and tables), the
   certificate of every loop, console output, and the full result as JSON.
-* **Examples**: the programs in `pgfexamples/`, with a suggested setup derived from their
-  first line (e.g. `check_equality` examples come with their invariant). *Open as* chooses
-  whether an example opens as it is (`.pgcl`) or converted to `.ppy` on the fly (with its
+* **Examples**: the programs in `pgfexamples/` (in `.ppy`), with a suggested setup derived from
+  their first line (e.g. `check_equality` examples come with their invariant). A `.pgcl` example
+  in a folder given with `prodigy web --examples` is converted to `.ppy` on the fly (with its
   invariants).
 * **New, Open…, Save** (toolbar): in Chrome and Edge, Open and Save work directly on `.ppy` and
   `.pgcl` files on disk, and the file stays linked across reloads; Save As… (⇧⌘S) picks another file.
@@ -53,8 +53,7 @@ for websites (Settings → General → Website appearance).
 
 The GUI reads and writes both syntaxes: the Python-like `.ppy` and the original pGCL
 (`.pgcl`). The file extension decides when a file is opened; **New** asks which one to use
-(Return chooses `.ppy`, the syntax for new programs); an example opens as `.pgcl` unless
-*Open as `.ppy`* is chosen in the library. Highlighting, comments (`#` and `/* … */` in `.ppy`;
+(Return chooses `.ppy`, the syntax for new programs); examples open as `.ppy`. Highlighting, comments (`#` and `/* … */` in `.ppy`;
 `#` and `//` in pGCL), completion, diagnostics and the loop pills follow the syntax.
 
 **Convert to .ppy** (next to the syntax chip of a pGCL program) converts the program with the
@@ -114,7 +113,7 @@ Two strategies give lower bounds without a termination assumption (package
   linear programming and checks both exactly. The ?Pr and ?Ex queries directly after the
   loop get both sides from the two certificates — expectations included, which otherwise
   only have a lower bound. For example, the random walk with a step counter in
-  `pgfexamples/lower_bounds/sandwich/rw_counter_23.pgcl` gives E[c] ∈ [2.99948, 3.00815].
+  `pgfexamples/lower_bounds/sandwich/rw_counter_23.ppy` gives E[c] ∈ [2.99948, 3.00815].
   Queries after other instructions fall back to the residual mass. Needs a rational input
   distribution and no `observe`.
 
@@ -179,11 +178,14 @@ their index in textual order (`prodigy outline FILE` lists them).
 from prodigy.pgcl import parse_pgcl
 from prodigy.analysis.session import AnalysisSession
 
-session = AnalysisSession(parse_pgcl(source), source=source,
+session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy",
                           decisions={"0": {"strategy": "unroll", "params": {"iterations": 50}}},
                           capture_output=True)
 result = session.run().to_json()      # schema "prodigy/analysis-result@1"
 ```
+
+`result["syntax"]` is the syntax of the program; query expressions, loop guards and the
+instructions of `steps` are written in it (`x == 1` in `.ppy`, `x = 1` in pGCL).
 
 `result["bounds"]["kind"]` (`exact`, `lower`, `upper`, `unknown`) is the guarantee of the
 result. It holds only for `result["status"] == "ok"`; a result that failed or stopped
@@ -192,11 +194,11 @@ result. It holds only for `result["status"] == "ok"`; a result that failed or st
 From the command line:
 
 ```sh
-prodigy analyze prog.pgcl --loop 0=unroll:iterations=50 --json
-prodigy analyze prog.pgcl --loop '*=evt_synthesis'          # same strategy for all loops
-prodigy analyze prog.pgcl --decisions decisions.json --output result.json
+prodigy analyze prog.ppy --loop 0=unroll:iterations=50 --json
+prodigy analyze prog.ppy --loop '*=evt_synthesis'           # same strategy for all loops
+prodigy analyze prog.ppy --decisions decisions.json --output result.json
 prodigy loop_strategies                                     # strategies and parameters
-prodigy main prog.pgcl --loop 0=unroll:iterations=10        # interactive, with presets
+prodigy main prog.ppy --loop 0=unroll:iterations=10         # interactive, with presets
 ```
 
 `prodigy main` without `--loop` behaves exactly as before (same menu, same prompts).
@@ -231,7 +233,7 @@ The strategy then appears in the CLI menu (after the six historic entries), in
 | `GET /api/jobs/<id>?log_offset=n` | state (`running`, `done`, `timeout`, `cancelled`, `crashed`), new console output, progress per loop, result |
 | `DELETE /api/jobs/<id>` | cancels the analysis |
 | `POST /api/suggest` | asks the language model for one candidate for a loop: an analysis request without `coefficients` and `record_steps`, plus `loop` (id) and `form` (`evt_invariant` or `evt_subinvariant`), `time_limit` optional (default: the server's); returns a job id. The job's result is `{status: "ok", suggestion: {candidate, param, answer, model, provider, entering, loop, form}}` or an error (the model's answer in `error.suggestion` if it held no admissible candidate). `GET /api/meta` says under `ai` whether a model is configured. |
-| `GET /api/examples`, `GET /api/examples/<path>?syntax=pgcl\|ppy` | example library; source (converted to `.ppy` with `syntax=ppy`, with `renamings`), `file_name` and suggested setup |
+| `GET /api/examples`, `GET /api/examples/<path>?syntax=ppy` | example library; source in the syntax of the example file (`syntax`; a `.pgcl` example is converted to `.ppy` with `syntax=ppy`, with `renamings`), `file_name` and suggested setup |
 
 Every request with a program takes `syntax` (`pgcl` or `ppy`) or `file_name` (its extension
 decides); without either the program is pGCL.

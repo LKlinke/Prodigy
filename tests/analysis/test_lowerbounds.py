@@ -26,13 +26,13 @@ from prodigy.analysis.lowerbounds.subinvariant import evt_subinvariant_verificat
 from prodigy.analysis.lowerbounds.synthesis import verify_certificate
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "pgfexamples", "lower_bounds")
-EXAMPLES = sorted(glob.glob(os.path.join(ROOT, "sandwich", "*.pgcl")) + glob.glob(os.path.join(ROOT, "exact", "*.pgcl")))
+EXAMPLES = sorted(glob.glob(os.path.join(ROOT, "sandwich", "*.ppy")) + glob.glob(os.path.join(ROOT, "exact", "*.ppy")))
 
 
 def _load(name):
     path = name if os.path.exists(name) else os.path.join(ROOT, name)
     with open(path, encoding="utf-8") as f:
-        prog = compiler.parse_pgcl(f.read())
+        prog = compiler.parse_pgcl(f.read(), path=path)
     return prog, load_problem(prog)
 
 
@@ -88,8 +88,8 @@ def test_calculus_matches_explicit_semantics(path):
             assert got[idx] == expected.get(tuple(int(i) for i in idx), 0)
 
 
-@pytest.mark.parametrize("name", ["sandwich/quadrant_timeout.pgcl", "sandwich/escape_noisy.pgcl", "exact/lossy_retransmission.pgcl",
-                                  "exact/modulo_geometric.pgcl", "exact/dueling_cowboys.pgcl"])
+@pytest.mark.parametrize("name", ["sandwich/quadrant_timeout.ppy", "sandwich/escape_noisy.ppy", "exact/lossy_retransmission.ppy",
+                                  "exact/modulo_geometric.ppy", "exact/dueling_cowboys.ppy"])
 def test_calculus_matches_prodigy(name):
     """The calculus agrees with Prodigy's own forward semantics (GiNaC engine) on rational measures."""
     prog, pb = _load(name)
@@ -121,7 +121,7 @@ def test_product_form_roundtrip():
 
 def test_subinvariant_lossy_retransmission():
     """The exact solution of Phi(nu) = nu has finite mass, hence is a lower bound (non-AST loop with abort)."""
-    prog, _ = _load("exact/lossy_retransmission.pgcl")
+    prog, _ = _load("exact/lossy_retransmission.ppy")
     prefix, loop, _ = split_program(prog)
     config = ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.GINAC)
     variables = list(prog.variables.keys())
@@ -137,7 +137,7 @@ def test_subinvariant_lossy_retransmission():
 
 def test_sandwich_escape_walk():
     """Non-AST walk: termination probability 1/2 is enclosed; the certificates pass the independent check."""
-    _, pb = _load("sandwich/escape_walk.pgcl")
+    _, pb = _load("sandwich/escape_walk.ppy")
     lower = [TemplateShape([Fraction(0)], [1], [30], reach_box=[30])]
     upper = [TemplateShape([Fraction(1)], [1], [4])]
     res = evt_sandwich(pb, lower_shapes=lower, upper_shapes=upper, verbose=False)
@@ -154,7 +154,7 @@ def test_sandwich_escape_walk():
 
 
 def test_sandwich_rw_counter_query_bounds():
-    _, pb = _load("sandwich/rw_counter_23.pgcl")
+    _, pb = _load("sandwich/rw_counter_23.ppy")
     lower = [TemplateShape([Fraction(0), Fraction(17, 20)], [1, 2], [16, 32], reach_box=[16, 35])]
     upper = [TemplateShape([Fraction(1, 2), Fraction(9, 10)], [2, 2], [8, 16])]
     res = evt_sandwich(pb, lower_shapes=lower, upper_shapes=upper, verbose=False)
@@ -245,12 +245,12 @@ def test_upper_certificate_with_values_over_many_orders_of_magnitude():
     assert bound.lower <= 2 <= bound.upper < 2 + 1e-4
 
 
-@pytest.mark.parametrize("name", ["conditioning/rw_counter_observe.pgcl", "conditioning/noisy_geometric.pgcl"])
+@pytest.mark.parametrize("name", ["conditioning/rw_counter_observe.ppy", "conditioning/noisy_geometric.ppy"])
 def test_observe_is_rejected(name):
     """Conditioning is out of scope: the modes must not silently treat violated observations as non-termination."""
     path = os.path.join(ROOT, name)
     with open(path, encoding="utf-8") as f:
-        prog = compiler.parse_pgcl(f.read())
+        prog = compiler.parse_pgcl(f.read(), path=path)
     with pytest.raises(UnsupportedProgram, match="observe"):
         load_problem(prog)
 

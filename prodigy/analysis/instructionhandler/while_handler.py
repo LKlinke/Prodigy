@@ -398,7 +398,7 @@ def _strategy_evt_invariant(task: LoopTask) -> LoopOutcome:
                                              "verdict": "unknown", "reason": str(exc)}) from exc
     print(f"{Style.OKGREEN}Continuing with {solution}{Style.RESET}")
     kind, certificate, messages = _evt_certificate("evt_invariant", full_invariant, variables, config,
-                                                   scope.kind, instruction.cond)
+                                                   scope.kind, task.session.spell(instruction.cond))
     certificate["candidate"] = str(evt_inv)
     certificate["solutions"] = solutions
     return LoopOutcome(solution, task.error_prob, kind=kind, certificate=certificate, messages=messages)
@@ -446,7 +446,7 @@ def _strategy_evt_synthesis(task: LoopTask) -> LoopOutcome:
                            "mass": str(mass) if mass is not None else None})
     chosen, positive = invariants[index]
     kind, certificate, messages = _evt_certificate("evt_synthesis", chosen, variables, config, scope.kind,
-                                                   instruction.cond)
+                                                   task.session.spell(instruction.cond))
     certificate["chosen"] = index
     certificate["candidates"] = candidates
     certificate["synthesis_strategy"] = config.strategy.name

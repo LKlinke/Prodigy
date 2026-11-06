@@ -1,0 +1,7 @@
+# main pgfexamples/inference/loop_free/pi.ppy
+x: nat;
+y: nat;
+x = unif(0, 30);
+y = unif(0, 30);
+# approx. pi/4 = 0.78539816339...
+query Pr[x ** 2 + y ** 2 <= 900];

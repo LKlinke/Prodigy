@@ -1,8 +1,7 @@
 // The example library: a sheet listing pgfexamples, grouped by category, with search and
-// keyboard navigation (↑ ↓ to move, Return to open, Esc to close). "Open as" chooses whether an
-// example opens as it is (.pgcl) or converted to .ppy on the fly.
+// keyboard navigation (↑ ↓ to move, Return to open, Esc to close). Examples open in .ppy; a .pgcl
+// example from a custom examples folder (prodigy web --examples) is converted on the fly.
 import { h, icon } from "./components/dom.js";
-import { load, save } from "./store.js";
 
 const COMMAND_LABELS = {
   check_equality: "invariant",
@@ -15,8 +14,6 @@ const COMMAND_LABELS = {
 export function createLibrary(dialog, { api, onLoad }) {
   const list = dialog.querySelector("#library-list");
   const search = dialog.querySelector("#library-search");
-  const syntaxButtons = [...dialog.querySelectorAll("#library-syntax button")];
-  let syntax = load("librarySyntax", "pgcl") === "ppy" ? "ppy" : "pgcl";
   let examples = null;
   let rows = [];
   let active = -1;
@@ -68,21 +65,8 @@ export function createLibrary(dialog, { api, onLoad }) {
 
   async function choose(example) {
     dialog.close("load");
-    await onLoad(example, syntax);
+    await onLoad(example, "ppy");
   }
-
-  function showSyntax() {
-    for (const button of syntaxButtons) button.setAttribute("aria-pressed", String(button.dataset.syntax === syntax));
-  }
-
-  for (const button of syntaxButtons) {
-    button.addEventListener("click", () => {
-      syntax = button.dataset.syntax;
-      save("librarySyntax", syntax);
-      showSyntax();
-    });
-  }
-  showSyntax();
 
   search.addEventListener("input", render);
   search.addEventListener("keydown", (event) => {

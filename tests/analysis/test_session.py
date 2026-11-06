@@ -36,8 +36,8 @@ observe(c < 3)
 
 def analyse(source, decisions, **kwargs):
     config = ForwardAnalysisConfig(use_simplification=True)
-    session = AnalysisSession(parse_pgcl(source), source=source, config=config, decisions=decisions,
-                              capture_output=True, **kwargs)
+    session = AnalysisSession(parse_pgcl(source, kwargs.get("syntax")), source=source, config=config,
+                              decisions=decisions, capture_output=True, **kwargs)
     return session.run().to_json()
 
 
@@ -127,7 +127,7 @@ def test_spurious_fixed_point_is_only_an_upper_bound():
 
 
 def test_invariant_strategy_is_an_upper_bound_by_park():
-    # pgfexamples/equivalence/loopy/geometric.pgcl with its invariant
+    # pgfexamples/equivalence/loopy/geometric.ppy with its invariant, in pGCL
     source = """nat x; nat c; nat temp;
 x := 1
 while (x = 1) { {x := 0} [1/2] {c := c + 1}; temp := 0 }
@@ -222,10 +222,10 @@ def test_cli_analyze(tmp_path):
 
 def test_inner_upper_bound_keeps_outer_invariant_sound():
     from prodigy.web.examples import ExampleLibrary  # pylint: disable=import-outside-toplevel
-    example = ExampleLibrary("pgfexamples").load("equivalence/loopy/nested_while.pgcl")
+    example = ExampleLibrary("pgfexamples").load("equivalence/loopy/nested_while.ppy")
     decisions = example["suggestion"]["decisions"]
     assert set(decisions) == {"0", "1"}
-    result = analyse(example["source"], decisions, input_distribution="x")
+    result = analyse(example["source"], decisions, input_distribution="x", syntax="ppy")
     assert result["status"] == "ok", result["error"]
     assert result["bounds"]["kind"] == Bound.UPPER
     loops = {loop["id"]: loop for loop in result["loops"]}

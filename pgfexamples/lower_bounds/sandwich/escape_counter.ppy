@@ -1,0 +1,17 @@
+# Upward-drifting random walk with step counter: terminates with probability 1/2 only.
+# Sandwich of the (sub-probability) output distribution and of the termination probability.
+x: nat;
+c: nat;
+x = 1;
+c = 0;
+while (x > 0) {
+    {
+        x = x + 1;
+    } [2/3] {
+        x = x - 1;
+    }
+    c = c + 1;
+}
+query Pr[c == 5];
+query Pr[c >= 11];
+query Pr[true];

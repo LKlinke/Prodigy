@@ -1,0 +1,13 @@
+# skip
+n: nat;
+c: nat;
+tmp: nat;
+
+if (n > 0) {
+    tmp = iid(geometric(1/2), n);
+    c = c + tmp;
+    n = 0;
+    tmp = 0;
+} else {
+    skip;
+}

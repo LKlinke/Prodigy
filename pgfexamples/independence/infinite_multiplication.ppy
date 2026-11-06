@@ -1,0 +1,11 @@
+# skip
+# fails (on purpose)
+x: nat;
+y: nat;
+z: nat;
+s: nat;
+
+x = geometric(1/3);
+y = poisson(4);
+z = unif(1, 3);
+s = x * y;

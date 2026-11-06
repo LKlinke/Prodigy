@@ -14,7 +14,7 @@ A small Flask application: one page (``templates/app.html`` with the ES modules 
 ``POST /api/suggest``         asks a language model for a loop invariant candidate (a job)
 ``GET  /api/examples``        the example library (``pgfexamples``)
 ``GET  /api/examples/<id>``   source of an example and a suggested setup (``?syntax=ppy``:
-                              converted to ``.ppy``)
+                              a ``.pgcl`` example converted to ``.ppy``)
 ============================  ==========================================================
 
 Requests with a program take ``syntax`` (``pgcl`` or ``ppy``) or ``file_name`` (its extension
@@ -221,8 +221,8 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
 
     @app.get("/api/examples/<path:example_id>")
     def example(example_id: str):
-        syntax = request.args.get("syntax", "pgcl")
-        if syntax not in ("pgcl", "ppy"):
+        syntax = request.args.get("syntax")
+        if syntax not in (None, "pgcl", "ppy"):
             abort(400, description=f"Unknown syntax {syntax!r}, expected pgcl or ppy.")
         try:
             return jsonify(library.load(example_id, syntax))

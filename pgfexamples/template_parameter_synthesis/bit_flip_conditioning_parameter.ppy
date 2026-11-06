@@ -1,0 +1,17 @@
+# check_equality pgfexamples/template_parameter_synthesis/bit_flip_conditioning_parameter.ppy pgfexamples/template_parameter_synthesis/invariants/bit_flip_conditioning_parameter_invariant.ppy
+b1: bool;
+b2: bool;
+b3: bool;
+b4: bool;
+i: nat;
+temp: nat;
+
+while (not (b1 == 0 and b2 == 0)) {
+    b1 = bernoulli(1/2);
+    b2 = bernoulli(1/2);
+    observe(b1 == 0 and b3 == 0 or b1 == 1 and b3 == 1 or b2 == 0 and b4 == 0 or b2 == 1 and b4 == 1);
+    b3 = b1;
+    b4 = b2;
+    i = i + 1;
+    temp = 0;
+}

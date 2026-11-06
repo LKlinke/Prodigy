@@ -1,0 +1,14 @@
+# check_equality pgfexamples/equivalence/loopy/random_walk.ppy pgfexamples/equivalence/loopy/invariants/random_walk_invariant.ppy
+s: nat;
+c: nat;
+tmp: nat;
+
+while (s > 0) {
+    {
+        s = s + 1;
+    } [1/2] {
+        s = s - 1;
+    }
+    c = c + 1;
+    tmp = 0;
+}
