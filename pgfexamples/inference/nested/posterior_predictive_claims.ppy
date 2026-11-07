@@ -1,0 +1,52 @@
+# main pgfexamples/inference/nested/posterior_predictive_claims.ppy
+# Posterior predictive for the policyholder of
+# pgfexamples/inference/loop_free/conditioning/high_risk_policyholder.ppy: a policyholder is high
+# risk with probability 1/10; the number of claims per year is negative_binomial(1, 1/2) for low and
+# negative_binomial(2, 1/2) for high risk. Given at least 2 claims this year, how many claims will
+# the policyholder file next year (same risk, independent year)?
+#
+# By hand: Pr[x >= 2] is 1/4 for low and 1/2 for high risk, so the posterior risk is high with
+# 2/11. Next year's claims y are a mixture of 9/11 geometric (mean 1) and 2/11 negative binomial
+# (mean 2): G(y) = 9/11 / (2 - y) + 2/11 / (2 - y)^2, Ex[y] = 13/11, Pr[y == 0] = 5/11,
+# Pr[y >= 2] = 13/44. Without the observation, the mean is 9/10 * 1 + 1/10 * 2 = 11/10.
+
+def claims_next_year() -> nat {
+    alpha: nat = bernoulli(1/10);  # 0: low risk, 1: high risk
+    this_year: nat;
+    next_year: nat;
+    if (alpha == 0) {
+        this_year = negative_binomial(1, 1/2);  # failures before the first success
+        next_year = negative_binomial(1, 1/2);
+    } else {
+        this_year = negative_binomial(2, 1/2);  # failures before the second success
+        next_year = negative_binomial(2, 1/2);
+    }
+    observe(this_year >= 2);  # at least 2 claims this year
+    return next_year;
+}
+
+def claims_without_history() -> nat {
+    alpha: nat = bernoulli(1/10);
+    next_year: nat;
+    if (alpha == 0) {
+        next_year = negative_binomial(1, 1/2);
+    } else {
+        next_year = negative_binomial(2, 1/2);
+    }
+    return next_year;
+}
+
+predictive: dist = infer(claims_next_year);
+prior: dist = infer(claims_without_history);
+
+# a surcharge if the history raises the expected number of claims
+surcharge: nat = 0;
+if (Ex[predictive] > Ex[prior]) {
+    surcharge = 1;
+}
+
+y: nat = sample(predictive);
+query Pr[surcharge == 1];  # expected: 1
+query Ex[y];  # expected: 13/11
+query Pr[y == 0];  # expected: 5/11
+query Pr[y >= 2];  # expected: 13/44

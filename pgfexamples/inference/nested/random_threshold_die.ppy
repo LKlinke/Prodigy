@@ -1,0 +1,24 @@
+# main pgfexamples/inference/nested/random_threshold_die.ppy
+# A die roll given that it reaches a threshold k, where k itself is random. The argument of infer
+# depends on the state with finitely many values, so the analysis splits into the cases k = 4, 5, 6.
+# Both draws use the same k, so they are independent only given k.
+#
+# By hand: given k, the roll is uniform on {k, …, 6}, so Pr[first == second] is 1/3, 1/2, 1 for
+# k = 4, 5, 6, on average 11/18; Ex[first] = (5 + 11/2 + 6)/3 = 11/2.
+
+def roll_at_least(k: nat) -> nat {
+    r: nat = unif(1, 6);
+    observe(r >= k);
+    return r;
+}
+
+k: nat = unif(4, 6);
+d: dist = infer(roll_at_least, k);
+first: nat = sample(d);
+second: nat = sample(d);
+same: nat = 0;
+if (first == second) {
+    same = 1;
+}
+query Pr[same == 1];  # expected: 11/18
+query Ex[first];  # expected: 11/2

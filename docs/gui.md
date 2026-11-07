@@ -30,7 +30,12 @@ Prodigy is tested with Python 3.11 and 3.14.
   --template-heuristic … --pos-heuristic …`).
 * **Result** (right): a summary of the guarantee, the queries with sound intervals, the
   output distribution (closed form, mass, expectations, marginal bar charts and tables), the
-  certificate of every loop, console output, and the full result as JSON.
+  certificate of every loop, console output, and the full result as JSON. A program with nested
+  inference gets a card per value of each `dist` variable (*Inferred distributions*): its
+  `infer(…)`, the normalised generating function, the expected value, the normalising constant Z
+  and the coefficients; the `dist` variables are not part of the output distribution. In the
+  **Steps** tab, every distribution lists the values of the `dist` variables next to it.
+  A loop that assigns a `dist` variable is marked in the editor as not implemented yet.
 * **Steps** (right): a debugger for the analysis, see [Stepping through an analysis](#stepping-through-an-analysis).
 * **Examples**: the programs in `pgfexamples/` (in `.ppy`), with a suggested setup derived from
   their first line (e.g. `check_equality` examples come with their invariant). A `.pgcl` example

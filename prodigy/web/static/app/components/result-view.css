@@ -215,3 +215,6 @@
 .rv-running-log:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .rv-progress progress { width: 100%; height: 6px; accent-color: var(--accent, #0066CC); }
 .rv-extras { gap: 8px; }
+
+/* ---- dist values ----------------------------------------------------------------------- */
+.rv-dist-infer { font-weight: 600; overflow-wrap: anywhere; }

@@ -1,0 +1,29 @@
+# main pgfexamples/inference/nested/fair_coin_from_biased.ppy
+# Von Neumann's trick: flip a biased coin twice and keep the first flip if the two differ. infer
+# conditions on that and gives exactly a fair coin, whatever the bias; Pr[fair == 1] checks it
+# inside the program. The loop draws ten independent flips from the inferred coin; the dist value
+# is fixed while the loop runs.
+#
+# By hand: Pr[a == 1 | a + b == 1] = (1/3 * 2/3) / (2 * 1/3 * 2/3) = 1/2, so heads is
+# binomial(10, 1/2): Ex[heads] = 5, Pr[heads == 5] = 252/1024 = 63/256.
+
+def von_neumann() -> nat {
+    a: nat = bernoulli(1/3);
+    b: nat = bernoulli(1/3);
+    observe(a + b == 1);
+    return a;
+}
+
+fair: dist = infer(von_neumann);
+is_fair: nat = 0;
+if (Pr[fair == 1] == 1/2) {
+    is_fair = 1;
+}
+heads: nat = 0;
+loop(10) {
+    flip: nat = sample(fair);
+    heads = heads + flip;
+}
+query Pr[is_fair == 1];  # expected: 1
+query Ex[heads];  # expected: 5
+query Pr[heads == 5];  # expected: 63/256

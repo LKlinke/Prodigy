@@ -267,7 +267,8 @@ implemented" error that names the construct:
   arithmetic; comparisons with it are decided exactly.
 
 At the end, and at the queries, the `dist` variables are not part of the program's distribution;
-their values are reported separately.
+their values are reported separately (the section `distributions` of the result JSON, a card in
+the GUI). Examples: `pgfexamples/inference/nested/`.
 
 ## Queries
 
