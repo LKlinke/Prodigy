@@ -1,0 +1,46 @@
+# main pgfexamples/inference/loopy/conditioning/poisson_from_coins.ppy
+# Poisson(1/2) from coin flips only (no poisson()): von Neumann's schema as in Flajolet, Pelletier
+# and Soria, "On Buffon machines and numbers" (SODA 2011, arXiv:0906.5560), Theorem 2.2.
+#
+# Draw K geometrically, Pr[K = k] = (1 - λ) λ^k with λ = 1/2, and accept K only if K independent
+# uniform values come out sorted, which has probability 1/k!. Given acceptance,
+# Pr[K = k] ∝ λ^k / k!, i.e. K ~ Poisson(λ) with generating function exp(λ(k - 1)).
+#
+# The values are sorted iff each new value is larger than all earlier ones (a record), which
+# happens with probability 1/i for the i-th value, independently of the others. Instead of
+# comparing uniform values bit by bit (the paper's tries), the record test uses a fair random walk
+# (gambler's ruin): started at 1, it reaches i before 0 with probability exactly 1/i. Rejection
+# ("repeat until accepted") is written as observe, which conditions on acceptance; the acceptance
+# probability is (1 - λ) e^λ ≈ 0.82.
+#
+# What Prodigy proves: with "Unroll" for both loops (e.g. 8 outer, 30 inner iterations) the queries
+# get sound intervals that contain the Poisson values e^(-1/2) (1/2)^k / k! (residual mass about
+# 8e-6), and the ratios Pr[k == 1] / Pr[k == 0] = 1/2 and Pr[k == 2] / Pr[k == 0] = 1/8 come out
+# exactly. An exact proof of exp((k - 1)/2) is not possible with the current strategies: the inner
+# loop maps Σ c_k k^k to Σ c_k (1/k) (w k)^k + …, an integral of the generating function, which no
+# rational or closed-form invariant of the inner loop expresses; the sandwich strategy does not support nested loops.
+
+k: nat = 0;  # the number of values so far; the result
+ok: nat = 1;  # all values so far are sorted
+stop: nat = 0;  # the geometric draw has ended
+w: nat = 0;  # the random walk of the record test
+
+while (ok == 1 and stop == 0) {
+    {stop = 1;} [1/2] {
+        k = k + 1;
+        # the k-th value is a record with probability 1/k: a fair walk from 1 reaches k before 0
+        w = 1;
+        while (w > 0 and w < k) {
+            {w = w + 1;} [1/2] {w = w - 1;}
+        }
+        if (w == 0) {
+            ok = 0;
+        }
+        w = 0;
+    }
+}
+observe(ok == 1);  # accept only sorted values
+query Pr[k == 0];  # expected: exp(-1/2) ≈ 0.6065
+query Pr[k == 1];  # expected: exp(-1/2)/2 ≈ 0.3033
+query Pr[k == 2];  # expected: exp(-1/2)/8 ≈ 0.07582
+query Ex[k];  # expected: 1/2
