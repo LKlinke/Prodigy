@@ -225,7 +225,8 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
   padding: 8px 16px; min-height: 40px; display: flex; align-items: center;
   border-bottom: 1px solid var(--separator); background: var(--surface-sunken);
 }
-.inspector-body { flex: 1; overflow: auto; min-height: 0; }
+/* the scrollbar keeps its space, so content that starts or stops overflowing does not change the width */
+.inspector-body { flex: 1; overflow: auto; min-height: 0; scrollbar-gutter: stable; }
 .panel { padding: 16px 16px 32px; display: flex; flex-direction: column; gap: 20px; }
 
 /* ---- controls ------------------------------------------------------------------- */

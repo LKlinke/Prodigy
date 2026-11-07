@@ -317,6 +317,13 @@ app (foundations: accessibility, colour, typography, layout, writing).
   residual mass in the marginal charts.
 * System font for interface text (13 px body, macOS scale), monospace for code and exact
   values, KaTeX for closed forms. Controls are at least 28 px high.
+* Long expressions (closed forms, invariants, certificates, printed query values) sit in
+  bounded boxes (`components/formula-box.js`): the content scrolls inside its box, never the
+  page, and the box takes the keyboard focus only while there is something to scroll. A box
+  taller than its content offers *Show more* / *Show less* (a button with `aria-expanded`); the
+  enlarged box is still bounded. The stepper's box has a fixed height, and the status line of the
+  Kleene iterates reserves the height of its longest line, so stepping and the animation do not
+  move the views below. The console output shown while an analysis runs has a fixed height too.
 
 ## Reuse in VS Code
 

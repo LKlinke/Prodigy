@@ -71,6 +71,7 @@
 .rv-error[data-tone="error"] .rv-error-title { color: var(--rv-error); }
 .rv-error-message, .rv-error p { margin: 0; line-height: 1.45; }
 .rv-error-text { color: var(--rv-error); }
+.rv-error .formula-box { --fb-fade: transparent; }
 
 /* ---- queries ------------------------------------------------------------------------- */
 .rv-queries { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
@@ -103,14 +104,45 @@
 .hatch-line { stroke: var(--rv-bound); stroke-width: 2.2; }
 
 /* ---- distribution -------------------------------------------------------------------- */
-.rv-closed-form {
-  overflow: auto; max-height: 300px; padding: 2px 0; font-size: 14px; line-height: 3.1;
-  outline: none; border-radius: 6px;
+/*
+ * Formula boxes (formula-box.js): a bounded box whose content scrolls inside it, never the page.
+ * --fb-collapsed and --fb-expanded bound the height; a reserved box (the stepper) has exactly that
+ * height, so the views below it keep their place while the expression changes.
+ */
+.formula-box {
+  --fb-collapsed: 216px;
+  --fb-expanded: min(65vh, 720px);
+  --fb-fade: var(--rv-surface);
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 100%;
 }
-.rv-closed-form:focus-visible { box-shadow: var(--focus-ring); }
-.rv-closed-form .katex-display { margin: 4px 0; text-align: left; }
-.rv-closed-form .katex-display > .katex { text-align: left; }
-.math-fallback { font-family: var(--font-mono, monospace); font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+.formula-box.fb-text { --fb-collapsed: 7.6em; --fb-expanded: min(60vh, 40em); }
+.formula-frame { position: relative; min-width: 0; }
+.formula-scroll {
+  max-height: var(--fb-collapsed); overflow: auto; min-width: 0;
+  outline: none; border-radius: 6px; padding: 2px 4px 2px 0;
+}
+.formula-box[data-expanded="true"] .formula-scroll { max-height: var(--fb-expanded); }
+.formula-box[data-reserve="true"] .formula-scroll { height: var(--fb-collapsed); }
+.formula-box[data-reserve="true"][data-expanded="true"] .formula-scroll { height: var(--fb-expanded); }
+.formula-scroll:focus-visible { box-shadow: var(--focus-ring); }
+/* more below: fade out the last line (the button below says so in words) */
+.formula-frame::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 22px; pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--fb-fade)); opacity: 0; transition: opacity 120ms;
+  border-radius: 0 0 6px 6px;
+}
+.formula-box[data-overflow="true"][data-at-end="false"] .formula-frame::after { opacity: 1; }
+.formula-foot { display: flex; align-items: center; line-height: 20px; }
+.formula-box[data-reserve="true"] .formula-foot { height: 20px; }
+.formula-toggle { font-size: var(--text-callout, 12px); }
+.formula-math { font-size: 14px; line-height: 3.1; }
+.formula-math .katex-display { margin: 4px 0; text-align: left; }
+.formula-math .katex-display > .katex { text-align: left; }
+.formula-text {
+  display: block; font-family: var(--font-mono, monospace); font-size: 12px; line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.math-fallback { font-family: var(--font-mono, monospace); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
 
 .rv-facts { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 0; }
 .rv-facts > div { display: grid; gap: 0; }
@@ -165,7 +197,7 @@
 .rv-cert > div.rv-cert-block { grid-template-columns: 1fr; gap: 4px; }
 .rv-cert dt { color: var(--rv-text-2); }
 .rv-cert dt.rv-ai-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.rv-cert dd { margin: 0; overflow-wrap: anywhere; }
+.rv-cert dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 
 .rv-pre {
   margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--rv-fill);
@@ -178,5 +210,8 @@
 .rv-running-head { display: flex; align-items: center; gap: 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .rv-progress { display: grid; gap: 4px; }
 .rv-progress-label { display: flex; justify-content: space-between; gap: 12px; font-size: var(--text-callout, 12px); color: var(--rv-text-2); }
+.rv-progress-label > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-running-log { height: calc(12 * 1.45em + 16px); max-height: none; }
+.rv-running-log:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .rv-progress progress { width: 100%; height: 6px; accent-color: var(--accent, #0066CC); }
 .rv-extras { gap: 8px; }
