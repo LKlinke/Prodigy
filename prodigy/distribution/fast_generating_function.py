@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from typing import (Dict, FrozenSet, Generator, Iterator, List, Set, Tuple, Type,
                     Union)
 
@@ -173,14 +175,20 @@ class FPS(Distribution):
         return self._dist.mass(self._variables & set(self._dist.get_symbols()))
 
     def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
-        # The bindings treat symbols that are neither variables nor parameters as 0, which would give a wrong
-        # value; reject them, as the SymPy engine does.
+        # Symbols that are neither variables nor parameters have no value: reject them, as the SymPy engine
+        # does (the bindings reject them as well since prodigy-ppl-ginac 0.0.5).
         symbols = self._find_symbols(str(expression))
         if not symbols & self._variables:
             return str(expression)
         if not symbols <= self._variables | self._parameters:
             raise ValueError(f"Cannot compute expected value of {expression} because it contains unknown symbols")
-        return self._dist.E(str(expression))
+        # A variable that does not occur in the generating function is 0 in every state, but the bindings
+        # do not know it as a variable; substitute its value.
+        absent = (symbols & self._variables) - set(self._dist.get_symbols())
+        text = str(expression)
+        if absent:
+            text = re.sub(r"\b(" + "|".join(sorted(map(re.escape, absent))) + r")\b", "0", text)
+        return self._dist.E(text)
 
     def normalize(self) -> FPS:
         return FPS.from_dist(self._dist.normalize(), self._variables, self._parameters)
