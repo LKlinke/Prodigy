@@ -50,3 +50,11 @@ def test_unknown_symbols_are_rejected(factory, expression):
     dist = factory().from_expr(GF, "x", "y")
     with pytest.raises(ValueError, match="unknown symbols"):
         dist.get_expected_value_of(expression)
+
+
+@pytest.mark.parametrize("factory", FACTORIES)
+@pytest.mark.parametrize("expression, expected", [("x", "0"), ("x + y", "1/2"), ("x*y + 3", "3"), ("x^2 + 2", "2")])
+def test_variable_absent_from_the_generating_function_is_zero(factory, expression, expected):
+    # x is a program variable that does not occur in the generating function, so it is 0 in every state
+    dist = factory().from_expr("1/2 + y/2", "x", "y")
+    assert sympy.simplify(sympy.S(str(dist.get_expected_value_of(expression))) - sympy.S(expected)) == 0

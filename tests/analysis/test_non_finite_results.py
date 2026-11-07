@@ -67,20 +67,12 @@ def test_monty_hall_nested_is_exact(path, engine, simplification):
 # x is uniform on {1, 2, 3}, written with a removable singularity at x = 1
 UNSIMPLIFIED = "x*(x^3 - 1)/(3*(x - 1))*y"
 SIMPLIFIED = "(x + x^2 + x^3)/3*y"
-# The GiNaC bindings (prodigy-ppl-ginac 0.0.4) raise "division by zero" when the assigned variable has a
-# removable singularity at 1; the analysis then ends with an error (see the test below), never with "ok".
-GINAC_DIVISION_BY_ZERO = {"x = y", "x = 5"}
-
-
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("simplification", SIMPLIFICATION)
 @pytest.mark.parametrize("assignment", ["y = x", "y = x + 1", "y = 2 * x", "y = x - 1", "y = 2",
                                         "x = y", "x = 5", "x = x + y", "y = x * x", "y = x // 2",
                                         "y = x % 2"])
-def test_assignment_at_removable_singularity(request, engine, simplification, assignment):
-    if engine == "GINAC" and assignment in GINAC_DIVISION_BY_ZERO:
-        request.applymarker(pytest.mark.xfail(raises=ValueError, strict=True,
-                                              reason="GiNaC bindings: update_var divides by zero"))
+def test_assignment_at_removable_singularity(engine, simplification, assignment):
     config = ForwardAnalysisConfig(engine=_engine(engine), use_simplification=simplification)
     program = parse_pgcl(f"x: nat;\ny: nat;\n{assignment};\n", "ppy")
     results = []
@@ -94,18 +86,16 @@ def test_assignment_at_removable_singularity(request, engine, simplification, as
 
 
 @pytest.mark.parametrize("engine", ENGINES)
-def test_failing_assignment_is_an_error(engine):
+def test_assignment_at_removable_singularity_in_a_session(engine):
     source = "x: nat;\ny: nat;\nx = y;\nquery Pr[x == 1];\n"
     config = ForwardAnalysisConfig(engine=_engine(engine))
     session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
                               decisions={}, input_distribution=UNSIMPLIFIED, capture_output=True)
     result = session.run().to_json()
-    if result["status"] == "ok":
-        assert sym(result["queries"][0]["value"]) == 1  # y is 1 with certainty
-        assert result["bounds"]["kind"] == Bound.EXACT
-    else:
-        assert engine == "GINAC" and result["status"] == "error"
-        assert result["bounds"]["kind"] == Bound.UNKNOWN
+    # all engines, GiNaC since prodigy-ppl-ginac 0.0.5, cancel the removable singularity
+    assert result["status"] == "ok"
+    assert sym(result["queries"][0]["value"]) == 1  # y is 1 with certainty
+    assert result["bounds"]["kind"] == Bound.EXACT
 
 
 def test_substitute_one_takes_the_limit_at_a_removable_singularity():
