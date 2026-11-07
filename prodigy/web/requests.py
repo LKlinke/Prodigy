@@ -13,7 +13,9 @@ A request looks like::
       "simplification": true,
       "decisions": {"0": {"strategy": "unroll", "params": {"iterations": 50}}, "*": ...},
       "coefficients": 30,                    # coefficients per marginal in the result
-      "record_steps": false,
+      "record_steps": false,                 # record the step trace (prodigy.analysis.trace)
+      "watches": ["Pr[x == 3]", "Ex[x]"],    # with record_steps: queries after every top-level step
+      "step_iterations": 40,                 # with record_steps: iterates kept per loop
       "synthesis_strategy": "default",       # for EVT invariant synthesis
       "template_heuristic": "default",       # only with synthesis_strategy "from_heuristics"
       "positivity_heuristic": "default",     # only with synthesis_strategy "from_heuristics"
@@ -37,6 +39,8 @@ ENGINES = {
 }
 
 MAX_COEFFICIENTS = 200
+MAX_WATCHES = 8
+MAX_STEP_ITERATIONS = 200
 
 
 def request_syntax(request: Dict[str, Any]) -> str:
@@ -128,6 +132,32 @@ def validate_request(request: Dict[str, Any]) -> List[str]:
         problems.extend(validate_decisions(decisions))
     except ValueError as exc:
         problems.append(str(exc))
+    problems.extend(_trace_problems(request, syntax))
+    return problems
+
+
+def _trace_problems(request: Dict[str, Any], syntax: str) -> List[str]:
+    """Problems with ``watches`` and ``step_iterations``; a watch is parsed by the program's
+    expression parser (:func:`prodigy.analysis.trace.parse_watch`), never by SymPy."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.trace import parse_watch
+    problems = []
+    watches = request.get("watches")
+    if watches is not None:
+        if not isinstance(watches, list) or not all(isinstance(w, str) for w in watches):
+            problems.append("'watches' must be a list of queries such as \"Pr[x == 3]\".")
+        elif len(watches) > MAX_WATCHES:
+            problems.append(f"At most {MAX_WATCHES} watches.")
+        else:
+            for watch in watches:
+                try:
+                    parse_watch(watch, syntax)
+                except ValueError as exc:
+                    problems.append(f"Watch: {exc}")
+    iterations = request.get("step_iterations")
+    if iterations is not None and (isinstance(iterations, bool) or not isinstance(iterations, int)
+                                   or not 1 <= iterations <= MAX_STEP_ITERATIONS):
+        problems.append(f"'step_iterations' must be a whole number between 1 and {MAX_STEP_ITERATIONS}.")
     return problems
 
 
@@ -156,6 +186,7 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
     from prodigy.pgcl import parse_pgcl
 
     from prodigy.analysis.session import AnalysisSession
+    from prodigy.analysis.trace import TraceLimits, parse_watch
 
     problems = validate_request(request)
     if problems:
@@ -170,6 +201,15 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
     input_distribution = request.get("input_distribution")
     if isinstance(input_distribution, str) and not input_distribution.strip():
         input_distribution = None
+    record_steps = bool(request.get("record_steps", False))
+    watches = list(request.get("watches") or []) if record_steps else []
+    names = list(program.variables) + list(program.parameters)
+    for watch in watches:
+        try:
+            parse_watch(watch, syntax, names)
+        except ValueError as exc:
+            return {"status": "error", "error": {"type": "request", "message": f"Watch: {exc}",
+                                                 "problems": [f"Watch: {exc}"]}}
     session = AnalysisSession(
         program,
         source=source,
@@ -181,8 +221,10 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
         capture_output=True,
         output_callback=output,
         progress_callback=progress,
-        record_steps=bool(request.get("record_steps", False)),
+        record_steps=record_steps,
         coefficient_limit=int(request.get("coefficients", 30)),
+        trace_limits=TraceLimits(iterates=int(request.get("step_iterations") or 40)),
+        watches=watches,
     )
     return session.run().to_json()
 

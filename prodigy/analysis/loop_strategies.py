@@ -239,6 +239,15 @@ class LoopTask:
     def note(self, message: str) -> None:
         self.session.note(self, message)
 
+    def iterate(self, iteration: int, terminated: Any, inside: Any = None, residual: Any = None,
+                kind: str = Bound.LOWER) -> None:
+        """Reports an iterate for the step trace (:mod:`prodigy.analysis.trace`): ``terminated`` (a
+        distribution, or a function computing it, called only if the iterate is kept) has left the
+        loop after ``iteration`` iterations and is a lower bound on the loop's output of kind
+        ``kind``; the mass not accounted for is the mass of ``inside`` (still in the loop) or
+        ``residual``. Costs nothing unless steps are recorded."""
+        self.session.loop_iterate(self, iteration, terminated, inside, residual, kind)
+
     @property
     def interactive(self) -> bool:
         return self.session.provider.interactive

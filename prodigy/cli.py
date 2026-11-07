@@ -70,8 +70,11 @@ class _CliGroup(click.Group):
               type=click.Choice(SELECTABLE_POSITIVITY_HEURISTICS, case_sensitive=False),
               required=False, default=None,
               help="Positivity heuristic for --strategy from_heuristics (default: default, i.e. mixed_rat_func).")
-@click.option('--intermediate-results', is_flag=True, required=False, default=False)
-@click.option("--stepwise", is_flag=True, required=False, default=False)
+@click.option('--intermediate-results', is_flag=True, required=False, default=False,
+              help="Print every step of the analysis (line, instruction, distribution, guarantee) as it is done. "
+                   "'prodigy analyze --steps' records the same steps, with --json as JSON.")
+@click.option("--stepwise", is_flag=True, required=False, default=False,
+              help="Like --intermediate-results, and wait for Enter after each step.")
 @click.option('--no-simplification', is_flag=True, required=False, default=False)
 @click.option('--use-latex', is_flag=True, required=False, default=False)
 @click.option("--no-normalize", is_flag=True, required=False, default=False)
@@ -534,13 +537,21 @@ def _print_summary(result: Dict[str, Any]) -> None:
 @click.option('--json', 'as_json', is_flag=True, default=False, help="Print the JSON result.")
 @click.option('--coefficients', type=int, default=30, show_default=True,
               help="Number of coefficients per marginal in the result (0 to skip).")
-@click.option('--steps', is_flag=True, default=False, help="Record the distribution after each instruction.")
+@click.option('--steps', is_flag=True, default=False,
+              help="Record the step trace: for each instruction its line and column, the distribution before and "
+                   "after it with its guarantee, marginals, time and size; loops add their iterates and the checks "
+                   "of their certificates. Printed as text, or in the JSON result under 'steps' and 'trace'.")
+@click.option('--watch', 'watches', multiple=True, metavar="QUERY",
+              help="With --steps: evaluate this query after every top-level step, e.g. 'Pr[x == 3]' or 'Ex[x]' "
+                   "(in the program's syntax; repeatable).")
+@click.option('--step-iterations', type=click.IntRange(min=1), default=40, show_default=True,
+              help="With --steps: iterates kept per loop (spread evenly over the iterations).")
 @click.option('--output', type=click.File('w'), required=False, help="Write the JSON result to this file.")
 @_syntax_option
 def analyze(  # pylint: disable=too-many-arguments
         ctx, program_file: IO, input_dist: Optional[str], loop_specs: Tuple[str, ...],
         decisions_file: Optional[IO], as_json: bool, coefficients: int, steps: bool,
-        output: Optional[IO], syntax: Optional[str]) -> None:
+        watches: Tuple[str, ...], step_iterations: int, output: Optional[IO], syntax: Optional[str]) -> None:
     """
     Analyse a program without asking questions: every loop needs a strategy (--loop or
     --decisions). Queries are answered with sound intervals.
@@ -553,10 +564,26 @@ def analyze(  # pylint: disable=too-many-arguments
         for problem in problems:
             print(f"{Style.OKRED}Error:{Style.RESET} {problem}", file=sys.stderr)
         sys.exit(2)
+    if watches and not steps:
+        raise click.UsageError("--watch needs --steps.")
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.trace import TraceLimits, describe_step, parse_watch
+    names = list(program.variables) + list(program.parameters)
+    for watch in watches:
+        try:
+            parse_watch(watch, syntax, names)
+        except ValueError as exc:
+            raise click.BadParameter(str(exc), param_hint="--watch") from exc
     session = AnalysisSession(program, source=program_source, syntax=syntax, config=config, decisions=decisions,
                               input_distribution=input_dist, capture_output=True,
-                              record_steps=steps, coefficient_limit=coefficients)
+                              record_steps=steps, coefficient_limit=coefficients,
+                              trace_limits=TraceLimits(iterates=step_iterations), watches=watches)
     result = session.run().to_json()
+    if steps and not as_json:
+        for step in result["steps"]:
+            print(describe_step(step))
+        for hint in (result.get("trace") or {}).get("hints", []):
+            print(f"{Style.YELLOW}Hint:{Style.RESET} {hint['text']}")
     if output is not None:
         json.dump(result, output, indent=2)
     if as_json:

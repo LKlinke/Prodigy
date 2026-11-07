@@ -48,6 +48,44 @@ Converting programs to ``.ppy``
 
 The library function is :func:`prodigy.pgcl.converter.convert_pgcl`.
 
+Stepping through an analysis
+----------------------------
+
+``prodigy analyze --steps FILE --loop ...`` records the *step trace* of the analysis
+(:mod:`prodigy.analysis.trace`): for every instruction its line and column, the distribution
+before and after it with the guarantee that holds there (exact, lower bound with residual mass,
+upper bound, no guarantee), its mass, the first coefficients of its marginals, the time it took
+and the size of the closed form. The instructions inside the branches of ``if`` and of
+probabilistic choices are steps of their own, on the sub-distribution of their branch. A loop is
+one step that tells what its strategy did: unrolling strategies keep their iterates (the part that
+has left the loop grows, the mass still inside shrinks; ``--step-iterations`` iterates at most,
+spread evenly, plus the last), invariant strategies the checks of their certificate in words,
+including why a check failed. Two hints point to the step where the closed form grows most and
+the step where most of the time goes.
+
+Without ``--json`` the steps are printed one per instruction; with ``--json`` they are the keys
+``steps`` and ``trace`` of the JSON result, for front ends such as the GUI's stepper.
+``--watch 'Pr[x == 3]'`` (repeatable, in the program's syntax) evaluates a query after every
+top-level step, as if it stood right after that instruction, with the same sound intervals as the
+program's queries:
+
+.. code-block:: text
+
+   $ prodigy analyze --steps --watch 'Pr[c == 0]' --loop 0=unroll:iterations=8 coin.ppy
+   line 2: x = 1;
+       → x
+       mass 1 · exact · 0.000138 s
+       Pr[c == 0] = 1
+   line 4: while (x == 1)
+       → c**7/256 + c**6/128 + c**5/64 + c**4/32 + c**3/16 + c**2/8 + c/4 + 1/2
+       mass 255/256 · lower bound, residual mass 1/256 · 0.0869 s
+       loop 0 (unroll): 9 iterate(s) recorded, 8 iteration(s)
+       ...
+
+The interactive ``prodigy main`` prints the same steps while it runs with
+``prodigy --intermediate-results main FILE``, and waits for Enter after each step with
+``prodigy --stepwise main FILE``.
+
 Commands
 --------
 

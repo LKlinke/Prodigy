@@ -168,8 +168,8 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
             return jsonify({"error": " ".join(problems), "problems": problems}), 400
         analysis_request = {key: payload.get(key) for key in (
             "source", "syntax", "file_name", "input_distribution", "engine", "normalize", "simplification",
-            "decisions", "coefficients", "record_steps", "synthesis_strategy", "template_heuristic",
-            "positivity_heuristic", "solver") if key in payload}
+            "decisions", "coefficients", "record_steps", "watches", "step_iterations", "synthesis_strategy",
+            "template_heuristic", "positivity_heuristic", "solver") if key in payload}
         try:
             job = jobs.submit(analysis_request, time_limit=payload.get("time_limit"))
         except BusyError as exc:

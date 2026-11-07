@@ -17,7 +17,7 @@ the session's :class:`DecisionProvider`:
 
 While a session runs, it also records what happened: query results with sound intervals
 (see :mod:`prodigy.analysis.result`), what each loop strategy produced and certified,
-warnings, progress and optionally the distribution after each top-level instruction.
+warnings, progress and optionally the step trace (:mod:`prodigy.analysis.trace`).
 :meth:`AnalysisSession.run` returns an :class:`~prodigy.analysis.result.AnalysisResult`
 whose :meth:`~prodigy.analysis.result.AnalysisResult.to_json` is the exchange format for
 front ends.
@@ -39,7 +39,8 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Tuple, Union, cast, get_args
+from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, Union,
+                    cast, get_args)
 
 from prodigy.pgcl import (ChoiceInstr, ExpectationInstr, Expr, IfInstr, Instr, LoopInstr, OptimizationQuery, PlotInstr,
                           PrintInstr, ProbabilityQueryInstr, Program, QueryInstr, WhileInstr)
@@ -47,6 +48,9 @@ from prodigy.pgcl import (ChoiceInstr, ExpectationInstr, Expr, IfInstr, Instr, L
 from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
                                               get_loop_strategy, loop_strategies)
 from prodigy.util.logger import log_setup, print_progress_bar
+
+if TYPE_CHECKING:  # pragma: no cover
+    from prodigy.analysis.trace import TraceLimits
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
@@ -563,9 +567,13 @@ class AnalysisSession:
                  output_callback: Optional[Callable[[str], None]] = None,
                  progress_callback: Optional[ProgressCallback] = None,
                  record_steps: bool = False,
-                 coefficient_limit: int = 30):
+                 coefficient_limit: int = 30,
+                 trace_limits: Optional["TraceLimits"] = None,
+                 watches: Sequence[str] = (),
+                 on_step: Optional[Callable[[Dict[str, Any]], None]] = None):
         # pylint: disable=import-outside-toplevel
         from prodigy.analysis.config import ForwardAnalysisConfig
+        from prodigy.analysis.trace import Tracer, parse_watch
         self.program = program
         self.source = source
         self.syntax = syntax
@@ -588,7 +596,12 @@ class AnalysisSession:
         self.query_positions = query_positions(source, syntax) if source is not None else []
         self.loop_records: Dict[Any, LoopRecord] = {}
         self.queries: List[Any] = []
-        self.steps: List[Dict[str, Any]] = []
+        self.tracer: Optional[Tracer] = None
+        """Records the step trace (:mod:`prodigy.analysis.trace`) if ``record_steps`` is set."""
+        if record_steps:
+            names = None if program is None else list(program.variables) + list(program.parameters)
+            self.tracer = Tracer(self, trace_limits,
+                                 [parse_watch(text, syntax, names) for text in watches], on_step=on_step)
         self.warnings: List[str] = []
         # bounds of a loop strategy for the queries right after its loop (LoopOutcome.query_bounds)
         self._loop_query_bounds: Dict[Tuple[str, str], Tuple[Any, Any]] = {}
@@ -708,6 +721,25 @@ class AnalysisSession:
 
     def run_loop(self, task: LoopTask) -> LoopOutcome:
         """Runs ``task.strategy`` and books its outcome (used by the while handler)."""
+        tracer = self.tracer
+        if tracer is None:
+            return self._run_loop(task)
+        frame = tracer.loop_started(task)
+        try:
+            outcome = self._run_loop(task)
+        except BaseException as exc:
+            tracer.loop_finished(task, frame, None, exc)
+            raise
+        tracer.loop_finished(task, frame, outcome)
+        return outcome
+
+    def loop_iterate(self, task: LoopTask, iteration: int, terminated: Any, inside: Any = None,
+                     residual: Any = None, kind: str = Bound.LOWER) -> None:
+        """An iterate of an unrolling strategy, for the step trace (see :meth:`LoopTask.iterate`)."""
+        if self.tracer is not None:
+            self.tracer.loop_iterate(task, iteration, terminated, inside, residual, kind)
+
+    def _run_loop(self, task: LoopTask) -> LoopOutcome:
         key = task.loop.id if task.loop is not None else f"while ({task.instruction.cond})"
         record = self.loop_records.get(key)
         if record is None:
@@ -832,20 +864,10 @@ class AnalysisSession:
 
     # -- steps -------------------------------------------------------------------------
 
-    def record_step(self, instruction: Instr, distribution, error_prob) -> None:
-        if self.silent or not self.record_steps:
-            return
-        from prodigy.analysis.result import exact_and_float  # pylint: disable=import-outside-toplevel
-        mass, mass_float = exact_and_float(_safe(distribution.get_probability_mass))
-        self.steps.append({
-            "index": len(self.steps),
-            "instruction": self.spell(instruction),
-            "distribution": str(distribution),
-            "mass": mass,
-            "mass_float": mass_float,
-            "error_probability": str(error_prob),
-            "bound": self.bound_kind,
-        })
+    @property
+    def steps(self) -> List[Dict[str, Any]]:
+        """The recorded steps (empty unless ``record_steps``); see :mod:`prodigy.analysis.trace`."""
+        return self.tracer.steps if self.tracer is not None else []
 
     # -- running -----------------------------------------------------------------------
 

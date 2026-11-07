@@ -37,6 +37,7 @@ Errors are raised as :class:`PpySyntaxError` with line and column.
 from __future__ import annotations
 
 import copy
+import functools
 import re
 from decimal import Decimal
 from fractions import Fraction
@@ -62,6 +63,7 @@ from prodigy.pgcl.ast import (AbortInstr, AsgnInstr, Binop, BinopExpr,
                               VarExpr, WhileInstr)
 from prodigy.pgcl.ast.types import DistributionType
 from prodigy.pgcl.ast.walk import Walk, walk_expr, walk_instr_exprs, walk_instrs
+from prodigy.pgcl.positions import set_span, span_from_meta
 from prodigy.pgcl.scope import ScopeError, lower_block_scope
 from prodigy.pgcl.syntax_errors import (ProgramSyntaxError, position,
                                         removed_construct)
@@ -245,6 +247,17 @@ class _Query:
     """Parser-internal: a query statement, only allowed at the end."""
     instr: Instr = attr.ib()
     meta: Meta = attr.ib()
+
+
+def _spanned(method):
+    """Attaches the source span of the statement to the instruction (or query) it returns
+    (see :mod:`prodigy.pgcl.positions`)."""
+    @functools.wraps(method)
+    def wrapper(self, meta: Meta, children: List[Any]) -> Any:
+        result = method(self, meta, children)
+        set_span(result.instr if isinstance(result, _Query) else result, span_from_meta(meta))
+        return result
+    return wrapper
 
 
 _MONADIC = (CategoricalExpr, InferExpr, SampleExpr)
@@ -535,18 +548,22 @@ class _ToAst(Transformer):
 
     # --- statements -------------------------------------------------------
 
+    @_spanned
     def skip(self, meta: Meta, children: List[Any]) -> Any:
         return SkipInstr()
 
+    @_spanned
     def abort(self, meta: Meta, children: List[Any]) -> Any:
         return AbortInstr()
 
     def empty(self, meta: Meta, children: List[Any]) -> Any:
         return None
 
+    @_spanned
     def assign(self, meta: Meta, children: List[Any]) -> Any:
         return AsgnInstr(self._name(children[0]), children[1])
 
+    @_spanned
     def observe(self, meta: Meta, children: List[Any]) -> Any:
         return ObserveInstr(self._plain(children[0], meta))
 
@@ -557,16 +574,18 @@ class _ToAst(Transformer):
                 continue
             if isinstance(child, _VarDeclStatement):
                 for decl in child.decls:
-                    local = LocalDeclInstr(decl, child.value)
+                    local = set_span(LocalDeclInstr(decl, child.value), span_from_meta(child.meta))
                     self.local_decls[id(local)] = child.meta
                     instrs.append(local)
             else:
                 instrs.append(child)
         return instrs
 
+    @_spanned
     def while_(self, meta: Meta, children: List[Any]) -> Any:
         return WhileInstr(self._plain(children[0], meta), children[1])
 
+    @_spanned
     def if_statement(self, meta: Meta, children: List[Any]) -> Any:
         cond = self._plain(children[0], meta)
         if len(children) < 3:
@@ -574,9 +593,11 @@ class _ToAst(Transformer):
         other = children[2]
         return IfInstr(cond, children[1], other if isinstance(other, list) else [other])
 
+    @_spanned
     def choice(self, meta: Meta, children: List[Any]) -> Any:
         return ChoiceInstr(self._plain(children[1], meta), children[0], children[2])
 
+    @_spanned
     def loop(self, meta: Meta, children: List[Any]) -> Any:
         count, body = children
         if count.type == "INT":
@@ -592,6 +613,7 @@ class _ToAst(Transformer):
     def default(self, meta: Meta, children: List[Any]) -> Any:
         return children[0]
 
+    @_spanned
     def switch(self, meta: Meta, children: List[Any]) -> Any:
         var = self._name(children[0])
         rest = children[1:]
@@ -605,11 +627,13 @@ class _ToAst(Transformer):
             otherwise = [IfInstr(cond, body, otherwise)]
         return otherwise[0]
 
+    @_spanned
     def query_block(self, meta: Meta, children: List[Any]) -> Any:
         return QueryInstr(children[0])
 
     # --- queries ----------------------------------------------------------
 
+    @_spanned
     def query(self, meta: Meta, children: List[Any]) -> Any:
         kind = str(children[0])
         expr = self._plain(children[1], meta)
@@ -619,9 +643,11 @@ class _ToAst(Transformer):
             return _Query(ExpectationInstr(expr), meta)
         raise _error(children[0], f"Unknown query '{kind}': use 'query Pr[…]' or 'query Ex[…]'.")
 
+    @_spanned
     def print_query(self, meta: Meta, children: List[Any]) -> Any:
         return _Query(PrintInstr(), meta)
 
+    @_spanned
     def plot(self, meta: Meta, children: List[Any]) -> Any:
         variables = [VarExpr(self._name(child)) for child in children if isinstance(child, Token)]
         literals = [child for child in children if not isinstance(child, Token)]
@@ -636,6 +662,7 @@ class _ToAst(Transformer):
             kwargs["var_2"] = variables[1]
         return _Query(PlotInstr(variables[0], **kwargs), meta)
 
+    @_spanned
     def optimize(self, meta: Meta, children: List[Any]) -> Any:
         expr = self._plain(children[0], meta)
         parameter = self._name(children[1])
@@ -726,7 +753,8 @@ def _hoist(items: List[Any], declarations: List[Decl], *, zero_init_all: bool) -
                 if value is None and (zero_init_all or instructions):
                     value = _zero_for(decl.typ)
                 if value is not None:
-                    instructions.append(AsgnInstr(decl.var, copy.deepcopy(value)))
+                    instructions.append(set_span(AsgnInstr(decl.var, copy.deepcopy(value)),
+                                                 span_from_meta(item.meta)))
         else:
             instructions.append(item)
     return instructions
