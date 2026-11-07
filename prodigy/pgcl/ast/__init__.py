@@ -79,6 +79,10 @@ mapping of states to *expected values*: :math:`\Sigma \to \mathbb{R}`.
 .. autoclass:: CategoricalExpr
 .. autoclass:: SubstExpr
 .. autoclass:: FunctionCallExpr
+.. autoclass:: InferExpr
+.. autoclass:: SampleExpr
+.. autoclass:: ProbabilityExpr
+.. autoclass:: ExpectationExpr
 
 Instructions
 ############
@@ -124,7 +128,8 @@ from .ast import Node, Var
 from .declarations import (ConstDecl, Decl, Function, FunctionDecl,
                            ParameterDecl, VarDecl)
 from .expressions import (Binop, BinopExpr, BoolLitExpr, CategoricalExpr, Expr,
-                          ExprClass, FunctionCallExpr, InferExpr, NatLitExpr,
+                          ExpectationExpr, ExprClass, FunctionCallExpr,
+                          InferExpr, NatLitExpr, ProbabilityExpr,
                           RealLitExpr, SampleExpr, SubstExpr, Unop,
                           UnopExpr, VarExpr, expr_str_parens)
 from .instructions import (AsgnInstr, ChoiceInstr, ExpectationInstr, IfInstr,

@@ -71,7 +71,8 @@ def test_tick_is_a_name_again():
 
 
 def test_other_errors_are_unchanged():
-    with pytest.raises(PpySyntaxError, match="Unexpected '\\['"):
+    # in .ppy, NAME[…] is Pr[…] or Ex[…] of a dist value
+    with pytest.raises(PpySyntaxError, match="Unknown expression 'x\\[…\\]'"):
         parse_ppy("x: nat;\nx = x[1];")
     with pytest.raises(UnexpectedInput):
         parse_pgcl("nat x;\nx := x[1];")

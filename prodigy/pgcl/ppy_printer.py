@@ -30,13 +30,13 @@ from typing import List, Tuple
 
 from prodigy.pgcl.ast import (AbortInstr, AsgnInstr, Binop, BinopExpr,
                               BoolLitExpr, BoolType, CategoricalExpr,
-                              ChoiceInstr, ConstDecl, Decl, ExpectationInstr,
-                              Expr, FunctionCallExpr, FunctionDecl, IfInstr,
+                              ChoiceInstr, ConstDecl, Decl, ExpectationExpr,
+                              ExpectationInstr, Expr, FunctionCallExpr, FunctionDecl, IfInstr,
                               InferExpr, Instr, LocalDeclInstr, LoopInstr,
                               NatLitExpr, NatType, ObserveInstr,
                               OptimizationQuery, OptimizationType,
                               ParameterDecl, PlotInstr, PrintInstr,
-                              ProbabilityQueryInstr, Program, QueryInstr,
+                              ProbabilityExpr, ProbabilityQueryInstr, Program, QueryInstr,
                               RealLitExpr, RealType, SampleExpr, SkipInstr,
                               Type, Unop, UnopExpr, VarDecl,
                               VarExpr, WhileInstr)
@@ -153,6 +153,10 @@ def _expr(expr: Expr) -> Tuple[str, int]:
         return f"infer({', '.join(arguments)})", _ATOM
     if isinstance(expr, SampleExpr):
         return f"sample({_name(expr.dist)})", _ATOM
+    if isinstance(expr, ProbabilityExpr):
+        return f"Pr[{expr_to_ppy(expr.cond)}]", _ATOM
+    if isinstance(expr, ExpectationExpr):
+        return f"Ex[{expr_to_ppy(expr.expr)}]", _ATOM
     raise PpyPrintError(f"{type(expr).__name__} has no .ppy syntax.")
 
 

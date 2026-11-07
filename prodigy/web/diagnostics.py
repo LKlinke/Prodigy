@@ -16,8 +16,6 @@ import copy
 
 from prodigy.pgcl import parse_pgcl, substitute
 from prodigy.pgcl.check import CheckFail, check_program
-from prodigy.pgcl.pgcl_checks import (NESTED_INFERENCE_UNSUPPORTED,
-                                      find_nested_inference)
 
 from prodigy.analysis.result import outline_program
 
@@ -230,11 +228,6 @@ def _check(source: str, syntax: str) -> Dict[str, Any]:
         diagnostics.append(_diagnostic("warning", f"Type check failed: {exc}", None, source,
                                        hint="Reported by the pGCL type checker; Prodigy may still be "
                                             "able to analyse the program."))
-    nested = find_nested_inference(program)
-    if nested is not None:
-        diagnostics.append(_diagnostic("error", f"{NESTED_INFERENCE_UNSUPPORTED}.",
-                                       _locate_name(source, nested.split()[0], syntax), source,
-                                       hint="Prodigy will reject the program when it is analysed."))
     if outline is not None and not outline["queries"]:
         line, _ = _end_of_source(source)
         diagnostics.append({"severity": "info", "line": line, "column": 1, "end_line": line, "end_column": 1,

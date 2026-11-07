@@ -1,16 +1,8 @@
-from typing import Iterable, List, NamedTuple, Optional, Set, TypeGuard
+from typing import NamedTuple, Optional, Set, TypeGuard
 
-from prodigy.pgcl import (Binop, BinopExpr, Expr, Instr, NatLitExpr, Program,
-                           VarDecl, VarExpr)
-from prodigy.pgcl.ast.expressions import InferExpr, SampleExpr
-from prodigy.pgcl.ast.types import DistributionType
-from prodigy.pgcl.ast.walk import (Walk, mut_expr_children, walk_expr,
-                                   walk_instr_exprs, walk_instrs)
+from prodigy.pgcl import Binop, BinopExpr, Expr, NatLitExpr, VarExpr
+from prodigy.pgcl.ast.walk import Walk, mut_expr_children, walk_expr
 from prodigy.pgcl.util.ref import Mut
-
-NESTED_INFERENCE_UNSUPPORTED = (
-    "Nested inference (dist variables, infer { ... } and sample { ... }) "
-    "is not supported by the analysis yet")
 
 
 def has_variable(expr: Expr, params: Optional[Set[str]]) -> bool:
@@ -75,38 +67,3 @@ def check_is_constant_constraint(
         return True
     else:
         return False
-
-
-def find_nested_inference(program: Program) -> Optional[str]:
-    """
-    Returns the first use of nested inference in ``program`` (a ``dist``
-    declaration, an ``infer`` or a ``sample`` expression, also inside
-    functions) as pGCL text, or ``None`` if there is none. The analysis has no
-    semantics for them yet.
-    """
-    declarations: List[VarDecl] = [
-        decl for decl in program.declarations if isinstance(decl, VarDecl)
-    ]
-    bodies: List[tuple[List[Instr], List[Expr]]] = [(program.instructions, [])]
-    for function in program.functions.values():
-        declarations.extend(function.declarations)
-        bodies.append((function.instructions, [function.returns]))
-
-    for decl in declarations:
-        if isinstance(decl.typ, DistributionType):
-            return f"dist {decl.var}"
-    for instructions, exprs in bodies:
-        for expr in _all_exprs(instructions, exprs):
-            if isinstance(expr, (InferExpr, SampleExpr)):
-                return str(expr)
-    return None
-
-
-def _all_exprs(instructions: List[Instr],
-               exprs: List[Expr]) -> Iterable[Expr]:
-    for instr_ref in walk_instrs(Walk.DOWN, instructions):
-        for expr_ref in walk_instr_exprs(Walk.DOWN, instr_ref.val):
-            yield expr_ref.val
-    for expr in exprs:
-        for expr_ref in walk_expr(Walk.DOWN, Mut.alloc(expr)):
-            yield expr_ref.val

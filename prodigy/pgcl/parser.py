@@ -32,7 +32,8 @@ from lark import Lark, Tree
 from lark.exceptions import UnexpectedCharacters, UnexpectedInput, UnexpectedToken
 
 from prodigy.pgcl.ast import *
-from prodigy.pgcl.ast.expressions import InferExpr, SampleExpr
+from prodigy.pgcl.ast.expressions import (ExpectationExpr, InferExpr, ProbabilityExpr,
+                                           SampleExpr)
 from prodigy.pgcl.ast.instructions import QueryInstr, AbortInstr
 from prodigy.pgcl.ast.types import DistributionType
 from prodigy.pgcl.ast.walk import Walk, walk_expr
@@ -147,6 +148,8 @@ _OPERATOR_TABLE = [[infixl("or", "||")], [infixl("and", "&")],
                    [
                        prefix("neg", "not "),
                        atom("parens", '"(" expression ")"'),
+                       atom("dist_probability", '"Pr" "[" expression "]"'),
+                       atom("dist_expectation", '"Ex" "[" expression "]"'),
                        atom("literal", "literal"),
                        atom("var", "var"),
                        atom("function_call", "function_call")
@@ -361,6 +364,10 @@ def _parse_expr(t: Tree) -> Expr:
         return UnopExpr(Unop.NEG, expr0())
     elif t.data == 'parens':
         return _parse_expr(_child_tree(t, 0))
+    elif t.data == 'dist_probability':
+        return ProbabilityExpr(expr0())
+    elif t.data == 'dist_expectation':
+        return ExpectationExpr(expr0())
     else:
         raise Exception(f'invalid AST: {t.data}')
 

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Mapping
 
-from prodigy.analysis.exceptions import UnsupportedFeatureError
+from frozendict import frozendict
+
 from prodigy.pgcl import Program, Var
-from prodigy.pgcl.pgcl_checks import (NESTED_INFERENCE_UNSUPPORTED,
-                                      find_nested_inference)
 
 
 @dataclass(frozen=True)
@@ -26,13 +25,10 @@ class ProgramInfo():
     """Pairs of variables that are independent from each other; see 
     `prodigy.analysis.static.independence.independent_vars`.
     """
-
-    def __post_init__(self) -> None:
-        # Every analysis runs on a ProgramInfo, so this rejects such programs before any
-        # instruction is executed (instead of failing deep inside Distribution.update).
-        found = find_nested_inference(self.program)
-        if found is not None:
-            raise UnsupportedFeatureError(f"{NESTED_INFERENCE_UNSUPPORTED} (found `{found}`).")
+    dist_bindings: Mapping[Var, Any] = field(default_factory=frozendict)
+    """``dist`` variables with a fixed value while a loop runs (variable -> closed
+    :class:`~prodigy.analysis.nested_inference.DistSite`); they are not part of the distribution
+    then (see :mod:`prodigy.analysis.nested_inference`)."""
 
     def __getattr__(self, __name: str) -> Any:
         return getattr(self.program, __name)

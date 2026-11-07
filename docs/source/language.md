@@ -207,15 +207,67 @@ y = f(2, b = 3);
 ## Nested inference
 
 ```text
-d: dist = infer(f, 10);
-x = sample(d);
+def claims(risk: nat) -> nat {
+    c: nat = binomial(3, 1/4);
+    observe(c >= risk);
+    return c;
+}
+d: dist = infer(claims, 1);   # the distribution of c, given c >= 1
+x: nat = sample(d);           # an independent draw from d
+y: nat = sample(d);           # another one, independent of x
+if (Ex[d] > 1 and Pr[d == 1] < 3/4) { … }
 ```
 
-`infer(f, args…)` stands for the normalised output distribution of the call `f(args…)`, a value
-of type `dist`; `sample(d)` draws a fresh, independent sample from it. Such programs are parsed
-and type-checked, but **not analysed yet**: the analysis rejects them with an error that says
-so. Their semantics is designed in
-[#104](https://github.com/LKlinke/Prodigy/issues/104).
+- `infer(f, args…)` is the distribution of the value that `f(args…)` returns, **given** that the
+  call terminates and passes every `observe` in `f`: the sub-distribution of the results divided by
+  its mass Z. A value of type `dist` holds such a distribution. If Z = 0 (no run terminates and
+  passes the observations), the value is undefined and the analysis ends with an error
+  (`UndefinedDistributionError`); this is not a violated observation of the program. The
+  observations inside `f` do not condition the program that calls `infer`.
+- `sample(d)` draws a value from `d`, independently of every other draw: two `sample(d)` give two
+  independent values. `e = d` copies the distribution; assigning `d` later does not change `e`.
+- `Pr[d == k]` (also `<`, `<=`, `>`, `>=`) and `Ex[d]` are `real` numbers, for a `dist` variable
+  `d` and a natural number `k`. They may stand wherever a `real` expression may, e.g. in guards and
+  as probabilities: `{ … } [Pr[d == 0]] { … }`, `bernoulli(Ex[d] / 10)`. `Ex[d]` may be `∞`.
+- A `dist` may be passed to a function: `def g(e: dist) -> nat { a: nat = sample(e); return a; }`.
+- `infer` and `sample` are the whole right-hand side of an assignment or a declaration
+  (`return sample(e);` works, too). `infer` is not available inside functions, since functions
+  cannot call functions yet.
+- `Pr[…]` and `Ex[…]` inside a program are only about `dist` values. For the probability of an
+  event of the program state, wrap the code in a function and use `infer`. Queries are about the
+  program state, so a `dist` cannot appear in a query; query a draw instead
+  (`y = sample(d); query Ex[y];`, which by the law of total expectation is the mean of `Ex[d]`).
+
+The `.pgcl` syntax is `dist d;`, `d := infer { f(2) }`, `x := sample { d }`, `Pr[d = 1]` and
+`Ex[d]`.
+
+### What the analysis computes
+
+Every program above has a well-defined semantics (see {doc}`language-design`). The analysis
+computes these cases exactly, on all engines:
+
+| Case | How |
+|---|---|
+| the arguments of `infer` do not depend on the program state | the closed-form generating function G of the normalised distribution; `x = sample(d)` multiplies by G(x) |
+| copies, several draws, a `dist` as function argument | one factor G per draw |
+| `Pr[d == k]`, `Ex[d]` | a coefficient or the derivative at 1 of G, substituted as a number |
+| arguments that depend on the state with finitely many values | a case split over the values |
+| arguments with infinitely many values, `f` without `observe` and terminating almost surely | `sample(d)` is the call `f(a)` (Z = 1 is proven when `infer` runs) |
+| a loop that reads `dist` variables but assigns none | the `dist` values are fixed while the loop runs, so the loop strategies do not see them |
+
+Z > 0 is proven, and the normalisation is exact: if the analysis of `f` gives only a bound (a
+loop in `f` with a lower or upper bound), `infer` is not computed. These cases end with a "not
+implemented" error that names the construct:
+
+- arguments with infinitely many values when `f` has `observe` (Z may depend on them);
+- `Pr`/`Ex` of a `dist` that depends on the state with infinitely many values;
+- assigning a `dist` inside a loop (a `dist` value in the state of a loop);
+- `Pr[d == k]` with a `k` that depends on the state, and `Pr`/`Ex` that depend on parameters;
+- an irrational `Pr`/`Ex` (e.g. Pr[d == 0] = e⁻¹ for `poisson(1)`) used as a probability or in
+  arithmetic; comparisons with it are decided exactly.
+
+At the end, and at the queries, the `dist` variables are not part of the program's distribution;
+their values are reported separately.
 
 ## Queries
 

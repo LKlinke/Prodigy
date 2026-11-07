@@ -16,7 +16,8 @@ import attr
 from frozendict import frozendict
 
 from prodigy.pgcl.ast.declarations import Function, FunctionDecl, VarDecl
-from prodigy.pgcl.ast.expressions import (FunctionCallExpr, InferExpr,
+from prodigy.pgcl.ast.expressions import (ExpectationExpr, FunctionCallExpr,
+                                           InferExpr, ProbabilityExpr,
                                            SampleExpr)
 from prodigy.pgcl.ast.instructions import (AbortInstr, LocalDeclInstr,
                                             QueryInstr)
@@ -406,10 +407,86 @@ def get_type(
                                                    typ)
         return NatType(None)
 
+    if isinstance(expr, ProbabilityExpr):
+        return _check_dist_probability(program, expr, predefined_functions)
+
+    if isinstance(expr, ExpectationExpr):
+        return _check_dist_expectation(program, expr)
+
     raise Exception("unreachable")
 
 
 # pylint: enable = too-many-statements
+
+_INFER_HINT = ("Inside a program, Pr[…] and Ex[…] are about a value of type dist. To use the "
+               "distribution of program variables, wrap the code in a function f that returns "
+               "the value and write d: dist = infer(f, …); then Pr[d == k] and Ex[d] are real "
+               "numbers.")
+"""The hint for ``Pr[…]`` and ``Ex[…]`` on the program state inside a program."""
+
+_DIST_COMPARISONS = (Binop.EQ, Binop.LT, Binop.LEQ, Binop.GT, Binop.GEQ)
+
+
+def _is_dist_variable(program: Program, expr: Expr) -> bool:
+    return isinstance(expr, VarExpr) and isinstance(program.variables.get(expr.var),
+                                                    DistributionType)
+
+
+def mentions_dist(program: Program, expr: Expr) -> bool:
+    """Whether ``expr`` uses a variable of type ``dist`` or one of the expressions ``Pr[d …]``,
+    ``Ex[d]`` and ``sample(d)``."""
+    for ref in walk_expr(Walk.DOWN, Mut.alloc(expr)):
+        node = ref.val
+        if isinstance(node, (ProbabilityExpr, ExpectationExpr, SampleExpr, InferExpr)) \
+                or _is_dist_variable(program, node):
+            return True
+    return False
+
+
+def _check_dist_probability(
+        program: Program, expr: ProbabilityExpr,
+        predefined_functions: Mapping[Var, List[VarDecl]]) -> Union[Type, CheckFail]:
+    """``Pr[d == k]`` (also ``<``, ``<=``, ``>``, ``>=``, and ``k == d``) for a ``dist``
+    variable ``d`` and a natural number ``k`` is a real number."""
+    cond = expr.cond
+    if not mentions_dist(program, cond):
+        return CheckFail(expr, f"{expr} is not about a value of type dist. {_INFER_HINT}")
+    if not (isinstance(cond, BinopExpr) and cond.operator in _DIST_COMPARISONS
+            and (_is_dist_variable(program, cond.lhs) or _is_dist_variable(program, cond.rhs))):
+        return CheckFail(
+            expr, f"Inside {expr}, compare a variable d of type dist with a natural number, "
+            "e.g. Pr[d == 3] or Pr[d < 3].")
+    value = cond.rhs if _is_dist_variable(program, cond.lhs) else cond.lhs
+    if mentions_dist(program, value):
+        return CheckFail(expr, f"Inside {expr}, the value compared with the dist variable must be "
+                         "a natural number.")
+    typ = get_type(program, value, True, predefined_functions)
+    if isinstance(typ, CheckFail):
+        return typ
+    if not is_compatible(NatType(None), typ):
+        return CheckFail.expected_type_got(value, NatType(None), typ)
+    return RealType()
+
+
+def _check_dist_expectation(program: Program, expr: ExpectationExpr) -> Union[Type, CheckFail]:
+    """``Ex[d]`` for a ``dist`` variable ``d`` is a real number (maybe ∞)."""
+    if _is_dist_variable(program, expr.expr):
+        return RealType()
+    if mentions_dist(program, expr.expr):
+        return CheckFail(expr, f"{expr}: Ex[…] inside a program takes a single variable of type "
+                         "dist, e.g. Ex[d].")
+    return CheckFail(expr, f"{expr} is not about a value of type dist. {_INFER_HINT}")
+
+
+def _check_query_without_dist(program: Program, instr: Instr, exprs: List[Expr]) -> Optional[CheckFail]:
+    """Queries are about the program state; a ``dist`` value in them is a type error with a hint."""
+    for expr in exprs:
+        if expr is not None and mentions_dist(program, expr):
+            return CheckFail(
+                instr, f"The query {instr} uses a value of type dist; queries are about the "
+                "program state. Draw from the distribution and query the draw, e.g. "
+                "y = sample(d) and then a query of Pr[y == 3] or Ex[y].")
+    return None
 
 
 def is_compatible(lhs: Type, rhs: Type) -> bool:
@@ -732,6 +809,16 @@ def check_instr(
                                                cond_type)
         return None
 
+    if isinstance(instr, (ProbabilityQueryInstr, ExpectationInstr, OptimizationQuery)):
+        dist_fail = _check_query_without_dist(program, instr, [instr.expr])
+        if dist_fail is not None:
+            return dist_fail
+
+    if isinstance(instr, PlotInstr):
+        dist_fail = _check_query_without_dist(program, instr, [instr.var_1, instr.var_2])
+        if dist_fail is not None:
+            return dist_fail
+
     if isinstance(instr, ProbabilityQueryInstr):
         cond_type = get_type(program,
                              instr.expr,
@@ -911,11 +998,11 @@ def check_function(
     """
 
     for decl in function.declarations:
-        if decl.typ != NatType(bounds=None):
+        if decl.typ != NatType(bounds=None) and not isinstance(decl.typ, DistributionType):
             return CheckFail(
                 location=decl,
                 message=
-                "Only variables of type NatType are allowed in functions")
+                "Only variables of type nat or dist are allowed in functions")
 
     as_prog = Program.from_function(function, context)
     res = check_program(as_prog, predefined_functions)

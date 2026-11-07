@@ -394,10 +394,37 @@ class SampleExpr(ExprClass):
         return f"sample {{ {self.dist} }}"
 
 
+@attr.s
+class ProbabilityExpr(ExprClass):
+    """
+    ``Pr[d == k]`` inside a program: the probability that the distribution of the ``dist``
+    variable ``d`` gives a value that satisfies the condition, a ``real`` number. The condition
+    compares ``d`` with a natural number (``==``, ``<``, ``<=``, ``>``, ``>=``); the type checker
+    enforces this form.
+    """
+    cond: Expr = attr.ib()
+    """The condition, e.g. ``d = 3``"""
+    def __str__(self) -> str:
+        return f"Pr[{self.cond}]"
+
+
+@attr.s
+class ExpectationExpr(ExprClass):
+    """
+    ``Ex[d]`` inside a program: the expected value of the distribution of the ``dist`` variable
+    ``d``, a ``real`` number that may be infinite.
+    """
+    expr: Expr = attr.ib()
+    """The ``dist`` variable as a :class:`VarExpr`"""
+    def __str__(self) -> str:
+        return f"Ex[{self.expr}]"
+
+
 def expr_str_parens(expr: ExprClass) -> str:
     """Wrap parentheses around an expression, but not for simple expressions."""
     if isinstance(expr,
-                  (VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr)):
+                  (VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr,
+                   ProbabilityExpr, ExpectationExpr)):
         return str(expr)
     else:
         return f'({expr})'
@@ -405,5 +432,5 @@ def expr_str_parens(expr: ExprClass) -> str:
 
 Expr = Union[VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr,
              BinopExpr, CategoricalExpr, SubstExpr, FunctionCallExpr,
-             InferExpr, SampleExpr]
+             InferExpr, SampleExpr, ProbabilityExpr, ExpectationExpr]
 """Union type for all expression objects. See :class:`ExprClass` for use with isinstance."""

@@ -4,10 +4,11 @@ import contextlib
 import functools
 import logging
 import time
-from typing import Callable, Iterator, Optional, Union, Sequence, get_args
+from typing import Callable, Iterator, Optional, Union, Sequence, cast, get_args
 
 from prodigy.pgcl import Program, Instr, SkipInstr, AbortInstr, WhileInstr, LoopInstr, QueryInstr, Query, \
     ObserveInstr, ChoiceInstr, AsgnInstr, IfInstr, Binop, BinopExpr, NatLitExpr, VarExpr
+from prodigy.pgcl.ast.expressions import InferExpr, SampleExpr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import ObserveZeroEventError
@@ -20,7 +21,8 @@ from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.instructionhandler.query_handler import QueryHandler
 from prodigy.analysis.instructionhandler.queryblock_handler import QueryBlockHandler
 from prodigy.analysis.instructionhandler.while_handler import WhileHandler
-from prodigy.analysis.session import current_session
+from prodigy.analysis import nested_inference
+from prodigy.analysis.session import AnalysisSession, current_session, has_current_session
 from prodigy.distribution import Distribution, MarginalType
 from prodigy.util.logger import log_setup
 
@@ -56,8 +58,19 @@ def compute_discrete_distribution(
     (:mod:`prodigy.analysis.trace`) is printed when it is done, with its line (and the analysis
     waits for Enter after each step); a session that records steps itself is left alone.
     """
-    with config.activate(), _printed_steps(config):
+    with config.activate(), _active_session(), nested_inference.analysis_registry(), _printed_steps(config):
         return _compute_discrete_distribution(program, dist, config, step_callback)
+
+
+@contextlib.contextmanager
+def _active_session() -> Iterator[None]:
+    """Without a running session, the analysis gets a detached one of its own, so that all its
+    parts (e.g. the exactness of a function's analysis for ``infer``) are booked in one place."""
+    if has_current_session():
+        yield
+        return
+    with AnalysisSession.detached().activate():
+        yield
 
 
 @contextlib.contextmanager
@@ -125,6 +138,11 @@ def _compute_discrete_distribution(
     if block_variables and not dist.get_variables() <= set(block_variables):
         # they are 0 here, so this only removes them from the variables of the result
         dist = dist.marginal(*block_variables, method=MarginalType.EXCLUDE)
+    if nested_inference.dist_variables(prog_info):
+        # the values of dist variables are reported apart from the program state
+        current_session().dist_values = nested_inference.dist_values(dist, prog_info)
+        dist = nested_inference.strip_dist_variables(dist, prog_info)
+        error_prob = nested_inference.strip_dist_variables(error_prob, prog_info)
     return dist, error_prob
 
 
@@ -167,6 +185,10 @@ def _semantics(
         config: ForwardAnalysisConfig
 ) -> tuple[Distribution, Distribution]:
     # pylint: disable=too-many-return-statements
+    if not isinstance(instruction, list):
+        nested = _nested_inference(cast(Instr, instruction), prog_info, distribution, error_prob, config)
+        if nested is not None:
+            return nested
     if isinstance(instruction, SkipInstr):
         return distribution, error_prob
 
@@ -209,6 +231,12 @@ def _semantics(
                 current_session().same_measure(distribution, conditioned)
             distribution = conditioned
             error_prob *= "0"
+        if nested_inference.dist_variables(prog_info):
+            # queries are about the program state; the dist variables stay for later instructions
+            _, error_prob = QueryHandler.compute(
+                instruction, prog_info, nested_inference.strip_dist_variables(distribution, prog_info),
+                error_prob, config, compute_semantics)
+            return distribution, error_prob
         return QueryHandler.compute(instruction, prog_info, distribution,
                                     error_prob, config, compute_semantics)
 
@@ -223,3 +251,31 @@ def _semantics(
                                          distribution, error_prob, config, compute_semantics)
 
     raise TypeError("illegal instruction")
+
+
+def _nested_inference(
+        instruction: Instr, prog_info: ProgramInfo, distribution: Distribution,
+        error_prob: Distribution, config: ForwardAnalysisConfig
+) -> Optional[tuple[Distribution, Distribution]]:
+    """The instructions that :mod:`prodigy.analysis.nested_inference` handles: loops with dist
+    variables, ``Pr[d …]``/``Ex[d]`` in an instruction, ``infer``, ``sample`` and copies of dist
+    values. ``None`` for all others."""
+    if isinstance(instruction, (WhileInstr, LoopInstr)):
+        result = nested_inference.run_loop(instruction, prog_info, distribution, error_prob, config,
+                                           _semantics)
+        if result is not None:
+            return result
+    resolved = nested_inference.resolve_queries(instruction, prog_info, distribution, error_prob, config,
+                                                compute_semantics, _semantics)
+    if resolved is not None:
+        return resolved
+    if isinstance(instruction, AsgnInstr):
+        if isinstance(instruction.rhs, InferExpr):
+            return nested_inference.infer(instruction, prog_info, distribution, error_prob, config,
+                                          compute_semantics)
+        if isinstance(instruction.rhs, SampleExpr):
+            return nested_inference.sample(instruction, prog_info, distribution, error_prob, config,
+                                           compute_semantics)
+        if instruction.lhs in nested_inference.dist_variables(prog_info):
+            return nested_inference.copy_dist(instruction, prog_info, distribution, error_prob)
+    return None
