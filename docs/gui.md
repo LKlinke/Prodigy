@@ -31,6 +31,7 @@ Prodigy is tested with Python 3.11 and 3.14.
 * **Result** (right): a summary of the guarantee, the queries with sound intervals, the
   output distribution (closed form, mass, expectations, marginal bar charts and tables), the
   certificate of every loop, console output, and the full result as JSON.
+* **Steps** (right): a debugger for the analysis, see [Stepping through an analysis](#stepping-through-an-analysis).
 * **Examples**: the programs in `pgfexamples/` (in `.ppy`), with a suggested setup derived from
   their first line (e.g. `check_equality` examples come with their invariant). A `.pgcl` example
   in a folder given with `prodigy web --examples` is converted to `.ppy` on the fly (with its
@@ -42,12 +43,58 @@ Prodigy is tested with Python 3.11 and 3.14.
   program with unsaved changes (New, Open…, an example) asks first.
 
 Keyboard: ⌘/Ctrl + Return analyses, ⌘/Ctrl + . (or Esc) stops, ⌘/Ctrl + O opens,
-⌘/Ctrl + S saves. Every analysis runs in its own process with a time limit and can be stopped
+⌘/Ctrl + S saves; in the stepper F10 / ⇧F10 go to the next / previous step, F5 / ⇧F5 to the next /
+previous breakpoint, and F9 in the editor sets a breakpoint. Every analysis runs in its own process with a time limit and can be stopped
 at any time.
 
 The GUI follows the system appearance (light or dark, macOS: System Settings → Appearance);
 following Apple's guidelines it has no switch of its own. Firefox can override the appearance
 for websites (Settings → General → Website appearance).
+
+## Stepping through an analysis
+
+The **Steps** tab steps through the analysis instruction by instruction, to understand a result,
+to find where an analysis gets slow or fails, or for teaching. It shows the steps of the last
+analysis that recorded them: *Record steps and analyze* (or the option *Record each step* in
+Setup) records them; the whole trace is recorded within the time limit of the analysis and
+navigated afterwards, so stepping back is as cheap as stepping forward.
+
+* **Navigation**: *Next* and *Back* (F10, ⇧F10, or ← → in the panel), first and last step,
+  *Breakpoint ⟹* / *⟸ Breakpoint* to the next or previous step on a line with a breakpoint (F5,
+  ⇧F5), *Jump to line…*, and the list of all steps (↑ ↓ in the list). A click on a line number in the
+  editor, or F9 at the cursor, sets or clears a breakpoint (●).
+* **Editor**: the instruction of the current step is highlighted and marked with ▶.
+* **Steps**: every top-level instruction is a step, and so is every instruction inside the
+  branches of `if`, `switch` and probabilistic choices; those show the *sub-distribution* of their
+  branch (the part where the guard holds, or weighted by the probability of the branch), not
+  normalised. Instructions inside loop bodies, function bodies and the checks of invariants are
+  no steps. If observations were violated, a last step conditions on them.
+* **Distribution before and after** a step, with the result's components: closed form, mass,
+  violated observations, the size of the closed form, and the marginal charts with the hatched
+  bar “?” for the mass not yet accounted for. Each distribution carries the guarantee that holds
+  at that point, of the same kinds as the result: exact, lower bound with residual mass, upper
+  bound, or none. A step whose instruction failed has no distribution after it.
+* **Loops**: the strategy, its messages and the checks of its certificate in words (fixed point,
+  non-negativity, finite mass, sub-invariance …, each *proven*, *failed*, *not established* or a
+  note); a failed check says why, e.g. “Φ(ν) − ν has the negative coefficient −1/2 at x = 0, c = 0”.
+  For unrolling strategies (*Unroll N iterations*, *Iterate until mass captured*, *Approximate
+  expected visiting times*) **Kleene iterates** animates the iterations: the part that has left
+  the loop grows towards the output of the loop, the hatched “?” bar and the bar below the chart
+  show the mass still inside shrinking. *Play* (Space) runs through the iterates, the slider picks
+  one. At most 40 iterates are kept per loop (`step_iterations`), spread evenly, plus the last.
+  With *Reduce motion* (macOS: System Settings → Accessibility → Display) the bars change without
+  animated transitions.
+* **Queries at this step**: a query such as `Pr[x == 3]` or `Ex[x]` (in the program's syntax) is
+  evaluated after every top-level step, as if it stood right after that instruction, with the same
+  sound intervals as the program's queries; adding or removing one analyses again.
+* **Diagnosis**: the step where the closed form grows most and the step where most of the time
+  goes (time without nested steps).
+
+Per distribution the trace keeps the closed form up to 3000 characters, its mass and the first 10
+coefficients of the marginals of up to 6 variables; larger closed forms keep no marginals, and
+after 20 seconds spent on marginals only closed forms are kept. The command line records the same
+trace with `prodigy analyze --steps` (see the CLI documentation); the JSON keys are `steps` and
+`trace` (see `prodigy/analysis/trace.py`).
 
 ## Two syntaxes
 
@@ -273,9 +320,11 @@ app (foundations: accessibility, colour, typography, layout, writing).
 
 ## Reuse in VS Code
 
-`prodigy/web/static/app/components/` (result view, charts, formatting) depends only on the
-result JSON, the CSS variables of `result-view.css` and optionally KaTeX, so a VS Code
-webview can import it unchanged and map the variables to `--vscode-*` theme colours.
+`prodigy/web/static/app/components/` (result view, stepper, charts, formatting) depends only on
+the result JSON, the CSS variables of `result-view.css` and `stepper.css` and optionally KaTeX,
+so a VS Code webview can import it unchanged and map the variables to `--vscode-*` theme colours.
+The stepper (`renderStepper`) reaches the editor only through callbacks (`onIndex`,
+`onSelectLine`, …); `prodigy analyze --steps --json` gives an extension the same trace.
 
 ## Updating the vendored libraries
 

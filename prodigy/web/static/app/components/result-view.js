@@ -10,7 +10,7 @@ import { renderMath } from "./math.js";
 
 const ENGINE_NAMES = { sympy: "SymPy", ginac: "GiNaC", symengine: "SymEngine" };
 
-function guaranteeBadge(kind, label = null) {
+export function guaranteeBadge(kind, label = null) {
   const text = BOUND_TEXT[kind] || BOUND_TEXT.unknown;
   return h("span", { class: "rv-badge", "data-kind": kind },
     h("span", { class: "glyph", "aria-hidden": "true" }, text.glyph), label ?? text.label);
@@ -200,7 +200,7 @@ function jointTable(joint) {
 
 // ---- distribution ------------------------------------------------------------------------
 
-function distributionFigure(table, result, variable, mode = "chart") {
+export function distributionFigure(table, result, variable, mode = "chart") {
   const residual = result.bounds?.kind === "lower" ? result.bounds?.residual_mass_float : null;
   const residualExact = result.bounds?.residual_mass;
   const bound = result.bounds?.kind || "exact";
@@ -457,15 +457,13 @@ function loopsSection(result, options) {
 
 // ---- steps, warnings, log ------------------------------------------------------------------
 
-function stepsSection(result) {
+function stepsSection(result, options) {
   if (!result.steps?.length) return null;
-  return section("Steps", h("div", { class: "table-wrap" }, h("table", { class: "rv-table rv-steps" },
-    h("thead", {}, h("tr", {}, h("th", {}, "#"), h("th", {}, "After"), h("th", {}, "Distribution"), h("th", {}, "Mass"))),
-    h("tbody", {}, ...result.steps.map((step) => h("tr", {},
-      h("td", { class: "num" }, String(step.index + 1)),
-      h("td", { class: "mono rv-wrap" }, step.instruction.trim().split("\n")[0]),
-      h("td", { class: "mono rv-wrap" }, step.distribution),
-      h("td", { class: "num" }, formatValue(step.mass, step.mass_float))))))));
+  const hints = result.trace?.hints || [];
+  return section("Steps",
+    h("p", {}, `${result.steps.length} steps recorded. `,
+      options.onOpenSteps ? h("button", { type: "button", class: "link-button", onclick: () => options.onOpenSteps() }, "Step through them") : null),
+    ...hints.filter((hint) => hint.kind !== "limits").map((hint) => h("p", { class: "rv-note" }, hint.text)));
 }
 
 function extrasSection(result) {
@@ -496,7 +494,7 @@ export function cleanLog(text) {
 
 /**
  * Renders `result` into `container`.
- * options: { onSelectLoop(id), onSelectLine(line), strategyTitles: {name: title}, stale: bool, elapsed }
+ * options: { onSelectLoop(id), onSelectLine(line), onOpenSteps(), strategyTitles: {name: title}, stale: bool, elapsed }
  */
 export function renderResult(container, result, options = {}) {
   const children = [];
@@ -516,7 +514,7 @@ export function renderResult(container, result, options = {}) {
   if (result.status === "ok") {
     children.push(distributionSection(result));
   }
-  children.push(loopsSection(result, options), stepsSection(result), extrasSection(result));
+  children.push(loopsSection(result, options), stepsSection(result, options), extrasSection(result));
   container.replaceChildren(h("div", { class: "result-view", "data-stale": options.stale ? "true" : "false" },
     ...children.filter(Boolean)));
 }

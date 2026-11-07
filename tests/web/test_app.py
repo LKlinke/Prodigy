@@ -160,3 +160,12 @@ def test_bad_watches_are_rejected_before_running(client):
         "decisions": {"0": {"strategy": "unroll", "params": {"iterations": 2}}}}, headers=HOST)
     result = wait_for(client, response.get_json()["job"])["result"]
     assert result["status"] == "error" and "not a variable" in result["error"]["message"]
+
+
+def test_page_has_the_stepper(client):
+    page = client.get("/", headers=HOST)
+    assert b'id="tab-steps"' in page.data and b'id="panel-steps"' in page.data and b"stepper.css" in page.data
+    for path in ("app/components/stepper.js", "app/components/stepper.css"):
+        response = client.get(f"/static/{path}", headers=HOST)
+        assert response.status_code == 200, path
+        response.close()

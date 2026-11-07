@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/katex/katex.min.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='app/app.css') }}?v={{ version }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='app/components/result-view.css') }}?v={{ version }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app/components/stepper.css') }}?v={{ version }}">
   <script src="{{ url_for('static', filename='vendor/katex/katex.min.js') }}" defer></script>
   <script type="module" src="{{ url_for('static', filename='app/main.js') }}?v={{ version }}"></script>
 </head>
@@ -76,11 +77,14 @@
           <button type="button" role="tab" id="tab-result" aria-selected="false" aria-controls="panel-result" tabindex="-1">
             Result<span class="tab-badge" id="result-badge" hidden></span>
           </button>
+          <button type="button" role="tab" id="tab-steps" aria-selected="false" aria-controls="panel-steps" tabindex="-1"
+                  title="Step through the analysis (F10 next, ⇧F10 back, F5 to the next breakpoint)">Steps</button>
         </div>
       </div>
       <div class="inspector-body">
         <div class="panel" id="panel-setup" role="tabpanel" aria-labelledby="tab-setup"></div>
         <div class="panel" id="panel-result" role="tabpanel" aria-labelledby="tab-result" hidden></div>
+        <div class="panel" id="panel-steps" role="tabpanel" aria-labelledby="tab-steps" hidden></div>
       </div>
     </section>
   </main>
