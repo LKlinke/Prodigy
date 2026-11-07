@@ -7,7 +7,7 @@ new programs and of the examples in `pgfexamples/`, which were converted with `p
 the reasons for the design. Parser, pretty printer and converter: `prodigy/pgcl/ppy_parser.py`,
 `prodigy/pgcl/ppy_printer.py`, `prodigy/pgcl/converter.py`. The CLI (see {doc}`cli`) and the GUI
 (see {doc}`gui`) read and write both syntaxes, and results write expressions in the syntax of the
-program. Not analysed yet: nested inference (`infer`, `sample`), whose semantics is designed in
+program. Nested inference (`infer`, `sample`, see below) is analysed since
 [#104](https://github.com/LKlinke/Prodigy/issues/104).
 
 ## Goals
@@ -177,6 +177,9 @@ ones.
 
 ### Nested inference
 
+Status: **implemented** ([#104](https://github.com/LKlinke/Prodigy/issues/104); the encoding is
+described in `prodigy/analysis/nested_inference.py`, the language in {doc}`language`).
+
 ```
 d: dist = infer(f, 10);
 x = sample(d);
@@ -224,6 +227,49 @@ generating functions. The other cases are valid programs that end with "not impl
 | `dist` values in a loop's state | a generating function cannot carry infinitely many different distributions as states | not in general; possibly when the family is indexed by a `nat` statistic, as for conjugate families, which can be encoded by the index |
 
 The last three rows are research questions and get their own issues.
+
+#### Decisions made in the implementation
+
+The implementation follows the table. Where the design left a gap, it decided as follows.
+
+- **Encoding.** A `dist` value is a *site*: the function and its arguments. The analysis numbers
+  the sites it meets, and a `dist` variable is a natural number in the joint generating function,
+  the number of its site (0 while it has no value). So a case split over `dist` values is a split
+  over finitely many numbers, and copies and branches need nothing special. A state-dependent
+  argument with infinitely many values (only allowed when Z ≡ 1) is kept in extra variables of the
+  `dist` variable. At the queries and at the end, the `dist` variables are taken out of the
+  distribution and reported separately.
+- **Finite case splits also for `Pr`/`Ex` and loops.** Because a `dist` variable has finitely many
+  values, `Pr[d == k]` and `Ex[d]` of a state-dependent `d` with finitely many values are computed
+  by a case split, too; only infinitely many values are "not implemented". A loop that reads `dist`
+  variables but assigns none runs once per value, with the values fixed; a loop that assigns a
+  `dist` variable is "not implemented" (the last row).
+- **`Pr` with comparisons.** Besides `Pr[d == k]`, `Pr[d < k]`, `<=`, `>`, `>=` (either side) are
+  allowed; `k` must be a natural number, and one that depends on the state is "not implemented".
+- **Numbers.** `Pr`/`Ex` are substituted as exact numbers. A comparison with an irrational value
+  (e.g. e⁻¹) is decided exactly; using an irrational value as a probability or in arithmetic, and a
+  value that depends on parameters, is "not implemented".
+- **Z > 0 and exactness.** Z is computed exactly; Z = 0 is an `UndefinedDistributionError`, and Z
+  depending on parameters is "not implemented". If the analysis of `f` is only a bound (a loop with
+  a lower or upper bound), normalising it would give neither, so `infer` is "not implemented" then.
+  For an argument with infinitely many values, Z ≡ 1 is proven by running `f` on the distribution
+  of the arguments and checking that every argument value keeps its mass.
+- **A `dist` without value.** Reading a `dist` variable before it was assigned is an
+  `UndefinedDistributionError` (the semantics gives it no value).
+- **Queries.** A query (`query Pr[…]`, `query Ex[…]`, `plot`) is about the program state, so a
+  `dist` in it is a type error, with the hint to query a draw `y = sample(d)` instead. `Pr`/`Ex` on
+  `nat` variables inside a program are a type error with the hint to wrap the code in a function
+  and use `infer`.
+- **`infer` inside functions.** Functions cannot call functions yet, so `infer` is only available
+  in the program itself; `sample`, `Pr` and `Ex` of `dist` parameters work inside functions.
+- **Not implemented: the special case Z(a) = c·rᵃ** of the sixth row. It would need a proof that Z
+  has this form; it is left to the research issue.
+- **Function calls.** `x = f(y)` with an argument that depends on the state ran the body on the
+  marginal of the arguments and multiplied the result with the caller's distribution, so `x` came
+  out independent of `y`; an `observe` in the body did not condition the program, and a call in a
+  branch lost mass. Since `sample(infer(f, a))` relies on calls, calls with state-dependent
+  arguments now run the body on the joint distribution, and the observations in the body
+  condition the program.
 
 #### Results
 

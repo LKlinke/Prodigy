@@ -51,7 +51,7 @@ def test_variable_types():
         x := f(x := 10);
     """)
     assert isinstance(prog, CheckFail)
-    assert prog.message == "Only variables of type NatType are allowed in functions"
+    assert prog.message == "Only variables of type nat or dist are allowed in functions"
 
     prog = compile_pgcl("""
         fun f := {
@@ -63,7 +63,7 @@ def test_variable_types():
         x := f(x := 10);
     """)
     assert isinstance(prog, CheckFail)
-    assert prog.message == "Only variables of type NatType are allowed in functions"
+    assert prog.message == "Only variables of type nat or dist are allowed in functions"
 
 
 def test_parameter_type():

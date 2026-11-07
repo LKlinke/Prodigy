@@ -51,12 +51,13 @@ from lark.tree import Meta
 
 from prodigy.pgcl.ast import (AbortInstr, AsgnInstr, Binop, BinopExpr,
                               BoolLitExpr, BoolType, Bounds, CategoricalExpr,
-                              ChoiceInstr, ConstDecl, Decl, ExpectationInstr,
-                              Expr, Function, FunctionCallExpr, FunctionDecl,
+                              ChoiceInstr, ConstDecl, Decl, ExpectationExpr,
+                              ExpectationInstr, Expr, Function, FunctionCallExpr, FunctionDecl,
                               IfInstr, InferExpr, Instr, LocalDeclInstr,
                               LoopInstr, NatLitExpr, NatType, ObserveInstr,
                               OptimizationQuery, OptimizationType,
                               ParameterDecl, PlotInstr, PrintInstr,
+                              ProbabilityExpr,
                               ProbabilityQueryInstr, Program, QueryInstr,
                               RealLitExpr, RealType, SampleExpr, SkipInstr,
                               Type, Unop, UnopExpr, VarDecl,
@@ -164,6 +165,7 @@ PPY_GRAMMAR = r"""
          | "categorical" "(" categories ")" -> categorical
          | "infer" "(" NAME ("," arguments)? ")" -> infer
          | "sample" "(" NAME ")"         -> sample
+         | NAME "[" expression "]"       -> dist_query
          | "(" expression ")"
 
     arguments: argument ("," argument)*
@@ -432,6 +434,16 @@ class _ToAst(Transformer):
 
     def sample(self, meta: Meta, children: List[Any]) -> Any:
         return SampleExpr(self._name(children[0]))
+
+    def dist_query(self, meta: Meta, children: List[Any]) -> Any:
+        kind = str(children[0])
+        inner = self._plain(children[1], meta)
+        if kind == "Pr":
+            return ProbabilityExpr(inner)
+        if kind == "Ex":
+            return ExpectationExpr(inner)
+        raise _error(children[0], f"Unknown expression '{kind}[…]': use 'Pr[d == k]' or 'Ex[d]' "
+                     "for a variable d of type dist.")
 
     def category(self, meta: Meta, children: List[Any]) -> Any:
         value, prob = children

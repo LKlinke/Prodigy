@@ -13,6 +13,12 @@ class UnsupportedFeatureError(ForwardAnalysisError):
     """The program uses a language feature that the analysis has no semantics for."""
 
 
+class UndefinedDistributionError(ForwardAnalysisError):
+    """A value of type ``dist`` is undefined where the program needs it: ``infer(f, a)`` with
+    normalising constant 0 (no run of ``f(a)`` terminates and passes its observations), or a
+    ``dist`` variable that is read before it was assigned."""
+
+
 class DistributionParameterError(ForwardAnalysisError):
     """The Parameter of a Distribution does not typematch"""
 

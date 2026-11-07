@@ -11,7 +11,7 @@ from .declarations import (ConstDecl, Decl, Function, FunctionDecl,
                            ParameterDecl, VarDecl)
 from .expressions import Expr
 from .instructions import Instr
-from .types import NatType, Type
+from .types import Type
 
 
 @attr.s
@@ -79,8 +79,8 @@ class Program:
                       context: Program | None = None,
                       copy_functions: bool = False) -> Program:
         """
-        Create a shallow copy of the function as a program. All variables are
-        assigned the type NatType.
+        Create a shallow copy of the function as a program. The variables keep
+        their declared types (``nat`` or ``dist``).
 
         Args:
             function:
@@ -94,8 +94,7 @@ class Program:
         """
         return Program(
             function.declarations.copy(),  # type: ignore
-            {var: NatType(bounds=None)
-             for var in function.variables},
+            {decl.var: decl.typ for decl in function.declarations},
             {} if context is None else context.constants.copy(),
             {} if context is None else context.parameters.copy(),
             {} if context is None or not copy_functions else

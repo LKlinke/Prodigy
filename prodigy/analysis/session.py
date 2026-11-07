@@ -227,6 +227,15 @@ class LoopRegistry:
         candidates = self._by_text.get(str(instr), [])
         return candidates[0] if len(candidates) == 1 else None
 
+    def alias(self, copy: WhileInstr, original: WhileInstr) -> None:
+        """Looks up ``copy`` as ``original`` (see :meth:`AnalysisSession.loop_alias`)."""
+        info = self.lookup(original)
+        if info is not None:
+            self._by_identity[id(copy)] = info
+
+    def unalias(self, copy: WhileInstr) -> None:
+        self._by_identity.pop(id(copy), None)
+
     def __iter__(self) -> Iterator[LoopInfo]:
         return iter(self.loops)
 
@@ -538,6 +547,11 @@ _CURRENT: contextvars.ContextVar[Optional["AnalysisSession"]] = \
     contextvars.ContextVar("prodigy_analysis_session", default=None)
 
 
+def has_current_session() -> bool:
+    """Whether a session is active (otherwise :func:`current_session` makes a detached one)."""
+    return _CURRENT.get() is not None
+
+
 def current_session() -> "AnalysisSession":
     """The session of the running analysis, or a detached interactive one."""
     session = _CURRENT.get()
@@ -595,6 +609,8 @@ class AnalysisSession:
         self.loops = LoopRegistry(program, source, syntax)
         self.query_positions = query_positions(source, syntax) if source is not None else []
         self.loop_records: Dict[Any, LoopRecord] = {}
+        # the values of the dist variables at the end (prodigy.analysis.nested_inference.DistValue)
+        self.dist_values: List[Any] = []
         self.queries: List[Any] = []
         self.tracer: Optional[Tracer] = None
         """Records the step trace (:mod:`prodigy.analysis.trace`) if ``record_steps`` is set."""
@@ -687,6 +703,28 @@ class AnalysisSession:
             # The strategy that opened the sub-analysis decides what an inexact sub-analysis
             # means for its own outcome (see e.g. the invariant strategy).
             self._scopes.pop()
+
+    @contextlib.contextmanager
+    def nested_inference(self, reason: str) -> Iterator[_Scope]:
+        """Runs the analysis of a function for ``infer``. Its loops and residual mass are booked
+        in a scope of its own, which tells afterwards whether the analysis was exact: only an
+        exact output distribution can be normalised."""
+        scope = _Scope(silent=self.silent, reason=reason)
+        self._scopes.append(scope)
+        try:
+            yield scope
+        finally:
+            self._scopes.pop()
+
+    @contextlib.contextmanager
+    def loop_alias(self, copy: WhileInstr, original: WhileInstr) -> Iterator[None]:
+        """Lets ``copy`` (the loop with its ``Pr[…]``/``Ex[…]`` replaced by their values) have the
+        id and decision of ``original`` while it runs."""
+        self.loops.alias(copy, original)
+        try:
+            yield
+        finally:
+            self.loops.unalias(copy)
 
     def on_normalize(self, error_prob) -> None:
         """Called right before the distribution is conditioned on the observations."""

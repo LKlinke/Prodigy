@@ -23,7 +23,7 @@ from prodigy.pgcl.syntax_errors import ProgramSyntaxError
 
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.exceptions import HeuristicsError, UnsupportedFeatureError
+from prodigy.analysis.exceptions import HeuristicsError, UndefinedDistributionError, UnsupportedFeatureError
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from prodigy.analysis.evtinvariants.heuristics.strategies import SELECTABLE_POSITIVITY_HEURISTICS, SynthesisStrategies
@@ -48,7 +48,7 @@ class _CliGroup(click.Group):
     def invoke(self, ctx: click.Context) -> Any:
         try:
             return super().invoke(ctx)
-        except (UnsupportedFeatureError, HeuristicsError) as exc:
+        except (UnsupportedFeatureError, UndefinedDistributionError, HeuristicsError) as exc:
             raise click.ClickException(str(exc)) from exc
 
 
