@@ -5,7 +5,7 @@
 import { h, s } from "./dom.js";
 import { hatchPattern, niceMax } from "./charts.js";
 import { BOUND_TEXT, formatNumber, formatSeconds, formatValue, qualify } from "./format.js";
-import { renderMath } from "./math.js";
+import { formulaBox } from "./formula-box.js";
 import { distributionFigure, guaranteeBadge } from "./result-view.js";
 
 const KIND_LABELS = {
@@ -51,13 +51,10 @@ function boundsOf(snap) {
 
 function distributionView(snap, label, state) {
   if (!snap) return h("p", { class: "rv-muted" }, "No distribution: the instruction failed.");
-  const math = h("div", { class: "rv-closed-form st-closed-form", tabindex: "0", "aria-label": `${label}: generating function ${snap.closed_form}` });
-  if (snap.truncated) {
-    math.textContent = `${snap.closed_form} …`;
-    math.classList.add("math-fallback");
-  } else {
-    renderMath(math, snap.latex, snap.closed_form);
-  }
+  // a fixed height, so that stepping and switching before/after do not move the views below
+  const math = formulaBox({ latex: snap.truncated ? null : snap.latex, text: snap.truncated ? `${snap.closed_form} …` : snap.closed_form,
+    label: `Generating function ${label} the step`, reserve: true, expanded: state.formulaExpanded,
+    onToggle: (value) => { state.formulaExpanded = value; }, className: "st-closed-form" });
   const facts = h("dl", { class: "rv-facts" });
   const fact = (name, value, title) => facts.append(h("div", {}, h("dt", {}, name), h("dd", { title: title || "" }, value)));
   fact("Mass", formatValue(snap.mass, snap.mass_float, 6), snap.mass);
@@ -196,6 +193,37 @@ function iteratePlayer(loop, state, width) {
     play.title = playing ? "Pause the animation (Space)" : "Play the iterates from the first one (Space)";
     status.setAttribute("aria-live", playing ? "off" : "polite");
   };
+  const statusChildren = (i) => {
+    const it = iterates[i];
+    const snap = it.distribution;
+    const text = BOUND_TEXT[snap.bound] || BOUND_TEXT.unknown;
+    return [
+      h("span", { class: "st-player-iteration" }, `Iteration ${it.iteration} of ${loop.iterations}`),
+      h("span", {}, h("span", { class: "st-key st-key-out", "aria-hidden": "true" }), `left the loop ${formatValue(snap.mass, snap.mass_float)}`),
+      h("span", {}, h("span", { class: "st-key st-key-in", "aria-hidden": "true" }), `still inside ${formatValue(it.inside_mass, it.inside_mass_float)}`),
+      h("span", { class: "rv-badge", "data-kind": snap.bound }, h("span", { class: "glyph", "aria-hidden": "true" }, text.glyph), text.label)];
+  };
+  // The status wraps differently for each iterate (the masses have different lengths). Reserve the
+  // height of the tallest one, so that the animation does not move the controls; measured once
+  // the player is laid out and again when its width changes.
+  let measuredWidth = 0;
+  const reserveStatus = () => {
+    const width = status.clientWidth;
+    if (!status.isConnected || !width || width === measuredWidth) return;
+    measuredWidth = width;
+    const live = status.getAttribute("aria-live");
+    status.setAttribute("aria-live", "off");
+    status.style.minHeight = "";
+    let tallest = 0;
+    for (let i = 0; i < iterates.length; i += 1) {
+      status.replaceChildren(...statusChildren(i));
+      tallest = Math.max(tallest, status.offsetHeight);
+    }
+    status.style.minHeight = `${tallest}px`;
+    status.replaceChildren(...statusChildren(index));
+    status.setAttribute("aria-live", live);
+  };
+  if (typeof ResizeObserver !== "undefined") new ResizeObserver(reserveStatus).observe(status);
   const draw = () => {
     const it = iterates[index];
     const snap = it.distribution;
@@ -208,12 +236,7 @@ function iteratePlayer(loop, state, width) {
     const left = formatValue(snap.mass, snap.mass_float);
     massBar.setAttribute("aria-label", `Left the loop: ${left}; still inside: ${inside}`);
     slider.setAttribute("aria-valuetext", `Iteration ${it.iteration}: left the loop ${left}, still inside ${inside}`);
-    status.replaceChildren(
-      h("span", { class: "st-player-iteration" }, `Iteration ${it.iteration} of ${loop.iterations}`),
-      h("span", {}, h("span", { class: "st-key st-key-out", "aria-hidden": "true" }), `left the loop ${left}`),
-      h("span", {}, h("span", { class: "st-key st-key-in", "aria-hidden": "true" }), `still inside ${inside}`),
-      h("span", { class: "rv-badge", "data-kind": snap.bound }, h("span", { class: "glyph", "aria-hidden": "true" },
-        (BOUND_TEXT[snap.bound] || BOUND_TEXT.unknown).glyph), (BOUND_TEXT[snap.bound] || BOUND_TEXT.unknown).label));
+    status.replaceChildren(...statusChildren(index));
     chart?.show(index);
     state.iterate = index;
   };

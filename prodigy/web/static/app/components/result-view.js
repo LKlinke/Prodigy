@@ -6,7 +6,7 @@
 import { copyText, h, icon } from "./dom.js";
 import { intervalBar, marginalChart, marginalTable } from "./charts.js";
 import { BOUND_TEXT, exactIsInformative, formatNumber, formatSeconds, formatValue, qualify, shortExact } from "./format.js";
-import { renderMath } from "./math.js";
+import { formulaBox } from "./formula-box.js";
 
 const ENGINE_NAMES = { sympy: "SymPy", ginac: "GiNaC", symengine: "SymEngine" };
 
@@ -14,6 +14,11 @@ export function guaranteeBadge(kind, label = null) {
   const text = BOUND_TEXT[kind] || BOUND_TEXT.unknown;
   return h("span", { class: "rv-badge", "data-kind": kind },
     h("span", { class: "glyph", "aria-hidden": "true" }, text.glyph), label ?? text.label);
+}
+
+/** A long expression as text in a bounded box (see formula-box.js). */
+function expressionBox(text, label) {
+  return formulaBox({ kind: "text", text: String(text ?? ""), label });
 }
 
 function exactSpan(exact, number) {
@@ -118,7 +123,7 @@ function errorView(result, options) {
   }
   if (details?.difference) {
     const label = verdict === "refuted" ? "Φ(I) − I does not vanish: " : "Φ(I) − I could not be shown to vanish: ";
-    children.push(h("p", {}, label, h("code", { class: "rv-wrap" }, details.difference)));
+    children.push(h("p", {}, label), expressionBox(details.difference, "Φ(I) − I"));
   }
   if (error.traceback) {
     children.push(h("details", { class: "disclosure rv-trace" }, h("summary", {}, "Technical details"),
@@ -176,14 +181,14 @@ function queryRow(query, result, options) {
     } else if (query.data?.joint) {
       children.push(jointTable(query.data.joint));
     } else if (query.value) {
-      children.push(h("code", { class: "rv-wrap" }, query.value));
+      children.push(expressionBox(query.value, `Value of ${query.expr ?? "the query"}`));
     }
     if (query.note) children.push(h("p", { class: "rv-note" }, query.note));
     return h("li", { class: "rv-query rv-query-wide", "data-kind": query.bound }, ...children);
   }
 
   if (query.kind === "print") {
-    return h("li", { class: "rv-query rv-query-wide" }, head, h("code", { class: "rv-wrap" }, query.value || ""));
+    return h("li", { class: "rv-query rv-query-wide" }, head, expressionBox(query.value || "", "Printed distribution"));
   }
   return h("li", { class: "rv-query rv-query-wide" }, head,
     h("p", {}, query.value ? `Optimum at ${query.data?.parameter} ∈ {${query.value}}` : "No solution found."),
@@ -244,8 +249,7 @@ export function distributionFigure(table, result, variable, mode = "chart") {
 function distributionSection(result) {
   const dist = result.distribution;
   if (!dist) return null;
-  const math = h("div", { class: "rv-closed-form", tabindex: "0", "aria-label": `Generating function ${dist.closed_form}` });
-  renderMath(math, dist.latex, dist.closed_form);
+  const math = formulaBox({ latex: dist.latex, text: dist.closed_form, label: "Generating function" });
   const facts = h("dl", { class: "rv-facts" });
   const addFact = (label, value, title) => facts.append(h("div", {}, h("dt", {}, label), h("dd", { title: title || "" }, value)));
   addFact("Total mass", formatValue(dist.mass, dist.mass_float, 6), dist.mass);
@@ -328,7 +332,7 @@ function aiAttempts(attempts) {
   return attempts.map((a) => h("div", { class: "rv-cert-block" },
     h("dt", { class: "rv-ai-head" }, `Attempt ${a.attempt}`, " ", aiVerdictBadge(a)),
     h("dd", {},
-      h("div", {}, a.candidate ? h("code", { class: "rv-wrap" }, a.candidate) : (a.verdict === "error" ? null : "No candidate in the answer"),
+      h("div", {}, a.candidate ? expressionBox(a.candidate, "Candidate") : (a.verdict === "error" ? null : "No candidate in the answer"),
         a.stop_reason && !["end_turn", "stop"].includes(a.stop_reason) ? ` · stopped: ${a.stop_reason}` : ""),
       a.mass && a.verdict === "proven" ? h("div", {}, `Lower bound with mass ${a.mass}; mass ${a.missing_mass} not accounted for.`) : null,
       a.reason ? h("div", {}, a.reason) : null,
@@ -365,14 +369,14 @@ function certificateView(cert) {
       add("Verdict", verdictText(cert.verdict));
       if (cert.constraints?.length) add("Constraints", h("code", {}, JSON.stringify(cert.constraints)));
       if (cert.counterexample) add("Counterexample", h("code", {}, JSON.stringify(cert.counterexample)));
-      rows.push(h("div", { class: "rv-cert-block" }, h("dt", {}, "Invariant I"), h("dd", {}, h("pre", { class: "rv-pre" }, (cert.invariant || "").trim()))));
+      rows.push(h("div", { class: "rv-cert-block" }, h("dt", {}, "Invariant I"), h("dd", {}, expressionBox((cert.invariant || "").trim(), "Invariant I"))));
       break;
     case "evt_invariant":
     case "evt_synthesis":
       add("Verdict", cert.verdict ? verdictText(cert.verdict) : null);
       add("Equation", cert.equation ? h("code", {}, cert.equation) : null);
-      add("Invariant I", h("code", { class: "rv-wrap" }, cert.invariant));
-      add("Φ(I) − I", cert.difference ? h("code", { class: "rv-wrap" }, cert.difference) : null);
+      add("Invariant I", cert.invariant ? expressionBox(cert.invariant, "Invariant I") : null);
+      add("Φ(I) − I", cert.difference ? expressionBox(cert.difference, "Φ(I) − I") : null);
       if (cert.verdict === "refuted" || cert.verdict === "unknown") break;
       add("Non-negative coefficients", yesNo(cert.nonnegative, "yes", "no"));
       add("Finite mass", cert.finite_mass === true ? `yes, |I| = ${cert.mass}` : yesNo(cert.finite_mass, "yes", "no — may be a spurious fixed point"));
@@ -381,13 +385,13 @@ function certificateView(cert) {
           h("div", { class: "table-wrap" }, h("table", { class: "rv-table" },
             h("thead", {}, h("tr", {}, h("th", {}, "#"), h("th", {}, "Invariant"), h("th", {}, "≥ 0"), h("th", {}, "Finite mass"))),
             h("tbody", {}, ...cert.candidates.map((c) => h("tr", { class: c.index === cert.chosen ? "chosen" : null },
-              h("td", { class: "num" }, String(c.index)), h("td", { class: "mono rv-wrap" }, c.invariant),
+              h("td", { class: "num" }, String(c.index)), h("td", {}, expressionBox(c.invariant, `Candidate ${c.index}`)),
               h("td", {}, yesNo(c.nonnegative)), h("td", {}, yesNo(c.finite_mass))))))))));
       }
       break;
     case "evt_subinvariant":
       add("Rule", "Lower induction: ν ≤ Φ(ν) and |ν| < ∞, so [¬guard]·ν lies below the output");
-      add("Sub-invariant ν", h("code", { class: "rv-wrap" }, cert.subinvariant));
+      add("Sub-invariant ν", cert.subinvariant ? expressionBox(cert.subinvariant, "Sub-invariant ν") : null);
       add("|ν|", h("code", {}, cert.mass));
       add("ν ≥ 0", cert.nonnegative);
       add("ν ≤ Φ(ν)", cert.subinvariance);
@@ -403,7 +407,7 @@ function certificateView(cert) {
         add(`${label}: exit mass`, h("code", {}, `${c.kind === "upper" ? "≤" : "≥"} ${c.exit_mass_rounded ?? c.exit_mass}`));
         if (c.check) add(`${label}: check`, c.check);
         rows.push(h("div", { class: "rv-cert-block" }, h("dt", {}, `${label} H`),
-          h("dd", {}, h("pre", { class: "rv-pre" }, c.generating_function || ""))));
+          h("dd", {}, expressionBox(c.generating_function || "", `${label} H`))));
       }
       break;
     }
@@ -412,7 +416,7 @@ function certificateView(cert) {
       rows.push(...aiAttempts(cert.attempts || []));
       break;
     default:
-      add("Details", h("code", { class: "rv-wrap" }, JSON.stringify(cert)));
+      add("Details", expressionBox(JSON.stringify(cert), "Details"));
   }
   return h("dl", { class: "rv-cert" }, ...rows);
 }
@@ -526,20 +530,25 @@ export function renderRunning(container, state, options = {}) {
     const fraction = p.total ? Math.min(1, p.done / p.total) : null;
     const label = `Loop ${p.loop ?? "?"} · ${titles[p.strategy] || p.strategy}` + (p.message ? ` · ${p.message}` : "");
     return h("div", { class: "rv-progress" },
-      h("div", { class: "rv-progress-label" }, h("span", {}, label),
+      h("div", { class: "rv-progress-label" }, h("span", { title: label }, label),
         h("span", { class: "num" }, fraction !== null ? `${Math.round(fraction * 100)} %` : "")),
       fraction !== null
         ? h("progress", { max: "1", value: String(fraction), "aria-label": label })
         : h("progress", { "aria-label": label }));
   });
   const log = cleanLog(state.log || "").split("\n").slice(-12).join("\n");
+  // a fixed height, scrolled to the newest line: the log changes on every poll and its lines wrap
+  // differently, which must not move the view
+  // (also while still empty, so that its first line does not move the view either)
+  const logBox = h("pre", { class: "rv-pre rv-log rv-running-log", "aria-label": "Console output", tabindex: log ? "0" : null }, log);
   container.replaceChildren(h("div", { class: "result-view" },
     h("div", { class: "rv-running" },
       h("div", { class: "rv-running-head" }, h("span", { class: "spinner", "aria-hidden": "true" }),
         h("span", {}, `Analyzing · ${formatSeconds(state.elapsed || 0)}`),
         state.timeLimit ? h("span", { class: "rv-muted" }, `limit ${formatSeconds(state.timeLimit)}`) : null),
       ...bars,
-      log ? h("pre", { class: "rv-pre rv-log", "aria-label": "Console output" }, log) : null)));
+      logBox)));
+  logBox.scrollTop = logBox.scrollHeight;
 }
 
 export { formatValue, formatNumber };

@@ -1,5 +1,6 @@
 """Tests for the web GUI's JSON API (prodigy web)."""
 import time
+from pathlib import Path
 
 import pytest
 
@@ -169,3 +170,18 @@ def test_page_has_the_stepper(client):
         response = client.get(f"/static/{path}", headers=HOST)
         assert response.status_code == 200, path
         response.close()
+
+
+def test_formulas_are_rendered_in_bounded_boxes(client):
+    """Every KaTeX rendering goes through formula-box.js, whose box is bounded (issue #196)."""
+    components = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components"
+    for name in ("result-view.js", "stepper.js"):
+        source = (components / name).read_text(encoding="utf-8")
+        assert 'from "./formula-box.js"' in source and "renderMath" not in source, name
+    box = (components / "formula-box.js").read_text(encoding="utf-8")
+    assert "aria-expanded" in box and "tabindex" in box and "ResizeObserver" in box
+    css = (components / "result-view.css").read_text(encoding="utf-8")
+    assert "max-height: var(--fb-collapsed)" in css and "max-height: var(--fb-expanded)" in css
+    response = client.get("/static/app/components/formula-box.js", headers=HOST)
+    assert response.status_code == 200
+    response.close()
