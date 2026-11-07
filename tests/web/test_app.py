@@ -200,3 +200,13 @@ def test_stepper_transitions_respect_reduced_motion(client):
     response = client.get("/static/app/components/motion.js", headers=HOST)
     assert response.status_code == 200
     response.close()
+
+
+def test_stepper_instruction_has_a_fixed_box(client):
+    """The instruction of a step sits in a reserved formula box, so stepping does not move the view (#206)."""
+    components = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components"
+    stepper = (components / "stepper.js").read_text(encoding="utf-8")
+    assert 'className: "st-code"' in stepper and 'h("pre", { class: "rv-pre st-code" }' not in stepper
+    css = (components / "stepper.css").read_text(encoding="utf-8")
+    assert ".formula-box.st-code { --fb-collapsed:" in css and ".st-instruction-notes { min-height:" in css
+    assert client.get("/static/app/components/stepper.css", headers=HOST).status_code == 200

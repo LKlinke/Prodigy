@@ -514,16 +514,21 @@ export function renderStepper(container, result, options = {}) {
         ? `Breakpoints: line ${[...breakpoints].sort((a, b) => a - b).join(", ")}`
         : "No breakpoints · click a line number or press F9 in the editor")));
 
+  const timing = [formatSeconds(step.time),
+    step.self_time !== undefined && step.self_time !== step.time ? `${formatSeconds(step.self_time)} without nested steps` : null,
+    step.size_after !== null && step.size_after !== undefined ? `size ${step.size_before} → ${step.size_after}` : null].filter(Boolean).join(" · ");
+  // The card keeps its size from step to step (issue #206): the code sits in a box of fixed height
+  // (formula-box.js) and the notes below it have a line reserved, so the views below do not move.
   const instruction = h("div", { class: "rv-card st-instruction" },
     h("div", { class: "rv-card-head" }, h("span", { class: "rv-muted" }, KIND_LABELS[step.kind] || step.kind),
-      h("span", { class: "rv-muted num" }, [formatSeconds(step.time),
-        step.self_time !== undefined && step.self_time !== step.time ? `${formatSeconds(step.self_time)} without nested steps` : null,
-        step.size_after !== null && step.size_after !== undefined ? `size ${step.size_before} → ${step.size_after}` : null].filter(Boolean).join(" · "))),
-    h("pre", { class: "rv-pre st-code" }, step.instruction.trim()),
-    step.depth > 0 && BRANCH_TEXT[step.branch]
-      ? h("p", { class: "rv-note" }, `Inside ${BRANCH_TEXT[step.branch]} (not normalised).`) : null,
-    step.kind === "normalize" ? h("p", { class: "rv-note" }, "The distribution is conditioned on the observations: divided by the probability that none was violated.") : null,
-    step.error ? h("p", { class: "rv-loop-message rv-error-text", role: "alert" }, `Failed: ${step.error}`) : null);
+      h("span", { class: "rv-muted num st-timing", title: timing }, timing)),
+    formulaBox({ kind: "text", text: step.instruction.trim(), label: "Instruction of the step", reserve: true,
+      expanded: view.codeExpanded, onToggle: (value) => { view.codeExpanded = value; }, className: "st-code" }),
+    h("div", { class: "st-instruction-notes" },
+      step.depth > 0 && BRANCH_TEXT[step.branch]
+        ? h("p", { class: "rv-note" }, `Inside ${BRANCH_TEXT[step.branch]} (not normalised).`) : null,
+      step.kind === "normalize" ? h("p", { class: "rv-note" }, "The distribution is conditioned on the observations: divided by the probability that none was violated.") : null,
+      step.error ? h("p", { class: "rv-loop-message rv-error-text", role: "alert" }, `Failed: ${step.error}`) : null));
 
   const side = view.side === "before" || !step.after ? "before" : "after";
   const toggle = h("div", { class: "segmented small", role: "group", "aria-label": "Distribution before or after the step" },

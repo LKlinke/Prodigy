@@ -17,7 +17,14 @@
 .st-nav .button { font-variant-numeric: tabular-nums; }
 
 .st-instruction { gap: 8px; }
-.st-code { margin: 0; max-height: 9.5em; overflow: auto; }
+.st-instruction .rv-card-head > :first-child { flex: none; white-space: nowrap; }
+.st-instruction .rv-card-head > .st-timing { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the instruction in a box of fixed height (formula-box.js), on the fill of a code block */
+.formula-box.st-code { --fb-collapsed: calc(8 * 1.5 * 11.5px + 16px); --fb-fade: transparent; }
+.st-code .formula-scroll { background: var(--rv-fill); padding: 8px 10px; }
+.st-code .formula-text { font-size: 11.5px; line-height: 1.5; }
+/* one or two lines of notes (branch, conditioning, error), reserved on every step */
+.st-instruction-notes { min-height: calc(2 * 1.45 * var(--text-callout, 12px)); display: flex; flex-direction: column; gap: 4px; }
 .st-guarantee { display: flex; align-items: flex-start; gap: 8px; font-size: var(--text-callout, 12px); color: var(--rv-text-2); }
 .st-guarantee .rv-badge { flex: none; }
 .st-distribution { display: flex; flex-direction: column; gap: 12px; }
