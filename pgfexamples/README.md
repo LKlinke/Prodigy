@@ -12,8 +12,9 @@ pgfexamples/
 ├── inference                       # Calculation of posterior distribution
 │   ├── loop_free                   # ... without while-loops
 │   │   └── conditioning            # ... with observe-statements
-│   └── loopy                       # ... with while-loops
-│       └── conditioning            # ... with observe-statements 
+│   ├── loopy                       # ... with while-loops
+│   │   └── conditioning            # ... with observe-statements 
+│   └── nested                      # ... with nested inference (dist, infer, sample)
 ├── invariant_synthesis             # Synthesis of (expected visiting time) invariants
 └── template_parameter_synthesis    # Equality of loopy and loop-free programs with parameters
     └── invariants                  # Corresponding loop-free programs

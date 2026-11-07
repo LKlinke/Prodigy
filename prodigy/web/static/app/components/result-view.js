@@ -298,6 +298,51 @@ function distributionSection(result) {
     marginals ? h("div", { class: "rv-card" }, marginals) : null);
 }
 
+// ---- dist values (nested inference) ------------------------------------------------------
+
+function distValueCard(variable, value, entry, result) {
+  const head = h("div", { class: "rv-card-head" },
+    h("span", { class: "mono rv-dist-infer" }, `${variable} = ${value.infer ?? "no value"}`),
+    h("span", { class: "rv-actions" },
+      value.closed ? guaranteeBadge("exact") : null,
+      value.closed_form ? copyButton("Text", value.closed_form) : null));
+  const children = [head];
+  if (value.closed_form) {
+    const math = h("div", { class: "rv-closed-form", tabindex: "0", "aria-label": `Generating function of ${variable}: ${value.closed_form}` });
+    renderMath(math, value.latex, value.closed_form);
+    children.push(math);
+  }
+  const facts = h("dl", { class: "rv-facts" });
+  const addFact = (label, text, title) => facts.append(h("div", {}, h("dt", {}, label), h("dd", { title: title || "" }, text)));
+  if (entry.depends_on_state) {
+    const kind = result.bounds?.kind;
+    const qualifier = kind === "lower" ? "at least " : kind === "upper" ? "at most " : "";
+    addFact("Probability of this value", qualifier + formatValue(value.probability, value.probability_float, 6), value.probability);
+  }
+  if (value.mean !== null && value.mean !== undefined) addFact("Expected value", formatValue(value.mean, value.mean_float), value.mean);
+  if (value.normalizing_constant) addFact("Normalising constant Z", formatValue(value.normalizing_constant, value.normalizing_constant_float, 6), value.normalizing_constant);
+  if (value.finite_support !== null && value.finite_support !== undefined) addFact("Support", value.finite_support ? "finite" : "infinite");
+  if (facts.children.length) children.push(facts);
+  if (value.note) children.push(h("p", { class: "rv-note" }, value.note));
+  if (value.table && !value.table.error && value.table.rows?.length) {
+    // the closed form is exact, whatever the guarantee of the program state
+    children.push(distributionFigure(value.table, { bounds: { kind: "exact" } }, variable, "table"));
+  }
+  return h("div", { class: "rv-card rv-dist-card" }, ...children);
+}
+
+function distValuesSection(result) {
+  const entries = result.distributions || [];
+  if (!entries.length) return null;
+  const cards = [];
+  for (const entry of entries) {
+    for (const value of entry.values) cards.push(distValueCard(entry.variable, value, entry, result));
+  }
+  return section("Inferred distributions",
+    h("p", { class: "rv-note" }, "Values of the dist variables at the end of the program, apart from the output distribution. Each is the normalised distribution of its infer(…), computed exactly."),
+    ...cards);
+}
+
 // ---- loops -------------------------------------------------------------------------------
 
 function yesNo(value, yes = "yes", no = "no") {
@@ -512,7 +557,7 @@ export function renderResult(container, result, options = {}) {
     children.push(section("Queries", h("ol", { class: "rv-queries" }, ...queries.map((q) => queryRow(q, result, options)))));
   }
   if (result.status === "ok") {
-    children.push(distributionSection(result));
+    children.push(distributionSection(result), distValuesSection(result));
   }
   children.push(loopsSection(result, options), stepsSection(result, options), extrasSection(result));
   container.replaceChildren(h("div", { class: "result-view", "data-stale": options.stale ? "true" : "false" },

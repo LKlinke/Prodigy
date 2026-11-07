@@ -14,6 +14,8 @@ the web GUI, a language server). Its top-level keys::
     distribution closed_form, latex, variables, parameters, finite_support, mass,
                  error_probability, expectations, marginals
     bounds       kind, residual_mass, explanation
+    distributions variable, depends_on_state, values (probability, infer, function, arguments,
+                 closed, closed_form, latex, normalizing_constant, mean, finite_support, table)
     queries      kind, expr, value, lower, upper, bound, line, data
     loops        id, line, cond, strategy, params, kind, residual_mass, certificates, ...
     steps        index, line, column, kind, instruction, before, after, bound, time, loop, watches, ...
@@ -50,6 +52,19 @@ A result whose ``status`` is not ``ok`` (``error``, ``needs_decision``, and ``ti
 (results made up by a front end may omit ``bounds``) and its residual mass is ``null``.
 Queries answered before the failure keep their own intervals, which were computed from the
 distribution at that point.
+
+Values of type dist
+-------------------
+``distributions`` lists the ``dist`` variables at the end of the program (nested inference, see
+:mod:`prodigy.analysis.nested_inference`), apart from the joint generating function of the program
+state in ``distribution``, which does not contain them. A variable has one entry in ``values`` per
+value it can have; ``probability`` is the probability of that value (1 if it does not depend on
+the state) and carries the guarantee of ``bounds``. ``closed_form`` is the normalised generating
+function of the value, in the name of the variable; it is always exact (``infer`` is only computed
+from an exact analysis), as are ``normalizing_constant`` (Z), ``mean`` (``Ex[d]``, maybe ``oo``) and
+the coefficients in ``table`` (the format of a marginal). A value whose arguments have infinite
+support (``closed`` false) has no closed form. Older results have no ``distributions``; it is
+empty for programs without ``dist``.
 
 Undefined values
 ----------------
@@ -627,6 +642,8 @@ class AnalysisResult:
     error_probability: Optional[str] = None
     error_probability_float: Optional[float] = None
     bounds: Dict[str, Any] = field(default_factory=dict)
+    distributions: List[Dict[str, Any]] = field(default_factory=list)
+    """The values of the ``dist`` variables (see "Values of type dist")."""
     queries: List[QueryResult] = field(default_factory=list)
     loops: List[Dict[str, Any]] = field(default_factory=list)
     steps: List[Dict[str, Any]] = field(default_factory=list)
@@ -653,6 +670,7 @@ class AnalysisResult:
             "input": self.input,
             "distribution": distribution,
             "bounds": bounds,
+            "distributions": self.distributions,
             "queries": [q.to_json() for q in self.queries],
             "loops": self.loops,
             "steps": self.steps,
@@ -713,6 +731,11 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
             result.distribution = describe_distribution(final, limit=session.coefficient_limit,
                                                         kind=session.bound_kind,
                                                         residual=session.residual)
+            if session.dist_values:
+                # pylint: disable=import-outside-toplevel
+                from prodigy.analysis.nested_inference import dist_values_json
+                result.distributions = dist_values_json(session.dist_values, session.syntax,
+                                                        session.coefficient_limit)
             result.timing["summary"] = round(time.perf_counter() - summary_start, 6)
             result.error_probability, result.error_probability_float = \
                 exact_and_float(_safe(error_prob.get_probability_mass))

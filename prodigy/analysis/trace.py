@@ -36,6 +36,9 @@ iterate of an unrolling is a lower bound for the output of the loop; its residua
 inside the loop plus the residual of earlier loops. Watches (queries evaluated after every
 top-level step, see :func:`parse_watch`) get intervals exactly like queries at that place.
 
+The ``dist`` variables of nested inference are not part of the distributions of the trace; a
+snapshot lists their values under ``dists`` (variable, probability, ``infer``, closed form).
+
 Per distribution the trace stores the closed form (cut after ``TraceLimits.closed_form_chars``
 characters), its mass, the first ``TraceLimits.coefficients`` coefficients of the marginals of up
 to ``TraceLimits.max_variables`` variables and the size of the closed form (its length in
@@ -364,9 +367,11 @@ class Tracer:
                  residual: Any) -> Dict[str, Any]:
         """The bounded summary of a distribution that the trace stores (with its guarantee)."""
         # pylint: disable=import-outside-toplevel
+        from prodigy.analysis.nested_inference import for_trace
         from prodigy.analysis.result import exact_and_float, sym, to_latex, univariate_table
         start = time.perf_counter()
         limits = self.limits
+        dist, dist_values = for_trace(dist, self.session.program, self.session.syntax)
         try:
             closed = str(dist)
         except Exception:  # pylint: disable=broad-except
@@ -392,6 +397,8 @@ class Tracer:
             "residual_mass_float": residual_float,
             "marginals": {},
         }
+        if dist_values:
+            snap["dists"] = dist_values
         small = len(closed) <= limits.closed_form_chars
         if small and len(closed) <= 600:
             snap["latex"] = _safe(lambda: to_latex(dist))

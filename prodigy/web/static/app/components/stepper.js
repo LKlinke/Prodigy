@@ -88,7 +88,25 @@ function distributionView(snap, label, state) {
   }
   return h("div", { class: "st-distribution" },
     h("div", { class: "st-guarantee" }, guaranteeBadge(snap.bound || "unknown"), h("span", {}, guaranteeText(snap))),
-    math, facts, marginals);
+    math, facts, distsView(snap), marginals);
+}
+
+// the dist variables are not part of the distribution; their values are listed apart
+function distsView(snap) {
+  const dists = snap.dists || [];
+  if (!dists.length) return null;
+  const several = new Set(dists.map((d) => d.variable)).size < dists.length;
+  const rows = dists.map((d) => h("tr", {},
+    h("td", { class: "mono" }, d.variable),
+    h("td", { class: "mono" }, d.infer ?? "no value"),
+    several ? h("td", { class: "num", title: d.probability }, formatValue(d.probability, Number(d.probability) || null, 6)) : null,
+    h("td", { class: "mono exact-cell", title: d.closed_form || "" }, d.closed_form ?? "—")));
+  return h("div", { class: "rv-marginals" },
+    h("div", { class: "rv-subhead" }, h("h4", {}, "Values of dist variables")),
+    h("div", { class: "table-wrap" }, h("table", { class: "rv-table" },
+      h("thead", {}, h("tr", {}, h("th", { scope: "col" }, "Variable"), h("th", { scope: "col" }, "Value"),
+        several ? h("th", { scope: "col" }, "Probability") : null, h("th", { scope: "col" }, "Generating function"))),
+      h("tbody", {}, ...rows))));
 }
 
 // ---- loop: checks and animated iterates ------------------------------------------------------

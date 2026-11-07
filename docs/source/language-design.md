@@ -275,7 +275,9 @@ The implementation follows the table. Where the design left a gap, it decided as
 
 The result JSON gets a section `distributions` with the closed-form PGF of each `dist` variable,
 separate from the joint generating function of the program state. The GUI shows it as a card of its
-own.
+own. Implemented: one entry per variable, with one value per case if it depends on the state
+(probability, `infer` text, closed form, Z, mean, coefficients; see `prodigy/analysis/result.py`);
+the step trace lists the values next to each distribution.
 
 ### Queries
 

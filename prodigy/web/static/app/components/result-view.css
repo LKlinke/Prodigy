@@ -180,3 +180,6 @@
 .rv-progress-label { display: flex; justify-content: space-between; gap: 12px; font-size: var(--text-callout, 12px); color: var(--rv-text-2); }
 .rv-progress progress { width: 100%; height: 6px; accent-color: var(--accent, #0066CC); }
 .rv-extras { gap: 8px; }
+
+/* ---- dist values ----------------------------------------------------------------------- */
+.rv-dist-infer { font-weight: 600; overflow-wrap: anywhere; }

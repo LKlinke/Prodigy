@@ -205,6 +205,39 @@ def check_source(source: str, syntax: str = "pgcl") -> Dict[str, Any]:
     return result
 
 
+def _nested_inference_limits(program: Any, source: str) -> List[Dict[str, Any]]:
+    """Warnings for valid programs with ``dist`` values that the analysis cannot compute yet,
+    as far as they can be seen without running it: a loop that assigns a ``dist`` variable."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.nested_inference import assigned_dist_variables
+    from prodigy.pgcl import LoopInstr, WhileInstr
+    from prodigy.pgcl.ast.types import DistributionType
+    from prodigy.pgcl.ast.walk import Walk, walk_instrs
+    from prodigy.pgcl.positions import span_of
+    found = []
+    bodies = [(program.instructions, program.variables)]
+    bodies += [(function.instructions, {decl.var: decl.typ for decl in function.declarations})
+               for function in program.functions.values()]
+    for instructions, variables in bodies:
+        dist_vars = {var for var, typ in variables.items() if isinstance(typ, DistributionType)}
+        if not dist_vars:
+            continue
+        for ref in walk_instrs(Walk.DOWN, instructions):
+            loop = ref.val
+            if not isinstance(loop, (WhileInstr, LoopInstr)):
+                continue
+            assigned = assigned_dist_variables(loop.body, dist_vars)
+            if not assigned:
+                continue
+            span = span_of(loop)
+            where = (span.line, span.column, span.line, span.column + 5) if span else None
+            found.append(_diagnostic(
+                "warning", f"The loop assigns the dist variable {assigned[0]}; dist values in the state "
+                "of a loop are not implemented yet.", where, source,
+                hint="The program is valid, but the analysis will stop here. Assign it before the loop."))
+    return found
+
+
 def _check(source: str, syntax: str) -> Dict[str, Any]:
     diagnostics: List[Dict[str, Any]] = []
     try:
@@ -228,6 +261,7 @@ def _check(source: str, syntax: str) -> Dict[str, Any]:
         diagnostics.append(_diagnostic("warning", f"Type check failed: {exc}", None, source,
                                        hint="Reported by the pGCL type checker; Prodigy may still be "
                                             "able to analyse the program."))
+    diagnostics.extend(_nested_inference_limits(program, source))
     if outline is not None and not outline["queries"]:
         line, _ = _end_of_source(source)
         diagnostics.append({"severity": "info", "line": line, "column": 1, "end_line": line, "end_column": 1,
