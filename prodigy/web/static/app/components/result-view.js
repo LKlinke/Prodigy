@@ -312,9 +312,7 @@ function distValueCard(variable, value, entry, result) {
       value.closed_form ? copyButton("Text", value.closed_form) : null));
   const children = [head];
   if (value.closed_form) {
-    const math = h("div", { class: "rv-closed-form", tabindex: "0", "aria-label": `Generating function of ${variable}: ${value.closed_form}` });
-    renderMath(math, value.latex, value.closed_form);
-    children.push(math);
+    children.push(formulaBox({ latex: value.latex, text: value.closed_form, label: `Generating function of ${variable}` }));
   }
   const facts = h("dl", { class: "rv-facts" });
   const addFact = (label, text, title) => facts.append(h("div", {}, h("dt", {}, label), h("dd", { title: title || "" }, text)));
