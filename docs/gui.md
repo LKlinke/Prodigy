@@ -81,9 +81,16 @@ navigated afterwards, so stepping back is as cheap as stepping forward.
   expected visiting times*) **Kleene iterates** animates the iterations: the part that has left
   the loop grows towards the output of the loop, the hatched “?” bar and the bar below the chart
   show the mass still inside shrinking. *Play* (Space) runs through the iterates, the slider picks
-  one. At most 40 iterates are kept per loop (`step_iterations`), spread evenly, plus the last.
-  With *Reduce motion* (macOS: System Settings → Accessibility → Display) the bars change without
-  animated transitions.
+  one, and the speed menu (0.5×, 1×, 2×) sets the pace. At most 40 iterates are kept per loop
+  (`step_iterations`), spread evenly, plus the last.
+* **Transitions**: two consecutive steps (or iterates) are keyframes, and the view moves between
+  them with ease-in/ease-out in about a third of a second: bars and the “?” bar grow or shrink,
+  bars that appear or disappear fade, the axis rescales, the closed form cross-fades inside its
+  fixed box, and the mass, the size and the watched queries count to their new value. A counted
+  number is only a transition: it is shown muted with “≈”, screen readers get the exact value,
+  and the exact value replaces it at the end. A new step during a transition continues from what
+  is on screen. With *Reduce motion* (macOS: System Settings → Accessibility → Display) only the
+  end state is shown.
 * **Queries at this step**: a query such as `Pr[x == 3]` or `Ex[x]` (in the program's syntax) is
   evaluated after every top-level step, as if it stood right after that instruction, with the same
   sound intervals as the program's queries; adding or removing one analyses again.

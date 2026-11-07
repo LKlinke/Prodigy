@@ -185,3 +185,18 @@ def test_formulas_are_rendered_in_bounded_boxes(client):
     response = client.get("/static/app/components/formula-box.js", headers=HOST)
     assert response.status_code == 200
     response.close()
+
+
+def test_stepper_transitions_respect_reduced_motion(client):
+    """The stepper tweens between steps on requestAnimationFrame and shows only the end state
+    with reduced motion (issue #198)."""
+    components = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components"
+    motion = (components / "motion.js").read_text(encoding="utf-8")
+    assert "requestAnimationFrame" in motion and "prefers-reduced-motion" in motion
+    # interpolated numbers are hidden from assistive technology; the exact value stays readable
+    assert '"aria-hidden": "true"' in motion and "tw-exact" in motion
+    stepper = (components / "stepper.js").read_text(encoding="utf-8")
+    assert 'from "./motion.js"' in stepper and "reducedMotion()" in stepper
+    response = client.get("/static/app/components/motion.js", headers=HOST)
+    assert response.status_code == 200
+    response.close()

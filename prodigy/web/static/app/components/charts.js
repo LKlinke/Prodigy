@@ -100,16 +100,18 @@ export function marginalChart(table, { residual = null, residualExact = null, va
     const showLabel = bar.kind !== "value" || (index % labelEvery === 0 && !crowdedByExtra);
     const kindClass = bar.kind === "value" && (bound === "upper" || bound === "unknown") ? `mc-${bound}` : `mc-${bar.kind}`;
     const hatched = bar.kind === "residual" || (bar.kind === "value" && bound === "upper");
-    return s("g", { class: `mc-bar ${kindClass}` },
+    // data-* keep the bar's own state, so that the stepper can tween from one chart to the next (motion.js)
+    return s("g", { class: `mc-bar ${kindClass}`, "data-key": bar.kind === "value" ? `v${bar.label}` : bar.kind },
       s("title", {}, bar.title),
       s("rect", { x: cx - barW / 2, y: top + plotH - barHeight, width: barW, height: barHeight, rx: Math.min(3, barW / 4),
-        fill: hatched ? `url(#${id})` : null }),
+        fill: hatched ? `url(#${id})` : null, "data-p": bar.p, "data-cx": cx, "data-w": barW }),
       showLabel ? s("text", { x: cx, y: height - 6, class: "mc-label" }, bar.label) : null);
   });
 
   const summary = `Bar chart of the distribution of ${variable}: ${rows.length} values` +
     (extras.length ? `, plus ${extras.map((e) => e.kind === "tail" ? "the remaining tail" : "the mass not yet accounted for").join(" and ")}` : "") + ".";
-  return s("svg", { class: "marginal-chart", viewBox: `0 0 ${width} ${height}`, width, height, role: "img", "aria-label": summary },
+  return s("svg", { class: "marginal-chart", viewBox: `0 0 ${width} ${height}`, width, height, role: "img", "aria-label": summary,
+    "data-variable": variable, "data-max": max, "data-width": width, "data-top": top, "data-plot-h": plotH },
     s("defs", {}, hatchPattern(id)), ...grid, ...marks,
     s("line", { class: "mc-axis", x1: left, x2: left + plotW, y1: top + plotH, y2: top + plotH }));
 }

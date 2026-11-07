@@ -42,7 +42,7 @@
 .st-player-chart { min-height: 168px; }
 .iterate-chart .it-rect {
   transform-box: fill-box; transform-origin: 50% 100%;
-  transition: transform 420ms cubic-bezier(0.25, 0.1, 0.25, 1);
+  transition: transform var(--st-transition, 420ms) cubic-bezier(0.42, 0, 0.58, 1);
 }
 .iterate-chart .mc-value .it-rect, .iterate-chart .mc-tail .it-rect { fill: var(--rv-data); }
 .iterate-chart .mc-tail .it-rect { opacity: 0.35; }
@@ -50,13 +50,24 @@
 .st-player-controls { display: flex; align-items: center; gap: 10px; }
 .st-slider { flex: 1; min-width: 0; accent-color: var(--accent, #0066CC); }
 .st-play { min-width: 78px; justify-content: center; }
+.st-speed { flex: none; width: auto; height: 24px; font-size: var(--text-callout, 12px); }
+
+/* transitions between steps (motion.js): an interpolated number is muted and marked "≈"; screen
+   readers get the exact value, which is shown again at the end */
+.tw-counting .tw-exact {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+.tw-live { color: var(--rv-text-2); font-variant-numeric: tabular-nums; }
+.formula-ghost {
+  position: absolute; inset: 0; overflow: hidden; pointer-events: none; padding: 2px 4px 2px 0;
+}
 .st-player-status {
   margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px;
   font-size: var(--text-callout, 12px); color: var(--rv-text-2); font-variant-numeric: tabular-nums;
 }
 .st-player-iteration { color: var(--rv-text); font-weight: 600; }
 .st-massbar { display: flex; height: 10px; border-radius: 3px; overflow: hidden; background: var(--rv-fill); }
-.st-massbar span { display: block; height: 100%; transition: width 420ms cubic-bezier(0.25, 0.1, 0.25, 1); }
+.st-massbar span { display: block; height: 100%; transition: width var(--st-transition, 420ms) cubic-bezier(0.42, 0, 0.58, 1); }
 .st-massbar-out, .st-key-out { background: var(--rv-data); }
 .st-massbar-in, .st-key-in {
   background: repeating-linear-gradient(45deg, var(--rv-bound) 0 2px, var(--bound-fill, rgba(122, 63, 168, 0.11)) 2px 6px);

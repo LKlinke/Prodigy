@@ -6,6 +6,7 @@ import { h, s } from "./dom.js";
 import { hatchPattern, niceMax } from "./charts.js";
 import { BOUND_TEXT, formatNumber, formatSeconds, formatValue, qualify } from "./format.js";
 import { formulaBox } from "./formula-box.js";
+import { chartState, countNumber, crossFade, formulaState, reducedMotion, tweenChart } from "./motion.js";
 import { distributionFigure, guaranteeBadge } from "./result-view.js";
 
 const KIND_LABELS = {
@@ -25,7 +26,26 @@ const BRANCH_TEXT = {
 const CHECK_GLYPHS = { passed: "✓", failed: "×", unknown: "?", info: "i" };
 const CHECK_LABELS = { passed: "Proven", failed: "Failed", unknown: "Not established", info: "Note" };
 
-const reducedMotion = () => Boolean(globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+// duration of a transition between two steps (motion.js); the iterates scale it with the speed
+const TRANSITION_MS = 320;
+const SPEEDS = [0.5, 1, 2];
+
+/** Captures what the next rendering tweens from: chart, closed form and counted numbers. */
+function visibleState(container) {
+  const numbers = new Map();
+  for (const element of container.querySelectorAll(".st-distribution [data-count-key], .st-watches [data-count-key]")) {
+    numbers.set(element.dataset.countKey, Number(element.dataset.current ?? element.dataset.value));
+  }
+  return {
+    chart: chartState(container.querySelector(".st-distribution .marginal-chart")),
+    formula: formulaState(container.querySelector(".st-closed-form")),
+    numbers,
+  };
+}
+
+function counted(key, value) {
+  return Number.isFinite(value) ? { "data-count-key": key, "data-value": value } : {};
+}
 
 function where(step) {
   if (step.kind === "normalize") return "end of the program";
@@ -56,12 +76,14 @@ function distributionView(snap, label, state) {
     label: `Generating function ${label} the step`, reserve: true, expanded: state.formulaExpanded,
     onToggle: (value) => { state.formulaExpanded = value; }, className: "st-closed-form" });
   const facts = h("dl", { class: "rv-facts" });
-  const fact = (name, value, title) => facts.append(h("div", {}, h("dt", {}, name), h("dd", { title: title || "" }, value)));
-  fact("Mass", formatValue(snap.mass, snap.mass_float, 6), snap.mass);
+  const fact = (name, value, title, extra = {}) => facts.append(h("div", {}, h("dt", {}, name), h("dd", { title: title || "", ...extra }, value)));
+  fact("Mass", formatValue(snap.mass, snap.mass_float, 6), snap.mass, counted("mass", snap.mass_float));
   if (snap.error_probability && snap.error_probability !== "0") {
-    fact("Observation violated", formatValue(snap.error_probability, snap.error_probability_float, 6), snap.error_probability);
+    fact("Observation violated", formatValue(snap.error_probability, snap.error_probability_float, 6), snap.error_probability,
+      counted("error", snap.error_probability_float));
   }
-  fact("Size", `${snap.size.toLocaleString("en-US")} character${snap.size === 1 ? "" : "s"}`, "Length of the closed form; the same measure on every engine");
+  fact("Size", `${snap.size.toLocaleString("en-US")} character${snap.size === 1 ? "" : "s"}`, "Length of the closed form; the same measure on every engine",
+    counted("size", snap.size));
   const variables = Object.keys(snap.marginals || {});
   let marginals = null;
   if (variables.length) {
@@ -186,7 +208,9 @@ function iteratePlayer(loop, state, width) {
   let chart = null;
   let timer = null;
   let index = Math.min(state.iterate ?? iterates.length - 1, iterates.length - 1);
-  const pace = () => (reducedMotion() ? 1000 : 550);
+  const speed = () => state.iterateSpeed ?? 1;
+  const pace = () => (reducedMotion() ? 1000 : 550 / speed());
+  let counts = [];
   const setPlayLabel = (playing) => {
     play.replaceChildren(h("span", { "aria-hidden": "true" }, playing ? "❚❚" : "▶"), playing ? " Pause" : " Play");
     play.setAttribute("aria-pressed", String(playing));
@@ -199,8 +223,10 @@ function iteratePlayer(loop, state, width) {
     const text = BOUND_TEXT[snap.bound] || BOUND_TEXT.unknown;
     return [
       h("span", { class: "st-player-iteration" }, `Iteration ${it.iteration} of ${loop.iterations}`),
-      h("span", {}, h("span", { class: "st-key st-key-out", "aria-hidden": "true" }), `left the loop ${formatValue(snap.mass, snap.mass_float)}`),
-      h("span", {}, h("span", { class: "st-key st-key-in", "aria-hidden": "true" }), `still inside ${formatValue(it.inside_mass, it.inside_mass_float)}`),
+      h("span", {}, h("span", { class: "st-key st-key-out", "aria-hidden": "true" }), "left the loop ",
+        h("span", counted("out", snap.mass_float), formatValue(snap.mass, snap.mass_float))),
+      h("span", {}, h("span", { class: "st-key st-key-in", "aria-hidden": "true" }), "still inside ",
+        h("span", counted("in", it.inside_mass_float), formatValue(it.inside_mass, it.inside_mass_float))),
       h("span", { class: "rv-badge", "data-kind": snap.bound }, h("span", { class: "glyph", "aria-hidden": "true" }, text.glyph), text.label)];
   };
   // The status wraps differently for each iterate (the masses have different lengths). Reserve the
@@ -236,7 +262,12 @@ function iteratePlayer(loop, state, width) {
     const left = formatValue(snap.mass, snap.mass_float);
     massBar.setAttribute("aria-label", `Left the loop: ${left}; still inside: ${inside}`);
     slider.setAttribute("aria-valuetext", `Iteration ${it.iteration}: left the loop ${left}, still inside ${inside}`);
+    // the masses count from the values shown so far (also from the middle of a transition)
+    const from = new Map([...status.querySelectorAll("[data-count-key]")].map((e) => [e.dataset.countKey, Number(e.dataset.current ?? e.dataset.value)]));
+    counts.forEach((c) => c?.cancel());
     status.replaceChildren(...statusChildren(index));
+    counts = [...status.querySelectorAll("[data-count-key]")].map((e) => (from.has(e.dataset.countKey)
+      ? countNumber(e, from.get(e.dataset.countKey), Number(e.dataset.value), TRANSITION_MS / speed(), { digits: 3 }) : null));
     chart?.show(index);
     state.iterate = index;
   };
@@ -245,9 +276,16 @@ function iteratePlayer(loop, state, width) {
     timer = null;
     setPlayLabel(false);
   };
+  const speedPicker = h("select", { class: "st-speed", "aria-label": "Speed of the animation" },
+    ...SPEEDS.map((v) => h("option", { value: String(v), selected: v === speed() }, `${v}×`)));
+  const applySpeed = () => element?.style.setProperty("--st-transition", `${Math.round(420 / speed())}ms`);
+  speedPicker.addEventListener("change", () => {
+    state.iterateSpeed = Number(speedPicker.value);
+    applySpeed();
+    if (timer) { clearInterval(timer); timer = null; start(); }
+  });
   const start = () => {
-    if (index >= iterates.length - 1) index = 0;
-    draw();
+    if (index >= iterates.length - 1) { index = 0; draw(); }
     setPlayLabel(true);
     timer = setInterval(() => {
       if (!holder.isConnected) { stop(); return; }
@@ -277,10 +315,11 @@ function iteratePlayer(loop, state, width) {
       + (loop.stride > 1 ? ` Every ${loop.stride}th iteration is shown, and the last one.` : "")),
     holder,
     massBar,
-    h("div", { class: "st-player-controls" }, play, slider),
+    h("div", { class: "st-player-controls" }, play, slider, speedPicker),
     status);
+  applySpeed();
   element.addEventListener("keydown", (event) => {
-    if (event.key === " " && event.target !== play) { event.preventDefault(); play.click(); }
+    if (event.key === " " && event.target !== play && event.target !== speedPicker) { event.preventDefault(); play.click(); }
   });
   if (variables.length) {
     choose(variables.includes(state.iterateVariable) ? state.iterateVariable : variables[0]);
@@ -288,7 +327,7 @@ function iteratePlayer(loop, state, width) {
     holder.replaceChildren(h("p", { class: "rv-muted" }, "No marginals recorded for the iterates."));
     draw();
   }
-  return { element, stop };
+  return { element, stop: () => { stop(); counts.forEach((c) => c?.finish()); } };
 }
 
 function loopView(step, options, state, width) {
@@ -339,7 +378,7 @@ function watchesView(step, result, options) {
     else if (!value) shown = h("span", { class: "rv-muted" }, "—");
     else {
       const { glyph, text } = qualify(value, { withValue: true });
-      shown = h("span", { class: "rv-q-bound", "data-kind": value.bound },
+      shown = h("span", { class: "rv-q-bound", "data-kind": value.bound, ...counted(`watch-${i}`, value.value_float) },
         glyph ? h("span", { class: "glyph", "aria-hidden": "true" }, glyph) : null, text,
         value.note ? h("span", { class: "rv-note" }, ` ${value.note}`) : null);
     }
@@ -422,6 +461,10 @@ export function breakpointTarget(steps, current, breakpoints, dir = 1) {
 export function renderStepper(container, result, options = {}) {
   const view = options.viewState || {};
   view.stopPlayer?.();
+  // the views of the previous rendering are the first keyframe of the transition (motion.js)
+  const before = container.querySelector(".stepper") && !reducedMotion() ? visibleState(container) : null;
+  for (const motion of view.motions || []) motion?.cancel();
+  view.motions = [];
   const steps = result?.steps || [];
   if (!steps.length) {
     const text = result
@@ -505,4 +548,20 @@ export function renderStepper(container, result, options = {}) {
   const again = focusKey ? container.querySelector(`[data-focus-key="${focusKey}"]`) : null;
   if (options.focusList || (focusKey && (!again || again.disabled))) container.querySelector(".st-list")?.focus({ preventScroll: true });
   else again?.focus({ preventScroll: true });
+  if (before) view.motions = transition(container, before);
+}
+
+/** Tweens the new rendering from the state `before`: bars, closed form and numbers. */
+function transition(container, before) {
+  const motions = [tweenChart(() => container.querySelector(".st-distribution .marginal-chart"), before.chart, TRANSITION_MS)];
+  const box = container.querySelector(".st-closed-form");
+  if (before.formula && before.formula.node.innerHTML !== box?.querySelector(".formula-content")?.innerHTML) {
+    motions.push(crossFade(box, before.formula, TRANSITION_MS));
+  }
+  for (const element of container.querySelectorAll(".st-distribution [data-count-key], .st-watches [data-count-key]")) {
+    const from = before.numbers.get(element.dataset.countKey);
+    if (from !== undefined) motions.push(countNumber(element, from, Number(element.dataset.value), TRANSITION_MS,
+      { integer: element.dataset.countKey === "size" }));
+  }
+  return motions.filter(Boolean);
 }
