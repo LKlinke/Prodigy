@@ -107,7 +107,10 @@ on its own.
   `config.activate()` (a context variable); `compute_discrete_distribution`, `AnalysisSession.run`
   and the CLI enter it. Code that calls the SymPy engine outside of them (e.g. handlers directly)
   gets the defaults; `tests/conftest.py` fails a test whose settings leak.
-- The GiNaC bindings print to stdout at C level; the analysis captures that output.
+- `AnalysisSession(capture_output=True)` captures everything the analysis writes to stdout, Python
+  prints and native writes to file descriptor 1 (`_native_stdout_captured`), so that
+  `prodigy analyze --json` stays clean. Since prodigy-ppl-ginac 0.0.3 the bindings no longer print
+  during an analysis (bindings #14); the native capture stays as a safeguard.
 - SymEngine reads `e`, `E`, `I`, `pi` and `inf` as constants. Parse strings with
   `_parse_to_symengine` (it protects `e` and `inf`), never with `se.S`. Variables named `E`, `I` or
   `pi` are rejected on SymEngine (#204).
