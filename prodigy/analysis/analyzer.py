@@ -58,6 +58,10 @@ def compute_discrete_distribution(
     (:mod:`prodigy.analysis.trace`) is printed when it is done, with its line (and the analysis
     waits for Enter after each step); a session that records steps itself is left alone.
     """
+    if config.engine == ForwardAnalysisConfig.Engine.SYMENGINE:
+        # pylint: disable=import-outside-toplevel
+        from prodigy.distribution.symengine_distribution import check_names
+        check_names([*program.variables, *program.parameters])
     with config.activate(), _active_session(), nested_inference.analysis_registry(), _printed_steps(config):
         return _compute_discrete_distribution(program, dist, config, step_callback)
 
