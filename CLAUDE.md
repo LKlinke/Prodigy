@@ -1,6 +1,7 @@
 # Prodigy — notes for Claude
 
-Prodigy analyses probabilistic programs (pGCL) with probability generating functions (PGFs).
+Prodigy analyses probabilistic programs (pGCL, written in `.ppy` or `.pgcl`) with probability
+generating functions (PGFs).
 It computes output distributions exactly where it can and otherwise gives results with a stated
 guarantee: exact, lower bound with residual mass, or upper bound. Maintainer: Lutz Klinkenberg.
 
@@ -15,7 +16,9 @@ guarantee: exact, lower bound with residual mass, or upper bound. Maintainer: Lu
   author or committer of commits.
 - Ask before pushing or opening a PR if Lutz has not asked for it in the session.
 - Unpublished research stays out of the repository: no paper titles, venues or unpublished results
-  in code, docs, commit messages or PR texts.
+  in code, docs, commit messages or PR texts. The repository and its issues are public.
+- Problems found but not fixed in a PR go into a section "Found, not fixed here" of the PR text;
+  each becomes an issue (with a priority label and a milestone) instead of getting lost.
 
 ## Commands (uv)
 ```sh
@@ -23,7 +26,7 @@ uv sync                              # install exactly what uv.lock says, into .
 uv run prodigy --engine ginac web    # GUI on http://localhost:8080 (restart after code changes)
 make lint                            # pylint, must stay at 10.00/10
 make mypy                            # mypy, no errors
-make test                            # pytest with coverage, about 5 minutes
+make test                            # pytest with coverage, about 8 minutes
 make docs                            # Sphinx docs into docs/build/html, warnings are errors
 uv run pytest tests/analysis/test_session.py -q   # a single file
 ```
@@ -33,14 +36,21 @@ the locked dependencies. Check like the CI before saying something passes.
 Dependencies: change `pyproject.toml`, run `uv lock`, commit both files. The GiNaC engine comes from
 `prodigy-ppl-ginac` (module `prodigy_ginac`, wheels with GiNaC bundled); a marker installs it only
 where wheels exist, and the extra `ginac` installs it everywhere, so the GiNaC engine is imported
-lazily (`ForwardAnalysisConfig.factory`). Dependabot opens monthly
+lazily (`ForwardAnalysisConfig.factory`). Right after a new release of the bindings, `uv lock` may
+still see the old index; use `uv lock --refresh-package prodigy-ppl-ginac`. Fixes of GiNaC problems
+belong in the bindings repository (`LKlinke/prodigy-ginac-bindings`), not as patches in Prodigy;
+Prodigy only adds guards at its interface. Dependabot opens monthly
 PRs in two groups; the group `linters` (pylint, astroid, mypy) needs code changes and is handled
 on its own.
 
 ## Layout
-- `prodigy/pgcl`: parser (lark), AST, type checker, compiler. Taken over from probably with its
-  history (see `prodigy/pgcl/NOTICE`); `pgcl_checks.py` and `pgcl_operations.py` are Prodigy's own.
-  These modules are not type-checked yet (see `mypy.ini`).
+- `prodigy/pgcl`: parsers, AST, type checker, compiler. The `.pgcl` parser (lark) is taken over
+  from probably with its history (see `prodigy/pgcl/NOTICE`). Prodigy's own modules:
+  - `pgcl_checks.py`, `pgcl_operations.py`;
+  - `ppy_parser.py`/`ppy_printer.py`: the `.ppy` syntax;
+  - `scope.py`: block scope, lowered to assignments and marginalisation;
+  - `converter.py`: `prodigy convert`;
+  - `positions.py`: source positions.
 - `prodigy/distribution`: the `Distribution` interface and its engines: SymPy
   (`generating_function.py`, default), GiNaC via prodigy_ginac (`fast_generating_function.py`), SymEngine.
 - `prodigy/analysis`: the forward analysis. `analyzer.py` dispatches instructions to
@@ -53,9 +63,13 @@ on its own.
   - `lowerbounds/`: occupation sub-invariants and the sandwich (strategies `evt_subinvariant`,
     `evt_sandwich`).
   - `ai_candidates.py`: invariant candidates from a language model (strategy `ai_invariant`).
+  - `nested_inference.py`: `dist` values, `infer`, `sample` (design in `docs/source/language-design.md`).
+  - `trace.py`: the step trace (`prodigy analyze --steps`, the GUI's Steps tab).
 - `prodigy/web`: the GUI, a Flask app. Each analysis runs in its own process (`jobs.py`). The
   frontend is plain ES modules without a build step; CodeMirror and KaTeX are vendored under
-  `static/vendor` (rebuilt via `prodigy/web/frontend`). Docs: `docs/gui.md`.
+  `static/vendor` (rebuilt via `prodigy/web/frontend`). Shared components are in
+  `static/app/components`; e.g. every KaTeX formula goes through `formula-box.js` (bounded size),
+  and animations through `motion.js`. Docs: `docs/gui.md`.
 - `pgfexamples/`: example programs in `.ppy` (converted from `.pgcl`), also the GUI's library and
   test inputs; the wheel contains them as `prodigy/pgfexamples`. Former `.pgcl` versions of a
   representative set are in `tests/pgcl/former_examples/` with their results (keeps `.pgcl` tested).
@@ -72,6 +86,10 @@ on its own.
 - Soundness first. A result may only be reported as exact, or as a lower or upper bound, if a
   check proves it; otherwise it is `unknown`. Candidates from heuristics or language models are
   only proposals, and Prodigy's exact checks decide.
+- Syntax and semantics are separate: every program with a well-defined semantics is accepted by the
+  parser and the type checker. What the analysis cannot compute (yet) ends with a clear "not
+  implemented" message naming the construct, never with a wrong or approximate result
+  (`docs/source/language-design.md`).
 - Untrusted input: SymPy's `sympify`/`parse_expr` evaluate Python code. Validate external text
   (GUI input, model answers) with the pGCL parser or an allowlist before SymPy sees it (see
   `ai_candidates.candidate_from_answer`).
@@ -90,6 +108,10 @@ on its own.
   and the CLI enter it. Code that calls the SymPy engine outside of them (e.g. handlers directly)
   gets the defaults; `tests/conftest.py` fails a test whose settings leak.
 - The GiNaC bindings print to stdout at C level; the analysis captures that output.
+- SymEngine reads `e`, `E`, `I`, `pi` and `inf` as constants. Parse strings with
+  `_parse_to_symengine` (it protects `e` and `inf`), never with `se.S`. Variables named `E`, `I` or
+  `pi` are rejected on SymEngine (#204).
+- Use `git --no-pager` in commands; a pager waits for input and hangs the shell.
 - pytest prints a file's line only when the next file starts. In a hanging CI run, the hanging test
   is in the file after the last complete line. `faulthandler_timeout` dumps the stacks after
   10 minutes.
