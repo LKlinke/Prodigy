@@ -280,7 +280,7 @@ class DistPart:
 
 def _values(distribution: Distribution, variables: Sequence[str]) -> Optional[List[Tuple[int, ...]]]:
     """The values of ``variables`` with positive probability, ``None`` for infinite support."""
-    marginal = distribution.marginal(*variables)
+    marginal = distribution.checked_marginal(*variables)
     if not marginal.is_finite():
         return None
     values: List[Tuple[int, ...]] = []
