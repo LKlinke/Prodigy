@@ -50,12 +50,40 @@ export function niceMax(value) {
   return 10 * base;
 }
 
+const SUPERSCRIPT = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
+
+/** 10^k as text, e.g. "10⁻³" (1 for k = 0). */
+export function powerOfTen(k) {
+  return k === 0 ? "1" : `10${String(k).replace(/./g, (c) => SUPERSCRIPT[c])}`;
+}
+
+/** At most this many decades are shown; smaller values get the minimal bar height. */
+export const LOG_DECADES = 12;
+
+/**
+ * The decades of a logarithmic axis for the positive values among `values`: the axis runs from
+ * 10^lo to 10^hi (whole decades, at most LOG_DECADES of them), `ticks` are the exponents that get
+ * a grid line. Values that are 0 have no place on the axis; null when no value is positive.
+ */
+export function logAxis(values) {
+  const positive = values.filter((p) => Number.isFinite(p) && p > 0);
+  if (!positive.length) return null;
+  const hi = Math.ceil(Math.log10(Math.max(...positive)) - 1e-9);
+  // strictly below the smallest value, so that it keeps a visible bar
+  let lo = Math.floor(Math.log10(Math.min(...positive)) - 1e-9);
+  lo = Math.max(lo, hi - LOG_DECADES);
+  const step = Math.ceil((hi - lo) / 4);
+  const ticks = [];
+  for (let k = hi; k >= lo; k -= step) ticks.push(k);
+  return { lo, hi, ticks };
+}
+
 /**
  * Bar chart of a univariate coefficient table (see prodigy/analysis/result.py:
  * univariate_table). Extra bars: the mass beyond the shown values ("tail") and, for lower
  * bounds, the mass not yet accounted for (hatched).
  */
-export function marginalChart(table, { residual = null, residualExact = null, variable = "x", bound = "exact", width: pixelWidth = 560 } = {}) {
+export function marginalChart(table, { residual = null, residualExact = null, variable = "x", bound = "exact", width: pixelWidth = 560, scale = "linear" } = {}) {
   const rows = (table.rows || []).filter((row) => row.p !== null);
   const extras = [];
   if (table.truncated && table.tail_mass_float && table.tail_mass_float > 1e-12) {
@@ -82,20 +110,33 @@ export function marginalChart(table, { residual = null, residualExact = null, va
   const right = 40;
   const plotW = width - left - right;
   const plotH = height - top - bottom;
-  const max = niceMax(Math.max(...bars.map((b) => b.p)));
-  const slot = plotW / bars.length;
-  const barW = Math.max(2, Math.min(36, slot * 0.72));
   const id = `hatch-${++patternCounter}`;
   const labelEvery = Math.max(1, Math.ceil(bars.length / Math.max(1, Math.floor(plotW / 26))));
-  const y = (p) => top + plotH * (1 - p / max);
+  const axis = scale === "log" ? logAxis(bars.map((b) => b.p)) : null;
+  const max = axis ? 10 ** axis.hi : niceMax(Math.max(...bars.map((b) => b.p)));
+  // the fraction of the plot height that a probability fills (log: decades above 10^lo)
+  const fraction = axis
+    ? (p) => (p > 0 ? Math.max(0, Math.min(1, (Math.log10(p) - axis.lo) / (axis.hi - axis.lo))) : 0)
+    : (p) => p / max;
+  const y = (p) => top + plotH * (1 - fraction(p));
+  const slot = plotW / bars.length;
+  const barW = Math.max(2, Math.min(36, slot * 0.72));
 
-  const grid = [0, max / 2, max].map((tick) => s("g", { class: "mc-grid" },
-    s("line", { x1: left, x2: left + plotW, y1: y(tick), y2: y(tick) }),
-    s("text", { x: left + plotW + 6, y: y(tick) + 4 }, formatNumber(tick, 2))));
+  const grid = axis
+    ? axis.ticks.map((k) => s("g", { class: "mc-grid" },
+      s("line", { x1: left, x2: left + plotW, y1: y(10 ** k), y2: y(10 ** k) }),
+      s("text", { x: left + plotW + 6, y: y(10 ** k) + 4 }, powerOfTen(k))))
+    : [0, max / 2, max].map((tick) => s("g", { class: "mc-grid" },
+      s("line", { x1: left, x2: left + plotW, y1: y(tick), y2: y(tick) }),
+      s("text", { x: left + plotW + 6, y: y(tick) + 4 }, formatNumber(tick, 2))));
+  if (axis) {
+    // the axis says that it is logarithmic (not only the toggle above it)
+    grid.push(s("text", { class: "mc-scale", x: left + plotW + 6, y: top + plotH + 4 }, "log"));
+  }
 
   const marks = bars.map((bar, index) => {
     const cx = left + slot * index + slot / 2;
-    const barHeight = Math.max(bar.p > 0 ? 1 : 0, plotH * (bar.p / max));
+    const barHeight = Math.max(bar.p > 0 ? 1 : 0, plotH * fraction(bar.p));
     const crowdedByExtra = extras.length > 0 && index === rows.length - 1 && slot < 26;
     const showLabel = bar.kind !== "value" || (index % labelEvery === 0 && !crowdedByExtra);
     const kindClass = bar.kind === "value" && (bound === "upper" || bound === "unknown") ? `mc-${bound}` : `mc-${bar.kind}`;
@@ -105,13 +146,16 @@ export function marginalChart(table, { residual = null, residualExact = null, va
       s("title", {}, bar.title),
       s("rect", { x: cx - barW / 2, y: top + plotH - barHeight, width: barW, height: barHeight, rx: Math.min(3, barW / 4),
         fill: hatched ? `url(#${id})` : null, "data-p": bar.p, "data-cx": cx, "data-w": barW }),
+      // log scale: probability 0 has no bar height at all; an outline on the axis marks it as empty
+      axis && bar.p === 0 ? s("rect", { class: "mc-zero", x: cx - barW / 2, y: top + plotH - 3, width: barW, height: 3 }) : null,
       showLabel ? s("text", { x: cx, y: height - 6, class: "mc-label" }, bar.label) : null);
   });
 
   const summary = `Bar chart of the distribution of ${variable}: ${rows.length} values` +
-    (extras.length ? `, plus ${extras.map((e) => e.kind === "tail" ? "the remaining tail" : "the mass not yet accounted for").join(" and ")}` : "") + ".";
+    (extras.length ? `, plus ${extras.map((e) => e.kind === "tail" ? "the remaining tail" : "the mass not yet accounted for").join(" and ")}` : "") +
+    (axis ? `, logarithmic scale from ${powerOfTen(axis.lo)} to ${powerOfTen(axis.hi)}` : "") + ".";
   return s("svg", { class: "marginal-chart", viewBox: `0 0 ${width} ${height}`, width, height, role: "img", "aria-label": summary,
-    "data-variable": variable, "data-max": max, "data-width": width, "data-top": top, "data-plot-h": plotH },
+    "data-variable": variable, "data-max": max, "data-scale": axis ? "log" : "linear", "data-width": width, "data-top": top, "data-plot-h": plotH },
     s("defs", {}, hatchPattern(id)), ...grid, ...marks,
     s("line", { class: "mc-axis", x1: left, x2: left + plotW, y1: top + plotH, y2: top + plotH }));
 }

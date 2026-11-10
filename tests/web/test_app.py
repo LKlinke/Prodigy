@@ -1,4 +1,7 @@
 """Tests for the web GUI's JSON API (prodigy web)."""
+import json
+import shutil
+import subprocess
 import time
 from pathlib import Path
 
@@ -200,6 +203,26 @@ def test_stepper_transitions_respect_reduced_motion(client):
     response = client.get("/static/app/components/motion.js", headers=HOST)
     assert response.status_code == 200
     response.close()
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_log_axis_of_the_bar_charts(tmp_path):
+    """The log scale of the bar charts (issue #218): whole decades, the smallest value above the
+    baseline, at most 12 decades, no axis without a positive value."""
+    charts = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components" / "charts.js"
+    script = tmp_path / "check.mjs"
+    script.write_text(
+        f"const c = await import({str(charts.as_uri())!r});\n"
+        "console.log(JSON.stringify([c.logAxis([0.5, 0.25, 0.001, 0]), c.logAxis([0, 0]),"
+        " c.logAxis([1e-300, 0.9]), c.logAxis([1e-5, 0.5]), c.powerOfTen(-12), c.powerOfTen(0)]));\n",
+        encoding="utf-8")
+    output = subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60, check=True).stdout
+    assert json.loads(output) == [
+        {"lo": -4, "hi": 0, "ticks": [0, -1, -2, -3, -4]},
+        None,
+        {"lo": -12, "hi": 0, "ticks": [0, -3, -6, -9, -12]},
+        {"lo": -6, "hi": 0, "ticks": [0, -2, -4, -6]},
+        "10⁻¹²", "1"]
 
 
 def test_stepper_instruction_has_a_fixed_box(client):

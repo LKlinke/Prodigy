@@ -36,6 +36,11 @@ Prodigy is tested with Python 3.11 and 3.14.
   and the coefficients; the `dist` variables are not part of the output distribution. In the
   **Steps** tab, every distribution lists the values of the `dist` variables next to it.
   A loop that assigns a `dist` variable is marked in the editor as not implemented yet.
+  The bar charts have a **Linear / Log** switch for the probability axis; the browser remembers
+  the choice. On the log scale the axis is labelled in decades (`1`, `10⁻³`, …) and marked
+  *log*, it spans at most 12 decades (smaller probabilities get the minimal bar), and a
+  probability 0, which has no place on a log axis, is drawn as a dashed outline on the axis.
+  The Steps tab does not animate log charts.
 * **Steps** (right): a debugger for the analysis, see [Stepping through an analysis](#stepping-through-an-analysis).
 * **Examples**: the programs in `pgfexamples/` (in `.ppy`), with a suggested setup derived from
   their first line (e.g. `check_equality` examples come with their invariant). A `.pgcl` example

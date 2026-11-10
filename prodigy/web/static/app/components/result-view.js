@@ -205,6 +205,26 @@ function jointTable(joint) {
 
 // ---- distribution ------------------------------------------------------------------------
 
+// The scale of the bar charts (linear | log), remembered per browser. Same key as store.js would
+// use; kept here because this component must not depend on the GUI's modules (VS Code webview).
+const SCALE_KEY = "prodigy.gui.chartScale";
+
+function loadScale() {
+  try {
+    return window.localStorage.getItem(SCALE_KEY) === "log" ? "log" : "linear";
+  } catch {
+    return "linear";
+  }
+}
+
+function saveScale(scale) {
+  try {
+    window.localStorage.setItem(SCALE_KEY, scale);
+  } catch {
+    // ignore: storage is a convenience only
+  }
+}
+
 export function distributionFigure(table, result, variable, mode = "chart") {
   const residual = result.bounds?.kind === "lower" ? result.bounds?.residual_mass_float : null;
   const residualExact = result.bounds?.residual_mass;
@@ -212,16 +232,25 @@ export function distributionFigure(table, result, variable, mode = "chart") {
   const holder = h("div", { class: "rv-figure-body" });
   const toggle = h("div", { class: "segmented small", role: "group", "aria-label": `Show the distribution of ${variable} as` });
   const views = { chart: "Chart", table: "Table" };
+  const scaleToggle = h("div", { class: "segmented small", role: "group", "aria-label": `Scale of the probability axis of ${variable}` });
   let current = mode;
+  let scale = loadScale();
   let drawnWidth = 0;
   const show = (which) => {
     current = which;
     drawnWidth = holder.clientWidth || 560;
     holder.replaceChildren(which === "chart"
-      ? marginalChart(table, { residual, residualExact, variable, bound, width: drawnWidth })
+      ? marginalChart(table, { residual, residualExact, variable, bound, width: drawnWidth, scale })
       : marginalTable(table, { variable, bound }));
     for (const button of toggle.children) button.setAttribute("aria-pressed", String(button.dataset.view === which));
+    for (const button of scaleToggle.children) button.setAttribute("aria-pressed", String(button.dataset.scale === scale));
+    scaleToggle.hidden = which !== "chart";
   };
+  for (const [key, label] of Object.entries({ linear: "Linear", log: "Log" })) {
+    scaleToggle.append(h("button", { type: "button", "data-scale": key, "aria-pressed": "false",
+      title: key === "log" ? "Logarithmic probability axis: small probabilities stay visible" : "Linear probability axis",
+      onclick: () => { scale = key; saveScale(key); show("chart"); } }, label));
+  }
   if (typeof ResizeObserver !== "undefined") {
     // draw the chart at its real size so that labels keep their font size
     new ResizeObserver(() => {
@@ -241,7 +270,7 @@ export function distributionFigure(table, result, variable, mode = "chart") {
   if (bound === "upper") caption.push("Hatched bars are upper bounds.");
   if (bound === "unknown") caption.push("Approximate values without a guarantee.");
   return h("figure", { class: "rv-figure" },
-    h("div", { class: "rv-figure-head" }, toggle),
+    h("div", { class: "rv-figure-head" }, scaleToggle, toggle),
     holder,
     caption.length ? h("figcaption", { class: "rv-note" }, caption.join(" ")) : null);
 }
