@@ -117,7 +117,7 @@ values of it. Parameters have no bounds.
 | `abort;` | ends the run without a result; its mass is lost (it does not count as a violated observation) |
 | `observe(g);` | conditioning: keeps the runs in which `g` holds; the others count as violated observations and the rest is renormalised |
 | `if (g) { … }` | `else { … }` and `else if (g) { … }` are optional; a missing `else` does nothing |
-| `{ … } [p] { … }` | probabilistic choice: the first block with probability `p`, the second with `1 − p` |
+| `{ … } [p] { … }` | probabilistic choice: the first block with probability `p`, the second with `1 − p`; `p` may depend on program variables (see below) |
 | `switch (x) { case 1: { … } case 2, 3: { … } default: { … } }` | runs the block of the first `case` whose value equals `x`; `default` (optional) otherwise. No fall-through. `switch` takes a variable, not an expression |
 | `while (g) { … }` | loop; how it is analysed is chosen per loop (loop strategies, see {doc}`gui` and {doc}`cli`) |
 | `loop(n) { … }` | runs the block `n` times; `n` is a natural literal or a constant |
@@ -178,6 +178,13 @@ and required.
 | `iid(D, n)` | the sum of `n` independent samples of `D`; `n` is a variable or a natural number |
 | `sample_pgf(G, x)` | `x` drawn from the generating function `G` in `x` (the second argument is the assigned variable) |
 | `categorical({v1: p1, v2: p2, …})` | `v1` with probability `p1`, …; `categorical(p0, p1, …, pn)` for the values `0, …, n` |
+
+The arguments may depend on program variables, e.g. `x = bernoulli(1/k);`, and so may the
+probability of a choice. Prodigy computes this exactly by a case split over the values of the
+variables if they take finitely many values (for example in every iteration of an unrolled loop);
+for infinitely many it answers "not implemented". A value that is not admissible (a probability
+outside of `[0, 1]`, `geometric(p)` with `p = 0`, `unif(a, b)` with `a > b`, a division by zero) in a
+reachable state is an error. Details: {doc}`language-design`.
 
 The probabilities of `categorical` are literals and must sum to 1; this is checked when the
 program is read. `categorical`, `infer` and `sample` stand only as a whole right-hand side (of an

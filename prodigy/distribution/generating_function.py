@@ -1468,7 +1468,7 @@ class SympyPGF(CommonDistributionsFactory):
             expr = parse_expr(str(p))
         else:
             expr = p
-        if not has_variable(expr, None) and not 0 < _parse_to_sympy(p) < 1:
+        if not has_variable(expr, None) and not 0 < _parse_to_sympy(p) <= 1:
             raise ValueError(
                 f"parameter of geom distr must be 0 < p <= 1, was {p}")
         return GeneratingFunction(f"({p}) / (1 - (1-({p})) * {var})",

@@ -150,15 +150,14 @@ def _literal_value(expr: Expr) -> Optional[Fraction]:
     return None
 
 
-def _check_negative_binomial(program: Program,
-                             expr: FunctionCallExpr) -> Optional[CheckFail]:
+def _check_negative_binomial(expr: FunctionCallExpr) -> Optional[CheckFail]:
     """
     Check the arguments of ``negative_binomial(r, p)``.
 
     ``r`` must be a natural number (constants are substituted before), because the analysis takes
-    the ``r``-th power of the generating function of ``geometric(p)``. ``p`` must lie in ``(0, 1]``;
-    it may depend on parameters, but not on program variables. A value outside of ``(0, 1]``
-    would not be a distribution, and the result would be reported without a guarantee.
+    the ``r``-th power of the generating function of ``geometric(p)``. A literal ``p`` must lie in
+    ``(0, 1]``; otherwise it is not a distribution. A ``p`` with parameters or program variables is
+    checked by the analysis (in every state, for program variables).
     """
     if expr.function != 'negative_binomial' or len(expr.params[0]) != 2:
         return None
@@ -166,11 +165,6 @@ def _check_negative_binomial(program: Program,
     if not isinstance(r, NatLitExpr):
         return CheckFail(
             r, f"The number of successes in {expr} must be a natural number, got {r}.")
-    for ref in walk_expr(Walk.DOWN, Mut.alloc(p)):
-        if isinstance(ref.val, VarExpr) and ref.val.var not in program.parameters:
-            return CheckFail(
-                p, f"The success probability in {expr} must not depend on the program "
-                f"variable {ref.val.var}.")
     value = _literal_value(p)
     if value is not None and not 0 < value <= 1:
         return CheckFail(
@@ -194,7 +188,7 @@ def _check_function_call(
             return CheckFail(expr, f"{expr.function} takes no named parameters")
         if len(expr.params[0]) < len(param_list):
             return CheckFail(expr, "Too few parameters")
-        sample_fail = _check_sample_count(program, expr) or _check_negative_binomial(program, expr)
+        sample_fail = _check_sample_count(program, expr) or _check_negative_binomial(expr)
         if sample_fail is not None:
             return sample_fail
 

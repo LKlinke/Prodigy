@@ -151,6 +151,33 @@ switch (c) {
   of the block (see "Declarations and scope"), so the extra variable costs nothing afterwards.
 - `{A} [p] {B}` stays as shorthand for the binary case.
 
+### Probabilities that depend on the state
+
+The probability `p` of a choice `{A} [p] {B}` and the arguments of a built-in distribution
+(`bernoulli(p)`, `geometric(p)`, `binomial(n, p)`, `unif(a, b)`, …) may depend on program
+variables, e.g. `{red = red + 1;} [red/(red + black)] {black = black + 1;}` or `x = bernoulli(1/k)`.
+The parser and the type checker accept every such program.
+
+- Semantics: in a state `σ`, the choice runs `A` with probability `p(σ)` and `B` with `1 − p(σ)`;
+  sampling draws from the distribution with the arguments' values in `σ`. The program is well
+  defined if `0 ≤ p(σ) ≤ 1` (an admissible argument, e.g. `0 < p ≤ 1` for `geometric`) in every
+  state `σ` that is reached with positive probability.
+- If the variables in `p` take finitely many values, the analysis computes the result exactly by a
+  case split: it splits the distribution by these values, evaluates `p` in each part and checks it,
+  and adds the results again. The semantics is linear, so the two branches of a choice run once,
+  on the parts weighted with `p` and `1 − p`. An unrolled loop has finitely many values in each
+  iteration, so unrolling (`unroll`, `mass_threshold`) works, e.g. for Pólya urns.
+- A value that is not a probability or not an admissible argument (also undefined, e.g. `1/k` for
+  `k = 0`) in a state with positive probability ends with an error naming the state. Constant
+  arguments are checked the same way, on every engine.
+- If the variables take infinitely many values, the analysis is "not implemented": multiplying the
+  generating function by `p` as if it were a constant would be wrong, and dividing coefficients by
+  a value that depends on the state (as for `1/(k + 1)`) is not an operation on the generating
+  function. Strategies that reason about a whole loop (invariants, the EVT operator) meet this
+  case for a probability that depends on a variable the loop changes.
+- Parameters in `p` stay symbolic, as in a constant choice; the range of a probability with
+  parameters is not checked.
+
 ### Categorical distribution
 
 - Main form: `categorical({v1: p1, v2: p2, …})`, pairs of value and probability as in a Python

@@ -139,7 +139,6 @@ def test_name_is_reserved_for_functions(syntax, source):
     ("nat x; x := negative_binomial(2, 3/2)", "must be in (0, 1]"),
     ("nat x; x := negative_binomial(2, 1 - 3/2)", "must be in (0, 1]"),
     ("nat x; x := negative_binomial(2, 2)", "must be in (0, 1]"),
-    ("nat x; nat y; x := negative_binomial(2, y / 2)", "must not depend on the program variable y"),
     ("nat x; x := negative_binomial(2)", "Too few parameters"),
     ("nat x; x := negative_binomial(2, 1/2, 1/2)", "Too many parameters"),
 ])
