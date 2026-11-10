@@ -443,7 +443,11 @@ class SymengineDist(Distribution):
         logger.info("Falling back to sympy")
         # cancel() is used because is_polynomial() does not attempt simplification
         #   cf. https://docs.sympy.org/latest/modules/core.html#sympy.core.expr.Expr.is_polynomial
-        return sp.S(self._s_func).cancel().is_polynomial()
+        # Finite support means polynomial in the variables; parameters may occur in any form (#249).
+        variables = [sp.Symbol(str(var)) for var in self._variables]
+        if not variables:
+            return True
+        return sp.S(self._s_func).cancel().is_polynomial(*variables)
 
     def get_fresh_variable(self, exclude: set[str] | frozenset[str] = frozenset()) -> str:
         i = 0

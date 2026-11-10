@@ -19,6 +19,10 @@ guarantee: exact, lower bound with residual mass, or upper bound. Maintainer: Lu
   in code, docs, commit messages or PR texts. The repository and its issues are public.
 - Problems found but not fixed in a PR go into a section "Found, not fixed here" of the PR text;
   each becomes an issue (with a priority label and a milestone) instead of getting lost.
+  - Each finding states whether it already exists on `main`. A problem that the PR itself
+    introduces is a regression (label `regression`) and is fixed in that PR before it is merged.
+  - Issues that belong to a topic get its label (e.g. `topic: loop strategies`) and are added to
+    the topic's overview issue (#262 for the loop strategies).
 
 ## Commands (uv)
 ```sh
@@ -28,11 +32,26 @@ make lint                            # pylint, must stay at 10.00/10
 make mypy                            # mypy, no errors
 make test                            # pytest in parallel (xdist) with coverage, about 2 minutes
 make test XDIST=                     # the same in one process
+make fuzz                            # fuzzing and simulator comparison (marker `fuzz`), about 30 s
 make docs                            # Sphinx docs into docs/build/html, warnings are errors
 uv run pytest tests/analysis/test_session.py -q   # a single file
 ```
-The CI (`.github/workflows/main.yml`) runs pylint, mypy and the tests on Python 3.11 and 3.14 with
-the locked dependencies. Check like the CI before saying something passes.
+The CI (`.github/workflows/main.yml`) runs pylint, mypy, the tests on Python 3.11 and 3.14 and a
+fuzzing smoke test (`make fuzz`), with the locked dependencies; a weekly workflow runs the thorough
+fuzzing (`docs/source/testing.md`).
+
+Testing during work: run `make lint`, `make mypy`, the test files that concern the change and
+`make fuzz` locally. Do not run the full `make test` locally; the CI runs it. A change counts as
+passing only when the CI of its PR is green.
+
+Waiting: no command blocks for more than about 2 minutes.
+- Give every run of a program or script a limit (`timeout 120 uv run prodigy …`); pytest stops each
+  test after 120 s (`timeout` in `pyproject.toml`).
+- Anything that may take longer runs in the background and reports when it is done; do not set a
+  long tool timeout (e.g. 900 s) to wait for it.
+- Do not wait for the CI in a loop (`gh pr checks --watch`, `sleep`): after pushing, end the turn;
+  Lutz or the supervising session follows up on the result.
+- If something runs longer than expected, stop it and find out why (it is often a bug, like #252).
 
 Dependencies: change `pyproject.toml`, run `uv lock`, commit both files. The GiNaC engine comes from
 `prodigy-ppl-ginac` (module `prodigy_ginac`, wheels with GiNaC bundled); a marker installs it only
