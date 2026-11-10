@@ -51,10 +51,24 @@ compared. Hypothesis shrinks a failing program to a small one; it becomes an iss
 test in `tests/fuzzing/test_found.py`. Classes of programs with known open bugs are switched off in
 `Features` (each switch names its issue), so the test suite stays green until they are fixed.
 
-The test suite runs a few derandomized programs (the profile `ci`), so the CI is reproducible. The
-workflow `.github/workflows/fuzzing.yml` runs many programs with a fresh seed every week and on
-demand (`PRODIGY_FUZZ=nightly`):
+## Running the tests
+
+The fuzzing and the comparison of the examples with the simulation carry the pytest marker `fuzz`.
+`make test` leaves them out (`-m "not fuzz"`); the CI runs them in the job `fuzzing (smoke test)`,
+and locally they run with
 
 ```sh
-PRODIGY_FUZZ=nightly uv run pytest tests/fuzzing
+make fuzz                         # profile ci: 20 derandomized programs, the fast examples
+PRODIGY_FUZZ=nightly make fuzz    # profile nightly: 400 programs with a fresh seed, all examples
 ```
+
+The profile `ci` checks the same programs in every run, so the CI is reproducible. The workflow
+`.github/workflows/fuzzing.yml` runs the profile `nightly` every week and on demand. Both print a
+falsifying program together with a `@reproduce_failure` blob.
+
+Every generated program has a time budget for all its analyses and the simulation (5 s in `ci`,
+60 s in `nightly`; a typical program needs well below a second). In `ci` a program over budget is
+rejected and counted (`--hypothesis-show-statistics` shows the share), so a slow program never
+blocks the CI; in `nightly` it fails with the program, since a slow analysis is worth an issue
+too. Every test has a limit of 120 s (pytest-timeout, `[tool.pytest.ini_options]`), after which it
+fails with the stacks of all threads; the weekly workflow raises it for the slow examples.

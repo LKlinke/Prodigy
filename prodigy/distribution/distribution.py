@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -158,6 +159,21 @@ def _replace_term(expression: Expr, term: Expr, replacement: Expr) -> Expr:
         return BinopExpr(expression.operator, _replace_term(expression.lhs, term, replacement),
                          _replace_term(expression.rhs, term, replacement))
     return expression
+
+
+class NonFiniteMarginalError(ArithmeticError):
+    """
+    A marginal that a computation needs as a distribution over finitely or infinitely many states is
+    not a finite measure, e.g. `oo`, `zoo` (complex infinity), `nan` or a division by zero. This happens
+    on measures with infinite mass (candidate measures, not program distributions): summing out the
+    other variables diverges, so the marginal does not describe which values the variables take.
+    """
+
+
+# Spellings of non-finite values (nan, infinity, complex infinity, unevaluated limits) in the engines'
+# string forms; a program variable or parameter of the same name is not one of them
+_NON_FINITE_NAMES = frozenset({"nan", "NaN", "zoo", "oo", "inf", "Inf", "infinity", "Infinity",
+                               "ComplexInfinity", "UnsignedInfinity", "Limit"})
 
 
 class MarginalType(Enum):
@@ -499,28 +515,32 @@ class Distribution(ABC):
             raise NotImplementedError(
                 f"Instruction {condition} is not computable on infinite generating function"
                 f" {self}")
-        expr: str = str(condition.rhs)
-        syms = self._find_symbols(expr)
-        if not len(syms) == 0:
-            marginal = self.marginal(*syms)
-
-        # Marker to express which side of the equation has only finitely many interpretations.
-        left_side_original = True
-
-        # Check whether left hand side has only finitely many interpretations.
-        # This is bad, only works because its evaluated from left to right
-        if len(syms) == 0 or not marginal.is_finite():
-            # Failed, so we have to check the right hand side
-            left_side_original = False
-            expr = str(condition.lhs)
-            marginal = self.marginal(*self._find_symbols(expr))
-
-            if not marginal.is_finite():
-                # We are not able to marginalize into a finite amount of states! -> FAIL filtering.
-                raise NotImplementedError(
-                    f"Instruction {condition} is not computable on infinite generating function"
-                    f" {self}")
-        assert isinstance(marginal, Distribution)
+        # The side whose variables take finitely many values is unfolded: the right-hand side if
+        # possible (`left_side_original`: the left-hand side stays in the condition), else the left.
+        # A marginal that is not a finite measure (infinite mass) says nothing about these values
+        # (e.g. `zoo`, a constant, would claim the single value 0); it is never unfolded (#242).
+        non_finite: Optional[NonFiniteMarginalError] = None
+        marginal: Optional[Distribution] = None
+        for left_side_original, side in ((True, condition.rhs), (False, condition.lhs)):
+            expr: str = str(side)
+            syms = self._find_symbols(expr)
+            if not syms:
+                continue
+            try:
+                candidate = self.checked_marginal(*syms)
+            except NonFiniteMarginalError as exc:
+                non_finite = non_finite or exc
+                continue
+            if candidate.is_finite():
+                marginal = candidate
+                break
+        if marginal is None:
+            if non_finite is not None:
+                raise non_finite
+            # We are not able to marginalize into a finite amount of states! -> FAIL filtering.
+            raise NotImplementedError(
+                f"Instruction {condition} is not computable on infinite generating function"
+                f" {self}")
 
         # Now we know that `expr` can be instantiated with finitely many states.
         # We generate these explicit state.
@@ -977,6 +997,48 @@ class Distribution(ABC):
 
         :return: The marginal distribution.
         """
+
+    def checked_marginal(self, *variables: Union[str, VarExpr]) -> Distribution:
+        """
+        The marginal of `variables` (MarginalType.INCLUDE) for code that unfolds it into its states,
+        e.g. a filter or update that does a case split over the values of these variables.
+
+        Raises `NonFiniteMarginalError` if the marginal is not a finite measure (infinite mass, see
+        :class:`NonFiniteMarginalError`): then its terms do not tell which values the variables take,
+        and unfolding it would give a wrong result (#242).
+        """
+        names = ", ".join(str(var) for var in variables)
+        try:
+            marginal = self.marginal(*variables)
+        except ZeroDivisionError as exc:
+            raise NonFiniteMarginalError(
+                f"The marginal of {names} is undefined (division by zero) in {self}") from exc
+        except ValueError as exc:
+            # e.g. GiNaC: power::eval(): division by zero
+            if "division by zero" not in str(exc):
+                raise
+            raise NonFiniteMarginalError(
+                f"The marginal of {names} is undefined (division by zero) in {self}") from exc
+        self._require_finite_values(marginal, *variables)
+        return marginal
+
+    def _require_finite_values(self, marginal: Distribution, *variables: Union[str, VarExpr]) -> None:
+        """Raises `NonFiniteMarginalError` if `marginal`, the marginal of `variables`, is not finite."""
+        if marginal.has_non_finite_value():
+            names = ", ".join(str(var) for var in variables)
+            raise NonFiniteMarginalError(
+                f"The marginal of {names} is {marginal}, not a finite measure: {self} has infinite "
+                f"mass, so a case split over the values of {names} is not computable.")
+
+    def has_non_finite_value(self) -> bool:
+        """
+        Whether this function contains a non-finite value (`nan`, ∞, complex infinity) or an
+        unevaluated limit. Engines override this with a check on their expression; this default scans
+        the string form (program variables and parameters are never taken for such a value).
+        """
+        tokens = set(re.findall(r"[A-Za-z_]\w*", str(self)))
+        names = self.get_variables() | self.get_parameters()
+        return "∞" in str(self) or bool((tokens & _NON_FINITE_NAMES) - names)
 
     @abstractmethod
     def set_variables(self, *variables: str) -> Distribution:

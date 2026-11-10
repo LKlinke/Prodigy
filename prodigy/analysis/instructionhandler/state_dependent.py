@@ -75,7 +75,7 @@ def split_states(distribution: Distribution, variables: Set[str], construct: str
     """
     if distribution.is_zero_dist():
         return
-    marginal = distribution.marginal(*sorted(variables))
+    marginal = distribution.checked_marginal(*sorted(variables))
     if not marginal.is_finite():
         names = ", ".join(sorted(variables))
         raise NotImplementedError(
