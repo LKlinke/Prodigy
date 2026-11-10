@@ -566,3 +566,14 @@ def test_printer_block_declarations():
 def test_function_call_expression_spelling():
     expr = FunctionCallExpr("f", ([NatLitExpr(1)], {"b": NatLitExpr(2)}))
     assert expr_to_ppy(expr) == "f(1, b = 2)"
+
+
+@pytest.mark.parametrize("code, column", [
+    ("x: nat = 0;\n{x = 1;} [1/0] {x = 2;}", 11),
+    ("x: nat = 0;\nx = bernoulli(1/0);", 15),
+])
+def test_literal_division_by_zero(code, column):
+    # #236: a clear message with the position instead of Fraction(1, 0)
+    with pytest.raises(PpySyntaxError, match=r"Division by zero in 1/0") as info:
+        parse_ppy(code)
+    assert (info.value.line, info.value.column) == (2, column)

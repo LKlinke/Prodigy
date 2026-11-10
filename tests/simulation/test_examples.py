@@ -31,7 +31,6 @@ NIGHTLY = os.environ.get("PRODIGY_FUZZ") == "nightly"
 
 SKIPPED = {
     "independence/infinite_multiplication.ppy": "not implemented: product of two variables with infinite range",
-    "inference/loop_free/conditioning/digitRecognition.ppy": "fails on main (#235)",
     "independence/many_variables.ppy": "slower than 90 s with unrolling",
     "inference/loop_free/conditioning/lucky_throw.ppy": "slower than 90 s with unrolling",
     "inference/loop_free/conditioning/skip_lin_regression_biased.ppy": "slower than 90 s with unrolling",
@@ -48,6 +47,7 @@ SLOW = {
     # seconds for analysis and simulation (one run, Apple M-series)
     "independence/fuzzy_or.ppy": 6,
     "independence/oblivious_transfer.ppy": 6,
+    "inference/loop_free/conditioning/digitRecognition.ppy": 82,
     "inference/loop_free/conditioning/monty_hall_nested.ppy": 4,
     "inference/loop_free/fuzzy_or.ppy": 8,
     "inference/loop_free/pi.ppy": 9,

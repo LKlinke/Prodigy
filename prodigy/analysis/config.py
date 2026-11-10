@@ -3,9 +3,9 @@
 Forward Analysis Config
 -----------------------
 """
-from contextlib import AbstractContextManager
+from contextlib import contextmanager
 from enum import Enum, auto
-from typing import Type
+from typing import Iterator, Type
 
 import attr
 
@@ -15,6 +15,7 @@ from prodigy.distribution.generating_function import (GeneratingFunction,
                                                       GeneratingFunctionSettings,
                                                       SympyPGF)
 from prodigy.distribution.symengine_distribution import SymenginePGF
+from prodigy.util.integers import unlimited_int_digits
 from .evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from .evtinvariants.heuristics.strategies import SynthesisStrategies
 from .evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
@@ -94,13 +95,16 @@ class ForwardAnalysisConfig:
         else:
             return CommonDistributionsFactory
 
-    def activate(self) -> AbstractContextManager[GeneratingFunctionSettings]:
+    @contextmanager
+    def activate(self) -> Iterator[GeneratingFunctionSettings]:
         """
-        Applies ``use_simplification`` and ``use_latex`` within a ``with`` block only.
+        Applies ``use_simplification`` and ``use_latex`` within a ``with`` block only, and lifts
+        Python's limit on the digits of integer strings (exact coefficients can be longer, #235).
 
         :func:`~prodigy.analysis.analyzer.compute_discrete_distribution` and
         :meth:`~prodigy.analysis.session.AnalysisSession.run` do this themselves; code that works
         with the distributions outside of them (e.g. printing a result) enters it as well.
         """
-        return GeneratingFunction.configured(simplification=self.use_simplification,
-                                             latex_output=self.use_latex)
+        with unlimited_int_digits(), GeneratingFunction.configured(
+                simplification=self.use_simplification, latex_output=self.use_latex) as settings:
+            yield settings

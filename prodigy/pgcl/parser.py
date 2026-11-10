@@ -350,7 +350,7 @@ def _parse_expr(t: Tree) -> Expr:
     elif t.data == 'mod':
         return BinopExpr(Binop.MODULO, expr0(), expr1())
     elif t.data == 'divide':
-        return _parse_fraction(expr0(), expr1())
+        return _parse_fraction(expr0(), expr1(), t)
     elif t.data == 'likely':
         prob_expr = expr1()
         if not isinstance(prob_expr, RealLitExpr):
@@ -372,8 +372,11 @@ def _parse_expr(t: Tree) -> Expr:
         raise Exception(f'invalid AST: {t.data}')
 
 
-def _parse_fraction(num: Expr, denom: Expr) -> Union[RealLitExpr, BinopExpr]:
+def _parse_fraction(num: Expr, denom: Expr, t: Tree) -> Union[RealLitExpr, BinopExpr]:
     if isinstance(num, NatLitExpr) and isinstance(denom, NatLitExpr):
+        if denom.value == 0:
+            line, column = (None, None) if t.meta.empty else (t.meta.line, t.meta.column)
+            raise ProgramSyntaxError(f"Division by zero in {num.value}/0", line, column)
         return RealLitExpr(Fraction(num.value, denom.value))
     return BinopExpr(Binop.DIVIDE, num, denom)
 
