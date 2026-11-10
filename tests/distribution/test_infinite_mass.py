@@ -224,3 +224,15 @@ def test_ginac_marginal_division_by_zero_is_a_non_finite_marginal():
         # value); either way the filter must not return a result
         with pytest.raises(NonFiniteMarginalError):
             dist.filter(A_LESS_B)
+
+
+@pytest.mark.parametrize("engine", ALL_ENGINES)
+@pytest.mark.parametrize("simplification", SIMPLIFICATION)
+def test_filter_keeps_values_whose_mass_cancels_in_the_marginal(engine, simplification):
+    # In the marginal of a, the mass of a = 1 cancels (w - b^2 is 0 at w = b = 1); unfolding the
+    # marginal lost the state a = 1, b = 2 (coefficient -1). The support keeps it (#249).
+    config = _config(engine, simplification)
+    with config.activate():
+        dist = config.factory.from_expr("a*(w - b^2) + a^2*b^3/(2 - b)", "a", "b", "w")
+        result = dist.filter(A_LESS_B)
+    assert sympy.simplify(_sympy(result) - (A ** 2 * B ** 3 / (2 - B) - A * B ** 2)) == 0

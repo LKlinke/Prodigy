@@ -517,30 +517,25 @@ class Distribution(ABC):
                 f" {self}")
         # The side whose variables take finitely many values is unfolded: the right-hand side if
         # possible (`left_side_original`: the left-hand side stays in the condition), else the left.
-        # A marginal that is not a finite measure (infinite mass) says nothing about these values
-        # (e.g. `zoo`, a constant, would claim the single value 0); it is never unfolded (#242).
-        # There the finite support of the side's variables is unfolded instead (#249).
-        non_finite: Optional[NonFiniteMarginalError] = None
+        # Only the values of the side matter, not their mass, so its finite support is unfolded
+        # (#249), not its marginal: a marginal that is not a finite measure (infinite mass) says
+        # nothing about these values (e.g. `zoo`, a constant, would claim the single value 0, #242),
+        # and in the marginal of a signed measure the mass of a value can cancel to 0.
         marginal: Optional[Distribution] = None
         for left_side_original, side in ((True, condition.rhs), (False, condition.lhs)):
             expr: str = str(side)
             syms = self._find_symbols(expr)
             if not syms:
                 continue
-            try:
-                candidate: Optional[Distribution] = self.checked_marginal(*syms)
-            except NonFiniteMarginalError as exc:
-                # only the values of the side matter, not their mass: the finite support (#249)
-                candidate = self.finite_support(*syms)
-                if candidate is None:
-                    non_finite = non_finite or exc
-                    continue
-            if candidate is not None and candidate.is_finite():
-                marginal = candidate
+            marginal = self.finite_support(*syms)
+            if marginal is not None:
                 break
         if marginal is None:
-            if non_finite is not None:
-                raise non_finite
+            for side in (condition.rhs, condition.lhs):
+                syms = self._find_symbols(str(side))
+                if syms:
+                    # raises NonFiniteMarginalError on a measure with infinite mass
+                    self.checked_marginal(*syms)
             # We are not able to marginalize into a finite amount of states! -> FAIL filtering.
             raise NotImplementedError(
                 f"Instruction {condition} is not computable on infinite generating function"
