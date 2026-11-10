@@ -1,0 +1,34 @@
+# main pgfexamples/inference/loopy/hard_distributions/d_finite/yule_simon_coins.ppy
+# The Yule–Simon distribution (ρ = 1) of yule_simon_urn.ppy from fair coins only.
+#
+# With r red draws so far the urn holds r + 1 red balls and one black ball, so the next draw is
+# black with probability 1/(r + 2). A fair random walk started at 1 reaches r + 2 before 0 with
+# probability exactly 1/(r + 2) (gambler's ruin), which replaces the state-dependent choice.
+# Hence Pr[r = n] = 1/((n+1)(n+2)) and Pr[r ≥ n] = 1/(n+1).
+# Class: D-finite PGF (contains log(1 - x)), AST but not PAST, Ex[r] = ∞.
+# The inner loop's exit probability depends on r, so no rational invariant describes the nested
+# loops; unrolling gives sound intervals.
+#
+# What Prodigy proves: with "Unroll" (8 outer, 30 inner iterations) Pr[r == 0] ∈ [0.5, 0.6224] and
+# Pr[r == 1] ∈ [0.16666, 0.28898]; the upper bounds stay wide because the tail is heavy.
+
+r: nat = 0;  # the number of red draws; the result
+stop: nat = 0;  # a black ball was drawn
+w: nat = 0;  # the random walk that decides the colour
+
+while (stop == 0) {
+    w = 1;
+    while (w > 0 and w < r + 2) {
+        {w = w + 1;} [1/2] {w = w - 1;}
+    }
+    if (w == 0) {
+        r = r + 1;
+    } else {
+        stop = 1;
+    }
+    w = 0;
+}
+query Pr[r == 0];  # expected: 1/2
+query Pr[r == 1];  # expected: 1/6
+query Pr[r == 2];  # expected: 1/12
+query Ex[r];  # expected: ∞

@@ -1,0 +1,27 @@
+# main pgfexamples/inference/loopy/hard_distributions/d_finite/log_series_coins.ppy
+# The logarithmic (log-series) distribution with parameter 1/2 from fair coins:
+#   Pr[m = k] = 2^-k / (k ln 2),  k ≥ 1,
+# with generating function ln(1 - x/2)/ln(1/2): transcendental, D-finite
+# (Johnson, Kemp and Kotz, "Univariate Discrete Distributions", 3rd ed., Chapter 7).
+#
+# Draw m = 1 + geometric(1/2), so Pr[m = k] = 2^-k, and accept m with probability 1/m: a fair random
+# walk started at 1 reaches m before 0 with probability exactly 1/m (gambler's ruin). Given
+# acceptance, Pr[m = k] ∝ 2^-k/k; the acceptance probability is Σ 2^-k/k = ln 2. Rejection is written
+# as observe. (The same distribution is the number of draws + 1 in polya_urn.ppy, given that no red
+# ball was drawn.)
+# Class: D-finite PGF, AST, all moments finite; the normalising constant ln 2 is irrational, so no
+# finite unrolling gives the values exactly.
+#
+# What Prodigy proves: with "Unroll" (40 iterations) Pr[m == 1] ∈ [0.72114, 0.72170] and
+# Pr[m == 2] ∈ [0.18028, 0.18085], which contain the values above.
+
+m: nat = geometric(1/2);
+m = m + 1;
+w: nat = 1;
+while (w > 0 and w < m) {
+    {w = w + 1;} [1/2] {w = w - 1;}
+}
+observe(w == m);  # accept with probability 1/m
+query Pr[m == 1];  # expected: 1/(2 ln 2) ≈ 0.7213
+query Pr[m == 2];  # expected: 1/(8 ln 2) ≈ 0.1803
+query Ex[m];  # expected: 1/ln 2 ≈ 1.4427

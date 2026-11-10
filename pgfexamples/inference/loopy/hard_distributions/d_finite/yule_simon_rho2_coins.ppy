@@ -1,0 +1,37 @@
+# main pgfexamples/inference/loopy/hard_distributions/d_finite/yule_simon_rho2_coins.ppy
+# Yule–Simon distribution with ρ = 2 from fair coins: finite mean, infinite variance.
+#
+# A Pólya urn with one red and two black balls, drawn until the first black ball (a black draw
+# would add a black ball, but the process stops). With r red draws so far, the next draw is black
+# with probability 2/(r + 3); a fair random walk started at 2 reaches r + 3 before 0 with exactly
+# this probability (gambler's ruin). The first n draws are all red with probability
+#   1/3 · 2/4 · … · n/(n+2) = 2/((n+1)(n+2)),
+# so Pr[r = n] = 4/((n+1)(n+2)(n+3)), the Yule–Simon distribution with ρ = 2 shifted to 0
+# (Johnson, Kemp and Kotz, "Univariate Discrete Distributions", 3rd ed.).
+# Ex[r] = Σ_{n ≥ 1} 2/((n+1)(n+2)) = 1, but Ex[r^2] = ∞ (Pr[r = n] ≈ 4/n^3).
+# Class: D-finite PGF (contains log(1 - x)), AST and PAST, finite mean, infinite variance.
+#
+# What Prodigy proves: with "Unroll" (8 outer, 30 inner iterations) Pr[r == 0] ∈ [0.66666, 0.69937],
+# Pr[r == 1] ∈ [0.16666, 0.19936] and Ex[r] ≥ 0.565.
+
+r: nat = 0;  # the number of red draws; the result
+stop: nat = 0;  # a black ball was drawn
+w: nat = 0;  # the random walk that decides the colour
+
+while (stop == 0) {
+    w = 2;
+    while (w > 0 and w < r + 3) {
+        {w = w + 1;} [1/2] {w = w - 1;}
+    }
+    if (w == 0) {
+        r = r + 1;
+    } else {
+        stop = 1;
+    }
+    w = 0;
+}
+query Pr[r == 0];  # expected: 2/3
+query Pr[r == 1];  # expected: 1/6
+query Pr[r == 2];  # expected: 1/15
+query Ex[r];  # expected: 1
+query Ex[r * r];  # expected: ∞
