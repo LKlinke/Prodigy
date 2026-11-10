@@ -9,12 +9,14 @@
 # D-finite. The tail is about 2^-k/k, i.e. light-tailed; yule_simon_urn.ppy draws until the first
 # black ball instead, which is heavy-tailed. Class: D-finite PGF, AST, all moments finite.
 #
-# The choice probability red/(red + black) depends on program variables (issue #213);
-# polya_urn_coins.ppy draws the ball with fair coins only.
+# The choice probability red/(red + black) depends on program variables; Prodigy computes the
+# choice by a case split over the finitely many values of red and black in each unrolled
+# iteration. polya_urn_coins.ppy draws the ball with fair coins only.
 #
-# What Prodigy gives today: wrong results (issue #213). With "Unroll" (20 iterations) SymPy and
-# GiNaC report Pr[red == 1] ≈ 1 and a negative Pr[red == 2] as a lower bound; SymEngine stops with
-# "cannot be proven that it is never negative".
+# What Prodigy proves: with "Unroll" (20 iterations) Pr[red == 1] ∈ [0.693147, 0.693148], which
+# contains ln 2, and Pr[red == 2] ∈ [0.193147, 0.193148]. This takes about 1 s on GiNaC and 15 s on
+# SymPy; SymEngine is much slower (issue #224). Strategies that reason about the whole loop give no
+# result: red and black take infinitely many values there.
 
 draws: nat;
 red: nat;
