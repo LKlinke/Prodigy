@@ -98,6 +98,7 @@ from prodigy.pgcl import (Binop, BinopExpr, BoolType, Expr, NatLitExpr, NatType,
                            UnopExpr, VarExpr)
 
 from prodigy.analysis.loop_strategies import Bound
+from prodigy.util.integers import unlimited_int_digits
 
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.session import AnalysisSession
@@ -716,6 +717,13 @@ def _engine_name(config) -> str:
 
 def build_result(session: "AnalysisSession") -> AnalysisResult:
     """Runs ``session`` and collects the result; analysis errors end up in the result."""
+    # The checks after the analysis print the distribution again, exact coefficients can have
+    # more digits than Python converts by default (#235).
+    with unlimited_int_digits():
+        return _build_result(session)
+
+
+def _build_result(session: "AnalysisSession") -> AnalysisResult:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.analyzer import compute_discrete_distribution
     from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
