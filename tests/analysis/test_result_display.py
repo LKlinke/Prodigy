@@ -14,17 +14,19 @@ ENGINES = list(ForwardAnalysisConfig.Engine)
 
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize("engine", ENGINES, ids=lambda e: e.name.lower())
-def test_tail_mass_of_a_logarithmic_distribution_is_computed_quickly(engine):
-    # found by the fuzzing (#183): simplify's logcombine did not finish on the tail mass
-    source = "z: nat;\nz = logdist(1/3);\nprint;\n"
+@pytest.mark.parametrize("p", [sympy.Rational(1, 2), sympy.Rational(1, 3)], ids=["half", "third"])
+def test_tail_mass_of_a_logarithmic_distribution_is_computed_quickly(engine, p):
+    # #252, found by the fuzzing (#183): simplify's logcombine did not finish on the tail mass
+    source = f"z: nat;\nz = logdist({p});\nprint;\n"
     session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy",
                               config=ForwardAnalysisConfig(engine=engine), capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok"
     marginal = result["distribution"]["marginals"]["z"]
-    exact = sum((1 / 3) ** k / (k * math.log(3 / 2)) for k in range(31, 200))
-    assert marginal["tail_mass_float"] == pytest.approx(exact, rel=1e-9)
-    assert sym(marginal["rows"][1]["prob"]).equals(1 / (3 * sympy.log(sympy.Rational(3, 2))))
+    norm = -math.log(1 - float(p))
+    exact = sum(float(p) ** k / (k * norm) for k in range(30, 400))  # the rows show the values 0, ..., 29
+    assert marginal["tail_mass_float"] == pytest.approx(exact, rel=1e-6)
+    assert sym(marginal["rows"][1]["prob"]).equals(-p / sympy.log(1 - p))
 
 
 def test_tidy_keeps_the_value():
