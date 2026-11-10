@@ -18,4 +18,5 @@ The sources, installation instructions and issue tracker are on
    language
    grammar
    language-design
+   testing
    api
