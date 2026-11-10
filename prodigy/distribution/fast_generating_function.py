@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from typing import (Dict, FrozenSet, Generator, Iterator, List, Set, Tuple, Type,
+from typing import (Callable, Dict, FrozenSet, Generator, Iterator, List, Set, Tuple, Type,
                     Union)
 
 import prodigy_ginac  # type: ignore
@@ -317,14 +317,31 @@ class FPS(Distribution):
                                   str(second_summand)), self._variables,
             self._parameters)
 
+    def _case_split(self, update: Callable[[], prodigy_ginac.Dist], *operands: str | int) -> prodigy_ginac.Dist:
+        """
+        Calls `update`, an update of the bindings that does a case split over the values of the
+        variables among `operands`. The bindings sum out the other variables for it and raise
+        `ValueError: power::eval(): division by zero` if that diverges; this becomes the
+        `NonFiniteMarginalError` of the other engines (#250).
+        """
+        try:
+            return update()
+        except ValueError as error:
+            if not _is_division_by_zero(error):
+                raise
+            for name in dict.fromkeys(str(operand) for operand in operands):
+                if name in self._variables:
+                    self.checked_marginal(name)
+            raise
+
     def _update_product(self, temp_var: str, first_factor: str,
                         second_factor: str,
                         approximate: str | float | None) -> FPS:
         return FPS.from_dist(
-            self._dist.update_product(temp_var, first_factor, second_factor,
-                                      self._variables, self._finite,
-                                      approximate), self._variables,
-            self._parameters)
+            self._case_split(lambda: self._dist.update_product(temp_var, first_factor, second_factor,
+                                                               self._variables, self._finite, approximate),
+                             first_factor, second_factor),
+            self._variables, self._parameters)
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> Distribution:
@@ -342,24 +359,44 @@ class FPS(Distribution):
         # of unity (a finite marginal makes the function polynomial in `left`).
         if not self._finite and str(left) in self._variables:
             require_single_valued(self._sympy_function(), str(left), f"{left} % {right}")
-        return FPS.from_dist(
-            self._dist.update_modulo(temp_var, str(left), str(right),
-                                     self._variables, self._finite,
-                                     approximate), self._variables,
-            self._parameters)
+        try:
+            return FPS.from_dist(
+                self._case_split(lambda: self._dist.update_modulo(temp_var, str(left), str(right),
+                                                                  self._variables, self._finite, approximate),
+                                 left, right),
+                self._variables, self._parameters)
+        except NonFiniteMarginalError:
+            # The bindings sum out the other variables to decide whether the marginal of `left` is finite.
+            # The residue classes modulo a constant need no marginal (as on the other engines, #249).
+            if str(left) not in self._variables or not str(right).isdigit() or int(str(right)) < 1:
+                raise
+        result: Distribution | None = None
+        for remainder, section in enumerate(self._arithmetic_progression(str(left), str(right))):
+            part = section._update_var(temp_var, remainder)  # pylint: disable=protected-access
+            result = part if result is None else result + part
+        assert isinstance(result, FPS)
+        return result
 
     def _update_division(self, temp_var: str, numerator: str | int,
                          denominator: str | int,
                          approximate: str | float | None) -> FPS:
         if str(numerator) in self._variables and str(denominator).isdigit() \
-                and not self.marginal(str(numerator)).is_finite():
+                and not self._has_finite_marginal(str(numerator)):
             divided = self._divide_exponents(temp_var, str(numerator), int(str(denominator)))
             if divided is not None:
                 return divided
         return FPS.from_dist(
-            self._dist.update_division(temp_var, str(numerator),
-                                       str(denominator), approximate),
+            self._case_split(lambda: self._dist.update_division(temp_var, str(numerator), str(denominator),
+                                                                approximate),
+                             numerator, denominator),
             self._variables, self._parameters)
+
+    def _has_finite_marginal(self, variable: str) -> bool:
+        """Whether the marginal of `variable` is a finite distribution (False if it is not a finite measure)."""
+        try:
+            return self.marginal(variable).is_finite()
+        except NonFiniteMarginalError:
+            return False
 
     def _sympy_function(self) -> Expr_:
         """This generating function as a SymPy expression (all symbols without assumptions)."""
@@ -382,7 +419,7 @@ class FPS(Distribution):
     def _update_power(self, temp_var: str, base: str | int, exp: str | int,
                       approximate: str | float | None) -> Distribution:
         return FPS.from_dist(
-            self._dist.update_power(temp_var, base, exp, approximate),
+            self._case_split(lambda: self._dist.update_power(temp_var, base, exp, approximate), base, exp),
             self._variables, self._parameters)
 
     def update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],

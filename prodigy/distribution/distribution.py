@@ -6,8 +6,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from fractions import Fraction
-from typing import (Any, Dict, FrozenSet, Generator, Iterator, List, Optional, Sequence,
-                    Set, Tuple, Type, Union)
+from typing import (Any, Callable, Dict, FrozenSet, Generator, Iterator, List, Optional,
+                    Sequence, Set, Tuple, Type, Union)
 
 from lark.exceptions import LarkError
 
@@ -519,6 +519,7 @@ class Distribution(ABC):
         # possible (`left_side_original`: the left-hand side stays in the condition), else the left.
         # A marginal that is not a finite measure (infinite mass) says nothing about these values
         # (e.g. `zoo`, a constant, would claim the single value 0); it is never unfolded (#242).
+        # There the finite support of the side's variables is unfolded instead (#249).
         non_finite: Optional[NonFiniteMarginalError] = None
         marginal: Optional[Distribution] = None
         for left_side_original, side in ((True, condition.rhs), (False, condition.lhs)):
@@ -527,11 +528,14 @@ class Distribution(ABC):
             if not syms:
                 continue
             try:
-                candidate = self.checked_marginal(*syms)
+                candidate: Optional[Distribution] = self.checked_marginal(*syms)
             except NonFiniteMarginalError as exc:
-                non_finite = non_finite or exc
-                continue
-            if candidate.is_finite():
+                # only the values of the side matter, not their mass: the finite support (#249)
+                candidate = self.finite_support(*syms)
+                if candidate is None:
+                    non_finite = non_finite or exc
+                    continue
+            if candidate is not None and candidate.is_finite():
                 marginal = candidate
                 break
         if marginal is None:
@@ -730,7 +734,9 @@ class Distribution(ABC):
                 if expression.operator == Binop.PLUS:
                     f = f._update_sum(temp_var, t_1, t_2)
                 elif expression.operator == Binop.TIMES:
-                    f = f._update_product(temp_var, t_1, t_2, approximate)
+                    f = f._split_on_finite_support(
+                        lambda part, left, right: part._update_product(temp_var, left, right, approximate),
+                        t_1, t_2)
                 elif expression.operator == Binop.MINUS:
                     try:
                         f = f._update_monus(temp_var, t_1, t_2)
@@ -740,11 +746,17 @@ class Distribution(ABC):
                             f"at 0, which needs the states with {expression.lhs} < {expression.rhs}, and these "
                             f"cannot be filtered here (not implemented). Details: {error}") from error
                 elif expression.operator == Binop.MODULO:
-                    f = f._update_modulo(temp_var, t_1, t_2, approximate)
+                    f = f._split_on_finite_support(
+                        lambda part, left, right: part._update_modulo(temp_var, left, right, approximate),
+                        t_1, t_2)
                 elif expression.operator == Binop.DIVIDE:
-                    f = f._update_division(temp_var, t_1, t_2, approximate)
+                    f = f._split_on_finite_support(
+                        lambda part, left, right: part._update_division(temp_var, left, right, approximate),
+                        t_1, t_2)
                 elif expression.operator == Binop.POWER:
-                    f = f._update_power(temp_var, t_1, t_2, approximate)
+                    f = f._split_on_finite_support(
+                        lambda part, left, right: part._update_power(temp_var, left, right, approximate),
+                        t_1, t_2)
                 elif expression.operator == Binop.FLOOR_DIVIDE:
                     f = f._update_floor_division(temp_var, t_1, t_2, approximate)
                 else:
@@ -800,6 +812,56 @@ class Distribution(ABC):
             # Not just a literal assignment, need to evaluate the expression first
             result, _ = evaluate(self, expression.rhs, variable)
         return result
+
+    def _split_on_finite_support(self, update: Callable[[Distribution, str, str], Distribution],
+                                 left: str, right: str) -> Distribution:
+        """
+        `update(self, left, right)`, a binary update whose operands are variables or literals. If it
+        raises `NonFiniteMarginalError` (a case split over the values of an operand on a measure with
+        infinite mass, #242), the operands with a finite support (:meth:`finite_support`) are fixed
+        instead: the update is linear, so it is the sum of the updates of the parts in which these
+        operands have one value each, with the values as literals (#249). If no operand has a finite
+        support, or the update of a part still needs a marginal that is not finite, the error is raised.
+        """
+        try:
+            return update(self, left, right)
+        except NonFiniteMarginalError:
+            variables = self.get_variables()
+            fixed = [name for name in dict.fromkeys((str(left), str(right)))
+                     if name in variables and self.finite_support(name) is not None]
+            if not fixed:
+                raise
+        support = self.finite_support(*fixed)
+        assert support is not None
+        result: Optional[Distribution] = None
+        for _, state in support:
+            values = state.valuations
+            part = update(self.filter_state(State({name: values.get(name, 0) for name in fixed})),
+                          str(values.get(str(left), 0)) if str(left) in fixed else str(left),
+                          str(values.get(str(right), 0)) if str(right) in fixed else str(right))
+            result = part if result is None else result + part
+        if result is None:
+            # no state at all: the zero measure, whose update is the zero measure
+            return self.filter(BoolLitExpr(False))
+        return result
+
+    def finite_support(self, *variables: Union[str, VarExpr]) -> Optional[Distribution]:
+        """
+        The values of `variables` in the support of this measure as a finite distribution over
+        `variables` (each of its states is such a value), or None if the variables take infinitely
+        many values (or finiteness is not decided).
+
+        Unlike :meth:`marginal`, this sums nothing out: the other variables stay symbols (parameters)
+        in the coefficients, so it is defined for measures with infinite mass as well (#249). The
+        coefficient of a value of `variables` is a power series in the other variables, which is zero
+        if and only if no state of the measure has this value (for signed measures as well). The
+        coefficients are therefore not probabilities; only the states are meaningful. A coefficient
+        that the engine does not simplify to zero adds a state without mass, which is harmless for a
+        case split over the states.
+        """
+        names = [str(var) for var in variables]
+        support = self.factory().from_expr(str(self), *names)
+        return support if support.is_finite() else None
 
     @abstractmethod
     def get_fresh_variable(
