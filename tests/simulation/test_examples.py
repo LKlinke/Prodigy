@@ -26,12 +26,12 @@ EXAMPLES = Path(__file__).parents[2] / "pgfexamples"
 RUNS = 3000
 UNROLL = 30
 LOOP_BUDGET = 1000
+pytestmark = pytest.mark.fuzz
 NIGHTLY = os.environ.get("PRODIGY_FUZZ") == "nightly"
 
 SKIPPED = {
     "independence/infinite_multiplication.ppy": "not implemented: product of two variables with infinite range",
     "inference/loop_free/conditioning/digitRecognition.ppy": "fails on main (#235)",
-    "inference/loopy/hard_distributions/d_finite/polya_urn.ppy": "probability that depends on the state (#213)",
     "independence/many_variables.ppy": "slower than 90 s with unrolling",
     "inference/loop_free/conditioning/lucky_throw.ppy": "slower than 90 s with unrolling",
     "inference/loop_free/conditioning/skip_lin_regression_biased.ppy": "slower than 90 s with unrolling",

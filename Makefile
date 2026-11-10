@@ -1,8 +1,8 @@
-.PHONY: help install lint mypy test docs clean docker-build docker-run docker-artifact
+.PHONY: help install lint mypy test fuzz docs clean docker-build docker-run docker-artifact
 
 .DEFAULT: help
 help:
-	@echo "Available targets: install, lint, mypy, test, docs, clean, format, docker-build, docker-run, docker-artifact"
+	@echo "Available targets: install, lint, mypy, test, fuzz, docs, clean, format, docker-build, docker-run, docker-artifact"
 
 install:
 	uv sync
@@ -18,8 +18,13 @@ COV = --cov=prodigy --cov-report html --cov-report term
 # Parallel workers (pytest-xdist), one per CPU core; worksteal balances the few long tests best; `make test XDIST=` runs the tests in one process
 XDIST = -n auto --dist worksteal
 
+# The fuzzing and the comparison of the examples with the simulator (marker `fuzz`) run in `make fuzz`
 test:
-	uv run pytest ${XDIST} ${COV} --junitxml=testreport.xml ${ARGS}
+	uv run pytest ${XDIST} ${COV} -m "not fuzz" --junitxml=testreport.xml ${ARGS}
+
+# Fuzzing and simulation tests (docs/source/testing.md); `PRODIGY_FUZZ=nightly make fuzz` runs many programs
+fuzz:
+	uv run pytest ${XDIST} -m fuzz tests/fuzzing tests/simulation ${ARGS}
 
 docs:
 	uv run --group docs sphinx-build -M html docs/source docs/build -W --keep-going ${ARGS}

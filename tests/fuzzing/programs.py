@@ -38,10 +38,10 @@ class Features:  # pylint: disable=too-many-instance-attributes
     """``e // q`` (``.ppy`` only: :meth:`GeneratedProgram.source` refuses to render it in ``.pgcl``)."""
     two_variable_guards: bool = False
     """Guards comparing two variables (``x < y``); with infinite support they end with an error (#225)."""
-    subtraction: bool = False
-    """``-`` on ``nat``: its semantics differ between the engines (#220)."""
-    state_probabilities: bool = False
-    """Probabilities that depend on a variable (``[1/(x+1)]``, ``bernoulli(1/(x+1))``): wrong results (#213)."""
+    subtraction: bool = True
+    """``-`` on ``nat`` (monus since #220)."""
+    state_probabilities: bool = True
+    """Probabilities that depend on a variable (``[1/(x+1)]``, ``bernoulli(1/(x+1))``; case split since #213)."""
     variable_copies: bool = False
     """Assignments ``a = b`` of a variable: wrong on GiNaC if ``b`` does not occur in the function (#232)."""
     categorical: bool = False

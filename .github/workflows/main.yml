@@ -80,17 +80,35 @@ jobs:
             htmlcov/
           retention-days: 14
 
+  # The fuzzing (a few derandomized programs) and the examples against the simulator (marker fuzz,
+  # docs/source/testing.md); the weekly workflow fuzzing.yml runs many programs.
+  fuzz-smoke:
+    name: fuzzing (smoke test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          python-version: "3.14"
+      - run: make fuzz ARGS=--hypothesis-show-statistics
+        env:
+          PRODIGY_FUZZ: ci
+
   # The branch protection rule requires this check. It passes only if all jobs above passed,
   # so jobs can be added or renamed without changing the rule.
   build:
     if: ${{ always() }}
-    needs: [ lint, typecheck, test ]
+    needs: [ lint, typecheck, test, fuzz-smoke ]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: All checks passed
         run: |
-          echo "pylint: ${{ needs.lint.result }}, mypy: ${{ needs.typecheck.result }}, tests: ${{ needs.test.result }}"
+          echo "pylint: ${{ needs.lint.result }}, mypy: ${{ needs.typecheck.result }}, tests: ${{ needs.test.result }}, fuzzing: ${{ needs.fuzz-smoke.result }}"
           test "${{ needs.lint.result }}" = success
           test "${{ needs.typecheck.result }}" = success
           test "${{ needs.test.result }}" = success
+          test "${{ needs.fuzz-smoke.result }}" = success

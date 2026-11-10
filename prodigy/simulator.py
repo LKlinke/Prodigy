@@ -14,8 +14,7 @@ Semantics (the same as the analysis, see ``docs/source/language.md``):
 * ``observe(g)`` rejects the run if ``g`` does not hold (a *violated* run); the results are
   conditioned on the runs that are not violated, like the normalisation of the analysis;
 * ``abort`` ends the run without a result (an *aborted* run, mass that is lost);
-* ``-`` is truncated subtraction (monus, ``max(a - b, 0)``), the semantics decided in #220; the
-  analysis rejects subtractions that may become negative, so the two agree where it computes;
+* ``-`` is truncated subtraction (monus, ``max(a - b, 0)``) everywhere, as in the analysis (#220);
 * ``/`` is rational division; assigning a value that is not a natural number to a variable is an
   error of the program (:class:`SimulationError`), the analysis rejects such programs too;
 * comparisons are evaluated over the rationals, booleans count as 1 and 0;
