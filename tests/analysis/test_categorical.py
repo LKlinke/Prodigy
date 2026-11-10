@@ -71,6 +71,7 @@ def test_pgcl_syntax(engine, simplification):
 
 
 FUNCTIONS = "def f(a: nat) -> nat {\n    observe(a < 3);\n    return categorical({a: 1/2, a + 1: 1/2});\n}\n"
+PLAIN = "def g(a: nat) -> nat {\n    return a + 1;\n}\n"
 
 
 @pytest.mark.parametrize("simplification", SIMPLIFICATION)
@@ -80,9 +81,9 @@ FUNCTIONS = "def f(a: nat) -> nat {\n    observe(a < 3);\n    return categorical
                  "x: nat;\n{ x = y + 1; } [1/3] { { x = 0; } [1/4] { x = 2 * y; } }", id="assignment"),
     pytest.param(FUNCTIONS + "x: nat = f(categorical({1: 1/2, 3: 1/2}));",
                  FUNCTIONS + "x: nat;\n{ x = f(1); } [1/2] { x = f(3); }", id="argument-and-return"),
-    # another draw as an argument runs like an assignment, too
-    pytest.param(FUNCTIONS + "x: nat = f(unif(1, 2));",
-                 FUNCTIONS + "x: nat;\n{ x = f(1); } [1/2] { x = f(2); }", id="draw-as-argument"),
+    # another draw as an argument runs like an assignment, too (no observe in g: #259)
+    pytest.param(PLAIN + "x: nat = g(unif(1, 2));",
+                 PLAIN + "x: nat;\n{ x = g(1); } [1/2] { x = g(2); }", id="draw-as-argument"),
     pytest.param("x: nat = categorical({y: 1/2, 1: 1/2});\nobserve(x == 1);",
                  "x: nat;\n{ x = y; } [1/2] { x = 1; }\nobserve(x == 1);", id="observe"),
 ])
