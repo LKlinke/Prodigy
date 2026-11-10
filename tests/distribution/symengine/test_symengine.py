@@ -346,12 +346,11 @@ class TestDistributionInterface:
 
         gf = SymengineDist("n^5")
 
-        # Linearity breaks if intermediate results are negative.
-        with pytest.raises(ValueError):
-            gf.get_expected_value_of("n - 7 + 1")
-        pytest.xfail(
-            'this is simplified to "n" by se, meaning we cannot detect that the intermediate results are negative'
-        )
+        # subtraction is truncated at 0 in every intermediate result (monus, #220), before any simplification
+        assert se.S(gf.get_expected_value_of("n - 7 + 1")) == 1
+        assert se.S(gf.get_expected_value_of("n - 7 + 7")) == 7
+        assert se.S(gf.get_expected_value_of("(n - 7) * (n - 7)")) == 0
+        assert se.S(gf.get_expected_value_of("n - 3")) == 2
 
     def test_normalize(self):
         assert create_random_gf().normalize().coefficient_sum() == 1
@@ -508,25 +507,22 @@ class TestDistributionInterface:
     def test_update_subtraction(self):
         gf = SymengineDist("x + y", "x", "y")
 
+        # subtraction is truncated at 0 (monus, #220)
         # Two variables
-        assert gf._update_subtraction("x", "x", "x") == SymengineDist("1 + y", "x", "y")
-        assert gf._update_subtraction("x", "y", "y") == SymengineDist("1 + y", "x", "y")
-        with pytest.raises(ValueError, match=re.escape("can be negative")):
-             gf._update_subtraction("x", "x", "y")
+        assert gf._update_monus("x", "x", "x") == SymengineDist("1 + y", "x", "y")
+        assert gf._update_monus("x", "y", "y") == SymengineDist("1 + y", "x", "y")
+        assert gf._update_monus("x", "x", "y") == SymengineDist("x + y", "x", "y")
 
         # Variable - literal
-        with pytest.raises(ValueError, match=re.escape("can be negative")):
-            gf._update_subtraction("x", "x", "1")
+        assert gf._update_monus("x", "x", "1") == SymengineDist("1 + y", "x", "y")
 
         # Literal - variable
-        assert gf._update_subtraction("x", 1, "x") == SymengineDist("1 + x*y", "x", "y")
-        assert gf._update_subtraction("x", 1, "y") == SymengineDist("x + y", "x", "y")
+        assert gf._update_monus("x", 1, "x") == SymengineDist("1 + x*y", "x", "y")
+        assert gf._update_monus("x", 1, "y") == SymengineDist("x + y", "x", "y")
 
         # Literal - literal
-        assert gf._update_subtraction("x", 2, 1) == SymengineDist("x + x*y", "x", "y")
-
-        with pytest.raises(ValueError, match=re.escape("Cannot assign '1 - 2' to 'x' because it is negative")):
-            gf._update_subtraction("x", 1, 2)
+        assert gf._update_monus("x", 2, 1) == SymengineDist("x + x*y", "x", "y")
+        assert gf._update_monus("x", 1, 2) == SymengineDist("1 + y", "x", "y")
 
 
     def test_update_division(self):

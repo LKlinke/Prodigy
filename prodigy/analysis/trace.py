@@ -572,8 +572,7 @@ class Tracer:
             if watch.kind == "probability":
                 value: Any = sym(dist.filter(watch.expr).get_probability_mass())
             else:
-                extended, replaced, _ = dist.without_floor_division(watch.expr)
-                value = sym(extended.get_expected_value_of(replaced))
+                value = sym(dist.get_expected_value_of(watch.expr))
             error_mass = sym(error_prob.get_probability_mass()) if error_prob is not None else 0
             if self.session.config.normalize and error_mass != 0:
                 # as a query at this place: conditioned on the observations so far (see result.py)

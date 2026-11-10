@@ -17,7 +17,7 @@ from prodigy.distribution import (CommonDistributionsFactory, Distribution,
 from prodigy.distribution.equality import decide_equal
 from prodigy.distribution.exact_division import divide_exponents
 from prodigy.distribution.rational_series import rational_taylor_coefficients
-from prodigy.distribution.negative_values import can_be_negative, require_non_negative as _require_non_negative
+from prodigy.distribution.negative_values import can_be_negative
 from prodigy.distribution.multisection import rational_sections
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
@@ -763,13 +763,13 @@ class GeneratingFunction(Distribution):
             result = _substitute_one(result, update_var) * update_var ** diff
 
         result = sympy.expand(result)
-        gf = GeneratingFunction(result,
-                                *self._variables).set_parameters(
+        return GeneratingFunction(result,
+                                  *self._variables).set_parameters(
             *self.get_parameters())
-        _require_non_negative(
-            can_be_negative(self._function, set(self._variables) | {update_var}, sub_1, sub_2),
-            temp_var, sub_from, sub)
-        return gf
+
+    def _subtraction_never_negative(self, minuend: str, subtrahend: str) -> bool:
+        return can_be_negative(self._function, set(self._variables), _parse_to_sympy(minuend),
+                               _parse_to_sympy(subtrahend)) is False
 
     def _update_product(self, temp_var: str, first_factor: str,
                         second_factor: str,
@@ -1057,7 +1057,7 @@ class GeneratingFunction(Distribution):
 
         raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
 
-    def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
+    def _expected_value_of(self, expression: Union[Expr, str]) -> str:
         expr = _parse_to_sympy(str(expression)).ratsimp().expand()
         if not expr.is_polynomial():
             raise NotImplementedError(
@@ -1083,9 +1083,9 @@ class GeneratingFunction(Distribution):
                 for _ in range(val):
                     tmp = tmp.diff(var_sym, 1) * var_sym
                 tmp = tmp.limit(var_sym, 1, '-')
+            # subtractions of natural numbers are computed before (monus, Distribution.get_expected_value_of),
+            # so a negative summand is a negative coefficient of the (rational) expression itself
             summand: sympy.Expr = _parse_to_sympy(prob) * tmp
-            if len(summand.free_symbols) == 0 and summand < 0:
-                raise ValueError(f'Intermediate result is negative: {summand}')
             expected_value += summand
         if expected_value == sympy.S('oo'):
             return str(RealLitExpr.infinity())

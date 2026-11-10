@@ -96,23 +96,20 @@ def test_subtraction():
     assert gf.update(parse_expr("m = m - 8")) == FPS("n^5*m^34*l^8")
     assert gf.update(parse_expr("l = l - n")) == FPS("n^5*m^42*l^3")
     assert gf.update(parse_expr("m = l - n")) == FPS("n^5*m^3*l^8")
-    with raises(ValueError, match="can be negative"):
-        gf.update(parse_expr("m = n - l"))
+    # subtraction is truncated at 0 (monus, #220)
+    assert gf.update(parse_expr("m = n - l")) == FPS("n^5*l^8", "n", "m", "l")
 
     gf = FPS('p*x', 'x')
-    with raises(ValueError, match="can be negative"):
-        gf.update(parse_expr("x = x - 2"))
-    with raises(ValueError, match="can be negative"):
-        gf.update(parse_expr("x = x - 20"))
+    assert gf.update(parse_expr("x = x - 2")) == FPS('p', 'x')
+    assert gf.update(parse_expr("x = x - 20")) == FPS('p', 'x')
     assert gf.update(parse_expr("x = x - 1")) == FPS('p', 'x')
 
     gf = FPS('(1/p)*x', 'x')
-    with raises(ValueError, match="can be negative"):
-        gf.update(parse_expr("x = x - 2"))
+    assert gf.update(parse_expr("x = x - 2")) == FPS('1/p', 'x')
 
     gf = ProdigyPGF.poisson('x', 3)
-    with raises(ValueError, match="can be negative"):
-        gf.update(parse_expr("x = x - 2"))
+    assert gf.update(parse_expr("x = x - 2")) == FPS(
+        "exp(-3)*(1 + 3) + (exp(3*(x - 1)) - exp(-3) - 3*x*exp(-3))/x^2", 'x')
 
     gf = FPS('0.4*tmp^5*c^13*n^4 + 0.6*tmp^7*c^28*n^77')
     assert gf.update(parse_expr('n = n + (c-tmp)')) == FPS(
@@ -123,8 +120,8 @@ def test_subtraction():
         parse_expr('n = n-1')) == FPS("(-1+p1*c)^(-1)*p0*(-1+p0*n)^(-1)")
 
     gf = ProdigyPGF.geometric('x', '1/2') * FPS("y^5")
-    with raises(ValueError, match="can be negative"):
-        gf.update(parse_expr("x = x - y"))
+    # x < 5 has probability 31/32 and gives 0; x = 5 + k gives k
+    assert gf.update(parse_expr("x = x - y")) == FPS("y^5 * (31/32 + 1/32 * 1/(2 - x))", "x", "y")
 
 
 def test_fresh_variables():

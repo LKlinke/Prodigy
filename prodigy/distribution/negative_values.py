@@ -180,17 +180,6 @@ def _is_zero(expression: sympy.Expr) -> bool | None:
     return None
 
 
-def require_non_negative(negative: bool | None, temp_var: str, minuend: str | int, subtrahend: str | int) -> None:
-    """Raises a ValueError unless the result `negative` of :func:`can_be_negative` proves the subtraction safe."""
-    if negative is None:
-        raise ValueError(
-            f"Cannot assign '{minuend} - {subtrahend}' to '{temp_var}' because it cannot be proven that it is "
-            "never negative"
-        )
-    if negative:
-        raise ValueError(f"Cannot assign '{minuend} - {subtrahend}' to '{temp_var}' because it can be negative")
-
-
 def operand(text: str | int, variables: Iterable[str]) -> sympy.Expr:
     """An operand of a subtraction as passed to the engines: a variable name from `variables`, or a constant."""
     if str(text) in set(variables):

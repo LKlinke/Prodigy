@@ -137,7 +137,13 @@ def monomial(d: int, e: Iterable[int], c=ONE) -> Num:  # pylint: disable=unused-
 
 # ------------------------------------------------------------------------------------------- linear guards
 def _affine(e: IR) -> Optional[Tuple[Fraction, Optional[str], Fraction]]:
-    """Write ``e`` as ``a * var + b`` with constants ``a, b`` (``var`` may be None), or return None."""
+    """
+    Write ``e`` as ``a * var + b`` with constants ``a, b`` (``var`` may be None), or return None.
+
+    Subtraction is truncated at 0 (monus). It is the rational difference only if the difference is never negative,
+    i.e. ``a >= 0`` and ``b >= 0`` for the difference; otherwise this returns None (a decrement ``x - k`` is
+    handled by :func:`_decrement`).
+    """
     t = e[0]
     if t == "num":
         return ZERO, None, Fraction(e[1])
@@ -151,7 +157,10 @@ def _affine(e: IR) -> Optional[Tuple[Fraction, Optional[str], Fraction]]:
             return None
         sign = 1 if t == "add" else -1
         var = l[1] if l[1] is not None else r[1]
-        return l[0] + sign * r[0], var, l[2] + sign * r[2]
+        a, b = l[0] + sign * r[0], l[2] + sign * r[2]
+        if t == "sub" and (a < 0 or b < 0):
+            return None                                # monus may truncate: not affine
+        return a, var, b
     if t == "mul":
         l, r = _affine(e[1]), _affine(e[2])
         if l is None or r is None:
@@ -170,7 +179,8 @@ def _affine(e: IR) -> Optional[Tuple[Fraction, Optional[str], Fraction]]:
 
 
 def _sum_of_vars(e: IR) -> Optional[Tuple[Dict[str, Fraction], Fraction]]:
-    """Write ``e`` as ``sum_j a_j * var_j + b`` with constants, or return None."""
+    """Write ``e`` as ``sum_j a_j * var_j + b`` with constants, or return None (also for a subtraction that may be
+    truncated at 0, see :func:`_affine`)."""
     t = e[0]
     if t == "num":
         return {}, Fraction(e[1])
@@ -184,7 +194,10 @@ def _sum_of_vars(e: IR) -> Optional[Tuple[Dict[str, Fraction], Fraction]]:
         coeffs = dict(l[0])
         for v, a in r[0].items():
             coeffs[v] = coeffs.get(v, ZERO) + sign * a
-        return {v: a for v, a in coeffs.items() if a != 0}, l[1] + sign * r[1]
+        constant = l[1] + sign * r[1]
+        if t == "sub" and (constant < 0 or any(a < 0 for a in coeffs.values())):
+            return None                                # monus may truncate
+        return {v: a for v, a in coeffs.items() if a != 0}, constant
     if t == "mul":
         l, r = _sum_of_vars(e[1]), _sum_of_vars(e[2])
         if l is None or r is None:
@@ -194,6 +207,21 @@ def _sum_of_vars(e: IR) -> Optional[Tuple[Dict[str, Fraction], Fraction]]:
         if not r[0]:
             return {v: r[1] * a for v, a in l[0].items()}, r[1] * l[1]
     return None
+
+
+def _decrement(e: IR) -> Optional[Tuple[str, int]]:
+    """Write ``e`` as the decrement ``var - k`` (monus) by a natural constant ``k``, or return None. A chain
+    ``(x - k1) - k2`` is ``x - (k1 + k2)``, as monus satisfies ``(a - b) - c = a - (b + c)``."""
+    if e[0] != "sub":
+        return None
+    amount = _affine(e[2])
+    if amount is None or amount[1] is not None or amount[2].denominator != 1 or amount[2] < 0:
+        return None
+    k = int(amount[2])
+    if e[1][0] == "var":
+        return e[1][1], k
+    inner = _decrement(e[1])
+    return None if inner is None else (inner[0], inner[1] + k)
 
 
 def _int_pred(op: str, c: Fraction):
@@ -370,6 +398,9 @@ class GFCalculus:
         if var not in self.idx:
             raise UnsupportedProgram(f"unknown variable {var}")
         i = self.idx[var]
+        dec = _decrement(e)
+        if dec is not None and dec[0] == var:          # x := x - k  (monus)
+            return self.decrement(poly, i, dec[1]) if dec[1] > 0 else poly
         aff = _affine(e)
         if aff is not None:
             a, v, b = aff
@@ -377,13 +408,10 @@ class GFCalculus:
                 if b.denominator != 1 or b < 0:
                     raise UnsupportedProgram(f"assignment {var} := {b} is not natural-valued")
                 return pshift(self._marginal_out(poly, i), i, int(b))
-            if v == var and a == 1:                    # x := x + k  /  x := x - k  (monus)
+            if v == var and a == 1:                    # x := x + k  (k >= 0: subtractions never truncate here)
                 if b.denominator != 1:
                     raise UnsupportedProgram(f"non-integral increment in {var} := {e}")
-                k = int(b)
-                if k >= 0:
-                    return pshift(poly, i, k)
-                return self.decrement(poly, i, -k)
+                return pshift(poly, i, int(b))
             if v != var and a.denominator == 1 and a > 0 and b.denominator == 1 and b >= 0:
                 # x := a*y + b  for a variable y without geometric factor: substitute X_y -> X_y X_x^a
                 j = self.idx[v]
