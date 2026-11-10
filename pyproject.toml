@@ -58,6 +58,8 @@ dev = [
     "pytest-cov>=5",
     # hypothesis 5 registers a pytest plugin that fails to load on Python >= 3.12 (importlib.metadata)
     "hypothesis>=6",
+    # `make test` runs the tests in parallel workers (-n auto --dist worksteal)
+    "pytest-xdist>=3.6",
 ]
 # `make docs` (docs/source); not installed by default, `uv run --group docs` adds it
 docs = [
