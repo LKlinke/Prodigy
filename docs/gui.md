@@ -87,7 +87,10 @@ navigated afterwards, so stepping back is as cheap as stepping forward.
   the loop grows towards the output of the loop, the hatched “?” bar and the bar below the chart
   show the mass still inside shrinking. *Play* (Space) runs through the iterates, the slider picks
   one, and the speed menu (0.5×, 1×, 2×) sets the pace. At most 40 iterates are kept per loop
-  (`step_iterations`), spread evenly, plus the last.
+  (`step_iterations`), spread evenly, plus the last. An iterate whose marginal was not recorded
+  (see below) has no bars: they fade out at their last height, and a dashed frame says
+  “x: not recorded” with the reason; the slider, the status line and the screen-reader label say
+  the same. Not recorded means unknown, never probability 0.
 * **Transitions**: two consecutive steps (or iterates) are keyframes, and the view moves between
   them with ease-in/ease-out in about a third of a second: bars and the “?” bar grow or shrink,
   bars that appear or disappear fade, the axis rescales, the closed form cross-fades inside its
@@ -104,7 +107,9 @@ navigated afterwards, so stepping back is as cheap as stepping forward.
 
 Per distribution the trace keeps the closed form up to 3000 characters, its mass and the first 10
 coefficients of the marginals of up to 6 variables; larger closed forms keep no marginals, and
-after 20 seconds spent on marginals only closed forms are kept. The command line records the same
+after 20 seconds spent on marginals only closed forms are kept. Each distribution names the
+variables without a marginal and why (`marginals_not_recorded`), and the Steps tab shows that
+reason instead of a chart. The command line records the same
 trace with `prodigy analyze --steps` (see the CLI documentation); the JSON keys are `steps` and
 `trace` (see `prodigy/analysis/trace.py`).
 
