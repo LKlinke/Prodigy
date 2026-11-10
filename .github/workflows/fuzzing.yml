@@ -26,6 +26,6 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           python-version: "3.14"
-      - run: uv run pytest tests/fuzzing tests/simulation -p no:cacheprovider
+      - run: uv run pytest -m fuzz tests/fuzzing tests/simulation -p no:cacheprovider
         env:
           PRODIGY_FUZZ: nightly

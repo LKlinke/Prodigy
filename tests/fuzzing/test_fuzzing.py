@@ -15,6 +15,7 @@ A failure is shrunk to a small program. It becomes an issue and a regression tes
 leaves it out until it is fixed.
 """
 import os
+from datetime import timedelta
 
 import pytest
 from hypothesis import HealthCheck, given, settings
@@ -25,13 +26,13 @@ from .oracles import check_program
 from .programs import Features, GeneratedProgram, programs
 
 settings.register_profile(
-    "fuzz-ci", max_examples=40, derandomize=True, deadline=None, database=None,
+    "fuzz-ci", max_examples=40, derandomize=True, deadline=timedelta(seconds=60), database=None,
     suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much, HealthCheck.data_too_large])
 settings.register_profile(
     "fuzz-nightly", max_examples=400, derandomize=False, deadline=None, database=None, print_blob=True,
     suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much, HealthCheck.data_too_large])
 # the strategies are built recursively; Hypothesis warns about the size of their repr only
-pytestmark = pytest.mark.filterwarnings("ignore:Generating overly large repr")
+pytestmark = [pytest.mark.fuzz, pytest.mark.filterwarnings("ignore:Generating overly large repr")]
 PROFILE = settings.get_profile(f"fuzz-{os.environ.get('PRODIGY_FUZZ', 'ci')}")
 
 
