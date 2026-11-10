@@ -573,17 +573,19 @@ class GeneratingFunction(Distribution):
         if div_1 in self._parameters or div_2 in self._parameters:
             raise ValueError('Division containing parameters is not allowed')
 
+        # the numerator's marginal may be non-finite (#242) if the division by a constant is exact
         marginal_l = self.marginal(
             str(numerator)) if div_1 in self._variables else div_1
-        marginal_r = self.marginal(
+        marginal_r = self.checked_marginal(
             str(denominator)) if div_2 in self._variables else div_2
 
-        if isinstance(marginal_l,
-                      GeneratingFunction) and not marginal_l._is_finite:
+        if isinstance(marginal_l, GeneratingFunction) and (
+                not marginal_l._is_finite or marginal_l.has_non_finite_value()):
             if isinstance(div_2, sympy.Integer):
                 divided = divide_exponents(self._function, str(numerator), temp_var, int(div_2))
                 if divided is not None:
                     return GeneratingFunction(divided, *self._variables, finite=False)
+            self._require_finite_values(marginal_l, str(numerator))
             if approximate is None:
                 raise ValueError(
                     f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'
@@ -681,7 +683,7 @@ class GeneratingFunction(Distribution):
         # If the GF is infinite and right is a variable, it needs to have finite range
         elif right_sym in self._variables:
             assert isinstance(right, str)
-            marginal_r = self.marginal(right)
+            marginal_r = self.checked_marginal(right)
             if not marginal_r._is_finite:
                 if approximate is None:
                     raise ValueError(
@@ -697,8 +699,10 @@ class GeneratingFunction(Distribution):
         # If left is a variable, it doesn't have to have finite range
         elif left_sym in self._variables:
             assert isinstance(left, str)
+            # a marginal that is not a finite measure (#242) is not unfolded; the arithmetic
+            # progression is exact for every measure
             marginal_l = self.marginal(left)
-            if marginal_l._is_finite:
+            if marginal_l._is_finite and not marginal_l.has_non_finite_value():
                 for _, state_l in marginal_l:
                     result += self.filter(
                         parse_expr(f'{left}={state_l[left]}'))._update_modulo(
@@ -787,8 +791,8 @@ class GeneratingFunction(Distribution):
         # we multiply two variables
         if prod_1 in self._variables and prod_2 in self._variables:
             if not self._is_finite:
-                marginal_l = self.marginal(first_factor)
-                marginal_r = self.marginal(second_factor)
+                marginal_l = self.checked_marginal(first_factor)
+                marginal_r = self.checked_marginal(second_factor)
                 result = sympy.Integer(0)
 
                 if not marginal_l._is_finite and not marginal_r._is_finite:
@@ -925,7 +929,7 @@ class GeneratingFunction(Distribution):
         if pow_1 in self._variables and pow_2 in self._variables:
             assert isinstance(base, str)
             assert isinstance(exp, str)
-            marginal_l, marginal_r = self.marginal(base), self.marginal(exp)
+            marginal_l, marginal_r = self.checked_marginal(base), self.checked_marginal(exp)
 
             if not marginal_l._is_finite:
                 if approximate is None:
@@ -954,7 +958,7 @@ class GeneratingFunction(Distribution):
 
         # variable to the power of a literal
         elif pow_1 in self._variables:
-            marginal = self.marginal(str(base))
+            marginal = self.checked_marginal(str(base))
 
             if not marginal._is_finite:
                 raise ValueError(
@@ -968,7 +972,7 @@ class GeneratingFunction(Distribution):
 
         # literal to the power of a variable
         elif pow_2 in self._variables:
-            marginal = self.marginal(str(exp))
+            marginal = self.checked_marginal(str(exp))
 
             if not marginal._is_finite:
                 raise ValueError(
@@ -1433,6 +1437,15 @@ class GeneratingFunction(Distribution):
         marginal._is_finite = marginal._function.ratsimp().is_polynomial()
 
         return marginal
+
+    def checked_marginal(self, *variables: Union[str, VarExpr]) -> GeneratingFunction:
+        res = super().checked_marginal(*variables)
+        assert isinstance(res, GeneratingFunction)
+        return res
+
+    def has_non_finite_value(self) -> bool:
+        return bool(self._function.has(sympy.nan, sympy.zoo, sympy.oo, -sympy.oo, sympy.Limit,
+                                       sympy.AccumBounds))
 
     def filter(self, condition: Expr) -> GeneratingFunction:
         logger.debug("filter(%s) call on %s", condition, self)
