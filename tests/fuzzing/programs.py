@@ -42,8 +42,6 @@ class Features:  # pylint: disable=too-many-instance-attributes
     """``-`` on ``nat``: its semantics differ between the engines (#220)."""
     state_probabilities: bool = False
     """Probabilities that depend on a variable (``[1/(x+1)]``, ``bernoulli(1/(x+1))``): wrong results (#213)."""
-    variable_copies: bool = False
-    """Assignments ``a = b`` of a variable: wrong on GiNaC if ``b`` does not occur in the function (#232)."""
     categorical: bool = False
     """``categorical({v: p, …})``: documented, but the analysis rejects it (#233)."""
     max_depth: int = 2
@@ -297,7 +295,7 @@ def probabilities(features: Features = DEFAULT_FEATURES) -> st.SearchStrategy[Ex
 def arithmetic(features: Features = DEFAULT_FEATURES) -> st.SearchStrategy[Expr]:
     """A natural-valued expression over the variables."""
     atoms = st.one_of(st.integers(0, 4).map(Num), _variables())
-    options = [atoms if features.variable_copies else st.integers(0, 4).map(Num),
+    options = [atoms,
                st.builds(lambda a, b: Op("+", a, b), atoms, atoms),
                st.builds(lambda k, v: Op("*", Num(k), v), st.integers(2, 3), _variables())]
     if features.modulo:
