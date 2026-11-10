@@ -150,10 +150,11 @@
 .rv-facts dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .rv-figure { margin: 0; display: grid; gap: 8px; }
-.rv-figure-head { display: flex; justify-content: flex-end; }
+.rv-figure-head { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.rv-figure-head [hidden] { display: none; }
 .marginal-chart { width: 100%; height: auto; display: block; }
 .marginal-chart .mc-grid line { stroke: var(--rv-separator); stroke-width: 1; }
-.marginal-chart .mc-grid text, .marginal-chart .mc-label {
+.marginal-chart .mc-grid text, .marginal-chart .mc-label, .marginal-chart .mc-scale {
   fill: var(--rv-text-2); font-size: 11px; font-family: var(--font-ui, sans-serif); font-variant-numeric: tabular-nums;
 }
 .marginal-chart .mc-label { text-anchor: middle; }
@@ -164,6 +165,8 @@
 .marginal-chart .mc-unknown rect { fill: var(--rv-data); opacity: 0.45; stroke: var(--rv-unknown); stroke-dasharray: 3 2; }
 .marginal-chart .mc-residual rect { stroke: var(--rv-bound); stroke-width: 1; }
 .marginal-chart .mc-bar:hover rect { opacity: 0.8; }
+.marginal-chart .mc-scale { font-style: italic; }
+.marginal-chart .mc-bar rect.mc-zero { fill: none; stroke: var(--rv-data); stroke-width: 1; stroke-dasharray: 2 2; opacity: 1; }
 
 .table-wrap { overflow-x: auto; }
 .rv-table { width: 100%; border-collapse: collapse; font-size: var(--text-callout, 12px); }

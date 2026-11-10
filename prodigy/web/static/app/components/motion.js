@@ -52,7 +52,8 @@ export function tween(duration, frame, done = null) {
 
 /** The current state of a marginal chart (charts.js), possibly in the middle of a transition. */
 export function chartState(svg) {
-  if (!svg?.dataset.max) return null;
+  // a logarithmic chart is not tweened (applyChart interpolates on a linear axis)
+  if (!svg?.dataset.max || svg.dataset.scale === "log") return null;
   const width = Number(svg.dataset.width);
   const bars = new Map();
   for (const group of svg.querySelectorAll(":scope > .mc-bar[data-key]")) {
@@ -145,7 +146,7 @@ export function tweenChart(find, from, duration) {
   if (!from) return null;
   return tween(duration, (e) => {
     const svg = find();
-    if (svg?.dataset.max && svg.dataset.variable === from.variable) applyChart(svg, from, e);
+    if (svg?.dataset.max && svg.dataset.scale !== "log" && svg.dataset.variable === from.variable) applyChart(svg, from, e);
   });
 }
 
