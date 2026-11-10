@@ -80,11 +80,24 @@ jobs:
             htmlcov/
           retention-days: 14
 
+  fuzz-smoke:
+    name: fuzzing (smoke test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          python-version: "3.14"
+      - run: uv run pytest -m fuzz tests/fuzzing tests/simulation
+        env:
+          PRODIGY_FUZZ: ci
+
   # The branch protection rule requires this check. It passes only if all jobs above passed,
   # so jobs can be added or renamed without changing the rule.
   build:
     if: ${{ always() }}
-    needs: [ lint, typecheck, test ]
+    needs: [ lint, typecheck, test, fuzz-smoke ]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -19,7 +19,10 @@ COV = --cov=prodigy --cov-report html --cov-report term
 XDIST = -n auto --dist worksteal
 
 test:
-	uv run pytest ${XDIST} ${COV} --junitxml=testreport.xml ${ARGS}
+	uv run pytest ${XDIST} ${COV} \
+		-m "not fuzz" \
+		--timeout=120 \
+		--junitxml=testreport.xml ${ARGS}
 
 docs:
 	uv run --group docs sphinx-build -M html docs/source docs/build -W --keep-going ${ARGS}

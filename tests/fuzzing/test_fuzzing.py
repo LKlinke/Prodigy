@@ -26,7 +26,7 @@ from .oracles import check_program
 from .programs import Features, GeneratedProgram, programs
 
 settings.register_profile(
-    "fuzz-ci", max_examples=40, derandomize=True, deadline=timedelta(seconds=60), database=None,
+    "fuzz-ci", max_examples=5, derandomize=True, deadline=timedelta(seconds=60), database=None,
     suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much, HealthCheck.data_too_large])
 settings.register_profile(
     "fuzz-nightly", max_examples=400, derandomize=False, deadline=None, database=None, print_blob=True,

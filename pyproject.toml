@@ -60,6 +60,7 @@ dev = [
     "hypothesis>=6",
     # `make test` runs the tests in parallel workers (-n auto --dist worksteal)
     "pytest-xdist>=3.6",
+    "pytest-timeout>=2.4.0",
 ]
 # `make docs` (docs/source); not installed by default, `uv run --group docs` adds it
 docs = [
