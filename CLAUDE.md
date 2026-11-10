@@ -19,6 +19,10 @@ guarantee: exact, lower bound with residual mass, or upper bound. Maintainer: Lu
   in code, docs, commit messages or PR texts. The repository and its issues are public.
 - Problems found but not fixed in a PR go into a section "Found, not fixed here" of the PR text;
   each becomes an issue (with a priority label and a milestone) instead of getting lost.
+  - Each finding states whether it already exists on `main`. A problem that the PR itself
+    introduces is a regression (label `regression`) and is fixed in that PR before it is merged.
+  - Issues that belong to a topic get its label (e.g. `topic: loop strategies`) and are added to
+    the topic's overview issue (#262 for the loop strategies).
 
 ## Commands (uv)
 ```sh
