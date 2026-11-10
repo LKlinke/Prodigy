@@ -10,7 +10,8 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
-from prodigy.analysis.trace import TraceLimits, Tracer, _LoopFrame, certificate_checks, parse_watch
+from prodigy.analysis.trace import (MARGINALS_OUT_OF_TIME, MARGINALS_TOO_LARGE, MARGINALS_TURNED_OFF, TraceLimits,
+                                    Tracer, _LoopFrame, certificate_checks, parse_watch)
 from prodigy.cli import cli
 from prodigy.pgcl import parse_pgcl
 from prodigy.pgcl.ast.walk import Walk, walk_instrs
@@ -242,6 +243,60 @@ def test_large_closed_forms_are_cut_and_marginals_skipped():
     assert loop_step["after"]["size"] > 20 and not loop_step["after"]["marginals"]
     assert loop_step["after"]["marginals_omitted"] == "closed form too large"
     assert any(h["kind"] == "limits" for h in result["trace"]["hints"])
+
+
+def _all_snapshots(result):
+    for step in result["steps"]:
+        for key in ("before", "after"):
+            if step.get(key):
+                yield step[key]
+        for iterate in (step.get("loop") or {}).get("iterates") or []:
+            yield iterate["distribution"]
+
+
+def test_iterates_without_marginals_are_marked_not_recorded():
+    """Issue #202: a marginal that was not recorded is unknown, not 0; the trace says so."""
+    result = _run(PPY, "ppy", decision="unroll:iterations=6", trace_limits=TraceLimits(closed_form_chars=40))
+    iterates = next(s for s in result["steps"] if s["kind"] == "while")["loop"]["iterates"]
+    recorded = [it for it in iterates if it["distribution"]["marginals"]]
+    missing = [it for it in iterates if not it["distribution"]["marginals"]]
+    assert recorded and missing
+    for iterate in recorded:
+        assert iterate["distribution"]["marginals_not_recorded"] == {}
+        assert "marginals_omitted" not in iterate["distribution"]
+    for iterate in missing:
+        snap = iterate["distribution"]
+        assert snap["marginals_omitted"] == MARGINALS_TOO_LARGE
+        assert snap["marginals_not_recorded"] == {"c": MARGINALS_TOO_LARGE, "x": MARGINALS_TOO_LARGE}
+        # the mass still inside the loop is known even without marginals
+        assert snap["residual_mass"] is not None and iterate["inside_mass"] is not None
+
+
+@pytest.mark.parametrize("limits, reason, hint", [
+    (TraceLimits(snapshot_budget=0), MARGINALS_OUT_OF_TIME, True),
+    (TraceLimits(coefficients=0), MARGINALS_TURNED_OFF, False),
+])
+def test_every_variable_without_a_marginal_has_a_reason(limits, reason, hint):
+    result = _run(PPY, "ppy", trace_limits=limits)
+    snapshots = list(_all_snapshots(result))
+    assert snapshots
+    for snap in snapshots:
+        assert snap["marginals"] == {} and snap["marginals_omitted"] == reason
+        assert set(snap["marginals_not_recorded"]) <= {"c", "x"}
+        assert set(snap["marginals_not_recorded"].values()) <= {reason}
+    assert any(snap["marginals_not_recorded"] for snap in snapshots)
+    assert any(h["kind"] == "limits" for h in result["trace"]["hints"]) == hint
+
+
+def test_variables_beyond_the_limit_are_marked_not_recorded():
+    result = _run(PPY, "ppy", trace_limits=TraceLimits(max_variables=1))
+    snapshots = [snap for snap in _all_snapshots(result) if {"c", "x"} <= set(snap["marginals"])
+                 | set(snap["marginals_not_recorded"])]
+    assert snapshots
+    for snap in snapshots:
+        assert list(snap["marginals"]) == ["c"] and "marginals_omitted" not in snap
+        assert list(snap["marginals_not_recorded"]) == ["x"]
+        assert "beyond the limit of 1 variable per" in snap["marginals_not_recorded"]["x"]
 
 
 def test_without_record_steps_there_is_no_trace():
