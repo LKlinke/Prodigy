@@ -139,7 +139,7 @@ From the weakest to the strongest binding:
 | `and`, `&&` | conjunction |
 | `not`, `!` | negation |
 | `<`, `<=`, `>`, `>=`, `==` | comparison (does not chain: `a < b < c` is an error) |
-| `+`, `-` | addition, subtraction (left-associative) |
+| `+`, `-` | addition, subtraction (left-associative); on `nat`, `-` is truncated at 0 (see below) |
 | `*`, `/`, `//`, `%` | multiplication, rational division, floor division, modulo (left-associative) |
 | `-` (unary) | negation |
 | `**` | power (right-associative; `-x ** 2` is `-(x ** 2)`) |
@@ -149,6 +149,13 @@ As in Python, `not` (and `!`) binds weaker than the comparisons: `not x == 1` is
 Parentheses group as usual. Square brackets are not an expression: there are no Iverson brackets
 `[g]` (a condition as the number 0 or 1); a program that uses them, or the former `tick(e)`
 statement, is rejected with a syntax error at its position.
+
+**Subtraction.** On natural numbers, `a - b` is `max(a - b, 0)` (monus): `3 - 5` is `0`, and
+`(n - 7) + 7` is `7` for `n = 5`, in assignments, guards and queries alike. This follows from the
+semantics of pGCL, which defines only the decrement `x--` (with `0-- = 0`): `a - b` decrements `a`
+`b` times, with `b` evaluated first. So `a - (b + c) = (a - b) - c`, but `a - b + b = a` only if
+`a ≥ b`. A subtraction of two variables that both take infinitely many values ends with "not
+implemented" unless it is provably never negative. Details: {doc}`language-design`.
 
 **Division.** `/` is rational division and never rounds: in a guard, `x / 2 <= 1` means
 `x <= 2`; assigned to a `nat` variable, the result must be a natural number. `e // q` rounds down

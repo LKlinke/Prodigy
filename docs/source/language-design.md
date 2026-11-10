@@ -76,6 +76,32 @@ computed exactly via the residue classes modulo the divisor, as for `x % q`. Imp
 for a natural expression `e` and a positive natural constant `q`, exact if `e` has a finite marginal
 or the generating function is rational in it; other cases end with an error.
 
+### Subtraction
+
+`-` on `nat` is truncated subtraction (monus): `a - b = max(a - b, 0)`. This is not a new
+definition. The semantics of pGCL with generating functions defines only the decrement `x--` on the
+natural numbers, as monus (`0-- = 0`). `a - b` is `b` iterations of `a--`, with `b` evaluated first
+in the current state. By induction on `b`, this is `max(a - b, 0)`: for `b = 0` it is `a`, and
+`max(a - b, 0)--` is `max(a - (b + 1), 0)`.
+
+- Monus holds in every intermediate result: `(n - 7) + 7` is `7` for `n = 5`. No simplification
+  runs before the subtraction is truncated.
+- `a - (b + c) = (a - b) - c` holds (decrementing `b + c` times is decrementing `b` times and then
+  `c` times). `a - b + b = a` holds only if `a ≥ b`; otherwise the left side is `b`.
+- The same semantics holds in assignments, guards, `Pr[…]` and `Ex[…]` queries (also on `dist`
+  values) and in the exact calculus of the lower-bound strategies. A guard or a query is evaluated
+  like an assignment of the subtraction to a fresh variable, followed by the guard or the
+  expected value of that variable, so all engines give the same value. A subtraction with `/`,
+  with a constant that is not a natural number or with a parameter (e.g. in a probability
+  `1 - p`) is rational subtraction.
+- Computation: the distribution is split into the states with `a < b` (value `0`) and the others
+  (the ordinary difference). This is exact whenever `a < b` can be filtered: always with a
+  constant operand, and for two variables if one of them has a finite marginal or the difference is
+  provably never negative. Two variables with infinite marginals and a difference that can be
+  negative end with "not implemented".
+- Before, an assignment `x = a - b` was rejected unless the difference was provably never
+  negative, and queries were evaluated differently on each engine (issue #220).
+
 ### Declarations and scope
 
 ```

@@ -5,8 +5,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from fractions import Fraction
-from typing import (Dict, FrozenSet, Generator, Iterator, List, Optional, Sequence,
+from typing import (Any, Dict, FrozenSet, Generator, Iterator, List, Optional, Sequence,
                     Set, Tuple, Type, Union)
+
+from lark.exceptions import LarkError
 
 from prodigy.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr,
                            RealLitExpr, Unop, UnopExpr, VarExpr)
@@ -23,7 +25,12 @@ def constant_value(expression: Expr) -> Fraction | None:
     """
     The value of an arithmetic expression without variables, or None if the expression contains
     variables, an operator other than + - * / % ^, or an intermediate result that natural-number
-    arithmetic does not allow (negative difference, division by zero, non-integer modulo or exponent).
+    arithmetic does not allow (division by zero, non-integer modulo or exponent).
+
+    A difference of two natural numbers is truncated at 0 (monus, `3 - 5 = 0`), as `-` on `nat`
+    is everywhere (see :meth:`Distribution.update`). A difference with an operand that is not a
+    natural number (e.g. `1 - 1/3` in a probability) is the rational difference if it is not
+    negative, and None otherwise.
     """
     if isinstance(expression, NatLitExpr):
         return Fraction(expression.value)
@@ -39,6 +46,8 @@ def constant_value(expression: Expr) -> Fraction | None:
     if expression.operator == Binop.TIMES:
         return left * right
     if expression.operator == Binop.MINUS:
+        if _is_natural(left) and _is_natural(right):
+            return max(left - right, Fraction(0))
         return left - right if left >= right else None
     if expression.operator == Binop.DIVIDE:
         return left / right if right != 0 else None
@@ -53,6 +62,32 @@ def constant_value(expression: Expr) -> Fraction | None:
     if expression.operator == Binop.POWER:
         return left**right.numerator if right.denominator == 1 else None
     return None
+
+
+def _is_natural(value: Fraction) -> bool:
+    return value.denominator == 1 and value >= 0
+
+
+def is_natural_expression(expression: Expr, variables: Set[str]) -> bool:
+    """
+    Whether `expression` has a natural number as value in every state: it is built from the
+    variables in `variables`, natural number literals and `+ - * % // ^` (no division `/`, no
+    parameters, no constants that are not natural numbers). A `-` between two such expressions is
+    truncated subtraction (monus).
+    """
+    if isinstance(expression, NatLitExpr):
+        return True
+    if isinstance(expression, RealLitExpr):
+        return _is_natural(expression.to_fraction())
+    if isinstance(expression, VarExpr):
+        return expression.var in variables
+    if isinstance(expression, BinopExpr) and expression.operator in _NATURAL_OPERATORS:
+        return is_natural_expression(expression.lhs, variables) and \
+            is_natural_expression(expression.rhs, variables)
+    return False
+
+
+_NATURAL_OPERATORS = {Binop.PLUS, Binop.MINUS, Binop.TIMES, Binop.MODULO, Binop.FLOOR_DIVIDE, Binop.POWER}
 
 
 def _without_fractional_constants(expression: BinopExpr) -> BinopExpr | None:
@@ -82,16 +117,35 @@ def _without_fractional_constants(expression: BinopExpr) -> BinopExpr | None:
         f"Cannot evaluate {expression} because the constant {fraction} is not a natural number")
 
 
-def _floor_division_term(expression: Expr) -> BinopExpr | None:
-    """An innermost floor division `e // q` in `expression`, or None."""
+def _computed_term(expression: Expr, variables: Set[str]) -> BinopExpr | None:
+    """
+    An innermost term of `expression` that the engines cannot evaluate themselves, or None: a
+    floor division `e // q`, or a subtraction `a - b` of natural-number expressions (monus, see
+    :func:`is_natural_expression`).
+    """
     if isinstance(expression, UnopExpr):
-        return _floor_division_term(expression.expr)
+        return _computed_term(expression.expr, variables)
     if not isinstance(expression, BinopExpr):
         return None
-    inner = _floor_division_term(expression.lhs) or _floor_division_term(expression.rhs)
+    inner = _computed_term(expression.lhs, variables) or _computed_term(expression.rhs, variables)
     if inner is not None:
         return inner
-    return expression if expression.operator == Binop.FLOOR_DIVIDE else None
+    if expression.operator == Binop.FLOOR_DIVIDE:
+        return expression
+    if expression.operator == Binop.MINUS and is_natural_expression(expression, variables):
+        return expression
+    return None
+
+
+def _state_value(expression: Expr, state: State) -> Fraction | None:
+    """The value of `expression` in `state` (see :func:`constant_value`), or None."""
+    def assigned(expr: Expr) -> Expr:
+        if isinstance(expr, VarExpr) and expr.var in state.valuations:
+            return NatLitExpr(state[expr.var])
+        if isinstance(expr, BinopExpr):
+            return BinopExpr(expr.operator, assigned(expr.lhs), assigned(expr.rhs))
+        return expr
+    return constant_value(assigned(expression))
 
 
 def _replace_term(expression: Expr, term: Expr, replacement: Expr) -> Expr:
@@ -262,9 +316,28 @@ class Distribution(ABC):
     def get_probability_mass(self) -> str:
         """ Returns the probability mass of the distribution. """
 
-    @abstractmethod
     def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
-        """ Returns the expected value of the expression `expression` evaluated in the distribution. """
+        """
+        The expected value of `expression`. Floor divisions and subtractions of natural numbers
+        (truncated at 0) are computed into fresh variables first, exactly as an assignment of them
+        (:meth:`without_computed_terms`), so every engine gives the same value and no engine
+        simplifies `n - 7 + 7` to `n` before the subtraction is truncated.
+        """
+        parsed: Union[Expr, str] = expression
+        if isinstance(expression, str):
+            try:
+                parsed = parse_expr(expression)
+            except LarkError:
+                # not in pGCL syntax (e.g. `x**2`): the engine reads it itself
+                return self._expected_value_of(expression)
+        assert not isinstance(parsed, str)
+        extended, replaced, _ = self.without_computed_terms(parsed)
+        return extended._expected_value_of(replaced)  # pylint: disable=protected-access
+
+    @abstractmethod
+    def _expected_value_of(self, expression: Union[Expr, str]) -> str:
+        """The expected value of `expression`, computed by the engine (see :meth:`get_expected_value_of`)."""
+
 
     @abstractmethod
     def normalize(self) -> Distribution:
@@ -321,10 +394,11 @@ class Distribution(ABC):
                 f"We do not support filtering for {condition.operator} expressions."
             )
 
-        # Floor divisions are computed into fresh variables first, e.g. x // 2 < 3 becomes t < 3
-        # for t := x // 2 (an exact update); t is a function of the state, so it can be dropped again
-        if _floor_division_term(condition) is not None:
-            extended, replaced, fresh = self.without_floor_division(condition)
+        # Floor divisions and subtractions (monus) are computed into fresh variables first, e.g.
+        # x // 2 < 3 becomes t < 3 for t := x // 2 (an exact update); t is a function of the state,
+        # so it can be dropped again
+        if _computed_term(condition, self.get_variables()) is not None:
+            extended, replaced, fresh = self.without_computed_terms(condition)
             filtered = extended.filter(replaced)
             return filtered.marginal(*fresh, method=MarginalType.EXCLUDE) if fresh else filtered
 
@@ -367,16 +441,19 @@ class Distribution(ABC):
         expression = self._explicit_state_unfolding(condition)
         return self.filter(expression)
 
-    def without_floor_division(self, expression: Expr) -> Tuple[Distribution, Expr, List[str]]:
+    def without_computed_terms(self, expression: Expr) -> Tuple[Distribution, Expr, List[str]]:
         """
-        Replaces every floor division `e // q` in `expression` by its value: a literal if `e` is
-        constant, else a fresh variable `t` with the update `t := e // q` applied to this distribution.
-        Returns the extended distribution, the expression without floor divisions and the fresh
-        variables (each a function of the state, so they can be marginalised out afterwards).
+        Replaces every floor division `e // q` and every subtraction `a - b` of natural-number
+        expressions (monus) in `expression` by its value: a literal if the term is constant, else a
+        fresh variable `t` with the update `t := term` applied to this distribution. So guards and
+        queries (`Pr[...]`, `Ex[...]`) evaluate these terms exactly as an assignment does, on every
+        engine, and no engine simplifies e.g. `(n - 7) + 7` to `n` before the subtraction is
+        truncated. Returns the extended distribution, the expression without these terms and the
+        fresh variables (each a function of the state, so they can be marginalised out afterwards).
         """
         dist: Distribution = self
         fresh: List[str] = []
-        term = _floor_division_term(expression)
+        term = _computed_term(expression, self.get_variables())
         while term is not None:
             constant = constant_value(term)
             if constant is not None:
@@ -388,7 +465,7 @@ class Distribution(ABC):
                 fresh.append(name)
                 replacement = VarExpr(name)
             expression = _replace_term(expression, term, replacement)
-            term = _floor_division_term(expression)
+            term = _computed_term(expression, dist.get_variables())
         return dist, expression, fresh
 
     @abstractmethod
@@ -516,25 +593,30 @@ class Distribution(ABC):
                 f"Expression must be an (in-)equation or negation, was {condition}"
             )
 
-        lhs = str(condition.lhs)
-        rhs = str(condition.rhs)
         op = condition.operator
-
-        if op == Binop.EQ:
-            return cls.evaluate(lhs, state) == cls.evaluate(rhs, state)
-        elif op == Binop.LEQ:
-            return cls.evaluate(lhs, state) <= cls.evaluate(rhs, state)
-        elif op == Binop.LT:
-            return cls.evaluate(lhs, state) < cls.evaluate(rhs, state)
-        elif op == Binop.GT:
-            return cls.evaluate(lhs, state) > cls.evaluate(rhs, state)
-        elif op == Binop.GEQ:
-            return cls.evaluate(lhs, state) >= cls.evaluate(rhs, state)
-        elif op == Binop.OR:
+        if op in (Binop.EQ, Binop.LEQ, Binop.LT, Binop.GT, Binop.GEQ):
+            # exactly, with truncated subtraction, if both sides are numbers in this state
+            left, right = _state_value(condition.lhs, state), _state_value(condition.rhs, state)
+            lhs: Any
+            rhs: Any
+            if left is not None and right is not None:
+                lhs, rhs = left, right
+            else:
+                lhs, rhs = cls.evaluate(str(condition.lhs), state), cls.evaluate(str(condition.rhs), state)
+            if op == Binop.EQ:
+                return lhs == rhs
+            if op == Binop.LEQ:
+                return lhs <= rhs
+            if op == Binop.LT:
+                return lhs < rhs
+            if op == Binop.GT:
+                return lhs > rhs
+            return lhs >= rhs
+        if op == Binop.OR:
             return cls.evaluate_condition(condition.lhs,
                                           state) or cls.evaluate_condition(
                 condition.rhs, state)
-        elif op == Binop.AND:
+        if op == Binop.AND:
             return cls.evaluate_condition(condition.lhs,
                                           state) and cls.evaluate_condition(
                 condition.rhs, state)
@@ -567,10 +649,13 @@ class Distribution(ABC):
                approximate: str | float | None = None) -> Distribution:
         """ Updates the current distribution by applying the expression to itself.
 
+            Subtraction is truncated at 0 (monus, `a - b = max(a - b, 0)`) in every intermediate result, e.g.
+            `(n - 7) + 7` is 7 for `n = 5` (see :meth:`_update_monus`).
+
             Some operations are illegal and will cause this function to raise an error. These operations include
-            subtraction that may cause a variable to have a negative value, division that may cause a variable to have a
-            value that is not an integer, and certain operations on infinite generating functions if the variables
-            involved have an infinite marginal (such as multiplication of two variables) and approximation is disabled.
+            division that may cause a variable to have a value that is not an integer, and certain operations on
+            infinite generating functions if the variables involved have an infinite marginal (such as multiplication
+            of two variables) and approximation is disabled.
 
             Every intermediate result that depends on a variable must be a natural number. A constant that is not a
             natural number may therefore only be a factor or a divisor: `p/q * e` is evaluated as `(p * e) / q` and
@@ -627,7 +712,13 @@ class Distribution(ABC):
                 elif expression.operator == Binop.TIMES:
                     f = f._update_product(temp_var, t_1, t_2, approximate)
                 elif expression.operator == Binop.MINUS:
-                    f = f._update_subtraction(temp_var, t_1, t_2)
+                    try:
+                        f = f._update_monus(temp_var, t_1, t_2)
+                    except NotImplementedError as error:
+                        raise NotImplementedError(
+                            f"Cannot compute {expression} exactly: subtraction on natural numbers is truncated "
+                            f"at 0, which needs the states with {expression.lhs} < {expression.rhs}, and these "
+                            f"cannot be filtered here (not implemented). Details: {error}") from error
                 elif expression.operator == Binop.MODULO:
                     f = f._update_modulo(temp_var, t_1, t_2, approximate)
                 elif expression.operator == Binop.DIVIDE:
@@ -725,12 +816,67 @@ class Distribution(ABC):
         if approximation is disabled.
         """
 
+    def _update_monus(self, temp_var: str, minuend: str | int, subtrahend: str | int) -> Distribution:
+        """
+        Applies `temp_var = minuend - subtrahend` with truncated subtraction (monus): states with
+        `minuend < subtrahend` get the value 0, the others the difference. `minuend` and
+        `subtrahend` are variables of this distribution or natural numbers.
+
+        The split is exact: the states below are filtered (`minuend < subtrahend`), the rest gets
+        the ordinary subtraction, which is never negative there. If the subtraction is provably
+        never negative (:meth:`_subtraction_never_negative`), there is nothing to split. Raises
+        NotImplementedError if the filter cannot be computed exactly (e.g. two variables with
+        infinite marginals) or an operand is a parameter.
+        """
+        variables = self.get_variables()
+        operands: List[Expr] = []
+        for operand in (minuend, subtrahend):
+            text = str(operand).strip()
+            if text in variables:
+                operands.append(VarExpr(text))
+            elif text.isdigit():
+                operands.append(NatLitExpr(int(text)))
+            else:
+                raise NotImplementedError(
+                    f"Cannot compute '{minuend} - {subtrahend}' (truncated at 0) because '{text}' is not a program "
+                    "variable or a natural number")
+        left, right = operands
+        if isinstance(left, NatLitExpr) and isinstance(right, NatLitExpr):
+            return self._update_var(temp_var, max(left.value - right.value, 0))
+        if isinstance(left, VarExpr) and isinstance(right, VarExpr) and left.var == right.var:
+            return self._update_var(temp_var, 0)
+        if isinstance(right, NatLitExpr) and right.value == 0:
+            return self._update_var(temp_var, str(minuend))
+        if isinstance(left, VarExpr) and isinstance(right, VarExpr) \
+                and self._subtraction_never_negative(str(minuend), str(subtrahend)):
+            return self._update_subtraction(temp_var, minuend, subtrahend)
+        below = self.filter(BinopExpr(Binop.LT, left, right))
+        if below.is_zero_dist() is True:
+            return self._update_subtraction(temp_var, minuend, subtrahend)
+        above = self - below
+        # pylint: disable=protected-access
+        truncated = below._update_var(temp_var, 0)
+        if above.is_zero_dist() is True:
+            return truncated
+        return truncated + above._update_subtraction(temp_var, minuend, subtrahend)
+
+    def _subtraction_never_negative(self, minuend: str, subtrahend: str) -> bool:
+        """
+        Whether `minuend - subtrahend` (two variables) is provably never negative on the support
+        of this distribution; False if it can be negative or the question is not decided. Engines
+        override this with an exact check that needs no filter (see
+        :mod:`prodigy.distribution.negative_values`).
+        """
+        # pylint: disable=unused-argument
+        return False
+
     @abstractmethod
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> Distribution:
         """
-        Applies the expression `temp_var = sub_from - sub` to this distribution. If this
-        difference might be negative, this function will raise an error.
+        Applies the expression `temp_var = sub_from - sub` to this distribution, where the
+        difference is never negative on the support (the caller ensures this, see
+        :meth:`_update_monus`).
         """
 
     @abstractmethod

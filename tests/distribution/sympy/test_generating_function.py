@@ -158,14 +158,11 @@ class TestDistributionInterface:
         assert gf.get_expected_value_of("p") == "p"
 
         gf = GeneratingFunction("n^5")
-        # Linearity breaks if intermediate results are negative.
-        with pytest.raises(ValueError):
-            gf.get_expected_value_of("n - 7 + 1")
-        pytest.xfail(
-            'this is simplified to "n" by sympy, meaning we cannot detect that the intermediate results are negative'
-        )
-        with pytest.raises(ValueError):
-            gf.get_expected_value_of("n - 7 + 7")
+        # subtraction is truncated at 0 in every intermediate result (monus, #220), before any simplification
+        assert sympy.S(gf.get_expected_value_of("n - 7 + 1")) == 1
+        assert sympy.S(gf.get_expected_value_of("n - 7 + 7")) == 7
+        assert sympy.S(gf.get_expected_value_of("(n - 7) * (n - 7)")) == 0
+        assert sympy.S(gf.get_expected_value_of("n - 3")) == 2
 
     def test_normalize(self):
         assert create_random_gf().normalize().coefficient_sum() == 1

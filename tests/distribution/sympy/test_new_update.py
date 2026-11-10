@@ -117,31 +117,20 @@ def test_subtraction():
         parse_expr("l = l - n")) == GeneratingFunction("n^5*m^42*l^3")
     assert gf.update(
         parse_expr("m = l - n")) == GeneratingFunction("n^5*m^3*l^8")
-    with raises(ValueError) as e:
-        gf.update(parse_expr("m = n - l"))
-    assert "Cannot assign '" in str(e) and "because it can be negative" in str(
-        e)
+    # subtraction is truncated at 0 (monus, #220)
+    assert gf.update(parse_expr("m = n - l")) == GeneratingFunction("n^5*l^8", "n", "m", "l")
 
     gf = GeneratingFunction('p*x', 'x')
-    with raises(ValueError, match='because it can be negative'):
-        gf.update(parse_expr("x = x - 2"))
-    with raises(ValueError) as e:
-        gf.update(parse_expr("x = x - 20"))
-    assert "Cannot assign '" in str(e) and "because it can be negative" in str(
-        e)
+    assert gf.update(parse_expr("x = x - 2")) == GeneratingFunction('p', 'x')
+    assert gf.update(parse_expr("x = x - 20")) == GeneratingFunction('p', 'x')
     assert gf.update(parse_expr("x = x - 1")) == GeneratingFunction('p', 'x')
 
     gf = GeneratingFunction('(1/p)*x', 'x')
-    with raises(ValueError) as e:
-        gf.update(parse_expr("x = x - 2"))
-    assert "Cannot assign '" in str(e) and "because it can be negative" in str(
-        e)
+    assert gf.update(parse_expr("x = x - 2")) == GeneratingFunction('1/p', 'x')
 
     gf = SympyPGF.poisson('x', 3)
-    with raises(ValueError) as e:
-        gf.update(parse_expr("x = x - 2"))
-    assert "Cannot assign '" in str(e) and "because it can be negative" in str(
-        e)
+    assert gf.update(parse_expr("x = x - 2")) == GeneratingFunction(
+        "exp(-3)*(1 + 3) + (exp(3*(x - 1)) - exp(-3) - 3*x*exp(-3))/x^2", 'x')
 
     gf = GeneratingFunction('0.4*tmp^5*c^13*n^4 + 0.6*tmp^7*c^28*n^77')
     assert gf.update(parse_expr('n = n + (c-tmp)')) == GeneratingFunction(

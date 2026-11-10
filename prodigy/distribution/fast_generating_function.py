@@ -10,7 +10,7 @@ from sympy import Expr as Expr_, Symbol, parse_expr
 from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
 from prodigy.distribution.exact_division import divide_exponents
-from prodigy.distribution.negative_values import can_be_negative, operand, require_non_negative
+from prodigy.distribution.negative_values import can_be_negative, operand
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
@@ -174,7 +174,7 @@ class FPS(Distribution):
     def get_probability_mass(self) -> str:
         return self._dist.mass(self._variables & set(self._dist.get_symbols()))
 
-    def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
+    def _expected_value_of(self, expression: Union[Expr, str]) -> str:
         # Symbols that are neither variables nor parameters have no value: reject them, as the SymPy engine
         # does (the bindings reject them as well since prodigy-ppl-ginac 0.0.5).
         symbols = self._find_symbols(str(expression))
@@ -312,16 +312,13 @@ class FPS(Distribution):
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> Distribution:
-        # The bindings decide subtractions with a constant exactly (`filterLess`/`filterGreater` on the series), and
-        # subtractions of two variables only on finite supports; decide the latter here for every support.
-        variables = self.get_variables() | {temp_var}
-        if str(sub_from) in variables and str(sub) in variables:
-            require_non_negative(
-                can_be_negative(self._sympy_function(), {Symbol(var) for var in variables},
-                                operand(sub_from, variables), operand(sub, variables)),
-                temp_var, sub_from, sub)
         res = self._dist.update_subtraction(temp_var, str(sub_from), str(sub))
         return FPS.from_dist(res, self._variables, self._parameters)
+
+    def _subtraction_never_negative(self, minuend: str, subtrahend: str) -> bool:
+        variables = self.get_variables()
+        return can_be_negative(self._sympy_function(), {Symbol(var) for var in variables},
+                               operand(minuend, variables), operand(subtrahend, variables)) is False
 
     def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
                        approximate: str | float | None) -> FPS:
