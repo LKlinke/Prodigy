@@ -24,11 +24,11 @@ def _per_engine(issue_engines, issue):
     return [pytest.param(name, marks=_ginac_xfail(issue)) if name in issue_engines else name for name in ENGINES]
 
 
-# #232: GiNaC moves the old distribution of y onto x
+# #232: GiNaC moved the old distribution of y onto x
 VARIABLE_COPY = "x: nat;\ny: nat;\ny = unif(0, 2);\ny = x;\nprint;\n"
 
 
-@pytest.mark.parametrize("engine", _per_engine({"ginac"}, 232))
+@pytest.mark.parametrize("engine", ENGINES)
 def test_copy_of_a_variable_that_does_not_occur(engine):
     result = analyse(VARIABLE_COPY, "ppy", ENGINES[engine], {})
     assert result["status"] == "ok"

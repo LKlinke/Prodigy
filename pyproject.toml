@@ -32,12 +32,12 @@ dependencies = [
     # The GiNaC engine (--engine ginac). Its wheels bundle GiNaC; the marker leaves out the platforms and Python
     # versions without wheels, where pip would build the sdist (needs a C++17 compiler, CMake and GiNaC).
     # A marker cannot tell musllinux from glibc, so on Alpine pip still tries to build it.
-    "prodigy-ppl-ginac>=0.0.5,<0.1; python_version < '3.15' and (sys_platform == 'darwin' or (sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')))",
+    "prodigy-ppl-ginac>=0.0.6,<0.1; python_version < '3.15' and (sys_platform == 'darwin' or (sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')))",
 ]
 
 [project.optional-dependencies]
 # The GiNaC engine on every platform, built from the sdist where no wheel exists
-ginac = ["prodigy-ppl-ginac>=0.0.5,<0.1"]
+ginac = ["prodigy-ppl-ginac>=0.0.6,<0.1"]
 
 [project.urls]
 Repository = "https://github.com/LKlinke/Prodigy"

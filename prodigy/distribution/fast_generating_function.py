@@ -10,14 +10,20 @@ from sympy import Expr as Expr_, Symbol, parse_expr
 from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
 from prodigy.distribution.exact_division import divide_exponents
+from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.distribution.negative_values import can_be_negative, operand
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
-                                               MarginalType, State)
+                                               MarginalType, NonFiniteMarginalError, State)
 from prodigy.pgcl import Binop, BinopExpr, Expr, FunctionCallExpr, NatLitExpr, VarExpr
 
 from prodigy.util.order import default_monomial_iterator
+
+
+def _is_division_by_zero(error: ValueError) -> bool:
+    """Whether the bindings raised `error` because they evaluated an expression at a pole."""
+    return "division by zero" in str(error)
 
 
 class FPS(Distribution):
@@ -188,7 +194,16 @@ class FPS(Distribution):
         text = str(expression)
         if absent:
             text = re.sub(r"\b(" + "|".join(sorted(map(re.escape, absent))) + r")\b", "0", text)
-        return self._dist.E(text)
+        try:
+            return self._dist.E(text)
+        except ValueError as error:
+            if not _is_division_by_zero(error):
+                raise
+        # The bindings evaluate the moments at 1 and fail at a pole, e.g. an infinite expected value (#227).
+        # The SymPy engine computes the limit from below, which is the value of the series (Abel's theorem).
+        # The other symbols of the function are its parameters.
+        sympy_engine = GeneratingFunction(str(self._dist), *self._variables)
+        return sympy_engine._expected_value_of(text)  # pylint: disable=protected-access
 
     def normalize(self) -> FPS:
         return FPS.from_dist(self._dist.normalize(), self._variables, self._parameters)
@@ -290,6 +305,7 @@ class FPS(Distribution):
         return res
 
     def _update_var(self, updated_var: str, assign_var: str | int) -> FPS:
+        # A variable that does not occur in the generating function is 0 (prodigy-ppl-ginac >= 0.0.6, #232).
         return FPS.from_dist(
             self._dist.update_var(updated_var, str(assign_var)),
             self._variables, self._parameters, self._finite)
@@ -449,7 +465,15 @@ class FPS(Distribution):
                                    for var in variables}
         }
         for var in remove_vars[method]:
-            result = result.update_var(str(var), "0")
+            try:
+                result = result.update_var(str(var), "0")
+            except ValueError as error:
+                if not _is_division_by_zero(error):
+                    raise
+                # a pole at var = 1: the marginal has infinite (or undefined) mass (#242)
+                raise NonFiniteMarginalError(
+                    f"Cannot marginalise {var} out of {self._dist}: the generating function has a pole at "
+                    f"{var} = 1, so the marginal is not a finite measure.") from error
         return FPS.from_dist(result, self._variables - remove_vars[method],
                              self._parameters)
 
