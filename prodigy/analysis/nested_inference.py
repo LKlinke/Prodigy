@@ -400,14 +400,22 @@ def assign_return_value(distribution: Distribution, function: Function, var: str
                         prog_info: ProgramInfo, config: ForwardAnalysisConfig, run: Runner,
                         error_prob: Distribution) -> Tuple[Distribution, Distribution]:
     """Assigns the return value of ``function`` to the new variable ``var``."""
-    distribution = _add_variables(distribution, var)
-    if _is_plain(function.returns):
-        return distribution.update(BinopExpr(Binop.EQ, VarExpr(var), function.returns)), error_prob
-    # e.g. return sample(d); the assignment runs like one in the body
+    return _assign_value(_add_variables(distribution, var), var, function.returns, prog_info, config,
+                         run, error_prob)
+
+
+def _assign_value(distribution: Distribution, var: str, expr: Expr, prog_info: ProgramInfo,
+                  config: ForwardAnalysisConfig, run: Runner,
+                  error_prob: Distribution) -> Tuple[Distribution, Distribution]:
+    """``var = expr`` for a variable ``var`` of type ``nat`` that the program does not declare.
+    A plain expression is an update; a draw (``sample(d)``, ``categorical(…)``, a call) runs
+    like an assignment in the program."""
+    if _is_plain(expr):
+        return distribution.update(BinopExpr(Binop.EQ, VarExpr(var), expr)), error_prob
     program = copy.copy(prog_info.program)
     program.variables = {**program.variables, var: NatType(None)}
-    return run(AsgnInstr(var, function.returns), replace(prog_info, program=program), distribution,
-               error_prob, config)
+    return run(AsgnInstr(var, expr), replace(prog_info, program=program), distribution, error_prob,
+               config)
 
 
 def _has_observe(function: Function) -> bool:
@@ -669,7 +677,8 @@ def call_in_joint(function: Function, assignments: Dict[str, Expr],
                 temps[var if index == 0 else slot_variable(var, index - 1)] = temp
             continue
         temp = dist.get_fresh_variable()
-        dist = _add_variables(dist, temp).update(BinopExpr(Binop.EQ, VarExpr(temp), expr))
+        dist, error_prob = _assign_value(_add_variables(dist, temp), temp, expr, prog_info, config,
+                                         run, error_prob)
         temps[var] = temp
     # 2. caller variables with the names of the function's variables are kept aside
     own = set(function.variables) | {name for name in temps if name not in function.variables}

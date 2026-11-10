@@ -209,6 +209,10 @@ The parser and the type checker accept every such program.
 - Main form: `categorical({v1: p1, v2: p2, …})`, pairs of value and probability as in a Python
   dict.
 - Short form: `categorical(p0, p1, …, pn)` for the values `0, 1, …, n`.
+- The values are expressions, evaluated in the current state (`categorical({x: 1/2, x + 1: 1/2})`).
+  `x = categorical({v1: p1, …})` is the choice between the assignments `x = v1`, … with the
+  probabilities `p1`, …, the same as a nested probabilistic choice. For literal values the
+  generating function is multiplied by `p1·x^v1 + …` after `x` is marginalised out.
 - The probabilities must sum to 1. For literal probabilities the parser checks this. For now the
   probabilities must be literals; probabilities with parameters, which the analysis would have to
   check, are not implemented yet.

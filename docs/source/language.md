@@ -184,7 +184,7 @@ and required.
 | `unif(a, b)` | uniform on `a, …, b` (also `unif_d`) |
 | `iid(D, n)` | the sum of `n` independent samples of `D`; `n` is a variable or a natural number |
 | `sample_pgf(G, x)` | `x` drawn from the generating function `G` in `x` (the second argument is the assigned variable) |
-| `categorical({v1: p1, v2: p2, …})` | `v1` with probability `p1`, …; `categorical(p0, p1, …, pn)` for the values `0, …, n` |
+| `categorical({v1: p1, v2: p2, …})` | `v1` with probability `p1`, …; the values may be expressions over the variables; `categorical(p0, p1, …, pn)` for the values `0, …, n` |
 
 The arguments may depend on program variables, e.g. `x = bernoulli(1/k);`, and so may the
 probability of a choice. Prodigy computes this exactly by a case split over the values of the
