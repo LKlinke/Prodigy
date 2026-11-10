@@ -305,13 +305,9 @@ class FPS(Distribution):
         return res
 
     def _update_var(self, updated_var: str, assign_var: str | int) -> FPS:
-        assigned = str(assign_var)
-        # A variable the bindings do not know (it never occurred in the generating function) is 0 in every
-        # state. prodigy-ppl-ginac 0.0.5 renames `updated_var` to it instead (#232), so assign its value.
-        if not assigned.isdigit() and assigned not in self._dist.get_symbols():
-            assigned = "0"
+        # A variable that does not occur in the generating function is 0 (prodigy-ppl-ginac >= 0.0.6, #232).
         return FPS.from_dist(
-            self._dist.update_var(updated_var, assigned),
+            self._dist.update_var(updated_var, str(assign_var)),
             self._variables, self._parameters, self._finite)
 
     def _update_sum(self, temp_var: str, first_summand: str | int,
