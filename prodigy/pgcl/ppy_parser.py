@@ -274,9 +274,11 @@ def _zero_for(typ: Type) -> Optional[Expr]:
     return None
 
 
-def _fraction(num: Expr, denom: Expr) -> Expr:
+def _fraction(num: Expr, denom: Expr, meta: Meta) -> Expr:
     # same as the old parser: a quotient of two literals is a probability literal
     if isinstance(num, NatLitExpr) and isinstance(denom, NatLitExpr):
+        if denom.value == 0:
+            raise _error(meta, f"Division by zero in {num.value}/0")
         return RealLitExpr(Fraction(num.value, denom.value))
     return BinopExpr(Binop.DIVIDE, num, denom)
 
@@ -384,7 +386,7 @@ class _ToAst(Transformer):
 
     def divide(self, meta: Meta, children: List[Any]) -> Any:
         lhs, rhs = (self._plain(child, meta) for child in children)
-        return _fraction(lhs, rhs)
+        return _fraction(lhs, rhs, meta)
 
     def floor_divide(self, meta: Meta, children: List[Any]) -> Any:
         return self._binop(Binop.FLOOR_DIVIDE, meta, children)
