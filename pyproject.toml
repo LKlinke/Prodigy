@@ -82,6 +82,9 @@ testpaths = ["tests", "prodigy"]
 addopts = ["--doctest-modules"]
 # A test that runs longer than 10 minutes prints the stack of every thread, so a hang shows where it is.
 faulthandler_timeout = 600
+# pytest-timeout: a test that runs longer than 2 minutes fails with the stack of every thread instead of
+# blocking the run (the weekly fuzzing raises it, see .github/workflows/fuzzing.yml)
+timeout = 120
 # tests/fuzzing and tests/simulation/test_examples.py (`-m "not fuzz"` leaves them out)
 markers = ["fuzz: property-based fuzzing and differential tests against the simulator"]
 

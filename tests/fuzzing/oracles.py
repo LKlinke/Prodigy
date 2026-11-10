@@ -6,9 +6,13 @@ and off), compared with each other and with the simulator (:mod:`prodigy.simulat
 """
 from __future__ import annotations
 
+import contextlib
 import math
+import signal
+import threading
+import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, Iterator, List, Mapping, Optional
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
@@ -17,6 +21,41 @@ from prodigy.pgcl.parser import parse_pgcl
 from prodigy.simulator import SimulationError, UnsupportedConstruct, compare, simulate
 
 Engine = ForwardAnalysisConfig.Engine
+
+
+class ProgramTimeout(BaseException):
+    """A program used up its time budget (:func:`time_budget`). A BaseException, so that the
+    analysis's ``except Exception`` (errors end up in the result) does not swallow it."""
+
+
+@contextlib.contextmanager
+def time_budget(seconds: float) -> Iterator[None]:
+    """
+    Raises :class:`ProgramTimeout` in the block after ``seconds`` (wall clock, SIGALRM).
+
+    pytest-timeout uses the same timer: its handler and remaining time are saved and restored, and
+    the budget never outlasts it. Native code (the GiNaC bindings) is interrupted only when it
+    returns to Python. Without SIGALRM (Windows) or outside the main thread there is no budget.
+    """
+    if not hasattr(signal, "setitimer") or threading.current_thread() is not threading.main_thread():
+        yield
+        return
+    previous_handler = signal.getsignal(signal.SIGALRM)
+    previous_remaining, _ = signal.getitimer(signal.ITIMER_REAL)
+    started = time.monotonic()
+
+    def expire(_signum, _frame):
+        raise ProgramTimeout(f"the program needs more than {seconds} s")
+
+    signal.signal(signal.SIGALRM, expire)
+    signal.setitimer(signal.ITIMER_REAL, min(seconds, previous_remaining) if previous_remaining else seconds)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_handler)
+        if previous_remaining:
+            signal.setitimer(signal.ITIMER_REAL, max(previous_remaining - (time.monotonic() - started), 0.001))
 
 
 @dataclass(frozen=True)

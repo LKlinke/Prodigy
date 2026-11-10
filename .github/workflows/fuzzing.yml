@@ -26,6 +26,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           python-version: "3.14"
-      - run: uv run pytest -m fuzz tests/fuzzing tests/simulation -p no:cacheprovider
+      # each program has a time budget of 60 s; the slow examples need more than the default 120 s per test
+      - run: make fuzz ARGS="--timeout=3600 --hypothesis-show-statistics"
         env:
           PRODIGY_FUZZ: nightly

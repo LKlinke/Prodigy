@@ -147,6 +147,35 @@ def sym(value: Any) -> sympy.Expr:
     return _parse_to_sympy(text)
 
 
+_TIDY_MAX_OPS = 40
+_TIDY_MAX_BITS = 128
+
+
+def tidy(expr: sympy.Expr) -> sympy.Expr:
+    """
+    A readable form of an exact value for display, with bounded effort; the value never changes.
+
+    ``sympy.simplify`` is only used on small expressions (at most ``_TIDY_MAX_OPS`` operations and
+    integers below ``2**_TIDY_MAX_BITS``) without ``log``: its ``logcombine`` turns ``q*log(3/2)``
+    into ``log((3/2)**q)`` and computes that power, which for the tail mass of ``logdist(1/3)`` (a
+    rational ``q`` with a 90-bit denominator) does not finish. A rational function over the
+    rationals is put over a common denominator instead (exact polynomial arithmetic); any other
+    expression is returned as it is.
+    """
+    # pylint: disable=import-outside-toplevel
+    from prodigy.distribution.equality import is_rational_over_q
+    if not isinstance(expr, sympy.Basic) or expr.is_Atom:
+        return expr
+    small = sympy.count_ops(expr) <= _TIDY_MAX_OPS and all(
+        abs(atom.p).bit_length() <= _TIDY_MAX_BITS and abs(atom.q).bit_length() <= _TIDY_MAX_BITS
+        for atom in expr.atoms(sympy.Rational))
+    if small and not expr.has(sympy.log):
+        return sympy.simplify(expr)
+    if is_rational_over_q(expr):
+        return sympy.cancel(sympy.together(expr))
+    return expr
+
+
 def to_float(expr: Any) -> Optional[float]:
     try:
         expr = sym(expr)
@@ -301,7 +330,7 @@ def univariate_table(dist: "Distribution", variable: str, limit: int, *,
     tail = None
     if total is not None:
         try:
-            tail = sympy.simplify(sym(total) - shown)
+            tail = tidy(sym(total) - shown)
         except Exception:  # pylint: disable=broad-except
             tail = None
     tail_exact, tail_float = exact_and_float(tail)
@@ -327,7 +356,7 @@ def _series_coefficients(marginal: "Distribution", variable: str, limit: int) ->
             return [expr] + [0] * (limit - 1)
         series = sympy.series(expr, symbol, 0, limit).removeO()
         series = sympy.expand(series)
-        return [sympy.simplify(series.coeff(symbol, n)) for n in range(limit)]
+        return [tidy(series.coeff(symbol, n)) for n in range(limit)]
     terms = list(itertools.islice(iter(marginal), limit))
     return [prob for prob, _ in terms]
 
@@ -451,7 +480,7 @@ def make_interval(value: Any, kind: str, residual: Any, *, monotone: bool,
             return value, value, Bound.EXACT, ""
         if probability and residual_expr is not None:
             try:
-                upper = sympy.simplify(sym(value) + residual_expr)
+                upper = tidy(sym(value) + residual_expr)
             except Exception:  # pylint: disable=broad-except
                 upper = None
             return value, upper, Bound.LOWER, ""
