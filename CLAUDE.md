@@ -40,6 +40,15 @@ Testing during work: run `make lint`, `make mypy`, the test files that concern t
 `make fuzz` locally. Do not run the full `make test` locally; the CI runs it. A change counts as
 passing only when the CI of its PR is green.
 
+Waiting: no command blocks for more than about 2 minutes.
+- Give every run of a program or script a limit (`timeout 120 uv run prodigy …`); pytest stops each
+  test after 120 s (`timeout` in `pyproject.toml`).
+- Anything that may take longer runs in the background and reports when it is done; do not set a
+  long tool timeout (e.g. 900 s) to wait for it.
+- Do not wait for the CI in a loop (`gh pr checks --watch`, `sleep`): after pushing, end the turn;
+  Lutz or the supervising session follows up on the result.
+- If something runs longer than expected, stop it and find out why (it is often a bug, like #252).
+
 Dependencies: change `pyproject.toml`, run `uv lock`, commit both files. The GiNaC engine comes from
 `prodigy-ppl-ginac` (module `prodigy_ginac`, wheels with GiNaC bundled); a marker installs it only
 where wheels exist, and the extra `ginac` installs it everywhere, so the GiNaC engine is imported
