@@ -3,13 +3,13 @@ Variables that do not occur in the generating function, and poles at 1, on all e
 
 - #232: ``a = b`` where ``b`` does not occur in the function (``b`` is 0 in every state).
 - #227: an infinite expected value is ∞ (and the analysis ends with ``NonFiniteResult``), not a crash.
-- #242 (GiNaC): marginalising a variable at a pole raises a clear error.
+- #242 (GiNaC): marginalising a variable at a pole raises `NonFiniteMarginalError`.
 """
 import pytest
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
-from prodigy.distribution.distribution import MarginalType
+from prodigy.distribution.distribution import MarginalType, NonFiniteMarginalError
 from prodigy.distribution.generating_function import SympyPGF
 from prodigy.distribution.symengine_distribution import SymenginePGF
 from prodigy.pgcl import parse_pgcl
@@ -69,7 +69,7 @@ def test_expected_value_at_a_pole(factory, function, expression, expected):
 @pytest.mark.parametrize("variables", [("a",), ("a", "b")])
 def test_ginac_marginal_at_a_pole_is_an_error(variables):
     dist = _ginac_factory().from_expr("1/((1 - w)*(2 - b))", "a", "b", "w")
-    with pytest.raises(ValueError, match="pole at w = 1"):
+    with pytest.raises(NonFiniteMarginalError, match="pole at w = 1"):
         dist.marginal(*variables)
 
 

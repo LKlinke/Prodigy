@@ -15,7 +15,7 @@ from prodigy.distribution.negative_values import can_be_negative, operand
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
-                                               MarginalType, State)
+                                               MarginalType, NonFiniteMarginalError, State)
 from prodigy.pgcl import Binop, BinopExpr, Expr, FunctionCallExpr, NatLitExpr, VarExpr
 
 from prodigy.util.order import default_monomial_iterator
@@ -471,9 +471,9 @@ class FPS(Distribution):
                 if not _is_division_by_zero(error):
                     raise
                 # a pole at var = 1: the marginal has infinite (or undefined) mass (#242)
-                raise ValueError(
+                raise NonFiniteMarginalError(
                     f"Cannot marginalise {var} out of {self._dist}: the generating function has a pole at "
-                    f"{var} = 1, so the marginal does not have a finite mass.") from error
+                    f"{var} = 1, so the marginal is not a finite measure.") from error
         return FPS.from_dist(result, self._variables - remove_vars[method],
                              self._parameters)
 
