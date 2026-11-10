@@ -1,0 +1,59 @@
+# main pgfexamples/inference/loopy/hard_distributions/d_finite/polya_urn_coins.ppy
+# The Pólya urn of polya_urn.ppy with fair coins only: instead of the state-dependent choice
+# [red/(red + black)], each draw picks a uniform ball index c in {0, ..., red + black - 1} with
+# Lumbroso's Fast Dice Roller ("Optimal discrete uniform generation from coin flips, and
+# applications", 2013, arXiv:1304.1916), which uses fair coin flips only, and the ball is red iff
+# c < red. As in polya_urn.ppy, red - 1 is uniform on {0, ..., n} after n draws, and with
+# geometric(1/2) draws
+#   Pr[red - 1 = k] = ln 2 - Σ_{m=1}^{k} 2^-m/m,   generating function ln(2 - x)/(1 - x).
+# Class: D-finite PGF, AST, all moments finite. The inner loop ends with a uniform value whose
+# range depends on red + black, so no rational invariant describes it; unrolling gives sound
+# intervals.
+#
+# What Prodigy proves: with "Unroll" (8 outer, 30 inner iterations) Pr[red == 1] ∈ [0.69296, 0.69492],
+# which contains ln 2, and Pr[red == 2] ∈ [0.19296, 0.19492]. This takes about 25 s on GiNaC and a few
+# minutes on SymPy.
+
+draws: nat;
+red: nat;
+black: nat;
+n: nat = 0;  # the number of balls
+v: nat = 0;  # Fast Dice Roller: c is uniform on {0, ..., v - 1}
+c: nat = 0;
+done: nat = 0;
+
+draws = geometric(1/2);
+red = 1;
+black = 1;
+while (draws > 0) {
+    n = red + black;
+    v = 1;
+    c = 0;
+    done = 0;
+    while (done == 0) {
+        v = 2 * v;
+        {c = 2 * c;} [1/2] {c = 2 * c + 1;}
+        if (v >= n) {
+            if (c < n) {
+                done = 1;
+            } else {
+                v = v - n;
+                c = c - n;
+            }
+        }
+    }
+    if (c < red) {
+        red = red + 1;
+    } else {
+        black = black + 1;
+    }
+    n = 0;
+    v = 0;
+    c = 0;
+    done = 0;
+    draws = draws - 1;
+}
+query Pr[red == 1];  # expected: ln 2 ≈ 0.6931
+query Pr[red == 2];  # expected: ln 2 - 1/2 ≈ 0.1931
+query Ex[red];  # expected: 3/2
+query Ex[black];  # expected: 3/2

@@ -1,0 +1,31 @@
+# main pgfexamples/inference/loopy/hard_distributions/algebraic/galton_watson_critical.ppy
+# Total progeny of a critical Galton–Watson process: one ancestor, each individual has
+# geometric(1/2) children (mean 1). The generating function T of the total progeny satisfies
+# T = x/(2 - T), hence
+#   T(x) = 1 - sqrt(1 - x),   Pr[total = n] = C_{n-1} / 2^(2n-1)
+# with the Catalan numbers C_n (Harris, "The Theory of Branching Processes", 1963; Flajolet and
+# Sedgewick, "Analytic Combinatorics", 2009).
+# Class: algebraic (not rational) PGF, AST (critical processes die out) but not PAST,
+# Pr[total = n] ≈ n^(-3/2)/(2 sqrt(π)), Ex[total] = ∞.
+# The first-passage time of the symmetric random walk (lower_bounds/exact/random_walk_counter.ppy)
+# has an algebraic PGF of the same kind.
+#
+# What Prodigy proves: unrolling gives sound intervals. The kernel method gives the EVT invariant
+#   (alive^2*(2-alive) - total*(1-(1-total)^(1/2)))/(alive*(2-alive) - total);
+# Prodigy confirms the fixed-point equation and computes 1 - sqrt(1 - total), but it cannot show that
+# the coefficients of the algebraic invariant are non-negative, so the result has no guarantee (#228).
+
+alive: nat = 1;  # individuals whose children are not yet drawn
+total: nat = 0;  # individuals so far; the result
+
+while (alive > 0) {
+    alive = alive - 1;
+    total = total + 1;
+    children: nat = geometric(1/2);
+    alive = alive + children;
+}
+query Pr[total == 1];  # expected: 1/2
+query Pr[total == 2];  # expected: 1/8
+query Pr[total == 3];  # expected: 1/16
+query Pr[total == 4];  # expected: 5/128
+query Ex[total];  # expected: ∞

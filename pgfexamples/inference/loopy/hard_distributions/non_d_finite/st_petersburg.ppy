@@ -1,0 +1,24 @@
+# main pgfexamples/inference/loopy/hard_distributions/non_d_finite/st_petersburg.ppy
+# St. Petersburg game: the payout starts at 1 and doubles with each tails of a fair coin; the
+# game ends at the first heads. Pr[payout = 2^k] = 2^-(k+1), so Ex[payout] = Σ 1/2 = ∞
+# (Feller, "An Introduction to Probability Theory and Its Applications", Vol. I, 3rd ed., X.4).
+# The generating function f(x) = Σ_k 2^-(k+1) x^(2^k) satisfies the Mahler equation
+# f(x) = x/2 + f(x^2)/2. It is lacunary, so the unit circle is its natural boundary (Hadamard's
+# gap theorem), whereas a D-finite function has only finitely many singularities: f is not
+# D-finite. Doubling a variable maps its generating function g(x) to g(x^2).
+# Class: non-D-finite PGF, AST and PAST (the number of rounds is geometric), Ex[payout] = ∞.
+#
+# What Prodigy proves: with "Unroll" (30 iterations) the first probabilities exactly up to a residual
+# mass of 2^-30, and Ex[payout] ≥ 15. GiNaC and SymEngine need about 2 s; SymPy takes more than
+# 5 minutes (#224). "Synthesise EVT invariant" does not finish (no rational invariant exists, #226).
+
+payout: nat = 1;
+stop: nat = 0;
+while (stop == 0) {
+    {payout = 2 * payout;} [1/2] {stop = 1;}
+}
+query Pr[payout == 1];  # expected: 1/2
+query Pr[payout == 2];  # expected: 1/4
+query Pr[payout == 3];  # expected: 0
+query Pr[payout == 4];  # expected: 1/8
+query Ex[payout];  # expected: ∞

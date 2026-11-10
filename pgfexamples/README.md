@@ -13,7 +13,11 @@ pgfexamples/
 │   ├── loop_free                   # ... without while-loops
 │   │   └── conditioning            # ... with observe-statements
 │   ├── loopy                       # ... with while-loops
-│   │   └── conditioning            # ... with observe-statements 
+│   │   ├── conditioning            # ... with observe-statements
+│   │   └── hard_distributions      # ... heavy tails, non-rational generating functions
+│   │       ├── algebraic           #     algebraic generating functions
+│   │       ├── d_finite            #     D-finite (e.g. logarithmic) generating functions
+│   │       └── non_d_finite        #     generating functions that are not D-finite
 │   └── nested                      # ... with nested inference (dist, infer, sample)
 ├── invariant_synthesis             # Synthesis of (expected visiting time) invariants
 └── template_parameter_synthesis    # Equality of loopy and loop-free programs with parameters

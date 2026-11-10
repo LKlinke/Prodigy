@@ -1,0 +1,28 @@
+# main pgfexamples/inference/loopy/hard_distributions/d_finite/yule_simon_urn.ppy
+# Pólya urn drawn until the first black ball: start with one red and one black ball, and add a red
+# ball after each red draw. The first n draws are all red with probability
+#   1/2 · 2/3 · … · n/(n+1) = 1/(n+1),
+# so R = red - 1 has Pr[R = n] = 1/((n+1)(n+2)): the Yule–Simon distribution with ρ = 1, shifted to
+# start at 0 (Johnson, Kemp and Kotz, "Univariate Discrete Distributions", 3rd ed.).
+# Equivalently R is geometric with a uniformly distributed success probability (Beta-geometric).
+# Its generating function Σ x^n/((n+1)(n+2)) contains log(1 - x): D-finite, not algebraic.
+# Class: D-finite PGF, AST but not PAST (Ex[number of iterations] = ∞), heavy tail
+# Pr[R ≥ n] = 1/(n+1), Ex[R] = ∞.
+#
+# The choice probability red/(red + 1) depends on a program variable (issue #213);
+# yule_simon_coins.ppy uses fair coins only.
+#
+# What Prodigy gives today: wrong results (issue #213). With "Unroll" all three engines report
+# Pr[red == 1] = 1, Pr[red == 2] = -1 and Pr[red == 3] = 2 as a lower bound.
+
+red: nat;
+
+red = 1;
+stop: nat = 0;
+while (stop == 0) {
+    {red = red + 1;} [red/(red+1)] {stop = 1;}
+}
+query Pr[red == 1];  # expected: 1/2
+query Pr[red == 2];  # expected: 1/6
+query Pr[red == 3];  # expected: 1/12
+query Ex[red];  # expected: ∞

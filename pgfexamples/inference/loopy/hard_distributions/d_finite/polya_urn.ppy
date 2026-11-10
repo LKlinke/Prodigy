@@ -1,0 +1,33 @@
+# main pgfexamples/inference/loopy/hard_distributions/d_finite/polya_urn.ppy
+# Pólya urn: start with one red and one black ball; each draw returns the ball together with a new
+# ball of the same colour. After n draws, red - 1 is uniform on {0, ..., n} (Beta-binomial with
+# α = β = 1; Johnson, Kemp and Kotz, "Univariate Discrete Distributions", 3rd ed.).
+#
+# Here the number of draws is geometric(1/2), Pr[n] = 2^-(n+1), so
+#   Pr[red - 1 = k] = Σ_{n ≥ k} 2^-(n+1)/(n+1) = ln 2 - Σ_{m=1}^{k} 2^-m/m,
+# with generating function ln(2 - x)/(1 - x) in x = red - 1: transcendental (logarithmic) but
+# D-finite. The tail is about 2^-k/k, i.e. light-tailed; yule_simon_urn.ppy draws until the first
+# black ball instead, which is heavy-tailed. Class: D-finite PGF, AST, all moments finite.
+#
+# The choice probability red/(red + black) depends on program variables (issue #213);
+# polya_urn_coins.ppy draws the ball with fair coins only.
+#
+# What Prodigy gives today: wrong results (issue #213). With "Unroll" (20 iterations) SymPy and
+# GiNaC report Pr[red == 1] ≈ 1 and a negative Pr[red == 2] as a lower bound; SymEngine stops with
+# "cannot be proven that it is never negative".
+
+draws: nat;
+red: nat;
+black: nat;
+
+draws = geometric(1/2);
+red = 1;
+black = 1;
+while (draws > 0) {
+    {red = red + 1;} [red/(red+black)] {black = black + 1;}
+    draws = draws - 1;
+}
+query Pr[red == 1];  # expected: ln 2 ≈ 0.6931
+query Pr[red == 2];  # expected: ln 2 - 1/2 ≈ 0.1931
+query Ex[red];  # expected: 3/2
+query Ex[black];  # expected: 3/2
