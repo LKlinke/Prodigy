@@ -35,11 +35,16 @@ def test_copy_of_a_variable_that_does_not_occur(engine):
     assert decide_equal_strings(result["distribution"]["closed_form"], "1", ["x", "y"]) is True
 
 
-@pytest.mark.xfail(strict=True, reason="open issue #233")
-def test_categorical_is_computed():
-    source = "x: nat;\nx = categorical({1: 1/2, 2: 1/2});\nprint;\n"
-    assert not check_program(source)
-    assert analyse(source, "ppy", ENGINES["sympy"], {})["status"] == "ok"
+# #233: categorical(…) was rejected by the analysis
+CATEGORICAL = "x: nat;\nx = categorical({1: 1/2, 2: 1/2});\nprint;\n"
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_categorical_is_computed(engine):
+    assert not check_program(CATEGORICAL)
+    result = analyse(CATEGORICAL, "ppy", ENGINES[engine], {})
+    assert result["status"] == "ok"
+    assert decide_equal_strings(result["distribution"]["closed_form"], "x/2 + x^2/2", ["x"]) is True
 
 
 def test_time_budget_interrupts_a_slow_analysis_and_restores_the_outer_timer():

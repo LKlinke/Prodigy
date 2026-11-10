@@ -42,8 +42,8 @@ class Features:  # pylint: disable=too-many-instance-attributes
     """``-`` on ``nat`` (monus since #220)."""
     state_probabilities: bool = True
     """Probabilities that depend on a variable (``[1/(x+1)]``, ``bernoulli(1/(x+1))``; case split since #213)."""
-    categorical: bool = False
-    """``categorical({v: p, …})``: documented, but the analysis rejects it (#233)."""
+    categorical: bool = True
+    """``categorical({v: p, …})`` (computed since #233)."""
     max_depth: int = 2
     max_statements: int = 4
 
