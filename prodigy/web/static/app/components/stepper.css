@@ -49,11 +49,20 @@
 .st-player-chart { min-height: 168px; }
 .iterate-chart .it-rect {
   transform-box: fill-box; transform-origin: 50% 100%;
-  transition: transform var(--st-transition, 420ms) cubic-bezier(0.42, 0, 0.58, 1);
+  transition: transform var(--st-transition, 420ms) cubic-bezier(0.42, 0, 0.58, 1),
+    opacity var(--st-transition, 420ms) ease-in-out;
 }
 .iterate-chart .mc-value .it-rect, .iterate-chart .mc-tail .it-rect { fill: var(--rv-data); }
 .iterate-chart .mc-tail .it-rect { opacity: 0.35; }
 .iterate-chart .mc-residual .it-rect { stroke: var(--rv-bound); stroke-width: 1; }
+/* an iterate without this marginal: the bars fade out at their last height (unknown, not 0), and an
+   outlined, labelled placeholder says why */
+.iterate-chart .mc-bar.it-unknown .it-rect { opacity: 0; }
+.iterate-chart .it-gap { opacity: 0; transition: opacity var(--st-transition, 420ms) ease-in-out; pointer-events: none; }
+.iterate-chart .it-gap.it-gap-shown { opacity: 1; }
+.iterate-chart .it-gap-frame { fill: none; stroke: var(--rv-text-2); stroke-width: 1; stroke-dasharray: 4 3; }
+.iterate-chart .it-gap-title { text-anchor: middle; font-size: 12px; font-weight: 600; fill: var(--rv-text); }
+.iterate-chart .it-gap-reason { text-anchor: middle; font-size: 11px; fill: var(--rv-text-2); }
 .st-player-controls { display: flex; align-items: center; gap: 10px; }
 .st-slider { flex: 1; min-width: 0; accent-color: var(--accent, #0066CC); }
 .st-play { min-width: 78px; justify-content: center; }
@@ -82,7 +91,7 @@
 .st-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .iterate-chart .it-rect, .st-massbar span { transition: none; }
+  .iterate-chart .it-rect, .iterate-chart .it-gap, .st-massbar span { transition: none; }
 }
 
 /* watches */

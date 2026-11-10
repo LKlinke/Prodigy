@@ -16,15 +16,15 @@ from prodigy.distribution.symengine_distribution import SymenginePGF
                           (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF),
                           (ForwardAnalysisConfig.Engine.SYMENGINE, SymenginePGF)])
 def test_subtraction_when_already_zero(engine, factory):
-    with raises(ValueError, match='negative') as e:
-        result, error_prob = compute_discrete_distribution(
-            pgcl.parse_pgcl("""
-        nat x;
-        x := 0;
-        x := x-1;
-        """), factory.from_expr("x^5"),
-            ForwardAnalysisConfig(engine=engine))
-        print(result)
+    # subtraction is truncated at 0 (monus, #220)
+    result, error_prob = compute_discrete_distribution(
+        pgcl.parse_pgcl("""
+    nat x;
+    x := 0;
+    x := x-1;
+    """), factory.from_expr("x^5"),
+        ForwardAnalysisConfig(engine=engine))
+    assert result == factory.from_expr("1", "x")
 
     result, error_prob = compute_discrete_distribution(
         pgcl.parse_pgcl("""
@@ -36,25 +36,14 @@ def test_subtraction_when_already_zero(engine, factory):
     print(result)
     assert result == factory.from_expr("1", "x")
 
-    if engine != ForwardAnalysisConfig.Engine.SYMENGINE:
-        with raises(ValueError) as e:
-            result, error_prob = compute_discrete_distribution(
-                pgcl.parse_pgcl("""
-                nat x
-                x := x - 2*x
-            """), factory.poisson("x", "3"),
-                ForwardAnalysisConfig(engine=engine))
-            print(result)
-        assert 'Cannot assign' in str(e)
-    else:
-        pytest.xfail("Symengine doesnt like complex infinity in exponential functions.")
-        result, error_prob = compute_discrete_distribution(
+    # x - 2*x is 0 under monus, but the states with x < 2*x cannot be filtered on an infinite support
+    with raises(NotImplementedError, match="truncated at 0"):
+        compute_discrete_distribution(
             pgcl.parse_pgcl("""
             nat x
             x := x - 2*x
         """), factory.poisson("x", "3"),
             ForwardAnalysisConfig(engine=engine))
-
 
 
 @pytest.mark.parametrize('engine,factory',

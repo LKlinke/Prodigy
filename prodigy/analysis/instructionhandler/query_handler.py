@@ -49,9 +49,8 @@ class QueryHandler(InstructionHandler):
             # the loop strategy right before may know the exact value already (e.g. from its certificate)
             result = session.loop_query_value("?Ex", str(expression), distribution)
             if result is None:
-                # the engines do not know '//': compute it into fresh variables first
-                extended, replaced, _ = distribution.without_floor_division(expression)
-                result = extended.get_expected_value_of(replaced)
+                # floor divisions and subtractions (monus) are computed exactly as in an assignment
+                result = distribution.get_expected_value_of(expression)
 
             print(f"Expected value: {result}")
             session.record_query(finish_query(

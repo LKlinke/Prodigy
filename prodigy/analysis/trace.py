@@ -45,6 +45,13 @@ to ``TraceLimits.max_variables`` variables and the size of the closed form (its 
 characters, the same measure for all engines). Marginals are skipped for larger closed forms and
 once computing them took ``TraceLimits.snapshot_budget`` seconds in total.
 
+A marginal that was not recorded is *unknown*, not zero. Every snapshot says so explicitly:
+``marginals_not_recorded`` maps each variable of the distribution without a marginal table to the
+reason (closed form too large, time budget used up, more than ``TraceLimits.max_variables``
+variables, recording turned off), and ``marginals_omitted`` gives the reason when the snapshot has
+no marginals at all. A table that could not be computed has an ``error`` and no rows. Front ends
+must not draw any of them as probability 0.
+
 The JSON form is the ``steps`` list and the ``trace`` object of the result
 (:meth:`Tracer.steps_json`, :meth:`Tracer.to_json`).
 """
@@ -64,6 +71,11 @@ if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.loop_strategies import LoopOutcome, LoopTask
     from prodigy.analysis.session import AnalysisSession
     from prodigy.distribution import Distribution
+
+
+MARGINALS_TOO_LARGE = "closed form too large"
+MARGINALS_OUT_OF_TIME = "time budget used up"
+MARGINALS_TURNED_OFF = "recording of marginals is turned off"
 
 
 @dataclass
@@ -402,19 +414,36 @@ class Tracer:
         small = len(closed) <= limits.closed_form_chars
         if small and len(closed) <= 600:
             snap["latex"] = _safe(lambda: to_latex(dist))
-        if limits.coefficients > 0 and small and self.snapshot_time < limits.snapshot_budget:
-            for variable in sorted(map(str, dist.get_variables()))[:limits.max_variables]:
+        variables = sorted(map(str, _safe(dist.get_variables) or ()))
+        omitted = self._marginals_omitted(small)
+        if omitted is None:
+            for variable in variables[:limits.max_variables]:
                 try:
                     snap["marginals"][variable] = univariate_table(
                         dist, variable, limits.coefficients, kind=kind,
                         residual=sym(residual) if kind == Bound.LOWER else 0, max_finite_terms=200)
                 except Exception as exc:  # pylint: disable=broad-except
                     snap["marginals"][variable] = {"variable": variable, "error": str(exc), "rows": []}
-        elif limits.coefficients > 0:
-            snap["marginals_omitted"] = "closed form too large" if not small else "time budget used up"
-            self.marginals_skipped = True
+            plural = "" if limits.max_variables == 1 else "s"
+            beyond = (f"beyond the limit of {limits.max_variables} variable{plural} per distribution "
+                      "(alphabetical order)")
+            snap["marginals_not_recorded"] = {variable: beyond for variable in variables[limits.max_variables:]}
+        else:
+            snap["marginals_omitted"] = omitted
+            snap["marginals_not_recorded"] = {variable: omitted for variable in variables}
+            self.marginals_skipped = self.marginals_skipped or omitted != MARGINALS_TURNED_OFF
         self.snapshot_time += time.perf_counter() - start
         return snap
+
+    def _marginals_omitted(self, small: bool) -> Optional[str]:
+        """Why a snapshot gets no marginals at all, or ``None`` if it gets them."""
+        if self.limits.coefficients <= 0:
+            return MARGINALS_TURNED_OFF
+        if not small:
+            return MARGINALS_TOO_LARGE
+        if self.snapshot_time >= self.limits.snapshot_budget:
+            return MARGINALS_OUT_OF_TIME
+        return None
 
     def _reuse(self, dist: "Distribution", error_prob: "Distribution", kind: str, residual: Any) -> Dict[str, Any]:
         """The snapshot after the previous step if it shows the same distribution, else a new one."""
@@ -543,8 +572,7 @@ class Tracer:
             if watch.kind == "probability":
                 value: Any = sym(dist.filter(watch.expr).get_probability_mass())
             else:
-                extended, replaced, _ = dist.without_floor_division(watch.expr)
-                value = sym(extended.get_expected_value_of(replaced))
+                value = sym(dist.get_expected_value_of(watch.expr))
             error_mass = sym(error_prob.get_probability_mass()) if error_prob is not None else 0
             if self.session.config.normalize and error_mass != 0:
                 # as a query at this place: conditioned on the observations so far (see result.py)

@@ -76,6 +76,32 @@ computed exactly via the residue classes modulo the divisor, as for `x % q`. Imp
 for a natural expression `e` and a positive natural constant `q`, exact if `e` has a finite marginal
 or the generating function is rational in it; other cases end with an error.
 
+### Subtraction
+
+`-` on `nat` is truncated subtraction (monus): `a - b = max(a - b, 0)`. This is not a new
+definition. The semantics of pGCL with generating functions defines only the decrement `x--` on the
+natural numbers, as monus (`0-- = 0`). `a - b` is `b` iterations of `a--`, with `b` evaluated first
+in the current state. By induction on `b`, this is `max(a - b, 0)`: for `b = 0` it is `a`, and
+`max(a - b, 0)--` is `max(a - (b + 1), 0)`.
+
+- Monus holds in every intermediate result: `(n - 7) + 7` is `7` for `n = 5`. No simplification
+  runs before the subtraction is truncated.
+- `a - (b + c) = (a - b) - c` holds (decrementing `b + c` times is decrementing `b` times and then
+  `c` times). `a - b + b = a` holds only if `a ≥ b`; otherwise the left side is `b`.
+- The same semantics holds in assignments, guards, `Pr[…]` and `Ex[…]` queries (also on `dist`
+  values) and in the exact calculus of the lower-bound strategies. A guard or a query is evaluated
+  like an assignment of the subtraction to a fresh variable, followed by the guard or the
+  expected value of that variable, so all engines give the same value. A subtraction with `/`,
+  with a constant that is not a natural number or with a parameter (e.g. in a probability
+  `1 - p`) is rational subtraction.
+- Computation: the distribution is split into the states with `a < b` (value `0`) and the others
+  (the ordinary difference). This is exact whenever `a < b` can be filtered: always with a
+  constant operand, and for two variables if one of them has a finite marginal or the difference is
+  provably never negative. Two variables with infinite marginals and a difference that can be
+  negative end with "not implemented".
+- Before, an assignment `x = a - b` was rejected unless the difference was provably never
+  negative, and queries were evaluated differently on each engine (issue #220).
+
 ### Declarations and scope
 
 ```
@@ -150,6 +176,33 @@ switch (c) {
 - If `c` is declared in a block and not used after the `switch`, it is marginalised out at the end
   of the block (see "Declarations and scope"), so the extra variable costs nothing afterwards.
 - `{A} [p] {B}` stays as shorthand for the binary case.
+
+### Probabilities that depend on the state
+
+The probability `p` of a choice `{A} [p] {B}` and the arguments of a built-in distribution
+(`bernoulli(p)`, `geometric(p)`, `binomial(n, p)`, `unif(a, b)`, …) may depend on program
+variables, e.g. `{red = red + 1;} [red/(red + black)] {black = black + 1;}` or `x = bernoulli(1/k)`.
+The parser and the type checker accept every such program.
+
+- Semantics: in a state `σ`, the choice runs `A` with probability `p(σ)` and `B` with `1 − p(σ)`;
+  sampling draws from the distribution with the arguments' values in `σ`. The program is well
+  defined if `0 ≤ p(σ) ≤ 1` (an admissible argument, e.g. `0 < p ≤ 1` for `geometric`) in every
+  state `σ` that is reached with positive probability.
+- If the variables in `p` take finitely many values, the analysis computes the result exactly by a
+  case split: it splits the distribution by these values, evaluates `p` in each part and checks it,
+  and adds the results again. The semantics is linear, so the two branches of a choice run once,
+  on the parts weighted with `p` and `1 − p`. An unrolled loop has finitely many values in each
+  iteration, so unrolling (`unroll`, `mass_threshold`) works, e.g. for Pólya urns.
+- A value that is not a probability or not an admissible argument (also undefined, e.g. `1/k` for
+  `k = 0`) in a state with positive probability ends with an error naming the state. Constant
+  arguments are checked the same way, on every engine.
+- If the variables take infinitely many values, the analysis is "not implemented": multiplying the
+  generating function by `p` as if it were a constant would be wrong, and dividing coefficients by
+  a value that depends on the state (as for `1/(k + 1)`) is not an operation on the generating
+  function. Strategies that reason about a whole loop (invariants, the EVT operator) meet this
+  case for a probability that depends on a variable the loop changes.
+- Parameters in `p` stay symbolic, as in a constant choice; the range of a probability with
+  parameters is not checked.
 
 ### Categorical distribution
 

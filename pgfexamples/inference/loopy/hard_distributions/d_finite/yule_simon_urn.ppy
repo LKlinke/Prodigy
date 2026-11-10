@@ -9,11 +9,14 @@
 # Class: D-finite PGF, AST but not PAST (Ex[number of iterations] = ∞), heavy tail
 # Pr[R ≥ n] = 1/(n+1), Ex[R] = ∞.
 #
-# The choice probability red/(red + 1) depends on a program variable (issue #213);
+# The choice probability red/(red + 1) depends on a program variable; Prodigy computes the choice
+# by a case split over the finitely many values of red in each unrolled iteration.
 # yule_simon_coins.ppy uses fair coins only.
 #
-# What Prodigy gives today: wrong results (issue #213). With "Unroll" all three engines report
-# Pr[red == 1] = 1, Pr[red == 2] = -1 and Pr[red == 3] = 2 as a lower bound.
+# What Prodigy proves: with "Unroll" (30 iterations) all three engines give Pr[red == 1] ∈
+# [1/2, 0.5323], Pr[red == 2] ∈ [1/6, 0.1990] and Pr[red == 3] ∈ [1/12, 0.1156] in about 2 s.
+# Strategies that reason about the whole loop give no result: red takes infinitely many values
+# there.
 
 red: nat;
 

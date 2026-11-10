@@ -28,8 +28,10 @@ invariant, so the exact strategies of Prodigy cannot prove these results yet; un
 (`unroll`, `mass_threshold`) gives sound intervals.
 
 Two of the urn programs choose with a probability that depends on program variables
-(`[red/(red + black)]`). Prodigy does not compute such choices correctly yet (issue #213); the
-`*_coins.ppy` variants use fair coins only and give correct bounds.
+(`[red/(red + black)]`). Prodigy computes such a choice by a case split over the values of the
+variables, which needs finitely many values: unrolling works (each unrolled iteration has finitely
+many values of `red` and `black`); strategies that reason about the whole loop at once give no
+result. The `*_coins.ppy` variants use fair coins only.
 
 Sources (textbook material only): N. L. Johnson, A. W. Kemp and S. Kotz, *Univariate Discrete
 Distributions*, 3rd ed., Wiley 2005; T. E. Harris, *The Theory of Branching Processes*, Springer

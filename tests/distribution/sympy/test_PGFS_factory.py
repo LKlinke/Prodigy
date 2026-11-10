@@ -1,10 +1,15 @@
 import itertools
-import random as rng
+import random
 
 import pytest
 
 from prodigy.distribution.generating_function import (GeneratingFunction,
                                                       SympyPGF)
+
+# The parameters are drawn while pytest collects the tests, before tests/conftest.py seeds anything.
+# A fixed seed gives every collection the same test ids: pytest-xdist requires that all workers
+# collect the same tests, and a failing parameter can be run again by its id.
+rng = random.Random(__name__)
 
 
 @pytest.mark.parametrize('probability',

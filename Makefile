@@ -15,9 +15,11 @@ mypy:
 
 # Coverage options; `make test COV=` runs the tests without measuring coverage
 COV = --cov=prodigy --cov-report html --cov-report term
+# Parallel workers (pytest-xdist), one per CPU core; worksteal balances the few long tests best; `make test XDIST=` runs the tests in one process
+XDIST = -n auto --dist worksteal
 
 test:
-	uv run pytest ${COV} --junitxml=testreport.xml ${ARGS}
+	uv run pytest ${XDIST} ${COV} --junitxml=testreport.xml ${ARGS}
 
 docs:
 	uv run --group docs sphinx-build -M html docs/source docs/build -W --keep-going ${ARGS}

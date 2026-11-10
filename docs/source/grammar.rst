@@ -28,6 +28,22 @@ only, see "Floor division" below).
   e.g. ``x := x/2`` only where ``x`` is always even. Otherwise the update is rejected; it is never
   rounded.
 
+Subtraction
+-----------
+
+``-`` on natural numbers is truncated subtraction (monus): ``a - b = max(a - b, 0)``, in every
+intermediate result of assignments, guards and queries, e.g. ``(n - 7) + 7`` is ``7`` for
+``n = 5``. The reason and the consequences are described in :doc:`language-design` (section
+"Subtraction"). An assignment ``t := a - b`` splits the distribution into the states with
+``a < b``, which get ``0``, and the others, which get the difference. If the difference is provably
+never negative (:mod:`prodigy.distribution.negative_values`), nothing is split. The split is exact
+whenever the guard ``a < b`` can be filtered: always if ``b`` (or ``a``) is a constant, and for two
+variables if one of them has a finite marginal. Otherwise (two variables with infinite marginals
+and a difference that can be negative) the analysis ends with "not implemented". A guard, ``Pr[…]``
+or ``Ex[…]`` with a subtraction is computed through fresh variables ``t := a - b``, exactly as an
+assignment; a subtraction that involves ``/``, a constant that is not a natural number or a
+parameter is rational subtraction.
+
 Guards
 ------
 

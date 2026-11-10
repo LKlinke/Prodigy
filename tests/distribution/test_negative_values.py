@@ -91,29 +91,29 @@ def test_can_be_negative_undecided(function, minuend, subtrahend):
 
 
 @pytest.mark.parametrize("factory", FACTORIES)
-@pytest.mark.parametrize("function, variables, parameters, assignment", [
-    # signed coefficients cancel in the marginal of `x`, e.g. for templates in invariant synthesis
-    ("1 - y + x", ["x", "y"], [], "x = x - 1"),
-    ("p - p*y + x", ["x", "y"], ["p"], "x = x - 1"),
-    ("(1 - y)/(2 - y) + x/(2 - y)", ["x", "y"], [], "x = x - 1"),
-    ("1 + y^3 - y^3*z", ["x", "y", "z"], [], "x = 2 - y"),
-    ("1 + x*y^2 - x^2*y^3", ["x", "y", "z"], [], "z = x - y"),
-    ("(1 + x*y^2 - x^2*y^3)/(2 - w)", ["x", "y", "z", "w"], [], "z = x - y"),
-    # the subtrahend has infinite support, so the marginal of the result is expanded at infinity
-    ("1/(2 - y)", ["x", "y", "z"], [], "z = x - y"),
-    ("1/((1 - w)*(2 - y))", ["x", "y", "z", "w"], [], "z = x - y"),
-    ("1/(2 - y)", ["x", "y"], [], "x = 3 - y"),
-    ("1/(2 - x)", ["x"], [], "x = 3 - x"),
+@pytest.mark.parametrize("function, variables, parameters, assignment, expected", [
+    # subtraction is truncated at 0 (monus, #220); signed coefficients (templates) are mapped linearly
+    ("1 - y + x", ["x", "y"], [], "x = x - 1", "2 - y"),
+    ("p - p*y + x", ["x", "y"], ["p"], "x = x - 1", "p - p*y + 1"),
+    ("(1 - y)/(2 - y) + x/(2 - y)", ["x", "y"], [], "x = x - 1", "1"),
+    ("1 + y^3 - y^3*z", ["x", "y", "z"], [], "x = 2 - y", "x^2 + y^3 - y^3*z"),
+    ("1 + x*y^2 - x^2*y^3", ["x", "y", "z"], [], "z = x - y", "1 + x*y^2 - x^2*y^3"),
+    ("(1 + x*y^2 - x^2*y^3)/(2 - w)", ["x", "y", "z", "w"], [], "z = x - y", "(1 + x*y^2 - x^2*y^3)/(2 - w)"),
+    # the subtrahend has infinite support
+    ("1/(2 - y)", ["x", "y", "z"], [], "z = x - y", "1/(2 - y)"),
+    ("1/((2 - w)*(2 - y))", ["x", "y", "z", "w"], [], "z = x - y", "1/((2 - w)*(2 - y))"),
+    ("1/((2 - w)*(2 - y))", ["x", "y", "z", "w"], [], "z = y - x", "1/((2 - w)*(2 - y*z))"),
+    ("1/(2 - y)", ["x", "y"], [], "x = 3 - y", "x^3/2 + x^2*y/4 + x*y^2/8 + y^3/16/(1 - y/2)"),
+    ("1/(2 - x)", ["x"], [], "x = 3 - x", "x^3/2 + x^2/4 + x/8 + 1/8"),
     # a diverging marginal (issue #143)
-    ("1/((1-y)*(1-x/2))", ["x", "y"], [], "x = x - 1"),
-    ("exp(x - 1)/(1-y)", ["x", "y"], [], "x = x - 1"),
+    ("1/((1-y)*(1-x/2))", ["x", "y"], [], "x = x - 1", "(1 + 1/(2 - x))/(1 - y)"),
 ])
-def test_negative_subtraction_is_rejected(factory, function, variables, parameters, assignment):
+def test_negative_subtraction_is_truncated(factory, function, variables, parameters, assignment, expected):
     dist = factory().from_expr(function, *variables)
     if parameters:
         dist = dist.set_parameters(*parameters)
-    with pytest.raises(ValueError, match="can be negative"):
-        dist.update(parse_expr(assignment))
+    result = dist.update(parse_expr(assignment))
+    assert sympy.simplify(sympy.S(str(result).replace("^", "**")) - sympy.S(expected.replace("^", "**"))) == 0
 
 
 @pytest.mark.parametrize("factory", FACTORIES)
@@ -134,29 +134,26 @@ def test_safe_subtraction_is_accepted(factory, function, variables, parameters, 
 
 
 @pytest.mark.parametrize("factory", FACTORIES)
-def test_undecided_subtraction_is_rejected(factory):
-    # `y` is Poisson distributed: its exponential becomes `exp(2*(y/t - 1))`, which the check cannot decide
+def test_undecided_subtraction_is_not_implemented(factory):
+    # `x` and `y` are Poisson distributed: the check cannot decide x - y >= 0, and x < y cannot be filtered
     dist = factory().from_expr("exp(2*(y - 1) + x - 1)", "x", "y", "z")
-    with pytest.raises(ValueError, match="cannot be proven that it is never negative"):
+    with pytest.raises(NotImplementedError, match="truncated at 0"):
         dist.update(parse_expr("z = x - y"))
 
 
 @pytest.mark.parametrize("engine, factory", ENGINES)
-@pytest.mark.parametrize("program, negative", [
-    ("nat x; nat y; y := geometric(1/2); x := x - y;", True),
-    ("nat x; nat y; nat z; y := geometric(1/2); z := x - y;", True),
-    ("nat x; x := geometric(1/2); x := 3 - x;", True),
-    ("nat x; x := geometric(1/2); if (x <= 3) { x := 3 - x } else { x := 0 }", False),
-    ("nat x; nat y; y := geometric(1/2); x := y; x := y - x;", False),
-    ("nat x; nat y; nat z; y := poisson(2); x := y + 1; z := x - y;", False),
-    ("nat x; rparam p; x := geometric(p); if (x > 0) { x := x - 1 } else { skip }", False),
+@pytest.mark.parametrize("program, expected", [
+    # subtraction is truncated at 0 (monus, #220)
+    ("nat x; nat y; y := geometric(1/2); x := x - y;", "1/(2 - y)"),
+    ("nat x; nat y; nat z; y := geometric(1/2); z := x - y;", "1/(2 - y)"),
+    ("nat x; x := geometric(1/2); x := 3 - x;", "x^3/2 + x^2/4 + x/8 + 1/8"),
+    ("nat x; x := geometric(1/2); if (x <= 3) { x := 3 - x } else { x := 0 }", "x^3/2 + x^2/4 + x/8 + 1/8"),
+    ("nat x; nat y; y := geometric(1/2); x := y; x := y - x;", "1/(2 - y)"),
+    ("nat x; nat y; nat z; y := poisson(2); x := y + 1; z := x - y;", "x*z*exp(2*(x*y - 1))"),
+    ("nat x; rparam p; x := geometric(p); if (x > 0) { x := x - 1 } else { skip }", "p + p*(1 - p)/(1 - (1 - p)*x)"),
 ])
-def test_subtraction_in_programs(engine, factory, program, negative):
+def test_subtraction_in_programs(engine, factory, program, expected):
     prog = pgcl.parse_pgcl(program)
     config = ForwardAnalysisConfig(engine=engine)
-    initial = factory().from_expr("1")
-    if negative:
-        with pytest.raises(ValueError, match="can be negative"):
-            compute_discrete_distribution(prog, initial, config)
-    else:
-        compute_discrete_distribution(prog, initial, config)
+    result, _ = compute_discrete_distribution(prog, factory().from_expr("1"), config)
+    assert sympy.simplify(sympy.S(str(result).replace("^", "**")) - sympy.S(expected.replace("^", "**"))) == 0

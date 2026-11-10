@@ -26,7 +26,8 @@ uv sync                              # install exactly what uv.lock says, into .
 uv run prodigy --engine ginac web    # GUI on http://localhost:8080 (restart after code changes)
 make lint                            # pylint, must stay at 10.00/10
 make mypy                            # mypy, no errors
-make test                            # pytest with coverage, about 8 minutes
+make test                            # pytest in parallel (xdist) with coverage, about 2 minutes
+make test XDIST=                     # the same in one process
 make docs                            # Sphinx docs into docs/build/html, warnings are errors
 uv run pytest tests/analysis/test_session.py -q   # a single file
 ```
@@ -115,6 +116,8 @@ on its own.
   `_parse_to_symengine` (it protects `e` and `inf`), never with `se.S`. Variables named `E`, `I` or
   `pi` are rejected on SymEngine (#204).
 - Use `git --no-pager` in commands; a pager waits for input and hangs the shell.
-- pytest prints a file's line only when the next file starts. In a hanging CI run, the hanging test
-  is in the file after the last complete line. `faulthandler_timeout` dumps the stacks after
-  10 minutes.
+- `make test` runs the tests in parallel workers (`-n auto --dist worksteal`), so the output is not
+  in file order and a hanging test does not show up as an unfinished line. `faulthandler_timeout`
+  dumps the stacks of a worker whose test runs longer than 10 minutes; the dump names the test.
+  Tests must not depend on order or on running in one process: parameters drawn at collection
+  time need a fixed seed (every worker must collect the same test ids), files go to `tmp_path`.

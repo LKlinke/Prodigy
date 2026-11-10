@@ -63,6 +63,17 @@ export function guaranteeText(snap) {
   }
 }
 
+/**
+ * Why the marginal of `variable` is missing from the snapshot `snap`, or null if it is there. A
+ * marginal that was not recorded is unknown, not 0 (prodigy/analysis/trace.py), so it must never
+ * be drawn as bars of height 0.
+ */
+export function marginalGap(snap, variable) {
+  const table = snap?.marginals?.[variable];
+  if (table) return table.error ? `not available: ${table.error}` : null;
+  return snap?.marginals_not_recorded?.[variable] || snap?.marginals_omitted || "not recorded";
+}
+
 function boundsOf(snap) {
   return { bounds: { kind: snap.bound || "unknown", residual_mass: snap.residual_mass, residual_mass_float: snap.residual_mass_float } };
 }
@@ -103,7 +114,15 @@ function distributionView(snap, label, state) {
     marginals = h("div", { class: "rv-marginals" },
       h("div", { class: "rv-subhead" }, h("h4", {}, "Marginal distributions"), variables.length > 1 ? picker : null), holder);
   } else if (snap.marginals_omitted) {
-    marginals = h("p", { class: "rv-note" }, `Marginals not recorded: ${snap.marginals_omitted}.`);
+    marginals = h("p", { class: "rv-note st-not-recorded" }, `Marginals not recorded: ${snap.marginals_omitted}.`);
+  }
+  // variables without a marginal although others have one (e.g. more variables than recorded)
+  const missing = Object.entries(snap.marginals_not_recorded || {});
+  if (variables.length && missing.length) {
+    const byReason = new Map();
+    for (const [name, reason] of missing) byReason.set(reason, [...(byReason.get(reason) || []), name]);
+    marginals.append(...[...byReason].map(([reason, names]) => h("p", { class: "rv-note st-not-recorded" },
+      `Not recorded for ${names.join(", ")}: ${reason}.`)));
   }
   return h("div", { class: "st-distribution" },
     h("div", { class: "st-guarantee" }, guaranteeBadge(snap.bound || "unknown"), h("span", {}, guaranteeText(snap))),
@@ -143,7 +162,9 @@ function checksList(checks) {
 /** The bars of every iterate on one fixed scale, so that the growth of the terminated part and the
  * shrinking residual ("?") are visible. Returns {svg, show(index)}. */
 function iterateChart(iterates, variable, width) {
-  const tables = iterates.map((it) => it.distribution.marginals?.[variable]);
+  // iterates without this marginal (not recorded, or not computable) have no bars: unknown, not 0
+  const gaps = iterates.map((it) => marginalGap(it.distribution, variable));
+  const tables = iterates.map((it, index) => (gaps[index] ? null : it.distribution.marginals[variable]));
   const MAX_BARS = 12;
   const values = [...new Set(tables.flatMap((t) => (t?.rows || []).map((r) => r.value)))].sort((a, b) => a - b).slice(0, MAX_BARS);
   const shown = new Set(values);
@@ -162,12 +183,12 @@ function iterateChart(iterates, variable, width) {
     const table = tables[index];
     const byValue = new Map((table?.rows || []).map((r) => [r.value, r.p ?? 0]));
     return bars.map((bar) => {
-      if (bar.kind === "value") return byValue.get(bar.key) ?? 0;
-      if (bar.kind === "tail") return tailOf(table);
-      return it.distribution.residual_mass_float || 0;
+      if (bar.kind === "residual") return it.distribution.residual_mass_float || 0;
+      if (!table) return null;
+      return bar.kind === "value" ? byValue.get(bar.key) ?? 0 : tailOf(table);
     });
   });
-  const max = niceMax(Math.max(1e-9, ...heights.flat()));
+  const max = niceMax(Math.max(1e-9, ...heights.flat().filter((p) => p !== null)));
   const W = Math.max(260, Math.round(width));
   const H = 168;
   const top = 14;
@@ -193,21 +214,36 @@ function iterateChart(iterates, variable, width) {
     return s("g", { class: `mc-bar mc-${bar.kind}` }, title, rect,
       label ? s("text", { x: cx, y: H - 6, class: "mc-label" }, bar.label) : null);
   });
+  // the placeholder over the bars of the marginal when an iterate has none: outlined and labelled
+  const marginalBars = bars.filter((bar) => bar.kind !== "residual").length;
+  const gapReason = s("text", { x: 4 + (slot * marginalBars) / 2, y: top + plotH / 2 + 14, class: "it-gap-reason" });
+  const gapBox = s("g", { class: "it-gap", "aria-hidden": "true" },
+    s("rect", { x: 6, y: top + 2, width: Math.max(0, slot * marginalBars - 4), height: plotH - 4, rx: 4, class: "it-gap-frame" }),
+    s("text", { x: 4 + (slot * marginalBars) / 2, y: top + plotH / 2 - 2, class: "it-gap-title" }, `${variable}: not recorded`),
+    gapReason);
   const grid = [0, max / 2, max].map((tick) => s("g", { class: "mc-grid" },
     s("line", { x1: 4, x2: 4 + plotW, y1: y(tick), y2: y(tick) }),
     s("text", { x: 4 + plotW + 6, y: y(tick) + 4 }, formatNumber(tick, 2))));
   const svg = s("svg", { class: "marginal-chart iterate-chart", viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" },
-    s("defs", {}, hatchPattern(id)), ...grid, ...marks,
+    s("defs", {}, hatchPattern(id)), ...grid, ...marks, gapBox,
     s("line", { class: "mc-axis", x1: 4, x2: 4 + plotW, y1: top + plotH, y2: top + plotH }));
   const show = (index) => {
+    const gap = gaps[index];
     heights[index].forEach((p, i) => {
-      rects[i].style.transform = `scaleY(${Math.max(0, Math.min(1, p / max))})`;
       const bar = bars[i];
       const what = bar.kind === "residual" ? "Not yet accounted for (still inside the loop)" : bar.kind === "tail" ? `${variable} ${bar.label}` : `${variable} = ${bar.label}`;
-      titles[i].textContent = `${what}: ${formatNumber(p, 4)}`;
+      // a missing marginal keeps the last height and fades out, instead of shrinking to 0
+      marks[i].classList.toggle("it-unknown", p === null);
+      if (p !== null) rects[i].style.transform = `scaleY(${Math.max(0, Math.min(1, p / max))})`;
+      else if (!rects[i].style.transform) rects[i].style.transform = "scaleY(0)";
+      titles[i].textContent = p === null ? `${what}: not recorded (${gap})` : `${what}: ${formatNumber(p, 4)}`;
     });
+    gapBox.classList.toggle("it-gap-shown", Boolean(gap));
+    gapReason.textContent = gap || "";
     const it = iterates[index];
-    svg.setAttribute("aria-label", `Iterate ${it.iteration}: distribution of ${variable} on the part that has left the loop`
+    const what = gap ? `the marginal of ${variable} was not recorded (${gap})`
+      : `distribution of ${variable} on the part that has left the loop`;
+    svg.setAttribute("aria-label", `Iterate ${it.iteration}: ${what}`
       + (hasResidual ? `, and ${formatNumber(it.distribution.residual_mass_float || 0, 3)} not yet accounted for` : "") + ".");
   };
   return { svg, show };
@@ -239,13 +275,16 @@ function iteratePlayer(loop, state, width) {
     const it = iterates[i];
     const snap = it.distribution;
     const text = BOUND_TEXT[snap.bound] || BOUND_TEXT.unknown;
+    const variable = variables.includes(state.iterateVariable) ? state.iterateVariable : variables[0];
+    const gap = variable === undefined ? null : marginalGap(snap, variable);
     return [
       h("span", { class: "st-player-iteration" }, `Iteration ${it.iteration} of ${loop.iterations}`),
       h("span", {}, h("span", { class: "st-key st-key-out", "aria-hidden": "true" }), "left the loop ",
         h("span", counted("out", snap.mass_float), formatValue(snap.mass, snap.mass_float))),
       h("span", {}, h("span", { class: "st-key st-key-in", "aria-hidden": "true" }), "still inside ",
         h("span", counted("in", it.inside_mass_float), formatValue(it.inside_mass, it.inside_mass_float))),
-      h("span", { class: "rv-badge", "data-kind": snap.bound }, h("span", { class: "glyph", "aria-hidden": "true" }, text.glyph), text.label)];
+      h("span", { class: "rv-badge", "data-kind": snap.bound }, h("span", { class: "glyph", "aria-hidden": "true" }, text.glyph), text.label),
+      gap ? h("span", { class: "st-not-recorded" }, `Marginal of ${variable} not recorded: ${gap}`) : null].filter(Boolean);
   };
   // The status wraps differently for each iterate (the masses have different lengths). Reserve the
   // height of the tallest one, so that the animation does not move the controls; measured once
@@ -279,7 +318,10 @@ function iteratePlayer(loop, state, width) {
     const inside = formatValue(it.inside_mass, it.inside_mass_float);
     const left = formatValue(snap.mass, snap.mass_float);
     massBar.setAttribute("aria-label", `Left the loop: ${left}; still inside: ${inside}`);
-    slider.setAttribute("aria-valuetext", `Iteration ${it.iteration}: left the loop ${left}, still inside ${inside}`);
+    const variable = variables.includes(state.iterateVariable) ? state.iterateVariable : variables[0];
+    const gap = variable === undefined ? null : marginalGap(snap, variable);
+    slider.setAttribute("aria-valuetext", `Iteration ${it.iteration}: left the loop ${left}, still inside ${inside}`
+      + (gap ? `; marginal of ${variable} not recorded (${gap})` : ""));
     // the masses count from the values shown so far (also from the middle of a transition)
     const from = new Map([...status.querySelectorAll("[data-count-key]")].map((e) => [e.dataset.countKey, Number(e.dataset.current ?? e.dataset.value)]));
     counts.forEach((c) => c?.cancel());
@@ -342,7 +384,8 @@ function iteratePlayer(loop, state, width) {
   if (variables.length) {
     choose(variables.includes(state.iterateVariable) ? state.iterateVariable : variables[0]);
   } else {
-    holder.replaceChildren(h("p", { class: "rv-muted" }, "No marginals recorded for the iterates."));
+    const reason = iterates.map((it) => it.distribution.marginals_omitted).find(Boolean);
+    holder.replaceChildren(h("p", { class: "rv-muted st-not-recorded" }, `No marginals recorded for the iterates${reason ? `: ${reason}` : ""}.`));
     draw();
   }
   return { element, stop: () => { stop(); counts.forEach((c) => c?.finish()); } };

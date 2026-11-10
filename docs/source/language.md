@@ -117,7 +117,7 @@ values of it. Parameters have no bounds.
 | `abort;` | ends the run without a result; its mass is lost (it does not count as a violated observation) |
 | `observe(g);` | conditioning: keeps the runs in which `g` holds; the others count as violated observations and the rest is renormalised |
 | `if (g) { … }` | `else { … }` and `else if (g) { … }` are optional; a missing `else` does nothing |
-| `{ … } [p] { … }` | probabilistic choice: the first block with probability `p`, the second with `1 − p` |
+| `{ … } [p] { … }` | probabilistic choice: the first block with probability `p`, the second with `1 − p`; `p` may depend on program variables (see below) |
 | `switch (x) { case 1: { … } case 2, 3: { … } default: { … } }` | runs the block of the first `case` whose value equals `x`; `default` (optional) otherwise. No fall-through. `switch` takes a variable, not an expression |
 | `while (g) { … }` | loop; how it is analysed is chosen per loop (loop strategies, see {doc}`gui` and {doc}`cli`) |
 | `loop(n) { … }` | runs the block `n` times; `n` is a natural literal or a constant |
@@ -139,7 +139,7 @@ From the weakest to the strongest binding:
 | `and`, `&&` | conjunction |
 | `not`, `!` | negation |
 | `<`, `<=`, `>`, `>=`, `==` | comparison (does not chain: `a < b < c` is an error) |
-| `+`, `-` | addition, subtraction (left-associative) |
+| `+`, `-` | addition, subtraction (left-associative); on `nat`, `-` is truncated at 0 (see below) |
 | `*`, `/`, `//`, `%` | multiplication, rational division, floor division, modulo (left-associative) |
 | `-` (unary) | negation |
 | `**` | power (right-associative; `-x ** 2` is `-(x ** 2)`) |
@@ -149,6 +149,13 @@ As in Python, `not` (and `!`) binds weaker than the comparisons: `not x == 1` is
 Parentheses group as usual. Square brackets are not an expression: there are no Iverson brackets
 `[g]` (a condition as the number 0 or 1); a program that uses them, or the former `tick(e)`
 statement, is rejected with a syntax error at its position.
+
+**Subtraction.** On natural numbers, `a - b` is `max(a - b, 0)` (monus): `3 - 5` is `0`, and
+`(n - 7) + 7` is `7` for `n = 5`, in assignments, guards and queries alike. This follows from the
+semantics of pGCL, which defines only the decrement `x--` (with `0-- = 0`): `a - b` decrements `a`
+`b` times, with `b` evaluated first. So `a - (b + c) = (a - b) - c`, but `a - b + b = a` only if
+`a ≥ b`. A subtraction of two variables that both take infinitely many values ends with "not
+implemented" unless it is provably never negative. Details: {doc}`language-design`.
 
 **Division.** `/` is rational division and never rounds: in a guard, `x / 2 <= 1` means
 `x <= 2`; assigned to a `nat` variable, the result must be a natural number. `e // q` rounds down
@@ -178,6 +185,13 @@ and required.
 | `iid(D, n)` | the sum of `n` independent samples of `D`; `n` is a variable or a natural number |
 | `sample_pgf(G, x)` | `x` drawn from the generating function `G` in `x` (the second argument is the assigned variable) |
 | `categorical({v1: p1, v2: p2, …})` | `v1` with probability `p1`, …; `categorical(p0, p1, …, pn)` for the values `0, …, n` |
+
+The arguments may depend on program variables, e.g. `x = bernoulli(1/k);`, and so may the
+probability of a choice. Prodigy computes this exactly by a case split over the values of the
+variables if they take finitely many values (for example in every iteration of an unrolled loop);
+for infinitely many it answers "not implemented". A value that is not admissible (a probability
+outside of `[0, 1]`, `geometric(p)` with `p = 0`, `unif(a, b)` with `a > b`, a division by zero) in a
+reachable state is an error. Details: {doc}`language-design`.
 
 The probabilities of `categorical` are literals and must sum to 1; this is checked when the
 program is read. `categorical`, `infer` and `sample` stand only as a whole right-hand side (of an

@@ -21,7 +21,7 @@ from prodigy.pgcl.parser import parse_expr
 from prodigy.distribution import Distribution
 from prodigy.distribution.exact_division import divide_exponents
 from prodigy.distribution.multisection import rational_sections
-from prodigy.distribution.negative_values import can_be_negative, operand, require_non_negative
+from prodigy.distribution.negative_values import can_be_negative, operand
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.distribution import MarginalType, State, CommonDistributionsFactory, DistributionParam
 from prodigy.util.logger import log_setup
@@ -245,7 +245,7 @@ class SymengineDist(Distribution):
             )
         return str(fast_result)
 
-    def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
+    def _expected_value_of(self, expression: Union[Expr, str]) -> str:
         # todo replace sympy by symengine if method is implemented
         logger.info("Falling back to sympy")
         expr = sp.S(str(expression)).ratsimp().expand()
@@ -273,9 +273,9 @@ class SymengineDist(Distribution):
                 for _ in range(val):
                     tmp = tmp.diff(var_sym, 1) * var_sym
                 tmp = tmp.limit(var_sym, 1, '-')
+            # subtractions of natural numbers are computed before (monus, Distribution.get_expected_value_of),
+            # so a negative summand is a negative coefficient of the (rational) expression itself
             summand: se.Expr = _parse_to_symengine(prob) * tmp
-            if len(summand.free_symbols) == 0 and summand < 0:
-                raise ValueError(f'Intermediate result is negative: {summand}')
             expected_value += summand
         if expected_value == sp.S('oo'):
             return str(RealLitExpr.infinity())
@@ -602,14 +602,12 @@ class SymengineDist(Distribution):
             res = self.safe_subs(update_var, 1, fun=res) * update_var ** diff
 
         res = se.expand(res)
-        expr = SymengineDist(res).set_variables_and_parameters(self.get_variables(), self.get_parameters())
+        return SymengineDist(res).set_variables_and_parameters(self.get_variables(), self.get_parameters())
 
-        names = {str(var) for var in self._variables} | {temp_var}
-        require_non_negative(
-            can_be_negative(sp.S(self._s_func), {sp.Symbol(name) for name in names},
-                            operand(sub_from, names), operand(sub, names)),
-            temp_var, sub_from, sub)
-        return expr
+    def _subtraction_never_negative(self, minuend: str, subtrahend: str) -> bool:
+        names = {str(var) for var in self._variables}
+        return can_be_negative(sp.S(self._s_func), {sp.Symbol(name) for name in names},
+                               operand(minuend, names), operand(subtrahend, names)) is False
 
     def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
                        approximate: str | float | None) -> SymengineDist:
