@@ -233,3 +233,33 @@ def test_stepper_instruction_has_a_fixed_box(client):
     css = (components / "stepper.css").read_text(encoding="utf-8")
     assert ".formula-box.st-code { --fb-collapsed:" in css and ".st-instruction-notes { min-height:" in css
     assert client.get("/static/app/components/stepper.css", headers=HOST).status_code == 200
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_setup_decisions_survive_a_reload_and_follow_a_conversion(tmp_path):
+    """The loop decisions are kept while the loops are unknown, e.g. right after a reload, and only
+    dropped for loops the program no longer has (issue #194). The invariant programs of a conversion
+    to .ppy follow its undo and redo, unless they were edited since (issue #180)."""
+    setup = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "setup.js"
+    script = tmp_path / "check.mjs"
+    script.write_text(
+        f"const s = await import({str(setup.as_uri())!r});\n"
+        "const inv = (text) => ({ strategy: 'invariant', params: { invariant: text } });\n"
+        "const decisions = { '0': inv('nat x;'), '1': { strategy: 'unroll', params: { iterations: 3 } } };\n"
+        "s.pruneDecisions(decisions, null);\n"
+        "const afterReload = Object.keys(decisions);\n"
+        "s.pruneDecisions(decisions, { loops: [{ id: 0 }] });\n"
+        "const afterEdit = Object.keys(decisions);\n"
+        "const conversion = { before: { '0': 'nat x;' }, after: { '0': 'x: nat;' } };\n"
+        "const undo = { before: conversion.after, after: conversion.before };\n"
+        "const steps = [s.swapInvariants(decisions, conversion), decisions['0'].params.invariant,\n"
+        "  s.swapInvariants(decisions, undo), decisions['0'].params.invariant];\n"
+        "decisions['0'].params.invariant = 'nat x; nat c;';\n"
+        "steps.push(s.swapInvariants(decisions, conversion), decisions['0'].params.invariant);\n"
+        "decisions['0'] = { strategy: 'unroll', params: {} };\n"
+        "steps.push(s.swapInvariants(decisions, conversion));\n"
+        "console.log(JSON.stringify([afterReload, afterEdit, steps]));\n",
+        encoding="utf-8")
+    output = subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60, check=True).stdout
+    assert json.loads(output) == [["0", "1"], ["0"],
+                                  [True, "x: nat;", True, "nat x;", False, "nat x; nat c;", False]]

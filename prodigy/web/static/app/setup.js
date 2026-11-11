@@ -28,6 +28,31 @@ export function defaultDecision(strategies) {
   return { strategy: unroll.name, params: defaultParams(unroll) };
 }
 
+/** Drops the decisions of loops the program no longer has. Without an outline (before the first
+ * check after a reload, or while the program has never parsed) the loops are unknown, so every
+ * decision is kept (issue #194). */
+export function pruneDecisions(decisions, outline) {
+  if (!outline) return;
+  const known = new Set((outline.loops || []).map((l) => String(l.id)));
+  for (const key of Object.keys(decisions)) {
+    if (key !== "*" && !known.has(key)) delete decisions[key];
+  }
+}
+
+/** Sets the invariant programs of a conversion, or of its undo or redo: {before, after} map loop ids
+ * to texts. An invariant that was edited since (or whose loop now has another strategy) is left as
+ * it is. Returns whether a decision changed. */
+export function swapInvariants(decisions, { before, after }) {
+  let changed = false;
+  for (const [key, text] of Object.entries(after || {})) {
+    const decision = decisions[key];
+    if (decision?.strategy !== "invariant" || decision.params?.invariant !== before?.[key]) continue;
+    decision.params.invariant = text;
+    changed = true;
+  }
+  return changed;
+}
+
 /** Problems with a parameter value (empty string if fine). */
 export function validateParam(param, raw) {
   const text = raw === null || raw === undefined ? "" : String(raw).trim();
@@ -344,10 +369,7 @@ export function renderSetup(container, ctx) {
 
   const loops = outline?.loops || [];
   const loopCards = loops.map((loop) => loopCard(loop, ctx));
-  const known = new Set(loops.map((l) => String(l.id)));
-  for (const key of Object.keys(setup.decisions)) {
-    if (key !== "*" && !known.has(key)) delete setup.decisions[key];
-  }
+  pruneDecisions(setup.decisions, outline);
 
   const options = setup.options;
   const label = (name) => name.replace(/_/g, " ");

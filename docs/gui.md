@@ -51,8 +51,8 @@ Prodigy is tested with Python 3.11 and 3.14.
 * **New, Open…, Save** (toolbar): in Chrome and Edge, Open and Save work directly on `.ppy` and
   `.pgcl` files on disk, and the file stays linked across reloads; Save As… (⇧⌘S) picks another file.
   Safari and Firefox cannot write to a folder: Open reads the chosen file, Save downloads the
-  program. The program is also kept in the browser, so a reload never loses it; replacing a
-  program with unsaved changes (New, Open…, an example) asks first.
+  program. The program is also kept in the browser, together with the setup (the strategy of each
+  loop), so a reload never loses either; replacing a program with unsaved changes (New, Open…, an example) asks first.
 
 Keyboard: ⌘/Ctrl + Return analyses, ⌘/Ctrl + . (or Esc) stops, ⌘/Ctrl + O opens,
 ⌘/Ctrl + S saves; in the stepper F10 / ⇧F10 go to the next / previous step, F5 / ⇧F5 to the next /
@@ -164,8 +164,8 @@ The GUI reads and writes both syntaxes: the Python-like `.ppy` and the original 
 **Convert to .ppy** (next to the syntax chip of a pGCL program) converts the program with the
 same converter as `prodigy convert`. Names that are keywords in `.ppy` are renamed (`switch`
 becomes `switch_`); the notice lists the renamings. Invariant programs in the setup are
-converted as well. The conversion is one undoable change: ⌘Z restores the pGCL program and its
-syntax. A converted file is not written over the `.pgcl` file: Save asks for a new `.ppy` file.
+converted as well. The conversion is one undoable change: ⌘Z restores the pGCL program, its
+syntax and the setup's invariant programs (an invariant edited after the conversion stays as it is). A converted file is not written over the `.pgcl` file: Save asks for a new `.ppy` file.
 
 Everything typed into the setup is read in the program's syntax: an invariant program of
 *Check invariant* is a loop-free program in that syntax. Generating functions (the initial
