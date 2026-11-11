@@ -7,6 +7,7 @@ import { copyText, h, icon } from "./dom.js";
 import { intervalBar, marginalChart, marginalTable } from "./charts.js";
 import { BOUND_TEXT, exactIsInformative, formatNumber, formatSeconds, formatValue, qualify, shortExact } from "./format.js";
 import { formulaBox } from "./formula-box.js";
+import { jointView } from "./joint-view.js";
 
 const ENGINE_NAMES = { sympy: "SymPy", ginac: "GiNaC", symengine: "SymEngine" };
 
@@ -275,7 +276,7 @@ export function distributionFigure(table, result, variable, mode = "chart") {
     caption.length ? h("figcaption", { class: "rv-note" }, caption.join(" ")) : null);
 }
 
-function distributionSection(result) {
+function distributionSection(result, options) {
   const dist = result.distribution;
   if (!dist) return null;
   const math = formulaBox({ latex: dist.latex, text: dist.closed_form, label: "Generating function" });
@@ -321,6 +322,12 @@ function distributionSection(result) {
       h("div", { class: "rv-subhead" }, h("h4", {}, "Marginal distributions"), variables.length > 1 ? picker : null), holder);
   }
 
+  // the joint distribution of two variables; its coefficients are computed on request (options.loadJoint)
+  const joint = variables.length >= 2 && options.loadJoint
+    ? jointView({ variables, load: options.loadJoint, view: options.jointState || {}, maxAxis: options.maxJointAxis,
+      scale: loadScale, setScale: saveScale })
+    : null;
+
   const latexCopy = dist.latex ? copyButton("LaTeX", dist.latex) : null;
   return section("Output distribution",
     h("div", { class: "rv-card" },
@@ -328,7 +335,8 @@ function distributionSection(result) {
         h("span", { class: "rv-actions" }, latexCopy, copyButton("Text", dist.closed_form))),
       math, facts),
     expectationRow ? h("div", { class: "rv-card" }, expectationRow) : null,
-    marginals ? h("div", { class: "rv-card" }, marginals) : null);
+    marginals ? h("div", { class: "rv-card" }, marginals) : null,
+    joint ? h("div", { class: "rv-card" }, joint) : null);
 }
 
 // ---- dist values (nested inference) ------------------------------------------------------
@@ -570,7 +578,8 @@ export function cleanLog(text) {
 
 /**
  * Renders `result` into `container`.
- * options: { onSelectLoop(id), onSelectLine(line), onOpenSteps(), strategyTitles: {name: title}, stale: bool, elapsed }
+ * options: { onSelectLoop(id), onSelectLine(line), onOpenSteps(), strategyTitles: {name: title}, stale: bool, elapsed,
+ *            loadJoint(payload, signal) -> Promise<grid>, jointState: {}, maxJointAxis }
  */
 export function renderResult(container, result, options = {}) {
   const children = [];
@@ -588,7 +597,7 @@ export function renderResult(container, result, options = {}) {
     children.push(section("Queries", h("ol", { class: "rv-queries" }, ...queries.map((q) => queryRow(q, result, options)))));
   }
   if (result.status === "ok") {
-    children.push(distributionSection(result), distValuesSection(result));
+    children.push(distributionSection(result, options), distValuesSection(result));
   }
   children.push(loopsSection(result, options), stepsSection(result, options), extrasSection(result));
   container.replaceChildren(h("div", { class: "result-view", "data-stale": options.stale ? "true" : "false" },

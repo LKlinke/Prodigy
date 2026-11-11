@@ -414,9 +414,54 @@ function renderResultPanel() {
     onSelectLine: (line) => editor.revealLine(line),
     onOpenSteps: () => selectTab("steps", { focus: true }),
     elapsed: state.result.__elapsed,
+    ...(state.result.__job ? {
+      loadJoint: (payload, signal) => loadJoint(state.result.__job, payload, signal),
+      jointState: jointState(state.result.__job),
+      maxJointAxis: state.meta?.limits?.max_joint_axis,
+    } : {}),
   });
   const kind = state.result.status === "ok" ? state.result.bounds?.kind : "error";
   setBadge(state.resultStale ? null : kind);
+}
+
+// ---- joint distributions (grids computed by the server from the result it keeps) ------------------
+
+const jointCache = new Map();
+
+/** The choices of the joint view (pair, window, view) for the result of one analysis job. */
+function jointState(jobId) {
+  if (state.jointView?.job !== jobId) {
+    // a new result keeps the pair and the kind of view; the window starts from the default again
+    const previous = state.jointView || {};
+    state.jointView = { job: jobId, x: previous.x, y: previous.y, mode: previous.mode, camera: previous.camera };
+  }
+  return state.jointView;
+}
+
+/** Runs a grid job for two variables of the result of analysis `jobId` and resolves to the grid. */
+async function loadJoint(jobId, payload, signal) {
+  const key = `${jobId} ${JSON.stringify(payload)}`;
+  if (jointCache.has(key)) return jointCache.get(key);
+  const response = await api.joint(jobId, payload);
+  for (;;) {
+    if (signal.aborted) {
+      api.cancel(response.job).catch(() => {});
+      throw new DOMException("cancelled", "AbortError");
+    }
+    const status = await api.job(response.job);
+    if (status.state !== "starting" && status.state !== "running") {
+      if (status.result?.status !== "ok") throw new Error(status.result?.error?.message || status.state);
+      const grid = status.result.joint;
+      while (jointCache.size > 24) jointCache.delete(jointCache.keys().next().value);
+      jointCache.set(key, grid);
+      // the same grid with its window spelled out (the view asks for it after a re-render)
+      const window = { x: payload.x, y: payload.y, x_window: [grid.x_values[0], grid.x_values.at(-1)],
+        y_window: [grid.y_values[0], grid.y_values.at(-1)] };
+      jointCache.set(`${jobId} ${JSON.stringify(window)}`, grid);
+      return grid;
+    }
+    await new Promise((resolve) => setTimeout(resolve, status.elapsed < 2 ? 150 : 400));
+  }
 }
 
 // ---- running --------------------------------------------------------------------------------------
@@ -545,7 +590,8 @@ async function poll() {
     pollTimer = setTimeout(poll, status.elapsed < 2 ? 150 : 400);
     return;
   }
-  finish({ ...(status.result || { status: status.state, error: { message: status.state } }), log: (status.result?.log ?? job.log) }, status.elapsed);
+  finish({ ...(status.result || { status: status.state, error: { message: status.state } }), log: (status.result?.log ?? job.log),
+    __job: job.id }, status.elapsed);
 }
 
 /** The progress view, in the Result and the Steps panel. */

@@ -41,6 +41,7 @@ export const api = {
   analyze: (payload) => request("POST", "api/analyze", payload),
   suggest: (payload) => request("POST", "api/suggest", payload),
   job: (id, logOffset = 0) => request("GET", `api/jobs/${encodeURIComponent(id)}?log_offset=${logOffset}`),
+  joint: (id, payload) => request("POST", `api/jobs/${encodeURIComponent(id)}/joint`, payload),
   cancel: (id) => request("DELETE", `api/jobs/${encodeURIComponent(id)}`),
   examples: () => request("GET", "api/examples"),
   example: (id, syntax = "ppy") =>
