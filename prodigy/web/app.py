@@ -4,21 +4,21 @@ The Prodigy web GUI (``prodigy web``).
 A small Flask application: one page (``templates/app.html`` with the ES modules in
 ``static/app``) and a JSON API:
 
-============================  ==========================================================
-``GET  /api/meta``            version, engines, loop strategies with their parameters
-``POST /api/check``           diagnostics (syntax/type errors with positions) and outline
-``POST /api/convert``         a pGCL program in the ``.ppy`` syntax, with the renamed names
-``POST /api/analyze``         starts an analysis in its own process, returns a job id
-``GET  /api/jobs/<id>``       state, new console output, progress, result when done
-``DELETE /api/jobs/<id>``     cancels the analysis
-``POST /api/jobs/<id>/joint`` starts a job for the exact coefficient grid of two variables of a
-                              finished analysis (``x``, ``y``, optional windows), see
-                              :mod:`prodigy.analysis.joint_grid`
-``POST /api/suggest``         asks a language model for a loop invariant candidate (a job)
-``GET  /api/examples``        the example library (``pgfexamples``)
-``GET  /api/examples/<id>``   source of an example and a suggested setup (``?syntax=ppy``:
-                              a ``.pgcl`` example converted to ``.ppy``)
-============================  ==========================================================
+================================  ==================================================================
+``GET  /api/meta``                version, engines, loop strategies with their parameters
+``POST /api/check``               diagnostics (syntax/type errors with positions) and outline
+``POST /api/convert``             a pGCL program in the ``.ppy`` syntax, with the renamed names
+``POST /api/analyze``             starts an analysis in its own process, returns a job id
+``GET  /api/jobs/<id>``           state, new console output, progress, result when done
+``DELETE /api/jobs/<id>``         cancels the analysis
+``POST /api/jobs/<id>/joint``     starts a job for the exact coefficient grid of two variables of a
+                                  finished analysis (``x``, ``y``, optional windows), see
+                                  :mod:`prodigy.analysis.joint_grid`
+``POST /api/suggest``             asks a language model for a loop invariant candidate (a job)
+``GET  /api/examples``            the example library (``pgfexamples``)
+``GET  /api/examples/<id>``       source of an example and a suggested setup (``?syntax=ppy``:
+                                  a ``.pgcl`` example converted to ``.ppy``)
+================================  ==================================================================
 
 Requests with a program take ``syntax`` (``pgcl`` or ``ppy``) or ``file_name`` (its extension
 decides); without either, the program is pGCL.
