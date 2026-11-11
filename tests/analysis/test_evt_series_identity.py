@@ -63,6 +63,20 @@ def test_spurious_closed_form_fixed_point_gives_no_upper_bound(engine):
 
 
 @pytest.mark.parametrize("engine", ENGINES)
+def test_least_fixed_point_of_the_reset_walk_is_exact(engine):
+    # its non-negativity needs the summands checked before they are combined (#297); GiNaC hands it over as
+    # -1/2*(-2+x)^(-1)*(10+2*t*x^5-t*x^6+2*t-t*x), which needs the division by the denominator
+    result = _run(RESET_WALK, {"strategy": "evt_invariant", "params": {"invariant": "5/(2 - x) + t*(1/2 + x^5/2)"}},
+                  engine)
+    assert result["status"] == "ok", result.get("error")
+    loop = result["loops"][0]
+    assert loop["kind"] == Bound.EXACT
+    assert loop["certificates"][0]["nonnegative"] is True
+    query = result["queries"][0]
+    assert query["bound"] == Bound.EXACT and query["value"] == "1/2"
+
+
+@pytest.mark.parametrize("engine", ENGINES)
 def test_formal_loop_keeps_the_upper_bound(engine):
     # the spurious invariant -1/2 + 3/2/(1 - 2x) has radius 1/2, but the walk only shifts x
     result = _run(BIASED_WALK, {"strategy": "evt_invariant", "params": {"invariant": "-1/2 + 3/2/(1 - 2*x)"}},

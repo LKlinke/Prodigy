@@ -226,7 +226,9 @@ non-negative expressions get the lower bound only.
 
 EVT invariants (fixed points I = G + ⟦body⟧(⟨I⟩_guard)) are only upper bounds in general:
 an invariant with infinite mass can be a *spurious* fixed point. The GUI checks
-non-negativity with the configured positivity heuristic and decides finiteness of the mass
+non-negativity with the configured positivity heuristic (three-valued: non-negative, a negative
+coefficient, or undecided; program parameters are real coefficients of unknown sign, never series
+variables, so a coefficient such as 1/(1 − p) stays undecided) and decides finiteness of the mass
 for rational closed forms (Pringsheim: no pole of I(t,…,t) in (0, 1]); only then is the
 result reported as exact. Example: for `while (x > 0) { {x := x-1} [1/3] {x := x+1} }`
 from x = 1, invariant synthesis finds a fixed point with infinite mass and Prodigy's value

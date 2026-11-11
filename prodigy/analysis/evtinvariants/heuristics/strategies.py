@@ -5,7 +5,6 @@ from typing import Collection, Optional
 from prodigy.analysis.exceptions import HeuristicsError
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic
-from prodigy.analysis.evtinvariants.heuristics.positivity.rational_function import RationalFunctionDenomSign
 from prodigy.analysis.evtinvariants.heuristics.templates.templates import TemplateHeuristic
 from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
 from prodigy.distribution import CommonDistributionsFactory
@@ -57,7 +56,7 @@ class PartialRational(SynthesisStrategy):
         )
         self.positivity_heuristics = PositivityHeuristics.create(
             PositivityHeuristics.INDIVIDUAL_SUM,
-            PositivityHeuristics.create(PositivityHeuristics.TRUE_RAT_FUNC)
+            PositivityHeuristics.create(PositivityHeuristics.TRUE_RAT_FUNC, variables=self.variables)
         )
 
 
@@ -69,7 +68,8 @@ class InfinitePolynomial(SynthesisStrategy):
     def __post_init__(self):
         self.template_heuristics = (
             TemplateHeuristics.create(TemplateHeuristics.POLY, self.variables, self.dist_factory))
-        self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.POLYNOMIAL)
+        self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.POLYNOMIAL,
+                                                                 variables=self.variables)
 
 
 @dataclass
@@ -81,7 +81,8 @@ class FinitePolynomial(SynthesisStrategy):
     def __post_init__(self):
         self.template_heuristics = (
             TemplateHeuristics.create(TemplateHeuristics.POLY, self.variables, self.dist_factory, self.max_degree))
-        self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.POLYNOMIAL)
+        self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.POLYNOMIAL,
+                                                                 variables=self.variables)
 
 
 @dataclass
@@ -98,8 +99,9 @@ class AllOrPartialRational(SynthesisStrategy):
             self.dist_factory
         )
 
-        iterate_heur = PositivityHeuristics.create(PositivityHeuristics.ITERATE_TERMS, self.dist_factory)
-        rat_func_heur = PositivityHeuristics.create(PositivityHeuristics.TRUE_RAT_FUNC)
+        iterate_heur = PositivityHeuristics.create(PositivityHeuristics.ITERATE_TERMS, self.dist_factory,
+                                                   variables=self.variables)
+        rat_func_heur = PositivityHeuristics.create(PositivityHeuristics.TRUE_RAT_FUNC, variables=self.variables)
         mixed_rat_func = PositivityHeuristics.create(PositivityHeuristics.MIXED_RAT_FUNC, self.dist_factory,
                                                      iterate_heur, variables=self.variables)
         sum_heur = PositivityHeuristics.create(PositivityHeuristics.INDIVIDUAL_SUM, rat_func_heur)
@@ -140,13 +142,13 @@ class FromHeuristics(SynthesisStrategy):
             raise HeuristicsError(
                 f"The positivity heuristic {self.positivity_heuristic.name.lower()} combines other heuristics and "
                 f"cannot be used on its own. Choose one of {', '.join(SELECTABLE_POSITIVITY_HEURISTICS)}.")
+        # every heuristic gets the variables of the series; other symbols are parameters (#295)
         if self.positivity_heuristic in (PositivityHeuristics.POLYNOMIAL, PositivityHeuristics.TRUE_RAT_FUNC):
-            self.positivity_heuristics = PositivityHeuristics.create(self.positivity_heuristic)
-        elif self.positivity_heuristic.value is RationalFunctionDenomSign:
-            self.positivity_heuristics = PositivityHeuristics.create(self.positivity_heuristic, self.dist_factory,
+            self.positivity_heuristics = PositivityHeuristics.create(self.positivity_heuristic,
                                                                      variables=self.variables)
         else:
-            self.positivity_heuristics = PositivityHeuristics.create(self.positivity_heuristic, self.dist_factory)
+            self.positivity_heuristics = PositivityHeuristics.create(self.positivity_heuristic, self.dist_factory,
+                                                                     variables=self.variables)
 
 
 class SynthesisStrategies(Enum):
