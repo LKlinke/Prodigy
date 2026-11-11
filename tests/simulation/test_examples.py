@@ -10,7 +10,9 @@ statistical, not a proof: it finds errors larger than the width of the intervals
 Left out: examples with parameters or constructs the simulator does not implement (``sample_pgf``,
 ``Pr``/``Ex`` of ``dist`` values), the examples in :data:`SKIPPED` (with the reason), and the slow
 ones in :data:`SLOW` and :data:`SLOW_DIRECTORIES` unless ``PRODIGY_FUZZ=nightly`` (the weekly
-workflow ``.github/workflows/fuzzing.yml``).
+workflow ``.github/workflows/fuzzing.yml``). Each comparison runs in a child process with a time
+budget (:data:`BUDGET`) and a memory limit (:func:`tests.fuzzing.oracles.isolated`), so a slow or
+memory-hungry example fails on its own instead of hanging or killing the whole run.
 """
 import os
 from pathlib import Path
@@ -21,6 +23,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
 from prodigy.pgcl.parser import parse_pgcl
 from prodigy.simulator import UnsupportedConstruct, compare, simulate
+from tests.fuzzing.oracles import ProgramCrash, ProgramError, ProgramTimeout, isolated
 
 EXAMPLES = Path(__file__).parents[2] / "pgfexamples"
 RUNS = 3000
@@ -28,6 +31,8 @@ UNROLL = 30
 LOOP_BUDGET = 1000
 pytestmark = pytest.mark.fuzz
 NIGHTLY = os.environ.get("PRODIGY_FUZZ") == "nightly"
+BUDGET = 900.0 if NIGHTLY else 100.0
+"""Seconds for the analysis and simulation of one example (the slowest in :data:`SLOW` need about 80 s)."""
 
 SKIPPED = {
     "independence/infinite_multiplication.ppy": "not implemented: product of two variables with infinite range",
@@ -93,25 +98,37 @@ def _examples():
             yield name
 
 
-@pytest.mark.parametrize("name", list(_examples()))
-def test_example_agrees_with_simulation(name):
+def _compare(name: str) -> str:
+    """Analyses and simulates the example ``name``; the mismatches, or ``skip: <reason>``."""
     source = (EXAMPLES / name).read_text(encoding="utf-8")
     program = parse_pgcl(source, "ppy")
     try:
         simulation = simulate(program, RUNS, seed=name, loop_budget=LOOP_BUDGET)
     except UnsupportedConstruct as reason:
-        pytest.skip(f"the simulator does not implement {reason}")
+        return f"skip: the simulator does not implement {reason}"
     session = AnalysisSession(program, source=source, syntax="ppy", config=ForwardAnalysisConfig(),
                               decisions={"*": f"unroll:iterations={UNROLL}"}, capture_output=True,
                               coefficient_limit=12)
     result = session.run().to_json()
     if result["status"] == "error" and "observing a valid run is 0" in result["error"]["message"]:
         # no run terminates and passes the observations; the simulation must not see one either
-        assert not simulation.samples
-        return
-    assert result["status"] == "ok", result["error"]
-    mismatches = compare(program, result, simulation)
-    assert not mismatches, "\n".join(map(str, mismatches))
+        return "" if not simulation.samples else "the analysis finds no valid run, the simulation does"
+    if result["status"] != "ok":
+        return f"status {result['status']}: {result['error']}"
+    return "\n".join(map(str, compare(program, result, simulation)))
+
+
+@pytest.mark.parametrize("name", list(_examples()))
+def test_example_agrees_with_simulation(name):
+    try:
+        mismatches = isolated(_compare, name, seconds=BUDGET, seed=name)
+    except (ProgramTimeout, ProgramCrash) as reason:
+        pytest.fail(f"{name}: {reason}")
+    except ProgramError as error:
+        pytest.fail(f"{name}:\n{error}")
+    if mismatches.startswith("skip: "):
+        pytest.skip(mismatches.removeprefix("skip: "))
+    assert not mismatches, mismatches
 
 
 def test_most_examples_are_compared():

@@ -4,14 +4,17 @@ Regression tests for the programs the fuzzing found (shrunk by Hypothesis, then 
 A case of an open issue is ``xfail(strict=True)``: once the issue is fixed, the test passes, fails
 as XPASS, and the marker (and the switch in :class:`~tests.fuzzing.programs.Features`) can go.
 """
+import os
 import signal
+import sys
 import time
 
 import pytest
 
 from prodigy.distribution.equality import decide_equal_strings
 
-from .oracles import SETUPS, ProgramTimeout, analyse, check_program, time_budget
+from .oracles import (SETUPS, ProgramCrash, ProgramError, ProgramTimeout, analyse, check_program, isolated,
+                      time_budget)
 
 ENGINES = {setup.name: setup for setup in SETUPS}
 
@@ -62,3 +65,41 @@ def test_time_budget_interrupts_a_slow_analysis_and_restores_the_outer_timer():
         assert signal.getsignal(signal.SIGALRM) is outer_handler
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
+
+
+def _spin():
+    while True:  # e.g. an analysis that does not finish
+        pass
+
+
+def _die():
+    os.kill(os.getpid(), signal.SIGKILL)
+
+
+def _allocate(size):
+    return len(bytearray(size))
+
+
+def _fail():
+    raise ValueError("broken")
+
+
+def test_isolated_returns_the_value_and_reports_errors():
+    assert isolated(check_program, CATEGORICAL, seconds=60) == []
+    with pytest.raises(ProgramError, match="ValueError: broken"):
+        isolated(_fail, seconds=60)
+
+
+def test_isolated_stops_a_program_over_its_budget_or_dying():
+    started = time.monotonic()
+    with pytest.raises(ProgramTimeout):
+        isolated(_spin, seconds=0.5)
+    assert time.monotonic() - started < 30
+    with pytest.raises(ProgramCrash):
+        isolated(_die, seconds=60)
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="RLIMIT_DATA is enforced on Linux only")
+def test_isolated_stops_a_program_that_eats_all_memory():
+    with pytest.raises(ProgramCrash, match="out of memory"):
+        isolated(_allocate, 2**31, seconds=60, memory=2**30)
