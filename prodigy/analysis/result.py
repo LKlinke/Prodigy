@@ -335,6 +335,7 @@ def univariate_table(dist: "Distribution", variable: str, limit: int, *,
         except Exception:  # pylint: disable=broad-except
             tail = None
     tail_exact, tail_float = exact_and_float(tail)
+    shown_exact, shown_float = exact_and_float(tidy(shown))
     return {
         "variable": variable,
         "finite_support": finite,
@@ -342,6 +343,8 @@ def univariate_table(dist: "Distribution", variable: str, limit: int, *,
         "truncated": truncated,
         "mass": total,
         "mass_float": total_float,
+        "shown_mass": shown_exact,
+        "shown_mass_float": shown_float,
         "tail_mass": tail_exact,
         "tail_mass_float": tail_float,
     }
