@@ -263,3 +263,25 @@ def test_setup_decisions_survive_a_reload_and_follow_a_conversion(tmp_path):
     output = subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60, check=True).stdout
     assert json.loads(output) == [["0", "1"], ["0"],
                                   [True, "x: nat;", True, "nat x;", False, "nat x; nat c;", False]]
+
+
+def test_result_tab_is_three_cards_and_a_details_line():
+    """The Result tab (#288): an answer card with the guarantee once, a distribution card with one
+    control row and one mass line, a card on how it was computed (with the way into the Steps tab)
+    and a disclosure line for warnings, console output and JSON."""
+    components = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components"
+    view = (components / "result-view.js").read_text(encoding="utf-8")
+    for part in ("function answerCard(", "function distributionCard(", "function computedCard(", "function detailsLine(",
+                 "function warningNotice(", "Step Through", "Other expected values", "massSummary("):
+        assert part in view, part
+    # removed: the summary box, the Steps section, the expectations table and the separate joint card
+    for gone in ("function summary(", "function stepsSection(", "rv-table rv-expectations", "Marginal distributions",
+                 'h("h4", {}, "Joint distribution")'):
+        assert gone not in view, gone
+    joint = (components / "joint-view.js").read_text(encoding="utf-8")
+    # the joint view no longer has its own switches or mass box; the result view's control row and mass line serve both
+    assert "massBar" not in joint and "modeToggle" not in joint and "export const JOINT_VIEWS" in joint
+    charts = (components / "charts.js").read_text(encoding="utf-8")
+    assert "export function massSummary(" in charts
+    css = (components / "result-view.css").read_text(encoding="utf-8")
+    assert ".rv-answer[data-kind=\"exact\"]" in css and ".rv-mass-items" in css and ".jv-mass" not in css

@@ -177,3 +177,52 @@ export function marginalTable(table, { variable = "x", bound = "exact" } = {}) {
   }
   return h("div", { class: "table-wrap" }, h("table", { class: "rv-table" }, h("thead", {}, head), h("tbody", {}, rows)));
 }
+
+/**
+ * The mass line under a figure of the result view (#288): one labelled block for whatever the
+ * figure shows, a marginal or a window of a joint distribution. A grey bar from 0 to 1 (its own
+ * axis, so that it never reads as part of a colour scale, #286) and a list:
+ *   total     the total mass of the output distribution
+ *   shown     the mass of the values the figure shows (`shownLabel`)
+ *   beyond    the mass of the other values (`beyondLabel`)
+ *   residual  for a lower bound, the hatched "?" mass not yet accounted for
+ * Each part is {exact, p} or null; parts that are null are left out.
+ */
+export function massSummary({ total = null, shown = null, beyond = null, residual = null,
+  shownLabel = "Shown", beyondLabel = "Beyond the shown values" } = {}) {
+  const width = 300;
+  const hatch = `hatch-${++patternCounter}`;
+  const value = (part) => (part && Number.isFinite(part.p) ? part.p : 0);
+  const pieces = shown || beyond
+    ? [["shown", value(shown)], ["outside", Math.max(0, value(beyond))], ["residual", value(residual)]]
+    : [["shown", value(total)], ["residual", value(residual)]];
+  const sum = pieces.reduce((acc, [, p]) => acc + p, 0);
+  const full = Math.max(1, sum);
+  const rects = [];
+  let x = 0;
+  for (const [kind, p] of pieces) {
+    if (!(p > 0)) continue;
+    const w = Math.max(1.5, (p / full) * width);
+    rects.push(s("rect", { class: `rv-mass-${kind}`, x, y: 0, width: w, height: 12, fill: kind === "residual" ? `url(#${hatch})` : null }));
+    x += w;
+  }
+  const item = (key, label, part) => h("li", {},
+    key ? h("span", { class: `rv-mass-key rv-mass-${key}`, "aria-hidden": "true" }) : h("span", { "aria-hidden": "true" }),
+    h("span", {}, label),
+    h("span", { class: "rv-mass-value", title: part.exact || "" }, formatValue(part.exact, part.p, 6)));
+  const items = [];
+  if (total) items.push(item(shown || beyond ? null : "shown", "Total mass", total));
+  if (shown) items.push(item("shown", shownLabel, shown));
+  if (beyond) items.push(item("outside", beyondLabel, beyond));
+  if (residual && value(residual) > 0) {
+    items.push(item("residual", "? Not yet accounted for — may still end with any value, or never terminate", residual));
+  }
+  const id = `rv-mass-${patternCounter}`;
+  return h("section", { class: "rv-mass", "aria-labelledby": id },
+    h("h4", { class: "rv-mass-title", id }, "Mass"),
+    h("div", { class: "rv-mass-scale" },
+      s("svg", { class: "rv-mass-bar", viewBox: `0 0 ${width} 12`, preserveAspectRatio: "none", "aria-hidden": "true" },
+        s("defs", {}, hatchPattern(hatch)), s("rect", { class: "rv-mass-track", width, height: 12, rx: 3 }), ...rects),
+      h("div", { class: "rv-mass-ends", "aria-hidden": "true" }, h("span", {}, "0"), h("span", {}, formatNumber(full, 4)))),
+    h("ul", { class: "rv-mass-items" }, ...items));
+}

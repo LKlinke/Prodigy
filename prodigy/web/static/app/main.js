@@ -431,9 +431,11 @@ const jointCache = new Map();
 /** The choices of the joint view (pair, window, view) for the result of one analysis job. */
 function jointState(jobId) {
   if (state.jointView?.job !== jobId) {
-    // a new result keeps the pair and the kind of view; the window starts from the default again
+    // a new result keeps the variable (or pair) and the kinds of view; the window starts from the
+    // default again
     const previous = state.jointView || {};
-    state.jointView = { job: jobId, x: previous.x, y: previous.y, mode: previous.mode, camera: previous.camera };
+    state.jointView = { job: jobId, x: previous.x, y: previous.y, mode: previous.mode, camera: previous.camera,
+      subject: previous.subject, marginalMode: previous.marginalMode };
   }
   return state.jointView;
 }
