@@ -122,6 +122,12 @@ argument:
 
 - ``x := iid(D, n)`` sets ``x`` to the sum of ``n`` independent samples of ``D``. ``D`` is a
   predefined distribution or a generating function in ``x``. ``n`` is a program variable or a
-  natural number (a ``const`` counts as one); other expressions and parameters are rejected.
+  natural number (a ``const`` counts as one) or a draw such as ``geometric(1/2)``; other
+  expressions and parameters are rejected.
 - ``x := sample_pgf(G, x)`` samples ``x`` from the generating function ``G`` in ``x``. The second
   argument must be the assigned variable; sampling in another variable is rejected.
+
+Draws may also stand inside the right-hand side of an assignment:
+
+.. automodule:: prodigy.pgcl.draws
+   :no-index:

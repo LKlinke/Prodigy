@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import copy
+import dataclasses
 import logging
-from typing import get_args, Callable, Union, Sequence
+import re
+from typing import get_args, Callable, List, Union, Sequence
 
-from prodigy.pgcl import Instr, AsgnInstr, CategoricalExpr, FunctionCallExpr, Expr, BinopExpr, Binop, VarExpr
+from prodigy.pgcl import (Instr, AsgnInstr, CategoricalExpr, FunctionCallExpr, Expr, BinopExpr, Binop,
+                          NatType, VarExpr)
+from prodigy.pgcl.draws import Helpers, lower_draws
 
 from prodigy.analysis.config import ForwardAnalysisConfig
+from prodigy.analysis.exceptions import ForwardAnalysisError
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.function_handler import FunctionHandler
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
@@ -29,6 +35,19 @@ class AssignmentHandler(InstructionHandler):
     ) -> tuple[Distribution, Distribution]:
         instruction = _assume(instruction, AsgnInstr, 'AssignmentHandler')
 
+        taken = set(prog_info.variables) | set(prog_info.parameters) | set(prog_info.functions)
+        names: List[str] = []
+
+        def fresh() -> str:
+            name = distribution.get_fresh_variable(exclude=taken | set(names))
+            names.append(name)
+            return name
+
+        helpers, rhs = lower_draws(instruction.rhs, set(prog_info.functions), fresh)
+        if helpers:
+            return _with_helpers(AsgnInstr(instruction.lhs, rhs), helpers, prog_info, distribution,
+                                 error_prob, config, analyzer)
+
         if isinstance(instruction.rhs, CategoricalExpr):
             return _categorical(instruction.lhs, instruction.rhs, prog_info, distribution, error_prob,
                                 config, analyzer)
@@ -47,6 +66,50 @@ class AssignmentHandler(InstructionHandler):
                       lhs=VarExpr(instruction.lhs),
                       rhs=instruction.rhs)), \
             error_prob
+
+
+def _with_helpers(
+        instruction: AsgnInstr, helpers: Helpers, prog_info: ProgramInfo, distribution: Distribution,
+        error_prob: Distribution, config: ForwardAnalysisConfig,
+        analyzer: Callable[
+            [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
+            tuple[Distribution, Distribution]
+        ]
+) -> tuple[Distribution, Distribution]:
+    """
+    An assignment with draws inside its right-hand side (see :mod:`prodigy.pgcl.draws`): the draws
+    are assigned to their fresh helper variables first, then ``instruction`` (the right-hand side
+    with the helpers in place of the draws) runs, and the helpers are marginalised. A message
+    about a helper names its draw instead.
+    """
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.nested_inference import without
+    from prodigy.analysis.session import current_session
+    logger.info("Lower the draws of %s into %s", instruction, ", ".join(name for name, _ in helpers))
+    names = [name for name, _ in helpers]
+    program = copy.copy(prog_info.program)
+    program.variables = {**program.variables, **{name: NatType(None) for name in names}}
+    info = dataclasses.replace(prog_info, program=program)
+    missing = [name for name in names if name not in distribution.get_variables()]
+    distribution = distribution.set_variables(*distribution.get_variables(), *missing)
+    try:
+        for name, draw in helpers:
+            distribution, error_prob = analyzer(AsgnInstr(name, draw), info, distribution, error_prob,
+                                                config)
+        distribution, error_prob = analyzer(instruction, info, distribution, error_prob, config)
+    except (NotImplementedError, ValueError, ArithmeticError, ForwardAnalysisError) as exc:
+        if len(exc.args) == 1 and isinstance(exc.args[0], str):
+            message = exc.args[0]
+            for name, draw in helpers:
+                message = _replace_name(message, name, current_session().spell(draw))
+            exc.args = (message,)
+        raise
+    return without(distribution, names), without(error_prob, names)
+
+
+def _replace_name(message: str, name: str, text: str) -> str:
+    """``message`` with the name ``name`` (as a whole word) replaced by ``text``."""
+    return re.sub(rf"(?<![\w]){re.escape(name)}(?![\w])", lambda _: text, message)
 
 
 def _categorical(

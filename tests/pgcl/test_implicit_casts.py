@@ -75,9 +75,8 @@ def test_unprovable_narrowing_is_rejected(code):
     # real to nat loses values
     "nat x; x := 1/2",
     "nat x; rparam p; x := p * x",
-    # conditions stay boolean
-    "nat x; if (x) { skip } else { skip }",
-    "nat x; while (x + 1) { skip }",
+    # conditions stay boolean (a guard that is no bool is rejected by the parser, see
+    # tests/pgcl/test_guard_types.py)
     "nat x; bool b; b := not x",
     "nat x; bool b; b := b & x",
 ])

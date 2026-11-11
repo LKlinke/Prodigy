@@ -31,7 +31,7 @@ from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
                   ProbabilityQueryInstr, Program, RealLitExpr, RealType,
                   SkipInstr, Type, Unop, UnopExpr, Var,
                   VarExpr, WhileInstr)
-from .ast.walk import Walk, walk_expr
+from .ast.walk import Walk, walk_expr, walk_instrs
 
 _T = TypeVar('_T')
 
@@ -104,9 +104,9 @@ def _check_sample_count(program: Program,
     """
     Check the second argument of ``iid`` and ``sample_pgf``.
 
-    ``iid(D, n)`` sums ``n`` independent samples of ``D``; ``n`` must be a program variable or a
-    natural number (constants are substituted before), the analysis cannot handle arbitrary
-    expressions or parameters there. ``sample_pgf(G, x)`` reads ``G`` as a generating function in
+    ``iid(D, n)`` sums ``n`` independent samples of ``D``; ``n`` must be a program variable, a
+    natural number (constants are substituted before) or a draw such as ``geometric(1/2)``, the
+    analysis cannot handle arbitrary expressions or parameters there. ``sample_pgf(G, x)`` reads ``G`` as a generating function in
     the program variable ``x``.
     """
     if expr.function not in ('iid', 'sample_pgf') or len(expr.params[0]) < 2:
@@ -115,7 +115,8 @@ def _check_sample_count(program: Program,
     if isinstance(arg, VarExpr) and arg.var in program.variables:
         return None
     if expr.function == 'iid':
-        if isinstance(arg, NatLitExpr):
+        # a draw is drawn into a helper variable first (prodigy.pgcl.draws)
+        if isinstance(arg, (NatLitExpr, FunctionCallExpr, CategoricalExpr, SampleExpr)):
             return None
         return CheckFail(
             arg, f"The number of samples in {expr} must be a program variable "
@@ -1013,4 +1014,52 @@ def check_function(
         return CheckFail(location=function.returns,
                          message="Functions may only return integers")
 
+    return None
+
+
+_TYPE_NAMES = {NatType: "nat", BoolType: "bool", RealType: "real", DistributionType: "dist"}
+
+
+def type_name(typ: Type) -> str:
+    """The name of a type as the programs write it (``nat``, ``bool``, ``real``, ``dist``)."""
+    return _TYPE_NAMES.get(type(typ), str(typ))
+
+
+def _guards(instructions: List[Instr]) -> Iterable[tuple[Instr, Expr, str]]:
+    for ref in walk_instrs(Walk.DOWN, instructions):
+        instr = ref.val
+        if isinstance(instr, IfInstr):
+            yield instr, instr.cond, "the guard of if"
+        elif isinstance(instr, WhileInstr):
+            yield instr, instr.cond, "the guard of while"
+        elif isinstance(instr, ObserveInstr):
+            yield instr, instr.cond, "the condition of observe"
+
+
+def non_bool_guard(program: Program) -> Optional[tuple[Instr, Expr, str, Type]]:
+    """
+    The first guard of ``if``/``while`` or condition of ``observe`` (in the program or in one of
+    its functions) whose type is known and is not ``bool``, as (instruction, guard, what it is,
+    its type); ``None`` if there is none. A guard needs a truth value; a number such as ``x`` or
+    ``bernoulli(1/2)`` has none, so such a program is rejected (the parsers raise
+    :class:`~prodigy.pgcl.syntax_errors.ProgramTypeError`). Guards whose type cannot be determined
+    (e.g. an undeclared name) are left to :func:`check_program`.
+
+    .. doctest::
+
+        >>> from .parser import parse_pgcl
+        >>> _, guard, what, typ = non_bool_guard(parse_pgcl("nat x; if (x) { x := 1 } else { skip }", check_guards=False))
+        >>> guard, what, type_name(typ)
+        (VarExpr('x'), 'the guard of if', 'nat')
+        >>> non_bool_guard(parse_pgcl("nat x; while (x > 0) { x := x - 1 }")) is None
+        True
+    """
+    views = [(program, program.instructions)]
+    views.extend((Program.from_function(function, program), function.instructions)
+                 for function in program.functions.values())
+    for view, instructions in views:
+        for instr, guard, what in _guards(instructions):
+            typ = get_type(view, guard)
+            if not isinstance(typ, CheckFail) and not is_compatible(BoolType(), typ):
+                return instr, guard, what, typ
     return None

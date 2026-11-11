@@ -78,7 +78,7 @@ def test_for_instr_errors():
         while(x) {
             skip
         }
-    """)
+    """, check_guards=False)
     assert isinstance(check_program(program), CheckFail)
 
     program = parse_pgcl("""
@@ -88,7 +88,7 @@ def test_for_instr_errors():
         } else {
             // ???
         }
-    """)
+    """, check_guards=False)
     assert isinstance(check_program(program), CheckFail)
 
     program = parse_pgcl("""
