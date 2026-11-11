@@ -83,16 +83,23 @@ job of its own, see `prodigy/analysis/joint_grid.py`), the browser only draws th
   all of them. Keyboard: Tab focuses the heatmap, the arrow keys move between cells (↑ is the next
   larger y), Home/End go to the first/last column, Page Up/Page Down to the top/bottom row; the
   pointer selects the cell under it.
-* **3D**: a bar per cell (plain canvas, no library), height and colour by probability. Drag to
-  rotate, pinch (⌘/Ctrl + wheel) to zoom; with the keyboard ←/→ rotate, ↑/↓ tilt, +/− zoom and 0
-  resets, and the buttons above the view do the same. The 3D view has no values of its own; the
-  heatmap and the table give them.
+* **3D**: a bar per cell (plain canvas, no library), height and colour by probability. Pointing at
+  a bar (or at the floor of a cell with probability 0) shows a tooltip with the values of both
+  variables and the probability, formatted as in the heatmap's line; the bar gets an outline and the
+  line below the view repeats the text. Keyboard: Tab focuses the view and shows the tooltip of the
+  selected bar; the arrow keys, Home/End and Page Up/Page Down move between bars as in the heatmap
+  (the heatmap and the 3D view share the selected cell). Drag or Shift + ←/→ rotate, Shift + ↑/↓
+  tilt, pinch (⌘/Ctrl + wheel) or +/− zoom, 0 resets; the buttons above the view do the same.
 * **Table**: the window as a table, rows y (largest on top) and columns x; hovering a value shows
   its exact form.
-* **Mass**: below each view, the mass in the window, the mass outside the window, and for a
-  lower bound the hatched "?" mass not yet accounted for, which may still end up in any cell,
-  outside the window, or never terminate. For a lower bound every cell is a lower bound and gets
-  *at most* = value + residual mass; for an upper bound every cell is an upper bound.
+* **Colour key and total mass**: two separate, labelled blocks below the heatmap and the 3D view.
+  *Colour: probability of one cell* is the viridis key of a single cell's probability (linear from
+  0, or logarithmic; the heading names the range). *Total mass*, set apart by a rule, adds up all
+  cells: a grey bar from 0 to 1 and a list with the mass in the window, the mass outside the window,
+  and for a lower bound the hatched "?" mass not yet accounted for, which may still end up in any
+  cell, outside the window, or never terminate. For a lower bound every cell is a lower bound and
+  gets *at most* = value + residual mass; for an upper bound every cell is an upper bound. The
+  table shows only the total mass.
 
 Nothing in the joint view is animated, so it needs no special case for reduced motion; it follows
 light and dark mode (the 3D view redraws when the appearance changes).

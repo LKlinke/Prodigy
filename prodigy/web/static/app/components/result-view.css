@@ -253,29 +253,52 @@
 .jv-3d { display: grid; gap: 6px; }
 .jv-3d-controls { display: flex; gap: 4px; flex-wrap: wrap; }
 .jv-plot-3d { --jv-floor: var(--separator-strong, rgba(60, 60, 67, 0.29)); justify-self: start; }
+.jv-stage { position: relative; }
 .jv-canvas { display: block; cursor: grab; touch-action: none; max-width: 100%; }
 .jv-canvas:active { cursor: grabbing; }
+/* tooltip of the bar under the pointer or chosen with the keyboard (the readout says the same) */
+.jv-tip {
+  position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none;
+  display: grid; gap: 2px; max-width: min(300px, calc(100% - 8px)); padding: 6px 9px;
+  background: var(--rv-surface); color: var(--rv-text); border: 1px solid var(--rv-separator); border-radius: 6px;
+  box-shadow: var(--shadow-popover, 0 4px 14px rgba(0, 0, 0, 0.18));
+  font-size: var(--text-callout, 12px); font-variant-numeric: tabular-nums; line-height: 1.35;
+}
+.jv-tip-where { color: var(--rv-text-2); }
+.jv-tip-value { font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600; overflow-wrap: anywhere; }
 
-.jv-legend { display: flex; align-items: center; gap: 8px; font-size: var(--text-callout, 12px); color: var(--rv-text-2); flex-wrap: wrap; }
+/* colour key and total mass: two labelled blocks, the mass set apart by a rule (#286) */
+.jv-key-block { display: grid; gap: 6px; min-width: 0; margin: 0; }
+.jv-key-title { margin: 0; font-size: var(--text-callout, 12px); font-weight: 600; color: var(--rv-text); }
+.jv-key-detail { font-weight: 400; color: var(--rv-text-2); }
+.jv-legend { font-size: var(--text-callout, 12px); color: var(--rv-text-2); }
+.jv-legend-row { display: flex; align-items: flex-start; gap: 10px; }
+.jv-legend-zero { display: inline-flex; align-items: center; gap: 5px; height: 14px; font-variant-numeric: tabular-nums; }
 .jv-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--rv-separator); }
 .jv-swatch.jv-zero { background: var(--rv-fill); }
-.jv-gradient-wrap { position: relative; flex: 1 1 160px; max-width: 320px; padding-bottom: 16px; }
-.jv-gradient { height: 12px; border-radius: 3px; }
+.jv-gradient-wrap { position: relative; flex: 1 1 auto; min-width: 0; max-width: 360px; padding-bottom: 16px; margin-right: 12px; }
+.jv-gradient { height: 14px; border-radius: 3px; }
 .jv-gradient-ticks span {
-  position: absolute; top: 14px; transform: translateX(-50%); white-space: nowrap;
+  position: absolute; top: 16px; transform: translateX(-50%); white-space: nowrap;
   font-size: 11px; font-variant-numeric: tabular-nums;
 }
 .jv-gradient-ticks span:first-child { transform: none; }
 .jv-gradient-ticks span:last-child:not(:first-child) { transform: translateX(-100%); }
 
-.jv-mass { display: grid; gap: 6px; }
-.jv-mass-bar { width: 100%; max-width: 420px; height: 10px; display: block; }
+.jv-mass { padding-top: 10px; border-top: 1px solid var(--rv-separator); }
+.jv-mass-scale { display: grid; gap: 2px; max-width: 360px; }
+.jv-mass-bar { width: 100%; height: 14px; display: block; }
+.jv-mass-ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--rv-text-2); font-variant-numeric: tabular-nums; }
 .jv-mass-track { fill: var(--rv-fill); }
 .jv-mass-shown, .jv-key.jv-mass-shown { fill: var(--rv-data); background: var(--rv-data); }
 .jv-mass-outside, .jv-key.jv-mass-outside { fill: var(--rv-data); opacity: 0.35; background: var(--rv-data); }
 .jv-mass-residual { stroke: var(--rv-bound); stroke-width: 1; }
-.jv-mass-items { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--text-callout, 12px); color: var(--rv-text-2); }
-.jv-mass-items > span { display: inline-flex; align-items: center; gap: 6px; }
+.jv-mass-items {
+  list-style: none; margin: 0; padding: 0; display: grid; gap: 4px;
+  font-size: var(--text-callout, 12px); color: var(--rv-text-2);
+}
+.jv-mass-items > li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; gap: 6px 8px; max-width: 520px; }
+.jv-mass-value { color: var(--rv-text); font-variant-numeric: tabular-nums; text-align: right; }
 .jv-key {
   display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; border-radius: 2px;
   flex: none; font-size: 9px; font-weight: 700;
