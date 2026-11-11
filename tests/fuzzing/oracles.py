@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import contextlib
 import math
+import multiprocessing
+import random
 import signal
 import threading
 import time
+import traceback
 from dataclasses import dataclass
-from typing import Any, Dict, Iterator, List, Mapping, Optional
+from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
@@ -56,6 +59,89 @@ def time_budget(seconds: float) -> Iterator[None]:
         signal.signal(signal.SIGALRM, previous_handler)
         if previous_remaining:
             signal.setitimer(signal.ITIMER_REAL, max(previous_remaining - (time.monotonic() - started), 0.001))
+
+
+MEMORY_LIMIT = 3 * 2**30
+"""Bytes of heap a program run in :func:`isolated` may allocate (four xdist workers fit on a CI runner)."""
+
+
+class ProgramCrash(Exception):
+    """A program run in :func:`isolated` ended its process: out of memory, or killed by a signal."""
+
+
+class ProgramError(Exception):
+    """A program run in :func:`isolated` raised an exception; the message holds its traceback."""
+
+
+def _limit_memory(limit: int) -> None:
+    try:
+        import resource  # pylint: disable=import-outside-toplevel
+        resource.setrlimit(resource.RLIMIT_DATA, (limit, limit))
+    except (ImportError, ValueError, OSError):  # Windows, or a platform that does not enforce it
+        pass
+
+
+def _run_child(connection, function: Callable[..., Any], args: tuple, memory: int, seed: Any) -> None:
+    _limit_memory(memory)
+    random.seed(seed)
+    try:
+        value = function(*args)
+    except MemoryError:
+        message = ("crash", f"out of memory (more than {memory // 2**20} MiB)")
+    except BaseException:  # pylint: disable=broad-exception-caught
+        message = ("error", traceback.format_exc())
+    else:
+        message = ("ok", value)
+    try:
+        connection.send(message)
+    except MemoryError:
+        connection.send(("crash", f"out of memory (more than {memory // 2**20} MiB)"))
+    connection.close()
+
+
+def isolated(function: Callable[..., Any], *args: Any, seconds: float, memory: int = MEMORY_LIMIT,
+             seed: Any = 0) -> Any:
+    """
+    ``function(*args)`` in a child process with a hard limit of ``seconds`` (wall clock) and
+    ``memory`` bytes of heap (``RLIMIT_DATA``, enforced on Linux).
+
+    Unlike :func:`time_budget`, this stops native code too (a SymPy or GiNaC computation on huge
+    numbers that never returns to the interpreter) and an analysis that eats all memory, so one
+    program cannot hang or kill the whole test run. Raises :class:`ProgramTimeout` when over time,
+    :class:`ProgramCrash` when the child runs out of memory or dies, and :class:`ProgramError` with
+    the child's traceback when ``function`` raises. ``function`` and ``args`` must be picklable;
+    the child seeds :mod:`random` with ``seed``. Without the start method ``forkserver``
+    (Windows) the call runs in this process under :func:`time_budget`.
+    """
+    if "forkserver" not in multiprocessing.get_all_start_methods():
+        with time_budget(seconds):
+            return function(*args)
+    context = multiprocessing.get_context("forkserver")
+    # the server imports Prodigy once; every child is a cheap fork of it
+    context.set_forkserver_preload([__name__])
+    receiver, sender = context.Pipe(duplex=False)
+    process = context.Process(target=_run_child, args=(sender, function, args, memory, seed), daemon=True)
+    process.start()
+    sender.close()
+    try:
+        if not receiver.poll(seconds):
+            raise ProgramTimeout(f"the program needs more than {seconds} s")
+        try:
+            kind, value = receiver.recv()
+        except EOFError:
+            process.join(5)
+            raise ProgramCrash(f"the process ended with exit code {process.exitcode} "
+                               f"(killed or out of memory)") from None
+    finally:
+        receiver.close()
+        if process.is_alive():
+            process.kill()
+        process.join(5)
+    if kind == "crash":
+        raise ProgramCrash(value)
+    if kind == "error":
+        raise ProgramError(value)
+    return value
 
 
 @dataclass(frozen=True)

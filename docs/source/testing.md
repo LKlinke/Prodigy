@@ -66,9 +66,13 @@ The profile `ci` checks the same programs in every run, so the CI is reproducibl
 `.github/workflows/fuzzing.yml` runs the profile `nightly` every week and on demand. Both print a
 falsifying program together with a `@reproduce_failure` blob.
 
-Every generated program has a time budget for all its analyses and the simulation (5 s in `ci`,
-60 s in `nightly`; a typical program needs well below a second). In `ci` a program over budget is
-rejected and counted (`--hypothesis-show-statistics` shows the share), so a slow program never
-blocks the CI; in `nightly` it fails with the program, since a slow analysis is worth an issue
-too. Every test has a limit of 120 s (pytest-timeout, `[tool.pytest.ini_options]`), after which it
+Every generated program runs in a child process (`tests.fuzzing.oracles.isolated`) with a time
+budget for all its analyses and the simulation (5 s in `ci`, 60 s in `nightly`; a typical program
+needs well below a second) and a memory limit of 3 GiB (enforced on Linux). The child is killed
+when the budget runs out, so even a computation in native code that never returns to the
+interpreter, or one that eats all memory, cannot hang or kill the whole run. In `ci` a program over
+budget or out of memory is rejected and counted (`--hypothesis-show-statistics` shows the share),
+so a slow program never blocks the CI; in `nightly` it fails with the program, since a slow
+analysis is worth an issue too. The comparison of an example with the simulation runs the same way
+(100 s in `ci`, 900 s in `nightly`). Every test has a limit of 120 s (pytest-timeout, `[tool.pytest.ini_options]`), after which it
 fails with the stacks of all threads; the weekly workflow raises it for the slow examples.

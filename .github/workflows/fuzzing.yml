@@ -26,7 +26,10 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           python-version: "3.14"
-      # each program has a time budget of 60 s; the slow examples need more than the default 120 s per test
-      - run: make fuzz ARGS="--timeout=3600 --hypothesis-show-statistics"
+      # Each program and example runs in a child process with a time budget (60 s per program, 900 s per
+      # example) and a memory limit, and fails on its own when it exceeds them. The tests themselves need
+      # more than the default 120 s; -v names every finished test, --durations the slowest ones. The
+      # 400-program test runs longer than 10 minutes, so the faulthandler dump is moved past it.
+      - run: make fuzz ARGS="--timeout=3600 -o faulthandler_timeout=3000 -v --durations=20 --hypothesis-show-statistics"
         env:
           PRODIGY_FUZZ: nightly

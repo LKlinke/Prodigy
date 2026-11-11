@@ -10,9 +10,11 @@ The number of programs comes from a Hypothesis profile, chosen by the environmen
 * ``nightly``: many programs with a fresh seed (``.github/workflows/fuzzing.yml``).
 
 Both print the falsifying program and a blob to reproduce it (``@reproduce_failure``). Every
-program has a time budget (:data:`BUDGET`). In the ``ci`` profile a program over budget is
-rejected and counted (``--hypothesis-show-statistics`` shows the count), so a slow program never
-hangs the test suite; in the ``nightly`` profile it is a failure, reported with the program.
+program runs in a child process (:func:`~tests.fuzzing.oracles.isolated`) with a time budget
+(:data:`BUDGET`) and a memory limit, so neither a computation that never returns to the interpreter
+nor one that eats all memory can hang or kill the test run. In the ``ci`` profile a program over
+budget is rejected and counted (``--hypothesis-show-statistics`` shows the count); in the
+``nightly`` profile it is a failure, reported with the program.
 
 A failure is shrunk to a small program. It becomes an issue and a regression test in
 ``test_found.py``; if it is a known open bug class, a switch in :class:`~tests.fuzzing.programs.Features`
@@ -25,7 +27,7 @@ from hypothesis import HealthCheck, event, given, reject, settings
 
 from prodigy.pgcl.parser import parse_pgcl
 
-from .oracles import ProgramTimeout, check_program, time_budget
+from .oracles import ProgramCrash, ProgramError, ProgramTimeout, check_program, isolated
 from .programs import Features, GeneratedProgram, programs
 
 _HEALTH = [HealthCheck.too_slow, HealthCheck.filter_too_much, HealthCheck.data_too_large]
@@ -47,13 +49,14 @@ BUDGET = 60.0 if NIGHTLY else 5.0
 def test_engines_and_simulation_agree(program: GeneratedProgram):
     source = program.source("ppy")
     try:
-        with time_budget(BUDGET):
-            problems = check_program(source, "ppy", program.decisions())
-    except ProgramTimeout:
+        problems = isolated(check_program, source, "ppy", dict(program.decisions()), seconds=BUDGET, seed=source)
+    except (ProgramTimeout, ProgramCrash) as reason:
         if NIGHTLY:
-            raise AssertionError(f"slower than {BUDGET} s:\n{source}") from None
-        event("rejected: over the time budget")
+            raise AssertionError(f"{reason}:\n{source}") from None
+        event(f"rejected: {type(reason).__name__}")
         reject()
+    except ProgramError as error:
+        raise AssertionError(f"{source}\n{error}") from None
     assert not problems, source + "\n" + "\n".join(problems)
 
 
