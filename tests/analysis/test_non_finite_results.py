@@ -9,7 +9,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import QueryResult, is_non_finite, sym
 from prodigy.analysis.session import AnalysisSession
-from prodigy.distribution.generating_function import GeneratingFunction, _substitute_one
+from prodigy.distribution.generating_function import GeneratingFunction, _continuous_at_one, _substitute_one
 from prodigy.pgcl import parse_pgcl
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -104,6 +104,59 @@ def test_substitute_one_takes_the_limit_at_a_removable_singularity():
     assert _substitute_one(x ** 2 * y, x) == y
     # a pole stays undefined, so the guard below sees it
     assert is_non_finite(_substitute_one(y / (1 - x), x))
+
+
+def test_substitute_one_cancels_before_taking_the_limit():
+    # SymPy's limit does not finish on this form of 0 (#259); cancelling first gives the value at once
+    z = sympy.Symbol("z", real=True)
+    assert _substitute_one(-z ** 2 / 2 - z / 2 + z * (z ** 2 - 1) / (2 * (z - 1)), z) == 0
+    # a function that may jump at 1 takes the limit from below, not the value at 1
+    assert _substitute_one(sympy.floor(z), z) == 0
+
+
+@pytest.mark.parametrize("function, continuous", [
+    ("(z**3 - 1)/(z - 1)", True),  # continuous where finite; the value at 1 comes from the cancelled form
+    ("exp(2*z - 2)*z**5", True),
+    ("log(1 - z/3)", True),
+    ("sqrt(1 - z)", True),  # base 0 under a positive constant exponent
+    ("z**p", True),  # base positive at 1
+    ("log(2)*sign(p) + z", True),  # parts without z are constant
+    ("1/sqrt(1 - z)", False),  # base 0 under a negative exponent: a pole
+    ("floor(z)", False),
+    ("Abs(z - 1)", False),
+    ("Piecewise((1, z < 1), (2, True))", False),
+    ("log(z + p)", False),  # p + 1 not known to be positive
+    ("(z - 2)**(1/3)", False),  # negative base: branch cut
+    ("0**(z - 1)", False),
+])
+def test_continuity_at_one_is_an_allowlist(function, continuous):
+    z, p = sympy.Symbol("z", real=True), sympy.Symbol("p", real=True)
+    assert _continuous_at_one(sympy.sympify(function, locals={"z": z, "p": p}), z) is continuous
+
+
+# observe after unif: the unobserved part has a removable singularity at 1 without simplification (#259)
+OBSERVE_AFTER_UNIF = [
+    pytest.param("z: nat = unif(1, 2);\nobserve(z < 3);\n", "z", id="observe"),
+    pytest.param("def f(a: nat) -> nat {\n    observe(a < 3);\n    return a;\n}\n"
+                 "z: nat = unif(1, 2);\nx: nat = f(z);\n", "z*x", id="call_in_joint"),
+]
+
+
+@pytest.mark.timeout(60)
+@pytest.mark.parametrize("program, variable", OBSERVE_AFTER_UNIF)
+@pytest.mark.parametrize("engine", ENGINES)
+@pytest.mark.parametrize("simplification", SIMPLIFICATION)
+def test_observe_after_unif_is_fast(program, variable, engine, simplification):
+    config = ForwardAnalysisConfig(engine=_engine(engine), use_simplification=simplification)
+    session = AnalysisSession(parse_pgcl(program, "ppy"), source=program, syntax="ppy", config=config,
+                              decisions={}, capture_output=True)
+    result = session.run().to_json()
+    assert result["status"] == "ok", result["error"]
+    assert result["bounds"]["kind"] == Bound.EXACT
+    computed = sym(result["distribution"]["closed_form"])
+    computed = computed.subs({s: sympy.Symbol(s.name) for s in computed.free_symbols})
+    single = sympy.sympify(variable)
+    assert sympy.cancel(computed - (single + single ** 2) / 2) == 0
 
 
 @pytest.mark.parametrize("value", ["nan", "NaN", "zoo", "oo", "-oo", "\\infty", "∞", "x*nan", "2*zoo + x",
