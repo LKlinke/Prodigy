@@ -189,7 +189,7 @@ for the whole program:
 | --- | --- | --- |
 | exact | equal to the semantics | loop-free code; unrolling/iteration that reaches a fixed point or leaves no mass in the loop; an EVT fixed point with non-negative coefficients **and finite mass** |
 | lower | coefficient-wise below the semantics; at most the *residual mass* r is unaccounted for | unroll N, iterate until mass captured, EVT iteration |
-| upper | coefficient-wise above the semantics (Park's lemma) | invariant check (exact if the loop terminates almost surely), EVT invariants with non-negative coefficients |
+| upper | coefficient-wise above the semantics (Park's lemma) | invariant check (exact if the loop terminates almost surely), EVT invariants with non-negative coefficients whose equation holds for the series (see below) |
 | unknown | no guaranteed direction | mixing lower and upper approximations, unchecked side conditions |
 
 For a lower bound, every probability query becomes an interval
@@ -207,6 +207,16 @@ result reported as exact. Example: for `while (x > 0) { {x := x-1} [1/3] {x := x
 from x = 1, invariant synthesis finds a fixed point with infinite mass and Prodigy's value
 Pr[x = 0] = 1 is reported as an upper bound — the true value is 1/2. Unrolling 25
 iterations gives Pr[x = 0] ∈ [0.4956, 1].
+
+Even the upper bound needs a side condition: the fixed-point equation is checked on the closed
+form of I, Park's lemma needs it for the power series. They differ when the series diverges
+where the body evaluates I, e.g. when it marginalises a variable (`x := 5` substitutes x = 1):
+`1/(1 - 2x)` is −1 at x = 1, its series is ∞. So an EVT invariant with infinite (or undecided)
+mass gives an upper bound only if its series converges on the open unit polydisc (no pole of
+I(t,…,t) in (0, 1)) or the loop is *formal*: its guards compare variables with literals, its
+probabilities are constants, and it only assigns `x := x + c`, `x := x - c` and `x := x + y`.
+Otherwise the result is unknown (issue #276). The walk above is formal, so its upper bound
+stands. The certificate names the reason as `series_identity`.
 
 An invariant that fails its check gets a verdict. *Refuted* means it is provably wrong: a
 counterexample, or Φ(I) − I is a nonzero rational function after exact cancellation.

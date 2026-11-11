@@ -249,9 +249,17 @@ def certificate_checks(certificate: Optional[Mapping[str, Any]], failed: Optiona
             mass = cert.get("mass")
             checks.append(_tristate(cert.get("finite_mass"), "Finite mass",
                                     f"I has finite mass |I| = {mass}, so the fixed point is the least one: exact.",
-                                    "I has infinite mass and may be a spurious fixed point: upper bound only.",
+                                    "I has infinite mass and may be a spurious fixed point: at most an upper bound.",
                                     "Finite mass of I was not shown, so exactness is not certified.",
                                     no_status="unknown"))
+            if cert.get("nonnegative") is True and cert.get("finite_mass") is not True:
+                reason = cert.get("series_identity")
+                checks.append(_check("Series", "passed" if reason else "unknown",
+                                     f"The equation also holds for the power series of I ({reason}), so Park's "
+                                     "lemma gives an upper bound." if reason else
+                                     "The equation was shown for the closed form of I only: the series of I may "
+                                     "diverge where the loop body evaluates it (e.g. a marginal), so Park's "
+                                     "lemma does not apply."))
     elif kind == "evt_subinvariant":
         if failed is None:
             checks.append(_tristate(cert.get("nonnegative"), "ν ≥ 0",

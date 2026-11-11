@@ -27,6 +27,7 @@ from prodigy.analysis.evtinvariants.heuristics.strategies import (DEFAULT_MAX_DE
 from prodigy.analysis.evtinvariants.invariant_synthesis import (DEFAULT_SYNTHESIS_TIME_LIMIT,
                                                                 evt_invariant_synthesis)
 from prodigy.analysis.evtinvariants.invariant_verification import FixedPointCheckFailed, evt_invariant_check
+from prodigy.analysis.evtinvariants.series_identity import converges_on_unit_polydisc, formal_loop
 from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
@@ -130,12 +131,17 @@ def _positivity(config: ForwardAnalysisConfig, variables, invariant: Any) -> Opt
         return None
 
 
-def _evt_outcome_kind(scope_kind: str, positive: Optional[bool], finite: Optional[bool]) -> Tuple[str, List[str]]:
+def _evt_outcome_kind(scope_kind: str, positive: Optional[bool], finite: Optional[bool],
+                      series: Optional[str] = None) -> Tuple[str, List[str]]:
     """Guarantee for a fixed point I of Ψ_G(H) = G + ⟦body⟧(⟨H⟩_B).
 
     ``scope_kind`` says how the body was analysed while checking I: exactly, or with inner
     loops over-approximated (then Ψ' ⪰ Ψ, so I = Ψ'(I) ⪰ Ψ(I) and Park still applies, but the
-    finite-mass rule for the other direction does not)."""
+    finite-mass rule for the other direction does not).
+
+    ``series`` names the reason why the equation, checked on closed forms, also holds for the power
+    series of I (:mod:`prodigy.analysis.evtinvariants.series_identity`), or is None if there is none
+    (#276). Finite mass is such a reason; without one, Park's lemma does not apply."""
     messages = []
     if scope_kind not in (Bound.EXACT, Bound.UPPER):
         messages.append("Loops inside the body were under-approximated while checking the invariant; "
@@ -147,6 +153,12 @@ def _evt_outcome_kind(scope_kind: str, positive: Optional[bool], finite: Optiona
     if positive is None:
         messages.append("Non-negativity of the invariant's coefficients could not be established; "
                         "no guarantee.")
+        return Bound.UNKNOWN, messages
+    if series is None and finite is not True:
+        messages.append("I = G + ⟦body⟧(⟨I⟩_B) holds for the closed form of I, but this does not prove it for the "
+                        "power series: the series of I diverges inside the unit polydisc (or this could not be "
+                        "decided), and the loop body evaluates I there, e.g. by marginalising a variable. I may be "
+                        "no fixed point of the program's semantics; no guarantee.")
         return Bound.UNKNOWN, messages
     if scope_kind == Bound.UPPER:
         messages.append("Upper bound (Park's lemma): loops inside the body were over-approximated while "
@@ -378,11 +390,25 @@ def _strategy_evt_iterate(task: LoopTask) -> LoopOutcome:
                                  f"mass {remaining} is not accounted for."])
 
 
+def _series_identity(invariant: Distribution, variables: Sequence[str], loop: WhileInstr,
+                     finite: Optional[bool]) -> Optional[str]:
+    """Why the fixed-point equation of the non-negative closed form I also holds for its power series, or
+    None (#276; the criteria and their proofs are in :mod:`prodigy.analysis.evtinvariants.series_identity`)."""
+    if finite is True:
+        return "finite mass"
+    if converges_on_unit_polydisc(str(invariant), variables) is True:
+        return "converges on the open unit polydisc"
+    if formal_loop(loop, variables):
+        return "formal loop body"
+    return None
+
+
 def _evt_certificate(kind_name: str, invariant: Distribution, variables, config, scope_kind: str,
-                     loop_cond) -> Tuple[str, Dict[str, Any], List[str]]:
+                     loop: WhileInstr, loop_cond: str) -> Tuple[str, Dict[str, Any], List[str]]:
     positive = _positivity(config, variables, invariant)
     finite, mass = finite_mass(str(invariant), list(variables)) if positive else (None, None)
-    kind, messages = _evt_outcome_kind(scope_kind, positive, finite)
+    series = _series_identity(invariant, [str(v) for v in variables], loop, finite) if positive else None
+    kind, messages = _evt_outcome_kind(scope_kind, positive, finite, series)
     certificate = {
         "type": kind_name,
         "rule": "Park + finite-mass lower induction" if kind == Bound.EXACT else "Park",
@@ -391,6 +417,7 @@ def _evt_certificate(kind_name: str, invariant: Distribution, variables, config,
         "nonnegative": positive,
         "finite_mass": finite,
         "mass": str(mass) if mass is not None else None,
+        "series_identity": series,
     }
     return kind, certificate, messages
 
@@ -416,7 +443,7 @@ def _strategy_evt_invariant(task: LoopTask) -> LoopOutcome:
                                              "verdict": "unknown", "reason": str(exc)}) from exc
     print(f"{Style.OKGREEN}Continuing with {solution}{Style.RESET}")
     kind, certificate, messages = _evt_certificate("evt_invariant", full_invariant, variables, config,
-                                                   scope.kind, task.session.spell(instruction.cond))
+                                                   scope.kind, instruction, task.session.spell(instruction.cond))
     certificate["candidate"] = str(evt_inv)
     certificate["solutions"] = solutions
     return LoopOutcome(solution, task.error_prob, kind=kind, certificate=certificate, messages=messages)
@@ -468,7 +495,7 @@ def _strategy_evt_synthesis(task: LoopTask) -> LoopOutcome:
                            "mass": str(mass) if mass is not None else None})
     chosen, positive = invariants[index]
     kind, certificate, messages = _evt_certificate("evt_synthesis", chosen, variables, config, scope.kind,
-                                                   task.session.spell(instruction.cond))
+                                                   instruction, task.session.spell(instruction.cond))
     certificate["chosen"] = index
     certificate["candidates"] = candidates
     certificate["synthesis_strategy"] = config.strategy.name
