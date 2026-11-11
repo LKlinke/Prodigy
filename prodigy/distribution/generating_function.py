@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import contextlib
+import functools
 import operator
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -43,6 +44,33 @@ class GeneratingFunctionSettings:
 
 _SETTINGS: ContextVar[GeneratingFunctionSettings] = ContextVar(
     "generating_function_settings", default=GeneratingFunctionSettings())
+
+
+@functools.lru_cache(maxsize=1024)
+def _is_finite_function(function: sympy.Expr, variables: FrozenSet[sympy.Symbol]) -> bool:
+    """The finiteness heuristic of the constructor: ``function`` is a polynomial in ``variables``
+    once ratsimp has cancelled what it can. ratsimp is expensive on large closed forms, and the
+    analysis builds many distributions with the same function (every ``copy`` repeats the
+    heuristic for a flag that is False), so the result is cached; it depends only on the arguments.
+
+    ratsimp first cancels the function to ``f/g`` in lowest terms and then divides ``f`` by ``g``
+    with remainder. If ``g`` contains a variable, the remainder is not zero (``g`` would divide
+    ``f``) and stays over ``g`` in lowest terms, so the result is no polynomial; the division and
+    the second cancellation, the expensive part on large closed forms, are skipped then.
+    """
+    _, denominator = sympy.cancel(function).as_numer_denom()
+    if denominator.free_symbols & variables:
+        return False
+    return bool(function.ratsimp().is_polynomial(*variables))
+
+
+@functools.lru_cache(maxsize=1024)
+def _limit_at_one(function: sympy.Expr, variable: sympy.Symbol) -> sympy.Expr:
+    """The limit of ``function`` as ``variable`` tends to 1 from below, i.e. the variable marginalised
+    out of a closed form. SymPy's limit is expensive, and the analysis marginalises the same function
+    several times, so the result is cached; it depends only on the arguments.
+    """
+    return function.limit(variable, 1, "-")
 
 
 def _term_generator(function: sympy.Poly):
@@ -281,8 +309,8 @@ class GeneratingFunction(Distribution):
         # Do closed form and finiteness heuristics
         self._is_closed_form = closed if closed else not self._function.is_polynomial(
             *self._variables)
-        self._is_finite = finite if finite else self._function.ratsimp(
-        ).is_polynomial(*self._variables)
+        self._is_finite = finite if finite else _is_finite_function(
+            self._function, frozenset(self._variables))
 
     @staticmethod
     def factory() -> Type[CommonDistributionsFactory]:
@@ -1439,20 +1467,21 @@ class GeneratingFunction(Distribution):
         if method == MarginalType.INCLUDE:
             for s_var in marginal._variables.difference(marginal_vars):
                 if marginal._is_closed_form:
-                    marginal._function = marginal._function.limit(s_var, 1, "-")
+                    marginal._function = _limit_at_one(marginal._function, s_var)
                 else:
                     marginal._function = marginal._function.subs(s_var, 1)
             marginal._variables = marginal_vars
         else:
             for s_var in marginal_vars:
                 if marginal._is_closed_form:
-                    marginal._function = marginal._function.limit(s_var, 1, "-")
+                    marginal._function = _limit_at_one(marginal._function, s_var)
                 else:
                     marginal._function = marginal._function.subs(s_var, 1)
             marginal._variables = marginal._variables.difference(marginal_vars)
 
         marginal._is_closed_form = not marginal._function.is_polynomial()
-        marginal._is_finite = marginal._function.ratsimp().is_polynomial()
+        marginal._is_finite = _is_finite_function(
+            marginal._function, frozenset(marginal._function.free_symbols))
 
         return marginal
 
