@@ -2,7 +2,9 @@
 // and inline annotations (the strategy above each loop, the result after each query).
 //
 // The syntax ("pgcl" or "ppy") is part of the editor state, so that undoing a conversion to .ppy
-// also brings the old syntax back (invertedEffects).
+// also brings the old syntax back (invertedEffects). A change can carry a companion change of state
+// outside the editor ({before, after}, e.g. the setup's invariant programs), which undo and redo
+// apply together with the text.
 import {
   EditorState, StateField, StateEffect, Compartment, EditorView, keymap, lineNumbers, highlightActiveLine,
   highlightActiveLineGutter, drawSelection, Decoration, WidgetType, defaultKeymap, history,
@@ -258,6 +260,13 @@ const invertSyntax = invertedEffects.of((transaction) => {
   return transaction.effects.some((e) => e.is(setSyntax)) ? [setSyntax.of(before)] : [];
 });
 
+// a companion change {before, after}: applied with its transaction, swapped on undo and redo
+const companion = StateEffect.define();
+
+const invertCompanion = invertedEffects.of((transaction) => transaction.effects
+  .filter((e) => e.is(companion))
+  .map((e) => companion.of({ before: e.value.after, after: e.value.before })));
+
 function completions(context) {
   const word = context.matchBefore(/[\w?!]+/);
   if (!word || (word.from === word.to && !context.explicit)) return null;
@@ -287,8 +296,10 @@ function languageFor(syntax) {
   ];
 }
 
-/** onSyntaxChange(syntax) is called whenever the syntax changes, also by undo and redo. */
-export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSyntaxChange, onRun, onStop,
+/** onSyntaxChange(syntax) is called whenever the syntax changes, also by undo and redo;
+ * onCompanion({before, after}) whenever a change made with setSource(…, {companion}) is applied,
+ * undone (before and after swapped) or redone. */
+export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSyntaxChange, onCompanion, onRun, onStop,
   onBreakpointsChange, stepKeys = {} } = {}) {
   const toggleAt = (view, position) => {
     view.dispatch({ effects: toggleBreakpointEffect.of(view.state.doc.lineAt(position).from) });
@@ -325,6 +336,7 @@ export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSy
     keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...searchKeymap, ...historyKeymap,
       ...completionKeymap, ...lintKeymap, indentWithTab]),
     invertSyntax,
+    invertCompanion,
     syntaxHighlighting(highlightStyle),
     lintGutter(),
     annotationField,
@@ -332,6 +344,10 @@ export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSy
     breakpointField,
     EditorView.contentAttributes.of({ spellcheck: "false", autocorrect: "off", autocapitalize: "off" }),
     EditorView.updateListener.of((update) => {
+      // before onSyntaxChange, so that what it renders already shows the companion state
+      for (const transaction of update.transactions) {
+        for (const effect of transaction.effects) if (effect.is(companion)) onCompanion?.(effect.value);
+      }
       const before = update.startState.field(syntaxField);
       const after = update.state.field(syntaxField);
       if (before !== after) {
@@ -359,9 +375,11 @@ export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSy
     view,
     getSource: () => view.state.doc.toString(),
     getSyntax: () => view.state.field(syntaxField),
-    /** Replaces the program (and its syntax, if given) as one undoable change. */
-    setSource(text, syntax = null) {
+    /** Replaces the program (and its syntax, if given) as one undoable change; a companion
+     * {before, after} is undone and redone with it (see onCompanion). */
+    setSource(text, syntax = null, { companion: change = null } = {}) {
       const effects = syntax && syntax !== view.state.field(syntaxField) ? [setSyntax.of(syntax)] : [];
+      if (change) effects.push(companion.of(change));
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text }, selection: { anchor: 0 },
         effects, scrollIntoView: true });
     },

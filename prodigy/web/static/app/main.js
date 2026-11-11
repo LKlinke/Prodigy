@@ -3,7 +3,7 @@ import { api } from "./api.js";
 import { canWriteFiles, createDocument } from "./document.js";
 import { createEditor, SYNTAXES } from "./editor.js";
 import { createLibrary } from "./library.js";
-import { defaultDecision, focusLoopCard, renderSetup, setupProblems } from "./setup.js";
+import { defaultDecision, focusLoopCard, renderSetup, setupProblems, swapInvariants } from "./setup.js";
 import { load, save } from "./store.js";
 import { h, icon } from "./components/dom.js";
 import { BOUND_TEXT, formatSeconds, formatValue, qualify } from "./components/format.js";
@@ -691,8 +691,8 @@ function syntaxChanged(syntax) {
   scheduleCheck(0);
 }
 
-/** Convert to .ppy: one undoable change of text and syntax; invariant programs in the setup are
- * converted as well. */
+/** Convert to .ppy: one undoable change of text, syntax and the invariant programs in the setup
+ * (they ride along as the change's companion, so undo and redo restore all three together). */
 async function convertProgram() {
   if (editor.getSyntax() !== "pgcl") return;
   const source = editor.getSource();
@@ -705,20 +705,30 @@ async function convertProgram() {
     return;
   }
   if (source !== editor.getSource()) return;
-  for (const decision of Object.values(state.setup.decisions)) {
+  const before = {};
+  const after = {};
+  for (const [key, decision] of Object.entries(state.setup.decisions)) {
     const invariant = decision.strategy === "invariant" ? decision.params?.invariant : null;
     if (typeof invariant !== "string" || !invariant.trim()) continue;
     try {
-      decision.params.invariant = (await api.convert(invariant)).source;
+      after[key] = (await api.convert(invariant)).source;
+      before[key] = invariant;
     } catch {
       // left as it is: the setup reports it when the analysis runs
     }
   }
-  save("setup", state.setup);
-  editor.setSource(converted.source, "ppy");
+  if (source !== editor.getSource() || editor.getSyntax() !== "pgcl") return;
+  editor.setSource(converted.source, "ppy", { companion: { before, after } });
   const renamed = renamingText(converted.renamings);
   notify(`Converted to .ppy.${renamed ? ` ${renamed}` : ""} ⌘Z undoes it.`, "info");
   editor.focus();
+}
+
+/** A conversion was applied, undone or redone: the setup's invariant programs follow. */
+function companionApplied(change) {
+  if (!swapInvariants(state.setup.decisions, change)) return;
+  save("setup", state.setup);
+  renderSetupPanel();
 }
 
 // ---- boot -----------------------------------------------------------------------------------------------
@@ -752,6 +762,7 @@ async function boot() {
     // a program kept by a version without .ppy support is pGCL
     syntax: load("syntax", storedSource === null ? "ppy" : "pgcl") === "ppy" ? "ppy" : "pgcl",
     onSyntaxChange: syntaxChanged,
+    onCompanion: companionApplied,
     onChange: (source) => {
       save("source", source);
       documents?.changed();
