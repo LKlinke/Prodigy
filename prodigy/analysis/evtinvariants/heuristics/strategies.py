@@ -9,6 +9,10 @@ from prodigy.analysis.evtinvariants.heuristics.templates.templates import Templa
 from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
 from prodigy.distribution import CommonDistributionsFactory
 
+DEFAULT_MAX_DEGREE = 4
+"""Default degree bound of the templates (strategy parameter ``max_degree`` of ``evt_synthesis``). The
+templates of the rational heuristic have a numerator of at most this degree in each variable."""
+
 
 @dataclass
 class SynthesisStrategy:
@@ -23,7 +27,7 @@ class SynthesisStrategy:
 class DefaultStrategy(SynthesisStrategy):
     variables: Collection[str]
     dist_factory: CommonDistributionsFactory
-    max_degree: int = 10
+    max_degree: int = DEFAULT_MAX_DEGREE
 
     def __post_init__(self):
         self.template_heuristics = TemplateHeuristics.create(
@@ -41,7 +45,7 @@ class DefaultStrategy(SynthesisStrategy):
 class PartialRational(SynthesisStrategy):
     variables: Collection[str]
     dist_factory: CommonDistributionsFactory
-    max_degree: int = 10
+    max_degree: int = DEFAULT_MAX_DEGREE
 
     def __post_init__(self):
         self.template_heuristics = TemplateHeuristics.create(
@@ -71,11 +75,11 @@ class InfinitePolynomial(SynthesisStrategy):
 class FinitePolynomial(SynthesisStrategy):
     variables: Collection[str]
     dist_factory: CommonDistributionsFactory
-    max_deg: int = 10
+    max_degree: int = DEFAULT_MAX_DEGREE
 
     def __post_init__(self):
         self.template_heuristics = (
-            TemplateHeuristics.create(TemplateHeuristics.POLY, self.variables, self.dist_factory, self.max_deg))
+            TemplateHeuristics.create(TemplateHeuristics.POLY, self.variables, self.dist_factory, self.max_degree))
         self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.POLYNOMIAL)
 
 
@@ -83,7 +87,7 @@ class FinitePolynomial(SynthesisStrategy):
 class AllOrPartialRational(SynthesisStrategy):
     variables: Collection[str]
     dist_factory: CommonDistributionsFactory
-    max_degree: int = 10
+    max_degree: int = DEFAULT_MAX_DEGREE
 
     def __post_init__(self):
         self.template_heuristics = TemplateHeuristics.create(
@@ -121,7 +125,7 @@ class FromHeuristics(SynthesisStrategy):
     dist_factory: CommonDistributionsFactory
     templ_heuristic: TemplateHeuristics
     positivity_heuristic: PositivityHeuristics
-    max_degree: int = 10
+    max_degree: int = DEFAULT_MAX_DEGREE
 
     def __post_init__(self):
         if self.templ_heuristic == TemplateHeuristics.POLY:
@@ -152,21 +156,26 @@ class SynthesisStrategies(Enum):
     @classmethod
     def make(cls, st: 'SynthesisStrategies', variables: Collection[str], dist_factory: CommonDistributionsFactory,
              templ_heuristic: Optional[TemplateHeuristics] = None,
-             positivity_heuristic: Optional[PositivityHeuristics] = None) -> SynthesisStrategy:
+             positivity_heuristic: Optional[PositivityHeuristics] = None,
+             max_degree: int = DEFAULT_MAX_DEGREE) -> SynthesisStrategy:
         """Builds the strategy ``st``.
 
         The heuristics are only used by ``FROM_HEURISTICS``, which needs both of them; the other strategies
-        fix their own heuristics."""
-        if st != SynthesisStrategies.FROM_HEURISTICS:
+        fix their own heuristics. ``max_degree`` bounds the degree of the templates; ``INF_POLY`` enumerates
+        polynomials of every degree and ignores it."""
+        if st == SynthesisStrategies.INF_POLY:
             return st.value(variables, dist_factory)
+        if st != SynthesisStrategies.FROM_HEURISTICS:
+            return st.value(variables, dist_factory, max_degree)
         if templ_heuristic is None or positivity_heuristic is None:
             missing = [name for name, value in (("template heuristic", templ_heuristic),
                                                 ("positivity heuristic", positivity_heuristic)) if value is None]
             raise HeuristicsError(f"The synthesis strategy from_heuristics needs a {' and a '.join(missing)}.")
-        return FromHeuristics(variables, dist_factory, templ_heuristic, positivity_heuristic)
+        return FromHeuristics(variables, dist_factory, templ_heuristic, positivity_heuristic, max_degree)
 
     @classmethod
-    def from_config(cls, config, variables: Collection[str]) -> SynthesisStrategy:
-        """Builds the strategy chosen in a :class:`ForwardAnalysisConfig`."""
+    def from_config(cls, config, variables: Collection[str], max_degree: int = DEFAULT_MAX_DEGREE) -> SynthesisStrategy:
+        """Builds the strategy chosen in a :class:`ForwardAnalysisConfig` with templates up to ``max_degree``."""
         return cls.make(config.strategy, variables, config.factory,
-                        templ_heuristic=config.templ_heuristic, positivity_heuristic=config.positivity_heuristic)
+                        templ_heuristic=config.templ_heuristic, positivity_heuristic=config.positivity_heuristic,
+                        max_degree=max_degree)

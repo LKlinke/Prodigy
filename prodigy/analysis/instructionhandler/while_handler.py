@@ -22,8 +22,10 @@ from prodigy.pgcl import Instr, parse_pgcl, Program, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
-from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategy, SynthesisStrategies
-from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
+from prodigy.analysis.evtinvariants.heuristics.strategies import (DEFAULT_MAX_DEGREE, SynthesisStrategy,
+                                                                  SynthesisStrategies)
+from prodigy.analysis.evtinvariants.invariant_synthesis import (DEFAULT_SYNTHESIS_TIME_LIMIT,
+                                                                evt_invariant_synthesis)
 from prodigy.analysis.evtinvariants.invariant_verification import FixedPointCheckFailed, evt_invariant_check
 from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
 from prodigy.analysis.instructionhandler import _assume
@@ -426,12 +428,16 @@ def _strategy_evt_synthesis(task: LoopTask) -> LoopOutcome:
     logger.debug("Using invariant synthesis.")
 
     # Build the strategy.
-    strategy: SynthesisStrategy = SynthesisStrategies.from_config(config, prog_info.variables.keys())
+    max_degree = task.param("max_degree")
+    strategy: SynthesisStrategy = SynthesisStrategies.from_config(config, prog_info.variables.keys(), max_degree)
 
-    # generate the invariants using the strategy
+    # generate the invariants using the strategy; ends with SynthesisBoundReached (verdict unknown) if
+    # there is none up to the degree bound or within the time limit
     with task.session.sub_analysis("EVT invariant synthesis") as scope:
-        invariants = evt_invariant_synthesis(instruction, prog_info, task.distribution, config, strategy,
-                                             analyzer)
+        invariants = evt_invariant_synthesis(
+            instruction, prog_info, task.distribution, config, strategy, analyzer,
+            time_limit=task.param("time_limit"),
+            progress=lambda tried: task.progress(tried, None, f"{tried} template(s) tried"))
 
     def _sorting_key(elem):
         return 1 if elem[1] else 0
@@ -466,6 +472,7 @@ def _strategy_evt_synthesis(task: LoopTask) -> LoopOutcome:
     certificate["chosen"] = index
     certificate["candidates"] = candidates
     certificate["synthesis_strategy"] = config.strategy.name
+    certificate["max_degree"] = max_degree
     return LoopOutcome(distributions[index], task.error_prob, kind=kind, certificate=certificate,
                        messages=messages)
 
@@ -555,11 +562,20 @@ register_loop_strategy(LoopStrategy(
     menu_text="EVT Invariant syntesis",
     legacy_key="6",
     soundness=Bound.UPPER,
-    description="Searches rational-function templates for a fixed point of the EVT operator and "
-                "checks non-negativity heuristically (synthesis strategy from the settings).",
+    description="Searches rational-function templates up to a maximal degree for a fixed point of the "
+                "EVT operator and checks non-negativity heuristically (synthesis strategy from the "
+                "settings). Without an invariant within the degree bound or the time limit the result "
+                "is unknown.",
     params=(ParamSpec("candidate", "int", "Candidate", default=None, minimum=0, optional=True,
                       help="Index of the synthesised candidate to continue with (default: the first "
-                           "certified one)."),),
+                           "certified one)."),
+            ParamSpec("max_degree", "int", "Maximal template degree", default=DEFAULT_MAX_DEGREE, minimum=0,
+                      optional=True,
+                      help="Templates N/D up to this degree of N in each variable (D has at most N's "
+                           "degrees in total)."),
+            ParamSpec("time_limit", "int", "Time limit (seconds)", default=DEFAULT_SYNTHESIS_TIME_LIMIT,
+                      minimum=1, optional=True,
+                      help="The synthesis stops after this time, also inside a solver call.")),
     run=_strategy_evt_synthesis,
     requires_unconditioned=True,
 ))

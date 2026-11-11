@@ -26,9 +26,11 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import HeuristicsError, UndefinedDistributionError, UnsupportedFeatureError
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
-from prodigy.analysis.evtinvariants.heuristics.strategies import SELECTABLE_POSITIVITY_HEURISTICS, SynthesisStrategies
+from prodigy.analysis.evtinvariants.heuristics.strategies import (DEFAULT_MAX_DEGREE, SELECTABLE_POSITIVITY_HEURISTICS,
+                                                                  SynthesisStrategies)
 from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
-from prodigy.analysis.evtinvariants.invariant_synthesis import evt_invariant_synthesis
+from prodigy.analysis.evtinvariants.invariant_synthesis import (DEFAULT_SYNTHESIS_TIME_LIMIT, SynthesisBoundReached,
+                                                                evt_invariant_synthesis)
 from prodigy.analysis.evtinvariants.invariant_verification import evt_invariant_verification
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
@@ -48,7 +50,7 @@ class _CliGroup(click.Group):
     def invoke(self, ctx: click.Context) -> Any:
         try:
             return super().invoke(ctx)
-        except (UnsupportedFeatureError, UndefinedDistributionError, HeuristicsError) as exc:
+        except (UnsupportedFeatureError, UndefinedDistributionError, HeuristicsError, SynthesisBoundReached) as exc:
             raise click.ClickException(str(exc)) from exc
 
 
@@ -313,8 +315,14 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool, syntax: Optiona
 @click.argument('program_file', type=click.File('r'))
 @click.option('--invariant', is_flag=False, type=str, required=False)
 @click.argument('input_dist', type=str, required=False)
+@click.option('--max-degree', type=click.IntRange(min=0), default=DEFAULT_MAX_DEGREE, show_default=True,
+              help="Maximal degree of the templates (numerator degree in each variable).")
+@click.option('--time-limit', type=click.IntRange(min=1), default=DEFAULT_SYNTHESIS_TIME_LIMIT, show_default=True,
+              help="Seconds after which the synthesis stops without a result.")
 @_syntax_option
-def invariant_synthesis(ctx, program_file: IO, invariant: str, input_dist: str, syntax: Optional[str]):
+def invariant_synthesis(ctx,  # pylint: disable=too-many-arguments
+                        program_file: IO, invariant: str, input_dist: str, max_degree: int, time_limit: int,
+                        syntax: Optional[str]):
     """
     Tries to synthesize an EVT Invariant for the given input file.
     Supports a loop-free program to prefix the actual loop describing an initial distribution.
@@ -323,10 +331,12 @@ def invariant_synthesis(ctx, program_file: IO, invariant: str, input_dist: str, 
     # read the program source file and parse it into a program object.
     _, prog, syntax = _read_program(program_file, syntax)
     with AnalysisSession.detached(syntax).activate():
-        _invariant_synthesis(ctx.obj["CONFIG"], prog, invariant, input_dist)
+        _invariant_synthesis(ctx.obj["CONFIG"], prog, invariant, input_dist, max_degree, time_limit)
 
 
-def _invariant_synthesis(config: ForwardAnalysisConfig, prog: Program, invariant: str, input_dist: str) -> None:
+def _invariant_synthesis(config: ForwardAnalysisConfig, prog: Program,  # pylint: disable=too-many-arguments
+                         invariant: str, input_dist: str,
+                         max_degree: int = DEFAULT_MAX_DEGREE, time_limit: int = DEFAULT_SYNTHESIS_TIME_LIMIT) -> None:
 
     # isolate the initial distribution description from the actual while loop.
     loops = [1 if isinstance(instr, WhileInstr) else 0 for instr in prog.instructions]
@@ -345,7 +355,7 @@ def _invariant_synthesis(config: ForwardAnalysisConfig, prog: Program, invariant
                                   )
 
     # Create the strategy to do invariant synthesis and start synthesis.
-    strategy = SynthesisStrategies.from_config(config, prog.variables.keys())
+    strategy = SynthesisStrategies.from_config(config, prog.variables.keys(), max_degree)
     start = time.perf_counter()
     loop = prog.instructions[loops.index(1)]
     assert isinstance(loop, WhileInstr)
@@ -354,8 +364,8 @@ def _invariant_synthesis(config: ForwardAnalysisConfig, prog: Program, invariant
         evt_invariant_verification(loop,
                                    ProgramInfo(prog), dist, invariant_dist, config, compute_semantics)
     else:
-        evt_invariant_synthesis(loop,
-                                            ProgramInfo(prog), dist, config, strategy, compute_semantics)
+        evt_invariant_synthesis(loop, ProgramInfo(prog), dist, config, strategy, compute_semantics,
+                                time_limit=time_limit)
 
     stop = time.perf_counter()
     print(f"CPU-time elapsed: {stop - start:04f} seconds")

@@ -102,7 +102,8 @@ function paramField(param, value, onInput, suggest = null) {
       id, class: `field${numeric ? "" : " mono"}`, type: numeric ? "number" : "text",
       min: numeric && param.minimum !== null ? String(param.minimum) : null, step: numeric ? "1" : null,
       inputmode: numeric ? "numeric" : null, spellcheck: "false", autocomplete: "off",
-      placeholder: param.kind === "probability" ? "0.99" : param.kind === "expression" ? placeholders.expression : "",
+      placeholder: param.kind === "probability" ? "0.99" : param.kind === "expression" ? placeholders.expression
+        : numeric && param.optional && param.default !== null && param.default !== undefined ? `${param.default} (default)` : "",
     });
   }
   control.value = value ?? "";
