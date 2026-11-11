@@ -10,7 +10,8 @@
 #
 # What Prodigy proves: with "Unroll" (30 iterations) the first probabilities exactly up to a residual
 # mass of 2^-30, and Ex[payout] ≥ 15. GiNaC and SymEngine need about 2 s; SymPy takes more than
-# 5 minutes (#224). "Synthesise EVT invariant" does not finish (no rational invariant exists, #226).
+# 5 minutes (#224). "Synthesise EVT invariant" ends without a result (no rational invariant exists):
+# with max_degree 0 at once, otherwise at its time limit.
 
 payout: nat = 1;
 stop: nat = 0;

@@ -1,11 +1,27 @@
+"""
+EVT invariant synthesis: enumerates templates (rational functions or polynomials with unknown
+coefficients), solves the fixed-point equation I = G + ⟦body⟧(⟨I⟩_guard) for the coefficients and
+keeps the solutions that pass the exact fixed-point check.
+
+The search is bounded: the template heuristic enumerates finitely many templates up to a maximal
+degree, and an optional time limit stops it (also in the middle of a solver call, which can take
+arbitrarily long for a single template). If no invariant is found within the bounds,
+:class:`SynthesisBoundReached` is raised; the analysis then has no result (``unknown``).
+"""
+import contextlib
 import logging
-from typing import List, Callable, Union, Sequence, Tuple
+import signal
+import threading
+import time
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
 import sympy
+from sympy.polys.polyerrors import BasePolynomialError
 from prodigy.pgcl import WhileInstr, Instr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategy
+from prodigy.analysis.evtinvariants.heuristics.templates.polynomial_function import PolynomialEnumeration
 from prodigy.analysis.evtinvariants.invariant_verification import is_evt_fixed_point
 from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
@@ -16,89 +32,217 @@ from prodigy.util.logger import log_setup
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
+Analyzer = Callable[[Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
+                    Tuple[Distribution, Distribution]]
+Candidates = List[Tuple[Distribution, Union[bool, None]]]
+
+DEFAULT_SYNTHESIS_TIME_LIMIT = 60
+"""Default time limit of the synthesis in seconds (strategy parameter ``time_limit`` of ``evt_synthesis``)."""
+
+
+class SynthesisBoundReached(VerificationError):
+    """No EVT invariant was found within the bounds of the synthesis (all templates up to the maximal
+    degree tried, or the time limit reached). ``details["reason"]`` is ``"degree"`` or ``"time_limit"``;
+    the verdict is ``unknown``: an invariant of a higher degree, or a non-rational one, may exist."""
+
+
+class _TimeLimitReached(BaseException):
+    """Raised by the alarm of :func:`_time_limit`. A ``BaseException`` so that no ``except Exception``
+    inside SymPy or a heuristic swallows it."""
+
+
+@contextlib.contextmanager
+def _time_limit(seconds: Optional[float]) -> Iterator[Callable[[], bool]]:
+    """Interrupts the block with :class:`_TimeLimitReached` after ``seconds`` (``None``: no limit).
+
+    Yields a function that tells whether the time is up, for checks between steps. The interruption
+    uses ``SIGALRM`` and therefore only works in the main thread on POSIX systems; elsewhere only these
+    checks stop the block (after the step that is running). An alarm that is already set and fires
+    earlier (e.g. the timeout of a test) is kept, a later one is restored afterwards."""
+    deadline = None if seconds is None else time.monotonic() + seconds
+
+    def expired() -> bool:
+        return deadline is not None and time.monotonic() >= deadline
+
+    if seconds is None or not hasattr(signal, "setitimer") \
+            or threading.current_thread() is not threading.main_thread():
+        yield expired
+        return
+    old_delay, old_interval = signal.getitimer(signal.ITIMER_REAL)
+    if old_delay and old_delay <= seconds:
+        yield expired
+        return
+    armed = [True]
+
+    def on_alarm(_signum, _frame):
+        if armed[0]:
+            raise _TimeLimitReached()
+
+    start = time.monotonic()
+    old_handler = signal.signal(signal.SIGALRM, on_alarm)
+    signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        yield expired
+    finally:
+        armed[0] = False
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, old_handler)
+        if old_delay:
+            signal.setitimer(signal.ITIMER_REAL, max(old_delay - (time.monotonic() - start), 1e-3), old_interval)
+
+
+def _template_kind(strategy: SynthesisStrategy) -> str:
+    return "polynomial" if isinstance(strategy.template_heuristics, PolynomialEnumeration) else "rational"
+
+
+def _max_degree(strategy: SynthesisStrategy) -> Optional[int]:
+    """The degree bound of the strategy's templates (``None`` if they are enumerated without bound)."""
+    degree = getattr(strategy.template_heuristics, "max_deg", None)
+    return degree if isinstance(degree, int) and degree >= 0 else None
+
+
+def _solutions(evt_candidate: Distribution, loop: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,
+               config: ForwardAnalysisConfig, strategy: SynthesisStrategy, analyzer: Analyzer,
+               stats: Dict[str, int]) -> Tuple[Candidates, bool]:
+    """The certified fixed points among the instances of the template ``evt_candidate`` and whether one of
+    them was shown to have non-negative coefficients."""
+    zero_dist: Distribution = config.factory.from_expr("0", *prog_info.program.variables)
+    # Compute one iteration step.
+    evt_inv = evt_candidate
+    one_step_dist, one_step_err = analyzer(loop.body, prog_info, evt_inv.filter(loop.cond), zero_dist, config)
+    if one_step_err != zero_dist:
+        raise NotImplementedError("Currently invariant synthesis does not support conditioned distributions.")
+    phi_inv = distribution + one_step_dist
+
+    if config.solver_type == SolverType.Z3:
+        solver = SolverType.make(config.solver_type, config.factory)
+    else:
+        solver = SolverType.make(config.solver_type)
+    # Check equality between the iterated expression and the invariant.
+    logger.debug("Check Invariant candidate %s", evt_inv)
+    is_solution, solution_candidates = solver.solve(evt_inv, phi_inv)
+    if is_solution is False or is_solution is None:
+        return [], False
+    logger.debug("Filter solutions in: %s", solution_candidates)
+
+    # Exclude "all zero" solutions, as well as solutions which make the denominator 0.
+    solutions = []
+    for candidate in solution_candidates:
+        if all(map(lambda x: x == 0, candidate.values())):
+            continue
+
+        _, denominator = sympy.S(str(evt_inv - phi_inv)).as_numer_denom()
+        # we have excluded all zero solutions and now also exclude the solutions
+        # which make the denominator zero
+        if denominator.subs(candidate).equals(0):
+            continue
+
+        if candidate not in solutions:
+            solutions.append(candidate)
+
+    # In case there are still some solutions we check them for actual solutions in the FPS domain with non-negative
+    # coefficients. This is in general a hard problem (not known to be decidable), thus we use heuristics.
+    result: Candidates = []
+    inv_found = False
+    for sol in solutions:
+        sol_inv = sympy.S(str(evt_inv)).subs(sol).ratsimp()
+        # The solver's solution is only a proposal (its values pass through string conversions).
+        sol_dist = config.factory.from_expr(str(sol_inv).replace("**", "^"), *prog_info.program.variables)
+        if not is_evt_fixed_point(loop, prog_info, distribution, sol_dist, config, analyzer):
+            logger.info("Discarding the solution %s: the fixed-point equation is not proven.", sol)
+            continue
+        sol_is_positive = strategy.positivity_heuristics.is_positive(sol_inv)
+
+        logger.debug("Possible solution: %s", sol)
+        if sol_is_positive is None:
+            print(f"{Style.CYAN}Possible invariant: {sol_inv}{Style.RESET}{Style.CLEARTOEND}")
+            result.append((sol_dist, sol_is_positive))
+            stats["unproven"] += 1
+        elif sol_is_positive is True:
+            print(f"{Style.GREEN}Invariant: {sol_inv}{Style.RESET}{Style.CLEARTOEND}")
+            result.append((sol_dist, sol_is_positive))
+            inv_found = True
+        else:
+            if config.show_all_invs:
+                print(f"{Style.RED}Spurious invariant: {sol_inv}{Style.RESET}{Style.CLEARTOEND}")
+    return result, inv_found
+
+
+def _bound_message(reason: str, strategy: SynthesisStrategy, time_limit: Optional[float],
+                   stats: Dict[str, int]) -> str:
+    degree = _max_degree(strategy)
+    found = f"No {_template_kind(strategy)} EVT invariant"
+    if degree is not None:
+        found += f" up to degree {degree}"
+    tried = f"{stats['tried']} template{'s' if stats['tried'] != 1 else ''} tried"
+    if reason == "time_limit":
+        message = f"Stopped after the time limit of {time_limit:g} s: {found[0].lower()}{found[1:]} found " \
+                  f"({tried})."
+    else:
+        message = f"{found} found ({tried})."
+    if stats["unproven"]:
+        message += f" {stats['unproven']} fixed point(s) were found whose coefficients could not be shown to be " \
+                   "non-negative."
+    if stats["failed"]:
+        message += f" SymPy could not solve {stats['failed']} template(s)."
+    return message
+
 
 def evt_invariant_synthesis(loop: WhileInstr,
                             prog_info: ProgramInfo,
                             distribution: Distribution,
                             config: ForwardAnalysisConfig,
                             strategy: SynthesisStrategy,
-                            analyzer: Callable[
-                                [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution,
-                                 ForwardAnalysisConfig],
-                                Tuple[Distribution, Distribution]
-                            ]
-                            ) -> List[Tuple[Distribution, Union[bool, None]]]:
+                            analyzer: Analyzer,
+                            time_limit: Optional[float] = None,
+                            progress: Optional[Callable[[int], None]] = None,
+                            ) -> Candidates:
+    """Searches the templates of ``strategy`` for EVT invariants of ``loop``.
+
+    Returns the certified fixed points of the first template that has one with provably non-negative
+    coefficients. Raises :class:`SynthesisBoundReached` if there is none among the templates (the
+    template heuristic bounds their degree) or the search takes longer than ``time_limit`` seconds.
+    ``progress`` is called with the number of templates tried so far."""
     logger.debug("Invariant Synthesis for loop %s with initial distribution %s.", loop, distribution)
-    zero_dist: Distribution = config.factory.from_expr("0", *prog_info.program.variables)
     print(f"{Style.YELLOW}Invariant synthesis initiated...{Style.RESET}")
-    # enumerate potential candidates given by a heuristic
-    for evt_candidate in strategy.template_heuristics.generate():
-        print(f"{Style.YELLOW}Invariant candidate: {evt_candidate}{Style.RESET}{Style.CLEARTOEND}", end="\r")
-        # Compute one iteration step.
-        evt_inv = evt_candidate
-        one_step_dist, one_step_err = analyzer(loop.body, prog_info, evt_inv.filter(loop.cond), zero_dist, config)
-        if one_step_err != config.factory.from_expr("0", *prog_info.program.variables):
-            raise NotImplementedError("Currently invariant synthesis does not support conditioned distributions.")
-        phi_inv = distribution + one_step_dist
-
-        if config.solver_type == SolverType.Z3:
-            solver = SolverType.make(config.solver_type, config.factory)
-        else:
-            solver = SolverType.make(config.solver_type)
-        # Check equality between the iterated expression and the invariant.
-        logger.debug("Check Invariant candidate %s", evt_inv)
-        is_solution, solution_candidates = solver.solve(evt_inv, phi_inv)
-        if is_solution is False or is_solution is None:
-            continue
-        logger.debug("Filter solutions in: %s", solution_candidates)
-
-        # Exclude "all zero" solutions, as well as solutions which make the denominator 0.
-        solutions = []
-        for candidate in solution_candidates:
-            if all(map(lambda x: x == 0, candidate.values())):
-                continue
-
-            _, denominator = sympy.S(str(evt_inv - phi_inv)).as_numer_denom()
-            # we have excluded all zero solutions and now also exclude the solutions
-            # which make the denominator zero
-            if denominator.subs(candidate).equals(0):
-                continue
-
-            if candidate not in solutions:
-                solutions.append(candidate)
-
-        # In case there are still some solutions we check them for actual solutions in the FPS domain with non-negative
-        # coefficients. This is in general a hard problem (not known to be decidable), thus we use heuristics.
-        if len(solutions) > 0:
-
-            result: List[Tuple[Distribution, Union[bool, None]]] = []
-            inv_found = False
-
-            for sol in solutions:
-                sol_inv = sympy.S(str(evt_inv)).subs(sol).ratsimp()
-                # The solver's solution is only a proposal (its values pass through string conversions).
-                sol_dist = config.factory.from_expr(str(sol_inv).replace("**", "^"), *prog_info.program.variables)
-                if not is_evt_fixed_point(loop, prog_info, distribution, sol_dist, config, analyzer):
-                    logger.info("Discarding the solution %s: the fixed-point equation is not proven.", sol)
+    stats = {"tried": 0, "failed": 0, "unproven": 0}
+    reason = "degree"
+    try:
+        with _time_limit(time_limit) as expired:
+            # enumerate potential candidates given by a heuristic
+            for evt_candidate in strategy.template_heuristics.generate():
+                if expired():
+                    raise _TimeLimitReached()
+                print(f"{Style.YELLOW}Invariant candidate: {evt_candidate}{Style.RESET}{Style.CLEARTOEND}", end="\r")
+                stats["tried"] += 1
+                try:
+                    result, inv_found = _solutions(evt_candidate, loop, prog_info, distribution, config, strategy,
+                                                   analyzer, stats)
+                except BasePolynomialError as exc:
+                    # e.g. HeuristicGCDFailed('no luck'): this template cannot be decided, try the next one
+                    logger.info("SymPy failed on the template %s: %r", evt_candidate, exc)
+                    stats["failed"] += 1
                     continue
-                sol_is_positive = strategy.positivity_heuristics.is_positive(sol_inv)
+                finally:
+                    if progress is not None:
+                        progress(stats["tried"])
+                # Just return if we know that not all invariants are spurious.
+                if inv_found:
+                    return result
+    except _TimeLimitReached:
+        reason = "time_limit"
 
-                logger.debug("Possible solution: %s", sol)
-                if sol_is_positive is None:
-                    print(f"{Style.CYAN}Possible invariant: {sol_inv}{Style.RESET}{Style.CLEARTOEND}")
-                    result.append((sol_dist, sol_is_positive))
-                elif sol_is_positive is True:
-                    print(f"{Style.GREEN}Invariant: {sol_inv}{Style.RESET}{Style.CLEARTOEND}")
-                    result.append((sol_dist, sol_is_positive))
-                    inv_found = True
-                else:
-                    if config.show_all_invs:
-                        print(f"{Style.RED}Spurious invariant: {sol_inv}{Style.RESET}{Style.CLEARTOEND}")
-
-            # Just return if we know that not all invariants are spurious.
-            if inv_found:
-                return result
-
-    # We were unable to determine some EVT Invariant using the given heuristic.
-    raise VerificationError(
-        f"Could not find a rational function inductive invariant using {strategy}")
+    print(Style.CLEARTOEND, end="")
+    message = _bound_message(reason, strategy, time_limit, stats)
+    details: Dict[str, Any] = {
+        "type": "evt_synthesis",
+        "verdict": "unknown",
+        "reason": reason,
+        "template": _template_kind(strategy),
+        "max_degree": _max_degree(strategy),
+        "time_limit": time_limit,
+        "templates_tried": stats["tried"],
+        "templates_failed": stats["failed"],
+        "unproven_fixed_points": stats["unproven"],
+    }
+    raise SynthesisBoundReached(message, details=details)
