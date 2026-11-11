@@ -1,39 +1,42 @@
-from typing import Optional
+from typing import Collection, Optional
 
-import sympy
-
+from prodigy.analysis.evtinvariants.heuristics.positivity.coefficients import series_form, sign
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic
 from prodigy.distribution import CommonDistributionsFactory
 
 
 class IterateTermsHeuristic(PositivityHeuristic):
     """
-        This heuristic generates the first _iterations_ terms (default: 10) and checks whether there is
-        a negative coefficient, hence witnessing negativity of the formal power series. For the term generation,
-        the heuristics it relies on the distribution functionality to generate terms.
+        This heuristic generates the first _iterations_ terms (default: 10) of the power series in ``variables``
+        and checks whether there is a negative coefficient, hence witnessing negativity of the formal power series.
+        For the term generation, the heuristics it relies on the distribution functionality to generate terms.
 
         ..returns:
-            - False: The given distribution is not non-negative (i.e., there is at least one negative coefficient)
-            - None: The first _iterations_ may coefficients were >= 0.
+            - False: There is a coefficient that is negative (for every real value of the parameters)
+            - True: The series is finite and all its coefficients are non-negative
+            - None: The first _iterations_ many coefficients were not shown to be negative
     """
 
-    # pylint: disable-msg=keyword-arg-before-vararg
     def __init__(self,
                  dist_fact: CommonDistributionsFactory,
                  iterations: int = 10,
                  sub_heuristic: Optional[PositivityHeuristic] = None,
-                 *variables: str):
+                 *, variables: Collection[str]):
         super().__init__(sub_heuristic)
         self._factory = dist_fact
         self._max_iters = iterations
-        self._vars = variables
-    # pylint: enable-msg=keyword-arg-before-vararg
+        self._vars = tuple(sorted(map(str, variables)))
 
-    def _is_positive(self, f: str) -> Optional[bool]:
-        dist = self._factory.from_expr(f, *self._vars)
+    def _is_positive(self, f) -> Optional[bool]:
+        dist = self._factory.from_expr(str(f).replace("**", "^"), *self._vars)
+        verdict: Optional[bool] = True
         for i, (prob, _) in enumerate(dist):
             if i >= self._max_iters:
                 return None
-            if sympy.S(prob) < 0:
+            coefficient, _ = series_form(prob, self._vars)
+            result = sign(coefficient)
+            if result is False:
                 return False
-        return True
+            if result is None:
+                verdict = None
+        return verdict

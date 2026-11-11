@@ -77,27 +77,15 @@ def to_product_form(expr: Union[str, sympy.Expr], variables: Sequence[str]) -> O
 
 
 def nonneg_by_construction(expr_str: str, variables: Sequence[str]) -> bool:
-    """Sufficient criterion for non-negative coefficients: the expression is ``P / prod_i Q_i^k_i`` where ``P`` has
-    non-negative coefficients and every ``Q_i = c_i - R_i`` has a constant ``c_i > 0`` and ``R_i`` non-negative
+    """Sufficient criterion for non-negative coefficients in ``variables``: sums and products of terms
+    ``P / prod_i Q_i^k_i`` where ``P`` has non-negative coefficients (or is ``Q * prod_i Q_i^k_i + r`` with
+    non-negative ``Q`` and ``r``) and every ``Q_i = c_i - R_i`` has a constant ``c_i > 0`` and ``R_i`` non-negative
     coefficients, as ``1/(c - R) = sum_n R^n / c^(n+1)``. Covers denominators that are not products of univariate
-    factors, e.g. ``x*y/(1 - 9/50*(x + y))``."""
-    syms = [sympy.Symbol(v) for v in variables]
-    try:
-        expr = sympy.cancel(sympy.together(sympy.sympify(expr_str, locals=dict(zip(variables, syms)))))
-        num, den = sympy.fraction(expr)
-        coeff, factors = sympy.factor_list(den, *syms)
-        for factor, power in factors:
-            poly = sympy.Poly(factor, *syms)
-            constant = poly.coeff_monomial(1)
-            if constant == 0:
-                return False
-            if constant < 0:
-                poly, coeff = -poly, coeff * (-1) ** power
-            if any(c > 0 for monomial, c in poly.terms() if any(monomial)):
-                return False
-        return all(c >= 0 for c in sympy.Poly(num / coeff, *syms).coeffs())
-    except (TypeError, ValueError, sympy.SympifyError, sympy.PolynomialError):
-        return False
+    factors, e.g. ``x*y/(1 - 9/50*(x + y))``. Other symbols are parameters: real coefficients, never series
+    variables (#295). See :func:`prodigy.analysis.evtinvariants.heuristics.positivity.coefficients.
+    nonneg_by_construction`."""
+    from prodigy.analysis.evtinvariants.heuristics.positivity.coefficients import nonneg_by_construction as nonneg
+    return nonneg(expr_str, variables)
 
 
 def decide_nonneg(expr_str: str, variables: Sequence[str], config: ForwardAnalysisConfig,
