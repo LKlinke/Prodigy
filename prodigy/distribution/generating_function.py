@@ -149,32 +149,62 @@ def _substitute_one(function: sympy.Expr, variable: sympy.Symbol) -> sympy.Expr:
     """
     The value of `function` at `variable` = 1, i.e. the variable marginalised out.
 
-    A closed form that is not simplified may have a removable singularity at 1, e.g. `(x**3 - 1)/(x - 1)`;
-    plain substitution then gives `nan` (0/0) or `zoo`. As a generating function is the limit of its power
-    series from below, the value is then that limit. It is computed cheaply first: the expression is
-    cancelled (a removable singularity of a rational expression goes away, and a cancelled expression is
-    continuous wherever it is finite), and only if that still gives no finite value, SymPy's `limit` is
+    For a generating function with non-negative coefficients whose sum is finite, Abel's theorem makes the
+    sum of the coefficients the limit of `function` from below at 1. This limit is computed cheaply where
+    that is sound: if `function` (or its cancelled form, which removes a removable singularity of a
+    rational expression such as `(x**3 - 1)/(x - 1)`) is provably continuous at 1 (see
+    :func:`_continuous_at_one`) and finite there, the limit is its value at 1. Otherwise SymPy's `limit` is
     used, which can be very slow on unsimplified expressions (#259).
 
-    Expressions with functions that may jump (e.g. `floor`, `Piecewise`) always take the limit, as their
-    value at 1 need not be the limit from below.
+    Like `limit`, this assumes that `function` is such a generating function: for `x/(x - 1/2)`, whose power
+    series diverges at 1, both give 2.
     """
     function = sympy.sympify(function)
     if variable not in function.free_symbols:
         return function
-    if not function.has(*_DISCONTINUOUS_FUNCTIONS):
-        value = function.subs(variable, 1)
-        if not value.has(*_UNDEFINED_VALUES):
-            return value
-        value = sympy.cancel(function).subs(variable, 1)
-        if not value.has(*_UNDEFINED_VALUES):
-            return value
+    for candidate in (function, sympy.cancel(function)):
+        if _continuous_at_one(candidate, variable):
+            value = candidate.subs(variable, 1)
+            if not value.has(*_UNDEFINED_VALUES):
+                return value
     return function.limit(variable, 1, '-')
 
 
 _UNDEFINED_VALUES = (sympy.nan, sympy.zoo, sympy.oo, -sympy.oo)
-_DISCONTINUOUS_FUNCTIONS = (sympy.Piecewise, sympy.Heaviside, sympy.floor, sympy.ceiling, sympy.sign,
-                            sympy.frac, sympy.Min, sympy.Max, sympy.DiracDelta)
+
+
+def _continuous_at_one(function: sympy.Expr, variable: sympy.Symbol) -> bool:
+    """
+    True only if `function` is continuous in `variable` at 1 wherever its value there is finite.
+
+    An allowlist: sums, products, `exp` and integer powers are continuous wherever they are finite;
+    `log` and powers with other exponents only where their argument (base) is positive at 1 (there they
+    are analytic, away from the branch cut), or for a base 0 under a positive constant exponent.
+    A part that does not depend on `variable` is constant. Anything else (e.g. `floor`, `Piecewise`,
+    `Abs`) is not shown continuous, and the caller takes the limit.
+    """
+    if variable not in function.free_symbols:
+        return True
+    if isinstance(function, sympy.Symbol):
+        return True
+    if isinstance(function, (sympy.Add, sympy.Mul, sympy.exp)):
+        return all(_continuous_at_one(arg, variable) for arg in function.args)
+    if isinstance(function, sympy.log) and len(function.args) == 1:
+        (argument,) = function.args
+        return _continuous_at_one(argument, variable) \
+            and argument.subs(variable, 1).is_extended_positive is True
+    if isinstance(function, sympy.Pow):
+        base, exponent = function.args
+        if not (_continuous_at_one(base, variable) and _continuous_at_one(exponent, variable)):
+            return False
+        if exponent.is_Integer:
+            return True
+        base_at_one = base.subs(variable, 1)
+        if base_at_one.is_extended_positive is True:
+            return True
+        return base_at_one.is_zero is True and variable not in exponent.free_symbols \
+            and exponent.is_extended_positive is True
+    return False
 
 
 def _taylor_coefficient_by_limit(function: sympy.Expr, variable: sympy.Symbol, index: int) -> sympy.Expr:

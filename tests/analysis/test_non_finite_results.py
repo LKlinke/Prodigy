@@ -9,7 +9,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import QueryResult, is_non_finite, sym
 from prodigy.analysis.session import AnalysisSession
-from prodigy.distribution.generating_function import GeneratingFunction, _substitute_one
+from prodigy.distribution.generating_function import GeneratingFunction, _continuous_at_one, _substitute_one
 from prodigy.pgcl import parse_pgcl
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -112,6 +112,26 @@ def test_substitute_one_cancels_before_taking_the_limit():
     assert _substitute_one(-z ** 2 / 2 - z / 2 + z * (z ** 2 - 1) / (2 * (z - 1)), z) == 0
     # a function that may jump at 1 takes the limit from below, not the value at 1
     assert _substitute_one(sympy.floor(z), z) == 0
+
+
+@pytest.mark.parametrize("function, continuous", [
+    ("(z**3 - 1)/(z - 1)", True),  # continuous where finite; the value at 1 comes from the cancelled form
+    ("exp(2*z - 2)*z**5", True),
+    ("log(1 - z/3)", True),
+    ("sqrt(1 - z)", True),  # base 0 under a positive constant exponent
+    ("z**p", True),  # base positive at 1
+    ("log(2)*sign(p) + z", True),  # parts without z are constant
+    ("1/sqrt(1 - z)", False),  # base 0 under a negative exponent: a pole
+    ("floor(z)", False),
+    ("Abs(z - 1)", False),
+    ("Piecewise((1, z < 1), (2, True))", False),
+    ("log(z + p)", False),  # p + 1 not known to be positive
+    ("(z - 2)**(1/3)", False),  # negative base: branch cut
+    ("0**(z - 1)", False),
+])
+def test_continuity_at_one_is_an_allowlist(function, continuous):
+    z, p = sympy.Symbol("z", real=True), sympy.Symbol("p", real=True)
+    assert _continuous_at_one(sympy.sympify(function, locals={"z": z, "p": p}), z) is continuous
 
 
 # observe after unif: the unobserved part has a removable singularity at 1 without simplification (#259)
