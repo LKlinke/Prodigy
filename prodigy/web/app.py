@@ -11,6 +11,9 @@ A small Flask application: one page (``templates/app.html`` with the ES modules 
 ``POST /api/analyze``         starts an analysis in its own process, returns a job id
 ``GET  /api/jobs/<id>``       state, new console output, progress, result when done
 ``DELETE /api/jobs/<id>``     cancels the analysis
+``POST /api/jobs/<id>/joint`` starts a job for the exact coefficient grid of two variables of a
+                              finished analysis (``x``, ``y``, optional windows), see
+                              :mod:`prodigy.analysis.joint_grid`
 ``POST /api/suggest``         asks a language model for a loop invariant candidate (a job)
 ``GET  /api/examples``        the example library (``pgfexamples``)
 ``GET  /api/examples/<id>``   source of an example and a suggested setup (``?syntax=ppy``:
@@ -37,8 +40,8 @@ from flask import Flask, abort, jsonify, render_template, request
 
 from prodigy.web.examples import ConversionError, ExampleLibrary, convert, default_examples_dir
 from prodigy.web.jobs import BusyError, JobManager
-from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, request_syntax, validate_request,
-                                  validate_suggestion)
+from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, joint_request, request_syntax,
+                                  validate_request, validate_suggestion)
 
 _LOOPBACK = {"localhost", "127.0.0.1", "::1", "[::1]"}
 
@@ -66,6 +69,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
     from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
     from prodigy.analysis.loop_strategies import loop_strategies
     from prodigy.analysis.result import prodigy_version
+    from prodigy.analysis.joint_grid import MAX_AXIS
     from prodigy.web.diagnostics import check_source
 
     app = Flask(__name__, static_folder="static", template_folder="templates")
@@ -132,7 +136,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
             "positivity_heuristics": list(SELECTABLE_POSITIVITY_HEURISTICS),
             "solvers": ["sympy", "z3"],
             "limits": {"time_limit": jobs.time_limit, "max_jobs": jobs.max_jobs,
-                       "max_coefficients": MAX_COEFFICIENTS},
+                       "max_coefficients": MAX_COEFFICIENTS, "max_joint_axis": MAX_AXIS},
             "examples": library.root is not None,
             "ai": ai_status(),
         })
@@ -214,6 +218,25 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         if job is None:
             abort(404, description="Unknown analysis.")
         return jsonify(job.to_json(0))
+
+    @app.post("/api/jobs/<job_id>/joint")
+    def job_joint(job_id: str):
+        """Starts a job for the coefficient grid of two variables of a finished analysis; the
+        distribution comes from the result the server keeps, never from the client."""
+        job = jobs.get(job_id)
+        if job is None or job.summary.get("kind") != "analysis":
+            abort(404, description="Unknown analysis; analyze the program again.")
+        if job.running or job.result is None:
+            return jsonify({"error": "The analysis has not finished yet."}), 409
+        try:
+            grid_request = joint_request(job.result, request.get_json(silent=True) or {})
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        try:
+            grid_job = jobs.submit(grid_request, kind="joint")
+        except BusyError as exc:
+            return jsonify({"error": f"{exc}. Wait for one to finish or cancel it."}), 429
+        return jsonify({"job": grid_job.id, "time_limit": grid_job.time_limit}), 202
 
     @app.get("/api/examples")
     def examples():

@@ -41,6 +41,8 @@ Prodigy is tested with Python 3.11 and 3.14.
   *log*, it spans at most 12 decades (smaller probabilities get the minimal bar), and a
   probability 0, which has no place on a log axis, is drawn as a dashed outline on the axis.
   The Steps tab does not animate log charts.
+  With two or more variables the output distribution also has a **Joint distribution** card, see
+  [Joint distribution of two variables](#joint-distribution-of-two-variables).
 * **Steps** (right): a debugger for the analysis, see [Stepping through an analysis](#stepping-through-an-analysis).
 * **Examples**: the programs in `pgfexamples/` (in `.ppy`), with a suggested setup derived from
   their first line (e.g. `check_equality` examples come with their invariant). A `.pgcl` example
@@ -60,6 +62,40 @@ at any time.
 The GUI follows the system appearance (light or dark, macOS: System Settings → Appearance);
 following Apple's guidelines it has no switch of its own. Firefox can override the appearance
 for websites (Settings → General → Website appearance).
+
+## Joint distribution of two variables
+
+The card *Joint distribution* in the Result tab shows Pr[x = i, y = j] for two chosen variables;
+the other variables are marginalised. The coefficients are exact: the server computes them from
+the output distribution of the finished analysis it keeps (`POST /api/jobs/<id>/joint`, a short
+job of its own, see `prodigy/analysis/joint_grid.py`), the browser only draws them.
+
+* **Pair**: the variables on the horizontal and the vertical axis (⇄ swaps them).
+* **Window**: the values *from*–*to* of each axis, at most 50 per axis and up to 1000; *Show
+  window* (or Return) computes them. A finite distribution starts with its support (the status
+  line names it), an infinite one with the values 0–15.
+* **Heatmap**: one cell per pair of values, coloured on the viridis scale (perceptually uniform,
+  readable with colour-vision deficiencies) by probability; probability 0 is an empty grey cell,
+  a value that depends on parameters is hatched. *Linear / Log* switches the colour scale (the same
+  setting as the bar charts; the log scale spans at most 12 decades). Values never depend on colour
+  alone: the line below the heatmap names the selected cell (`x = 1, y = 2: at least 0.0277778
+  (1/36); at most 0.031684` for a lower bound), large cells print their value, and the table lists
+  all of them. Keyboard: Tab focuses the heatmap, the arrow keys move between cells (↑ is the next
+  larger y), Home/End go to the first/last column, Page Up/Page Down to the top/bottom row; the
+  pointer selects the cell under it.
+* **3D**: a bar per cell (plain canvas, no library), height and colour by probability. Drag to
+  rotate, pinch (⌘/Ctrl + wheel) to zoom; with the keyboard ←/→ rotate, ↑/↓ tilt, +/− zoom and 0
+  resets, and the buttons above the view do the same. The 3D view has no values of its own; the
+  heatmap and the table give them.
+* **Table**: the window as a table, rows y (largest on top) and columns x; hovering a value shows
+  its exact form.
+* **Mass**: below each view, the mass in the window, the mass outside the window, and for a
+  lower bound the hatched "?" mass not yet accounted for, which may still end up in any cell,
+  outside the window, or never terminate. For a lower bound every cell is a lower bound and gets
+  *at most* = value + residual mass; for an upper bound every cell is an upper bound.
+
+Nothing in the joint view is animated, so it needs no special case for reduced motion; it follows
+light and dark mode (the 3D view redraws when the appearance changes).
 
 ## Stepping through an analysis
 
@@ -303,6 +339,7 @@ The strategy then appears in the CLI menu (after the six historic entries), in
 | `POST /api/analyze` | starts an analysis (`source, syntax, input_distribution, engine, normalize, simplification, decisions, coefficients, record_steps, watches, step_iterations, synthesis_strategy, template_heuristic, positivity_heuristic, solver, time_limit`; the two heuristics only apply to `synthesis_strategy` `from_heuristics`; `record_steps` records the step trace, `watches` (at most 8 queries such as `Pr[x == 3]`, in the program's syntax) are evaluated after every top-level step, `step_iterations` (1–200, default 40) bounds the iterates kept per loop) and returns a job id |
 | `GET /api/jobs/<id>?log_offset=n` | state (`running`, `done`, `timeout`, `cancelled`, `crashed`), new console output, progress per loop, result |
 | `DELETE /api/jobs/<id>` | cancels the analysis |
+| `POST /api/jobs/<id>/joint` `{x, y, x_window, y_window}` | starts a job for the exact coefficient grid of two variables of the finished analysis `<id>`; the windows `[from, to]` are optional (default: the support of a finite distribution, else 0–15) with at most 50 values per axis (`limits.max_joint_axis` in `GET /api/meta`) and values up to 1000. The distribution, the engine and the guarantee come from the result the server keeps, never from the request. The job's result is `{status: "ok", joint: {x, y, x_values, y_values, cells, bound, mass, shown_mass, outside_mass, residual_mass, finite_support, support}}`: `cells[r][c]` is `{prob, p}` (exact and float; for a lower bound also `upper`, `upper_p`) for `y = y_values[r]`, `x = x_values[c]`. 400 for an unknown variable, the same variable twice or a window beyond the limits, 404 for an unknown or pruned analysis (analyze again), 409 while it runs |
 | `POST /api/suggest` | asks the language model for one candidate for a loop: an analysis request without `coefficients` and `record_steps`, plus `loop` (id) and `form` (`evt_invariant` or `evt_subinvariant`), `time_limit` optional (default: the server's); returns a job id. The job's result is `{status: "ok", suggestion: {candidate, param, answer, model, provider, entering, loop, form}}` or an error (the model's answer in `error.suggestion` if it held no admissible candidate). `GET /api/meta` says under `ai` whether a model is configured. |
 | `GET /api/examples`, `GET /api/examples/<path>?syntax=ppy` | example library; source in the syntax of the example file (`syntax`; a `.pgcl` example is converted to `.ppy` with `syntax=ppy`, with `renamings`), `file_name` and suggested setup |
 
@@ -336,7 +373,10 @@ app (foundations: accessibility, colour, typography, layout, writing).
   word).
 * The signature element is the *sandwich*: what is certain is drawn solid, what is only
   bounded is hatched — in the interval bar of each query and as the "?" bar of the
-  residual mass in the marginal charts.
+  residual mass in the marginal charts and the joint view.
+* Sequential data (the heatmap and the 3D view of a joint distribution) use viridis, a
+  perceptually uniform scale that stays ordered for the common colour-vision deficiencies;
+  numbers printed on a cell are black or white, whichever has the higher contrast.
 * System font for interface text (13 px body, macOS scale), monospace for code and exact
   values, KaTeX for closed forms. Controls are at least 28 px high.
 * Long expressions (closed forms, invariants, certificates, printed query values) sit in
@@ -350,11 +390,12 @@ app (foundations: accessibility, colour, typography, layout, writing).
 
 ## Reuse in VS Code
 
-`prodigy/web/static/app/components/` (result view, stepper, charts, formatting) depends only on
+`prodigy/web/static/app/components/` (result view, stepper, charts, joint view, formatting) depends only on
 the result JSON, the CSS variables of `result-view.css` and `stepper.css` and optionally KaTeX,
 so a VS Code webview can import it unchanged and map the variables to `--vscode-*` theme colours.
 The stepper (`renderStepper`) reaches the editor only through callbacks (`onIndex`,
-`onSelectLine`, …); `prodigy analyze --steps --json` gives an extension the same trace.
+`onSelectLine`, …); `prodigy analyze --steps --json` gives an extension the same trace. The joint
+view appears when `renderResult` gets a `loadJoint(payload, signal)` callback that returns a grid.
 
 ## Updating the vendored libraries
 

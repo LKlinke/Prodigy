@@ -221,3 +221,69 @@
 
 /* ---- dist values ----------------------------------------------------------------------- */
 .rv-dist-infer { font-weight: 600; overflow-wrap: anywhere; }
+
+/* ---- joint distribution of two variables (joint-view.js) --------------------------------- */
+.jv { display: grid; gap: 10px; min-width: 0; }
+.jv [hidden] { display: none; }
+.jv .rv-subhead { margin-bottom: 0; flex-wrap: wrap; }
+.jv-toggles { display: flex; gap: 8px; flex-wrap: wrap; }
+.jv-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; margin: 0; }
+.jv-axis { display: flex; align-items: center; gap: 6px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.jv-axis legend {
+  float: left; margin-right: 6px; padding: 0;
+  font-size: var(--text-callout, 12px); color: var(--rv-text-2);
+}
+.jv-field { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-callout, 12px); color: var(--rv-text-2); }
+.jv-field input { width: 5.2em; font-variant-numeric: tabular-nums; }
+.jv-status { min-height: 1.4em; display: flex; align-items: center; gap: 6px; }
+.jv-body { display: grid; gap: 10px; min-width: 0; }
+.jv-body[aria-busy="true"] { opacity: 0.6; }
+.jv-plot { overflow-x: auto; border-radius: 6px; outline: none; max-width: 100%; }
+.jv-plot:focus-visible { box-shadow: var(--focus-ring, 0 0 0 3px rgba(0, 102, 204, 0.35)); }
+.jv-heatmap { display: block; touch-action: manipulation; }
+.jv-heatmap .jv-cell { stroke: var(--rv-surface); stroke-width: 1; }
+/* probability 0: an empty cell; values that depend on parameters: hatched */
+.jv-heatmap .jv-zero { fill: var(--rv-fill); }
+.jv-heatmap .jv-tick { fill: var(--rv-text-2); font-size: 11px; font-family: var(--font-ui, sans-serif); font-variant-numeric: tabular-nums; }
+.jv-heatmap .jv-axis-title { fill: var(--rv-text-2); font-size: 12px; font-style: italic; font-family: var(--font-ui, sans-serif); }
+.jv-heatmap .jv-cell-text { font-size: 10px; text-anchor: middle; font-family: var(--font-ui, sans-serif); font-variant-numeric: tabular-nums; pointer-events: none; }
+.jv-heatmap .jv-active { fill: none; stroke: var(--rv-text); stroke-width: 2.5; pointer-events: none; }
+.jv-readout { margin: 0; min-height: 1.4em; font-size: var(--text-callout, 12px); font-variant-numeric: tabular-nums; }
+
+.jv-3d { display: grid; gap: 6px; }
+.jv-3d-controls { display: flex; gap: 4px; flex-wrap: wrap; }
+.jv-plot-3d { --jv-floor: var(--separator-strong, rgba(60, 60, 67, 0.29)); justify-self: start; }
+.jv-canvas { display: block; cursor: grab; touch-action: none; max-width: 100%; }
+.jv-canvas:active { cursor: grabbing; }
+
+.jv-legend { display: flex; align-items: center; gap: 8px; font-size: var(--text-callout, 12px); color: var(--rv-text-2); flex-wrap: wrap; }
+.jv-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--rv-separator); }
+.jv-swatch.jv-zero { background: var(--rv-fill); }
+.jv-gradient-wrap { position: relative; flex: 1 1 160px; max-width: 320px; padding-bottom: 16px; }
+.jv-gradient { height: 12px; border-radius: 3px; }
+.jv-gradient-ticks span {
+  position: absolute; top: 14px; transform: translateX(-50%); white-space: nowrap;
+  font-size: 11px; font-variant-numeric: tabular-nums;
+}
+.jv-gradient-ticks span:first-child { transform: none; }
+.jv-gradient-ticks span:last-child:not(:first-child) { transform: translateX(-100%); }
+
+.jv-mass { display: grid; gap: 6px; }
+.jv-mass-bar { width: 100%; max-width: 420px; height: 10px; display: block; }
+.jv-mass-track { fill: var(--rv-fill); }
+.jv-mass-shown, .jv-key.jv-mass-shown { fill: var(--rv-data); background: var(--rv-data); }
+.jv-mass-outside, .jv-key.jv-mass-outside { fill: var(--rv-data); opacity: 0.35; background: var(--rv-data); }
+.jv-mass-residual { stroke: var(--rv-bound); stroke-width: 1; }
+.jv-mass-items { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--text-callout, 12px); color: var(--rv-text-2); }
+.jv-mass-items > span { display: inline-flex; align-items: center; gap: 6px; }
+.jv-key {
+  display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; border-radius: 2px;
+  flex: none; font-size: 9px; font-weight: 700;
+}
+.jv-key.jv-mass-residual {
+  background: repeating-linear-gradient(45deg, var(--bound-fill, rgba(122, 63, 168, 0.11)) 0 2px, var(--rv-bound) 2px 3px);
+  color: var(--rv-text); border: 1px solid var(--rv-bound);
+}
+.jv-table table { width: auto; }
+.jv-table caption { text-align: left; caption-side: top; padding-bottom: 4px; }
+.jv-table th[scope="row"] { border-right: 1px solid var(--rv-separator); }

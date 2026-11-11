@@ -230,6 +230,62 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
 
 
 # ---------------------------------------------------------------------------------------
+# Coefficient grids of two variables (POST /api/jobs/<id>/joint)
+# ---------------------------------------------------------------------------------------
+
+def joint_request(result: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
+    """The request of a grid job for two variables of a finished analysis ``result``.
+
+    Only the pair and the windows come from the client (``payload``: ``x``, ``y``, optional
+    ``x_window`` and ``y_window`` as ``[from, to]``); the distribution, the engine and the
+    guarantee come from the result that the server keeps. Raises ``ValueError`` with a message
+    for the client."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.joint_grid import check_window
+    distribution = result.get("distribution") if isinstance(result, dict) else None
+    if result.get("status") != "ok" or not isinstance(distribution, dict):
+        raise ValueError("The analysis has no output distribution.")
+    variables = list(distribution.get("variables") or [])
+    x, y = payload.get("x"), payload.get("y")
+    if not isinstance(x, str) or not isinstance(y, str) or x not in variables or y not in variables:
+        raise ValueError(f"'x' and 'y' must be variables of the program ({', '.join(variables)}).")
+    if x == y:
+        raise ValueError("Choose two different variables.")
+    bounds = result.get("bounds") or {}
+    return {
+        "closed_form": distribution["closed_form"],
+        "variables": variables,
+        "engine": (result.get("input") or {}).get("engine", "sympy"),
+        "bound": bounds.get("kind", "unknown"),
+        "residual_mass": bounds.get("residual_mass"),
+        "x": x,
+        "y": y,
+        "x_window": check_window(payload.get("x_window"), x),
+        "y_window": check_window(payload.get("y_window"), y),
+    }
+
+
+def run_joint(request: Dict[str, Any], *, output: Optional[Callable[[str], None]] = None,
+              progress: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
+    """Computes the coefficient grid of a :func:`joint_request` (in a job process)."""
+    # pylint: disable=import-outside-toplevel,unused-argument
+    from prodigy.analysis.joint_grid import GridError, joint_grid
+    from prodigy.util.integers import unlimited_int_digits
+    config = make_config({"engine": request["engine"]})
+    with config.activate(), unlimited_int_digits():
+        try:
+            dist = config.factory.from_expr(request["closed_form"], *request["variables"])
+            grid = joint_grid(dist, request["x"], request["y"], x_window=request.get("x_window"),
+                              y_window=request.get("y_window"), kind=request["bound"],
+                              residual=request.get("residual_mass") or 0)
+        except GridError as exc:
+            return _error("request", str(exc))
+        except Exception as exc:  # pylint: disable=broad-except
+            return _error(type(exc).__name__, f"The grid could not be computed: {str(exc) or type(exc).__name__}")
+    return {"status": "ok", "joint": grid}
+
+
+# ---------------------------------------------------------------------------------------
 # Suggestions of a language model (POST /api/suggest)
 # ---------------------------------------------------------------------------------------
 

@@ -88,14 +88,15 @@ def _limit_memory(megabytes: Optional[int]) -> None:
 
 def _worker(request: Dict[str, Any], conn, memory_limit: Optional[int], kind: str = "analysis") -> None:
     """Entry point of the analysis process; ``kind`` "suggest" asks a language model for a
-    candidate instead (:func:`prodigy.web.requests.run_suggestion`)."""
+    candidate instead (:func:`prodigy.web.requests.run_suggestion`), ``kind`` "joint" computes the
+    coefficient grid of two variables of a finished analysis (:func:`prodigy.web.requests.run_joint`)."""
     _limit_memory(memory_limit)
     sender = _Sender(conn)
     try:
         sender.send("state", "running")
         # pylint: disable=import-outside-toplevel
-        from prodigy.web.requests import run_analysis, run_suggestion
-        run = run_suggestion if kind == "suggest" else run_analysis
+        from prodigy.web.requests import run_analysis, run_joint, run_suggestion
+        run = {"suggest": run_suggestion, "joint": run_joint}.get(kind, run_analysis)
         result = run(request, output=sender.log, progress=sender.progress)
         sender.flush()
         sender.send("result", result)
@@ -304,7 +305,8 @@ class JobManager:
             job.process.kill()
             job.process.join(timeout=1)
         job.state = state
-        what = "The request to the language model" if job.summary.get("kind") == "suggest" else "The analysis"
+        what = {"suggest": "The request to the language model", "joint": "The computation of the grid"}.get(
+            str(job.summary.get("kind")), "The analysis")
         message = (f"{what} was stopped after the time limit of {job.time_limit:g} s." if state == "timeout"
                    else f"{what} was cancelled.")
         job.result = {"status": state, "error": {"type": state, "message": message}}
@@ -316,6 +318,8 @@ class JobManager:
         job.conn = None
 
     def _prune(self) -> None:
-        finished = [job_id for job_id, job in self._jobs.items() if not job.running]
+        # grids go first: the analyses they are computed from must stay available
+        finished = sorted((job_id for job_id, job in self._jobs.items() if not job.running),
+                          key=lambda job_id: self._jobs[job_id].summary.get("kind") != "joint")
         for job_id in finished[:-self.keep_finished] if len(finished) > self.keep_finished else []:
             del self._jobs[job_id]
