@@ -279,13 +279,19 @@ class DistPart:
 
 
 def _values(distribution: Distribution, variables: Sequence[str]) -> Optional[List[Tuple[int, ...]]]:
-    """The values of ``variables`` with positive probability, ``None`` for infinite support."""
-    marginal = distribution.checked_marginal(*variables)
-    if not marginal.is_finite():
+    """
+    The values of ``variables`` in the support of ``distribution``, ``None`` for infinite support
+    (``NonFiniteMarginalError`` if, in addition, their marginal is not a finite measure). The values
+    come from the support (:meth:`Distribution.finite_support`), not the marginal, whose mass of a
+    value can cancel to 0 on a signed measure (#256).
+    """
+    support = distribution.finite_support(*variables)
+    if support is None:
+        distribution.checked_marginal(*variables)
         return None
     values: List[Tuple[int, ...]] = []
-    for prob, state in marginal:
-        if _sym(prob) == 0:
+    for coefficient, state in support:
+        if _sym(coefficient) == 0:
             continue
         valuation = dict(state.items())
         value = tuple(int(valuation.get(var, 0)) for var in variables)

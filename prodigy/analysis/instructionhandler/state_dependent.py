@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import copy
 from fractions import Fraction
-from typing import Iterator, List, NamedTuple, Optional, Set
+from typing import Dict, Iterator, List, NamedTuple, Optional, Set, Tuple
 
 from prodigy.pgcl import Expr, NatLitExpr, VarExpr
 from prodigy.pgcl.ast.walk import Walk, walk_expr
@@ -49,15 +49,17 @@ class StatePart(NamedTuple):
     """The part of a distribution in which some variables have fixed values."""
     state: State
     """The values of the variables."""
-    probability: str
-    """The probability of ``state`` (symbolic in the parameters, if there are any)."""
     distribution: Distribution
     """The part of the distribution in ``state``."""
 
     def describe(self) -> str:
-        """The state and its probability, for messages."""
+        """The state and its probability (the mass of the part, if it has one), for messages."""
         values = ", ".join(f"{var} = {value}" for var, value in sorted(self.state.items()))
-        return f"the state {values}, which has probability {self.probability}"
+        try:
+            mass = self.distribution.get_probability_mass()
+        except (ArithmeticError, ValueError, NotImplementedError):
+            return f"the state {values}"
+        return f"the state {values}, which has probability {mass}"
 
 
 def _is_zero(probability: str) -> bool:
@@ -69,24 +71,33 @@ def _is_zero(probability: str) -> bool:
 
 def split_states(distribution: Distribution, variables: Set[str], construct: str) -> Iterator[StatePart]:
     """
-    The parts of ``distribution`` in which ``variables`` have fixed values, one for every state of
-    ``variables`` with a probability other than 0. The parts sum to ``distribution``. Raises
-    ``NotImplementedError`` (naming ``construct``) if the variables take infinitely many values.
+    The parts of ``distribution`` in which ``variables`` have fixed values, one for every value of
+    ``variables`` in the support of ``distribution``. The parts sum to ``distribution``. Raises
+    ``NotImplementedError`` (naming ``construct``) if the variables take infinitely many values
+    (``NonFiniteMarginalError`` if, in addition, their marginal is not a finite measure).
+
+    The split follows the support (:meth:`Distribution.finite_support`), not the marginal: in the
+    marginal of a signed measure the mass of a value can cancel to 0, and its part would be lost (#256).
     """
     if distribution.is_zero_dist():
         return
-    marginal = distribution.checked_marginal(*sorted(variables))
-    if not marginal.is_finite():
+    support = distribution.finite_support(*sorted(variables))
+    if support is None:
+        distribution.checked_marginal(*sorted(variables))
         names = ", ".join(sorted(variables))
         raise NotImplementedError(
             f"{construct} depends on the program variable(s) {names}, which can take infinitely "
             f"many values here. Prodigy computes a probability or distribution argument that "
             f"depends on program variables only if these variables take finitely many values "
             f"(by a case split over their values); this is not implemented for infinitely many.")
-    for probability, state in marginal:
-        # the iteration of an engine may list a state with probability 0 (e.g. of the zero distribution)
-        if not _is_zero(probability):
-            yield StatePart(state, probability, distribution.filter_state(state))
+    # The iteration of an engine may list a state with coefficient 0 (e.g. of the zero distribution),
+    # and a state once per term (GiNaC, see Distribution._unique_states): each state is split once.
+    states: Dict[Tuple[Tuple[str, int], ...], State] = {}
+    for coefficient, state in support:
+        if not _is_zero(coefficient):
+            states.setdefault(tuple(sorted(state.valuations.items())), state)
+    for state in states.values():
+        yield StatePart(state, distribution.filter_state(state))
 
 
 def checked_probability(probability: Expr, construct: str,

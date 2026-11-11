@@ -334,9 +334,34 @@ class FPS(Distribution):
                     self.checked_marginal(name)
             raise
 
+    def _split_operands(self, update: Callable[[Distribution, str, str], Distribution], left: str | int,
+                        right: str | int, *names: str | int) -> FPS | None:
+        """
+        The update as a sum over the values of the variables among `names` that have a finite support
+        (see :meth:`Distribution._split_over_finite_supports`), or None if none has one. The bindings
+        unfold the marginal of an operand for a case split, which loses the values whose mass cancels
+        in the marginal of a signed measure (#256); with these operands fixed to literals, they do not
+        split over them.
+        """
+        result = self._split_over_finite_supports(update, left, right, names)
+        assert result is None or isinstance(result, FPS)
+        return result
+
     def _update_product(self, temp_var: str, first_factor: str,
                         second_factor: str,
                         approximate: str | float | None) -> FPS:
+        variables = self._variables
+        # On a polynomial, the bindings multiply term by term; else they split over a marginal.
+        if not self._finite and first_factor in variables and second_factor in variables:
+            for fixed in (first_factor, second_factor):
+                split = self._split_operands(
+                    lambda part, left, right: part._update_product(  # pylint: disable=protected-access
+                        temp_var, left, right, approximate), first_factor, second_factor, fixed)
+                if split is not None:
+                    return split
+            if approximate is None:
+                # both take infinitely many values: raises
+                self._product_case_split(first_factor, second_factor, approximate)
         return FPS.from_dist(
             self._case_split(lambda: self._dist.update_product(temp_var, first_factor, second_factor,
                                                                self._variables, self._finite, approximate),
@@ -355,21 +380,41 @@ class FPS(Distribution):
 
     def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
                        approximate: str | float | None) -> FPS:
-        # With an infinite marginal of `left`, GiNaC extracts the residue classes of `left` with roots
-        # of unity (a finite marginal makes the function polynomial in `left`).
-        if not self._finite and str(left) in self._variables:
+        # before the bindings, which report a non-finite marginal on a measure with infinite mass (#257)
+        self._require_nonzero_divisor(right, "%")
+        variables = self._variables
+        # On a polynomial, the bindings compute the remainder term by term. Else they would split over
+        # the marginal of an operand (#256): the operands with a finite support are fixed instead.
+        if not self._finite and str(right) in variables:
+            split = self._split_operands(
+                lambda part, l, r: part._update_modulo(temp_var, l, r, approximate),  # pylint: disable=protected-access
+                left, right, right)
+            if split is not None:
+                return split
+            if approximate is None:
+                self._approximated_support(
+                    str(right), approximate, f'Cannot perform modulo operation with infinite right hand side {right}')
+        elif not self._finite and str(left) in variables:
+            split = self._split_operands(
+                lambda part, l, r: part._update_modulo(temp_var, l, r, approximate),  # pylint: disable=protected-access
+                left, right, left)
+            if split is not None:
+                return split
+            if str(right).isdigit():
+                # the residue classes modulo a constant are exact for every measure (#249)
+                return self._modulo_by_progression(temp_var, str(left), str(right))
+        if not self._finite and str(left) in variables:
+            # With an infinite marginal of `left`, GiNaC extracts the residue classes of `left` with
+            # roots of unity.
             require_single_valued(self._sympy_function(), str(left), f"{left} % {right}")
-        try:
-            return FPS.from_dist(
-                self._case_split(lambda: self._dist.update_modulo(temp_var, str(left), str(right),
-                                                                  self._variables, self._finite, approximate),
-                                 left, right),
-                self._variables, self._parameters)
-        except NonFiniteMarginalError:
-            # The bindings sum out the other variables to decide whether the marginal of `left` is finite.
-            # The residue classes modulo a constant need no marginal (as on the other engines, #249).
-            if str(left) not in self._variables or not str(right).isdigit() or int(str(right)) < 1:
-                raise
+        return FPS.from_dist(
+            self._case_split(lambda: self._dist.update_modulo(temp_var, str(left), str(right),
+                                                              self._variables, self._finite, approximate),
+                             left, right),
+            self._variables, self._parameters)
+
+    def _modulo_by_progression(self, temp_var: str, left: str, right: str) -> FPS:
+        """`temp_var := left % right` for a constant `right`, from the residue classes of `left`."""
         result: Distribution | None = None
         for remainder, section in enumerate(self._arithmetic_progression(str(left), str(right))):
             part = section._update_var(temp_var, remainder)  # pylint: disable=protected-access
@@ -380,23 +425,30 @@ class FPS(Distribution):
     def _update_division(self, temp_var: str, numerator: str | int,
                          denominator: str | int,
                          approximate: str | float | None) -> FPS:
-        if str(numerator) in self._variables and str(denominator).isdigit() \
-                and not self._has_finite_marginal(str(numerator)):
-            divided = self._divide_exponents(temp_var, str(numerator), int(str(denominator)))
-            if divided is not None:
-                return divided
+        # before the bindings, which report a non-finite marginal on a measure with infinite mass (#257)
+        self._require_nonzero_divisor(denominator, "/")
+        # The bindings split over the marginals of the operands (#256), on polynomials as well: the
+        # operands with a finite support are fixed instead.
+        infinite = f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'
+        for fixed in (denominator, numerator):
+            if str(fixed) not in self._variables:
+                continue
+            split = self._split_operands(
+                lambda part, l, r: part._update_division(temp_var, l, r, approximate),  # pylint: disable=protected-access
+                numerator, denominator, fixed)
+            if split is not None:
+                return split
+            if fixed == numerator and str(denominator).isdigit():
+                divided = self._divide_exponents(temp_var, str(numerator), int(str(denominator)))
+                if divided is not None:
+                    return divided
+            if approximate is None:
+                self._approximated_support(str(fixed), approximate, infinite)
         return FPS.from_dist(
             self._case_split(lambda: self._dist.update_division(temp_var, str(numerator), str(denominator),
                                                                 approximate),
                              numerator, denominator),
             self._variables, self._parameters)
-
-    def _has_finite_marginal(self, variable: str) -> bool:
-        """Whether the marginal of `variable` is a finite distribution (False if it is not a finite measure)."""
-        try:
-            return self.marginal(variable).is_finite()
-        except NonFiniteMarginalError:
-            return False
 
     def _sympy_function(self) -> Expr_:
         """This generating function as a SymPy expression (all symbols without assumptions)."""
@@ -418,6 +470,18 @@ class FPS(Distribution):
 
     def _update_power(self, temp_var: str, base: str | int, exp: str | int,
                       approximate: str | float | None) -> Distribution:
+        # The bindings split over the marginals of the operands (#256), on polynomials as well: the
+        # operands with a finite support are fixed instead.
+        split = self._split_operands(
+            lambda part, l, r: part._update_power(temp_var, l, r, approximate),  # pylint: disable=protected-access
+            base, exp, base, exp)
+        if split is not None:
+            return split
+        for operand_ in (base, exp):
+            if approximate is None and str(operand_) in self._variables:
+                self._approximated_support(
+                    str(operand_), approximate,
+                    "Can only perform exponentiation if the base and the exponent have a finite marginal")
         return FPS.from_dist(
             self._case_split(lambda: self._dist.update_power(temp_var, base, exp, approximate), base, exp),
             self._variables, self._parameters)

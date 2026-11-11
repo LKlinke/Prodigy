@@ -572,48 +572,45 @@ class GeneratingFunction(Distribution):
 
         if div_1 in self._parameters or div_2 in self._parameters:
             raise ValueError('Division containing parameters is not allowed')
+        self._require_nonzero_divisor(denominator, "/")
 
-        # the numerator's marginal may be non-finite (#242) if the division by a constant is exact
-        marginal_l = self.marginal(
-            str(numerator)) if div_1 in self._variables else div_1
-        marginal_r = self.checked_marginal(
-            str(denominator)) if div_2 in self._variables else div_2
-
-        if isinstance(marginal_l, GeneratingFunction) and (
-                not marginal_l._is_finite or marginal_l.has_non_finite_value()):
-            if isinstance(div_2, sympy.Integer):
-                divided = divide_exponents(self._function, str(numerator), temp_var, int(div_2))
-                if divided is not None:
-                    return GeneratingFunction(divided, *self._variables, finite=False)
-            self._require_finite_values(marginal_l, str(numerator))
-            if approximate is None:
-                raise ValueError(
-                    f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'
-                )
-            assert isinstance(numerator, str)
-            marginal_l = marginal_l.approximate_unilaterally(
-                numerator, approximate)
-        if isinstance(marginal_r,
-                      GeneratingFunction) and not marginal_r._is_finite:
-            if approximate is None:
-                raise ValueError(
-                    f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'
-                )
-            assert isinstance(denominator, str)
-            marginal_r = marginal_r.approximate_unilaterally(
-                denominator, approximate)
+        # The case splits follow the supports of the operands, not their marginals (#256). A
+        # denominator with a finite support is fixed first, so the numerator may take infinitely many
+        # values (e.g. an exact division by a constant, also if its marginal is not finite, #242).
+        if div_2 in self._variables:
+            split = self._split_over_finite_supports(
+                lambda part, left, right: part._update_division(  # pylint: disable=protected-access
+                    temp_var, left, right, approximate), numerator, denominator, (denominator,))
+            if split is not None:
+                assert isinstance(split, GeneratingFunction)
+                return split
+        infinite = f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'
+        marginal_r: Distribution | sympy.Expr = div_2
+        if div_2 in self._variables:
+            # the denominator takes infinitely many values
+            marginal_r = self._approximated_support(str(denominator), approximate, infinite)
+        marginal_l: Distribution | sympy.Expr = div_1
+        if div_1 in self._variables:
+            support_l = self.finite_support(str(numerator))
+            if support_l is None:
+                if isinstance(div_2, sympy.Integer):
+                    divided = divide_exponents(self._function, str(numerator), temp_var, int(div_2))
+                    if divided is not None:
+                        return GeneratingFunction(divided, *self._variables, finite=False)
+                support_l = self._approximated_support(str(numerator), approximate, infinite)
+            marginal_l = support_l
 
         result = 0
-        if isinstance(marginal_l, GeneratingFunction):
-            for _, state_l in marginal_l:
-                if isinstance(marginal_r, GeneratingFunction):
-                    for _, state_r in marginal_r:
+        if isinstance(marginal_l, Distribution):
+            for state_l in self._unique_states(marginal_l):
+                if isinstance(marginal_r, Distribution):
+                    for state_r in self._unique_states(marginal_r):
                         val_l, val_r = state_l[numerator], state_r[denominator]
                         x = self.filter(
                             parse_expr(
                                 f'{numerator}={val_l} & {denominator}={val_r}')
                         )._function
-                        if val_l % val_r != 0 and x != 0:
+                        if val_l % val_r != 0 and x != 0 and not provably_equal(x, sympy.Integer(0)):
                             raise ValueError(
                                 f"Cannot assign {numerator} / {denominator} to {temp_var} " \
                                 "because it is not always an integer"
@@ -623,19 +620,19 @@ class GeneratingFunction(Distribution):
                     val_l, val_r = state_l[numerator], div_2
                     x = self.filter(
                         parse_expr(f'{numerator}={val_l}'))._function
-                    if val_l % val_r != 0 and x != 0:
+                    if val_l % val_r != 0 and x != 0 and not provably_equal(x, sympy.Integer(0)):
                         raise ValueError(
                             f"Cannot assign {numerator} / {denominator} to {temp_var} " \
                             "because it is not always an integer"
                         )
                     result += _substitute_one(x, update_var) * update_var ** (val_l / val_r)
         else:
-            if isinstance(marginal_r, GeneratingFunction):
-                for _, state_r in marginal_r:
+            if isinstance(marginal_r, Distribution):
+                for state_r in self._unique_states(marginal_r):
                     val_l, val_r = div_1, state_r[denominator]
                     x = self.filter(
                         parse_expr(f'{denominator}={val_r}'))._function
-                    if val_l % val_r != 0 and x != 0:
+                    if val_l % val_r != 0 and x != 0 and not provably_equal(x, sympy.Integer(0)):
                         raise ValueError(
                             f"Cannot assign {numerator} / {denominator} to {temp_var} " \
                             "because it is not always an integer"
@@ -663,6 +660,7 @@ class GeneratingFunction(Distribution):
         if left_sym in self._parameters or right_sym in self._parameters:
             raise ValueError('Cannot perform modulo operation on parameters')
 
+        self._require_nonzero_divisor(right, "%")
         update_var = _sympy_symbol(temp_var)
         result = 0
 
@@ -683,27 +681,29 @@ class GeneratingFunction(Distribution):
         # If the GF is infinite and right is a variable, it needs to have finite range
         elif right_sym in self._variables:
             assert isinstance(right, str)
-            marginal_r = self.checked_marginal(right)
-            if not marginal_r._is_finite:
-                if approximate is None:
-                    raise ValueError(
-                        f'Cannot perform modulo operation with infinite right hand side {right}'
-                    )
-                marginal_r = marginal_r.approximate_unilaterally(
-                    right, approximate)
-            for _, state_r in marginal_r:
-                result += self.filter(
-                    parse_expr(f'{right}={state_r[right]}'))._update_modulo(
-                    temp_var, left, state_r[right], None)._function
+            # the case split follows the support of `right`, not its marginal (#256)
+            values_r = self.finite_support(right)
+            if values_r is None:
+                values_r = self._approximated_support(
+                    right, approximate, f'Cannot perform modulo operation with infinite right hand side {right}')
+            for state_r in self._unique_states(values_r):
+                section = self.filter(parse_expr(f'{right}={state_r[right]}'))
+                try:
+                    result += section._update_modulo(temp_var, left, state_r[right], None)._function
+                except ValueError:
+                    # a value without mass (coefficient not simplified to 0), see is_provably_zero
+                    if not section.is_provably_zero():
+                        raise
 
         # If left is a variable, it doesn't have to have finite range
         elif left_sym in self._variables:
             assert isinstance(left, str)
-            # a marginal that is not a finite measure (#242) is not unfolded; the arithmetic
-            # progression is exact for every measure
-            marginal_l = self.marginal(left)
-            if marginal_l._is_finite and not marginal_l.has_non_finite_value():
-                for _, state_l in marginal_l:
+            # A finite support of `left` is unfolded (not its marginal, which may be no finite measure,
+            # #242, or lose values whose mass cancels, #256); else the arithmetic progression, which is
+            # exact for every measure.
+            values_l = self.finite_support(left)
+            if values_l is not None:
+                for state_l in self._unique_states(values_l):
                     result += self.filter(
                         parse_expr(f'{left}={state_l[left]}'))._update_modulo(
                         temp_var, state_l[left], right, None)._function
@@ -791,25 +791,11 @@ class GeneratingFunction(Distribution):
         # we multiply two variables
         if prod_1 in self._variables and prod_2 in self._variables:
             if not self._is_finite:
-                marginal_l = self.checked_marginal(first_factor)
-                marginal_r = self.checked_marginal(second_factor)
+                # the case split follows the support of a factor, not its marginal (#256)
                 result = sympy.Integer(0)
-
-                if not marginal_l._is_finite and not marginal_r._is_finite:
-                    if approximate is None:
-                        raise ValueError(
-                            f'Cannot perform the multiplication {first_factor} * {second_factor} ' \
-                            'because both variables have infinite range'
-                        )
-                    # TODO can we choose which side to approximate in a smarter way?
-                    marginal_l = marginal_l.approximate_unilaterally(
-                        first_factor, approximate)
-
-                finite, finite_var, infinite_var = (
-                    marginal_l, first_factor,
-                    second_factor) if marginal_l._is_finite else (
-                    marginal_r, second_factor, first_factor)
-                for _, state in finite:
+                finite, finite_var, infinite_var = self._product_case_split(first_factor, second_factor,
+                                                                            approximate)
+                for state in self._unique_states(finite):
                     result += self.filter(
                         parse_expr(f'{finite_var}={state[finite_var]}')
                     )._update_product(temp_var, state[finite_var],
@@ -929,25 +915,11 @@ class GeneratingFunction(Distribution):
         if pow_1 in self._variables and pow_2 in self._variables:
             assert isinstance(base, str)
             assert isinstance(exp, str)
-            marginal_l, marginal_r = self.checked_marginal(base), self.checked_marginal(exp)
+            # the case splits follow the supports, not the marginals (#256)
+            marginal_l, marginal_r = self._power_case_split(base, exp, approximate)
 
-            if not marginal_l._is_finite:
-                if approximate is None:
-                    raise ValueError(
-                        "Can only perform exponentiation of variables if both have a finite marginal"
-                    )
-                marginal_l = marginal_l.approximate_unilaterally(
-                    base, approximate)
-            if not marginal_r._is_finite:
-                if approximate is None:
-                    raise ValueError(
-                        "Can only perform exponentiation of variables if both have a finite marginal"
-                    )
-                marginal_r = marginal_r.approximate_unilaterally(
-                    exp, approximate)
-
-            for _, state_l in marginal_l:
-                for _, state_r in marginal_r:
+            for state_l in self._unique_states(marginal_l):
+                for state_r in self._unique_states(marginal_r):
                     x = self.filter(
                         parse_expr(
                             f'{base}={state_l[base]} & {exp}={state_r[exp]}')
@@ -958,28 +930,26 @@ class GeneratingFunction(Distribution):
 
         # variable to the power of a literal
         elif pow_1 in self._variables:
-            marginal = self.checked_marginal(str(base))
-
-            if not marginal._is_finite:
+            marginal = self._case_split_support(str(base))
+            if marginal is None:
                 raise ValueError(
                     "Can only perform exponentiation if the base has a finite marginal"
                 )
 
-            for _, state in marginal:
+            for state in self._unique_states(marginal):
                 x = self.filter(parse_expr(f'{base}={state[base]}'))._function
                 res -= x
                 res += _substitute_one(x, update_var) * update_var ** (state[base] ** pow_2)
 
         # literal to the power of a variable
         elif pow_2 in self._variables:
-            marginal = self.checked_marginal(str(exp))
-
-            if not marginal._is_finite:
+            marginal = self._case_split_support(str(exp))
+            if marginal is None:
                 raise ValueError(
                     "Can only perform exponentiation if the exponent has a finite marginal"
                 )
 
-            for _, state in marginal:
+            for state in self._unique_states(marginal):
                 x = self.filter(parse_expr(f'{exp}={state[exp]}'))._function
                 res -= x
                 res += _substitute_one(x, update_var) * update_var ** (pow_1 ** state[exp])

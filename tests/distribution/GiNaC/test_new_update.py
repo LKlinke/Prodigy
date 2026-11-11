@@ -202,7 +202,7 @@ def test_fractional_constants():
     for function in ['1/(2-x)', 'exp(x^2-1)']:
         with raises(ValueError) as e:
             FPS(function, 'x').update(parse_expr('x = 1/2*x'))
-        assert 'numerator must have a finite marginal' in str(e)
+        assert 'infinite range' in str(e)
 
     for update in ['x = x + 1/2', 'x = x - 0.5', 'x = x % (3/2)', 'x = x^(1/2)', 'x = (1/2)^x']:
         with raises(ValueError) as e:

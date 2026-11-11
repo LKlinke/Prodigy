@@ -89,7 +89,7 @@ def test_division():
     expected = SymengineDist('n^2*m^6*o^3')
     assert sp.S(res._s_func).simplify().equals(sp.S(expected._s_func))
 
-    with pytest.raises(ValueError, match='Cannot assign x_0 / x_1 to o because it is not always an integer'):
+    with pytest.raises(ValueError, match='Cannot assign x_0 / .* to o because it is not always an integer'):
         gf.update(parse_expr('o = n / m'))
 
     gf = SymenginePGF.poisson('x', "3") * SymengineDist('y*z')

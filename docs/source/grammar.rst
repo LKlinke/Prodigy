@@ -72,6 +72,18 @@ whose invariant contains a root, the instruction is rejected:
 .. automodule:: prodigy.distribution.roots_of_unity
    :no-index:
 
+Case splits
+-----------
+
+Products, powers, remainders and quotients of two variables (``a * b``, ``a ^ b``, ``a % b``,
+``a / b``, also a variable power ``a ^ 2`` or ``2 ^ a``), as well as probabilities and distribution
+arguments that depend on the state, are computed by a case split over the values of an operand
+that takes finitely many values. The case split follows the support of the operand (the values in
+states of the distribution), not its marginal; for the signed measures that loop strategies check
+(candidate measures), the mass of a value can cancel to 0 in the marginal although the value
+occurs. If the operands take infinitely many values, the update is rejected (except for the exact
+cases of modulo and division by a constant). A modulus or divisor ``0`` is an error.
+
 Floor division
 --------------
 
