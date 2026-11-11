@@ -5,6 +5,7 @@ from typing import Collection, Optional
 from prodigy.analysis.exceptions import HeuristicsError
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic
+from prodigy.analysis.evtinvariants.heuristics.positivity.rational_function import RationalFunctionDenomSign
 from prodigy.analysis.evtinvariants.heuristics.templates.templates import TemplateHeuristic
 from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
 from prodigy.distribution import CommonDistributionsFactory
@@ -37,7 +38,7 @@ class DefaultStrategy(SynthesisStrategy):
             self.dist_factory
         )
         self.positivity_heuristics = PositivityHeuristics.create(
-            PositivityHeuristics.MIXED_RAT_FUNC, self.dist_factory
+            PositivityHeuristics.MIXED_RAT_FUNC, self.dist_factory, variables=self.variables
         )
 
 
@@ -100,7 +101,7 @@ class AllOrPartialRational(SynthesisStrategy):
         iterate_heur = PositivityHeuristics.create(PositivityHeuristics.ITERATE_TERMS, self.dist_factory)
         rat_func_heur = PositivityHeuristics.create(PositivityHeuristics.TRUE_RAT_FUNC)
         mixed_rat_func = PositivityHeuristics.create(PositivityHeuristics.MIXED_RAT_FUNC, self.dist_factory,
-                                                     iterate_heur)
+                                                     iterate_heur, variables=self.variables)
         sum_heur = PositivityHeuristics.create(PositivityHeuristics.INDIVIDUAL_SUM, rat_func_heur)
 
         self.positivity_heuristics = (
@@ -141,6 +142,9 @@ class FromHeuristics(SynthesisStrategy):
                 f"cannot be used on its own. Choose one of {', '.join(SELECTABLE_POSITIVITY_HEURISTICS)}.")
         if self.positivity_heuristic in (PositivityHeuristics.POLYNOMIAL, PositivityHeuristics.TRUE_RAT_FUNC):
             self.positivity_heuristics = PositivityHeuristics.create(self.positivity_heuristic)
+        elif self.positivity_heuristic.value is RationalFunctionDenomSign:
+            self.positivity_heuristics = PositivityHeuristics.create(self.positivity_heuristic, self.dist_factory,
+                                                                     variables=self.variables)
         else:
             self.positivity_heuristics = PositivityHeuristics.create(self.positivity_heuristic, self.dist_factory)
 

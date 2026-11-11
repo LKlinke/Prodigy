@@ -102,7 +102,8 @@ def test_cli_synthesises_with_the_chosen_heuristics(tmp_path):
     assert "d_0" not in poly.output  # polynomial templates have no denominator
     rational = runner.invoke(cli, ["--strategy", "from_heuristics", "invariant_synthesis", str(program)])
     assert rational.exit_code == 0, rational.output
-    assert "n_0/d_0" in rational.output and "Invariant: 2*x + 1" in rational.output
+    # the rational templates have the denominator constant 1, so the first two are polynomials here
+    assert "Invariant candidate: n_0 + n_1*x" in rational.output and "Invariant: 2*x + 1" in rational.output
 
 
 def test_cli_rejects_heuristics_without_from_heuristics(tmp_path):

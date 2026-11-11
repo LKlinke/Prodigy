@@ -213,7 +213,12 @@ coefficients and solves the fixed-point equation for them. The search is bounded
 parameters: *Maximal template degree* (`max_degree`, default 4: N has at most this degree in
 each variable, D at most N's degrees in total) and *Time limit* (`time_limit`, default 60 s;
 it also interrupts a solver call, since a single template can make SymPy's Gröbner basis run
-for minutes). Many loops have no rational invariant at all, e.g. those with algebraic or
+for minutes); a third one, *Time limit per template* (`template_time_limit`, default 5 s), skips a
+template whose equations are not solved in time, so that one expensive template does not use up the
+whole time limit (skipped templates are counted in the message and in
+`error.details.templates_skipped`). The denominator D has the constant term 1, which loses no
+invariant: a generating function N/D in lowest terms has a denominator with a non-zero constant term.
+Many loops have no rational invariant at all, e.g. those with algebraic or
 non-D-finite generating functions in `pgfexamples/inference/loopy/hard_distributions`. If no
 invariant is found within the bounds, the analysis ends with status `error`, verdict *unknown*
 (`error.type` `SynthesisBoundReached`) and a message such as "No rational EVT invariant up to
@@ -221,7 +226,8 @@ degree 4 found (21 templates tried)"; `error.details` says which bound was reach
 (`reason`: `degree` or `time_limit`). The synthesis strategy `inf_poly` enumerates
 polynomials of every degree and is only stopped by the time limit. Example:
 `prodigy analyze prog.ppy --loop '0=evt_synthesis:max_degree=2,time_limit=20'`. The command
-`prodigy invariant_synthesis` has the options `--max-degree` and `--time-limit`.
+`prodigy invariant_synthesis` has the options `--max-degree`, `--time-limit` and
+`--template-time-limit`.
 
 Two strategies give lower bounds without a termination assumption (package
 `prodigy.analysis.lowerbounds`, see the README):

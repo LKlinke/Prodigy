@@ -25,7 +25,7 @@ from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.strategies import (DEFAULT_MAX_DEGREE, SynthesisStrategy,
                                                                   SynthesisStrategies)
 from prodigy.analysis.evtinvariants.invariant_synthesis import (DEFAULT_SYNTHESIS_TIME_LIMIT,
-                                                                evt_invariant_synthesis)
+                                                                DEFAULT_TEMPLATE_TIME_LIMIT, evt_invariant_synthesis)
 from prodigy.analysis.evtinvariants.invariant_verification import FixedPointCheckFailed, evt_invariant_check
 from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
 from prodigy.analysis.instructionhandler import _assume
@@ -436,7 +436,7 @@ def _strategy_evt_synthesis(task: LoopTask) -> LoopOutcome:
     with task.session.sub_analysis("EVT invariant synthesis") as scope:
         invariants = evt_invariant_synthesis(
             instruction, prog_info, task.distribution, config, strategy, analyzer,
-            time_limit=task.param("time_limit"),
+            time_limit=task.param("time_limit"), template_time_limit=task.param("template_time_limit"),
             progress=lambda tried: task.progress(tried, None, f"{tried} template(s) tried"))
 
     def _sorting_key(elem):
@@ -575,7 +575,10 @@ register_loop_strategy(LoopStrategy(
                            "degrees in total)."),
             ParamSpec("time_limit", "int", "Time limit (seconds)", default=DEFAULT_SYNTHESIS_TIME_LIMIT,
                       minimum=1, optional=True,
-                      help="The synthesis stops after this time, also inside a solver call.")),
+                      help="The synthesis stops after this time, also inside a solver call."),
+            ParamSpec("template_time_limit", "int", "Time limit per template (seconds)",
+                      default=DEFAULT_TEMPLATE_TIME_LIMIT, minimum=1, optional=True,
+                      help="A template whose equations are not solved within this time is skipped.")),
     run=_strategy_evt_synthesis,
     requires_unconditioned=True,
 ))
