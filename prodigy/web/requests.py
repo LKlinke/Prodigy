@@ -365,6 +365,7 @@ def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], 
     # pylint: disable=import-outside-toplevel,too-many-locals
     from prodigy.analysis import ai_candidates
     from prodigy.analysis.analyzer import compute_discrete_distribution
+    from prodigy.analysis.input_distribution import input_distribution_from_text
     from prodigy.pgcl import parse_pgcl
 
     problems = validate_suggestion(request)
@@ -393,7 +394,7 @@ def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], 
         try:
             variables = list(program.variables.keys())
             if isinstance(input_distribution, str) and input_distribution.strip():
-                dist = session.config.factory.from_expr(input_distribution, *variables)
+                dist = input_distribution_from_text(session.config, input_distribution, program, syntax)
             else:
                 dist = session.config.factory.one(*variables)
             compute_discrete_distribution(program, dist, session.config)

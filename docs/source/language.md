@@ -84,6 +84,15 @@ single variable (`x, y: nat = 0;` is an error).
 - *At the top level, before the first statement,* declarations declare the program's inputs.
   Without a value, they start at 0 unless an input distribution is given (`prodigy main FILE
   INPUT`, the GUI's *Input*). With a value, the value is assigned at that place.
+  An input distribution is a generating function in the program variables, e.g. `1/(2 - x)` or
+  `exp(3*(x - 1))`. It is accepted only when Prodigy proves that it is a power series at 0 with
+  non-negative coefficients and finite mass; otherwise the analysis refuses it with a message
+  that names the input and the reason (a negative coefficient, infinite mass, a pole at 0, or
+  that the property could not be proven). Polynomials and rational functions are checked
+  exactly, as far as their denominators allow (products of `c - R` with constants `c > 0` and
+  `R` with non-negative coefficients), `exp(G)` when `G` minus its constant term is such a
+  series, and sums and products of these. A `real` parameter has no known sign, so an input like
+  `p*x + 1 - p` is refused; a `nat` parameter is non-negative.
 - *At the top level, after the first statement,* a declaration starts at its value, or at 0
   (`false`).
 - *Inside a block* (a loop body, a branch, a `case`, a choice), a declaration is **block-scoped**:

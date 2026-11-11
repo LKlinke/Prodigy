@@ -24,6 +24,7 @@ from prodigy.pgcl.syntax_errors import ProgramSyntaxError
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import HeuristicsError, UndefinedDistributionError, UnsupportedFeatureError
+from prodigy.analysis.input_distribution import InputDistributionError, input_distribution_from_text
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from prodigy.analysis.evtinvariants.heuristics.strategies import (DEFAULT_MAX_DEGREE, SELECTABLE_POSITIVITY_HEURISTICS,
@@ -51,7 +52,8 @@ class _CliGroup(click.Group):
     def invoke(self, ctx: click.Context) -> Any:
         try:
             return super().invoke(ctx)
-        except (UnsupportedFeatureError, UndefinedDistributionError, HeuristicsError, SynthesisBoundReached) as exc:
+        except (UnsupportedFeatureError, UndefinedDistributionError, InputDistributionError, HeuristicsError,
+                SynthesisBoundReached) as exc:
             raise click.ClickException(str(exc)) from exc
 
 
@@ -200,7 +202,7 @@ def main(ctx, program_file: IO, input_dist: str,  # pylint: disable=too-many-arg
     if input_dist is None:
         dist = config.factory.one(*program.variables.keys())
     else:
-        dist = config.factory.from_expr(input_dist, *program.variables.keys())
+        dist = input_distribution_from_text(config, input_dist, program, syntax)
 
     logger.debug("Start analysis.")
     session = AnalysisSession.interactive(program, source=program_source, syntax=syntax, config=config,
@@ -335,13 +337,13 @@ def invariant_synthesis(ctx,  # pylint: disable=too-many-arguments
     _, prog, syntax = _read_program(program_file, syntax)
     with AnalysisSession.detached(syntax).activate():
         _invariant_synthesis(ctx.obj["CONFIG"], prog, invariant, input_dist, max_degree, time_limit,
-                             template_time_limit)
+                             template_time_limit, syntax)
 
 
 def _invariant_synthesis(config: ForwardAnalysisConfig, prog: Program,  # pylint: disable=too-many-arguments
                          invariant: str, input_dist: str,
                          max_degree: int = DEFAULT_MAX_DEGREE, time_limit: int = DEFAULT_SYNTHESIS_TIME_LIMIT,
-                         template_time_limit: int = DEFAULT_TEMPLATE_TIME_LIMIT) -> None:
+                         template_time_limit: int = DEFAULT_TEMPLATE_TIME_LIMIT, syntax: str = "pgcl") -> None:
 
     # isolate the initial distribution description from the actual while loop.
     loops = [1 if isinstance(instr, WhileInstr) else 0 for instr in prog.instructions]
@@ -351,7 +353,7 @@ def _invariant_synthesis(config: ForwardAnalysisConfig, prog: Program,  # pylint
     # compute the initial distribution with respect to the user specified configuration
     dist = config.factory.one(*prog.variables.keys())
     if input_dist is not None:
-        dist = config.factory.from_expr(input_dist, *prog.variables.keys())
+        dist = input_distribution_from_text(config, input_dist, prog, syntax)
     dist, _ = compute_semantics(prog.instructions[:loops.index(1)],
                                   ProgramInfo(prog),
                                   dist,
@@ -403,7 +405,8 @@ def evt_lower_bound(ctx, program_file: IO, invariant: str, input_dist: str, synt
     prefix, loop, rest = _loop_parts(prog)
     config = ctx.obj["CONFIG"]
     variables = list(prog.variables.keys())
-    dist = config.factory.one(*variables) if input_dist is None else config.factory.from_expr(input_dist, *variables)
+    dist = config.factory.one(*variables) if input_dist is None \
+        else input_distribution_from_text(config, input_dist, prog, syntax)
     zero = config.factory.from_expr("0", *variables)
     with AnalysisSession.detached(syntax).activate():
         dist, err = compute_semantics(prefix, ProgramInfo(prog), dist, zero, config)
