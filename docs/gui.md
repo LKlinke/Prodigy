@@ -22,7 +22,8 @@ Prodigy is tested with Python 3.11 and 3.14.
   type-checker warnings) as you type. Above each loop a pill shows its strategy and, after a
   run, what it certified. After each query (`query Pr[…]`, `?Pr[…]`) the value appears inline.
   The chip next to the title shows the syntax of the program; see [Two syntaxes](#two-syntaxes).
-* **Setup** (right): initial distribution, one strategy per loop with its parameters,
+* **Setup** (right): initial distribution (refused with a message unless it is proven to be a
+  distribution, see the language reference), one strategy per loop with its parameters,
   analysis options (engine, conditioning, simplification, number of coefficients, time
   limit, EVT synthesis strategy, solver, recording of intermediate distributions). The
   synthesis strategy *from heuristics* combines a template heuristic and a positivity

@@ -730,6 +730,7 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.analyzer import compute_discrete_distribution
     from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
+    from prodigy.analysis.input_distribution import input_distribution_from_text
     from prodigy.analysis.session import DecisionRequired
 
     result = AnalysisResult(syntax=session.syntax)
@@ -754,7 +755,7 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
             if session.input_distribution is None:
                 dist = config.factory.one(*program.variables.keys())
             elif isinstance(session.input_distribution, str):
-                dist = config.factory.from_expr(session.input_distribution, *program.variables.keys())
+                dist = input_distribution_from_text(config, session.input_distribution, program, session.syntax)
             else:
                 dist = session.input_distribution
             analysis_start = time.perf_counter()
