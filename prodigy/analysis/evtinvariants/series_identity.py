@@ -15,7 +15,7 @@ For a candidate I with non-negative coefficients, either of the two criteria bel
 equation is the equation of the power series, so that I is a pre-fixed point of the series semantics and Park's
 lemma applies. With finite mass (the result ``exact``) the first one holds anyway.
 
-**(A) I converges on the open unit polydisc** U = {|x_i| < 1}. For non-negative coefficients this holds iff the
+**(A) I converges on the open unit polydisc** U = ``{|x_i| < 1}``. For non-negative coefficients this holds iff the
 diagonal f(t) = I(t, …, t) has radius of convergence ≥ 1, and by Pringsheim's theorem iff the reduced
 denominator of f has no root in (0, 1) (:func:`converges_on_unit_polydisc`). Induction over the steps of
 the computation: each intermediate closed form equals its (non-negative) series on U. The engines compute with
@@ -35,9 +35,9 @@ probabilities of choices do not depend on the state, and the only assignments ar
 ``x := x - c`` (``c`` a literal) and ``x := x + y``. For these, every step the engines take is an operation on
 formal power series: Taylor coefficients at 0 for the guards, substitutions of monomials, and marginals only of
 variables whose value is determined by the remaining ones up to finitely many choices (the copies the engines
-make while evaluating ``x + 1``, and the old value of x afterwards). Such a marginal F ↦ F|_{v=1} is a ring
+make while evaluating ``x + 1``, and the old value of x afterwards). Such a marginal ``F ↦ F|_{v=1}`` is a ring
 homomorphism of K[v][[w]], the power series in the other variables w with polynomial coefficients in v; from
-F·Q = N it gives F|_{v=1}·Q(1, w) = N(1, w), so the closed form N(1, w)/Q(1, w) is the series F|_{v=1}
+F·Q = N it gives ``F|_{v=1}·Q(1, w) = N(1, w)``, so the closed form N(1, w)/Q(1, w) is the series ``F|_{v=1}``
 (and if Q(1, w) vanishes identically the closed form is undefined, which stops the analysis). The radius of
 convergence of I does not matter then: the biased random walk ``while (x > 0) {x := x - 1} [1/3] {x := x + 1}``
 has the spurious invariant ``-1/2 + 3/2/(1 - 2x)``, which is a fixed point of the series semantics, and Park
