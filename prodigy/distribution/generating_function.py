@@ -151,12 +151,30 @@ def _substitute_one(function: sympy.Expr, variable: sympy.Symbol) -> sympy.Expr:
 
     A closed form that is not simplified may have a removable singularity at 1, e.g. `(x**3 - 1)/(x - 1)`;
     plain substitution then gives `nan` (0/0) or `zoo`. As a generating function is the limit of its power
-    series from below, the value is then computed as that limit.
+    series from below, the value is then that limit. It is computed cheaply first: the expression is
+    cancelled (a removable singularity of a rational expression goes away, and a cancelled expression is
+    continuous wherever it is finite), and only if that still gives no finite value, SymPy's `limit` is
+    used, which can be very slow on unsimplified expressions (#259).
+
+    Expressions with functions that may jump (e.g. `floor`, `Piecewise`) always take the limit, as their
+    value at 1 need not be the limit from below.
     """
-    value = sympy.sympify(function).subs(variable, 1)
-    if value.has(sympy.nan, sympy.zoo, sympy.oo, -sympy.oo):
-        value = sympy.sympify(function).limit(variable, 1, '-')
-    return value
+    function = sympy.sympify(function)
+    if variable not in function.free_symbols:
+        return function
+    if not function.has(*_DISCONTINUOUS_FUNCTIONS):
+        value = function.subs(variable, 1)
+        if not value.has(*_UNDEFINED_VALUES):
+            return value
+        value = sympy.cancel(function).subs(variable, 1)
+        if not value.has(*_UNDEFINED_VALUES):
+            return value
+    return function.limit(variable, 1, '-')
+
+
+_UNDEFINED_VALUES = (sympy.nan, sympy.zoo, sympy.oo, -sympy.oo)
+_DISCONTINUOUS_FUNCTIONS = (sympy.Piecewise, sympy.Heaviside, sympy.floor, sympy.ceiling, sympy.sign,
+                            sympy.frac, sympy.Min, sympy.Max, sympy.DiracDelta)
 
 
 def _taylor_coefficient_by_limit(function: sympy.Expr, variable: sympy.Symbol, index: int) -> sympy.Expr:
@@ -618,7 +636,7 @@ class GeneratingFunction(Distribution):
                                 f"Cannot assign {numerator} / {denominator} to {temp_var} " \
                                 "because it is not always an integer"
                             )
-                        result += _substitute_one(x, update_var) * update_var ** (val_l / val_r)
+                        result += _substitute_one(x, update_var) * update_var ** (val_l // val_r)
                 else:
                     val_l, val_r = state_l[numerator], div_2
                     x = self.filter(
@@ -628,7 +646,7 @@ class GeneratingFunction(Distribution):
                             f"Cannot assign {numerator} / {denominator} to {temp_var} " \
                             "because it is not always an integer"
                         )
-                    result += _substitute_one(x, update_var) * update_var ** (val_l / val_r)
+                    result += _substitute_one(x, update_var) * update_var ** (val_l // val_r)
         else:
             if isinstance(marginal_r, GeneratingFunction):
                 for _, state_r in marginal_r:
@@ -640,13 +658,13 @@ class GeneratingFunction(Distribution):
                             f"Cannot assign {numerator} / {denominator} to {temp_var} " \
                             "because it is not always an integer"
                         )
-                    result += _substitute_one(x, update_var) * update_var ** (val_l / val_r)
+                    result += _substitute_one(x, update_var) * update_var ** (val_l // val_r)
             else:
                 if div_1 % div_2 != 0:
                     raise ValueError(
                         f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
                     )
-                result = _substitute_one(self._function, update_var) * update_var ** (div_1 / div_2)
+                result = _substitute_one(self._function, update_var) * update_var ** (div_1 // div_2)
 
         return GeneratingFunction(
             result,
@@ -1086,7 +1104,7 @@ class GeneratingFunction(Distribution):
                 var_sym = _sympy_symbol(var)
                 for _ in range(val):
                     tmp = tmp.diff(var_sym, 1) * var_sym
-                tmp = tmp.limit(var_sym, 1, '-')
+                tmp = _substitute_one(tmp, var_sym)
             # subtractions of natural numbers are computed before (monus, Distribution.get_expected_value_of),
             # so a negative summand is a negative coefficient of the (rational) expression itself
             summand: sympy.Expr = _parse_to_sympy(prob) * tmp
@@ -1340,8 +1358,8 @@ class GeneratingFunction(Distribution):
         coefficient_sum = self._function.simplify(
         ) if GeneratingFunction.settings().simplification else self._function
         for var in self._variables:
-            coefficient_sum = coefficient_sum.limit(
-                var, 1, "-") if self._is_closed_form else coefficient_sum.subs(
+            coefficient_sum = _substitute_one(
+                coefficient_sum, var) if self._is_closed_form else coefficient_sum.subs(
                 var, 1)
         return coefficient_sum
 
@@ -1416,19 +1434,19 @@ class GeneratingFunction(Distribution):
             map(_sympy_symbol, filter(lambda v: v != '', map(str, variables))))
         marginal = self.copy()
         s_var: str | VarExpr | sympy.Symbol
+        # SymPy's limit (not _substitute_one) on purpose: its result is often much smaller than the
+        # substituted expression, and later steps (ratsimp, loops) rely on that
         if method == MarginalType.INCLUDE:
             for s_var in marginal._variables.difference(marginal_vars):
                 if marginal._is_closed_form:
-                    marginal._function = marginal._function.limit(
-                        s_var, 1, "-")
+                    marginal._function = marginal._function.limit(s_var, 1, "-")
                 else:
                     marginal._function = marginal._function.subs(s_var, 1)
             marginal._variables = marginal_vars
         else:
             for s_var in marginal_vars:
                 if marginal._is_closed_form:
-                    marginal._function = marginal._function.limit(
-                        s_var, 1, "-")
+                    marginal._function = marginal._function.limit(s_var, 1, "-")
                 else:
                     marginal._function = marginal._function.subs(s_var, 1)
             marginal._variables = marginal._variables.difference(marginal_vars)

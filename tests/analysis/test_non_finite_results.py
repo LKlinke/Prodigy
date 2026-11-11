@@ -106,6 +106,39 @@ def test_substitute_one_takes_the_limit_at_a_removable_singularity():
     assert is_non_finite(_substitute_one(y / (1 - x), x))
 
 
+def test_substitute_one_cancels_before_taking_the_limit():
+    # SymPy's limit does not finish on this form of 0 (#259); cancelling first gives the value at once
+    z = sympy.Symbol("z", real=True)
+    assert _substitute_one(-z ** 2 / 2 - z / 2 + z * (z ** 2 - 1) / (2 * (z - 1)), z) == 0
+    # a function that may jump at 1 takes the limit from below, not the value at 1
+    assert _substitute_one(sympy.floor(z), z) == 0
+
+
+# observe after unif: the unobserved part has a removable singularity at 1 without simplification (#259)
+OBSERVE_AFTER_UNIF = [
+    pytest.param("z: nat = unif(1, 2);\nobserve(z < 3);\n", "z", id="observe"),
+    pytest.param("def f(a: nat) -> nat {\n    observe(a < 3);\n    return a;\n}\n"
+                 "z: nat = unif(1, 2);\nx: nat = f(z);\n", "z*x", id="call_in_joint"),
+]
+
+
+@pytest.mark.timeout(60)
+@pytest.mark.parametrize("program, variable", OBSERVE_AFTER_UNIF)
+@pytest.mark.parametrize("engine", ENGINES)
+@pytest.mark.parametrize("simplification", SIMPLIFICATION)
+def test_observe_after_unif_is_fast(program, variable, engine, simplification):
+    config = ForwardAnalysisConfig(engine=_engine(engine), use_simplification=simplification)
+    session = AnalysisSession(parse_pgcl(program, "ppy"), source=program, syntax="ppy", config=config,
+                              decisions={}, capture_output=True)
+    result = session.run().to_json()
+    assert result["status"] == "ok", result["error"]
+    assert result["bounds"]["kind"] == Bound.EXACT
+    computed = sym(result["distribution"]["closed_form"])
+    computed = computed.subs({s: sympy.Symbol(s.name) for s in computed.free_symbols})
+    single = sympy.sympify(variable)
+    assert sympy.cancel(computed - (single + single ** 2) / 2) == 0
+
+
 @pytest.mark.parametrize("value", ["nan", "NaN", "zoo", "oo", "-oo", "\\infty", "∞", "x*nan", "2*zoo + x",
                                    "Infinity", sympy.nan, sympy.zoo * sympy.Symbol("x")])
 def test_non_finite_values_are_recognised(value):
