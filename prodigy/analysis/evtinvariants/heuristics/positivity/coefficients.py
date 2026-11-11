@@ -5,8 +5,9 @@ A positivity verdict is three-valued: ``True`` means that every coefficient of t
 *variables* is proven non-negative, ``False`` that some coefficient is proven negative, ``None`` that neither is
 proven. Every other symbol of an expression is a program *parameter*. Parameters are coefficients, never series
 variables: ``1/(1 - p)`` is the constant ``1/(1 - p)``, which is negative for ``p = 3`` (#295). Parameters are
-declared ``real`` or ``nat`` and have no bounds, so the only fact used about them is that they are real; a sign
-that depends on their value is not decided.
+declared ``real`` or ``nat`` and have no bounds, so the only facts used about them are that they are real and
+what their symbol's assumptions state (a caller may give a ``nat`` parameter as non-negative integer); a sign that
+depends on their value is not decided.
 """
 from __future__ import annotations
 
@@ -20,10 +21,12 @@ MAX_DIVISION_ORDERS = 6
 
 def series_form(f: Union[str, sympy.Expr], variables: Collection[str]) -> Tuple[sympy.Expr, List[sympy.Symbol]]:
     """``f`` as a SymPy expression whose parameters (free symbols that are not ``variables``) are real symbols,
-    and the symbols of the variables that occur in it (sorted by name)."""
+    and the symbols of the variables that occur in it (sorted by name). A parameter that is already real keeps
+    its assumptions (e.g. a ``nat`` parameter as non-negative integer)."""
     names = {str(v) for v in variables}
     expr = sympy.S(f.replace("^", "**")) if isinstance(f, str) else sympy.S(f)
-    parameters = {s: sympy.Symbol(s.name, real=True) for s in expr.free_symbols if s.name not in names}
+    parameters = {s: sympy.Symbol(s.name, real=True) for s in expr.free_symbols
+                  if s.name not in names and s.is_real is not True}
     if parameters:
         expr = expr.xreplace(parameters)
     gens = sorted((s for s in expr.free_symbols if s.name in names), key=lambda s: s.name)

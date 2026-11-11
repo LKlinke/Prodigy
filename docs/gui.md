@@ -22,27 +22,51 @@ Prodigy is tested with Python 3.11 and 3.14.
   type-checker warnings) as you type. Above each loop a pill shows its strategy and, after a
   run, what it certified. After each query (`query Pr[…]`, `?Pr[…]`) the value appears inline.
   The chip next to the title shows the syntax of the program; see [Two syntaxes](#two-syntaxes).
-* **Setup** (right): initial distribution, one strategy per loop with its parameters,
+* **Setup** (right): initial distribution (refused with a message unless it is proven to be a
+  distribution, see the language reference), one strategy per loop with its parameters,
   analysis options (engine, conditioning, simplification, number of coefficients, time
   limit, EVT synthesis strategy, solver, recording of intermediate distributions). The
   synthesis strategy *from heuristics* combines a template heuristic and a positivity
   heuristic chosen below it (on the command line: `--strategy from_heuristics
   --template-heuristic … --pos-heuristic …`).
-* **Result** (right): a summary of the guarantee, the queries with sound intervals, the
-  output distribution (closed form, mass, expectations, marginal bar charts and tables), the
-  certificate of every loop, console output, and the full result as JSON. A program with nested
-  inference gets a card per value of each `dist` variable (*Inferred distributions*): its
-  `infer(…)`, the normalised generating function, the expected value, the normalising constant Z
-  and the coefficients; the `dist` variables are not part of the output distribution. In the
-  **Steps** tab, every distribution lists the values of the `dist` variables next to it.
-  A loop that assigns a `dist` variable is marked in the editor as not implemented yet.
-  The bar charts have a **Linear / Log** switch for the probability axis; the browser remembers
-  the choice. On the log scale the axis is labelled in decades (`1`, `10⁻³`, …) and marked
-  *log*, it spans at most 12 decades (smaller probabilities get the minimal bar), and a
-  probability 0, which has no place on a log axis, is drawn as a dashed outline on the axis.
-  The Steps tab does not animate log charts.
-  With two or more variables the output distribution also has a **Joint distribution** card, see
-  [Joint distribution of two variables](#joint-distribution-of-two-variables).
+* **Result** (right): three cards and a quiet line, in this order (#288):
+  * **Answer** (emphasised by an edge in the colour of the guarantee): the guarantee once, as a
+    badge with its glyph and word and one sentence (for a lower bound with the residual mass, for
+    an upper bound with the side condition of Park's lemma), timing and engine on the right. Then
+    the queries as large rows: a short exact value large with its decimal small (`5/16 ≈ 0.3125`),
+    otherwise the decimal large with the exact form small; the source line links to the editor. A
+    query names its own kind of bound only where it differs from the overall guarantee; the
+    interval of a lower bound (`∈ [0.5, 0.5 + 3 × 10⁻⁸]`) and the hatched interval bar are values
+    and stay. *Other expected values* lists E[v] for the variables that no `Ex[v]` query covers.
+  * **Output distribution**: one figure with one control row: the variable (`x | y | … | x and
+    y`; the pair switches the same figure to the joint view, see [Joint distribution of two
+    variables](#joint-distribution-of-two-variables)), the view (*Chart | Table* for one variable,
+    *Heatmap | 3D | Table* for a pair) and the scale *Linear | Log*. Under the figure one **Mass**
+    line for whatever it shows: the total mass, the mass shown (the values of the chart, or the
+    window), the mass beyond, and for a lower bound the hatched "?" mass not yet accounted for,
+    each labelled, with a grey bar from 0 to 1. Support, parameters and the probability of a
+    violated observation are listed above the controls. *Generating function* is a disclosure with
+    the closed form and its copy buttons. A program with nested inference gets the block
+    *Inferred distributions* in this card: per value of each `dist` variable its `infer(…)`, the
+    normalised generating function, the expected value, the normalising constant Z and the
+    coefficients; the `dist` variables are not part of the output distribution. In the **Steps**
+    tab, every distribution lists the values of the `dist` variables next to it. A loop that
+    assigns a `dist` variable is marked in the editor as not implemented yet.
+  * **How it was computed**: one row per loop with its line, strategy, verdict in words (`✓
+    exact`, `≥ lower bound, at most … not accounted for`, `≤ upper bound`, `! no guarantee`) and
+    time; a failed loop keeps its badge (*Failed*, *Refuted*, *Not proven*) and its message. The
+    certificates are a disclosure. *Step Through N Steps* opens the Steps tab when the steps were
+    recorded.
+  * **Details**: not a card but a disclosure line under the cards with the warnings, the console
+    output and *Result as JSON*. If there are warnings, a notice above the cards says so and opens
+    the line.
+
+  The chart has a **Linear / Log** switch for the probability axis; the browser remembers the
+  choice (the heatmap and the 3D view share it). On the log scale the axis is labelled in decades
+  (`1`, `10⁻³`, …) and marked *log*, it spans at most 12 decades (smaller probabilities get the
+  minimal bar), and a probability 0, which has no place on a log axis, is drawn as a dashed
+  outline on the axis. The Steps tab does not animate log charts. The choice of variable and view
+  is kept when the program is analysed again.
 * **Steps** (right): a debugger for the analysis, see [Stepping through an analysis](#stepping-through-an-analysis).
 * **Examples**: the programs in `pgfexamples/` (in `.ppy`), with a suggested setup derived from
   their first line (e.g. `check_equality` examples come with their invariant). A `.pgcl` example
@@ -65,7 +89,8 @@ for websites (Settings → General → Website appearance).
 
 ## Joint distribution of two variables
 
-The card *Joint distribution* in the Result tab shows Pr[x = i, y = j] for two chosen variables;
+Choosing the pair (`x and y`, or *Two variables* with more than two) in the control row of the
+card *Output distribution* shows Pr[x = i, y = j] for two chosen variables;
 the other variables are marginalised. The coefficients are exact: the server computes them from
 the output distribution of the finished analysis it keeps (`POST /api/jobs/<id>/joint`, a short
 job of its own, see `prodigy/analysis/joint_grid.py`), the browser only draws them.
@@ -92,14 +117,14 @@ job of its own, see `prodigy/analysis/joint_grid.py`), the browser only draws th
   tilt, pinch (⌘/Ctrl + wheel) or +/− zoom, 0 resets; the buttons above the view do the same.
 * **Table**: the window as a table, rows y (largest on top) and columns x; hovering a value shows
   its exact form.
-* **Colour key and total mass**: two separate, labelled blocks below the heatmap and the 3D view.
+* **Colour key and mass**: two separate, labelled blocks below the heatmap and the 3D view.
   *Colour: probability of one cell* is the viridis key of a single cell's probability (linear from
-  0, or logarithmic; the heading names the range). *Total mass*, set apart by a rule, adds up all
-  cells: a grey bar from 0 to 1 and a list with the mass in the window, the mass outside the window,
-  and for a lower bound the hatched "?" mass not yet accounted for, which may still end up in any
-  cell, outside the window, or never terminate. For a lower bound every cell is a lower bound and
-  gets *at most* = value + residual mass; for an upper bound every cell is an upper bound. The
-  table shows only the total mass.
+  0, or logarithmic; the heading names the range). The card's *Mass* line, set apart by a rule,
+  adds up the cells: the total mass, the mass in the window, the mass outside it, and for a lower
+  bound the hatched "?" mass not yet accounted for, which may still end up in any cell, outside the
+  window, or never terminate. For a lower bound every cell is a lower bound and gets *at most* =
+  value + residual mass (the line below the view and the tooltip say *at least* and *at most*); for
+  an upper bound every cell is an upper bound.
 
 Nothing in the joint view is animated, so it needs no special case for reduced motion; it follows
 light and dark mode (the 3D view redraws when the appearance changes).

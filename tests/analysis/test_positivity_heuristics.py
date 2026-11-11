@@ -217,3 +217,12 @@ def test_parameter_invariant_is_undecided_not_refuted(engine, strategy):
     assert loop["kind"] == Bound.UNKNOWN
     assert loop["certificates"][0]["nonnegative"] is None
     assert not any("negative coefficients" in message for message in loop["messages"])
+
+
+def test_parameter_assumptions_of_the_caller_are_kept():
+    # input distributions hand a nat parameter over as a non-negative integer symbol
+    n = sympy.Symbol("n", integer=True, nonnegative=True)
+    x = sympy.Symbol("x")
+    assert nonneg_by_construction(n * x / (2 - x), ["x"]) is True
+    assert nonneg_by_construction(sympy.Symbol("p") * x / (2 - x), ["x"]) is False
+    assert nonneg_by_construction(x / (n + 1 - x), ["x"]) is True

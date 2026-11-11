@@ -37,3 +37,17 @@ def test_tidy_keeps_the_value():
     assert tidy(1 - large) == 1 - large  # with log: left as it is
     big = sum(x**k / 3**k for k in range(60))
     assert sympy.expand(tidy(big) - big) == 0
+
+
+@pytest.mark.parametrize("engine", ENGINES, ids=lambda e: e.name.lower())
+def test_marginal_lists_the_mass_it_shows(engine):
+    # #288: the mass line of the Result tab names the mass shown and the mass beyond it
+    source = "y: nat;\ny = geometric(1/3);\n"
+    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy",
+                              config=ForwardAnalysisConfig(engine=engine), capture_output=True)
+    marginal = session.run().to_json()["distribution"]["marginals"]["y"]
+    assert marginal["truncated"]
+    shown = sum(sym(row["prob"]) for row in marginal["rows"])
+    assert sympy.simplify(sym(marginal["shown_mass"]) - shown) == 0
+    assert sympy.simplify(sym(marginal["shown_mass"]) + sym(marginal["tail_mass"]) - 1) == 0
+    assert marginal["shown_mass_float"] + marginal["tail_mass_float"] == pytest.approx(1)

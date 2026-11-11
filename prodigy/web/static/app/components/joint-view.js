@@ -445,14 +445,13 @@ function gridTable(grid) {
     h("thead", {}, head), h("tbody", {}, body)));
 }
 
-// ---- legend and mass ----------------------------------------------------------------------------
-// Two different quantities, kept apart (#286): the colour key says what colour one cell has for its
-// own probability; the mass box sums all cells and compares the window with the rest. Each has its
-// own heading, and the mass bar is grey with its own 0–1 axis, so it never reads as part of the
-// colour scale.
+// ---- colour key -----------------------------------------------------------------------------------
+// The colour key says what colour one cell has for its own probability. The mass of the window is a
+// different quantity (#286); the result view shows it in its mass line (charts.js: massSummary),
+// with its own heading and a grey bar, so it never reads as part of the colour scale.
 
 function keyHeading(id, title, detail) {
-  return h("h5", { class: "jv-key-title", id }, title, h("span", { class: "jv-key-detail" }, detail));
+  return h("h4", { class: "jv-key-title", id }, title, h("span", { class: "jv-key-detail" }, detail));
 }
 
 function legend(colours) {
@@ -475,43 +474,6 @@ function legend(colours) {
           style: `left: ${Math.max(0, Math.min(100, position(tick)))}%` }, formatNumber(tick, 2)))))));
 }
 
-function massBar(grid) {
-  const residual = grid.residual_mass_float || 0;
-  const shown = grid.shown_mass_float;
-  const outside = grid.outside_mass_float;
-  const parts = [];
-  const width = 300;
-  const hatch = `jv-hatch-${++idCounter}`;
-  let x = 0;
-  const total = (shown ?? 0) + Math.max(0, outside ?? 0) + residual;
-  const full = Math.max(1, total);
-  for (const [kind, value] of [["shown", shown], ["outside", outside], ["residual", residual]]) {
-    if (!(value > 0) || !(total > 0)) continue;
-    const w = Math.max(1.5, (value / full) * width);
-    parts.push(s("rect", { class: `jv-mass-${kind}`, x, y: 0, width: w, height: 14, fill: kind === "residual" ? `url(#${hatch})` : null }));
-    x += w;
-  }
-  const items = [
-    h("li", {}, h("span", { class: "jv-key jv-mass-shown", "aria-hidden": "true" }), h("span", {}, "In the window"),
-      h("span", { class: "jv-mass-value" }, formatValue(grid.shown_mass, shown))),
-    h("li", {}, h("span", { class: "jv-key jv-mass-outside", "aria-hidden": "true" }), h("span", {}, "Outside the window"),
-      h("span", { class: "jv-mass-value" }, formatValue(grid.outside_mass, outside))),
-  ];
-  if (grid.residual_mass && residual > 0) {
-    items.push(h("li", {}, h("span", { class: "jv-key jv-mass-residual", "aria-hidden": "true" }),
-      h("span", {}, "? Not yet accounted for — may end up in any cell, outside the window, or never terminate"),
-      h("span", { class: "jv-mass-value" }, formatValue(grid.residual_mass, residual))));
-  }
-  const id = `jv-mass-${++idCounter}`;
-  return h("section", { class: "jv-key-block jv-mass", "aria-labelledby": id },
-    keyHeading(id, "Total mass", " — all cells added up"),
-    h("div", { class: "jv-mass-scale" },
-      s("svg", { class: "jv-mass-bar", viewBox: `0 0 ${width} 14`, preserveAspectRatio: "none", "aria-hidden": "true" },
-        s("defs", {}, hatchPattern(hatch)), s("rect", { class: "jv-mass-track", width, height: 14, rx: 3 }), ...parts),
-      h("div", { class: "jv-mass-ends", "aria-hidden": "true" }, h("span", {}, "0"), h("span", {}, formatNumber(full, 4)))),
-    h("ul", { class: "jv-mass-items" }, ...items));
-}
-
 // ---- the section ----------------------------------------------------------------------------------
 
 const VIEWS = { heatmap: "Heatmap", bars: "3D", table: "Table" };
@@ -521,15 +483,21 @@ function numberField(label, value, max) {
     h("input", { class: "field num", type: "number", min: "0", max: String(max), step: "1", value: String(value), inputmode: "numeric" }));
 }
 
+/** The kinds of view of a joint distribution, for the view switch of the result view. */
+export const JOINT_VIEWS = VIEWS;
+
 /**
  * The joint view of two variables. `load({x, y, x_window, y_window}, signal)` resolves to a grid
  * (prodigy/analysis/joint_grid.py) or rejects with an Error. `view` keeps the choices across
- * re-renders of the result. `scale()`/`setScale()` share the linear/log choice with the bar charts.
+ * re-renders of the result; `view.mode` is one of JOINT_VIEWS. `scale()` is the linear/log choice
+ * shared with the bar charts. The switches for the view and the scale belong to the caller (the
+ * result view has one control row for all its figures), which calls `draw()` after a change.
+ * `onGrid(grid | null)` reports each grid shown (null while none is), for the caller's mass line.
+ * Returns {element, draw}.
  */
-export function jointView({ variables, load, view, maxAxis = 50, scale, setScale }) {
+export function jointView({ variables, load, view, maxAxis = 50, scale, onGrid = () => {} }) {
   if (!view.x || !variables.includes(view.x)) view.x = variables[0];
   if (!view.y || !variables.includes(view.y) || view.y === view.x) view.y = variables.find((v) => v !== view.x);
-  view.mode = view.mode || "heatmap";
 
   const readout = h("p", { class: "jv-readout mono", id: `jv-readout-${++idCounter}`, "aria-live": "polite" });
   const body = h("div", { class: "jv-body" });
@@ -542,8 +510,6 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, setScale
   const xTo = numberField("to", view.xWindow?.[1] ?? 15, 1000);
   const yFrom = numberField("from", view.yWindow?.[0] ?? 0, 1000);
   const yTo = numberField("to", view.yWindow?.[1] ?? 15, 1000);
-  const modeToggle = h("div", { class: "segmented small", role: "group", "aria-label": "Show the joint distribution as" });
-  const scaleToggle = h("div", { class: "segmented small", role: "group", "aria-label": "Colour scale" });
   let grid = null;
   let controller = null;
 
@@ -556,17 +522,12 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, setScale
   };
 
   const draw = () => {
-    for (const button of modeToggle.children) button.setAttribute("aria-pressed", String(button.dataset.mode === view.mode));
-    for (const button of scaleToggle.children) button.setAttribute("aria-pressed", String(button.dataset.scale === scale()));
-    scaleToggle.hidden = view.mode === "table";
     if (!grid) return;
     const colours = colourScale(grid.cells.flat().map((cell) => cell.p), scale());
     const width = body.clientWidth || 560;
     const symbolic = grid.cells.some((row) => row.some((cell) => cell.p === null));
+    // the guarantee is stated once, in the answer card; the readout says "at least" or "at most"
     const notes = [];
-    if (grid.bound === "lower") notes.push("Every value is a lower bound.");
-    if (grid.bound === "upper") notes.push("Every value is an upper bound (Park's lemma).");
-    if (grid.bound === "unknown") notes.push("Values without a guarantee.");
     if (symbolic) notes.push("Hatched cells depend on parameters; the table lists them.");
     const parts = [];
     if (view.mode === "heatmap") parts.push(heatmap(grid, colours, view, readout, width), readout);
@@ -574,7 +535,6 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, setScale
     else parts.push(gridTable(grid));
     if (view.mode !== "table") parts.push(legend(colours));
     if (notes.length) parts.push(h("p", { class: "rv-note" }, notes.join(" ")));
-    parts.push(massBar(grid));
     body.replaceChildren(...parts);
   };
 
@@ -586,6 +546,9 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, setScale
     view.y = ySelect.value;
     if (view.x === view.y) {
       status.textContent = "Choose two different variables.";
+      grid = null;
+      body.replaceChildren();
+      onGrid(null);
       return;
     }
     const payload = { x: view.x, y: view.y };
@@ -614,6 +577,7 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, setScale
       view.xWindow = [grid.x_values[0], grid.x_values[grid.x_values.length - 1]];
       view.yWindow = [grid.y_values[0], grid.y_values[grid.y_values.length - 1]];
       setFields(grid);
+      onGrid(grid);
       status.textContent = grid.finite_support && grid.support
         ? `Support: ${grid.x} ${grid.support[grid.x][0]}–${grid.support[grid.x][1]}, ${grid.y} ${grid.support[grid.y][0]}–${grid.support[grid.y][1]}.`
         : "Infinite support; adjust the window to see other values.";
@@ -621,19 +585,14 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, setScale
     } catch (error) {
       if (signal.aborted || error.name === "AbortError") return;
       status.textContent = `Not available: ${error.message}`;
+      grid = null;
+      body.replaceChildren();
+      onGrid(null);
     } finally {
       if (!signal.aborted) body.removeAttribute("aria-busy");
     }
   };
 
-  for (const [key, label] of Object.entries(VIEWS)) {
-    modeToggle.append(h("button", { type: "button", "data-mode": key, "aria-pressed": "false", onclick: () => { view.mode = key; draw(); } }, label));
-  }
-  for (const [key, label] of Object.entries({ linear: "Linear", log: "Log" })) {
-    scaleToggle.append(h("button", { type: "button", "data-scale": key, "aria-pressed": "false",
-      title: key === "log" ? "Logarithmic colour scale: small probabilities stay visible" : "Linear colour scale",
-      onclick: () => { setScale(key); draw(); } }, label));
-  }
   const pairChanged = () => {
     view.xWindow = null;
     view.yWindow = null;
@@ -668,9 +627,8 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, setScale
       }
     }).observe(body);
   }
-  draw();
+  if (!VIEWS[view.mode]) view.mode = "heatmap";
+  onGrid(null);
   fetchGrid(Boolean(view.xWindow && view.yWindow));
-  return h("div", { class: "jv" },
-    h("div", { class: "rv-subhead" }, h("h4", {}, "Joint distribution"), h("div", { class: "jv-toggles" }, scaleToggle, modeToggle)),
-    form, status, body);
+  return { element: h("div", { class: "jv" }, form, status, body), draw };
 }

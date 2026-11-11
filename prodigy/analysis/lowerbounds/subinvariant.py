@@ -76,14 +76,14 @@ def to_product_form(expr: Union[str, sympy.Expr], variables: Sequence[str]) -> O
     return numer, Denominator(rates, periods)
 
 
-def nonneg_by_construction(expr_str: str, variables: Sequence[str]) -> bool:
+def nonneg_by_construction(expr_str: Union[str, sympy.Expr], variables: Sequence[str]) -> bool:
     """Sufficient criterion for non-negative coefficients in ``variables``: sums and products of terms
     ``P / prod_i Q_i^k_i`` where ``P`` has non-negative coefficients (or is ``Q * prod_i Q_i^k_i + r`` with
     non-negative ``Q`` and ``r``) and every ``Q_i = c_i - R_i`` has a constant ``c_i > 0`` and ``R_i`` non-negative
     coefficients, as ``1/(c - R) = sum_n R^n / c^(n+1)``. Covers denominators that are not products of univariate
     factors, e.g. ``x*y/(1 - 9/50*(x + y))``. Other symbols are parameters: real coefficients, never series
-    variables (#295). See :func:`prodigy.analysis.evtinvariants.heuristics.positivity.coefficients.
-    nonneg_by_construction`."""
+    variables (#295); a sign counts only if it holds for every value their assumptions allow. Implemented in
+    :mod:`prodigy.analysis.evtinvariants.heuristics.positivity.coefficients`."""
     from prodigy.analysis.evtinvariants.heuristics.positivity.coefficients import nonneg_by_construction as nonneg
     return nonneg(expr_str, variables)
 

@@ -14,6 +14,7 @@ from prodigy.pgcl.draws import find_draw
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import ObserveZeroEventError
+from prodigy.analysis.input_distribution import validate_input_distribution
 from prodigy.analysis.instructionhandler.assignment_handler import AssignmentHandler
 from prodigy.analysis.instructionhandler.ite_handler import ITEHandler
 from prodigy.analysis.instructionhandler.loop_handler import LoopHandler
@@ -53,6 +54,10 @@ def compute_discrete_distribution(
     """
     Computes the output distribution of ``program`` for the input ``dist``.
 
+    ``dist`` must be proven to be a power series at 0 with non-negative coefficients and finite
+    mass; otherwise :class:`~prodigy.analysis.input_distribution.InputDistributionError` is raised
+    (:func:`~prodigy.analysis.input_distribution.validate_input_distribution`).
+
     :param step_callback: if given, called with (instruction, distribution, error_prob) after each
         top-level instruction.
 
@@ -64,6 +69,8 @@ def compute_discrete_distribution(
         # pylint: disable=import-outside-toplevel
         from prodigy.distribution.symengine_distribution import check_names
         check_names([*program.variables, *program.parameters])
+    # the input must be proven to be a distribution, else the guarantees of the result mean nothing (#296)
+    validate_input_distribution(dist, program)
     with config.activate(), _active_session(), nested_inference.analysis_registry(), _printed_steps(config):
         return _compute_discrete_distribution(program, dist, config, step_callback)
 
