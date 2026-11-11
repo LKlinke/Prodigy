@@ -122,7 +122,8 @@ def decide_nonneg(expr_str: str, variables: Sequence[str], config: ForwardAnalys
         return True, "P / prod (c - R) with non-negative P and R"
     from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
     try:
-        heuristic = PositivityHeuristics.create(PositivityHeuristics.MIXED_RAT_FUNC, config.factory)
+        heuristic = PositivityHeuristics.create(PositivityHeuristics.MIXED_RAT_FUNC, config.factory,
+                                                variables=variables)
         res = heuristic.is_positive(sympy.S(expr_str))
     except Exception as exc:  # pylint: disable=broad-except
         return None, f"positivity heuristic failed: {exc}"

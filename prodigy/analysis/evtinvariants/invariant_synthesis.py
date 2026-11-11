@@ -5,8 +5,10 @@ keeps the solutions that pass the exact fixed-point check.
 
 The search is bounded: the template heuristic enumerates finitely many templates up to a maximal
 degree, and an optional time limit stops it (also in the middle of a solver call, which can take
-arbitrarily long for a single template). If no invariant is found within the bounds,
-:class:`SynthesisBoundReached` is raised; the analysis then has no result (``unknown``).
+arbitrarily long for a single template). A second, shorter time limit per template skips a template
+whose system the solver does not solve quickly, so that one expensive template does not use up the whole
+time. If no invariant is found within the bounds, :class:`SynthesisBoundReached` is raised; the analysis
+then has no result (``unknown``).
 """
 import contextlib
 import logging
@@ -39,6 +41,10 @@ Candidates = List[Tuple[Distribution, Union[bool, None]]]
 DEFAULT_SYNTHESIS_TIME_LIMIT = 60
 """Default time limit of the synthesis in seconds (strategy parameter ``time_limit`` of ``evt_synthesis``)."""
 
+DEFAULT_TEMPLATE_TIME_LIMIT = 5
+"""Default time limit per template in seconds (strategy parameter ``template_time_limit`` of
+``evt_synthesis``): a template whose fixed-point system takes longer is skipped."""
+
 
 class SynthesisBoundReached(VerificationError):
     """No EVT invariant was found within the bounds of the synthesis (all templates up to the maximal
@@ -51,9 +57,15 @@ class _TimeLimitReached(BaseException):
     inside SymPy or a heuristic swallows it."""
 
 
+class _TemplateTimeLimitReached(_TimeLimitReached):
+    """Raised by the alarm of the time limit of a single template; the synthesis goes on with the next one."""
+
+
 @contextlib.contextmanager
-def _time_limit(seconds: Optional[float]) -> Iterator[Callable[[], bool]]:
-    """Interrupts the block with :class:`_TimeLimitReached` after ``seconds`` (``None``: no limit).
+def _time_limit(seconds: Optional[float],
+                exception: type = _TimeLimitReached) -> Iterator[Callable[[], bool]]:
+    """Interrupts the block with ``exception`` (a :class:`_TimeLimitReached`) after ``seconds`` (``None``:
+    no limit).
 
     Yields a function that tells whether the time is up, for checks between steps. The interruption
     uses ``SIGALRM`` and therefore only works in the main thread on POSIX systems; elsewhere only these
@@ -76,7 +88,7 @@ def _time_limit(seconds: Optional[float]) -> Iterator[Callable[[], bool]]:
 
     def on_alarm(_signum, _frame):
         if armed[0]:
-            raise _TimeLimitReached()
+            raise exception()
 
     start = time.monotonic()
     old_handler = signal.signal(signal.SIGALRM, on_alarm)
@@ -169,12 +181,15 @@ def _solutions(evt_candidate: Distribution, loop: WhileInstr, prog_info: Program
 
 
 def _bound_message(reason: str, strategy: SynthesisStrategy, time_limit: Optional[float],
-                   stats: Dict[str, int]) -> str:
+                   template_time_limit: Optional[float], stats: Dict[str, int]) -> str:
     degree = _max_degree(strategy)
     found = f"No {_template_kind(strategy)} EVT invariant"
     if degree is not None:
         found += f" up to degree {degree}"
     tried = f"{stats['tried']} template{'s' if stats['tried'] != 1 else ''} tried"
+    if stats["skipped"]:
+        tried += f", {stats['skipped']} of them skipped after the time limit of {template_time_limit:g} s " \
+                 "per template"
     if reason == "time_limit":
         message = f"Stopped after the time limit of {time_limit:g} s: {found[0].lower()}{found[1:]} found " \
                   f"({tried})."
@@ -196,16 +211,19 @@ def evt_invariant_synthesis(loop: WhileInstr,
                             analyzer: Analyzer,
                             time_limit: Optional[float] = None,
                             progress: Optional[Callable[[int], None]] = None,
+                            template_time_limit: Optional[float] = None,
                             ) -> Candidates:
     """Searches the templates of ``strategy`` for EVT invariants of ``loop``.
 
     Returns the certified fixed points of the first template that has one with provably non-negative
     coefficients. Raises :class:`SynthesisBoundReached` if there is none among the templates (the
-    template heuristic bounds their degree) or the search takes longer than ``time_limit`` seconds.
-    ``progress`` is called with the number of templates tried so far."""
+    template heuristic bounds their degree) or the search takes longer than ``time_limit`` seconds. A
+    template that takes longer than ``template_time_limit`` seconds is skipped (only where the time limit
+    can interrupt a solver call, see :func:`_time_limit`). ``progress`` is called with the number of
+    templates tried so far."""
     logger.debug("Invariant Synthesis for loop %s with initial distribution %s.", loop, distribution)
     print(f"{Style.YELLOW}Invariant synthesis initiated...{Style.RESET}")
-    stats = {"tried": 0, "failed": 0, "unproven": 0}
+    stats = {"tried": 0, "failed": 0, "unproven": 0, "skipped": 0}
     reason = "degree"
     try:
         with _time_limit(time_limit) as expired:
@@ -216,8 +234,13 @@ def evt_invariant_synthesis(loop: WhileInstr,
                 print(f"{Style.YELLOW}Invariant candidate: {evt_candidate}{Style.RESET}{Style.CLEARTOEND}", end="\r")
                 stats["tried"] += 1
                 try:
-                    result, inv_found = _solutions(evt_candidate, loop, prog_info, distribution, config, strategy,
-                                                   analyzer, stats)
+                    with _time_limit(template_time_limit, _TemplateTimeLimitReached):
+                        result, inv_found = _solutions(evt_candidate, loop, prog_info, distribution, config,
+                                                       strategy, analyzer, stats)
+                except _TemplateTimeLimitReached:
+                    logger.info("Skipping the template %s after %s s.", evt_candidate, template_time_limit)
+                    stats["skipped"] += 1
+                    continue
                 except BasePolynomialError as exc:
                     # e.g. HeuristicGCDFailed('no luck'): this template cannot be decided, try the next one
                     logger.info("SymPy failed on the template %s: %r", evt_candidate, exc)
@@ -233,7 +256,7 @@ def evt_invariant_synthesis(loop: WhileInstr,
         reason = "time_limit"
 
     print(Style.CLEARTOEND, end="")
-    message = _bound_message(reason, strategy, time_limit, stats)
+    message = _bound_message(reason, strategy, time_limit, template_time_limit, stats)
     details: Dict[str, Any] = {
         "type": "evt_synthesis",
         "verdict": "unknown",
@@ -241,8 +264,10 @@ def evt_invariant_synthesis(loop: WhileInstr,
         "template": _template_kind(strategy),
         "max_degree": _max_degree(strategy),
         "time_limit": time_limit,
+        "template_time_limit": template_time_limit,
         "templates_tried": stats["tried"],
         "templates_failed": stats["failed"],
+        "templates_skipped": stats["skipped"],
         "unproven_fixed_points": stats["unproven"],
     }
     raise SynthesisBoundReached(message, details=details)
