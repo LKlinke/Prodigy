@@ -61,14 +61,36 @@ export function colourScale(values, scale = "linear") {
 let idCounter = 0;
 const BOUND_WORDS = { lower: "at least ", upper: "at most " };
 
-function cellText(grid, r, c) {
+/**
+ * The values of a cell and its probability, formatted alike in the heatmap's readout and the 3D
+ * view's tooltip: {where: "x = 1, y = 2", value: "at least 0.0277778 (1/36); at most 0.031684"}.
+ */
+export function cellParts(grid, r, c) {
   const cell = grid.cells[r][c];
   const where = `${grid.x} = ${grid.x_values[c]}, ${grid.y} = ${grid.y_values[r]}`;
   const value = cell.p === null ? cell.prob : formatValue(cell.prob, cell.p, 6);
   const qualifier = cell.prob === "0" && grid.bound !== "upper" ? "" : (BOUND_WORDS[grid.bound] || "");
   const exact = cell.p !== null && cell.prob && cell.prob.length < 40 && cell.prob !== String(cell.p) ? ` (${cell.prob})` : "";
   const upper = cell.upper ? `; at most ${formatValue(cell.upper, cell.upper_p, 6)}` : "";
-  return `${where}: ${qualifier}${value}${exact}${upper}`;
+  return { where, value: `${qualifier}${value}${exact}${upper}` };
+}
+
+function cellText(grid, r, c) {
+  const { where, value } = cellParts(grid, r, c);
+  return `${where}: ${value}`;
+}
+
+/** The cell [r, c] after an arrow, Home/End or Page Up/Down key (y grows upwards), or null. */
+function cellMove(key, [r, c], rows, cols) {
+  const moves = { ArrowLeft: [r, c - 1], ArrowRight: [r, c + 1], ArrowUp: [r + 1, c], ArrowDown: [r - 1, c],
+    Home: [r, 0], End: [r, cols - 1], PageUp: [rows - 1, c], PageDown: [0, c] };
+  const target = moves[key];
+  return target ? [Math.max(0, Math.min(rows - 1, target[0])), Math.max(0, Math.min(cols - 1, target[1]))] : null;
+}
+
+/** The active cell of `view` if it lies in a rows × cols window, else [0, 0]. */
+function activeCell(view, rows, cols) {
+  return view.active && view.active[0] < rows && view.active[1] < cols ? view.active : [0, 0];
 }
 
 function axisLabels(values, every) {
@@ -136,13 +158,9 @@ function heatmap(grid, colours, view, readout, width) {
     marker.setAttribute("y", cy(ar));
     readout.textContent = cellText(grid, ar, ac);
   };
-  const [r0, c0] = view.active && view.active[0] < rows && view.active[1] < cols ? view.active : [0, 0];
-  select(r0, c0);
+  select(...activeCell(view, rows, cols));
   holder.addEventListener("keydown", (event) => {
-    const [r, c] = view.active;
-    const moves = { ArrowLeft: [r, c - 1], ArrowRight: [r, c + 1], ArrowUp: [r + 1, c], ArrowDown: [r - 1, c],
-      Home: [r, 0], End: [r, cols - 1], PageUp: [rows - 1, c], PageDown: [0, c] };
-    const target = moves[event.key];
+    const target = cellMove(event.key, view.active, rows, cols);
     if (!target) return;
     event.preventDefault();
     select(...target);
@@ -164,14 +182,34 @@ function shade(colour, factor) {
   return toHex(hex(colour).map((v) => v * factor));
 }
 
-function bars3d(grid, colours, view, width) {
+/** Whether the point (x, y) lies inside the convex or simple polygon `points` (even-odd rule). */
+function inside(points, x, y) {
+  let hit = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [a, b] = [points[i], points[j]];
+    if ((a.y > y) !== (b.y > y) && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) hit = !hit;
+  }
+  return hit;
+}
+
+function bars3d(grid, colours, view, readout, width) {
   const camera = view.camera || (view.camera = { ...DEFAULT_CAMERA });
   const cols = grid.x_values.length;
   const rows = grid.y_values.length;
   const cssW = Math.max(280, Math.min(720, Math.round(width)));
   const cssH = Math.round(cssW * 0.62);
   const canvas = h("canvas", { class: "jv-canvas", width: cssW, height: cssH, style: `width:${cssW}px;height:${cssH}px`,
-    role: "img", "aria-label": `3D bar chart of the joint distribution of ${grid.x} and ${grid.y}; the heatmap and the table give the values.` });
+    "aria-hidden": "true" });
+  // the tooltip of the bar under the pointer (or the bar chosen with the keyboard); never the only
+  // place of a value: the line below the view says the same and is read by screen readers
+  const tipWhere = h("span", { class: "jv-tip-where" });
+  const tipValue = h("span", { class: "jv-tip-value" });
+  const tip = h("div", { class: "jv-tip", "aria-hidden": "true", hidden: true }, tipWhere, tipValue);
+  // what the last drawing put where, for the pointer: per cell its floor and, for a bar, its outline
+  let shapes = { bars: [], floor: [] };
+  let hover = false; // the pointer is over a bar or a floor cell
+  let pinned = false; // the view has the focus (keyboard, click or tap)
+  let drag = null;
 
   const draw = () => {
     const ratio = globalThis.devicePixelRatio || 1;
@@ -183,6 +221,7 @@ function bars3d(grid, colours, view, width) {
     ctx.clearRect(0, 0, cssW, cssH);
     const style = getComputedStyle(canvas);
     const text = style.getPropertyValue("--rv-text-2").trim() || "#6E6E73";
+    const strong = style.getPropertyValue("--rv-text").trim() || "#1D1D1F";
     const line = style.getPropertyValue("--jv-floor").trim() || "rgba(128,128,128,0.45)";
     const yaw = (camera.yaw * Math.PI) / 180;
     const pitch = (camera.pitch * Math.PI) / 180;
@@ -200,15 +239,21 @@ function bars3d(grid, colours, view, width) {
       const v = X * Math.sin(yaw) + Y * Math.cos(yaw);
       return { x: cx + u * scale, y: cy - (z * Math.cos(pitch) + v * Math.sin(pitch)) * scale, depth: v };
     };
-    const polygon = (points, fill, stroke) => {
+    const polygon = (points, fill, stroke, lineWidth = 1) => {
       ctx.beginPath();
       points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
       ctx.closePath();
       if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
+      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lineWidth; ctx.stroke(); }
     };
     // floor and its labels
     polygon([project(0, 0, 0), project(cols, 0, 0), project(cols, rows, 0), project(0, rows, 0)], null, line);
+    const floor = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        floor.push({ r, c, points: [project(c, r, 0), project(c + 1, r, 0), project(c + 1, r + 1, 0), project(c, r + 1, 0)] });
+      }
+    }
     // bars, the farthest first (painter's algorithm)
     const list = [];
     for (let r = 0; r < rows; r++) {
@@ -219,6 +264,7 @@ function bars3d(grid, colours, view, width) {
     }
     list.sort((a, b) => b.depth - a.depth);
     const inset = 0.12;
+    const bars = [];
     for (const bar of list) {
       const z = Math.max(0.02, bar.t) * heightUnits;
       const [x0, x1, y0, y1] = [bar.c + inset, bar.c + 1 - inset, bar.r + inset, bar.r + 1 - inset];
@@ -230,8 +276,25 @@ function bars3d(grid, colours, view, width) {
         depth: project((ax + bx) / 2, (ay + by) / 2, 0).depth,
         factor: i % 2 ? 0.62 : 0.78,
       })).sort((a, b) => b.depth - a.depth);
-      for (const face of faces.slice(2)) polygon(face.points, shade(colour, face.factor), null);
-      polygon([project(x0, y0, z), project(x1, y0, z), project(x1, y1, z), project(x0, y1, z)], colour, shade(colour, 0.55));
+      const visible = faces.slice(2);
+      const top = [project(x0, y0, z), project(x1, y0, z), project(x1, y1, z), project(x0, y1, z)];
+      for (const face of visible) polygon(face.points, shade(colour, face.factor), null);
+      polygon(top, colour, shade(colour, 0.55));
+      bars.push({ r: bar.r, c: bar.c, polygons: [top, ...visible.map((face) => face.points)] });
+    }
+    shapes = { bars, floor };
+    // the active cell: its bar outlined, or its place on the floor for probability 0; drawn after
+    // all bars, so that it shows through bars in front of it
+    if (view.active) {
+      const [ar, ac] = view.active;
+      const bar = bars.find((b) => b.r === ar && b.c === ac);
+      ctx.setLineDash([]);
+      if (bar) for (const points of bar.polygons) polygon(points, null, strong, 2);
+      else {
+        ctx.setLineDash([3, 3]);
+        polygon(floor[ar * cols + ac].points, null, strong, 2);
+        ctx.setLineDash([]);
+      }
     }
     // axis labels on top, so that bars never hide them
     ctx.fillStyle = text;
@@ -244,11 +307,54 @@ function bars3d(grid, colours, view, width) {
     ctx.font = "italic 12px -apple-system, BlinkMacSystemFont, sans-serif";
     label(cols / 2, -0.17 * rows, grid.x);
     label(-0.17 * cols, rows / 2, grid.y);
-
+    placeTip();
   };
 
+  // the tooltip sits above the active bar (or its floor cell), kept inside the canvas
+  function placeTip() {
+    const shown = Boolean(view.active) && !drag?.moved && (hover || pinned);
+    tip.hidden = !shown;
+    if (!shown) return;
+    const [ar, ac] = view.active;
+    const { where, value } = cellParts(grid, ar, ac);
+    tipWhere.textContent = where;
+    tipValue.textContent = value;
+    const bar = shapes.bars.find((b) => b.r === ar && b.c === ac);
+    const points = bar ? bar.polygons.flat() : shapes.floor[ar * cols + ac]?.points || [];
+    if (!points.length) return;
+    const xMid = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+    const yTop = Math.min(...points.map((p) => p.y));
+    const [w, hgt] = [tip.offsetWidth, tip.offsetHeight];
+    const left = Math.max(4, Math.min(cssW - w - 4, xMid - w / 2));
+    const above = yTop - hgt - 8;
+    const below = Math.max(...points.map((p) => p.y)) + 8;
+    tip.style.left = `${left}px`;
+    tip.style.top = `${Math.max(4, above >= 4 ? above : Math.min(cssH - hgt - 4, below))}px`;
+  }
+
+  const select = (r, c) => {
+    view.active = [r, c];
+    readout.textContent = cellText(grid, r, c);
+    draw();
+  };
+  // the cell under a point of the canvas: the frontmost bar, else the floor cell
+  const cellAt = (event) => {
+    const box = canvas.getBoundingClientRect();
+    const [x, y] = [event.clientX - box.left, event.clientY - box.top];
+    for (let i = shapes.bars.length - 1; i >= 0; i--) {
+      const bar = shapes.bars[i];
+      if (bar.polygons.some((points) => inside(points, x, y))) return [bar.r, bar.c];
+    }
+    const cell = shapes.floor.find((f) => inside(f.points, x, y));
+    return cell ? [cell.r, cell.c] : null;
+  };
+
+  const stage = h("div", { class: "jv-stage" }, canvas, tip);
   const holder = h("div", { class: "jv-plot jv-plot-3d", tabindex: "0", role: "application", "aria-roledescription": "3D view",
-    "aria-label": "3D view. Left and right arrows rotate, up and down tilt, plus and minus zoom, 0 resets the view." }, canvas);
+    "aria-label": `3D bar chart of the joint distribution of ${grid.x} and ${grid.y}, ${cols} by ${rows} cells. ` +
+      "Arrow keys move between bars, Home and End go to the first and last column, Page Up and Page Down to the top and bottom row. " +
+      "Shift with the arrow keys rotates and tilts the view, plus and minus zoom, 0 resets the view.",
+    "aria-describedby": readout.id }, stage);
   const change = (yaw, pitch, zoom) => {
     camera.yaw = ((camera.yaw + yaw) % 360 + 360) % 360;
     camera.pitch = Math.max(5, Math.min(85, camera.pitch + pitch));
@@ -257,25 +363,52 @@ function bars3d(grid, colours, view, width) {
   };
   const reset = () => { Object.assign(camera, DEFAULT_CAMERA); draw(); };
   holder.addEventListener("keydown", (event) => {
-    const keys = { ArrowLeft: [-15, 0, 1], ArrowRight: [15, 0, 1], ArrowUp: [0, 5, 1], ArrowDown: [0, -5, 1],
-      "+": [0, 0, 1.2], "=": [0, 0, 1.2], "-": [0, 0, 1 / 1.2] };
     if (event.key === "0") { event.preventDefault(); reset(); return; }
-    const move = keys[event.key];
-    if (!move) return;
+    const camera3d = { ArrowLeft: [-15, 0, 1], ArrowRight: [15, 0, 1], ArrowUp: [0, 5, 1], ArrowDown: [0, -5, 1] };
+    const zooms = { "+": [0, 0, 1.2], "=": [0, 0, 1.2], "-": [0, 0, 1 / 1.2] };
+    const move = event.shiftKey ? camera3d[event.key] : null;
+    if (move || zooms[event.key]) {
+      event.preventDefault();
+      change(...(move || zooms[event.key]));
+      return;
+    }
+    const target = cellMove(event.key, view.active || [0, 0], rows, cols);
+    if (!target) return;
     event.preventDefault();
-    change(...move);
+    select(...target);
   });
-  let drag = null;
+  holder.addEventListener("focus", () => { pinned = true; placeTip(); });
+  holder.addEventListener("blur", () => { pinned = false; placeTip(); });
   canvas.addEventListener("pointerdown", (event) => {
-    drag = { x: event.clientX, y: event.clientY };
+    drag = { x: event.clientX, y: event.clientY, moved: false };
     canvas.setPointerCapture(event.pointerId);
   });
   canvas.addEventListener("pointermove", (event) => {
-    if (!drag) return;
-    change((event.clientX - drag.x) * 0.5, (event.clientY - drag.y) * 0.3, 1);
-    drag = { x: event.clientX, y: event.clientY };
+    if (drag) {
+      const [dx, dy] = [event.clientX - drag.x, event.clientY - drag.y];
+      if (!drag.moved && Math.hypot(dx, dy) < 3) return;
+      drag = { x: event.clientX, y: event.clientY, moved: true };
+      hover = false;
+      change(dx * 0.5, dy * 0.3, 1);
+      return;
+    }
+    const cell = cellAt(event);
+    hover = Boolean(cell);
+    if (!cell) { placeTip(); return; }
+    if (!view.active || cell[0] !== view.active[0] || cell[1] !== view.active[1]) select(...cell);
+    else placeTip();
   });
-  canvas.addEventListener("pointerup", () => { drag = null; });
+  canvas.addEventListener("pointerup", (event) => {
+    // a click without dragging selects the bar under the pointer and focuses the view
+    if (drag && !drag.moved) {
+      const cell = cellAt(event);
+      if (cell) select(...cell);
+      holder.focus({ preventScroll: true });
+    }
+    drag = null;
+    placeTip();
+  });
+  canvas.addEventListener("pointerleave", () => { if (!drag) { hover = false; placeTip(); } });
   canvas.addEventListener("wheel", (event) => {
     // pinch on a trackpad (ctrl + wheel) zooms; a plain wheel keeps scrolling the page
     if (!event.ctrlKey && !event.metaKey) return;
@@ -291,6 +424,9 @@ function bars3d(grid, colours, view, width) {
   // follow light/dark mode
   const scheme = globalThis.matchMedia?.("(prefers-color-scheme: dark)");
   scheme?.addEventListener?.("change", () => { if (canvas.isConnected) draw(); });
+  const [r0, c0] = activeCell(view, rows, cols);
+  view.active = [r0, c0];
+  readout.textContent = cellText(grid, r0, c0);
   queueMicrotask(draw);
   return h("div", { class: "jv-3d" }, controls, holder);
 }
@@ -310,6 +446,14 @@ function gridTable(grid) {
 }
 
 // ---- legend and mass ----------------------------------------------------------------------------
+// Two different quantities, kept apart (#286): the colour key says what colour one cell has for its
+// own probability; the mass box sums all cells and compares the window with the rest. Each has its
+// own heading, and the mass bar is grey with its own 0–1 axis, so it never reads as part of the
+// colour scale.
+
+function keyHeading(id, title, detail) {
+  return h("h5", { class: "jv-key-title", id }, title, h("span", { class: "jv-key-detail" }, detail));
+}
 
 function legend(colours) {
   const stops = Array.from({ length: 11 }, (_, i) => `${viridis(i / 10)} ${i * 10}%`).join(", ");
@@ -317,13 +461,18 @@ function legend(colours) {
     if (colours.scale === "log") return colours.max === colours.min ? 100 : ((Math.log10(value) - Math.log10(colours.min)) / (Math.log10(colours.max) - Math.log10(colours.min))) * 100;
     return colours.max > 0 ? (value / colours.max) * 100 : 0;
   };
-  return h("div", { class: "jv-legend" },
-    h("span", { class: "jv-swatch jv-zero", "aria-hidden": "true" }), h("span", {}, "0"),
-    h("div", { class: "jv-gradient-wrap" },
-      h("div", { class: "jv-gradient", style: `background: linear-gradient(to right, ${stops})`, "aria-hidden": "true" }),
-      h("div", { class: "jv-gradient-ticks" }, ...colours.ticks.map((tick) => h("span", {
-        style: `left: ${Math.max(0, Math.min(100, position(tick)))}%` }, formatNumber(tick, 2))))),
-    h("span", { class: "rv-muted" }, colours.scale === "log" ? "log scale" : "linear scale"));
+  const id = `jv-legend-${++idCounter}`;
+  const detail = colours.scale === "log"
+    ? ` — logarithmic, from ${formatNumber(colours.min, 2)} to ${formatNumber(colours.max, 2)}`
+    : ` — linear, from 0 to ${formatNumber(colours.max, 2)}`;
+  return h("section", { class: "jv-key-block jv-legend", "aria-labelledby": id },
+    keyHeading(id, "Colour: probability of one cell", detail),
+    h("div", { class: "jv-legend-row" },
+      h("span", { class: "jv-legend-zero" }, h("span", { class: "jv-swatch jv-zero", "aria-hidden": "true" }), "0"),
+      h("div", { class: "jv-gradient-wrap" },
+        h("div", { class: "jv-gradient", style: `background: linear-gradient(to right, ${stops})`, "aria-hidden": "true" }),
+        h("div", { class: "jv-gradient-ticks" }, ...colours.ticks.map((tick) => h("span", {
+          style: `left: ${Math.max(0, Math.min(100, position(tick)))}%` }, formatNumber(tick, 2)))))));
 }
 
 function massBar(grid) {
@@ -335,24 +484,32 @@ function massBar(grid) {
   const hatch = `jv-hatch-${++idCounter}`;
   let x = 0;
   const total = (shown ?? 0) + Math.max(0, outside ?? 0) + residual;
+  const full = Math.max(1, total);
   for (const [kind, value] of [["shown", shown], ["outside", outside], ["residual", residual]]) {
     if (!(value > 0) || !(total > 0)) continue;
-    const w = Math.max(1.5, (value / Math.max(1, total)) * width);
-    parts.push(s("rect", { class: `jv-mass-${kind}`, x, y: 0, width: w, height: 10, fill: kind === "residual" ? `url(#${hatch})` : null }));
+    const w = Math.max(1.5, (value / full) * width);
+    parts.push(s("rect", { class: `jv-mass-${kind}`, x, y: 0, width: w, height: 14, fill: kind === "residual" ? `url(#${hatch})` : null }));
     x += w;
   }
   const items = [
-    h("span", {}, h("span", { class: "jv-key jv-mass-shown", "aria-hidden": "true" }), `In the window: ${formatValue(grid.shown_mass, shown)}`),
-    h("span", {}, h("span", { class: "jv-key jv-mass-outside", "aria-hidden": "true" }), `Outside the window: ${formatValue(grid.outside_mass, outside)}`),
+    h("li", {}, h("span", { class: "jv-key jv-mass-shown", "aria-hidden": "true" }), h("span", {}, "In the window"),
+      h("span", { class: "jv-mass-value" }, formatValue(grid.shown_mass, shown))),
+    h("li", {}, h("span", { class: "jv-key jv-mass-outside", "aria-hidden": "true" }), h("span", {}, "Outside the window"),
+      h("span", { class: "jv-mass-value" }, formatValue(grid.outside_mass, outside))),
   ];
   if (grid.residual_mass && residual > 0) {
-    items.push(h("span", {}, h("span", { class: "jv-key jv-mass-residual", "aria-hidden": "true" }),
-      `? Not yet accounted for: ${formatValue(grid.residual_mass, residual)} — may end up in any cell, outside the window, or never terminate`));
+    items.push(h("li", {}, h("span", { class: "jv-key jv-mass-residual", "aria-hidden": "true" }),
+      h("span", {}, "? Not yet accounted for — may end up in any cell, outside the window, or never terminate"),
+      h("span", { class: "jv-mass-value" }, formatValue(grid.residual_mass, residual))));
   }
-  return h("div", { class: "jv-mass" },
-    s("svg", { class: "jv-mass-bar", viewBox: `0 0 ${width} 10`, preserveAspectRatio: "none", "aria-hidden": "true" },
-      s("defs", {}, hatchPattern(hatch)), s("rect", { class: "jv-mass-track", width, height: 10, rx: 3 }), ...parts),
-    h("div", { class: "jv-mass-items" }, ...items));
+  const id = `jv-mass-${++idCounter}`;
+  return h("section", { class: "jv-key-block jv-mass", "aria-labelledby": id },
+    keyHeading(id, "Total mass", " — all cells added up"),
+    h("div", { class: "jv-mass-scale" },
+      s("svg", { class: "jv-mass-bar", viewBox: `0 0 ${width} 14`, preserveAspectRatio: "none", "aria-hidden": "true" },
+        s("defs", {}, hatchPattern(hatch)), s("rect", { class: "jv-mass-track", width, height: 14, rx: 3 }), ...parts),
+      h("div", { class: "jv-mass-ends", "aria-hidden": "true" }, h("span", {}, "0"), h("span", {}, formatNumber(full, 4)))),
+    h("ul", { class: "jv-mass-items" }, ...items));
 }
 
 // ---- the section ----------------------------------------------------------------------------------
@@ -413,11 +570,11 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, setScale
     if (symbolic) notes.push("Hatched cells depend on parameters; the table lists them.");
     const parts = [];
     if (view.mode === "heatmap") parts.push(heatmap(grid, colours, view, readout, width), readout);
-    else if (view.mode === "bars") parts.push(bars3d(grid, colours, view, width));
+    else if (view.mode === "bars") parts.push(bars3d(grid, colours, view, readout, width), readout);
     else parts.push(gridTable(grid));
     if (view.mode !== "table") parts.push(legend(colours));
-    parts.push(massBar(grid));
     if (notes.length) parts.push(h("p", { class: "rv-note" }, notes.join(" ")));
+    parts.push(massBar(grid));
     body.replaceChildren(...parts);
   };
 

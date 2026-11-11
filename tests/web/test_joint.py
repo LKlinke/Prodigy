@@ -192,3 +192,26 @@ def test_heatmap_colour_scale(tmp_path):
         encoding="utf-8")
     output = subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60, check=True).stdout
     assert json.loads(output) == [1, 0.5, None, None, 1, 0, None, "#440154", "#fde725"]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_cell_text_of_heatmap_and_3d_view(tmp_path):
+    """The heatmap's readout and the 3D view's tooltip (#287) name the values of both variables
+    and the probability, with its exact form and, for a lower bound, the upper end."""
+    module = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components" / "joint-view.js"
+    script = tmp_path / "check.mjs"
+    grid = {
+        "x": "x", "y": "y", "x_values": [0, 1], "y_values": [2], "bound": "lower",
+        "cells": [[{"prob": "1/36", "p": 1 / 36, "upper": "0.031684", "upper_p": 0.031684},
+                   {"prob": "0", "p": 0}]],
+    }
+    script.write_text(
+        f"const j = await import({str(module.as_uri())!r});\n"
+        f"const grid = {json.dumps(grid)};\n"
+        "console.log(JSON.stringify([j.cellParts(grid, 0, 0), j.cellParts(grid, 0, 1)]));\n",
+        encoding="utf-8")
+    output = subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60, check=True).stdout
+    assert json.loads(output) == [
+        {"where": "x = 0, y = 2", "value": "at least 0.0277778 (1/36); at most 0.031684"},
+        {"where": "x = 1, y = 2", "value": "0"},
+    ]
