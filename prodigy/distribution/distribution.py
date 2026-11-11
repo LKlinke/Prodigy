@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from fractions import Fraction
-from typing import (Any, Callable, Dict, FrozenSet, Generator, Iterator, List, Optional,
+from typing import (Any, Callable, Dict, FrozenSet, Generator, Iterable, Iterator, List, Optional,
                     Sequence, Set, Tuple, Type, Union)
 
 from lark.exceptions import LarkError
@@ -659,6 +659,20 @@ class Distribution(ABC):
     def is_zero_dist(self) -> bool:
         """ Returns whether the distribution encodes the 0 distribution."""
 
+    def is_provably_zero(self) -> bool:
+        """
+        Whether this is provably the zero measure: :meth:`is_zero_dist`, or equal to it by the engine's
+        equality (which never claims an equality without proof). False means "not shown zero".
+
+        A case split over :meth:`finite_support` may meet a value whose coefficient is zero but not
+        simplified to 0; an update that fails on such a part (e.g. a divisor 0 in a state that does
+        not occur) is skipped instead of raising (#256).
+        """
+        try:
+            return self.is_zero_dist() or self == self * "0"
+        except ValueError:
+            return False
+
     @abstractmethod
     def is_finite(self) -> bool:
         """ Returns whether the distribution has finite support."""
@@ -814,31 +828,142 @@ class Distribution(ABC):
         `update(self, left, right)`, a binary update whose operands are variables or literals. If it
         raises `NonFiniteMarginalError` (a case split over the values of an operand on a measure with
         infinite mass, #242), the operands with a finite support (:meth:`finite_support`) are fixed
-        instead: the update is linear, so it is the sum of the updates of the parts in which these
-        operands have one value each, with the values as literals (#249). If no operand has a finite
-        support, or the update of a part still needs a marginal that is not finite, the error is raised.
+        instead (:meth:`_split_over_finite_supports`, #249). If no operand has a finite support, or the
+        update of a part still needs a marginal that is not finite, the error is raised.
         """
         try:
             return update(self, left, right)
         except NonFiniteMarginalError:
-            variables = self.get_variables()
-            fixed = [name for name in dict.fromkeys((str(left), str(right)))
-                     if name in variables and self.finite_support(name) is not None]
-            if not fixed:
+            result = self._split_over_finite_supports(update, left, right, (left, right))
+            if result is None:
                 raise
-        support = self.finite_support(*fixed)
+            return result
+
+    def _split_over_finite_supports(self, update: Callable[[Distribution, str, str], Distribution],
+                                    left: str | int, right: str | int,
+                                    names: Iterable[str | int]) -> Optional[Distribution]:
+        """
+        `update(self, left, right)` for a binary update whose operands are variables or literals, as
+        the sum of the updates of the parts in which the variables among `names` that have a finite
+        support (:meth:`finite_support`) have one value each, with these values passed as literals.
+        The update is linear, so this is exact; the parts follow the support, not the marginal, so no
+        value is lost whose mass cancels in the marginal of a signed measure (#256). Returns None if
+        none of `names` is a variable with a finite support.
+        """
+        variables = self.get_variables()
+        supports = {name: self.finite_support(name)
+                    for name in dict.fromkeys(str(name) for name in names) if name in variables}
+        fixed = [name for name, support in supports.items() if support is not None]
+        if not fixed:
+            return None
+        support = supports[fixed[0]] if len(fixed) == 1 else self.finite_support(*fixed)
         assert support is not None
         result: Optional[Distribution] = None
-        for _, state in support:
+        for state in self._unique_states(support):
             values = state.valuations
-            part = update(self.filter_state(State({name: values.get(name, 0) for name in fixed})),
-                          str(values.get(str(left), 0)) if str(left) in fixed else str(left),
-                          str(values.get(str(right), 0)) if str(right) in fixed else str(right))
+            section = self.filter_state(State({name: values.get(name, 0) for name in fixed}))
+            try:
+                part = update(section,
+                              str(values.get(str(left), 0)) if str(left) in fixed else str(left),
+                              str(values.get(str(right), 0)) if str(right) in fixed else str(right))
+            except ValueError:
+                # a value without mass (coefficient not simplified to 0), see is_provably_zero
+                if section.is_provably_zero():
+                    continue
+                raise
             result = part if result is None else result + part
         if result is None:
             # no state at all: the zero measure, whose update is the zero measure
             return self.filter(BoolLitExpr(False))
         return result
+
+    @staticmethod
+    def _unique_states(values: Distribution) -> List[State]:
+        """
+        The states of `values` (a :meth:`finite_support` or a marginal) for a case split, each once.
+        An engine may list a state once per term: GiNaC lists the support `1/2 + 1/2*x` of `y` (with
+        the variable `x` as a parameter) as the state y = 0 twice, and a case split over both would
+        count its part twice.
+        """
+        states: Dict[Tuple[Tuple[str, int], ...], State] = {}
+        for _, state in values:
+            states.setdefault(tuple(sorted(state.valuations.items())), state)
+        return list(states.values())
+
+    def _case_split_support(self, variable: str) -> Optional[Distribution]:
+        """
+        The values of `variable` for an update that does a case split over them: its
+        :meth:`finite_support` (each state is one value), or None if `variable` takes infinitely many
+        values. The support, not the marginal, is unfolded: in the marginal of a signed measure the
+        mass of a value can cancel to 0, and the case split would lose the part with this value (#256).
+        The coefficients of the support are not probabilities; an update that approximates needs the
+        real marginal (:meth:`checked_marginal`).
+
+        Raises `NonFiniteMarginalError` if `variable` takes infinitely many values and its marginal is
+        not a finite measure (#242).
+        """
+        support = self.finite_support(variable)
+        if support is None:
+            self.checked_marginal(variable)
+        return support
+
+    def _approximated_support(self, variable: str, approximate: str | float | None,
+                              message: str) -> Distribution:
+        """
+        For an update that does a case split over the values of `variable`, which takes infinitely
+        many values: the approximation of its marginal with mass `approximate`. Raises
+        `NonFiniteMarginalError` if the marginal is not a finite measure (#242), and `ValueError` with
+        `message` if `approximate` is None.
+        """
+        marginal = self.checked_marginal(variable)
+        if approximate is None:
+            raise ValueError(message)
+        return marginal.approximate_unilaterally(variable, approximate)
+
+    def _product_case_split(self, first_factor: str, second_factor: str,
+                            approximate: str | float | None) -> Tuple[Distribution, str, str]:
+        """
+        For `first_factor * second_factor` of two variables on a distribution that is not finite:
+        `(values, fixed, other)`, a split over the values of the factor `fixed` (the first one with a
+        finite support, else the approximated marginal of the first factor) and the other factor.
+        """
+        for fixed, other in ((first_factor, second_factor), (second_factor, first_factor)):
+            support = self.finite_support(fixed)
+            if support is not None:
+                return support, fixed, other
+        self.checked_marginal(second_factor)
+        # TODO can we choose which side to approximate in a smarter way?
+        return self._approximated_support(
+            first_factor, approximate,
+            f'Cannot perform the multiplication {first_factor} * {second_factor} because both variables have '
+            f'infinite range'), first_factor, second_factor
+
+    def _power_case_split(self, base: str, exp: str,
+                          approximate: str | float | None) -> Tuple[Distribution, Distribution]:
+        """
+        For `base ^ exp` of two variables: the values of `base` and of `exp` for the case split, each
+        its finite support or else its approximated marginal.
+        """
+        message = "Can only perform exponentiation of variables if both have a finite marginal"
+        values = []
+        for variable in (base, exp):
+            support = self.finite_support(variable)
+            values.append(support if support is not None
+                          else self._approximated_support(variable, approximate, message))
+        return values[0], values[1]
+
+    @staticmethod
+    def _require_nonzero_divisor(right: str | int, operator: str) -> None:
+        """
+        Raises `ValueError` if `right`, the right operand of `%` or `/` (`operator`), is the literal 0:
+        a modulus or divisor 0 is undefined. All engines raise this error, before any case split
+        (GiNaC reported a non-finite marginal on measures with infinite mass, #257).
+        """
+        if str(right).strip() != "0":
+            return
+        if operator == "%":
+            raise ValueError("The modulus has to be positive, got 0.")
+        raise ValueError("Division by zero: the divisor is 0.")
 
     def finite_support(self, *variables: Union[str, VarExpr]) -> Optional[Distribution]:
         """
