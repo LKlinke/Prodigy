@@ -213,7 +213,7 @@ for the whole program:
 | --- | --- | --- |
 | exact | equal to the semantics | loop-free code; unrolling/iteration that reaches a fixed point or leaves no mass in the loop; an EVT fixed point with non-negative coefficients **and finite mass** |
 | lower | coefficient-wise below the semantics; at most the *residual mass* r is unaccounted for | unroll N, iterate until mass captured, EVT iteration |
-| upper | coefficient-wise above the semantics (Park's lemma) | invariant check (exact if the loop terminates almost surely), EVT invariants with non-negative coefficients |
+| upper | coefficient-wise above the semantics (Park's lemma) | invariant check (exact if the loop terminates almost surely), EVT invariants with non-negative coefficients whose equation holds for the series (see below) |
 | unknown | no guaranteed direction | mixing lower and upper approximations, unchecked side conditions |
 
 For a lower bound, every probability query becomes an interval
@@ -232,6 +232,16 @@ from x = 1, invariant synthesis finds a fixed point with infinite mass and Prodi
 Pr[x = 0] = 1 is reported as an upper bound — the true value is 1/2. Unrolling 25
 iterations gives Pr[x = 0] ∈ [0.4956, 1].
 
+Even the upper bound needs a side condition: the fixed-point equation is checked on the closed
+form of I, Park's lemma needs it for the power series. They differ when the series diverges
+where the body evaluates I, e.g. when it marginalises a variable (`x := 5` substitutes x = 1):
+`1/(1 - 2x)` is −1 at x = 1, its series is ∞. So an EVT invariant with infinite (or undecided)
+mass gives an upper bound only if its series converges on the open unit polydisc (no pole of
+I(t,…,t) in (0, 1)) or the loop is *formal*: its guards compare variables with literals, its
+probabilities are constants, and it only assigns `x := x + c`, `x := x - c` and `x := x + y`.
+Otherwise the result is unknown (issue #276). The walk above is formal, so its upper bound
+stands. The certificate names the reason as `series_identity`.
+
 An invariant that fails its check gets a verdict. *Refuted* means it is provably wrong: a
 counterexample, or Φ(I) − I is a nonzero rational function after exact cancellation.
 *Not proven* means the check could neither prove nor refute it, e.g. for non-rational
@@ -244,7 +254,12 @@ coefficients and solves the fixed-point equation for them. The search is bounded
 parameters: *Maximal template degree* (`max_degree`, default 4: N has at most this degree in
 each variable, D at most N's degrees in total) and *Time limit* (`time_limit`, default 60 s;
 it also interrupts a solver call, since a single template can make SymPy's Gröbner basis run
-for minutes). Many loops have no rational invariant at all, e.g. those with algebraic or
+for minutes); a third one, *Time limit per template* (`template_time_limit`, default 5 s), skips a
+template whose equations are not solved in time, so that one expensive template does not use up the
+whole time limit (skipped templates are counted in the message and in
+`error.details.templates_skipped`). The denominator D has the constant term 1, which loses no
+invariant: a generating function N/D in lowest terms has a denominator with a non-zero constant term.
+Many loops have no rational invariant at all, e.g. those with algebraic or
 non-D-finite generating functions in `pgfexamples/inference/loopy/hard_distributions`. If no
 invariant is found within the bounds, the analysis ends with status `error`, verdict *unknown*
 (`error.type` `SynthesisBoundReached`) and a message such as "No rational EVT invariant up to
@@ -252,7 +267,8 @@ degree 4 found (21 templates tried)"; `error.details` says which bound was reach
 (`reason`: `degree` or `time_limit`). The synthesis strategy `inf_poly` enumerates
 polynomials of every degree and is only stopped by the time limit. Example:
 `prodigy analyze prog.ppy --loop '0=evt_synthesis:max_degree=2,time_limit=20'`. The command
-`prodigy invariant_synthesis` has the options `--max-degree` and `--time-limit`.
+`prodigy invariant_synthesis` has the options `--max-degree`, `--time-limit` and
+`--template-time-limit`.
 
 Two strategies give lower bounds without a termination assumption (package
 `prodigy.analysis.lowerbounds`, see the README):

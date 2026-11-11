@@ -29,7 +29,8 @@ from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory imp
 from prodigy.analysis.evtinvariants.heuristics.strategies import (DEFAULT_MAX_DEGREE, SELECTABLE_POSITIVITY_HEURISTICS,
                                                                   SynthesisStrategies)
 from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
-from prodigy.analysis.evtinvariants.invariant_synthesis import (DEFAULT_SYNTHESIS_TIME_LIMIT, SynthesisBoundReached,
+from prodigy.analysis.evtinvariants.invariant_synthesis import (DEFAULT_SYNTHESIS_TIME_LIMIT,
+                                                                DEFAULT_TEMPLATE_TIME_LIMIT, SynthesisBoundReached,
                                                                 evt_invariant_synthesis)
 from prodigy.analysis.evtinvariants.invariant_verification import evt_invariant_verification
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
@@ -319,10 +320,12 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool, syntax: Optiona
               help="Maximal degree of the templates (numerator degree in each variable).")
 @click.option('--time-limit', type=click.IntRange(min=1), default=DEFAULT_SYNTHESIS_TIME_LIMIT, show_default=True,
               help="Seconds after which the synthesis stops without a result.")
+@click.option('--template-time-limit', type=click.IntRange(min=1), default=DEFAULT_TEMPLATE_TIME_LIMIT,
+              show_default=True, help="Seconds after which a single template is skipped.")
 @_syntax_option
 def invariant_synthesis(ctx,  # pylint: disable=too-many-arguments
                         program_file: IO, invariant: str, input_dist: str, max_degree: int, time_limit: int,
-                        syntax: Optional[str]):
+                        template_time_limit: int, syntax: Optional[str]):
     """
     Tries to synthesize an EVT Invariant for the given input file.
     Supports a loop-free program to prefix the actual loop describing an initial distribution.
@@ -331,12 +334,14 @@ def invariant_synthesis(ctx,  # pylint: disable=too-many-arguments
     # read the program source file and parse it into a program object.
     _, prog, syntax = _read_program(program_file, syntax)
     with AnalysisSession.detached(syntax).activate():
-        _invariant_synthesis(ctx.obj["CONFIG"], prog, invariant, input_dist, max_degree, time_limit)
+        _invariant_synthesis(ctx.obj["CONFIG"], prog, invariant, input_dist, max_degree, time_limit,
+                             template_time_limit)
 
 
 def _invariant_synthesis(config: ForwardAnalysisConfig, prog: Program,  # pylint: disable=too-many-arguments
                          invariant: str, input_dist: str,
-                         max_degree: int = DEFAULT_MAX_DEGREE, time_limit: int = DEFAULT_SYNTHESIS_TIME_LIMIT) -> None:
+                         max_degree: int = DEFAULT_MAX_DEGREE, time_limit: int = DEFAULT_SYNTHESIS_TIME_LIMIT,
+                         template_time_limit: int = DEFAULT_TEMPLATE_TIME_LIMIT) -> None:
 
     # isolate the initial distribution description from the actual while loop.
     loops = [1 if isinstance(instr, WhileInstr) else 0 for instr in prog.instructions]
@@ -365,7 +370,7 @@ def _invariant_synthesis(config: ForwardAnalysisConfig, prog: Program,  # pylint
                                    ProgramInfo(prog), dist, invariant_dist, config, compute_semantics)
     else:
         evt_invariant_synthesis(loop, ProgramInfo(prog), dist, config, strategy, compute_semantics,
-                                time_limit=time_limit)
+                                time_limit=time_limit, template_time_limit=template_time_limit)
 
     stop = time.perf_counter()
     print(f"CPU-time elapsed: {stop - start:04f} seconds")

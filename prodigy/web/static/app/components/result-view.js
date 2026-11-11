@@ -626,6 +626,9 @@ function certificateView(cert) {
       if (cert.verdict === "refuted" || cert.verdict === "unknown") break;
       add("Non-negative coefficients", yesNo(cert.nonnegative, "yes", "no"));
       add("Finite mass", cert.finite_mass === true ? `yes, |I| = ${cert.mass}` : yesNo(cert.finite_mass, "yes", "no — may be a spurious fixed point"));
+      if (cert.nonnegative === true && cert.finite_mass !== true) {
+        add("Holds for the series", cert.series_identity ? `yes (${cert.series_identity})` : "not proven — no guarantee");
+      }
       if (cert.candidates?.length > 1) {
         rows.push(h("div", { class: "rv-cert-block" }, h("dt", {}, "Candidates"), h("dd", {},
           h("div", { class: "table-wrap" }, h("table", { class: "rv-table" },
