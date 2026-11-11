@@ -38,7 +38,8 @@ from prodigy.pgcl.ast.instructions import QueryInstr, AbortInstr
 from prodigy.pgcl.ast.types import DistributionType
 from prodigy.pgcl.ast.walk import Walk, walk_expr
 from prodigy.pgcl.positions import set_span, span_from_meta
-from prodigy.pgcl.syntax_errors import ProgramSyntaxError, position, removed_construct
+from prodigy.pgcl.syntax_errors import (ProgramSyntaxError, ProgramTypeError, position,
+                                        removed_construct)
 from prodigy.pgcl.util.lark_expr_parser import (atom, build_expr_parser, infixl,
                                             infixr, prefix)
 from prodigy.pgcl.util.ref import Mut
@@ -621,7 +622,8 @@ def select_syntax(syntax: Optional[str] = None,
 def parse_pgcl(code: str,
                syntax: Optional[str] = None,
                *,
-               path: Union[str, os.PathLike, None] = None) -> Program:
+               path: Union[str, os.PathLike, None] = None,
+               check_guards: bool = True) -> Program:
     """
     Parse a program. The syntax is chosen by :func:`select_syntax`: ``syntax``
     (``"pgcl"`` or ``"ppy"``), else the extension of ``path``, else pGCL. The
@@ -640,15 +642,47 @@ def parse_pgcl(code: str,
         >>> parse_pgcl("x := x : 1/3 + y : 2/3").instructions[0]
         AsgnInstr(lhs='x', rhs=CategoricalExpr(exprs=[(VarExpr('x'), RealLitExpr("1/3")), (VarExpr('y'), RealLitExpr("2/3"))]))
     """
-    if select_syntax(syntax, path) == "ppy":
+    chosen = select_syntax(syntax, path)
+    if chosen == "ppy":
         # imported here: ppy_parser builds its own Lark parser on import
         from prodigy.pgcl.ppy_parser import \
             parse_ppy  # pylint: disable=import-outside-toplevel
         from prodigy.pgcl.scope import \
             lower_block_scope  # pylint: disable=import-outside-toplevel
-        return lower_block_scope(parse_ppy(code))
-    tree = _parse_tree(_PARSER, code, "start")
-    return _parse_program(tree)
+        program = lower_block_scope(parse_ppy(code))
+    else:
+        program = _parse_program(_parse_tree(_PARSER, code, "start"))
+    if check_guards:
+        _check_guards(program, chosen)
+    return program
+
+
+def _check_guards(program: Program, syntax: str) -> None:
+    """Rejects a guard that is no ``bool`` (:func:`prodigy.pgcl.check.non_bool_guard`)."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.pgcl.check import non_bool_guard, type_name
+    from prodigy.pgcl.draws import find_draw
+    from prodigy.pgcl.positions import span_of
+    found = non_bool_guard(program)
+    if found is None:
+        return
+    instr, guard, what, typ = found
+    spelled = str(guard)
+    if syntax == "ppy":
+        from prodigy.pgcl.ppy_printer import PpyPrintError, expr_to_ppy
+        try:
+            spelled = expr_to_ppy(guard)
+        except PpyPrintError:
+            pass
+    if find_draw(guard) is not None:
+        hint = "Draw the value into a variable first and compare the variable, e.g. with > 0."
+    else:
+        hint = f"Write a comparison such as {spelled} > 0."
+    span = span_of(instr)
+    raise ProgramTypeError(
+        f"Type error: {what} must be of type bool, but {spelled} is of type {type_name(typ)}. "
+        + hint,
+        None if span is None else span.line, None if span is None else span.column)
 
 
 def parse_pgcl_with_lines(code: str) -> Tuple[Program, Dict[int, Tuple[object, int, int]]]:

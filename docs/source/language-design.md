@@ -204,6 +204,23 @@ The parser and the type checker accept every such program.
 - Parameters in `p` stay symbolic, as in a constant choice; the range of a probability with
   parameters is not checked.
 
+### Draws inside expressions
+
+A draw (a built-in distribution, a function call, `categorical`, `sample(d)`) may stand inside the
+right-hand side of an assignment, e.g. `x = geometric(1/2) + 1` or `x = bernoulli(1/2) * y`.
+
+- Semantics: every occurrence draws independently, in the state before the assignment; then the
+  expression is evaluated with the drawn values. `geometric(1/2) + geometric(1/2)` is the sum of
+  two independent draws, not twice one draw.
+- Analysis: each draw is assigned to a fresh helper variable first (from left to right, a draw
+  inside an argument before the draw it belongs to), then the expression is assigned with the
+  helpers in its place, and the helpers are marginalised (`prodigy.pgcl.draws`). This uses only
+  the existing operations, so it is exact wherever the single draws are, on every engine.
+  `sample_pgf(G, x)` inside an expression reads `G` in the helper instead of `x`.
+- A draw inside a guard of `if` or `while`, an observation or a query has no variable to draw into
+  (for `while`, it would be drawn anew before each test of the guard). This is not implemented
+  and ends with a message that names the draw.
+
 ### Categorical distribution
 
 - Main form: `categorical({v1: p1, v2: p2, …})`, pairs of value and probability as in a Python

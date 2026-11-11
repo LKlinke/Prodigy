@@ -4,7 +4,8 @@ Syntax errors
 -------------
 
 :class:`ProgramSyntaxError` is a syntax error with line and column; both parsers raise it (the
-``.ppy`` parser as its subclass :class:`~prodigy.pgcl.ppy_parser.PpySyntaxError`).
+``.ppy`` parser as its subclass :class:`~prodigy.pgcl.ppy_parser.PpySyntaxError`), and
+:class:`ProgramTypeError` for the type errors they reject (a guard that is no ``bool``).
 
 :func:`removed_construct` recognizes constructs that are no longer part of the language, so that a
 failed parse can say so instead of reporting an unexpected character: ``tick(e)`` and Iverson
@@ -47,6 +48,11 @@ class ProgramSyntaxError(SyntaxError):
 
     def __str__(self) -> str:
         return self.text_message
+
+
+class ProgramTypeError(ProgramSyntaxError):
+    """A type error that the parser reports with line and column, e.g. a guard that is no
+    ``bool`` (see :func:`prodigy.pgcl.check.check_guards`)."""
 
 
 def removed_construct(source: str, offset: Optional[int], expects_operand: bool) -> Optional[Tuple[str, int]]:

@@ -249,6 +249,11 @@ class State:
         return res
 
 
+
+def _is_true(variable: VarExpr) -> Expr:
+    """The condition that the ``bool`` variable ``variable`` holds: ``not (variable = 0)``."""
+    return UnopExpr(Unop.NEG, BinopExpr(Binop.EQ, variable, NatLitExpr(0)))
+
 class Distribution(ABC):
     """ Abstract class that models different representations of probability distributions. """
 
@@ -401,6 +406,10 @@ class Distribution(ABC):
                 filtered_left = self.filter(condition.lhs)
                 return filtered_left + self.filter(
                     condition.rhs) - filtered_left.filter(condition.rhs)
+
+        if isinstance(condition, VarExpr):
+            # a bool variable as condition: it holds where the variable is 1, i.e. not 0
+            return self.filter(_is_true(condition))
 
         if isinstance(condition, UnopExpr):
             # unary relation
@@ -607,6 +616,8 @@ class Distribution(ABC):
 
         if isinstance(condition, UnopExpr) and condition.operator == Unop.NEG:
             return not cls.evaluate_condition(condition.expr, state)
+        if isinstance(condition, VarExpr):
+            return cls.evaluate_condition(_is_true(condition), state)
         if not isinstance(condition, BinopExpr):
             raise AssertionError(
                 f"Expression must be an (in-)equation or negation, was {condition}"

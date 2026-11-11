@@ -166,11 +166,21 @@ and when they are exact, is described in {ref}`pgcl_grammar` (sections "Division
 
 **Guards.** Conditions of `if`, `while`, `observe` and `query Pr[…]` are boolean expressions;
 comparisons are evaluated over the rationals (see "Guards" in {ref}`pgcl_grammar` for what can
-be filtered on infinite distributions).
+be filtered on infinite distributions). A guard of `if` or `while` and the condition of `observe`
+must be of type `bool`: a `bool` variable (`if (b)`), a comparison or a combination with `!`, `&&`
+and `||`. A number such as `if (x)` with `x: nat` or `if (bernoulli(1/2))` is a type error,
+reported with its line when the program is read; write a comparison (`if (x > 0)`). A draw inside
+a guard, an observation or a query (`if (geometric(1/2) > 2)`) is not implemented; draw the value
+into a variable first.
 
 ### Built-in distributions
 
-A built-in distribution is sampled by assigning it to a variable. All arguments are positional
+A built-in distribution is sampled by assigning it to a variable, `x = unif(1, 6);`, or inside
+the right-hand side of an assignment, `x = geometric(1/2) + 1;`. Every occurrence is a draw of its
+own, so `x = geometric(1/2) + geometric(1/2);` is the sum of two independent draws. A draw may
+also be the argument of a distribution (`binomial(unif(1, 3), 1/2)`) or of a function, and the
+count of `iid`. Prodigy draws each of them into a helper variable first, in the state before the
+assignment, assigns the expression and removes the helpers again. All arguments are positional
 and required.
 
 | Distribution | Values |
@@ -182,7 +192,7 @@ and required.
 | `binomial(n, p)` | binomial with `n` trials |
 | `negative_binomial(r, p)` | the number of failures before the `r`-th success: `k` with probability `C(k + r − 1, k) (1 − p)^k p^r`, `k ≥ 0`; the same as `iid(geometric(p), r)`. `r` is a natural number, `p` lies in `(0, 1]` |
 | `unif(a, b)` | uniform on `a, …, b` (also `unif_d`) |
-| `iid(D, n)` | the sum of `n` independent samples of `D`; `n` is a variable or a natural number |
+| `iid(D, n)` | the sum of `n` independent samples of `D`; `n` is a variable, a natural number or a draw such as `geometric(1/2)` |
 | `sample_pgf(G, x)` | `x` drawn from the generating function `G` in `x` (the second argument is the assigned variable) |
 | `categorical({v1: p1, v2: p2, …})` | `v1` with probability `p1`, …; the values may be expressions over the variables; `categorical(p0, p1, …, pn)` for the values `0, …, n` |
 
