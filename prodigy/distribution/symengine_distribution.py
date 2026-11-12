@@ -1,6 +1,7 @@
 # pylint: disable=protected-access
 from __future__ import annotations
 
+import functools
 import logging
 import operator
 import re
@@ -370,7 +371,8 @@ class SymengineDist(Distribution):
         for i in ranges[condition.operator]:
             result += (self.safe_subs(variable, 0, fun=self._s_func.diff(variable, i) / se.gamma(i + 1))
                        * variable ** i)
-        return SymengineDist(result).set_variables_and_parameters(self.get_variables(), self.get_parameters())
+        return SymengineDist(se.expand(result)).set_variables_and_parameters(self.get_variables(),
+                                                                              self.get_parameters())
 
     def _arithmetic_progression(self, variable: str, modulus: str) -> Sequence[SymengineDist]:
         a = _parse_to_symengine(modulus)
@@ -444,10 +446,9 @@ class SymengineDist(Distribution):
         # cancel() is used because is_polynomial() does not attempt simplification
         #   cf. https://docs.sympy.org/latest/modules/core.html#sympy.core.expr.Expr.is_polynomial
         # Finite support means polynomial in the variables; parameters may occur in any form (#249).
-        variables = [sp.Symbol(str(var)) for var in self._variables]
-        if not variables:
+        if not self._variables:
             return True
-        return sp.S(self._s_func).cancel().is_polynomial(*variables)
+        return _is_polynomial_in(self._s_func, frozenset(self._variables))
 
     def get_fresh_variable(self, exclude: set[str] | frozenset[str] = frozenset()) -> str:
         i = 0
@@ -994,6 +995,10 @@ class SymengineDist(Distribution):
             if not _hits_pole(fun, variable, value):
                 fun = fun.subs(variable, value)
                 continue
+            removable = _value_at_removable_pole(fun, variable, value)
+            if removable is not None:
+                fun = removable
+                continue
             logger.info("Falling back to sympy")
             sympy_func: sp.Expr = sp.S(fun)
             sympy_var, sympy_value = sp.S(variable), sp.S(value)
@@ -1061,8 +1066,40 @@ def _provably_equal(lhs: se.Expr, rhs: se.Expr) -> bool:
         return True
     if lhs.atoms(se.Float) or rhs.atoms(se.Float):
         return False
+    if _differ_at_a_point(lhs, rhs):
+        return False
     numerator, denominator = (lhs - rhs).as_numer_denom()
     return se.expand(numerator) == 0 and se.expand(denominator) != 0
+
+
+_MAX_EVALUATED_EXPONENT = 1000
+
+
+def _has_huge_exponent(expression: se.Basic) -> bool:
+    """Whether `expression` has a power with a non-integer exponent or one above 1000 in absolute value.
+    Evaluating such a power at a rational number is expensive (e.g. x**(2**30) of a doubled variable)."""
+    for atom in expression.atoms(se.Pow):
+        exponent = atom.args[1]
+        if not isinstance(exponent, se.Integer) or abs(int(exponent)) > _MAX_EVALUATED_EXPONENT:
+            return True
+    return False
+
+
+def _differ_at_a_point(lhs: se.Basic, rhs: se.Basic) -> bool:
+    """
+    True only if `lhs` and `rhs` provably differ: at a fixed rational point (every symbol replaced by a
+    rational number), both evaluate exactly to rational numbers, and these differ. Otherwise False ("not
+    shown"), e.g. at a pole or if a value is irrational (its form need not be canonical).
+
+    This avoids expanding the numerator of `lhs - rhs`, which is huge for the unsimplified closed forms that
+    SymEngine builds in loops (#224).
+    """
+    if _has_huge_exponent(lhs) or _has_huge_exponent(rhs):
+        return False
+    symbols = sorted(lhs.free_symbols | rhs.free_symbols, key=str)
+    point = {symbol: se.Rational(2 * index + 3, 7 * index + 11) for index, symbol in enumerate(symbols)}
+    left, right = lhs.subs(point), rhs.subs(point)
+    return isinstance(left, se.Rational) and isinstance(right, se.Rational) and left != right
 
 
 def _parse_to_symengine(expression) -> se.Expr:
@@ -1165,6 +1202,87 @@ def _hits_pole(function: se.Basic, variable: se.Basic, value: se.Basic) -> bool:
         except RuntimeError:
             return True
     return False
+
+
+@functools.lru_cache(maxsize=1024)
+def _is_polynomial_in(function: se.Basic, variables: frozenset[se.Symbol]) -> bool:
+    """
+    Whether `function` is a polynomial in `variables` (parameters may occur in any form, #249), after
+    cancelling. SymPy's `cancel` is exact but expensive on the large closed forms SymEngine builds, so a
+    cheap exact disproof comes first (:func:`_not_polynomial_after_specialising`), and results are cached
+    (the analysis asks again for the same function, e.g. for each guard of a loop body).
+    """
+    if _not_polynomial_after_specialising(function, variables):
+        return False
+    return bool(sp.S(function).cancel().is_polynomial(*(sp.Symbol(str(var)) for var in variables)))
+
+
+def _not_polynomial_after_specialising(function: se.Basic, variables: frozenset[se.Symbol]) -> bool:
+    """
+    True only if `function` is provably no polynomial in `variables`; False means "not shown".
+
+    Write `function = n/d` and take a variable `x` of `d`. If `function` is a polynomial `p` in the variables
+    (with coefficients that may depend on the parameters), then `n = d * p`, and this stays true after
+    replacing every other variable by a number (a ring homomorphism). So if, after that replacement, `d` does
+    not divide `n` as univariate polynomials in `x` over the field of the parameters, `function` is no
+    polynomial. The replacement keeps the polynomials small, so the division is cheap (#224).
+    """
+    if _has_huge_exponent(function):
+        return False
+    numerator, denominator = function.as_numer_denom()
+    ordered = sorted(variables, key=str)
+    for variable in ordered:
+        if variable not in denominator.free_symbols:
+            continue
+        others = {other: se.Rational(2 * index + 3, 7 * index + 11)
+                  for index, other in enumerate(ordered) if other != variable}
+        sympy_variable = sp.Symbol(str(variable))
+        try:
+            num, den = (sp.Poly(sp.S(se.expand(part.subs(others))), sympy_variable).to_field()
+                        for part in (numerator, denominator))
+        except (sp.PolynomialError, sp.CoercionFailed):
+            continue
+        if den.is_zero or den.degree() <= 0:
+            continue
+        if not num.rem(den).is_zero:
+            return True
+    return False
+
+
+def _value_at_removable_pole(function: se.Basic, variable: se.Basic, value: se.Basic) -> se.Basic | None:
+    """
+    The value of the rational function `function` at `variable` = `value` where substituting directly hits a
+    pole, or None if this cheap method does not apply (the caller then cancels in SymPy or takes a limit).
+
+    With `t = variable - value`, the function is written as `n(t)/d(t)` with expanded polynomials `n` and `d`
+    in `t`. If `t^a` and `t^b` are their lowest powers, then `n = t^a n'` and `d = t^b d'` with `n'(0)` and
+    `d'(0)` the lowest coefficients, which are not zero. For `a = b` the value is `n'(0)/d'(0)`, for `a > b`
+    it is 0, and for `a < b` there is a pole (None, so that the caller reports it as before).
+
+    This is what SymPy's `cancel` followed by a substitution gives, but without the gcd of the two
+    polynomials: SymEngine does not cancel, so its closed forms grow in loops (e.g. with a `geometric`
+    inside the loop body), and SymPy's `cancel` on them dominated the runtime (#224).
+    """
+    if variable in value.free_symbols:
+        return None
+    shifted = function if value == 0 else function.subs(variable, variable + value)
+    numerator, denominator = shifted.as_numer_denom()
+    sympy_variable = sp.S(variable)
+    try:
+        polys = [sp.Poly(sp.S(se.expand(part)), sympy_variable) for part in (numerator, denominator)]
+    except sp.PolynomialError:
+        return None
+    if polys[1].is_zero:
+        return None
+    if polys[0].is_zero:
+        return se.Integer(0)
+    lowest = [min(polys[i].monoms())[0] for i in range(2)]
+    if lowest[0] < lowest[1]:
+        return None
+    if lowest[0] > lowest[1]:
+        return se.Integer(0)
+    coefficients = [polys[i].coeff_monomial(sympy_variable ** lowest[i]) for i in range(2)]
+    return _parse_to_symengine(sp.cancel(coefficients[0] / coefficients[1]))
 
 
 class SymenginePGF(CommonDistributionsFactory):

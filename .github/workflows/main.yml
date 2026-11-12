@@ -97,6 +97,29 @@ jobs:
         env:
           PRODIGY_FUZZ: ci
 
+  # The benchmark set on every engine against the committed baseline (docs/source/testing.md). Report
+  # only: shared runners are noisy, so this job is not required by `build`; the table is in the job
+  # summary, and the job fails if a case is more than 3x slower than its (calibrated) baseline.
+  benchmarks:
+    name: benchmarks (report only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          python-version: "3.14"
+      - run: make bench ARGS="--fail-on-regression --summary $GITHUB_STEP_SUMMARY --output benchmarks.json"
+      - name: Upload the results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: benchmarks
+          path: benchmarks.json
+          retention-days: 30
+
   # The branch protection rule requires this check. It passes only if all jobs above passed,
   # so jobs can be added or renamed without changing the rule.
   build:

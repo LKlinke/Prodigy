@@ -1,0 +1,159 @@
+{
+  "calibration": 0.1031,
+  "results": {
+    "st_petersburg": {
+      "sympy": {
+        "status": "ok",
+        "seconds": 0.272
+      },
+      "ginac": {
+        "status": "ok",
+        "seconds": 0.029
+      },
+      "symengine": {
+        "status": "ok",
+        "seconds": 0.069
+      }
+    },
+    "galton_watson_critical": {
+      "sympy": {
+        "status": "ok",
+        "seconds": 2.025
+      },
+      "ginac": {
+        "status": "ok",
+        "seconds": 0.078
+      },
+      "symengine": {
+        "status": "ok",
+        "seconds": 0.309
+      }
+    },
+    "polya_urn_coins": {
+      "sympy": {
+        "status": "ok",
+        "seconds": 2.148
+      },
+      "ginac": {
+        "status": "ok",
+        "seconds": 0.423
+      },
+      "symengine": {
+        "status": "ok",
+        "seconds": 1.216
+      }
+    },
+    "log_series_coins": {
+      "sympy": {
+        "status": "ok",
+        "seconds": 5.053
+      },
+      "ginac": {
+        "status": "ok",
+        "seconds": 0.806
+      },
+      "symengine": {
+        "status": "ok",
+        "seconds": 1.791
+      }
+    },
+    "dnd_handicap": {
+      "sympy": {
+        "status": "ok",
+        "seconds": 0.364
+      },
+      "ginac": {
+        "status": "ok",
+        "seconds": 0.019
+      },
+      "symengine": {
+        "status": "ok",
+        "seconds": 0.137
+      }
+    },
+    "monty_hall": {
+      "sympy": {
+        "status": "ok",
+        "seconds": 0.143
+      },
+      "ginac": {
+        "status": "ok",
+        "seconds": 0.018
+      },
+      "symengine": {
+        "status": "ok",
+        "seconds": 0.16
+      }
+    },
+    "piranha": {
+      "sympy": {
+        "status": "ok",
+        "seconds": 0.053
+      },
+      "ginac": {
+        "status": "ok",
+        "seconds": 0.008
+      },
+      "symengine": {
+        "status": "ok",
+        "seconds": 0.008
+      }
+    },
+    "nested_while_invariant": {
+      "sympy": {
+        "status": "ok",
+        "seconds": 0.751
+      },
+      "ginac": {
+        "status": "ok",
+        "seconds": 0.115
+      },
+      "symengine": {
+        "status": "ok",
+        "seconds": 0.121
+      }
+    },
+    "random_walk_invariant": {
+      "sympy": {
+        "status": "ok",
+        "seconds": 0.239
+      },
+      "ginac": {
+        "status": "ok",
+        "seconds": 0.023
+      },
+      "symengine": {
+        "status": "ok",
+        "seconds": 0.101
+      }
+    },
+    "geometric_synthesis": {
+      "sympy": {
+        "status": "ok",
+        "seconds": 0.03
+      },
+      "ginac": {
+        "status": "ok",
+        "seconds": 0.023
+      },
+      "symengine": {
+        "status": "ok",
+        "seconds": 0.023
+      }
+    },
+    "ky_die_invariant": {
+      "sympy": {
+        "status": "ok",
+        "seconds": 0.833
+      },
+      "ginac": {
+        "status": "ok",
+        "seconds": 0.069
+      },
+      "symengine": {
+        "status": "ok",
+        "seconds": 0.109
+      }
+    }
+  }
+}

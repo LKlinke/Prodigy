@@ -1,8 +1,8 @@
-.PHONY: help install lint mypy test fuzz docs clean docker-build docker-run docker-artifact
+.PHONY: help install lint mypy test fuzz bench docs clean docker-build docker-run docker-artifact
 
 .DEFAULT: help
 help:
-	@echo "Available targets: install, lint, mypy, test, fuzz, docs, clean, format, docker-build, docker-run, docker-artifact"
+	@echo "Available targets: install, lint, mypy, test, fuzz, bench, docs, clean, format, docker-build, docker-run, docker-artifact"
 
 install:
 	uv sync
@@ -25,6 +25,10 @@ test:
 # Fuzzing and simulation tests (docs/source/testing.md); `PRODIGY_FUZZ=nightly make fuzz` runs many programs
 fuzz:
 	uv run pytest ${XDIST} -m fuzz tests/fuzzing tests/simulation ${ARGS}
+
+# The benchmark set (benchmarks/suite.json) on every engine against benchmarks/baseline.json (docs/source/testing.md)
+bench:
+	uv run python benchmarks/run.py ${ARGS}
 
 docs:
 	uv run --group docs sphinx-build -M html docs/source docs/build -W --keep-going ${ARGS}

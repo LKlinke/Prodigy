@@ -76,3 +76,37 @@ so a slow program never blocks the CI; in `nightly` it fails with the program, s
 analysis is worth an issue too. The comparison of an example with the simulation runs the same way
 (100 s in `ci`, 900 s in `nightly`). Every test has a limit of 120 s (pytest-timeout, `[tool.pytest.ini_options]`), after which it
 fails with the stacks of all threads; the weekly workflow raises it for the slow examples.
+
+## Benchmarks (`benchmarks/`)
+
+Performance regressions do not make a test fail, so they are measured separately. The benchmark set
+`benchmarks/suite.json` is a small set of examples: loops whose unrolling used to be much slower on
+one engine than on the others (#224: doubling a variable, `geometric` inside a loop, nested loops,
+`observe` after a loop), loop-free programs, invariant checks and an invariant synthesis. Each case
+gives the program and the strategies of its loops, and runs on every engine:
+
+```sh
+make bench                                 # all cases on SymPy, GiNaC and SymEngine
+make bench ARGS="--engines sympy"          # one engine
+make bench ARGS="--cases st_petersburg"    # one case
+make bench ARGS="--write-baseline"         # replace benchmarks/baseline.json by this run
+```
+
+`benchmarks/run.py` runs each case in a fresh process (`prodigy --engine E analyze --json`, so no
+cache survives from one case to the next) with a time limit of 60 s and takes the analysis time from
+the JSON result, without the start of Python. It prints a table (program × engine, seconds) and, with
+`--summary FILE`, appends it as Markdown to `FILE`; `--output FILE` writes the results as JSON.
+
+The times are compared with `benchmarks/baseline.json`. Machines differ in speed, so the baseline
+also stores the time of a fixed calibration workload (SymPy and plain Python), and the baseline times
+are scaled by the ratio of the calibration times of this run and of the baseline. A case is a
+regression if it takes more than three times its scaled baseline (`--threshold`) and more than one
+second (`--min-seconds`), or if its status differs from the baseline (e.g. a time-out). The factor is
+generous on purpose: it catches the large slowdowns that matter (a factor of 10 or 100, as in #224) and
+ignores the noise of shared runners.
+
+The CI job `benchmarks (report only)` runs `make bench` with `--fail-on-regression` on Python 3.14
+and writes the table to the job summary. It is not required by `build`, so a noisy runner never
+blocks a pull request; a red benchmark job is a hint to look at the table. After an intended change of
+the times (a faster engine, a new case), the baseline is updated with `--write-baseline` in the same
+pull request.

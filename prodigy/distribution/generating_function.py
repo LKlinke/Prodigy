@@ -58,6 +58,8 @@ def _is_finite_function(function: sympy.Expr, variables: FrozenSet[sympy.Symbol]
     ``f``) and stays over ``g`` in lowest terms, so the result is no polynomial; the division and
     the second cancellation, the expensive part on large closed forms, are skipped then.
     """
+    if function.is_polynomial(*variables):
+        return True
     _, denominator = sympy.cancel(function).as_numer_denom()
     if denominator.free_symbols & variables:
         return False
@@ -67,10 +69,39 @@ def _is_finite_function(function: sympy.Expr, variables: FrozenSet[sympy.Symbol]
 @functools.lru_cache(maxsize=1024)
 def _limit_at_one(function: sympy.Expr, variable: sympy.Symbol) -> sympy.Expr:
     """The limit of ``function`` as ``variable`` tends to 1 from below, i.e. the variable marginalised
-    out of a closed form. SymPy's limit is expensive, and the analysis marginalises the same function
-    several times, so the result is cached; it depends only on the arguments.
+    out of a closed form. The analysis marginalises the same function several times, so the result is
+    cached; it depends only on the arguments.
+
+    SymPy's ``limit`` returns small expressions, and later steps rely on that (substituting into the
+    uncancelled function let them grow, #272). But it may hang on unsimplified forms with a removable
+    singularity at 1, e.g. after ``unif`` (#274), also when another variable is marginalised. For such
+    forms (:func:`_denominator_vanishes_at_ones`) the function is cancelled. If that removed every such
+    denominator (the singularity was removable) and the cancelled form is provably continuous at 1
+    (:func:`_continuous_at_one`) and finite there, its value is the limit. Otherwise (e.g. the genuine
+    pole of ``1/(1 - c)``, whose form the later positivity checks expect) ``limit`` is used as before.
     """
+    if variable not in function.free_symbols:
+        return function
+    if not _denominator_vanishes_at_ones(function):
+        return function.limit(variable, 1, "-")
+    cancelled = sympy.cancel(function)
+    if not _denominator_vanishes_at_ones(cancelled) and _continuous_at_one(cancelled, variable):
+        value = cancelled.subs(variable, 1)
+        if not value.has(*_UNDEFINED_VALUES):
+            return value
     return function.limit(variable, 1, "-")
+
+
+def _denominator_vanishes_at_ones(function: sympy.Expr) -> bool:
+    """Whether some negative power in `function` has a base that is 0 when every symbol is 1, like the
+    `(z - 1)` of an unsimplified `unif`. Only then does `_limit_at_one` cancel first; this is a choice of the
+    method, not a soundness condition."""
+    for power in function.atoms(sympy.Pow):
+        base, exponent = power.args
+        if exponent.is_negative and base.free_symbols \
+                and base.subs({symbol: 1 for symbol in base.free_symbols}) == 0:
+            return True
+    return False
 
 
 def _term_generator(function: sympy.Poly):
@@ -188,6 +219,15 @@ def _substitute_one(function: sympy.Expr, variable: sympy.Symbol) -> sympy.Expr:
     series diverges at 1, both give 2.
     """
     function = sympy.sympify(function)
+    value = _cheap_value_at_one(function, variable)
+    return function.limit(variable, 1, '-') if value is None else value
+
+
+def _cheap_value_at_one(function: sympy.Expr, variable: sympy.Symbol) -> sympy.Expr | None:
+    """
+    The value of `function` at `variable` = 1 where it is provably the limit from below: `function` or its
+    cancelled form is continuous at 1 (:func:`_continuous_at_one`) and finite there. None otherwise.
+    """
     if variable not in function.free_symbols:
         return function
     for candidate in (function, sympy.cancel(function)):
@@ -195,7 +235,7 @@ def _substitute_one(function: sympy.Expr, variable: sympy.Symbol) -> sympy.Expr:
             value = candidate.subs(variable, 1)
             if not value.has(*_UNDEFINED_VALUES):
                 return value
-    return function.limit(variable, 1, '-')
+    return None
 
 
 _UNDEFINED_VALUES = (sympy.nan, sympy.zoo, sympy.oo, -sympy.oo)
@@ -233,6 +273,22 @@ def _continuous_at_one(function: sympy.Expr, variable: sympy.Symbol) -> bool:
         return base_at_one.is_zero is True and variable not in exponent.free_symbols \
             and exponent.is_extended_positive is True
     return False
+
+
+def _polynomial_coefficients(function: sympy.Expr, variable: sympy.Symbol, count: int) -> List[sympy.Expr]:
+    """
+    The coefficients of `variable`^0, ..., `variable`^(count-1) of the polynomial `function` (other symbols are
+    constants), read off its expanded terms. Unlike a `Poly`, this never builds the dense list of all
+    coefficients, which is huge for sparse polynomials of high degree such as the x**(2**k) of a doubled
+    variable (#224).
+    """
+    coefficients = [sympy.Integer(0)] * count
+    for term in sympy.Add.make_args(sympy.expand(function)):
+        coefficient, power = term.as_independent(variable, as_Add=False)
+        exponent = power.as_coeff_exponent(variable)[1] if power != 1 else 0
+        if exponent < count:
+            coefficients[int(exponent)] += coefficient
+    return coefficients
 
 
 def _taylor_coefficient_by_limit(function: sympy.Expr, variable: sympy.Symbol, index: int) -> sympy.Expr:
@@ -382,7 +438,12 @@ class GeneratingFunction(Distribution):
 
         # Compute the probabilities of the states _var_ = i where i ranges depending on the operator (< , <=, =).
         indices = ranges[condition.operator]
-        coefficients = rational_taylor_coefficients(self._function, variable, indices[-1] + 1) if indices else []
+        if not indices:
+            coefficients: List[sympy.Expr] | None = []
+        elif not self._is_closed_form and self._function.is_polynomial(variable):
+            coefficients = _polynomial_coefficients(self._function, variable, indices[-1] + 1)
+        else:
+            coefficients = rational_taylor_coefficients(self._function, variable, indices[-1] + 1)
         for i in indices:
             if coefficients is None:
                 coefficient = _taylor_coefficient_by_limit(self._function, variable, i)
@@ -1196,12 +1257,14 @@ class GeneratingFunction(Distribution):
             function = op(self._function, other._function)
 
             # simplify the result if demanded.
+            # A polynomial is only expanded: factoring it first (and expanding it again) costs a
+            # factorisation over finite fields, which explodes for sparse polynomials of high degree
+            # such as the x**(2**k) of a doubled variable (#224).
             if GeneratingFunction.settings().simplification:
-                nominator, denominator = sympy.fraction(function)
-                nominator = nominator.factor()
-                denominator = denominator.factor()
-                function = nominator / denominator
-                if not is_closed_form:
+                if is_closed_form:
+                    nominator, denominator = sympy.fraction(function)
+                    function = nominator.factor() / denominator.factor()
+                else:
                     function = function.expand()
 
             # update the occuring variables and parameters
@@ -1462,8 +1525,7 @@ class GeneratingFunction(Distribution):
             map(_sympy_symbol, filter(lambda v: v != '', map(str, variables))))
         marginal = self.copy()
         s_var: str | VarExpr | sympy.Symbol
-        # SymPy's limit (not _substitute_one) on purpose: its result is often much smaller than the
-        # substituted expression, and later steps (ratsimp, loops) rely on that
+        # _limit_at_one, not _substitute_one: it also keeps the result small (later steps rely on that)
         if method == MarginalType.INCLUDE:
             for s_var in marginal._variables.difference(marginal_vars):
                 if marginal._is_closed_form:

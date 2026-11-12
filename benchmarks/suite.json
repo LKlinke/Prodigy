@@ -1,0 +1,16 @@
+{
+  "description": "Benchmark set for benchmarks/run.py (docs/source/testing.md). Each case runs on every engine.",
+  "cases": [
+    {"name": "st_petersburg", "program": "pgfexamples/inference/loopy/hard_distributions/non_d_finite/st_petersburg.ppy", "loops": ["0=unroll:iterations=30"], "note": "x = 2 * x: sparse polynomials of degree 2^k (#224, SymPy)"},
+    {"name": "galton_watson_critical", "program": "pgfexamples/inference/loopy/hard_distributions/algebraic/galton_watson_critical.ppy", "loops": ["0=unroll:iterations=15"], "note": "geometric inside a loop (#224, SymEngine)"},
+    {"name": "polya_urn_coins", "program": "pgfexamples/inference/loopy/hard_distributions/d_finite/polya_urn_coins.ppy", "loops": ["0=unroll:iterations=3", "1=unroll:iterations=10"], "note": "nested loops (#224)"},
+    {"name": "log_series_coins", "program": "pgfexamples/inference/loopy/hard_distributions/d_finite/log_series_coins.ppy", "loops": ["0=unroll:iterations=15"], "note": "observe after a loop (#224)"},
+    {"name": "dnd_handicap", "program": "pgfexamples/inference/loop_free/dnd_handicap.ppy", "note": "loop-free"},
+    {"name": "monty_hall", "program": "pgfexamples/inference/loop_free/monty_hall.ppy", "note": "loop-free"},
+    {"name": "piranha", "program": "pgfexamples/inference/loop_free/piranha.ppy", "note": "loop-free"},
+    {"name": "nested_while_invariant", "program": "pgfexamples/equivalence/loopy/nested_while.ppy", "loops": ["0=invariant:invariant_file=pgfexamples/equivalence/loopy/invariants/nested_while_invariant1.ppy", "1=invariant:invariant_file=pgfexamples/equivalence/loopy/invariants/nested_while_invariant2.ppy"], "note": "invariant check"},
+    {"name": "random_walk_invariant", "program": "pgfexamples/equivalence/loopy/random_walk.ppy", "loops": ["0=invariant:invariant_file=pgfexamples/equivalence/loopy/invariants/random_walk_invariant.ppy"], "note": "invariant check"},
+    {"name": "geometric_synthesis", "program": "pgfexamples/invariant_synthesis/geometric.ppy", "loops": ["0=evt_synthesis"], "note": "EVT invariant synthesis"},
+    {"name": "ky_die_invariant", "program": "pgfexamples/equivalence/loopy/ky_die.ppy", "loops": ["0=invariant:invariant_file=pgfexamples/equivalence/loopy/invariants/ky_die_invariant.ppy"], "note": "invariant check"}
+  ]
+}
