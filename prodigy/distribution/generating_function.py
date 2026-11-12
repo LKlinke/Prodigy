@@ -348,6 +348,14 @@ class GeneratingFunction(Distribution):
 
         # Set the basic information.
         self._function: sympy.Expr = _parse_to_sympy(function)
+        # The constants of the roots of unity read back from a string are symbols named I and pi; unless they are
+        # declared variables, they are the constants again and never become parameters (#342).
+        declared = {str(v) for v in variables}
+        constants = {sym: value for sym in self._function.free_symbols
+                     for name, value in (("I", sympy.I), ("pi", sympy.pi))
+                     if getattr(sym, "name", None) == name and name not in declared}
+        if constants:
+            self._function = self._function.xreplace(constants)
 
         # Set variables and parameters
         self._variables: Set[
