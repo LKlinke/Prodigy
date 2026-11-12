@@ -14,6 +14,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.evtinvariants import invariant_synthesis
 from prodigy.analysis.evtinvariants.heuristics.strategies import DEFAULT_MAX_DEGREE
 from prodigy.analysis.evtinvariants.invariant_synthesis import DEFAULT_SYNTHESIS_TIME_LIMIT
+from prodigy.analysis.evtinvariants.template_solver import solve_template
 from prodigy.analysis.loop_strategies import get_loop_strategy
 from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
@@ -108,8 +109,49 @@ def test_sympy_failure_on_a_template_is_skipped(monkeypatch):
     result = _run(HARD / "non_d_finite" / "st_petersburg.ppy", "evt_synthesis:max_degree=0",
                   ForwardAnalysisConfig.Engine.SYMPY)
     error = _assert_no_invariant(result, "degree")
-    assert error["message"].endswith("SymPy could not solve 1 template(s).")
+    assert error["message"].endswith("The solver could not solve 1 template(s).")
     assert error["details"]["templates_failed"] == 1
+
+
+def _index_error(*_args, **_kwargs):
+    # what SymPy's minsolve_linear_system raised in _vsolve(...)[0] (#305)
+    raise IndexError("list index out of range")
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_solver_error_on_a_template_ends_with_unknown(engine, monkeypatch):
+    """#305: an IndexError of the solver ended the whole analysis; now each such template is skipped, and the
+    synthesis ends with ``unknown`` and names the error."""
+    monkeypatch.setattr(invariant_synthesis, "solve_template", _index_error)
+    result = _run(EXAMPLES / "lower_bounds" / "sandwich" / "rw_counter_23.ppy", "evt_synthesis:max_degree=1",
+                  engine)
+    error = _assert_no_invariant(result, "degree")
+    tried = error["details"]["templates_tried"]
+    assert tried >= 1 and error["details"]["templates_failed"] == tried
+    assert error["message"].endswith(f"The solver could not solve {tried} template(s).")
+    assert error["details"]["solver_errors"] == ["IndexError: list index out of range"]
+    messages = result["loops"][0]["messages"]
+    assert any("IndexError: list index out of range" in message for message in messages), messages
+
+
+def test_solver_error_on_one_template_tries_the_next(monkeypatch):
+    """A solver error on the first template does not stop the search: a later template still yields the
+    (checked) invariant."""
+    calls = []
+
+    def fail_once(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            _index_error()
+        return solve_template(*args, **kwargs)
+
+    monkeypatch.setattr(invariant_synthesis, "solve_template", fail_once)
+    result = _run(EXAMPLES / "invariant_synthesis" / "geometric_counter.ppy", "evt_synthesis",
+                  ForwardAnalysisConfig.Engine.SYMPY)
+    assert len(calls) > 1
+    assert result["status"] == "ok", result["error"]
+    assert result["loops"][0]["kind"] == "exact"
+    assert result["loops"][0]["certificates"][0]["invariant"] == "(-2*x - 1)/(c - 2)"
 
 
 def test_cli_reports_the_bound_without_traceback():
