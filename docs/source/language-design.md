@@ -45,7 +45,7 @@ program. Nested inference (`infer`, `sample`, see below) is analysed since
 | Functions | `fun f := { nat a; … return e; }` | `def f(a: nat) -> nat { … return e; }` |
 | Calls | `f(2)`, `f(a := 2)` | `f(2)`, `f(a = 2)` |
 | Nested inference | `d := infer { f(2) }`, `x := sample { d }` | `d = infer(f, 2)`, `x = sample(d)` |
-| Queries | `?Pr[…]`, `?Ex[…]`, `!Print`, `!Plot[…]`, `?Opt[…]` | `query Pr[…]`, `query Ex[…]`, `print`, `plot(…)`, `optimize(…)` |
+| Queries | `?Pr[…]`, `?Ex[…]`, `?Var[…]`, `?Cov[…, …]`, `!Print`, `!Plot[…]`, `?Opt[…]` | `query Pr[…]`, `query Ex[…]`, `query Var[…]`, `query Cov[…, …]`, `print`, `plot(…)`, `optimize(…)` |
 
 `skip`, `abort`, `while`, `loop(n)`, `observe(g)` and the built-in distributions (`unif`,
 `geometric`, `poisson`, `binomial`, `bernoulli`, `iid`, …) stay as they are. `tick(e)` and Iverson

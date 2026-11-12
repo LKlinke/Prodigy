@@ -315,10 +315,29 @@ Queries come after all statements and are answered on the output distribution, i
 |---|---|
 | `query Pr[g];` | the probability of the condition `g` |
 | `query Pr[x];` | the marginal distribution of the variable `x` |
-| `query Ex[e];` | the expected value of `e` (a variable, a literal, or `+`, `-`, `*`, `//` of them) |
+| `query Ex[e];` | the expected value of `e` (a variable, a literal, or `+`, `-`, `*`, `//`, `**` of them) |
+| `query Var[e];` | the variance of `e`, `Ex[e * e] − Ex[e]²` |
+| `query Cov[e, f];` | the covariance of `e` and `f`, `Ex[e * f] − Ex[e] · Ex[f]` |
 | `print;` | the whole distribution |
 | `plot(x);`, `plot(x, y);` | a bar chart of the marginal of `x` or the joint distribution of `x` and `y`; an optional third argument limits it: a natural number of terms, a probability threshold, or `∞` |
 | `optimize(e, p, MAX);` | the value of the parameter `p` that maximises (`MIN`: minimises) `e` on the output distribution |
+
+**Variance, covariance and higher moments.** `Var` and `Cov` are exact: each expected value is a
+derivative of the generating function at 1, so they work on all engines and with parameters
+(`geometric(p)` gives `Var[x] = (1 − p)/p²`). Higher moments are expectations of powers:
+`query Ex[x ** 3];` is the third raw moment, and `Ex[x * (x - 1)]` the second factorial moment.
+Their guarantees are stricter than the one of `Ex`:
+
+- A variance or covariance is not monotone in the distribution, so a lower or upper bound of the
+  distribution gives no bound of it: for an approximate loop result (bound `lower` or `upper`)
+  the query is reported as not computed, with that reason. Use a strategy with an exact result.
+- They need a distribution of mass 1. If an `abort`, an error or a non-terminating loop removed
+  mass, the query is not computed (`Ex[…]` still gives the unnormalised moment).
+- `Var[e] = ∞` if `Ex[e]` is finite but `Ex[e * e]` is infinite. If `Ex[e]` is infinite, the
+  variance is undefined, and so is a covariance with an infinite moment: the query is not computed,
+  with a message naming the moment. A value is never `nan`.
+
+In `.pgcl` they are `?Var[e]` and `?Cov[e, f]`.
 
 Results name queries, loop guards and instructions in the syntax of the program: a `.ppy`
 program gets `x == 1 and y < 3`, a `.pgcl` program `(x = 1) & (y < 3)` (the result JSON states the
@@ -342,7 +361,7 @@ syntax in `syntax`, see {doc}`gui`).
 | `fun f := { nat a; … return e; }` | `def f(a: nat) -> nat { … return e; }` |
 | `f(a := 2)` | `f(a = 2)` |
 | `d := infer { f(2) }`, `x := sample { d }` | `d = infer(f, 2)`, `x = sample(d)` |
-| `?Pr[g]`, `?Ex[e]`, `!Print`, `!Plot[x, y, 10]`, `?Opt[e, p, MAX]` | `query Pr[g];`, `query Ex[e];`, `print;`, `plot(x, y, 10);`, `optimize(e, p, MAX);` |
+| `?Pr[g]`, `?Ex[e]`, `?Var[e]`, `?Cov[e, f]`, `!Print`, `!Plot[x, y, 10]`, `?Opt[e, p, MAX]` | `query Pr[g];`, `query Ex[e];`, `query Var[e];`, `query Cov[e, f];`, `print;`, `plot(x, y, 10);`, `optimize(e, p, MAX);` |
 
 ## Grammar
 

@@ -267,7 +267,7 @@ def _non_finite_parts(result: "AnalysisResult", dist: "Distribution") -> List[st
     if is_non_finite(result.error_probability, names=names):
         parts.append("the error probability")
     for query in result.queries:
-        if (is_non_finite(query.value, names=names, infinity=query.kind == "expectation")
+        if (is_non_finite(query.value, names=names, infinity=query.kind in ("expectation", "variance"))
                 or is_non_finite(query.lower, names=names)
                 or is_non_finite(query.upper, names=names, infinity=True)):
             query.bound = Bound.UNKNOWN
@@ -403,7 +403,8 @@ class QueryResult:
     """The answer to one query of the program (``?Pr``, ``?Ex``, ``!Print``, ...)."""
 
     kind: str
-    """``probability``, ``marginal``, ``expectation``, ``print``, ``plot`` or ``optimization``."""
+    """``probability``, ``marginal``, ``expectation``, ``variance``, ``covariance``, ``print``, ``plot`` or
+    ``optimization``."""
     expr: Optional[str]
     value: Optional[str] = None
     value_float: Optional[float] = None
@@ -662,6 +663,10 @@ def _query_kind(instr) -> str:
     name = type(instr).__name__
     if name == "ExpectationInstr":
         return "expectation"
+    if name == "VarianceInstr":
+        return "variance"
+    if name == "CovarianceInstr":
+        return "covariance"
     if name == "ProbabilityQueryInstr":
         return "marginal" if isinstance(instr.expr, VarExpr) else "probability"
     if name == "PrintInstr":
