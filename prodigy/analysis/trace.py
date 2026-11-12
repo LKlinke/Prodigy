@@ -194,6 +194,12 @@ def certificate_checks(certificate: Optional[Mapping[str, Any]], failed: Optiona
     if failed is not None and (verdict in ("refuted", "unknown") or cert.get("condition")):
         status = "failed" if verdict == "refuted" else "unknown" if verdict == "unknown" else "failed"
         checks.append(_check("Certificate", status, describe_rejection(failed, cert)))
+    automatic = cert.get("automatic")
+    if automatic:
+        checks.append(_check("Automatic", "info",
+                             "An EVT invariant was synthesised and certified exact."
+                             if automatic.get("chosen") == "evt_synthesis" else
+                             f"No exact EVT invariant was found ({automatic.get('synthesis')}); unrolled instead."))
     if kind == "unrolling":
         done = cert.get("iterations_done", cert.get("iterations"))
         if cert.get("fixpoint"):
@@ -216,6 +222,12 @@ def certificate_checks(certificate: Optional[Mapping[str, Any]], failed: Optiona
             checks.append(found)
     elif kind == "evt_iteration":
         checks.append(_check("Iterations", "info", f"{cert.get('iterations')} application(s) of the EVT operator."))
+        checks.append(_check("Exploration", "info", "The iterates H_N are expected visiting times, not the output "
+                                                     "distribution; the result is their terminating part."))
+        guess = (cert.get("exploration") or {}).get("guess")
+        if guess:
+            checks.append(_check("Candidate", "info", f"Guessed EVT invariant {guess.get('candidate')} (not "
+                                                       "checked; use Check EVT invariant)."))
         found = _remaining(cert)
         if found:
             checks.append(found)

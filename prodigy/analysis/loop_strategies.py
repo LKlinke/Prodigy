@@ -281,9 +281,6 @@ class LoopStrategy:
     title: str
     """Short title for menus and forms."""
 
-    menu_text: str
-    """Text of the entry in the interactive CLI menu."""
-
     soundness: str
     """Nominal guarantee (see :class:`Bound`); the actual outcome may be weaker, e.g. when
     a side condition cannot be checked."""
@@ -294,6 +291,21 @@ class LoopStrategy:
     run: Callable[[LoopTask], LoopOutcome]
 
     params: Tuple[ParamSpec, ...] = ()
+
+    group: str = "other"
+    """What the strategy is for, one of the keys of :data:`STRATEGY_GROUPS` (``automatic``, ``exact``,
+    ``bounds``, ``explore``, ``other``). Menus and forms list the strategies by group."""
+
+    summary: str = ""
+    """One plain sentence: what you get, what you must provide, roughly what it costs. The CLI menu,
+    ``prodigy loop_strategies`` and the GUI show the same sentence."""
+
+    outcome: str = ""
+    """What the result is, in a few words (e.g. ``lower bound``, ``exact or upper bound``,
+    ``exploration``), for a chip next to the strategy."""
+
+    menu_text: str = ""
+    """Text of the entry in the interactive CLI menu; empty for ``title: summary``."""
 
     legacy_key: Optional[str] = None
     """Number of the entry in the historic CLI menu (``"1"`` … ``"6"``)."""
@@ -307,17 +319,51 @@ class LoopStrategy:
                 return spec
         raise KeyError(f"Strategy {self.name} has no parameter {name}")
 
+    @property
+    def menu_line(self) -> str:
+        """The entry of the interactive CLI menu."""
+        if self.menu_text:
+            return self.menu_text
+        return f"{self.title}: {self.summary}" if self.summary else self.title
+
     def to_json(self) -> Dict[str, Any]:
         return {
             "name": self.name,
             "title": self.title,
-            "menu_text": self.menu_text,
+            "group": self.group,
+            "summary": self.summary,
+            "outcome": self.outcome,
+            "menu_text": self.menu_line,
             "soundness": self.soundness,
             "description": self.description,
             "legacy_key": self.legacy_key,
             "requires_unconditioned": self.requires_unconditioned,
             "params": [p.to_json() for p in self.params if p.kind != "file"],
         }
+
+
+STRATEGY_GROUPS: Tuple[Tuple[str, str, str], ...] = (
+    ("automatic", "Automatic", "Prodigy picks: exact if it can prove it quickly, otherwise a lower bound."),
+    ("exact", "Exact result", "Prove the loop's output with an invariant: exact, or an upper bound if a side "
+                              "condition fails; without a proof, no result."),
+    ("bounds", "Bounds", "Sound bounds without proving termination: every query becomes an interval."),
+    ("explore", "Explore", "Insight into the loop for guessing an invariant; the result is only a lower bound."),
+    ("other", "More", "Strategies registered by extensions."),
+)
+"""The groups of loop strategies, in menu order: (key, title, one sentence)."""
+
+
+def strategy_groups() -> List[Tuple[str, str, str, List["LoopStrategy"]]]:
+    """The non-empty groups with their strategies, in menu order (within a group in the order of
+    :func:`loop_strategies`); strategies with an unknown group go to ``other``."""
+    known = {key for key, _, _ in STRATEGY_GROUPS}
+    strategies = loop_strategies()
+    groups = []
+    for key, title, text in STRATEGY_GROUPS:
+        members = [s for s in strategies if (s.group if s.group in known else "other") == key]
+        if members:
+            groups.append((key, title, text, members))
+    return groups
 
 
 _REGISTRY: Dict[str, LoopStrategy] = {}

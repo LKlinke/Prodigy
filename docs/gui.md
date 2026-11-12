@@ -23,7 +23,8 @@ Prodigy is tested with Python 3.11 and 3.14.
   run, what it certified. After each query (`query Pr[…]`, `?Pr[…]`) the value appears inline.
   The chip next to the title shows the syntax of the program; see [Two syntaxes](#two-syntaxes).
 * **Setup** (right): initial distribution (refused with a message unless it is proven to be a
-  distribution, see the language reference), one strategy per loop with its parameters,
+  distribution, see the language reference), one strategy per loop with its parameters (see
+  [Choosing a loop strategy](#choosing-a-loop-strategy)),
   analysis options (conditioning, simplification, number of coefficients, time
   limit, EVT synthesis strategy, solver, recording of intermediate distributions). The
   synthesis strategy *from heuristics* combines a template heuristic and a positivity
@@ -195,6 +196,64 @@ loop (`step_iterations`), spread evenly, plus the last. The command line records
 with `prodigy analyze --steps` (see the CLI documentation); the JSON keys are `steps` and `trace`
 (see `prodigy/analysis/trace.py`).
 
+## Choosing a loop strategy
+
+Each loop card has a pop-up button **Strategy** with one section per goal (#324). Below it, one
+sentence says what you get, what you must provide and roughly what it costs; the chip in the card's
+corner names the outcome. *How to choose a strategy* (above the loop cards) lists all of them.
+
+| Group | Strategies | What you get |
+| --- | --- | --- |
+| Automatic | Automatic (`auto`, the default) | exact if Prodigy finds an EVT invariant within a few seconds, otherwise a lower bound from unrolling N iterations |
+| Exact result | Check invariant, Check EVT invariant, Synthesise EVT invariant, EVT invariant from a language model | exact, or an upper bound if a side condition fails (finite mass, almost-sure termination); no result without a proof |
+| Bounds | Unroll N iterations, Iterate until mass captured, Check EVT sub-invariant, EVT sandwich | lower bounds (every query an interval) without a termination assumption; the sandwich also upper bounds |
+| Explore | Expected visiting times H_N (`evt_iterate`) | the iterates of the expected visiting times, to guess an EVT invariant; the result is only a lower bound |
+
+Parameters that must be given (an invariant, a sub-invariant) are shown right away; those with a
+default sit behind the disclosure **Parameters**, whose summary shows their values
+(`Iterations N = 25`). *About this strategy* has the longer description. The names, the `--loop`
+syntax and the CLI menu numbers stay as they were; the CLI menu, `prodigy loop_strategies` (grouped
+the same way) and the GUI use the same titles and sentences, which live in the registry
+(`LoopStrategy.group`, `summary`, `outcome`).
+
+**The default.** A loop without a decision gets *Automatic* (`auto`): it runs *Synthesise EVT
+invariant* with templates up to degree 2 and a time limit of 5 s (2 s per template), and keeps its
+result only if it is certified **exact**. Otherwise (no invariant, an invariant with infinite mass
+that only gives an upper bound, an observe statement before the loop, or any failure) it unrolls
+N = 25 iterations (50 on the command line), which gives a sound lower bound with residual mass.
+Both parts are the unchanged strategies with their own checks, so *Automatic* is exactly as sound
+as they are; the certificate says which one was used and why (`automatic`), and *Checks* shows it.
+Why this default: unrolling alone never gives an exact answer for a loop that does not terminate
+within N steps, while many textbook loops (geometric loops, sequential and nested loops) have small
+rational invariants that the synthesis finds in about a second; the time limit keeps the cost of a
+failed search small. An upper bound alone is not taken, since the lower bound of unrolling is the
+safer default answer.
+
+### Exploring expected visiting times
+
+*Expected visiting times H_N* (`evt_iterate`) iterates the EVT operator
+Ψ_G(H) = G + ⟦body⟧(⟨H⟩_guard) from 0. Its iterates are **not output distributions**: the
+coefficient of a state in H_N is the expected number of times the loop head is reached in that
+state within N iterations; their limit is the EVT invariant that *Check EVT invariant* checks. The
+result view shows a card **Expected visiting times** (labelled *exploration*) above the analysis
+card: a slider over N (up to 12 iterates, spread evenly), the closed form of H_N, and a table of the
+coefficients of the first 30 states (rows) for each N (columns), shaded by value; the value is
+always written in the cell, and the column of the chosen N is outlined. Below it, a **candidate**:
+a rational generating function guessed from the coefficients (per variable, SymPy's rational guess
+over the slices of the other variables, after extrapolating the last three iterates with Aitken's
+Δ² process), or, without one, the closed form of the chosen H_N. **Use as EVT invariant
+candidate** switches the loop to *Check EVT invariant*, fills in the candidate and focuses the field
+in Setup; Analyze then checks it exactly. The guess is only a proposal and never part of a result.
+For the loops of `pgfexamples/invariant_synthesis` `geometric`, `geometric_counter` and
+`thirds_geometric`, the guess after 20 iterations is proven exact; for random walks it usually finds
+none, since their coefficients converge slowly.
+
+The loop still contributes a sound **lower bound**: the terminating part of H_N, the mass that left
+the loop within N iterations (as before; the answer card says *lower bound*, and the exploration
+card says that this is not the program's distribution). The command line keeps the strategy for
+scripts; `prodigy analyze --json` has the exploration in the loop's certificate (`exploration`:
+`iterates`, `states`, `guess`).
+
 ## Two syntaxes
 
 The GUI reads and writes both syntaxes: the Python-like `.ppy` and the original pGCL
@@ -222,7 +281,7 @@ for the whole program:
 | Kind | Meaning | Produced by |
 | --- | --- | --- |
 | exact | equal to the semantics | loop-free code; unrolling/iteration that reaches a fixed point or leaves no mass in the loop; an EVT fixed point with non-negative coefficients **and finite mass** |
-| lower | coefficient-wise below the semantics; at most the *residual mass* r is unaccounted for | unroll N, iterate until mass captured, EVT iteration |
+| lower | coefficient-wise below the semantics; at most the *residual mass* r is unaccounted for | unroll N, iterate until mass captured, expected visiting times H_N, automatic (if no exact invariant was found) |
 | upper | coefficient-wise above the semantics (Park's lemma) | invariant check (exact if the loop terminates almost surely), EVT invariants with non-negative coefficients whose equation holds for the series (see below) |
 | unknown | no guaranteed direction | mixing lower and upper approximations, unchecked side conditions |
 
@@ -345,7 +404,7 @@ must parse as an expression of the program's syntax, before any computer algebra
 ### The Suggest button
 
 For teaching, a human in the loop is often better than the automatic strategy: the field *EVT
-invariant I* of *Check EVT invariant* and the field *EVT sub-invariant nu* of *EVT
+invariant I* of *Check EVT invariant* and the field *EVT sub-invariant nu* of *Check EVT
 sub-invariant* have a **Suggest** button. It analyses the program up to the loop (earlier loops
 with their strategies from Setup), asks the model once for a candidate for this loop and fills it
 into the field. The candidate is only a proposal: look at it, edit it if needed, and press
@@ -384,7 +443,7 @@ From the command line:
 
 ```sh
 prodigy analyze prog.ppy --loop 0=unroll:iterations=50 --json
-prodigy analyze prog.ppy --loop '*=evt_synthesis'           # same strategy for all loops
+prodigy analyze prog.ppy --loop '*=auto'                    # same strategy for all loops
 prodigy analyze prog.ppy --decisions decisions.json --output result.json
 prodigy loop_strategies                                     # strategies and parameters
 prodigy main prog.ppy --loop 0=unroll:iterations=10         # interactive, with presets
@@ -403,13 +462,15 @@ def run(task):            # task.instruction, task.distribution, task.param("n")
                        certificate={"type": "my_rule", ...}, messages=["..."])
 
 register_loop_strategy(LoopStrategy(
-    name="my_rule", title="My rule", menu_text="My rule (CLI menu text)", soundness=Bound.LOWER,
-    description="One or two sentences for the GUI.", run=run,
+    name="my_rule", title="My rule", group="bounds", outcome="lower bound", soundness=Bound.LOWER,
+    summary="A lower bound; you provide n; the cost grows with n.",   # CLI menu, loop_strategies, GUI
+    description="A few sentences for help texts.", run=run,
     params=(ParamSpec("n", "int", "Iterations", prompt="Iterations: ", default=10, minimum=0),)))
 ```
 
-The strategy then appears in the CLI menu (after the six historic entries), in
-`prodigy analyze`, and in the GUI's strategy menu with a form for its parameters.
+The strategy then appears in the CLI menu (after the historic entries), in `prodigy analyze`, and
+in the GUI's strategy pop-up in the section of its `group` (`automatic`, `exact`, `bounds`,
+`explore`, or `other`, shown as *More*) with a form for its parameters.
 
 ## HTTP API (used by the GUI)
 

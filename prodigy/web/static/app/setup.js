@@ -1,19 +1,41 @@
 // The Setup panel: input distribution, one strategy per loop, analysis options.
 import { h, icon } from "./components/dom.js";
 
-export const GUI_DEFAULTS = { unroll: { iterations: 25 }, evt_iterate: { iterations: 25 } };
+export const GUI_DEFAULTS = { auto: { iterations: 25 }, unroll: { iterations: 25 }, evt_iterate: { iterations: 25 } };
 
-const GROUPS = [
-  { title: "Bounds without termination assumption", test: (s) => s.soundness === "lower" },
-  { title: "Invariants", test: (s) => s.soundness === "upper" },
-  { title: "More", test: () => true },
+/** The groups of the strategy pop-up, by what the user wants (the registry's `group`, #324). */
+export const STRATEGY_GROUPS = [
+  ["automatic", "Automatic"],
+  ["exact", "Exact result"],
+  ["bounds", "Bounds"],
+  ["explore", "Explore"],
+  ["other", "More"],
 ];
 
-const SOUNDNESS = {
-  lower: { glyph: "≥", text: "lower bound" },
-  upper: { glyph: "≤", text: "upper bound" },
-  exact: { glyph: "✓", text: "exact" },
+const GROUP_HELP = {
+  automatic: "Prodigy picks: exact if it can prove it quickly, otherwise a lower bound.",
+  exact: "Prove the loop's output with an invariant: exact, or an upper bound if a side condition fails.",
+  bounds: "Sound bounds without proving termination: every query becomes an interval.",
+  explore: "Insight into the loop for guessing an invariant; the result is only a lower bound.",
 };
+
+/** The glyph of the chip next to a strategy (the text is the registry's `outcome`). */
+const OUTCOME_GLYPHS = { lower: "≥", upper: "≤", exact: "✓" };
+
+/** The strategies of each non-empty group, in menu order; an unknown group counts as "other". */
+export function groupStrategies(strategies) {
+  const known = new Set(STRATEGY_GROUPS.map(([key]) => key));
+  const groupOf = (s) => (known.has(s.group) ? s.group : "other");
+  return STRATEGY_GROUPS.map(([key, title]) => ({ key, title, members: strategies.filter((s) => groupOf(s) === key) }))
+    .filter((g) => g.members.length);
+}
+
+function outcomeChip(strategy) {
+  const text = strategy.outcome || { lower: "lower bound", upper: "upper bound", exact: "exact" }[strategy.soundness];
+  if (!text) return null;
+  const glyph = strategy.group === "explore" ? "◇" : OUTCOME_GLYPHS[strategy.soundness] || "";
+  return h("span", { class: "chip", title: `What you get: ${text}` }, h("span", { "aria-hidden": "true" }, glyph), text);
+}
 
 export function defaultParams(strategy) {
   const params = {};
@@ -23,9 +45,19 @@ export function defaultParams(strategy) {
   return { ...params, ...(GUI_DEFAULTS[strategy.name] || {}) };
 }
 
+/** The decision of a loop nobody chose a strategy for: "auto" (a short synthesis, accepted only if exact,
+ * otherwise unrolling), else unrolling. */
 export function defaultDecision(strategies) {
-  const unroll = strategies.find((s) => s.name === "unroll") || strategies[0];
-  return { strategy: unroll.name, params: defaultParams(unroll) };
+  const chosen = strategies.find((s) => s.name === "auto") || strategies.find((s) => s.name === "unroll") || strategies[0];
+  return { strategy: chosen.name, params: defaultParams(chosen) };
+}
+
+/** Parameters shown right away (they must be provided) and those behind the "Parameters" disclosure
+ * (they have a default or are optional). */
+export function splitParams(strategy) {
+  const params = strategy.params.filter((p) => p.kind !== "file");
+  const hasDefault = (p) => p.optional || (p.default !== null && p.default !== undefined) || GUI_DEFAULTS[strategy.name]?.[p.name] !== undefined;
+  return { required: params.filter((p) => !hasDefault(p)), more: params.filter(hasDefault) };
 }
 
 /** Drops the decisions of loops the program no longer has. Without an outline (before the first
@@ -74,6 +106,9 @@ function observeBefore(source, line) {
   const lines = source.split("\n").slice(0, Math.max(0, (line || 1) - 1));
   return lines.some((text) => /\bobserve\s*\(/.test(text.replace(/(#|\/\/).*$/, "")));
 }
+
+/** Loops (and strategies) whose "Parameters" disclosure is open; kept across re-renders. */
+const openParams = new Set();
 
 let uid = 0;
 const nextId = (prefix) => `${prefix}-${++uid}`;
@@ -242,19 +277,33 @@ function suggestAction(ctx, loop, strategy, param, control) {
   return { button, status };
 }
 
-function strategySelect(strategies, current, onChange) {
+/** A pop-up button with sections (one per group); the summary of the chosen strategy describes it. */
+function strategySelect(strategies, current, summaryId, onChange) {
   const id = nextId("strategy");
-  const select = h("select", { id });
-  const used = new Set();
-  for (const group of GROUPS) {
-    const members = strategies.filter((s) => !used.has(s.name) && group.test(s));
-    if (!members.length) continue;
-    members.forEach((s) => used.add(s.name));
-    select.append(h("optgroup", { label: group.title }, ...members.map((s) => h("option", { value: s.name }, s.title))));
+  const select = h("select", { id, "aria-describedby": summaryId });
+  for (const group of groupStrategies(strategies)) {
+    select.append(h("optgroup", { label: group.title },
+      ...group.members.map((s) => h("option", { value: s.name, title: s.summary || s.description }, s.title))));
   }
   select.value = current;
   select.addEventListener("change", () => onChange(select.value));
   return h("div", { class: "form-row" }, h("label", { for: id }, "Strategy"), select);
+}
+
+/** "How to choose": every group with its strategies and their one-sentence summaries. */
+function strategyGuide(strategies) {
+  return h("details", { class: "disclosure strategy-guide" }, h("summary", {}, "How to choose a strategy"),
+    h("div", { class: "disclosure-body" }, ...groupStrategies(strategies).map((group) => h("section", { class: "guide-group" },
+      h("h5", { class: "guide-title" }, group.title),
+      GROUP_HELP[group.key] ? h("p", { class: "help" }, GROUP_HELP[group.key]) : null,
+      h("dl", { class: "guide-list" }, ...group.members.flatMap((s) => [
+        h("dt", {}, s.title), h("dd", { class: "help" }, s.summary || s.description)]))))));
+}
+
+function paramSummary(params, values) {
+  const shown = params.filter((p) => values[p.name] !== undefined && values[p.name] !== null && values[p.name] !== "")
+    .map((p) => `${p.label.replace(/ \(.*\)$/, "")} = ${values[p.name]}`);
+  return shown.length ? shown.join(" · ") : "defaults";
 }
 
 function canSuggest(ctx, strategy, param) {
@@ -274,33 +323,56 @@ function loopCard(loop, ctx) {
   const render = () => {
     const decision = setup.decisions[key];
     const strategy = byName[decision.strategy];
-    const soundness = SOUNDNESS[strategy.soundness];
-    const params = strategy.params.filter((p) => p.kind !== "file");
+    const { required, more } = splitParams(strategy);
+    const summaryId = `loop-summary-${loop.id}`;
     const warnings = [];
     if (strategy.requires_unconditioned && observeBefore(source, loop.line)) {
       warnings.push(h("p", { class: "notice warning" }, icon("warning"),
         h("span", {}, "This strategy does not support observe statements before the loop.")));
     }
-    card.replaceChildren(
+    card.replaceChildren(...[
       h("div", { class: "loop-head" },
         h("h4", { id: `loop-title-${loop.id}`, class: "loop-name" }, `Loop ${loop.id} `,
           h("span", { class: "loop-line" }, loop.line ? `· line ${loop.line}` : "")),
-        soundness ? h("span", { class: "chip", title: `Nominal guarantee: ${soundness.text}` },
-          h("span", { "aria-hidden": "true" }, soundness.glyph), soundness.text) : null),
+        outcomeChip(strategy)),
       h("div", { class: "loop-code", title: `while (${loop.cond})` }, `while (${loop.cond})`),
-      strategySelect(strategies, decision.strategy, (name) => {
+      strategySelect(strategies, decision.strategy, summaryId, (name) => {
         setup.decisions[key] = { strategy: name, params: defaultParams(byName[name]) };
         render();
         onChange();
         card.querySelector("select")?.focus();
       }),
-      h("p", { class: "help" }, strategy.description),
+      h("p", { class: "help strategy-summary", id: summaryId }, strategy.summary || strategy.description),
       ...warnings,
-      params.length ? h("div", { class: "params" }, ...params.map((param) => paramField(param, decision.params[param.name], (value) => {
+      required.length ? h("div", { class: "params" }, ...required.map((p) => field(p))) : null,
+      more.length ? moreParams() : null,
+      strategy.summary && strategy.description ? h("details", { class: "disclosure strategy-about" },
+        h("summary", {}, "About this strategy"), h("div", { class: "disclosure-body" }, h("p", { class: "help" }, strategy.description))) : null,
+    ].filter(Boolean));
+
+    function field(param, onValue = null) {
+      return paramField(param, decision.params[param.name], (value) => {
         decision.params[param.name] = value;
+        onValue?.();
         onChange();
-      }, canSuggest(ctx, strategy, param) ? (control) => suggestAction(ctx, loop, strategy, param, control) : null))) : null,
-    );
+      }, canSuggest(ctx, strategy, param) ? (control) => suggestAction(ctx, loop, strategy, param, control) : null);
+    }
+
+    // parameters with defaults: behind a disclosure whose summary shows their values (progressive disclosure)
+    function moreParams() {
+      const note = h("span", { class: "disclosure-note" });
+      const update = () => { note.textContent = paramSummary(more, decision.params); };
+      update();
+      const details = h("details", { class: "disclosure loop-params" },
+        h("summary", {}, "Parameters ", note), h("div", { class: "disclosure-body params" }, ...more.map((p) => field(p, update))));
+      const openKey = `${key}:${strategy.name}`;
+      details.open = openParams.has(openKey) || more.some((p) => validateParam(p, decision.params[p.name]));
+      details.addEventListener("toggle", () => {
+        if (details.open) openParams.add(openKey);
+        else openParams.delete(openKey);
+      });
+      return details;
+    }
   };
   render();
   return card;
@@ -392,6 +464,7 @@ export function renderSetup(container, ctx) {
       h("span", { class: "section-note" }, loops.length ? `${loops.length}` : "")),
     ctx.outlineStale ? h("p", { class: "notice warning" }, icon("warning"),
       h("span", {}, "The program does not parse right now; the loops are those of the last version that did.")) : null,
+    loops.length ? strategyGuide(ctx.strategies) : null,
     loops.length ? loopCards : h("p", { class: "help" },
       outline ? "This program has no while loops; its semantics is computed exactly." : "Loops appear here once the program parses."));
 
@@ -407,13 +480,15 @@ export function renderSetup(container, ctx) {
   );
 }
 
-export function focusLoopCard(container, loopId) {
+/** Scrolls to the card of a loop and focuses its strategy pop-up, or with `field` its first text field. */
+export function focusLoopCard(container, loopId, { field = false } = {}) {
   const card = container.querySelector(`#loop-card-${loopId}`);
   if (!card) return;
   card.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   card.classList.add("focused");
   setTimeout(() => card.classList.remove("focused"), 1600);
-  card.querySelector("select")?.focus({ preventScroll: true });
+  const target = field ? card.querySelector(".params input.field, .params textarea") : null;
+  (target || card.querySelector("select"))?.focus({ preventScroll: true });
 }
 
 /** Problems that prevent running (shown next to the Analyze button). */

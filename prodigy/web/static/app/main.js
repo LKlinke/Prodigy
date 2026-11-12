@@ -263,6 +263,18 @@ function showLoop(loopId) {
   focusLoopCard($("panel-setup"), loopId);
 }
 
+/** "Use as EVT invariant candidate" of an exploration: the loop switches to Check EVT invariant with the
+ * candidate, and the Setup shows its field to review or edit before analysing again (#324). */
+function useEvtCandidate(loopId, candidate) {
+  state.setup.decisions[String(loopId)] = { strategy: "evt_invariant", params: { invariant: candidate } };
+  save("setup", state.setup);
+  markStale();
+  renderSetupPanel();
+  updateAnnotations();
+  selectTab("setup");
+  focusLoopCard($("panel-setup"), loopId, { field: true });
+}
+
 // ---- annotations in the editor ------------------------------------------------------------------
 
 function shortStrategy(decision) {
@@ -270,7 +282,8 @@ function shortStrategy(decision) {
   switch (decision.strategy) {
     case "unroll": return `Unroll, N = ${p.iterations ?? "?"}`;
     case "mass_threshold": return `Until mass ${p.threshold ?? "?"}`;
-    case "evt_iterate": return `EVT iteration, N = ${p.iterations ?? "?"}`;
+    case "auto": return `Automatic, N = ${p.iterations ?? "?"}`;
+    case "evt_iterate": return `Explore EVT, N = ${p.iterations ?? "?"}`;
     case "invariant": return "Invariant";
     case "evt_invariant": return "EVT invariant";
     case "evt_synthesis": return "EVT synthesis";
@@ -389,6 +402,8 @@ function renderResultPanel() {
     stale: state.resultStale,
     strategyTitles: state.titles,
     onSelectLoop: showLoop,
+    onUseCandidate: useEvtCandidate,
+    explorationState: explorationMemory(state.result),
     onSelectLine: (line) => editor.revealLine(line),
     elapsed: state.result.__elapsed,
     analysisState: analysisState(state.result),
@@ -407,6 +422,12 @@ function renderResultPanel() {
   state.analysis.card = analysis;
   const kind = state.result.status === "ok" ? state.result.bounds?.kind : "error";
   setBadge(state.resultStale ? null : kind);
+}
+
+/** The chosen N of each exploration card, kept while the result stays the same. */
+function explorationMemory(result) {
+  if (state.explorationView?.result !== result) state.explorationView = { result, loops: {} };
+  return state.explorationView.loops;
 }
 
 // ---- joint distributions (grids computed by the server from the result it keeps) ------------------
