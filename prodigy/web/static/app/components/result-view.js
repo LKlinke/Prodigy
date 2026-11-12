@@ -153,7 +153,7 @@ function errorView(result, options) {
 // ---- queries ---------------------------------------------------------------------------
 
 function queryLabel(query) {
-  const op = { probability: "Pr", expectation: "E", marginal: "Pr", optimization: "Opt", print: "Print", plot: "Plot" }[query.kind] || query.kind;
+  const op = { probability: "Pr", expectation: "E", variance: "Var", covariance: "Cov", marginal: "Pr", optimization: "Opt", print: "Print", plot: "Plot" }[query.kind] || query.kind;
   if (query.kind === "print") return [h("span", { class: "rv-q-op" }, "!Print")];
   if (query.kind === "plot") return [h("span", { class: "rv-q-op" }, "!Plot"), `[${query.expr}]`];
   return [h("span", { class: "rv-q-op" }, op), `[${query.expr ?? ""}]`];
@@ -199,7 +199,7 @@ function queryRow(query, result, options, overall = null) {
     : (query.line ? h("span", { class: "rv-q-line" }, `line ${query.line}`) : null);
   const head = h("div", { class: "rv-q-head" }, h("span", { class: "rv-q-expr mono" }, ...queryLabel(query)), lineButton);
 
-  if (query.kind === "probability" || query.kind === "expectation") {
+  if (["probability", "expectation", "variance", "covariance"].includes(query.kind)) {
     const value = h("div", { class: "rv-q-value-row" }, ...valueParts(query.value, query.value_float), boundNote(query, overall));
     const children = [head, value];
     if (query.kind === "probability" && query.value_float !== null && query.bound !== "exact") {

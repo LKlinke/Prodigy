@@ -403,7 +403,8 @@ class QueryResult:
     """The answer to one query of the program (``?Pr``, ``?Ex``, ``!Print``, ...)."""
 
     kind: str
-    """``probability``, ``marginal``, ``expectation``, ``variance``, ``covariance``, ``print``, ``plot`` or ``optimization``."""
+    """``probability``, ``marginal``, ``expectation``, ``variance``, ``covariance``, ``print``, ``plot`` or
+    ``optimization``."""
     expr: Optional[str]
     value: Optional[str] = None
     value_float: Optional[float] = None

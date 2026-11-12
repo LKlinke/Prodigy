@@ -42,7 +42,8 @@ from dataclasses import dataclass, field
 from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, Union,
                     cast, get_args)
 
-from prodigy.pgcl import (ChoiceInstr, CovarianceInstr, VarianceInstr, ExpectationInstr, Expr, IfInstr, Instr, LoopInstr, OptimizationQuery, PlotInstr,
+from prodigy.pgcl import (ChoiceInstr, CovarianceInstr, ExpectationInstr, VarianceInstr,
+                          Expr, IfInstr, Instr, LoopInstr, OptimizationQuery, PlotInstr,
                           PrintInstr, ProbabilityQueryInstr, Program, QueryInstr, WhileInstr)
 
 from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
@@ -65,7 +66,8 @@ _PPY_COMMENT_RE = re.compile(r"#.*$|/\*[\s\S]*?\*/", re.M)
 _WHILE_RE = re.compile(r"\bwhile\b")
 _QUERY_RE = re.compile(r"\?Pr\b|\?Ex\b|\?Var\b|\?Cov\b|\?Opt\b|!Print\b|!Plot\b")
 _PPY_QUERY_RE = re.compile(r"\bquery\s+(?:Pr|Ex|Var|Cov)\b|\bprint\s*;|\bplot\s*\(|\boptimize\s*\(")
-_QUERY_INSTRS = (CovarianceInstr, VarianceInstr, ExpectationInstr, OptimizationQuery, PlotInstr, PrintInstr, ProbabilityQueryInstr, QueryInstr)
+_QUERY_INSTRS = (CovarianceInstr, VarianceInstr, ExpectationInstr, OptimizationQuery, PlotInstr, PrintInstr,
+                 ProbabilityQueryInstr, QueryInstr)
 
 
 def _blank_comments(source: str, syntax: str = "pgcl") -> str:
@@ -243,8 +245,8 @@ class LoopRegistry:
         return len(self.loops)
 
 
-QUERY_INSTRUCTIONS = ("ExpectationInstr", "VarianceInstr", "CovarianceInstr", "ProbabilityQueryInstr", "PrintInstr", "PlotInstr",
-                      "OptimizationQuery")
+QUERY_INSTRUCTIONS = ("ExpectationInstr", "VarianceInstr", "CovarianceInstr", "ProbabilityQueryInstr",
+                      "PrintInstr", "PlotInstr", "OptimizationQuery")
 
 
 def query_instructions(program: Program) -> List[Instr]:

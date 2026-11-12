@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import logging
-
-import sympy
 from typing import get_args, Callable, Optional, Set, Union, Sequence
 
-from prodigy.pgcl import Instr, Query, ExpectationInstr, VarianceInstr, CovarianceInstr, VarExpr, NatLitExpr, RealLitExpr, BinopExpr, Binop, \
+import sympy
+
+from prodigy.pgcl import Instr, Query, ExpectationInstr, VarianceInstr, CovarianceInstr, VarExpr, NatLitExpr, \
+    RealLitExpr, BinopExpr, Binop, \
     UnopExpr, Unop, BoolLitExpr, ProbabilityQueryInstr, PlotInstr, PrintInstr, OptimizationQuery, OptimizationType, Expr
 
 from prodigy.analysis.config import ForwardAnalysisConfig

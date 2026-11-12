@@ -395,6 +395,8 @@ def test_queries():
         param p: real;
         query Pr[x == 3];
         query Ex[x + y];
+        query Var[x];
+        query Cov[x, y];
         print;
         plot(x);
         plot(x, y);
@@ -409,6 +411,8 @@ def test_queries():
         nat x; nat y; rparam p;
         ?Pr[x = 3]
         ?Ex[x + y]
+        ?Var[x]
+        ?Cov[x, y]
         !Print
         !Plot[x]
         !Plot[x, y]
@@ -425,8 +429,8 @@ def test_queries():
 def test_query_errors():
     with pytest.raises(PpySyntaxError, match="line 1, column 9: Queries must come at the end"):
         parse_ppy("x: nat; query Pr[x == 1]; x = 1;")
-    with pytest.raises(PpySyntaxError, match="Unknown query 'Var'"):
-        parse_ppy("x: nat; query Var[x];")
+    with pytest.raises(PpySyntaxError, match="Unknown query 'Foo'"):
+        parse_ppy("x: nat; query Foo[x];")
     with pytest.raises(PpySyntaxError, match="either MAX or MIN"):
         parse_ppy("x: nat; param p: real; optimize(x, p, BEST);")
 
