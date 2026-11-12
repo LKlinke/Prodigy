@@ -499,16 +499,47 @@ class LoopRecord:
     inside_checks: int = 0
     """How many of the invocations happened inside the check of another loop's invariant."""
     suppressed_messages: int = 0
+    execution_kinds: Dict[str, int] = field(default_factory=dict)
+    """How many executions that returned an outcome gave each kind of guarantee."""
+    execution_messages: Dict[str, int] = field(default_factory=dict)
+    """The messages of the outcomes, each with the number of executions that gave it (in order)."""
 
     MAX_MESSAGES = 4
 
     def add_message(self, message: str) -> None:
+        """A message that does not belong to one outcome (a note, the error of a failed execution)."""
         if message in self.messages:
             return
         if len(self.messages) >= self.MAX_MESSAGES:
             self.suppressed_messages += 1
             return
         self.messages.append(message)
+
+    def add_outcome(self, kind: str, messages: Sequence[str]) -> None:
+        """Books the guarantee and the messages of one execution of the loop."""
+        self.execution_kinds[kind] = self.execution_kinds.get(kind, 0) + 1
+        for message in dict.fromkeys(messages):
+            self.execution_messages[message] = self.execution_messages.get(message, 0) + 1
+
+    def outcome_messages(self) -> List[str]:
+        """The messages of the outcomes. A loop that ran several times (e.g. inside another loop) gets
+        the messages that all its executions gave and, if the others differ between executions (e.g.
+        the residual mass of each), one summary instead of them (#229)."""
+        executions = sum(self.execution_kinds.values())
+        common = [message for message, count in self.execution_messages.items() if count == executions]
+        if len(common) == len(self.execution_messages):
+            return common
+        return common + [self._summary(executions)]
+
+    def _summary(self, executions: int) -> str:
+        order = (Bound.UNKNOWN, Bound.UPPER, Bound.LOWER, Bound.EXACT)
+        labels = {Bound.UNKNOWN: "no guarantee", Bound.UPPER: "upper bound", Bound.LOWER: "lower bound",
+                  Bound.EXACT: "exact"}
+        counts = [f"{labels[kind]} in {self.execution_kinds[kind]}" for kind in order if kind in self.execution_kinds]
+        summary = f"{executions} executions: {', '.join(counts)}"
+        if self.execution_kinds.get(Bound.LOWER) and self.residual != 0:
+            summary += f"; in total, mass {self.residual} is still inside the loop"
+        return summary + "."
 
     def to_json(self) -> Dict[str, Any]:
         from prodigy.analysis.result import exact_and_float  # pylint: disable=import-outside-toplevel
@@ -526,8 +557,8 @@ class LoopRecord:
             "residual_mass_float": residual_float,
             "time": round(self.time, 6),
             "certificates": self.certificates,
-            "messages": self.messages + ([f"… {self.suppressed_messages} similar message(s) omitted."]
-                                         if self.suppressed_messages else []),
+            "messages": self.outcome_messages() + self.messages
+            + ([f"… {self.suppressed_messages} similar message(s) omitted."] if self.suppressed_messages else []),
             "failed": self.failed,
             "inside_checks": self.inside_checks,
         }
@@ -810,8 +841,7 @@ class AnalysisSession:
         record.kind = Bound.combine(record.kind, outcome.kind)
         if outcome.certificate:
             record.certificates.append(outcome.certificate)
-        for message in outcome.messages:
-            record.add_message(message)
+        record.add_outcome(outcome.kind, outcome.messages)
 
         scope = self.scope
         if not self.silent:
