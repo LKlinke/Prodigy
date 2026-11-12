@@ -8,7 +8,7 @@ In the measures below, the coefficient of `a` is `w - b^2`, which is 0 at w = b 
 `a` has no term `a`, but the measure has states with a = 1 (with mass 1 and -1).
 
 Also #257: a literal modulus or divisor 0 gives the same error on all engines (GiNaC reported a
-non-finite marginal on a measure with infinite mass).
+non-finite marginal on a measure with infinite mass), and #273: so does a variable with the value 0.
 """
 import pytest
 import sympy
@@ -16,6 +16,7 @@ import sympy
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler.state_dependent import split_states
 from prodigy.analysis.nested_inference import _values
+from prodigy.distribution import ZeroDivisorError
 from prodigy.pgcl.parser import parse_expr
 
 ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE,
@@ -147,6 +148,35 @@ def test_divisor_variable_with_value_zero_on_infinite_measure(engine):
         dist = config.factory.from_expr("(a/2 + b/2)/(2 - w)", "a", "b", "w", "x")
         with pytest.raises(ValueError, match="modulus has to be positive, got 0"):
             dist.update(parse_expr("x = b % a"))
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+@pytest.mark.parametrize("simplification", SIMPLIFICATION)
+@pytest.mark.parametrize("function", ["a/2 + b/2", "(a/2 + b/2)/(2 - w)"])
+@pytest.mark.parametrize("assignment, message", [
+    ("x = b % a", r"The modulus has to be positive, got 0\. \(in b % a\)"),
+    ("x = b / a", r"Division by zero: the divisor is 0\. \(in b / a\)"),
+    ("x = (b + 1) % a", r"The modulus has to be positive, got 0\. \(in \(b \+ 1\) % a\)"),
+    ("x = b % 0", r"The modulus has to be positive, got 0\. \(in b % 0\)"),
+    ("x = b / 0", r"Division by zero: the divisor is 0\. \(in b / 0\)"),
+])
+def test_divisor_zero_gives_one_error_naming_the_expression(engine, simplification, function, assignment, message):
+    # #273: a variable divisor or modulus with the value 0 on a finite distribution raised ZeroDivisionError
+    # (SymPy, SymEngine) or RuntimeError (GiNaC); now the error of the literal case, naming the expression
+    config = _config(engine, simplification)
+    with config.activate():
+        dist = config.factory.from_expr(function, "a", "b", "w", "x")
+        with pytest.raises(ZeroDivisorError, match=message):
+            dist.update(parse_expr(assignment))
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_divisor_variable_without_value_zero(engine):
+    config = _config(engine)
+    with config.activate():
+        dist = config.factory.from_expr("a^2/2 * b^3 + a/2 * b^4", "a", "b", "x")
+        result = dist.update(parse_expr("x = b % a"))
+        assert sympy.simplify(_sympy(result) - (A ** 2 * B ** 3 * X / 2 + A * B ** 4 / 2)) == 0
 
 
 @pytest.mark.parametrize("engine", ENGINES)
