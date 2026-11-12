@@ -1,9 +1,6 @@
-// Transitions of the stepper (issue #198): two consecutive views are keyframes, and the values in
-// between are interpolated with ease-in/ease-out on requestAnimationFrame. Interpolated numbers
-// are only a transition: they are shown muted and hidden from assistive technology, and the exact
-// value replaces them at the end. With prefers-reduced-motion, only the end state is shown.
-import { h } from "./dom.js";
-import { formatNumber } from "./format.js";
+// Transitions of the analysis card's timeline (issues #198, #311): two consecutive positions are
+// keyframes, and the bars of a marginal chart are interpolated between them with ease-in/ease-out
+// on requestAnimationFrame. With prefers-reduced-motion, only the end state is shown.
 
 export const reducedMotion = () => Boolean(globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
 
@@ -148,61 +145,4 @@ export function tweenChart(find, from, duration) {
     const svg = find();
     if (svg?.dataset.max && svg.dataset.scale !== "log" && svg.dataset.variable === from.variable) applyChart(svg, from, e);
   });
-}
-
-// ---- numbers -------------------------------------------------------------------------------
-
-/**
- * Counts the number shown in `element` from `from` to `to`. While it counts, a muted, approximate
- * number is shown and hidden from assistive technology; the element's own (exact) content stays
- * in the document for screen readers and is shown again at the end.
- */
-export function countNumber(element, from, to, duration, { digits = 4, integer = false } = {}) {
-  if (!element || !Number.isFinite(from) || !Number.isFinite(to) || from === to) return null;
-  const exact = h("span", { class: "tw-exact" }, ...element.childNodes);
-  const live = h("span", { class: "tw-live", "aria-hidden": "true" });
-  element.replaceChildren(exact, live);
-  element.classList.add("tw-counting");
-  return tween(duration, (e) => {
-    const value = lerp(from, to, e);
-    element.dataset.current = String(value);
-    live.textContent = integer ? Math.round(value).toLocaleString("en-US") : `≈ ${formatNumber(value, digits)}`;
-  }, () => {
-    element.classList.remove("tw-counting");
-    delete element.dataset.current;
-    element.replaceChildren(...exact.childNodes);
-  });
-}
-
-// ---- closed forms ----------------------------------------------------------------------------
-
-/**
- * Cross-fades the formula box `box` (formula-box.js) from the content `previous` (a clone of the
- * previous box's scroll area). The box keeps its size: the old content lies over the new one.
- */
-export function crossFade(box, previous, duration) {
-  const frame = box?.querySelector(".formula-frame");
-  const scroller = box?.querySelector(".formula-scroll");
-  if (!frame || !previous) return null;
-  const ghost = h("div", { class: "formula-ghost", "aria-hidden": "true" }, previous.node);
-  frame.append(ghost);
-  ghost.scrollTop = previous.scrollTop;
-  ghost.scrollLeft = previous.scrollLeft;
-  return tween(duration, (e) => {
-    ghost.style.opacity = String(1 - e);
-    scroller.style.opacity = String(e);
-  }, () => {
-    ghost.remove();
-    scroller.style.opacity = "";
-  });
-}
-
-/** What crossFade needs of the box that is about to be replaced. */
-export function formulaState(box) {
-  const scroller = box?.querySelector(".formula-scroll");
-  if (!scroller) return null;
-  const node = scroller.querySelector(".formula-content")?.cloneNode(true);
-  if (!node) return null;
-  // in the middle of a cross-fade, continue from what is visible: the newer content
-  return { node, scrollTop: scroller.scrollTop, scrollLeft: scroller.scrollLeft };
 }

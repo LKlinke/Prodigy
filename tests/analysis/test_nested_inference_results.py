@@ -83,6 +83,8 @@ def test_trace_shows_dist_values_apart():
     assert "d" not in after["closed_form"] and set(after["marginals"]) == {"n", "x"} - {"x"} | {"x"}
     assert sorted(entry["infer"] for entry in after["dists"] if entry["variable"] == "d") == \
         ["infer(g, n = 0)", "infer(g, n = 1)"]
+    # rendered with KaTeX in the GUI, like the closed forms of the result (#217)
+    assert all(entry["latex"] for entry in after["dists"] if entry["closed_form"])
     before = steps["d = infer(g, n);"]["before"]
     assert [entry["infer"] for entry in before["dists"] if entry["variable"] == "d"] == [None]
 

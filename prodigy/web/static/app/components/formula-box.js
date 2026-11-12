@@ -3,21 +3,20 @@
 // The box keeps its size while the expression grows or changes: the content scrolls inside it in
 // both directions (never the page), and when it is taller than the box a "Show more" button
 // enlarges the box (still bounded, still scrolling). The scroll area takes the keyboard focus only
-// while it has something to scroll. With `reserve`, the box has a fixed height whatever its
-// content, so that the views below it do not move when the expression changes (the stepper).
+// while it has something to scroll.
 import { h } from "./dom.js";
 import { renderMath } from "./math.js";
 
 let counter = 0;
 
 /**
- * formulaBox({ latex, text, kind, label, reserve, expanded, onToggle, className })
+ * formulaBox({ latex, text, kind, label, expanded, onToggle, className })
  *   kind: "math" renders `latex` with KaTeX (falling back to `text`); "text" shows `text` as code.
  *   label: accessible name of the scroll area, e.g. "Generating function".
  *   expanded / onToggle(expanded): initial state and a callback, so that a caller can keep the
  *   state across re-renderings.
  */
-export function formulaBox({ latex = null, text = "", kind = "math", label = "Expression", reserve = false,
+export function formulaBox({ latex = null, text = "", kind = "math", label = "Expression",
   expanded = false, onToggle = null, className = "" } = {}) {
   counter += 1;
   const id = `formula-${counter}`;
@@ -26,11 +25,11 @@ export function formulaBox({ latex = null, text = "", kind = "math", label = "Ex
   if (kind === "math") renderMath(content, latex, text);
   const scroller = h("div", { class: "formula-scroll", id, role: "region", "aria-label": label }, content);
   const frame = h("div", { class: "formula-frame" }, scroller);
-  // hidden until the box is measured (reserved boxes keep the space of the button's line)
+  // hidden until the box is measured
   const toggle = h("button", { type: "button", class: "link-button formula-toggle", "aria-controls": id, "aria-expanded": "false", hidden: true });
   const foot = h("div", { class: "formula-foot" }, toggle);
   const box = h("div", { class: `formula-box fb-${kind} ${className}`.trim(), "data-expanded": "false",
-    "data-reserve": reserve ? "true" : "false", "data-overflow": "false" }, frame, foot);
+    "data-overflow": "false" }, frame, foot);
 
   let isExpanded = Boolean(expanded);
   let collapsedHeight = 0;
@@ -43,9 +42,8 @@ export function formulaBox({ latex = null, text = "", kind = "math", label = "Ex
     const scrollable = scrollHeight > clientHeight + 1 || scrollWidth > clientWidth + 1;
     box.dataset.overflow = String(tall);
     box.dataset.atEnd = String(scrollTop + clientHeight >= scrollHeight - 1);
-    // the toggle shows only when there is more to show (a reserved box keeps the space of its line);
-    // an expanded reserved box keeps its fixed height, so it always offers "Show less"
-    toggle.hidden = !tall && !(reserve && isExpanded);
+    // the toggle shows only when there is more to show
+    toggle.hidden = !tall;
     if (scrollable) scroller.setAttribute("tabindex", "0");
     else scroller.removeAttribute("tabindex");
   };

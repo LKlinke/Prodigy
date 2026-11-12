@@ -141,7 +141,7 @@ export function marginalChart(table, { residual = null, residualExact = null, va
     const showLabel = bar.kind !== "value" || (index % labelEvery === 0 && !crowdedByExtra);
     const kindClass = bar.kind === "value" && (bound === "upper" || bound === "unknown") ? `mc-${bound}` : `mc-${bar.kind}`;
     const hatched = bar.kind === "residual" || (bar.kind === "value" && bound === "upper");
-    // data-* keep the bar's own state, so that the stepper can tween from one chart to the next (motion.js)
+    // data-* keep the bar's own state, so that the analysis card can tween from one chart to the next (motion.js)
     return s("g", { class: `mc-bar ${kindClass}`, "data-key": bar.kind === "value" ? `v${bar.label}` : bar.kind },
       s("title", {}, bar.title),
       s("rect", { x: cx - barW / 2, y: top + plotH - barHeight, width: barW, height: barHeight, rx: Math.min(3, barW / 4),
@@ -185,11 +185,12 @@ export function marginalTable(table, { variable = "x", bound = "exact" } = {}) {
  *   total     the total mass of the output distribution
  *   shown     the mass of the values the figure shows (`shownLabel`)
  *   beyond    the mass of the other values (`beyondLabel`)
- *   residual  for a lower bound, the hatched "?" mass not yet accounted for
+ *   residual  for a lower bound, the hatched "?" mass not yet accounted for (`residualLabel`)
  * Each part is {exact, p} or null; parts that are null are left out.
  */
 export function massSummary({ total = null, shown = null, beyond = null, residual = null,
-  shownLabel = "Shown", beyondLabel = "Beyond the shown values" } = {}) {
+  shownLabel = "Shown", beyondLabel = "Beyond the shown values",
+  residualLabel = "? Not yet accounted for — may still end with any value, or never terminate" } = {}) {
   const width = 300;
   const hatch = `hatch-${++patternCounter}`;
   const value = (part) => (part && Number.isFinite(part.p) ? part.p : 0);
@@ -215,7 +216,7 @@ export function massSummary({ total = null, shown = null, beyond = null, residua
   if (shown) items.push(item("shown", shownLabel, shown));
   if (beyond) items.push(item("outside", beyondLabel, beyond));
   if (residual && value(residual) > 0) {
-    items.push(item("residual", "? Not yet accounted for — may still end with any value, or never terminate", residual));
+    items.push(item("residual", residualLabel, residual));
   }
   const id = `rv-mass-${patternCounter}`;
   return h("section", { class: "rv-mass", "aria-labelledby": id },
@@ -225,4 +226,99 @@ export function massSummary({ total = null, shown = null, beyond = null, residua
         s("defs", {}, hatchPattern(hatch)), s("rect", { class: "rv-mass-track", width, height: 12, rx: 3 }), ...rects),
       h("div", { class: "rv-mass-ends", "aria-hidden": "true" }, h("span", {}, "0"), h("span", {}, formatNumber(full, 4)))),
     h("ul", { class: "rv-mass-items" }, ...items));
+}
+
+/**
+ * A chart over the positions of the analysis timeline (timeline.js): the size of the closed form as
+ * a line, or the time per step as bars. `values[i]` is the value at position i (null: none; the line
+ * breaks, no bar). The loop segments are shaded and labelled, the current position is marked with
+ * a rule, an outlined point or bar and its value. A click picks the nearest position (`onPick`); the
+ * keyboard moves through the timeline instead. Plain SVG with an accessible summary (`label`).
+ */
+export function positionChart({ values, segments = [], current = 0, kind = "line", scale = "linear",
+  width: pixelWidth = 560, format = (v) => formatNumber(v, 3), label = "", segmentLabel = null, onPick = null } = {}) {
+  const n = values.length;
+  const width = Math.max(260, Math.round(pixelWidth));
+  const height = 176;
+  const top = 18;
+  const bottom = 22;
+  const left = 4;
+  const right = 52;
+  const plotW = width - left - right;
+  const plotH = height - top - bottom;
+  const slot = plotW / Math.max(1, n);
+  const cx = (i) => left + slot * (i + 0.5);
+  const present = values.filter((v) => Number.isFinite(v));
+  const axis = scale === "log" ? logAxis(present) : null;
+  const max = axis ? 10 ** axis.hi : niceMax(Math.max(0, ...present));
+  const fraction = axis
+    ? (v) => (v > 0 ? Math.max(0, Math.min(1, (Math.log10(v) - axis.lo) / Math.max(1, axis.hi - axis.lo))) : 0)
+    : (v) => (max > 0 ? v / max : 0);
+  const y = (v) => top + plotH * (1 - fraction(v));
+
+  const bands = segments.map((segment) => {
+    const x0 = left + slot * segment.from;
+    const w = slot * (segment.to - segment.from + 1);
+    const text = segmentLabel ? segmentLabel(segment) : `loop ${segment.loop}`;
+    return s("g", { class: "pc-band" }, s("rect", { x: x0, y: top - 14, width: Math.max(2, w), height: plotH + 14 }),
+      w > 36 ? s("text", { x: x0 + 4, y: top - 4 }, text) : null);
+  });
+  const grid = axis
+    ? axis.ticks.map((k) => s("g", { class: "mc-grid" },
+      s("line", { x1: left, x2: left + plotW, y1: y(10 ** k), y2: y(10 ** k) }),
+      s("text", { x: left + plotW + 6, y: y(10 ** k) + 4 }, powerOfTen(k))))
+    : [0, max / 2, max].map((tick) => s("g", { class: "mc-grid" },
+      s("line", { x1: left, x2: left + plotW, y1: y(tick), y2: y(tick) }),
+      s("text", { x: left + plotW + 6, y: y(tick) + 4 }, format(tick))));
+  if (axis) grid.push(s("text", { class: "mc-scale", x: left + plotW + 6, y: top + plotH + 4 }, "log"));
+
+  const marks = [];
+  if (kind === "line") {
+    let run = [];
+    const flush = () => {
+      if (run.length > 1) marks.push(s("polyline", { class: "pc-line", points: run.join(" ") }));
+      if (run.length === 1) marks.push(s("circle", { class: "pc-dot", cx: run[0].split(",")[0], cy: run[0].split(",")[1], r: 2 }));
+      run = [];
+    };
+    values.forEach((v, i) => {
+      if (Number.isFinite(v)) run.push(`${cx(i).toFixed(1)},${y(v).toFixed(1)}`);
+      else flush();
+    });
+    flush();
+  } else {
+    const barW = Math.max(1, Math.min(28, slot * 0.7));
+    values.forEach((v, i) => {
+      if (!Number.isFinite(v) || i === current) return;
+      const h0 = Math.max(v > 0 ? 1 : 0, plotH * fraction(v));
+      marks.push(s("rect", { class: "pc-bar", x: cx(i) - barW / 2, y: top + plotH - h0, width: barW, height: h0 }));
+    });
+  }
+  // the current position: a rule, the outlined mark and its value (or "no value")
+  const v = values[current];
+  const known = Number.isFinite(v);
+  const xc = cx(current);
+  const currentMarks = [s("line", { class: "pc-rule", x1: xc, x2: xc, y1: top - 14, y2: top + plotH })];
+  if (known && kind === "line") currentMarks.push(s("circle", { class: "pc-current", cx: xc, cy: y(v), r: 4.5 }));
+  if (known && kind === "bars") {
+    const barW = Math.max(3, Math.min(28, slot * 0.7));
+    const h0 = Math.max(v > 0 ? 2 : 0, plotH * fraction(v));
+    currentMarks.push(s("rect", { class: "pc-current", x: xc - barW / 2, y: top + plotH - h0, width: barW, height: h0 }));
+  }
+  const text = known ? format(v) : "no value";
+  const anchorEnd = xc > left + plotW * 0.7;
+  const ty = known ? Math.max(top + 10, y(v) - 8) : top + plotH / 2;
+  currentMarks.push(s("text", { class: "pc-value", x: xc + (anchorEnd ? -7 : 7), y: ty, "text-anchor": anchorEnd ? "end" : "start" }, text));
+
+  const svg = s("svg", { class: `position-chart pc-${kind}`, viewBox: `0 0 ${width} ${height}`, width, height, role: "img",
+    "aria-label": label }, ...bands, ...grid, ...marks,
+  s("line", { class: "mc-axis", x1: left, x2: left + plotW, y1: top + plotH, y2: top + plotH }), ...currentMarks);
+  if (onPick) {
+    svg.classList.add("pc-pickable");
+    svg.addEventListener("click", (event) => {
+      const rect = svg.getBoundingClientRect();
+      const px = ((event.clientX - rect.left) / Math.max(1, rect.width)) * width;
+      onPick(Math.max(0, Math.min(n - 1, Math.floor((px - left) / slot))));
+    });
+  }
+  return svg;
 }

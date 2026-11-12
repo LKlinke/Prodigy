@@ -180,21 +180,35 @@ def test_bad_watches_are_rejected_before_running(client):
     assert result["status"] == "error" and "not a variable" in result["error"]["message"]
 
 
-def test_page_has_the_stepper(client):
+COMPONENTS = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components"
+
+
+def test_page_has_the_analysis_card_and_no_steps_tab(client):
+    """The Steps tab is folded into the result's analysis card (#311): the inspector has Setup and
+    Result only, and the stepper's files are gone."""
     page = client.get("/", headers=HOST)
-    assert b'id="tab-steps"' in page.data and b'id="panel-steps"' in page.data and b"stepper.css" in page.data
-    for path in ("app/components/stepper.js", "app/components/stepper.css"):
+    assert b'id="tab-steps"' not in page.data and b'id="panel-steps"' not in page.data
+    assert b'id="tab-setup"' in page.data and b'id="tab-result"' in page.data and b"analysis-card.css" in page.data
+    for path in ("app/components/analysis-card.js", "app/components/analysis-card.css", "app/components/timeline.js",
+                 "app/components/parts.js"):
         response = client.get(f"/static/{path}", headers=HOST)
         assert response.status_code == 200, path
         response.close()
+    for path in ("app/components/stepper.js", "app/components/stepper.css"):
+        response = client.get(f"/static/{path}", headers=HOST)
+        assert response.status_code == 404, path
+        response.close()
+    main = (COMPONENTS.parent / "main.js").read_text(encoding="utf-8")
+    assert 'TABS = ["setup", "result"]' in main and "stepper" not in main
 
 
 def test_formulas_are_rendered_in_bounded_boxes(client):
     """Every KaTeX rendering goes through formula-box.js, whose box is bounded (issue #196)."""
-    components = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components"
-    for name in ("result-view.js", "stepper.js"):
+    components = COMPONENTS
+    for name in ("analysis-card.js", "parts.js"):
         source = (components / name).read_text(encoding="utf-8")
         assert 'from "./formula-box.js"' in source and "renderMath" not in source, name
+    assert "renderMath" not in (components / "result-view.js").read_text(encoding="utf-8")
     box = (components / "formula-box.js").read_text(encoding="utf-8")
     assert "aria-expanded" in box and "tabindex" in box and "ResizeObserver" in box
     css = (components / "result-view.css").read_text(encoding="utf-8")
@@ -204,16 +218,19 @@ def test_formulas_are_rendered_in_bounded_boxes(client):
     response.close()
 
 
-def test_stepper_transitions_respect_reduced_motion(client):
-    """The stepper tweens between steps on requestAnimationFrame and shows only the end state
-    with reduced motion (issue #198)."""
-    components = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components"
-    motion = (components / "motion.js").read_text(encoding="utf-8")
+def test_timeline_respects_reduced_motion_and_never_plays_by_itself(client):
+    """Moving along the timeline tweens the bars on requestAnimationFrame, and only jumps with
+    reduced motion (#198, #311); playing starts only from the Play button (no autoplay)."""
+    motion = (COMPONENTS / "motion.js").read_text(encoding="utf-8")
     assert "requestAnimationFrame" in motion and "prefers-reduced-motion" in motion
-    # interpolated numbers are hidden from assistive technology; the exact value stays readable
-    assert '"aria-hidden": "true"' in motion and "tw-exact" in motion
-    stepper = (components / "stepper.js").read_text(encoding="utf-8")
-    assert 'from "./motion.js"' in stepper and "reducedMotion()" in stepper
+    card = (COMPONENTS / "analysis-card.js").read_text(encoding="utf-8")
+    assert 'from "./motion.js"' in card and "reducedMotion()" in card
+    timeline = (COMPONENTS / "timeline.js").read_text(encoding="utf-8")
+    # the only timer of the timeline is started by a click on Play
+    assert timeline.count("setInterval(") == 1
+    assert timeline.index('play.addEventListener("click"') < timeline.index("setInterval(")
+    css = (COMPONENTS / "analysis-card.css").read_text(encoding="utf-8")
+    assert "@media (prefers-reduced-motion: reduce)" in css
     response = client.get("/static/app/components/motion.js", headers=HOST)
     assert response.status_code == 200
     response.close()
@@ -239,14 +256,80 @@ def test_log_axis_of_the_bar_charts(tmp_path):
         "10⁻¹²", "1"]
 
 
-def test_stepper_instruction_has_a_fixed_box(client):
-    """The instruction of a step sits in a reserved formula box, so stepping does not move the view (#206)."""
-    components = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components"
-    stepper = (components / "stepper.js").read_text(encoding="utf-8")
-    assert 'className: "st-code"' in stepper and 'h("pre", { class: "rv-pre st-code" }' not in stepper
-    css = (components / "stepper.css").read_text(encoding="utf-8")
-    assert ".formula-box.st-code { --fb-collapsed:" in css and ".st-instruction-notes { min-height:" in css
-    assert client.get("/static/app/components/stepper.css", headers=HOST).status_code == 200
+def test_timeline_does_not_move_while_stepping():
+    """The parts of the analysis card above the timeline keep their largest height while the
+    timeline moves, so that its buttons stay under the pointer (#206, #311)."""
+    card = (COMPONENTS / "analysis-card.js").read_text(encoding="utf-8")
+    assert "const reserve = (reset)" in card and "part.style.minHeight" in card and "reserve(reset);" in card
+
+
+TIMELINE_CHECK = """
+const t = await import(%(module)r);
+const result = JSON.parse(await (await import("node:fs/promises")).readFile(%(path)r, "utf-8"));
+const model = t.timelinePositions(result);
+const labels = model.positions.map((p) => t.positionLabel(result, p));
+const data = model.positions.map((p) => t.positionData(result, p));
+console.log(JSON.stringify({
+  kinds: model.positions.map((p) => p.kind), segments: model.segments, final: model.final, labels,
+  snapshots: data.map((d) => d.snapshot ? d.snapshot.size : null),
+  sizes: t.sizeSeries(result, model), times: t.timeSeries(result, model).map((v) => v === null ? null : "t"),
+  ofStep: model.positions.map((_, i) => i).filter((i) => model.positions[i].kind === "step").map((i) => model.positions[i].step),
+  stepOfWhile: t.positionOfStep(model, 1), missing: t.positionOfStep(model, 99),
+  breakNext: t.breakpointTarget(result, model, 0, new Set([4]), 1), breakNone: t.breakpointTarget(result, model, 0, new Set([77]), 1),
+  breakBack: t.breakpointTarget(result, model, model.final, new Set([2]), -1),
+}));
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_trace_to_timeline_mapping(client, tmp_path):
+    """The timeline of the analysis card (#311) maps a recorded trace to positions: one per step,
+    the recorded iterates of a loop inside its segment before the loop's exit, the final result
+    last; sizes and times per position, null where the trace has none (iterates are not timed)."""
+    response = client.post("/api/analyze", json={
+        "source": GEOMETRIC, "engine": "sympy", "record_steps": True, "step_iterations": 3,
+        "decisions": {"0": {"strategy": "unroll", "params": {"iterations": 3}}}}, headers=HOST)
+    result = wait_for(client, response.get_json()["job"])["result"]
+    assert result["status"] == "ok"
+    iterates = len(result["steps"][1]["loop"]["iterates"])
+    path = tmp_path / "result.json"
+    path.write_text(json.dumps(result), encoding="utf-8")
+    script = tmp_path / "check.mjs"
+    script.write_text(TIMELINE_CHECK % {"module": (COMPONENTS / "timeline.js").as_uri(), "path": str(path)},
+                      encoding="utf-8")
+    output = json.loads(subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60,
+                                       check=True).stdout)
+    n = 1 + iterates + 1 + 1 + 1
+    assert output["kinds"] == ["step"] + ["iterate"] * iterates + ["step", "step", "final"]
+    assert output["final"] == n - 1
+    assert output["segments"] == [{"loop": 0, "step": 1, "from": 1, "to": 1 + iterates}]
+    assert output["ofStep"] == [0, 1, 2]
+    assert output["labels"][0] == "after step 1 of 3 · line 2"
+    assert output["labels"][1].startswith("in step 2 of 3 · loop 0, iteration ") and output["labels"][1].endswith(" of 3")
+    assert output["labels"][1 + iterates] == "after step 2 of 3 · line 3 · loop 0 done"
+    assert output["labels"][-1] == "final result"
+    # every position but the final one has a snapshot of the trace, with its size
+    assert all(isinstance(size, int) for size in output["snapshots"][:-1]) and output["snapshots"][-1] is None
+    assert output["sizes"][:-1] == output["snapshots"][:-1] and output["sizes"][-1] == len(result["distribution"]["closed_form"])
+    assert output["times"] == ["t"] + [None] * iterates + ["t", "t", None]
+    assert output["stepOfWhile"] == 1 + iterates and output["missing"] == n - 1
+    assert output["breakNext"] == 2 + iterates and output["breakNone"] == n - 1 and output["breakBack"] == 0
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_unrecorded_marginals_are_unknown_not_zero(tmp_path):
+    """A marginal that the trace did not record is reported with its reason, never as 0 (#202)."""
+    script = tmp_path / "check.mjs"
+    script.write_text(
+        f"const t = await import({(COMPONENTS / 'timeline.js').as_uri()!r});\n"
+        "const snap = { marginals: { x: { rows: [{ value: 0, p: 1 }] }, y: { error: 'boom', rows: [] } },"
+        " marginals_not_recorded: { z: 'closed form too large' } };\n"
+        "console.log(JSON.stringify([t.marginalGap(snap, 'x'), t.marginalGap(snap, 'y'), t.marginalGap(snap, 'z'),"
+        " t.marginalGap({ marginals: {}, marginals_omitted: 'time budget used up' }, 'x'), t.marginalGap({}, 'x')]));\n",
+        encoding="utf-8")
+    output = subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60, check=True).stdout
+    assert json.loads(output) == [None, "not available: boom", "closed form too large", "time budget used up",
+                                  "not recorded"]
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
@@ -279,19 +362,26 @@ def test_setup_decisions_survive_a_reload_and_follow_a_conversion(tmp_path):
                                   [True, "x: nat;", True, "nat x;", False, "nat x; nat c;", False]]
 
 
-def test_result_tab_is_three_cards_and_a_details_line():
-    """The Result tab (#288): an answer card with the guarantee once, a distribution card with one
-    control row and one mass line, a card on how it was computed (with the way into the Steps tab)
-    and a disclosure line for warnings, console output and JSON."""
-    components = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components"
+def test_result_tab_is_an_answer_card_an_analysis_card_and_a_details_line():
+    """The Result tab (#288, #311): an answer card with the guarantee once, the analysis card with
+    the lenses Distribution, Size, Time and Checks (one control row, one figure, one fact line,
+    details as disclosures) and one timeline, and a disclosure line for warnings, console output
+    and JSON."""
+    components = COMPONENTS
     view = (components / "result-view.js").read_text(encoding="utf-8")
-    for part in ("function answerCard(", "function distributionCard(", "function computedCard(", "function detailsLine(",
-                 "function warningNotice(", "Step Through", "Other expected values", "massSummary("):
+    for part in ("function answerCard(", "function detailsLine(", "function warningNotice(", "Other expected values",
+                 "analysisCard(result, options)"):
         assert part in view, part
-    # removed: the summary box, the Steps section, the expectations table and the separate joint card
+    # removed: the summary box, the Steps section, the expectations table, the distribution card and
+    # the card on how it was computed (both are lenses of the analysis card now)
     for gone in ("function summary(", "function stepsSection(", "rv-table rv-expectations", "Marginal distributions",
-                 'h("h4", {}, "Joint distribution")'):
+                 "function distributionCard(", "function computedCard(", "Step Through", "onOpenSteps"):
         assert gone not in view, gone
+    card = (components / "analysis-card.js").read_text(encoding="utf-8")
+    assert '[["distribution", "Distribution"], ["size", "Size"], ["time", "Time"], ["checks", "Checks"]]' in card
+    for part in ("massSummary(", "positionChart(", "timelineControl(", "Record Steps", "function certificateView(",
+                 "Table of all positions", "Queries after every step"):
+        assert part in card, part
     joint = (components / "joint-view.js").read_text(encoding="utf-8")
     # the joint view no longer has its own switches or mass box; the result view's control row and mass line serve both
     assert "massBar" not in joint and "modeToggle" not in joint and "export const JOINT_VIEWS" in joint

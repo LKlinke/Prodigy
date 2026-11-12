@@ -64,7 +64,7 @@ including why a check failed. Two hints point to the step where the closed form 
 the step where most of the time goes.
 
 Without ``--json`` the steps are printed one per instruction; with ``--json`` they are the keys
-``steps`` and ``trace`` of the JSON result, for front ends such as the GUI's stepper.
+``steps`` and ``trace`` of the JSON result, for front ends such as the timeline of the GUI's analysis card.
 ``--watch 'Pr[x == 3]'`` (repeatable, in the program's syntax) evaluates a query after every
 top-level step, as if it stood right after that instruction, with the same sound intervals as the
 program's queries:
