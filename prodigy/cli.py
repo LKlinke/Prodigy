@@ -152,6 +152,17 @@ def _read_program(program_file: IO, syntax: Optional[str]) -> Tuple[str, Program
     return source, program, chosen
 
 
+def _require_type_correct(program_file: IO, program: Program, source: str, syntax: str) -> None:
+    """Ends with the GUI's message if the type checker rejects the program (#334)."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.web.diagnostics import type_error
+    diagnostic = type_error(program, source, syntax)
+    if diagnostic is not None:
+        name = getattr(program_file, "name", "<program>")
+        raise click.ClickException(_with_source_line(f"{name}: type error: {diagnostic['message']}", source,
+                                                     diagnostic["line"], diagnostic["column"]))
+
+
 _LOOP_OPTION_HELP = ("Strategy for a loop, as ID=STRATEGY[:NAME=VALUE,...], e.g. 0=unroll:iterations=100 or "
                      "'*=auto' for all loops. See `prodigy loop_strategies` for the strategies by group: "
                      "automatic, exact result, bounds, explore.")
@@ -621,6 +632,7 @@ def analyze(  # pylint: disable=too-many-arguments
     --decisions). Queries are answered with sound intervals.
     """
     program_source, program, syntax = _read_program(program_file, syntax)
+    _require_type_correct(program_file, program, program_source, syntax)
     config: ForwardAnalysisConfig = ctx.obj['CONFIG']
     decisions = parse_decisions(_checked_decisions(_collect_decisions(loop_specs, decisions_file), program,
                                                    program_source, syntax))
