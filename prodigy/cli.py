@@ -170,6 +170,35 @@ def _collect_decisions(loop_specs: Tuple[str, ...], decisions_file: Optional[IO]
     return decisions
 
 
+def _checked_decisions(decisions: Dict[Any, Any], program: Program, source: str, syntax: str) -> Dict[Any, Any]:
+    """``decisions`` (from ``--loop``/``--decisions``) after checking them, in particular their generating
+    functions, before any engine sees them; exits with the problems otherwise."""
+    try:
+        parsed = parse_decisions(decisions)
+    except ValueError as exc:
+        raise click.BadParameter(str(exc), param_hint="'--loop' / '--decisions'") from exc
+    problems = validate_decisions(parsed, LoopRegistry(program, source, syntax), syntax)
+    if problems:
+        for problem in problems:
+            print(f"{Style.OKRED}Error:{Style.RESET} {problem}", file=sys.stderr)
+        sys.exit(2)
+    return decisions
+
+
+def _expression_option(text: str, option: str, program: Program, syntax: str) -> str:
+    """The generating function ``text`` of the command-line option ``option``, checked before any engine
+    sees it (SymPy's parser evaluates Python code): an expression of ``syntax`` over numbers, the
+    program's variables and parameters and the functions of
+    :data:`~prodigy.analysis.ai_candidates.MATH_FUNCTIONS`. Returned in the engines' spelling."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.ai_candidates import MATH_FUNCTIONS, CandidateError, admissible_expression
+    names = [str(v) for v in program.variables] + [str(p) for p in program.parameters]
+    try:
+        return admissible_expression(text.strip(), names=names, syntax=syntax, functions=MATH_FUNCTIONS)
+    except CandidateError as exc:
+        raise click.BadParameter(str(exc), param_hint=f"'{option}'") from exc
+
+
 @cli.command('main')
 @click.pass_context
 @click.argument('program_file', type=click.File('r'))
@@ -205,8 +234,9 @@ def main(ctx, program_file: IO, input_dist: str,  # pylint: disable=too-many-arg
         dist = input_distribution_from_text(config, input_dist, program, syntax)
 
     logger.debug("Start analysis.")
+    decisions = _checked_decisions(_collect_decisions(loop_specs, None), program, program_source, syntax)
     session = AnalysisSession.interactive(program, source=program_source, syntax=syntax, config=config,
-                                          decisions=_collect_decisions(loop_specs, None))
+                                          decisions=decisions)
     start = time.perf_counter()
     with session.activate():
         dist, error_prob = compute_discrete_distribution(
@@ -335,6 +365,8 @@ def invariant_synthesis(ctx,  # pylint: disable=too-many-arguments
 
     # read the program source file and parse it into a program object.
     _, prog, syntax = _read_program(program_file, syntax)
+    if invariant:
+        invariant = _expression_option(invariant, "--invariant", prog, syntax)
     with AnalysisSession.detached(syntax).activate():
         _invariant_synthesis(ctx.obj["CONFIG"], prog, invariant, input_dist, max_degree, time_limit,
                              template_time_limit, syntax)
@@ -403,6 +435,7 @@ def evt_lower_bound(ctx, program_file: IO, invariant: str, input_dist: str, synt
     from prodigy.analysis.lowerbounds.subinvariant import evt_subinvariant_verification
     _, prog, syntax = _read_program(program_file, syntax)
     prefix, loop, rest = _loop_parts(prog)
+    invariant = _expression_option(invariant, "--invariant", prog, syntax)
     config = ctx.obj["CONFIG"]
     variables = list(prog.variables.keys())
     dist = config.factory.one(*variables) if input_dist is None \
@@ -576,12 +609,8 @@ def analyze(  # pylint: disable=too-many-arguments
     """
     program_source, program, syntax = _read_program(program_file, syntax)
     config: ForwardAnalysisConfig = ctx.obj['CONFIG']
-    decisions = parse_decisions(_collect_decisions(loop_specs, decisions_file))
-    problems = validate_decisions(decisions, LoopRegistry(program, program_source, syntax))
-    if problems:
-        for problem in problems:
-            print(f"{Style.OKRED}Error:{Style.RESET} {problem}", file=sys.stderr)
-        sys.exit(2)
+    decisions = parse_decisions(_checked_decisions(_collect_decisions(loop_specs, decisions_file), program,
+                                                   program_source, syntax))
     if watches and not steps:
         raise click.UsageError("--watch needs --steps.")
     # pylint: disable=import-outside-toplevel

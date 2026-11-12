@@ -263,6 +263,8 @@ _PREFIX = re.compile(r"^(?:[A-Za-z_]\w*\s*(?:\([^)]*\))?\s*=\s*)+")
 _ALLOWED = re.compile(r"[0-9A-Za-z_+\-*/^().\s]+")
 _IDENTIFIER = re.compile(r"[A-Za-z_]\w*")
 _CALL = re.compile(r"([A-Za-z_]\w*)\s*\(")
+_BOOLEAN_WORDS = frozenset({"and", "or", "not", "true", "false", "True", "False"})
+"""Words both parsers read as Boolean operators or constants; a generating function has none."""
 
 
 def to_syntax(expression: str, syntax: str) -> str:
@@ -293,6 +295,9 @@ def admissible_expression(text: str, names: Optional[Sequence[str]] = None, synt
                              f"{', '.join(sorted(functions))}.")
     if any(name.startswith("__") for name in _IDENTIFIER.findall(text)):
         raise CandidateError(f"{text!r} uses a name that starts with '__'.")
+    boolean = sorted(set(_IDENTIFIER.findall(text)) & _BOOLEAN_WORDS)
+    if boolean:
+        raise CandidateError(f"{text!r} uses {', '.join(boolean)}, which is Boolean, not a generating function.")
     if names is not None:
         unknown = sorted(set(_IDENTIFIER.findall(text)) - set(names) - set(functions))
         if unknown:

@@ -315,8 +315,9 @@ def parse_decisions(data: Optional[Mapping[Any, Any]]) -> Dict[Union[int, str], 
 
 
 def validate_decisions(decisions: Mapping[Union[int, str], LoopDecision],
-                       loops: Optional[LoopRegistry] = None) -> List[str]:
-    """Problems with ``decisions`` (unknown strategies, unknown loops, bad parameters)."""
+                       loops: Optional[LoopRegistry] = None, syntax: str = "pgcl") -> List[str]:
+    """Problems with ``decisions`` (unknown strategies, unknown loops, bad parameters, generating
+    functions that are not expressions of ``syntax``)."""
     problems: List[str] = []
     known_ids = {loop.id for loop in loops} if loops is not None else None
     for key, decision in decisions.items():
@@ -336,7 +337,7 @@ def validate_decisions(decisions: Mapping[Union[int, str], LoopDecision],
             if raw is None or (isinstance(raw, str) and raw.strip() == ""):
                 continue
             try:
-                strategy.param(name).parse(raw)
+                strategy.param(name).parse(raw, syntax)
             except (ValueError, TypeError) as exc:
                 problems.append(f"{where}: {strategy.param(name).label}: {exc}")
     return problems
@@ -441,7 +442,7 @@ class InteractiveDecisions(DecisionProvider):
                 return session.resolve_alias(task, alias, path)
             raw = input(spec.prompt or f"{spec.label}: ")
             try:
-                return spec.parse(raw)
+                return spec.parse(raw, session.syntax)
             except (ValueError, TypeError) as exc:
                 print(f"Invalid input: {exc}")
 
@@ -467,7 +468,7 @@ class FixedDecisions(DecisionProvider):
 
     def ask_param(self, session, task, spec):
         if spec.default is not None:
-            return spec.parse(spec.default)
+            return spec.parse(spec.default, session.syntax)
         where = task.loop.describe() if task.loop is not None else "a loop"
         raise DecisionRequired(
             f"Strategy '{task.strategy.title}' for {where} needs a value for '{spec.label}'",
@@ -677,7 +678,7 @@ class AnalysisSession:
             with open(str(raw), "r", encoding="utf-8") as handle:
                 return handle.read()
         assert alias.alias_of is not None
-        return task.strategy.param(alias.alias_of).parse(raw)
+        return task.strategy.param(alias.alias_of).parse(raw, self.syntax)
 
     # -- scopes and bounds ---------------------------------------------------------------
 
