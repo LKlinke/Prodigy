@@ -72,21 +72,36 @@ def _limit_at_one(function: sympy.Expr, variable: sympy.Symbol) -> sympy.Expr:
     out of a closed form. The analysis marginalises the same function several times, so the result is
     cached; it depends only on the arguments.
 
-    The value is taken cheaply where that is sound (:func:`_cheap_value_at_one`), and SymPy's ``limit``,
-    which may hang on a removable singularity of an unsimplified expression (#274), is the fallback. The
-    value is then cancelled if that makes it smaller: ``limit`` returns small expressions, and later
-    steps (``ratsimp``, loops) rely on that, whereas a plain substitution keeps everything the variable
-    was multiplied with.
+    SymPy's ``limit`` returns small expressions, and later steps rely on that (substituting into the
+    uncancelled function let them grow, #272). But it may hang on unsimplified forms with a removable
+    singularity at 1, e.g. after ``unif`` (#274), also when another variable is marginalised. For such
+    forms (:func:`_denominator_vanishes_at_ones`) the function is cancelled. If that removed every such
+    denominator (the singularity was removable) and the cancelled form is provably continuous at 1
+    (:func:`_continuous_at_one`) and finite there, its value is the limit. Otherwise (e.g. the genuine
+    pole of ``1/(1 - c)``, whose form the later positivity checks expect) ``limit`` is used as before.
     """
-    value = _cheap_value_at_one(function, variable)
-    if value is None:
+    if variable not in function.free_symbols:
+        return function
+    if not _denominator_vanishes_at_ones(function):
         return function.limit(variable, 1, "-")
-    return _smaller_of(value, sympy.cancel(value))
+    cancelled = sympy.cancel(function)
+    if not _denominator_vanishes_at_ones(cancelled) and _continuous_at_one(cancelled, variable):
+        value = cancelled.subs(variable, 1)
+        if not value.has(*_UNDEFINED_VALUES):
+            return value
+    return function.limit(variable, 1, "-")
 
 
-def _smaller_of(expression: sympy.Expr, alternative: sympy.Expr) -> sympy.Expr:
-    """``alternative`` if it has fewer operations than ``expression`` (ties keep ``expression``)."""
-    return alternative if sympy.count_ops(alternative) < sympy.count_ops(expression) else expression
+def _denominator_vanishes_at_ones(function: sympy.Expr) -> bool:
+    """Whether some negative power in `function` has a base that is 0 when every symbol is 1, like the
+    `(z - 1)` of an unsimplified `unif`. Only then does `_limit_at_one` cancel first; this is a choice of the
+    method, not a soundness condition."""
+    for power in function.atoms(sympy.Pow):
+        base, exponent = power.args
+        if exponent.is_negative and base.free_symbols \
+                and base.subs({symbol: 1 for symbol in base.free_symbols}) == 0:
+            return True
+    return False
 
 
 def _term_generator(function: sympy.Poly):
