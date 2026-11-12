@@ -5,6 +5,7 @@ import sympy
 
 from prodigy.analysis.solver.solver import Solver
 from prodigy.distribution import Distribution
+from prodigy.distribution.equality import sympify_distribution
 from prodigy.util.logger import log_setup
 
 
@@ -13,10 +14,10 @@ class SympySolver(Solver):
 
     def solve(self, f: Distribution, g: Distribution) -> Tuple[Optional[bool], List[Dict[sympy.Expr, sympy.Expr]]]:
         self.logger.debug("Check %s == %s", f, g)
-        s_variables = {sympy.sympify(var) for var in f.get_variables() | g.get_variables()}
-        s_parameters = {sympy.sympify(param) for param in f.get_parameters() | g.get_parameters()}
+        s_variables = {sympy.Symbol(var) for var in f.get_variables() | g.get_variables()}
+        s_parameters = {sympy.Symbol(param) for param in f.get_parameters() | g.get_parameters()}
         self.logger.debug("Parameters: %s \t Variables: %s", s_parameters, s_variables)
-        s_equation = sympy.sympify(str(f - g))
+        s_equation = sympify_distribution(f - g)
 
         if s_parameters:
 

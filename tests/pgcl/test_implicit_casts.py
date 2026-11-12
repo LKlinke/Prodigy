@@ -100,23 +100,9 @@ def test_bool_is_zero_or_one_in_the_generating_function():
     assert dist == expected
 
 
-# Examples the strict checker rejects on purpose, because the value assigned is not provably
-# of the variable's type (the analysis itself does not run the checker).
-KNOWN_UNTYPED_EXAMPLES = {
-    # `x := 1/2 * x` assigns a real to a nat; it is a natural number only under the guard x%2 = 0
-    "pgfexamples/inference/loop_free/prob_collatz.ppy",
-    # `flag := flag + 1` assigns a nat to a bool; it is 1 only under the loop guard flag = 0
-    "pgfexamples/invariant_synthesis/fast_dice_roller.ppy",
-}
-
-
 @pytest.mark.parametrize("path", sorted(glob.glob("pgfexamples/**/*.ppy", recursive=True))
                          + sorted(glob.glob("tests/pgcl/former_examples/**/*.pgcl", recursive=True)))
 def test_examples_type_check(path):
     with open(path, encoding="utf-8") as file:
         result = compile_pgcl(file.read(), path=path)
-    path = path.replace("tests/pgcl/former_examples/", "pgfexamples/").replace(".pgcl", ".ppy")
-    if path in KNOWN_UNTYPED_EXAMPLES:
-        assert isinstance(result, CheckFail)
-    else:
-        assert isinstance(result, Program), result
+    assert isinstance(result, Program), result

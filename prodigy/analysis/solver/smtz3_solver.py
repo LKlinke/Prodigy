@@ -10,6 +10,7 @@ from pysmt.shortcuts import Symbol, EqualsOrIff, Not, And
 from pysmt.typing import REAL
 
 from prodigy.analysis.solver.solver import Solver
+from prodigy.distribution.equality import sympify_distribution
 from prodigy.distribution import Distribution, CommonDistributionsFactory, State
 from prodigy.pgcl.parser import parse_expr
 from prodigy.pgcl.pysmt.context import TranslationContext
@@ -29,7 +30,7 @@ class SMTZ3Solver(Solver):
         completeness of the algorithm for a given template.
         """
         self.logger.debug("Check %s == %s", f, g)
-        s_f, s_g = sympy.S(str(f)), sympy.S(str(g))
+        s_f, s_g = sympify_distribution(f), sympify_distribution(g)
         if not (s_f.is_rational_function() and s_g.is_rational_function()):
             raise NotImplementedError("Non-rational functions not supported yet.")
 
@@ -41,8 +42,8 @@ class SMTZ3Solver(Solver):
         lhs = f_num * g_denom
         rhs = g_num * f_denom
 
-        numerator_symbols = list(f_num.free_symbols - {sympy.S(var) for var in f.get_variables()})
-        denominator_symbols = sorted(list(f_denom.free_symbols - {sympy.S(var) for var in f.get_variables()}),
+        numerator_symbols = list(f_num.free_symbols - {sympy.Symbol(var) for var in f.get_variables()})
+        denominator_symbols = sorted(list(f_denom.free_symbols - {sympy.Symbol(var) for var in f.get_variables()}),
                                      key=str)
 
         # create a (variable, type) context for parsing to pySMT
@@ -90,7 +91,7 @@ class SMTZ3Solver(Solver):
 
                         # Generate solution mapping
                         for k in context.variables.values():
-                            sol[sympy.S(str(k))] = sympy.S(str(solver.get_value(k)), rational=True)
+                            sol[sympy.Symbol(str(k))] = sympy.S(str(solver.get_value(k)), rational=True)
                             partial_model.append(EqualsOrIff(k, solver.get_value(k)))
                         self.logger.debug("Solution found: %s", sol)
 
@@ -99,7 +100,7 @@ class SMTZ3Solver(Solver):
                             self.logger.debug("denominator is zero, exclude this solution.")
                             denom_model = []
                             for k in context.variables.values():
-                                if sympy.S(str(k)) in denominator_symbols:
+                                if sympy.Symbol(str(k)) in denominator_symbols:
                                     denom_model.append(EqualsOrIff(k, solver.get_value(k)))
                             solver.add_assertion(Not(And(denom_model)))
 
@@ -108,7 +109,7 @@ class SMTZ3Solver(Solver):
                             self.logger.debug("numerator is zero, exclude this solution.")
                             num_model = []
                             for k in context.variables.values():
-                                if sympy.S(str(k)) in numerator_symbols:
+                                if sympy.Symbol(str(k)) in numerator_symbols:
                                     num_model.append(EqualsOrIff(k, solver.get_value(k)))
                             solver.add_assertion(Not(And(num_model)))
 

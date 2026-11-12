@@ -1,6 +1,8 @@
 from typing import List, Union
 
 import sympy
+
+from prodigy.distribution.equality import sympify_engine_string
 from prodigy.pgcl import Expr, OptimizationType, VarExpr
 from prodigy.pgcl.parser import parse_expr
 
@@ -29,7 +31,8 @@ class GFOptimizer(Optimizer):
             expr = condition
 
         # Compute the target function that needs to be optimized:
-        target_function = sympy.S(dist.filter(expr).get_probability_mass())
+        target_function = sympify_engine_string(str(dist.filter(expr).get_probability_mass()),
+                                           dist.get_variables() | dist.get_parameters())
 
         # invoke sympy to get the optimization.
 
@@ -38,7 +41,7 @@ class GFOptimizer(Optimizer):
                 target_function, sympy.Symbol(str(parameters[0])),
                 sympy.sets.Interval(0, sympy.S("oo"), False, True))
             param = sympy.solve(target_function - maximum,
-                                sympy.S(str(parameters[0])))
+                                sympy.Symbol(str(parameters[0])))
             param = [
                 real_sol for real_sol in param
                 if real_sol.is_real and real_sol.is_nonnegative
@@ -48,7 +51,7 @@ class GFOptimizer(Optimizer):
                 target_function, sympy.Symbol(str(parameters[0])),
                 sympy.sets.Interval(0, sympy.S("oo"), False, True))
             param = sympy.solve(target_function - minimum,
-                                sympy.S(str(parameters[0])))
+                                sympy.Symbol(str(parameters[0])))
             param = [
                 real_sol for real_sol in param
                 if real_sol.is_real and real_sol.is_nonnegative

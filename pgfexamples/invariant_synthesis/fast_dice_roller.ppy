@@ -15,7 +15,7 @@ while (flag == 0) {
     }
     if (6 <= v) {
         if (c < 6) {
-            flag = flag + 1;
+            flag = 1;
         } else {
             v = v - 6;
             c = c - 6;
