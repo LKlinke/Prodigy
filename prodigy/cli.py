@@ -579,7 +579,13 @@ def _print_summary(result: Dict[str, Any]) -> None:
             print(f"  {where}optimum for {query['expr']}: {query['value']}")
     for loop in result.get("loops", []):
         where = f" (line {loop['line']})" if loop.get("line") else ""
-        print(f"  loop {loop['id']}{where} [{loop['strategy']}] {loop['kind']}: " + " ".join(loop["messages"]))
+        line = f"  loop {loop['id']}{where} [{loop['strategy']}] {loop['kind']}"
+        if loop["messages"]:
+            line += ": " + " ".join(loop["messages"])
+        elif loop.get("failed"):
+            # the error itself is printed above (#333)
+            line += " (the strategy failed, see the error above)"
+        print(line)
     for warning in result.get("warnings", []):
         print(f"{Style.YELLOW}Warning:{Style.RESET} {warning}")
     print(f"CPU-time elapsed: {result['timing'].get('analysis', 0):04f} seconds")

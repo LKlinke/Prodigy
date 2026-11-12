@@ -59,3 +59,15 @@ def test_inner_loop_of_yule_simon_reports_one_summary():
     assert message.endswith(" is still inside the loop.")
     total = sympy.Rational(message.split("mass ")[1].split(" ")[0])
     assert total == sympy.Rational(inner["residual_mass"])
+
+
+def test_cli_loop_line_without_messages_has_no_dangling_colon():
+    # #333: a failed loop without messages printed "loop 0 (line 8) [evt_synthesis] unknown: "
+    # pylint: disable=import-outside-toplevel
+    from click.testing import CliRunner
+    from prodigy.cli import cli
+    example = Path(__file__).parents[2] / "pgfexamples" / "inference" / "loopy" / "skip_exceeding_sum.ppy"
+    result = CliRunner().invoke(cli, ["analyze", str(example), "--loop", "*=evt_synthesis:max_degree=0"])
+    [line] = [line for line in result.output.splitlines() if line.strip().startswith("loop 0")]
+    assert line.strip() == "loop 0 (line 8) [evt_synthesis] unknown (the strategy failed, see the error above)"
+    assert not line.rstrip().endswith(":")
