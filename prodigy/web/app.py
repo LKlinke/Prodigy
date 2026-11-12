@@ -49,13 +49,14 @@ _LOOPBACK = {"localhost", "127.0.0.1", "::1", "[::1]"}
 def _engine_info(default_engine: str):
     engines = []
     for name, label in ENGINES.items():
-        available = True
+        available, reason = True, None
         if name == "ginac":
             try:
                 import prodigy_ginac  # type: ignore  # pylint: disable=import-outside-toplevel,unused-import
             except ImportError:
                 available = False
-        engines.append({"name": name, "label": label, "available": available,
+                reason = "Not installed: install prodigy-ppl-ginac (the extra ginac) to use GiNaC."
+        engines.append({"name": name, "label": label, "available": available, "reason": reason,
                         "default": name == default_engine})
     return engines
 
