@@ -137,9 +137,16 @@ def test_two_infinite_variables_are_not_implemented(engine, source):
     config = ForwardAnalysisConfig(engine=engine)
     session = AnalysisSession(program, source=source, syntax="ppy", capture_output=True, config=config)
     result = session.run().to_json()
-    assert result["status"] == "error"
-    assert result["error"]["type"] == "NotImplementedError"
-    assert "x - y" in result["error"]["message"]
+    if "query" in source:
+        # a query that cannot be computed fails only itself (#306)
+        assert result["status"] == "ok", result["error"]
+        (query,) = result["queries"]
+        error = query["error"]
+    else:
+        assert result["status"] == "error"
+        error = result["error"]
+    assert error["type"] == "NotImplementedError"
+    assert "x - y" in error["message"]
 
 
 # --- the exact calculus of the lower-bound strategies agrees with the forward analysis

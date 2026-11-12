@@ -16,7 +16,7 @@ the web GUI, a language server). Its top-level keys::
     bounds       kind, residual_mass, explanation
     distributions variable, depends_on_state, values (probability, infer, function, arguments,
                  closed, closed_form, latex, normalizing_constant, mean, finite_support, table)
-    queries      kind, expr, value, lower, upper, bound, line, data
+    queries      kind, expr, value, lower, upper, bound, line, data, error
     loops        id, line, cond, strategy, params, kind, residual_mass, certificates, ...
     steps        index, line, column, kind, instruction, before, after, bound, time, loop, watches, ...
     trace        limits, watches, hints
@@ -52,6 +52,16 @@ A result whose ``status`` is not ``ok`` (``error``, ``needs_decision``, and ``ti
 (results made up by a front end may omit ``bounds``) and its residual mass is ``null``.
 Queries answered before the failure keep their own intervals, which were computed from the
 distribution at that point.
+
+Queries that cannot be computed
+-------------------------------
+A query does not change the distribution, so a query that cannot be computed (``NotImplementedError``,
+e.g. a condition on variables with infinite support that the engine cannot filter on, or a marginal
+that is not a finite measure) fails only itself: it keeps its place in ``queries`` with ``error``
+``{"type", "message"}``, ``value``, ``lower`` and ``upper`` ``null``, ``bound`` ``unknown`` and the
+message in ``note``, and ``warnings`` names it. ``status``, the distribution and the other queries
+are not affected. ``error`` is ``null`` for every query that was computed; results from before this
+field have no ``error``.
 
 Values of type dist
 -------------------
@@ -407,6 +417,8 @@ class QueryResult:
     index: int = 0
     line: Optional[int] = None
     column: Optional[int] = None
+    error: Optional[Dict[str, str]] = None
+    """``{"type", "message"}`` of a query that could not be computed, else None."""
 
     def to_json(self) -> Dict[str, Any]:
         return {
@@ -424,6 +436,7 @@ class QueryResult:
             "line": self.line,
             "column": self.column,
             "data": self.data,
+            "error": self.error,
         }
 
 

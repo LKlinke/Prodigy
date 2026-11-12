@@ -1,19 +1,21 @@
 from __future__ import annotations
 
 import logging
-from typing import get_args, Callable, Union, Sequence
+from typing import get_args, Callable, Optional, Set, Union, Sequence
 
 from prodigy.pgcl import Instr, Query, ExpectationInstr, VarExpr, NatLitExpr, RealLitExpr, BinopExpr, Binop, \
-    UnopExpr, Unop, ProbabilityQueryInstr, PlotInstr, PrintInstr, OptimizationQuery, OptimizationType, Expr
+    UnopExpr, Unop, BoolLitExpr, ProbabilityQueryInstr, PlotInstr, PrintInstr, OptimizationQuery, OptimizationType, Expr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import (QueryResult, describe_distribution, finish_query,
                                      is_monotone_nonnegative, joint_table, sym, univariate_table)
 from prodigy.analysis.session import AnalysisSession, current_session
 from prodigy.distribution import Distribution, MarginalType
+from prodigy.distribution.distribution import NonFiniteMarginalError
 from prodigy.util.logger import log_setup
 from prodigy.util.plotter import Plotter
 
@@ -35,8 +37,46 @@ class QueryHandler(InstructionHandler):
             ]
     ) -> tuple[Distribution, Distribution]:
         _assume(instruction, get_args(Query), 'QueryHandler')
+        assert isinstance(instruction, get_args(Query))
         session = current_session()
+        recorded = len(session.queries)
+        try:
+            return QueryHandler.__answer(instruction, prog_info, distribution, error_prob, config, session)
+        except (NotImplementedError, NonFiniteMarginalError) as exc:
+            # A query does not change the distribution: one that cannot be computed fails only
+            # itself, and the distribution and the other queries are kept (#306).
+            if len(session.queries) != recorded:
+                raise
+            QueryHandler.__record_failure(instruction, exc, session)
+            return distribution, error_prob
 
+    @staticmethod
+    def __record_failure(instruction: Instr, exc: Exception, session: AnalysisSession) -> None:
+        message = str(exc) or type(exc).__name__
+        if isinstance(instruction, ExpectationInstr):
+            kind, expr = "expectation", session.spell(instruction.expr)
+        elif isinstance(instruction, ProbabilityQueryInstr):
+            kind = "marginal" if isinstance(instruction.expr, VarExpr) else "probability"
+            expr = session.spell(instruction.expr)
+        elif isinstance(instruction, OptimizationQuery):
+            kind, expr = "optimization", session.spell(instruction.expr)
+        elif isinstance(instruction, PlotInstr):
+            kind, expr = "plot", ", ".join([instruction.var_1.var] + ([instruction.var_2.var] if instruction.var_2
+                                                                       else []))
+        else:
+            kind, expr = "print", None
+        print(f"Query {expr if expr is not None else kind} could not be computed: {message}")
+        query = QueryResult(kind, expr, bound=Bound.UNKNOWN, note=f"Not computed: {message}",
+                            error={"type": type(exc).__name__, "message": message})
+        session.record_query(query)
+        where = f" (line {query.line})" if query.line is not None else ""
+        session.warn(f"`{session.spell(instruction).strip()}`{where} could not be computed; the distribution "
+                     "and the other queries are not affected.")
+
+    @staticmethod
+    def __answer(instruction: Instr, prog_info: ProgramInfo, distribution: Distribution,
+                 error_prob: Distribution, config: ForwardAnalysisConfig,
+                 session: AnalysisSession) -> tuple[Distribution, Distribution]:
         # User wants to compute an expected value of an expression
         if isinstance(instruction, ExpectationInstr):
             expression = instruction.expr
@@ -200,10 +240,72 @@ class QueryHandler(InstructionHandler):
             # the loop strategy right before may know the exact value already (e.g. from its certificate)
             prob = session.loop_query_value("?Pr", str(expression), dist)
             if prob is None:
-                prob = dist.filter(expression).get_probability_mass()
+                prob = filter_by_cases(dist, expression).get_probability_mass()
             text = session.spell(expression)
             print(f"Probability of {text}: {prob}")
             session.record_query(finish_query(session, QueryResult("probability", text, value=prob),
                                               monotone=True, probability=True,
                                               known=session.loop_query_bounds("?Pr", str(expression))))
         return dist
+
+
+# The most values of one variable that a case split (see :func:`filter_by_cases`) enumerates
+CASE_SPLIT_LIMIT = 1000
+
+
+def filter_by_cases(dist: Distribution, condition: Expr) -> Distribution:
+    """
+    ``dist.filter(condition)``; if the engine cannot filter on `condition` (e.g. ``x + y < 3`` where
+    ``y`` has infinite support), the condition is split into cases over the values of a variable
+    with finite support: the filter is the sum over the values ``v`` of ``x`` of the filter of
+    ``x == v`` and ``condition[x := v]`` (#306). The cases are disjoint, so the sum is exact. Raises
+    the engine's NotImplementedError if no variable of the condition has a finite support.
+    """
+    try:
+        return dist.filter(condition)
+    except NotImplementedError as error:
+        names = sorted(_variables_of(condition) & set(map(str, dist.get_variables())))
+        for name in names:
+            support = dist.finite_support(name)
+            if support is None:
+                continue
+            values = sorted({int(state.valuations[name]) for _, state in support})
+            if len(values) > CASE_SPLIT_LIMIT:
+                continue
+            cases = [_substitute(condition, name, value) for value in values]
+            if any(case is None for case in cases):
+                break
+            total: Optional[Distribution] = None
+            for value, case in zip(values, cases):
+                assert case is not None
+                part = dist.filter(BinopExpr(Binop.EQ, VarExpr(name), NatLitExpr(value)))
+                filtered = filter_by_cases(part, case)
+                total = filtered if total is None else total + filtered
+            if total is not None:
+                return total
+        raise error
+
+
+def _variables_of(expr: Expr) -> Set[str]:
+    if isinstance(expr, VarExpr):
+        return {expr.var}
+    if isinstance(expr, BinopExpr):
+        return _variables_of(expr.lhs) | _variables_of(expr.rhs)
+    if isinstance(expr, UnopExpr):
+        return _variables_of(expr.expr)
+    return set()
+
+
+def _substitute(expr: Expr, name: str, value: int) -> Optional[Expr]:
+    """`expr` with the variable `name` replaced by `value`, or None for an expression it does not know."""
+    if isinstance(expr, VarExpr):
+        return NatLitExpr(value) if expr.var == name else expr
+    if isinstance(expr, (NatLitExpr, RealLitExpr, BoolLitExpr)):
+        return expr
+    if isinstance(expr, BinopExpr):
+        lhs, rhs = _substitute(expr.lhs, name, value), _substitute(expr.rhs, name, value)
+        return None if lhs is None or rhs is None else BinopExpr(expr.operator, lhs, rhs)
+    if isinstance(expr, UnopExpr):
+        inner = _substitute(expr.expr, name, value)
+        return None if inner is None else UnopExpr(expr.operator, inner)
+    return None
