@@ -4,6 +4,7 @@ import { canWriteFiles, createDocument } from "./document.js";
 import { createEditor, SYNTAXES } from "./editor.js";
 import { createLibrary } from "./library.js";
 import { defaultDecision, focusLoopCard, renderSetup, setupProblems, swapInvariants } from "./setup.js";
+import { changeSince } from "./staleness.js";
 import { load, save } from "./store.js";
 import { h, icon } from "./components/dom.js";
 import { BOUND_TEXT, formatSeconds, formatValue, qualify } from "./components/format.js";
@@ -34,7 +35,10 @@ const state = {
   setup: null,
   job: null,
   result: null,
+  // whether the result no longer matches the program and setup, and what changed: null, "program",
+  // "setup" or "both" (the result remembers the request of its analysis, see staleness.js)
   resultStale: false,
+  resultChange: null,
   optionsOpen: false,
   tab: "setup",
   // the analysis card of the result: its controller, the step its timeline shows (for the editor),
@@ -132,6 +136,7 @@ async function programReplaced() {
   state.outline = null;
   state.result = null;
   state.resultStale = false;
+  state.resultChange = null;
   resetAnalysis();
   save("setup", state.setup);
   renderResultPanel();
@@ -164,6 +169,8 @@ async function runCheck() {
     state.outlineStale = !result.outline;
     if (result.outline) state.outline = result.outline;
     if (result.outline || wasStale !== state.outlineStale) renderSetupPanel();
+    // the request depends on the outline's loops
+    if (result.outline) refreshStale();
     updateAnnotations();
   } catch (error) {
     if (error.name === "AbortError") return;
@@ -225,7 +232,7 @@ function renderSetupPanel() {
     onOptionsToggle: (open) => { state.optionsOpen = open; },
     onChange: () => {
       save("setup", state.setup);
-      markStale();
+      refreshStale();
       updateAnnotations();
     },
     suggest: requestSuggestion,
@@ -254,7 +261,7 @@ function renderEngine() {
 function engineChanged() {
   state.setup.options.engine = $("engine-select").value;
   save("setup", state.setup);
-  markStale();
+  refreshStale();
   updateAnnotations();
 }
 
@@ -268,7 +275,7 @@ function showLoop(loopId) {
 function useEvtCandidate(loopId, candidate) {
   state.setup.decisions[String(loopId)] = { strategy: "evt_invariant", params: { invariant: candidate } };
   save("setup", state.setup);
-  markStale();
+  refreshStale();
   renderSetupPanel();
   updateAnnotations();
   selectTab("setup");
@@ -317,11 +324,14 @@ function updateAnnotations() {
 
 // ---- results ----------------------------------------------------------------------------------------
 
-function markStale() {
-  if (state.result && !state.resultStale) {
-    state.resultStale = true;
-    renderResultPanel();
-  }
+/** Compares the request of the shown result with the current program and setup; changing them
+ * back (e.g. with undo) makes the result current again. */
+function refreshStale() {
+  const change = state.result ? changeSince(state.result.__request, buildRequest()) : null;
+  if (change === state.resultChange) return;
+  state.resultChange = change;
+  state.resultStale = Boolean(change);
+  renderResultPanel();
 }
 
 // ---- analysis card: timeline, editor highlight, watches ------------------------------------------
@@ -400,6 +410,8 @@ function renderResultPanel() {
   state.analysis.card?.stop();
   const { analysis } = renderResult(panel, state.result, {
     stale: state.resultStale,
+    change: state.resultChange,
+    onRun: run,
     strategyTitles: state.titles,
     onSelectLoop: showLoop,
     onUseCandidate: useEvtCandidate,
@@ -560,14 +572,15 @@ async function run() {
     showLoop(problems[0].loop);
     return;
   }
+  const request = buildRequest();
   let response;
   try {
-    response = await api.analyze(buildRequest());
+    response = await api.analyze(request);
   } catch (error) {
     showRunMessage(error.message);
     return;
   }
-  state.job = { id: response.job, timeLimit: response.time_limit, logOffset: 0, log: "", started: performance.now() };
+  state.job = { id: response.job, request, timeLimit: response.time_limit, logOffset: 0, log: "", started: performance.now() };
   setRunning(true);
   setBadge("running");
   state.analysis.card?.stop();
@@ -605,15 +618,20 @@ async function poll() {
 
 /** The progress view in the Result panel. */
 function showRunning(progress) {
-  renderRunning($("panel-result"), progress, { strategyTitles: state.titles });
+  const change = state.job ? changeSince(state.job.request, buildRequest()) : null;
+  renderRunning($("panel-result"), progress, { strategyTitles: state.titles, change });
 }
 
 function finish(result, elapsed) {
   clearTimeout(pollTimer);
+  const request = state.job?.request;
   state.job = null;
   setRunning(false);
-  state.result = { ...result, __elapsed: elapsed };
-  state.resultStale = false;
+  // the result belongs to the request of its run: program or setup changed meanwhile stay as they
+  // are, and the result is shown as outdated (#310)
+  state.result = { ...result, __elapsed: elapsed, __request: request };
+  state.resultChange = changeSince(request, buildRequest());
+  state.resultStale = Boolean(state.resultChange);
   renderResultPanel();
   updateAnnotations();
   const message = result.status === "ok" ? null : (result.error?.message || result.status);
@@ -653,6 +671,7 @@ async function loadExample(example, syntax = "ppy") {
   state.setup.input = suggestion.input_distribution || "";
   state.result = null;
   state.resultStale = false;
+  state.resultChange = null;
   resetAnalysis();
   documents.exampleLoaded(example, data.source);
   renderResultPanel();
@@ -774,7 +793,7 @@ async function boot() {
     onChange: (source) => {
       save("source", source);
       documents?.changed();
-      markStale();
+      refreshStale();
       scheduleCheck();
     },
     onRun: run,

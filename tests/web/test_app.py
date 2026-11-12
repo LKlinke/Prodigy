@@ -391,6 +391,54 @@ def test_result_tab_is_an_answer_card_an_analysis_card_and_a_details_line():
     assert ".rv-answer[data-kind=\"exact\"]" in css and ".rv-mass-items" in css and ".jv-mass" not in css
 
 
+STALENESS_CHECK = """
+const s = await import(%(module)r);
+const base = {source: "x := 1;", syntax: "ppy", engine: "sympy", decisions: {"0": {strategy: "unroll", params: {iterations: 3}}},
+              time_limit: 60};
+const reordered = {time_limit: 60, decisions: {"0": {params: {iterations: 3}, strategy: "unroll"}}, engine: "sympy",
+                   syntax: "ppy", source: "x := 1;"};
+console.log(JSON.stringify([
+  s.changeSince(base, {...base}), s.changeSince(base, reordered), s.changeSince(undefined, base),
+  s.changeSince(base, {...base, source: "x := 2;"}), s.changeSince(base, {...base, syntax: "pgcl"}),
+  s.changeSince(base, {...base, engine: "ginac"}),
+  s.changeSince(base, {...base, decisions: {"0": {strategy: "unroll", params: {iterations: 4}}}}),
+  s.changeSince(base, {...base, source: "x := 2;", engine: "ginac"}),
+  s.changeSince(base, {...base, watches: undefined}),
+  s.staleText("program"), s.staleText("setup"), s.staleText("both"),
+]));
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_result_staleness(tmp_path):
+    """A result remembers the request of its analysis; it is outdated as soon as the program or the
+    setup differs from it, also when they changed while the analysis ran (#310). The order of keys
+    does not matter, and changing back makes it current again."""
+    module = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "staleness.js"
+    script = tmp_path / "check.mjs"
+    script.write_text(STALENESS_CHECK % {"module": module.as_uri()}, encoding="utf-8")
+    output = json.loads(subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60,
+                                       check=True).stdout)
+    assert output == [
+        None, None, None, "program", "program", "setup", "setup", "both", None,
+        "This result is for an earlier version of the program.",
+        "This result is for an earlier version of the setup.",
+        "This result is for an earlier version of the program and the setup."]
+
+
+def test_finished_run_keeps_edits_and_marks_its_result():
+    """finish() keeps the program and setup as they are and compares them with the request of the
+    run instead of declaring the result current (#310); the outdated result offers Analyze Again."""
+    main = (COMPONENTS.parent / "main.js").read_text(encoding="utf-8")
+    finish = main[main.index("function finish("):main.index("async function stop(")]
+    assert "changeSince(request, buildRequest())" in finish and "__request: request" in finish
+    assert "resultStale = false" not in finish and "setSource" not in finish and "state.setup =" not in finish
+    assert "state.job = { id: response.job, request," in main
+    assert "markStale" not in main  # replaced by refreshStale, which compares both ways
+    view = (COMPONENTS / "result-view.js").read_text(encoding="utf-8")
+    assert '"Analyze Again"' in view and "staleText(options.change)" in view
+
+
 def test_meta_groups_the_strategies(client):
     """Every strategy has a group, one plain sentence and its outcome for Setup's grouped pop-up (#324)."""
     meta = client.get("/api/meta", headers=HOST).get_json()

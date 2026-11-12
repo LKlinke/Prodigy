@@ -47,6 +47,14 @@ Prodigy is tested with Python 3.11 and 3.14.
     output and *Result as JSON*. If there are warnings, a notice above the cards says so and opens
     the line.
 
+  A result belongs to the program and setup it was computed for (#310). Once either differs, a
+  notice above the cards says so (*This result is for an earlier version of the program*, *…of the
+  setup* or *…of the program and the setup*) with an **Analyze Again** button; the cards are
+  dimmed, the guarantee badge on the Result tab and the values in the editor disappear. Changes
+  made while an analysis runs are kept: the progress view notes that the run uses the earlier
+  version, and its result arrives marked as outdated. Changing everything back (e.g. with undo)
+  makes the result current again.
+
   The charts have a **Linear / Log** switch; the browser remembers the choice for the probability
   axis (the heatmap and the 3D view share it). On the log scale the axis is labelled in decades
   (`1`, `10⁻³`, …) and marked *log*, it spans at most 12 decades (smaller probabilities get the

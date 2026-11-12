@@ -18,6 +18,9 @@
   font-size: var(--text-body, 13px);
 }
 .result-view[data-stale="true"] > :not(.notice) { opacity: 0.55; }
+/* the notice above an outdated result: text, then its action at the end of the line */
+.rv-stale { align-items: center; flex-wrap: wrap; }
+.rv-stale > span { flex: 1 1 16em; }
 
 .rv-muted { color: var(--rv-text-2); }
 .rv-note { margin: 0; font-size: var(--text-callout, 12px); color: var(--rv-text-2); }
