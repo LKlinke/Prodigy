@@ -37,7 +37,7 @@ from prodigy.analysis.evtinvariants.invariant_verification import evt_invariant_
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.analysis.independence.independence import independent_vars as get_independent_vars_of
-from prodigy.analysis.loop_strategies import loop_strategies
+from prodigy.analysis.loop_strategies import loop_strategies, strategy_groups
 from prodigy.analysis.session import AnalysisSession, DEFAULT_KEY, parse_decisions, validate_decisions, LoopRegistry
 from prodigy.distribution.distribution import State
 from prodigy.util.color import Style
@@ -153,7 +153,8 @@ def _read_program(program_file: IO, syntax: Optional[str]) -> Tuple[str, Program
 
 
 _LOOP_OPTION_HELP = ("Strategy for a loop, as ID=STRATEGY[:NAME=VALUE,...], e.g. 0=unroll:iterations=100 or "
-                     "'*=evt_synthesis' for all loops. See `prodigy loop_strategies`.")
+                     "'*=auto' for all loops. See `prodigy loop_strategies` for the strategies by group: "
+                     "automatic, exact result, bounds, explore.")
 
 
 def _collect_decisions(loop_specs: Tuple[str, ...], decisions_file: Optional[IO]) -> Dict[Any, Any]:
@@ -718,12 +719,17 @@ def print_loop_strategies(as_json: bool) -> None:
     if as_json:
         print(json.dumps([s.to_json() for s in strategies], indent=2))
         return
-    for strategy in strategies:
-        print(f"{strategy.name}  ({strategy.soundness})  {strategy.title}")
-        print(f"    {strategy.description}")
-        for param in strategy.params:
-            default = f", default {param.default}" if param.default is not None else ""
-            print(f"    - {param.name} [{param.kind}{default}]: {param.help}")
+    for _, group_title, group_text, members in strategy_groups():
+        print(f"{group_title}: {group_text}\n")
+        for strategy in members:
+            print(f"  {strategy.name}  ({strategy.outcome or strategy.soundness})  {strategy.title}")
+            if strategy.summary:
+                print(f"      {strategy.summary}")
+            print(f"      {strategy.description}")
+            for param in strategy.params:
+                default = f", default {param.default}" if param.default is not None else ""
+                print(f"      - {param.name} [{param.kind}{default}]: {param.help}")
+            print()
 
 
 @cli.command('web')

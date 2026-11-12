@@ -30,6 +30,25 @@ for constructs of the old syntax, e.g.:
        x := 3;
           ^
 
+Loop strategies
+---------------
+
+``prodigy loop_strategies`` lists the strategies for while loops in four groups, with the same titles
+and one-sentence summaries as the interactive menu of ``prodigy main`` and the GUI (see
+:doc:`gui`, "Choosing a loop strategy"):
+
+- *Automatic*: ``auto`` (a short EVT invariant synthesis whose result is kept only if it is exact,
+  otherwise unrolling ``iterations`` times);
+- *Exact result*: ``invariant``, ``evt_invariant``, ``evt_synthesis``, ``ai_invariant``;
+- *Bounds*: ``unroll``, ``mass_threshold``, ``evt_subinvariant``, ``evt_sandwich``;
+- *Explore*: ``evt_iterate``, the iterates H_N of the expected visiting times (in the JSON result
+  under the loop certificate's ``exploration``, with a guessed EVT invariant to check with
+  ``evt_invariant``); the loop's result is only a lower bound.
+
+A strategy is chosen per loop with ``--loop ID=STRATEGY[:NAME=VALUE,...]``, e.g.
+``--loop '*=auto'`` or ``--loop 0=evt_iterate:iterations=20``. The names and the menu numbers of the
+older strategies are unchanged.
+
 Converting programs to ``.ppy``
 -------------------------------
 

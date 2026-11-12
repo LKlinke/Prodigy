@@ -1,0 +1,22 @@
+/* The exploration of a loop's expected visiting times (evt-exploration.js, #324). */
+.evt-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.evt-title { margin: 0; font-size: var(--text-title3, 15px); font-weight: 600; }
+.evt-subtitle { margin: 4px 0 0; font-size: var(--text-callout, 12px); font-weight: 600; color: var(--text); }
+.evt-slider-row { display: flex; align-items: center; gap: 10px; font-size: var(--text-callout, 12px); }
+.evt-slider-row label { font-weight: 500; }
+.evt-slider { flex: 1; min-width: 0; accent-color: var(--accent); }
+.evt-n { min-width: 4.5em; text-align: right; color: var(--text-2); }
+.evt-table-wrap { overflow-x: auto; max-width: 100%; border: 1px solid var(--separator); border-radius: 8px; }
+.evt-table-wrap:focus-visible { outline: 3px solid var(--focus-ring, var(--accent)); outline-offset: 2px; }
+.evt-table { border-collapse: separate; border-spacing: 0; font-size: var(--text-callout, 12px); width: max-content; min-width: 100%; }
+.evt-table th, .evt-table td { padding: 3px 8px; border-bottom: 1px solid var(--separator); white-space: nowrap; }
+.evt-table thead th { position: sticky; top: 0; background: var(--rv-surface, var(--surface)); font-weight: 500; color: var(--text-2); text-align: right; }
+.evt-table thead th:first-child, .evt-table tbody th { text-align: left; }
+.evt-table thead th:first-child { left: 0; z-index: 2; }
+.evt-table tbody th { z-index: 1; }
+.evt-table tbody th { font-weight: 400; color: var(--text); position: sticky; left: 0; background: var(--rv-surface, var(--surface)); box-shadow: 1px 0 0 var(--separator); }
+/* the shading only repeats the written value; at most 32 % of the accent keeps the text contrast */
+.evt-table td { text-align: right; color: var(--text); background: color-mix(in srgb, var(--accent) var(--evt-share, 0%), var(--rv-surface, var(--surface))); }
+.evt-table .current { outline: 2px solid var(--accent); outline-offset: -2px; font-weight: 600; }
+.evt-table thead th.current { color: var(--text); }
+.evt-actions { display: flex; gap: 8px; flex-wrap: wrap; }

@@ -164,10 +164,13 @@ def test_interactive_session_keeps_historic_prompts(monkeypatch):
     session = AnalysisSession.interactive(program, source=GEOMETRIC, capture_output=True)
     result = session.run().to_json()
     assert prompts[0].startswith("While Instruction has only limited support. Choose an option:\n[1]: ")
-    assert "[6]: EVT Invariant syntesis\n" in prompts[0]
-    assert "[8]: EVT sandwich: synthesise EVT sub- and super-invariants (lower and upper bounds)\n" in prompts[0]
-    assert "[9]: Ask a language model for an EVT invariant or sub-invariant (checked by Prodigy)\n" \
-           "[q]: Quit.\n" in prompts[0]
+    # the keys stay; the texts are the titles and summaries that the GUI and `prodigy loop_strategies` show (#324)
+    assert "[2]: Unroll N iterations: A lower bound whose missing mass makes every query an interval" in prompts[0]
+    assert "[6]: Synthesise EVT invariant: Like Check EVT invariant" in prompts[0]
+    assert "[8]: EVT sandwich: Lower and upper bounds" in prompts[0]
+    assert "[9]: EVT invariant from a language model: " in prompts[0]
+    assert "[10]: Automatic: Exact if Prodigy finds an EVT invariant" in prompts[0]
+    assert prompts[0].endswith("[q]: Quit.\n")
     assert prompts[1] == "Specify a maximum iteration limit: "
     assert fraction(result["bounds"]["residual_mass"]) == Fraction(1, 16)
 
