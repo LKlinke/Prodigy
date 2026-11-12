@@ -24,7 +24,9 @@ from prodigy.pgcl import WhileInstr, Instr
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategy
 from prodigy.analysis.evtinvariants.heuristics.templates.polynomial_function import PolynomialEnumeration
+from prodigy.analysis.evtinvariants.heuristics.templates.rational_function import MAX_NUMERATOR_COEFFICIENTS
 from prodigy.analysis.evtinvariants.invariant_verification import is_evt_fixed_point
+from prodigy.analysis.evtinvariants.template_solver import solve_template
 from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
@@ -49,7 +51,20 @@ DEFAULT_TEMPLATE_TIME_LIMIT = 5
 class SynthesisBoundReached(VerificationError):
     """No EVT invariant was found within the bounds of the synthesis (all templates up to the maximal
     degree tried, or the time limit reached). ``details["reason"]`` is ``"degree"`` or ``"time_limit"``;
-    the verdict is ``unknown``: an invariant of a higher degree, or a non-rational one, may exist."""
+    the verdict is ``unknown``: an invariant of a higher degree, or a non-rational one, may exist.
+
+    ``details["candidates"]`` lists the fixed points found whose coefficients could not be shown to be
+    non-negative (at most :data:`MAX_REPORTED_CANDIDATES`); they are only candidates, not results, and
+    ``messages`` names them for the loop's messages."""
+
+    def __init__(self, message: str = "", details: Optional[Dict[str, Any]] = None,
+                 messages: Sequence[str] = ()):
+        super().__init__(message, details)
+        self.messages: List[str] = list(messages)
+
+
+MAX_REPORTED_CANDIDATES = 5
+"""At most this many undecided fixed points are reported as candidates."""
 
 
 class _TimeLimitReached(BaseException):
@@ -113,37 +128,70 @@ def _max_degree(strategy: SynthesisStrategy) -> Optional[int]:
     return degree if isinstance(degree, int) and degree >= 0 else None
 
 
+def _template_solutions(template: Distribution, phi: Distribution,
+                        prog_info: ProgramInfo) -> Optional[List[Dict[sympy.Symbol, sympy.Expr]]]:
+    """Solutions of the template's fixed-point equation ``template = phi`` (see :mod:`template_solver`);
+    ``None`` if the conditions on the denominator could not be solved."""
+    program_parameters = {str(param) for param in prog_info.program.parameters}
+    unknowns = sorted(template.get_parameters() - program_parameters)
+    # unknowns that occur only linearly in the template's numerator are solved by linear algebra, all others
+    # (those of the denominator) by the conditions on them
+    numerator, denominator = sympy.fraction(sympy.together(sympy.S(str(template).replace("^", "**"))))
+    linear = [sympy.Symbol(name) for name in unknowns if sympy.Symbol(name) not in denominator.free_symbols]
+    if linear and sympy.Poly(numerator, *linear).total_degree() > 1:
+        linear = []
+    numerator_unknowns = linear
+    denominator_unknowns = [sympy.Symbol(name) for name in unknowns if sympy.Symbol(name) not in linear]
+    variables = [sympy.Symbol(str(var)) for var in prog_info.program.variables]
+    parameters = [sympy.Symbol(name) for name in sorted((template.get_parameters() | phi.get_parameters())
+                                                        - set(unknowns))]
+    # the difference in SymPy: together() in the solver combines it, cheaper than the engine's subtraction
+    equation = sympy.S(str(template).replace("^", "**")) - sympy.S(str(phi).replace("^", "**"))
+    return solve_template(equation, numerator_unknowns, denominator_unknowns, variables, parameters)
+
+
 def _solutions(evt_candidate: Distribution, loop: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,
                config: ForwardAnalysisConfig, strategy: SynthesisStrategy, analyzer: Analyzer,
-               stats: Dict[str, int]) -> Tuple[Candidates, bool]:
+               stats: Dict[str, int], undecided: List[str]) -> Tuple[Candidates, bool]:
     """The certified fixed points among the instances of the template ``evt_candidate`` and whether one of
-    them was shown to have non-negative coefficients."""
+    them was shown to have non-negative coefficients. Certified fixed points whose non-negativity is not
+    decided are also added to ``undecided`` (once per function)."""
     zero_dist: Distribution = config.factory.from_expr("0", *prog_info.program.variables)
     # Compute one iteration step.
     evt_inv = evt_candidate
     one_step_dist, one_step_err = analyzer(loop.body, prog_info, evt_inv.filter(loop.cond), zero_dist, config)
-    if one_step_err != zero_dist:
+    # is_zero_dist, not `!= zero_dist`: equality also compares the parameters, and the program's parameters
+    # (e.g. a probability p) occur in the error term but not in the constant 0
+    if not one_step_err.is_zero_dist():
         raise NotImplementedError("Currently invariant synthesis does not support conditioned distributions.")
     phi_inv = distribution + one_step_dist
 
-    if config.solver_type == SolverType.Z3:
-        solver = SolverType.make(config.solver_type, config.factory)
-    else:
-        solver = SolverType.make(config.solver_type)
-    # Check equality between the iterated expression and the invariant.
     logger.debug("Check Invariant candidate %s", evt_inv)
-    is_solution, solution_candidates = solver.solve(evt_inv, phi_inv)
-    if is_solution is False or is_solution is None:
-        return [], False
+    if config.solver_type == SolverType.SYMPY:
+        # linear in the numerator coefficients (#281)
+        solution_candidates = _template_solutions(evt_inv, phi_inv, prog_info)
+        if solution_candidates is None:
+            stats["failed"] += 1
+            return [], False
+    else:
+        if config.solver_type == SolverType.Z3:
+            solver = SolverType.make(config.solver_type, config.factory)
+        else:
+            solver = SolverType.make(config.solver_type)
+        # Check equality between the iterated expression and the invariant.
+        is_solution, solution_candidates = solver.solve(evt_inv, phi_inv)
+        if is_solution is False or is_solution is None:
+            return [], False
     logger.debug("Filter solutions in: %s", solution_candidates)
 
     # Exclude "all zero" solutions, as well as solutions which make the denominator 0.
     solutions = []
+    # only computed when there are candidates (the engine's subtraction is not free)
+    denominator = sympy.S(str(evt_inv - phi_inv)).as_numer_denom()[1] if solution_candidates else sympy.S.One
     for candidate in solution_candidates:
         if all(map(lambda x: x == 0, candidate.values())):
             continue
 
-        _, denominator = sympy.S(str(evt_inv - phi_inv)).as_numer_denom()
         # we have excluded all zero solutions and now also exclude the solutions
         # which make the denominator zero
         if denominator.subs(candidate).equals(0):
@@ -169,7 +217,9 @@ def _solutions(evt_candidate: Distribution, loop: WhileInstr, prog_info: Program
         if sol_is_positive is None:
             print(f"{Style.CYAN}Possible invariant: {sol_inv}{Style.RESET}{Style.CLEARTOEND}")
             result.append((sol_dist, sol_is_positive))
-            stats["unproven"] += 1
+            key = str(sympy.cancel(sol_inv))
+            if key not in undecided:
+                undecided.append(key)
         elif sol_is_positive is True:
             print(f"{Style.GREEN}Invariant: {sol_inv}{Style.RESET}{Style.CLEARTOEND}")
             result.append((sol_dist, sol_is_positive))
@@ -180,11 +230,24 @@ def _solutions(evt_candidate: Distribution, loop: WhileInstr, prog_info: Program
     return result, inv_found
 
 
+def _effective_degree(strategy: SynthesisStrategy) -> Optional[int]:
+    """The largest degree the templates actually reach (smaller than the bound for templates too large to
+    build, see ``RationalFunctionMaxDeg.effective_max_deg``)."""
+    degree = getattr(strategy.template_heuristics, "effective_max_deg", None)
+    return degree if isinstance(degree, int) else _max_degree(strategy)
+
+
 def _bound_message(reason: str, strategy: SynthesisStrategy, time_limit: Optional[float],
-                   template_time_limit: Optional[float], stats: Dict[str, int]) -> str:
+                   template_time_limit: Optional[float], stats: Dict[str, int], undecided: Sequence[str]) -> str:
     degree = _max_degree(strategy)
     found = f"No {_template_kind(strategy)} EVT invariant"
-    if degree is not None:
+    effective = _effective_degree(strategy)
+    left_out = ""
+    if degree is not None and effective is not None and effective < degree:
+        found += f" up to degree {effective}"
+        left_out = f" Templates of a higher degree up to {degree} have more than {MAX_NUMERATOR_COEFFICIENTS} " \
+                   "coefficients in the numerator and are left out."
+    elif degree is not None:
         found += f" up to degree {degree}"
     tried = f"{stats['tried']} template{'s' if stats['tried'] != 1 else ''} tried"
     if stats["skipped"]:
@@ -195,9 +258,10 @@ def _bound_message(reason: str, strategy: SynthesisStrategy, time_limit: Optiona
                   f"({tried})."
     else:
         message = f"{found} found ({tried})."
-    if stats["unproven"]:
-        message += f" {stats['unproven']} fixed point(s) were found whose coefficients could not be shown to be " \
-                   "non-negative."
+    message += left_out
+    if undecided:
+        message += f" {len(undecided)} fixed point(s) were found whose coefficients could not be shown to be " \
+                   "non-negative (reported as candidates, not as results)."
     if stats["failed"]:
         message += f" SymPy could not solve {stats['failed']} template(s)."
     return message
@@ -223,7 +287,13 @@ def evt_invariant_synthesis(loop: WhileInstr,
     templates tried so far."""
     logger.debug("Invariant Synthesis for loop %s with initial distribution %s.", loop, distribution)
     print(f"{Style.YELLOW}Invariant synthesis initiated...{Style.RESET}")
-    stats = {"tried": 0, "failed": 0, "unproven": 0, "skipped": 0}
+    if distribution.is_zero_dist():
+        # Ψ(I) = ⟦body⟧(⟨I⟩_guard) is linear, so 0 is its least fixed point (e.g. an inner loop that is never
+        # entered); the templates exclude the all-zero solution
+        print(f"{Style.GREEN}Invariant: 0{Style.RESET}{Style.CLEARTOEND}")
+        return [(distribution, True)]
+    stats = {"tried": 0, "failed": 0, "skipped": 0}
+    undecided: List[str] = []
     reason = "degree"
     try:
         with _time_limit(time_limit) as expired:
@@ -236,7 +306,7 @@ def evt_invariant_synthesis(loop: WhileInstr,
                 try:
                     with _time_limit(template_time_limit, _TemplateTimeLimitReached):
                         result, inv_found = _solutions(evt_candidate, loop, prog_info, distribution, config,
-                                                       strategy, analyzer, stats)
+                                                       strategy, analyzer, stats, undecided)
                 except _TemplateTimeLimitReached:
                     logger.info("Skipping the template %s after %s s.", evt_candidate, template_time_limit)
                     stats["skipped"] += 1
@@ -256,18 +326,25 @@ def evt_invariant_synthesis(loop: WhileInstr,
         reason = "time_limit"
 
     print(Style.CLEARTOEND, end="")
-    message = _bound_message(reason, strategy, time_limit, template_time_limit, stats)
+    message = _bound_message(reason, strategy, time_limit, template_time_limit, stats, undecided)
+    candidates = undecided[:MAX_REPORTED_CANDIDATES]
     details: Dict[str, Any] = {
         "type": "evt_synthesis",
         "verdict": "unknown",
         "reason": reason,
         "template": _template_kind(strategy),
         "max_degree": _max_degree(strategy),
+        "effective_max_degree": _effective_degree(strategy),
         "time_limit": time_limit,
         "template_time_limit": template_time_limit,
         "templates_tried": stats["tried"],
         "templates_failed": stats["failed"],
         "templates_skipped": stats["skipped"],
-        "unproven_fixed_points": stats["unproven"],
+        "unproven_fixed_points": len(undecided),
+        "candidates": candidates,
     }
-    raise SynthesisBoundReached(message, details=details)
+    messages = [f"Candidate EVT invariant (not certified, its coefficients could not be shown to be non-negative): "
+                f"{candidate}" for candidate in candidates]
+    if len(undecided) > len(candidates):
+        messages.append(f"… {len(undecided) - len(candidates)} further candidate(s) omitted.")
+    raise SynthesisBoundReached(message, details=details, messages=messages)

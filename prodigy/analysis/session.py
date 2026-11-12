@@ -800,6 +800,9 @@ class AnalysisSession:
             details = getattr(exc, "details", None)
             if details:
                 record.certificates.append(details)
+            # e.g. the undecided candidates of a synthesis that found no certified invariant
+            for message in getattr(exc, "messages", ()):
+                record.add_message(message)
             raise
         record.time += time.perf_counter() - start
         record.invocations += 1
