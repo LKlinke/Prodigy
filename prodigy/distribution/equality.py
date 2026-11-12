@@ -5,7 +5,7 @@ An engine's ``==`` must never claim equality without proof (#117), so for non-ra
 answers False when it merely cannot prove equality. Checks such as the EVT fixed-point equation need to
 tell "provably different" from "not proven" apart (#123); :func:`decide_equal` gives that answer.
 """
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 import sympy
 
@@ -57,6 +57,23 @@ def decide_equal(lhs: sympy.Expr, rhs: sympy.Expr, use_simplify: bool = True) ->
     if use_simplify and difference.equals(0) is True:
         return True
     return None
+
+
+def sympify_engine_string(text: str, names: Iterable[str]) -> sympy.Expr:
+    """
+    The SymPy expression of an engine's string form ``text`` (``^`` or ``**`` for powers). ``names`` are the
+    variables and parameters; they are parsed as plain symbols, so names of Python builtins or SymPy objects
+    (e.g. a variable ``sum``, ``max`` or ``S``) stay symbols instead of becoming functions (#321).
+
+    The string must come from an engine, not from the user: SymPy's parser evaluates Python code.
+    """
+    local_dict = {name: sympy.Symbol(name) for name in names}
+    return sympy.sympify(text.replace("^", "**"), locals=local_dict)
+
+
+def sympify_distribution(dist: Any) -> sympy.Expr:
+    """The SymPy expression of a distribution of any engine, see :func:`sympify_engine_string`."""
+    return sympify_engine_string(str(dist), dist.get_variables() | dist.get_parameters())
 
 
 def decide_equal_strings(lhs: str, rhs: str, names: Iterable[str]) -> Optional[bool]:
