@@ -169,11 +169,11 @@ function buildAnnotations(state, { loops = [], queries = [] }) {
   return Decoration.set(ranges, true);
 }
 
-// ---- stepper: current step and breakpoints ----------------------------------------------
+// ---- analysis timeline: current step and breakpoints ----------------------------------------------
 
 const setStep = StateEffect.define();
 
-/** The instruction of the step shown in the stepper: its lines get a background, its text a frame. */
+/** The instruction of the step at the analysis card's timeline position: its lines get a background, its text a frame. */
 const stepField = StateField.define({
   create: () => Decoration.none,
   update(decorations, transaction) {

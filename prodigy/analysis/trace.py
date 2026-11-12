@@ -3,8 +3,8 @@
 Step trace of the forward analysis
 ----------------------------------
 
-With ``AnalysisSession(record_steps=True)`` (``prodigy analyze --steps``, the GUI's stepper) the
-analysis records a *trace*: one step per instruction, with its source position, the distribution
+With ``AnalysisSession(record_steps=True)`` (``prodigy analyze --steps``, the timeline of the GUI's
+analysis card) the analysis records a *trace*: one step per instruction, with its source position, the distribution
 before and after it, the guarantee that holds for it, the time it took and the size of the closed
 form. Front ends navigate the trace afterwards (forward, back, jump to a line); the whole trace is
 recorded within the time limit of the analysis.

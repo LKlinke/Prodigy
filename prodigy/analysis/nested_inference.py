@@ -1169,7 +1169,10 @@ def dist_values_json(values: List[DistValue], syntax: str, limit: int) -> List[D
 def for_trace(distribution: Distribution, program: Optional[Program], syntax: str
               ) -> Tuple[Distribution, List[Dict[str, Any]]]:
     """A step of the trace shows the program state without the encoding of the ``dist``
-    variables, and their values next to it (variable, probability, ``infer`` text, closed form)."""
+    variables, and their values next to it (variable, probability, ``infer`` text, closed form and
+    its LaTeX)."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.result import to_latex
     if program is None:
         return distribution, []
     prog_info = ProgramInfo(program)
@@ -1178,12 +1181,15 @@ def for_trace(distribution: Distribution, program: Optional[Program], syntax: st
     shown: List[Dict[str, Any]] = []
     try:
         for value in dist_values(distribution, prog_info):
+            renamed = _rename_value(value.closed, value.variable) if value.closed is not None else None
+            closed = str(renamed) if renamed is not None else None
             shown.append({
                 "variable": value.variable,
                 "probability": str(value.probability),
                 "infer": value.site.describe(syntax) if value.site is not None else None,
-                "closed_form": str(_rename_value(value.closed, value.variable))
-                if value.closed is not None else None,
+                "closed_form": closed,
+                # rendered with KaTeX like the result's closed forms (#217); short ones only
+                "latex": to_latex(renamed) if renamed is not None and len(closed or "") <= 600 else None,
             })
     except Exception:  # pylint: disable=broad-except
         shown = []

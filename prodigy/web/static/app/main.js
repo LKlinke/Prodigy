@@ -8,7 +8,6 @@ import { load, save } from "./store.js";
 import { h, icon } from "./components/dom.js";
 import { BOUND_TEXT, formatSeconds, formatValue, qualify } from "./components/format.js";
 import { renderResult, renderRunning } from "./components/result-view.js";
-import { breakpointTarget, renderStepper } from "./components/stepper.js";
 
 const WELCOME = `# A fair coin is flipped until it shows heads; c counts the tails.
 # Press Analyze (⌘↩). How the loop is analysed is set in Setup.
@@ -38,11 +37,12 @@ const state = {
   resultStale: false,
   optionsOpen: false,
   tab: "setup",
-  // the stepper: shown step, per-view choices, breakpoint lines, watches (queries after every step)
-  step: { index: 0, view: {}, breakpoints: [], watches: [] },
+  // the analysis card of the result: its controller, the step its timeline shows (for the editor),
+  // breakpoint lines and watches (queries after every step)
+  analysis: { card: null, step: null, breakpoints: [], watches: [] },
 };
 
-const TABS = ["setup", "result", "steps"];
+const TABS = ["setup", "result"];
 
 let editor;
 let documents;
@@ -61,13 +61,9 @@ function selectTab(name, { focus = false } = {}) {
     $(`panel-${tab}`).hidden = !selected;
     if (selected && focus) button.focus();
   }
-  const changed = state.tab !== name;
   state.tab = name;
-  if (name === "steps") renderStepsPanel();
-  else if (changed) {
-    state.step.view.stopPlayer?.();
-    editor?.showStep(null);
-  }
+  if (name !== "result") state.analysis.card?.stop();
+  showAnalysisStep();
 }
 
 function initTabs() {
@@ -136,7 +132,7 @@ async function programReplaced() {
   state.outline = null;
   state.result = null;
   state.resultStale = false;
-  resetSteps();
+  resetAnalysis();
   save("setup", state.setup);
   renderResultPanel();
   selectTab("setup");
@@ -312,69 +308,26 @@ function markStale() {
   if (state.result && !state.resultStale) {
     state.resultStale = true;
     renderResultPanel();
-    // the positions of the steps may no longer match the text
-    editor.showStep(null);
-    if (state.tab === "steps") renderStepsPanel();
   }
 }
 
-// ---- stepper ------------------------------------------------------------------------------------
+// ---- analysis card: timeline, editor highlight, watches ------------------------------------------
 
 /** Another program: no steps, no breakpoints. */
-function resetSteps() {
-  state.step.view.stopPlayer?.();
-  state.step.index = 0;
-  state.step.view = {};
+function resetAnalysis() {
+  state.analysis.card?.stop();
+  state.analysis.step = null;
+  state.analysisView = null;
   editor.setBreakpoints([]);
-  state.step.breakpoints = [];
+  state.analysis.breakpoints = [];
   editor.showStep(null);
-  renderStepsPanel();
 }
 
-function currentSteps() {
-  return state.result?.steps || [];
-}
-
-function renderStepsPanel({ focusList = false } = {}) {
-  if (state.job) return;
-  const steps = currentSteps();
-  state.step.index = Math.max(0, Math.min(steps.length - 1, state.step.index));
-  renderStepper($("panel-steps"), state.result, {
-    index: state.step.index,
-    viewState: state.step.view,
-    breakpoints: state.step.breakpoints,
-    stale: state.resultStale,
-    strategyTitles: state.titles,
-    focusList,
-    onIndex: (index, extra = {}) => goToStep(index, extra),
-    onSelectLine: (line) => editor.revealLine(line),
-    onAddWatch: (text) => {
-      if (!state.step.watches.includes(text)) state.step.watches = [...state.step.watches, text];
-      save("watches", state.step.watches);
-      recordAndRun();
-    },
-    onRemoveWatch: (text) => {
-      state.step.watches = state.step.watches.filter((w) => w !== text);
-      save("watches", state.step.watches);
-      recordAndRun();
-    },
-    onRecord: recordAndRun,
-  });
-  const step = steps[state.step.index];
-  if (state.tab === "steps" && step && !state.resultStale) {
-    editor.showStep({ ...step, label: `Step ${state.step.index + 1}` });
-  } else {
-    editor.showStep(null);
-  }
-}
-
-function goToStep(index, { focusList = false } = {}) {
-  const steps = currentSteps();
-  if (!steps.length) return;
-  const next = Math.max(0, Math.min(steps.length - 1, index));
-  if (next !== state.step.index) state.step.view.iterate = undefined;
-  state.step.index = next;
-  renderStepsPanel({ focusList });
+/** The editor highlights the instruction of the timeline's position while the result is shown. */
+function showAnalysisStep() {
+  const step = state.analysis.step;
+  if (state.tab === "result" && step && !state.resultStale && !state.job) editor?.showStep(step);
+  else editor?.showStep(null);
 }
 
 /** Records steps from now on (the option in Setup) and analyzes again. */
@@ -382,30 +335,26 @@ function recordAndRun() {
   state.setup.options.recordSteps = true;
   save("setup", state.setup);
   renderSetupPanel();
-  state.step.pendingTab = "steps";
   run();
 }
 
-function stepKey(event) {
-  const steps = currentSteps();
-  if (!steps.length || document.querySelector("dialog[open]")) return false;
-  const inStepper = $("panel-steps").contains(event.target);
-  const typing = event.target.closest?.("input, select, textarea, .cm-content");
-  const breakpoints = new Set(state.step.breakpoints);
-  let target = null;
-  if (event.key === "F10") target = state.step.index + (event.shiftKey ? -1 : 1);
-  else if (event.key === "F5") target = breakpointTarget(steps, state.step.index, breakpoints, event.shiftKey ? -1 : 1);
-  else if (inStepper && !typing && !event.target.closest?.(".st-list, .st-player")) {
-    if (event.key === "ArrowRight") target = state.step.index + 1;
-    else if (event.key === "ArrowLeft") target = state.step.index - 1;
-    else if (event.key === "Home") target = 0;
-    else if (event.key === "End") target = steps.length - 1;
+function changeWatches(watches) {
+  state.analysis.watches = watches;
+  save("watches", watches);
+  recordAndRun();
+}
+
+/** F10/⇧F10 and F5/⇧F5 anywhere, ← → Home End inside the analysis card. */
+function analysisKey(event) {
+  const card = state.analysis.card;
+  if (!card || document.querySelector("dialog[open]")) return false;
+  const global = event.key === "F10" || event.key === "F5";
+  if (!global && state.tab !== "result") return false;
+  if (global && state.tab !== "result") {
+    if (!card.model.positions.some((p) => p.kind !== "final")) return false;
+    selectTab("result");
   }
-  if (target === null) return false;
-  event.preventDefault();
-  if (state.tab !== "steps") selectTab("steps");
-  goToStep(target);
-  return true;
+  return card.key(event);
 }
 
 const BADGE_LABELS = { exact: "Exact result", lower: "Lower bound", upper: "Upper bound", unknown: "No guarantee",
@@ -426,24 +375,36 @@ function renderResultPanel() {
   const panel = $("panel-result");
   if (state.job) return;
   if (!state.result) {
+    state.analysis.card?.stop();
+    state.analysis.card = null;
+    state.analysis.step = null;
+    showAnalysisStep();
     panel.replaceChildren(h("div", { class: "result-view" }, h("p", { class: "help" },
       "No result yet. Press Analyze (⌘↩) to compute the output distribution and the answers to the queries.")));
     setBadge(null);
     return;
   }
-  renderResult(panel, state.result, {
+  state.analysis.card?.stop();
+  const { analysis } = renderResult(panel, state.result, {
     stale: state.resultStale,
     strategyTitles: state.titles,
     onSelectLoop: showLoop,
     onSelectLine: (line) => editor.revealLine(line),
-    onOpenSteps: () => selectTab("steps", { focus: true }),
     elapsed: state.result.__elapsed,
+    analysisState: analysisState(state.result),
+    breakpoints: state.analysis.breakpoints,
+    onPosition: (step) => { state.analysis.step = step; showAnalysisStep(); },
+    onRecord: recordAndRun,
+    onAddWatch: (text) => {
+      if (!state.analysis.watches.includes(text)) changeWatches([...state.analysis.watches, text]);
+    },
+    onRemoveWatch: (text) => changeWatches(state.analysis.watches.filter((w) => w !== text)),
     ...(state.result.__job ? {
       loadJoint: (payload, signal) => loadJoint(state.result.__job, payload, signal),
-      jointState: jointState(state.result.__job),
       maxJointAxis: state.meta?.limits?.max_joint_axis,
     } : {}),
   });
+  state.analysis.card = analysis;
   const kind = state.result.status === "ok" ? state.result.bounds?.kind : "error";
   setBadge(state.resultStale ? null : kind);
 }
@@ -452,16 +413,17 @@ function renderResultPanel() {
 
 const jointCache = new Map();
 
-/** The choices of the joint view (pair, window, view) for the result of one analysis job. */
-function jointState(jobId) {
-  if (state.jointView?.job !== jobId) {
-    // a new result keeps the variable (or pair) and the kinds of view; the window starts from the
-    // default again
-    const previous = state.jointView || {};
-    state.jointView = { job: jobId, x: previous.x, y: previous.y, mode: previous.mode, camera: previous.camera,
-      subject: previous.subject, marginalMode: previous.marginalMode };
+/** The choices of the analysis card (lens, position, variable or pair, window, view) for one result. */
+function analysisState(result) {
+  if (!state.analysisView || state.analysisView.result !== result) {
+    // a new result keeps the lens, the variable (or pair) and the kinds of view; the timeline starts
+    // at the final result and the window from the default again
+    const previous = state.analysisView || {};
+    state.analysisView = { result, lens: previous.lens, x: previous.x, y: previous.y, mode: previous.mode,
+      camera: previous.camera, subject: previous.subject, marginalMode: previous.marginalMode,
+      sizeScale: previous.sizeScale, watchesOpen: previous.watchesOpen };
   }
-  return state.jointView;
+  return state.analysisView;
 }
 
 /** Runs a grid job for two variables of the result of analysis `jobId` and resolves to the grid. */
@@ -532,7 +494,7 @@ function buildRequest() {
     decisions,
     coefficients: options.coefficients,
     record_steps: options.recordSteps,
-    ...(options.recordSteps && state.step.watches.length ? { watches: state.step.watches } : {}),
+    ...(options.recordSteps && state.analysis.watches.length ? { watches: state.analysis.watches } : {}),
     synthesis_strategy: options.synthesis,
     ...(options.synthesis === "from_heuristics"
       ? { template_heuristic: options.templateHeuristic, positivity_heuristic: options.positivityHeuristic } : {}),
@@ -587,11 +549,11 @@ async function run() {
   state.job = { id: response.job, timeLimit: response.time_limit, logOffset: 0, log: "", started: performance.now() };
   setRunning(true);
   setBadge("running");
-  state.step.view.stopPlayer?.();
+  state.analysis.card?.stop();
+  state.analysis.card = null;
+  state.analysis.step = null;
   editor.showStep(null);
-  const target = state.step.pendingTab === "steps" ? "steps" : "result";
-  state.step.pendingTab = null;
-  selectTab(target);
+  selectTab("result");
   showRunning({ elapsed: 0, timeLimit: state.job.timeLimit, progress: [], log: "" });
   poll();
 }
@@ -620,9 +582,9 @@ async function poll() {
     __job: job.id }, status.elapsed);
 }
 
-/** The progress view, in the Result and the Steps panel. */
+/** The progress view in the Result panel. */
 function showRunning(progress) {
-  for (const panel of ["panel-result", "panel-steps"]) renderRunning($(panel), progress, { strategyTitles: state.titles });
+  renderRunning($("panel-result"), progress, { strategyTitles: state.titles });
 }
 
 function finish(result, elapsed) {
@@ -632,7 +594,6 @@ function finish(result, elapsed) {
   state.result = { ...result, __elapsed: elapsed };
   state.resultStale = false;
   renderResultPanel();
-  renderStepsPanel();
   updateAnnotations();
   const message = result.status === "ok" ? null : (result.error?.message || result.status);
   if (message) showRunMessage(message, result.status === "cancelled" ? "info" : "error");
@@ -671,7 +632,7 @@ async function loadExample(example, syntax = "ppy") {
   state.setup.input = suggestion.input_distribution || "";
   state.result = null;
   state.resultStale = false;
-  resetSteps();
+  resetAnalysis();
   documents.exampleLoaded(example, data.source);
   renderResultPanel();
   const renamed = renamingText(data.renamings);
@@ -798,11 +759,11 @@ async function boot() {
     onRun: run,
     onStop: stop,
     onBreakpointsChange: (lines) => {
-      state.step.breakpoints = lines;
-      if (state.tab === "steps") renderStepsPanel();
+      state.analysis.breakpoints = lines;
+      if (state.result && state.result.steps?.length) renderResultPanel();
     },
   });
-  state.step.watches = (load("watches", []) || []).filter((w) => typeof w === "string").slice(0, 8);
+  state.analysis.watches = (load("watches", []) || []).filter((w) => typeof w === "string").slice(0, 8);
   save("syntax", editor.getSyntax());
   documents = createDocument({ editor, initialText: editor.getSource(), onReplace: programReplaced, notify,
     onChange: renderTitle });
@@ -820,7 +781,7 @@ async function boot() {
   $("btn-run").addEventListener("click", run);
   $("btn-stop").addEventListener("click", stop);
   document.addEventListener("keydown", (event) => {
-    if (stepKey(event)) return;
+    if (analysisKey(event)) return;
     const mod = event.metaKey || event.ctrlKey;
     const key = event.key.toLowerCase();
     const modal = document.querySelector("dialog[open]");
@@ -839,7 +800,6 @@ async function boot() {
   renderProblems();
   renderSetupPanel();
   renderResultPanel();
-  renderStepsPanel();
   await runCheck();
   editor.focus();
 }

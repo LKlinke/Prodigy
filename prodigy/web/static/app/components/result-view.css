@@ -19,10 +19,6 @@
 }
 .result-view[data-stale="true"] > :not(.notice) { opacity: 0.55; }
 
-.rv-section { display: flex; flex-direction: column; gap: 10px; }
-.rv-section-title { font-size: var(--text-body, 13px); font-weight: 600; }
-.rv-subhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-.rv-subhead h4 { font-size: var(--text-callout, 12px); font-weight: 600; color: var(--rv-text-2); }
 .rv-muted { color: var(--rv-text-2); }
 .rv-note { margin: 0; font-size: var(--text-callout, 12px); color: var(--rv-text-2); }
 .rv-wrap { white-space: pre-wrap; word-break: break-word; }
@@ -47,9 +43,8 @@
 .rv-badge[data-kind="unknown"] { background: var(--unknown-fill, rgba(163, 71, 0, 0.1)); color: var(--rv-unknown); }
 .rv-badge[data-kind="error"] { background: var(--error-fill, rgba(196, 22, 28, 0.08)); color: var(--rv-error); }
 
-/* ---- cards (#288): answer, distribution, how it was computed; details as a quiet line ---- */
+/* ---- cards (#288, #311): answer, analysis; details as a quiet line ---- */
 .rv-card-title { font-size: var(--text-body, 13px); font-weight: 600; margin: 0; }
-.rv-block { display: grid; gap: 10px; padding-top: 12px; border-top: 1px solid var(--rv-separator); }
 .rv-block-title { margin: 0; font-size: var(--text-callout, 12px); font-weight: 600; color: var(--rv-text-2); }
 
 /* the answer card is slightly emphasised: a guarantee-coloured edge (the badge says it in words) */
@@ -116,8 +111,7 @@
 /* ---- distribution -------------------------------------------------------------------- */
 /*
  * Formula boxes (formula-box.js): a bounded box whose content scrolls inside it, never the page.
- * --fb-collapsed and --fb-expanded bound the height; a reserved box (the stepper) has exactly that
- * height, so the views below it keep their place while the expression changes.
+ * --fb-collapsed and --fb-expanded bound the height.
  */
 .formula-box {
   --fb-collapsed: 216px;
@@ -132,8 +126,6 @@
   outline: none; border-radius: 6px; padding: 2px 4px 2px 0;
 }
 .formula-box[data-expanded="true"] .formula-scroll { max-height: var(--fb-expanded); }
-.formula-box[data-reserve="true"] .formula-scroll { height: var(--fb-collapsed); }
-.formula-box[data-reserve="true"][data-expanded="true"] .formula-scroll { height: var(--fb-expanded); }
 .formula-scroll:focus-visible { box-shadow: var(--focus-ring); }
 /* more below: fade out the last line (the button below says so in words) */
 .formula-frame::after {
@@ -143,7 +135,6 @@
 }
 .formula-box[data-overflow="true"][data-at-end="false"] .formula-frame::after { opacity: 1; }
 .formula-foot { display: flex; align-items: center; line-height: 20px; }
-.formula-box[data-reserve="true"] .formula-foot { height: 20px; }
 .formula-toggle { font-size: var(--text-callout, 12px); }
 .formula-math { font-size: 14px; line-height: 3.1; }
 .formula-math .katex-display { margin: 4px 0; text-align: left; }
@@ -184,10 +175,6 @@
   border: 1px solid var(--rv-bound);
 }
 
-.rv-facts { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 0; }
-.rv-facts > div { display: grid; gap: 0; }
-.rv-facts dt { font-size: var(--text-caption, 11px); color: var(--rv-text-2); }
-.rv-facts dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .rv-figure { margin: 0; display: grid; gap: 8px; }
 .rv-figure-head { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
@@ -221,7 +208,6 @@
 .rv-table .exact-cell { color: var(--rv-text-2); max-width: 18em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
 .rv-table tr.chosen td { font-weight: 600; }
 .rv-table .tail-row td { color: var(--rv-text-2); }
-.rv-steps td:nth-child(2), .rv-steps td:nth-child(3), .rv-steps th:nth-child(2), .rv-steps th:nth-child(3) { text-align: left; }
 
 /* ---- how it was computed: one row per loop ---------------------------------------------- */
 .rv-loops { list-style: none; margin: 0; padding: 0; display: grid; }
@@ -238,8 +224,6 @@
 .rv-loop-verdict[data-kind="unknown"] { color: var(--rv-unknown); }
 .rv-loop-message { margin: 0; font-size: var(--text-callout, 12px); line-height: 1.45; }
 .rv-loop .disclosure { margin-top: 4px; }
-.rv-steps-row { display: flex; align-items: center; gap: 8px; padding-top: 10px; border-top: 1px solid var(--rv-separator); }
-.rv-loops:only-of-type + .rv-steps-row { margin-top: 0; }
 
 /* ---- details: a disclosure line under the cards, not a card ------------------------------- */
 .rv-details { padding: 0 2px; }

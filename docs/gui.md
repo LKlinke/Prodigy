@@ -29,7 +29,7 @@ Prodigy is tested with Python 3.11 and 3.14.
   synthesis strategy *from heuristics* combines a template heuristic and a positivity
   heuristic chosen below it (on the command line: `--strategy from_heuristics
   --template-heuristic … --pos-heuristic …`).
-* **Result** (right): three cards and a quiet line, in this order (#288):
+* **Result** (right): two cards and a quiet line, in this order (#288, #311):
   * **Answer** (emphasised by an edge in the colour of the guarantee): the guarantee once, as a
     badge with its glyph and word and one sentence (for a lower bound with the residual mass, for
     an upper bound with the side condition of Park's lemma), timing and engine on the right. Then
@@ -38,36 +38,20 @@ Prodigy is tested with Python 3.11 and 3.14.
     query names its own kind of bound only where it differs from the overall guarantee; the
     interval of a lower bound (`∈ [0.5, 0.5 + 3 × 10⁻⁸]`) and the hatched interval bar are values
     and stay. *Other expected values* lists E[v] for the variables that no `Ex[v]` query covers.
-  * **Output distribution**: one figure with one control row: the variable (`x | y | … | x and
-    y`; the pair switches the same figure to the joint view, see [Joint distribution of two
-    variables](#joint-distribution-of-two-variables)), the view (*Chart | Table* for one variable,
-    *Heatmap | 3D | Table* for a pair) and the scale *Linear | Log*. Under the figure one **Mass**
-    line for whatever it shows: the total mass, the mass shown (the values of the chart, or the
-    window), the mass beyond, and for a lower bound the hatched "?" mass not yet accounted for,
-    each labelled, with a grey bar from 0 to 1. Support, parameters and the probability of a
-    violated observation are listed above the controls. *Generating function* is a disclosure with
-    the closed form and its copy buttons. A program with nested inference gets the block
-    *Inferred distributions* in this card: per value of each `dist` variable its `infer(…)`, the
-    normalised generating function, the expected value, the normalising constant Z and the
-    coefficients; the `dist` variables are not part of the output distribution. In the **Steps**
-    tab, every distribution lists the values of the `dist` variables next to it. A loop that
-    assigns a `dist` variable is marked in the editor as not implemented yet.
-  * **How it was computed**: one row per loop with its line, strategy, verdict in words (`✓
-    exact`, `≥ lower bound, at most … not accounted for`, `≤ upper bound`, `! no guarantee`) and
-    time; a failed loop keeps its badge (*Failed*, *Refuted*, *Not proven*) and its message. The
-    certificates are a disclosure. *Step Through N Steps* opens the Steps tab when the steps were
-    recorded.
+  * **Analysis**: one card with the lenses *Distribution | Size | Time | Checks* and one timeline
+    that all lenses share; see [The analysis card](#the-analysis-card). At its default position,
+    the final result, the Distribution lens is the output distribution and the Checks lens lists
+    every loop with its verdict and certificates.
   * **Details**: not a card but a disclosure line under the cards with the warnings, the console
     output and *Result as JSON*. If there are warnings, a notice above the cards says so and opens
     the line.
 
-  The chart has a **Linear / Log** switch for the probability axis; the browser remembers the
-  choice (the heatmap and the 3D view share it). On the log scale the axis is labelled in decades
+  The charts have a **Linear / Log** switch; the browser remembers the choice for the probability
+  axis (the heatmap and the 3D view share it). On the log scale the axis is labelled in decades
   (`1`, `10⁻³`, …) and marked *log*, it spans at most 12 decades (smaller probabilities get the
   minimal bar), and a probability 0, which has no place on a log axis, is drawn as a dashed
-  outline on the axis. The Steps tab does not animate log charts. The choice of variable and view
-  is kept when the program is analysed again.
-* **Steps** (right): a debugger for the analysis, see [Stepping through an analysis](#stepping-through-an-analysis).
+  outline on the axis. Log charts are not animated. The lens, the choice of variable and view are
+  kept when the program is analysed again; the timeline starts at the final result.
 * **Examples**: the programs in `pgfexamples/` (in `.ppy`), with a suggested setup derived from
   their first line (e.g. `check_equality` examples come with their invariant). A `.pgcl` example
   in a folder given with `prodigy web --examples` is converted to `.ppy` on the fly (with its
@@ -86,8 +70,8 @@ Prodigy is tested with Python 3.11 and 3.14.
   the name "Engine" for assistive technology) and the toolbar wraps.
 
 Keyboard: ⌘/Ctrl + Return analyses, ⌘/Ctrl + . (or Esc) stops, ⌘/Ctrl + O opens,
-⌘/Ctrl + S saves; in the stepper F10 / ⇧F10 go to the next / previous step, F5 / ⇧F5 to the next /
-previous breakpoint, and F9 in the editor sets a breakpoint. Every analysis runs in its own process with a time limit and can be stopped
+⌘/Ctrl + S saves; F10 / ⇧F10 move the analysis card's timeline to the next / previous position,
+F5 / ⇧F5 to the next / previous breakpoint, and F9 in the editor sets a breakpoint. Every analysis runs in its own process with a time limit and can be stopped
 at any time.
 
 The GUI follows the system appearance (light or dark, macOS: System Settings → Appearance);
@@ -97,10 +81,12 @@ for websites (Settings → General → Website appearance).
 ## Joint distribution of two variables
 
 Choosing the pair (`x and y`, or *Two variables* with more than two) in the control row of the
-card *Output distribution* shows Pr[x = i, y = j] for two chosen variables;
+Distribution lens shows Pr[x = i, y = j] for two chosen variables;
 the other variables are marginalised. The coefficients are exact: the server computes them from
-the output distribution of the finished analysis it keeps (`POST /api/jobs/<id>/joint`, a short
-job of its own, see `prodigy/analysis/joint_grid.py`), the browser only draws them.
+the distribution of the finished analysis it keeps (`POST /api/jobs/<id>/joint`, a short job of
+its own, see `prodigy/analysis/joint_grid.py`), the browser only draws them. At a position of the
+timeline other than the final result, the grid is that of the recorded step or iterate (the
+request names `step` and `iterate`; a closed form the trace kept only in part has no grid).
 
 * **Pair**: the variables on the horizontal and the vertical axis (⇄ swaps them).
 * **Window**: the values *from*–*to* of each axis, at most 50 per axis and up to 1000; *Show
@@ -133,65 +119,81 @@ job of its own, see `prodigy/analysis/joint_grid.py`), the browser only draws th
   value + residual mass (the line below the view and the tooltip say *at least* and *at most*); for
   an upper bound every cell is an upper bound.
 
-Nothing in the joint view is animated, so it needs no special case for reduced motion; it follows
-light and dark mode (the 3D view redraws when the appearance changes).
+Moving along the timeline or playing it redraws the joint view for each position (#289): the pair,
+the view and a window chosen with *Show window* stay (without one, each position gets its default
+window), and the colour scale keeps the largest probability seen for this pair and window, so that
+the frames can be compared. The joint view itself is not animated, so it needs no special case for
+reduced motion; it follows light and dark mode (the 3D view redraws when the appearance changes).
 
-## Stepping through an analysis
+## The analysis card
 
-The **Steps** tab steps through the analysis instruction by instruction, to understand a result,
-to find where an analysis gets slow or fails, or for teaching. It shows the steps of the last
-analysis that recorded them: *Record steps and analyze* (or the option *Record each step* in
-Setup) records them; the whole trace is recorded within the time limit of the analysis and
-navigated afterwards, so stepping back is as cheap as stepping forward.
+The **Analysis** card of the Result tab (#311) shows how the result came about. It has four
+**lenses**, *Distribution | Size | Time | Checks*, all with the same layout: a header that says where
+the timeline stands (`after step 9 of 14 · line 4`, `in step 5 of 14 · loop 0, iteration 3 of 25`,
+or `final result`) with the instruction of that step, the lens's controls, its figure, one fact line,
+the timeline, and the details as disclosures. The answer card above always shows the final result,
+whatever the position.
 
-* **Navigation**: *Next* and *Back* (F10, ⇧F10, or ← → in the panel), first and last step,
-  *Breakpoint ⟹* / *⟸ Breakpoint* to the next or previous step on a line with a breakpoint (F5,
-  ⇧F5), *Jump to line…*, and the list of all steps (↑ ↓ in the list). A click on a line number in the
-  editor, or F9 at the cursor, sets or clears a breakpoint (●).
-* **Editor**: the instruction of the current step is highlighted and marked with ▶.
+* **Timeline**: one position per recorded step; a loop is a shaded segment, and its recorded iterates
+  are the positions inside it before the loop's exit; the last position is the final result, which
+  is also where the timeline starts. Previous / next (← →, or F10 / ⇧F10 anywhere), *Play* / *Pause*
+  (Space on the slider; it never starts by itself), the slider (click or drag; Home / End: start and
+  final result, Page Up / Down: ten positions), *Final Result*, and F5 / ⇧F5 to the next / previous
+  step on a line with a breakpoint (a click on a line number in the editor, or F9, sets one; the
+  timeline marks it with a dot). The editor highlights the instruction of the position and marks it
+  with ▶. While the timeline moves, the parts of the card above it keep their largest height, so its
+  buttons stay under the pointer. Moving between positions tweens the bars of a chart in about a third
+  of a second; with *Reduce motion* (macOS: System Settings → Accessibility → Display) the views jump.
+* **Recording**: the timeline needs the steps of the analysis. A result without them offers
+  *Record Steps* (the option *Record each step* in Setup, then analyse again) in place of the
+  timeline; the whole trace is recorded within the time limit of the analysis and navigated
+  afterwards, so going back is as cheap as going forward.
 * **Steps**: every top-level instruction is a step, and so is every instruction inside the
   branches of `if`, `switch` and probabilistic choices; those show the *sub-distribution* of their
   branch (the part where the guard holds, or weighted by the probability of the branch), not
   normalised. Instructions inside loop bodies, function bodies and the checks of invariants are
   no steps. If observations were violated, a last step conditions on them.
-* **Distribution before and after** a step, with the result's components: closed form, mass,
-  violated observations, the size of the closed form, and the marginal charts with the hatched
-  bar “?” for the mass not yet accounted for. Each distribution carries the guarantee that holds
-  at that point, of the same kinds as the result: exact, lower bound with residual mass, upper
-  bound, or none. A step whose instruction failed has no distribution after it.
-* **Loops**: the strategy, its messages and the checks of its certificate in words (fixed point,
-  non-negativity, finite mass, sub-invariance …, each *proven*, *failed*, *not established* or a
-  note); a failed check says why, e.g. “Φ(ν) − ν has the negative coefficient −1/2 at x = 0, c = 0”.
-  For unrolling strategies (*Unroll N iterations*, *Iterate until mass captured*, *Approximate
-  expected visiting times*) **Kleene iterates** animates the iterations: the part that has left
-  the loop grows towards the output of the loop, the hatched “?” bar and the bar below the chart
-  show the mass still inside shrinking. *Play* (Space) runs through the iterates, the slider picks
-  one, and the speed menu (0.5×, 1×, 2×) sets the pace. At most 40 iterates are kept per loop
-  (`step_iterations`), spread evenly, plus the last. An iterate whose marginal was not recorded
-  (see below) has no bars: they fade out at their last height, and a dashed frame says
-  “x: not recorded” with the reason; the slider, the status line and the screen-reader label say
-  the same. Not recorded means unknown, never probability 0.
-* **Transitions**: two consecutive steps (or iterates) are keyframes, and the view moves between
-  them with ease-in/ease-out in about a third of a second: bars and the “?” bar grow or shrink,
-  bars that appear or disappear fade, the axis rescales, the closed form cross-fades inside its
-  fixed box, and the mass, the size and the watched queries count to their new value. A counted
-  number is only a transition: it is shown muted with “≈”, screen readers get the exact value,
-  and the exact value replaces it at the end. A new step during a transition continues from what
-  is on screen. With *Reduce motion* (macOS: System Settings → Accessibility → Display) only the
-  end state is shown.
-* **Queries at this step**: a query such as `Pr[x == 3]` or `Ex[x]` (in the program's syntax) is
-  evaluated after every top-level step, as if it stood right after that instruction, with the same
-  sound intervals as the program's queries; adding or removing one analyses again.
-* **Diagnosis**: the step where the closed form grows most and the step where most of the time
-  goes (time without nested steps).
+* **Distribution**: the distribution after the step (before it, if the step failed) with the
+  controls of the output distribution: the variable or a pair (heatmap, 3D, table, see
+  [Joint distribution of two variables](#joint-distribution-of-two-variables)), chart or table, and
+  the scale. Each position carries the guarantee that holds there (exact, lower bound with residual
+  mass, upper bound, or none), as a badge with a sentence. The fact line is the **Mass** line; at
+  an iterate it splits the mass into what has left the loop and the hatched “?” still inside it,
+  which shrinks from iterate to iterate. A marginal that the trace did not record is shown as a
+  dashed frame “x: not recorded” with the reason, never as probability 0. Disclosures: the
+  *Generating function* (KaTeX on every engine, with copy buttons), *Facts* (support, parameters,
+  violated observations; at a step: mass and size), the values of the `dist` variables (at the end
+  of the program: *Inferred distributions* with their `infer(…)`, normalised generating function,
+  expected value, normalising constant Z and coefficients; at a step: their closed forms, also with
+  KaTeX), and **Queries after every step**: a query such as `Pr[x == 3]` or `Ex[x]` (in the
+  program's syntax) is evaluated after every top-level step, as if it stood right after that
+  instruction, with the same sound intervals as the program's queries; adding or removing one
+  analyses again (recording the steps).
+* **Size**: the length of the closed form in characters (the same measure on every engine) per
+  position as a line chart, linear or log, with the loop segments shaded and the current position
+  marked with its value; a click on the chart moves the timeline there. Fact line: at this position,
+  the largest with its step and line, the final result. Disclosures: where the closed form grows most
+  (*Show this step*) and the *Table of all positions* (line, instruction, guarantee, size, time; a
+  button per row moves the timeline), which is also the accessible alternative of both charts.
+* **Time**: the time of each step without its nested steps as bars, so they add up; a loop is one
+  step, labelled with its time, and its iterates have no bars of their own. Fact line: at this
+  position, the slowest step, the total analysis time, and the time spent recording the steps,
+  which the steps do not count. Disclosures: where most of the time goes and the table.
+* **Checks**: at a loop (its iterates or its exit), the loop's strategy, verdict and messages, the
+  checks of its certificate in words (fixed point, non-negativity, finite mass, sub-invariance …,
+  each *proven*, *failed*, *not established* or a note, with a glyph), the certificate as a
+  disclosure and, at an iterate, how much has left the loop. At the final result: every loop with
+  its line, strategy, verdict in words (`✓ exact`, `≥ lower bound, at most … not accounted for`,
+  `≤ upper bound`, `! no guarantee`) and time; a failed loop keeps its badge (*Failed*, *Refuted*,
+  *Not proven*) and its message. At another step: *no loop here*, and a button per loop to go to it.
 
 Per distribution the trace keeps the closed form up to 3000 characters, its mass and the first 10
 coefficients of the marginals of up to 6 variables; larger closed forms keep no marginals, and
 after 20 seconds spent on marginals only closed forms are kept. Each distribution names the
-variables without a marginal and why (`marginals_not_recorded`), and the Steps tab shows that
-reason instead of a chart. The command line records the same
-trace with `prodigy analyze --steps` (see the CLI documentation); the JSON keys are `steps` and
-`trace` (see `prodigy/analysis/trace.py`).
+variables without a marginal and why (`marginals_not_recorded`). At most 40 iterates are kept per
+loop (`step_iterations`), spread evenly, plus the last. The command line records the same trace
+with `prodigy analyze --steps` (see the CLI documentation); the JSON keys are `steps` and `trace`
+(see `prodigy/analysis/trace.py`).
 
 ## Two syntaxes
 
@@ -455,19 +457,18 @@ app (foundations: accessibility, colour, typography, layout, writing).
   bounded boxes (`components/formula-box.js`): the content scrolls inside its box, never the
   page, and the box takes the keyboard focus only while there is something to scroll. A box whose
   content is taller than the box offers *Show more* / *Show less* (a button with `aria-expanded`);
-  the enlarged box is still bounded. In the stepper, the instruction of the step and its closed
-  form sit in boxes of fixed height, the notes below the instruction have two lines reserved, and
-  the status line of the Kleene iterates reserves the height of its longest line, so stepping and
-  the animation do not move the views below. The console output shown while an analysis runs has a fixed height too.
+  the enlarged box is still bounded. The console output shown while an analysis runs has a fixed
+  height.
 
 ## Reuse in VS Code
 
-`prodigy/web/static/app/components/` (result view, stepper, charts, joint view, formatting) depends only on
-the result JSON, the CSS variables of `result-view.css` and `stepper.css` and optionally KaTeX,
-so a VS Code webview can import it unchanged and map the variables to `--vscode-*` theme colours.
-The stepper (`renderStepper`) reaches the editor only through callbacks (`onIndex`,
-`onSelectLine`, …); `prodigy analyze --steps --json` gives an extension the same trace. The joint
-view appears when `renderResult` gets a `loadJoint(payload, signal)` callback that returns a grid.
+`prodigy/web/static/app/components/` (result view, analysis card, timeline, charts, joint view,
+formatting) depends only on the result JSON, the CSS variables of `result-view.css` and
+`analysis-card.css` and optionally KaTeX, so a VS Code webview can import it unchanged and map the
+variables to `--vscode-*` theme colours. The analysis card reaches the editor only through callbacks
+(`onPosition` with the step to highlight, `onSelectLine`, `onRecord`, …); `prodigy analyze --steps
+--json` gives an extension the same trace. The joint view appears when `renderResult` gets a
+`loadJoint(payload, signal)` callback that returns a grid.
 
 ## Updating the vendored libraries
 

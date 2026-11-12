@@ -39,11 +39,12 @@ const LOG_DECADES = 12;
 /**
  * Maps probabilities to [0, 1]: linear from 0 to the largest value, or logarithmic from the
  * smallest to the largest positive value (at most 12 decades). `t(p)` is null for 0 and for values
- * without a number (parameters), which get no colour.
+ * without a number (parameters), which get no colour. `atLeast` raises the largest value, so that
+ * the frames of an animation share one scale (#289).
  */
-export function colourScale(values, scale = "linear") {
+export function colourScale(values, scale = "linear", atLeast = 0) {
   const positive = values.filter((p) => Number.isFinite(p) && p > 0);
-  const max = positive.length ? Math.max(...positive) : 0;
+  const max = positive.length ? Math.max(atLeast, ...positive) : 0;
   if (scale === "log" && positive.length) {
     const hi = Math.log10(max);
     const lo = Math.max(Math.log10(Math.min(...positive)), hi - LOG_DECADES);
@@ -493,7 +494,11 @@ export const JOINT_VIEWS = VIEWS;
  * shared with the bar charts. The switches for the view and the scale belong to the caller (the
  * result view has one control row for all its figures), which calls `draw()` after a change.
  * `onGrid(grid | null)` reports each grid shown (null while none is), for the caller's mass line.
- * Returns {element, draw}.
+ * `refresh()` loads the grid again for the same pair (the analysis card calls it when its timeline
+ * moves to another position, and `load` then asks for that position's grid), in the window the user
+ * chose with "Show window" or else in the position's default window. While the
+ * pair and the window stay the same, the colour scale keeps the largest value seen so far, so that
+ * frames can be compared (#289). Returns {element, draw, refresh}.
  */
 export function jointView({ variables, load, view, maxAxis = 50, scale, onGrid = () => {} }) {
   if (!view.x || !variables.includes(view.x)) view.x = variables[0];
@@ -521,9 +526,15 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, onGrid =
     yTo.querySelector("input").value = g.y_values[g.y_values.length - 1];
   };
 
+  // the largest probability seen for this pair and window, over all positions of the timeline
+  const peakKey = (g) => `${g.x} ${g.y} ${g.x_values[0]}-${g.x_values.at(-1)} ${g.y_values[0]}-${g.y_values.at(-1)}`;
   const draw = () => {
     if (!grid) return;
-    const colours = colourScale(grid.cells.flat().map((cell) => cell.p), scale());
+    const values = grid.cells.flat().map((cell) => cell.p);
+    const key = peakKey(grid);
+    if (view.peak?.key !== key) view.peak = { key, max: 0 };
+    view.peak.max = Math.max(view.peak.max, ...values.filter((p) => Number.isFinite(p)));
+    const colours = colourScale(values, scale(), view.peak.max);
     const width = body.clientWidth || 560;
     const symbolic = grid.cells.some((row) => row.some((cell) => cell.p === null));
     // the guarantee is stated once, in the answer card; the readout says "at least" or "at most"
@@ -596,6 +607,7 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, onGrid =
   const pairChanged = () => {
     view.xWindow = null;
     view.yWindow = null;
+    view.windowChosen = false;
     view.active = null;
     fetchGrid(false);
   };
@@ -612,7 +624,7 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, onGrid =
       }
       fetchGrid(Boolean(view.xWindow));
     } }, "⇄");
-  const form = h("form", { class: "jv-controls", onsubmit: (event) => { event.preventDefault(); fetchGrid(true); } },
+  const form = h("form", { class: "jv-controls", onsubmit: (event) => { event.preventDefault(); view.windowChosen = true; fetchGrid(true); } },
     h("fieldset", { class: "jv-axis" }, h("legend", {}, "Horizontal"), xSelect, xFrom, xTo),
     swap,
     h("fieldset", { class: "jv-axis" }, h("legend", {}, "Vertical"), ySelect, yFrom, yTo),
@@ -630,5 +642,7 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, onGrid =
   if (!VIEWS[view.mode]) view.mode = "heatmap";
   onGrid(null);
   fetchGrid(Boolean(view.xWindow && view.yWindow));
-  return { element: h("div", { class: "jv" }, form, status, body), draw };
+  return { element: h("div", { class: "jv" }, form, status, body), draw,
+    // a window the user chose stays from position to position; else each position gets its default
+    refresh: () => fetchGrid(Boolean(view.windowChosen && view.xWindow && view.yWindow)) };
 }

@@ -233,13 +233,49 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
 # Coefficient grids of two variables (POST /api/jobs/<id>/joint)
 # ---------------------------------------------------------------------------------------
 
+def _index(payload: Dict[str, Any], key: str) -> Optional[int]:
+    value = payload.get(key)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"'{key}' must be a whole number ≥ 0.")
+    return value
+
+
+def _step_snapshot(result: Dict[str, Any], payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """The distribution of the step trace at a position of the GUI's timeline (``step``, optionally
+    ``iterate`` of that step's loop), or None for the output distribution. Raises ``ValueError``."""
+    step_index, iterate = _index(payload, "step"), _index(payload, "iterate")
+    if step_index is None:
+        if iterate is not None:
+            raise ValueError("'iterate' needs 'step'.")
+        return None
+    steps = result.get("steps") or []
+    if step_index >= len(steps):
+        raise ValueError("The analysis has no such step; record the steps and analyze again.")
+    step = steps[step_index]
+    if iterate is not None:
+        iterates = (step.get("loop") or {}).get("iterates") or []
+        if iterate >= len(iterates):
+            raise ValueError("The loop of this step has no such iterate.")
+        snapshot = iterates[iterate].get("distribution")
+    else:
+        snapshot = step.get("after") or step.get("before")
+    if not isinstance(snapshot, dict) or not isinstance(snapshot.get("closed_form"), str):
+        raise ValueError("No distribution at this step.")
+    if snapshot.get("truncated"):
+        raise ValueError("The closed form at this step is too large; the trace keeps only its beginning.")
+    return snapshot
+
+
 def joint_request(result: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
     """The request of a grid job for two variables of a finished analysis ``result``.
 
-    Only the pair and the windows come from the client (``payload``: ``x``, ``y``, optional
-    ``x_window`` and ``y_window`` as ``[from, to]``); the distribution, the engine and the
-    guarantee come from the result that the server keeps. Raises ``ValueError`` with a message
-    for the client."""
+    Only the pair, the windows and the position come from the client (``payload``: ``x``, ``y``,
+    optional ``x_window`` and ``y_window`` as ``[from, to]``, optional ``step`` and ``iterate`` for
+    a distribution of the step trace instead of the output distribution); the distribution, the
+    engine and the guarantee come from the result that the server keeps. Raises ``ValueError``
+    with a message for the client."""
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.joint_grid import check_window
     distribution = result.get("distribution") if isinstance(result, dict) else None
@@ -251,13 +287,18 @@ def joint_request(result: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, 
         raise ValueError(f"'x' and 'y' must be variables of the program ({', '.join(variables)}).")
     if x == y:
         raise ValueError("Choose two different variables.")
-    bounds = result.get("bounds") or {}
+    snapshot = _step_snapshot(result, payload)
+    if snapshot is not None:
+        source = {"closed_form": snapshot["closed_form"], "bound": snapshot.get("bound") or "unknown",
+                  "residual_mass": snapshot.get("residual_mass")}
+    else:
+        bounds = result.get("bounds") or {}
+        source = {"closed_form": distribution["closed_form"], "bound": bounds.get("kind", "unknown"),
+                  "residual_mass": bounds.get("residual_mass")}
     return {
-        "closed_form": distribution["closed_form"],
+        **source,
         "variables": variables,
         "engine": (result.get("input") or {}).get("engine", "sympy"),
-        "bound": bounds.get("kind", "unknown"),
-        "residual_mass": bounds.get("residual_mass"),
         "x": x,
         "y": y,
         "x_window": check_window(payload.get("x_window"), x),

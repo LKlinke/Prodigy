@@ -150,6 +150,34 @@ def test_grid_with_parameters_and_finite_support():
     assert grid["outside_mass"] == "0"
 
 
+def test_grid_at_a_position_of_the_timeline():
+    """The analysis card's timeline (#311) asks for the grid of a step or of an iterate of a loop
+    (#270, #289): the distribution comes from the trace that the server keeps, with the guarantee
+    of that position (an iterate is a lower bound: the mass still inside the loop is not accounted
+    for)."""
+    result = run_analysis({"source": LOOP, "syntax": "ppy", "engine": "sympy", "record_steps": True,
+                           "step_iterations": 4, "decisions": {"0": {"strategy": "unroll", "params": {"iterations": 4}}}})
+    assert result["status"] == "ok"
+    loop_step = next(step["index"] for step in result["steps"] if step["loop"])
+    first = run_joint(joint_request(result, {"x": "x", "y": "y", "step": loop_step, "iterate": 0}))["joint"]
+    assert first["bound"] == "lower"
+    after = run_joint(joint_request(result, {"x": "x", "y": "y", "step": loop_step, "x_window": [0, 3],
+                                             "y_window": [0, 3]}))["joint"]
+    final = run_joint(joint_request(result, {"x": "x", "y": "y", "x_window": [0, 3], "y_window": [0, 3]}))["joint"]
+    # the loop is the last instruction: after it, the trace shows the output distribution
+    assert [[c["prob"] for c in row] for row in after["cells"]] == [[c["prob"] for c in row] for row in final["cells"]]
+    assert sympy.sympify(first["residual_mass"]) > sympy.sympify(after["residual_mass"])
+    for payload, message in [({"step": 99}, "no such step"), ({"step": -1}, "whole number"), ({"step": "1"}, "whole number"),
+                             ({"step": True}, "whole number"), ({"iterate": 0}, "needs 'step'"),
+                             ({"step": loop_step, "iterate": 99}, "no such iterate")]:
+        with pytest.raises(ValueError, match=message):
+            joint_request(result, {"x": "x", "y": "y", **payload})
+    truncated = json.loads(json.dumps(result))
+    truncated["steps"][loop_step]["after"]["truncated"] = True
+    with pytest.raises(ValueError, match="too large"):
+        joint_request(truncated, {"x": "x", "y": "y", "step": loop_step})
+
+
 def test_check_window():
     assert check_window(None, "x") is None
     assert check_window([2, 2], "x") == (2, 2)
