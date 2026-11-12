@@ -796,6 +796,10 @@ class Distribution(ABC):
             if isinstance(expression, (NatLitExpr, RealLitExpr)):
                 return function, str(expression.value)
 
+            if isinstance(expression, BoolLitExpr):
+                # booleans are the values 1 (true) and 0 (false) of the generating function (#283)
+                return function, str(int(expression.value))
+
             else:
                 raise ValueError(
                     f"Unsupported type of subexpression: {expression}")
@@ -815,6 +819,10 @@ class Distribution(ABC):
 
         if isinstance(expression.rhs, NatLitExpr):
             value = expression.rhs.value
+
+        # A bool literal is the value 1 (true) or 0 (false), e.g. "b = true" (#283)
+        if isinstance(expression.rhs, BoolLitExpr):
+            value = int(expression.rhs.value)
 
         # An expression without variables, e.g. "x = 9/2*2" or "x = 5 % 3", is a literal assignment
         if value is None and isinstance(expression.rhs, BinopExpr):

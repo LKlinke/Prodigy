@@ -523,7 +523,12 @@ def _print_summary(result: Dict[str, Any]) -> None:
         print(f"{Style.OKBLUE}Guarantee:{Style.RESET}\t{bounds.get('explanation', bounds.get('kind'))}")
     for query in result.get("queries", []):
         where = f"line {query['line']}: " if query.get("line") else ""
-        if query["kind"] in ("probability", "expectation"):
+        if query.get("error"):
+            label = {"probability": "Pr", "expectation": "E"}.get(query["kind"], query["kind"])
+            label = f"{label}[{query['expr']}]" if query["kind"] in ("probability", "expectation") else \
+                f"{label} of {query['expr']}" if query["expr"] else label
+            print(f"  {where}{label}: {Style.OKRED}not computed:{Style.RESET} {query['error']['message']}")
+        elif query["kind"] in ("probability", "expectation"):
             label = ("Pr" if query["kind"] == "probability" else "E") + f"[{query['expr']}]"
             value = _format_value(query["value"], query["value_float"])
             interval = ""
