@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+
+import sympy
 from typing import get_args, Callable, Optional, Set, Union, Sequence
 
-from prodigy.pgcl import Instr, Query, ExpectationInstr, VarExpr, NatLitExpr, RealLitExpr, BinopExpr, Binop, \
+from prodigy.pgcl import Instr, Query, ExpectationInstr, VarianceInstr, CovarianceInstr, VarExpr, NatLitExpr, RealLitExpr, BinopExpr, Binop, \
     UnopExpr, Unop, BoolLitExpr, ProbabilityQueryInstr, PlotInstr, PrintInstr, OptimizationQuery, OptimizationType, Expr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -11,8 +13,8 @@ from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.result import (QueryResult, describe_distribution, finish_query,
-                                     is_monotone_nonnegative, joint_table, sym, univariate_table)
+from prodigy.analysis.result import (QueryResult, describe_distribution, finish_query, is_non_finite,
+                                     is_monotone_nonnegative, joint_table, show, sym, tidy, univariate_table)
 from prodigy.analysis.session import AnalysisSession, current_session
 from prodigy.distribution import Distribution, MarginalType
 from prodigy.distribution.distribution import NonFiniteMarginalError
@@ -55,6 +57,10 @@ class QueryHandler(InstructionHandler):
         message = str(exc) or type(exc).__name__
         if isinstance(instruction, ExpectationInstr):
             kind, expr = "expectation", session.spell(instruction.expr)
+        elif isinstance(instruction, VarianceInstr):
+            kind, expr = "variance", session.spell(instruction.expr)
+        elif isinstance(instruction, CovarianceInstr):
+            kind, expr = "covariance", f"{session.spell(instruction.lhs)}, {session.spell(instruction.rhs)}"
         elif isinstance(instruction, ProbabilityQueryInstr):
             kind = "marginal" if isinstance(instruction.expr, VarExpr) else "probability"
             expr = session.spell(instruction.expr)
@@ -81,7 +87,8 @@ class QueryHandler(InstructionHandler):
         if isinstance(instruction, ExpectationInstr):
             expression = instruction.expr
             if isinstance(expression, BinopExpr):
-                if expression.operator not in (Binop.PLUS, Binop.MINUS, Binop.TIMES, Binop.FLOOR_DIVIDE):
+                if expression.operator not in (Binop.PLUS, Binop.MINUS, Binop.TIMES, Binop.FLOOR_DIVIDE,
+                                               Binop.POWER):
                     raise SyntaxError("Expression cannot be a condition.")
             elif not (isinstance(expression, (VarExpr, NatLitExpr, RealLitExpr))
                       or (isinstance(expression, UnopExpr) and expression.operator == Unop.NEG)):
@@ -97,6 +104,11 @@ class QueryHandler(InstructionHandler):
                 session, QueryResult("expectation", session.spell(expression), value=result),
                 monotone=is_monotone_nonnegative(expression, prog_info.program), probability=False,
                 known=session.loop_query_bounds("?Ex", str(expression))))
+            return distribution, error_prob
+
+        # User wants the variance or covariance of expressions
+        elif isinstance(instruction, (VarianceInstr, CovarianceInstr)):
+            QueryHandler.__query_spread(instruction, distribution, session)
             return distribution, error_prob
 
         # User wants to compute a marginal, or the probability of a condition.
@@ -128,6 +140,58 @@ class QueryHandler(InstructionHandler):
 
         else:
             raise SyntaxError("This should not happen.")
+
+    @staticmethod
+    def __query_spread(instr: Union[VarianceInstr, CovarianceInstr], dist: Distribution,
+                       session: AnalysisSession) -> None:
+        """``Var[e]`` = ``Ex[e * e] - Ex[e]^2`` and ``Cov[a, b]`` = ``Ex[a * b] - Ex[a] * Ex[b]``,
+        each ``Ex`` an exact derivative of the generating function. Only reported for a distribution
+        that is exact and has mass 1: a variance of a lower or upper bound is not a bound, and the
+        moments of a sub-distribution (error, observe, non-termination) are not normalised."""
+        if isinstance(instr, VarianceInstr):
+            kind, name, operands = "variance", "Var", [instr.expr, instr.expr]
+        else:
+            kind, name, operands = "covariance", "Cov", [instr.lhs, instr.rhs]
+        for operand in operands:
+            if isinstance(operand, BinopExpr):
+                if operand.operator not in (Binop.PLUS, Binop.MINUS, Binop.TIMES, Binop.FLOOR_DIVIDE,
+                                            Binop.POWER):
+                    raise SyntaxError("Expression cannot be a condition.")
+            elif not (isinstance(operand, (VarExpr, NatLitExpr, RealLitExpr))
+                      or (isinstance(operand, UnopExpr) and operand.operator == Unop.NEG)):
+                raise SyntaxError("Expression has wrong format.")
+        text = ", ".join(session.spell(operand) for operand in (operands if kind == "covariance" else operands[:1]))
+        if session.bound_kind != Bound.EXACT:
+            raise NotImplementedError(
+                f"{name}[{text}] is only available for an exact distribution; this one is only a "
+                f"{session.bound_kind} bound, and a {kind} of a bound is not a bound.")
+        mass = sym(dist.get_probability_mass())
+        if sympy.simplify(mass - 1) != 0:
+            raise NotImplementedError(
+                f"{name}[{text}] needs a distribution of mass 1, but the mass is {show(mass)} "
+                "(an error, `observe` or non-termination removed some). Use Ex[…] for unnormalised moments.")
+        first, second = operands
+        mean_first = sym(dist.get_expected_value_of(first))
+        mean_second = mean_first if first is second else sym(dist.get_expected_value_of(second))
+        mixed = sym(dist.get_expected_value_of(BinopExpr(Binop.TIMES, first, second)))
+        means = [mean_first] if first is second else [mean_first, mean_second]
+        for mean in means:
+            if is_non_finite(mean):
+                raise NonFiniteMarginalError(
+                    f"{name}[{text}] is undefined: the expected value of an operand is {show(mean)}.")
+        if is_non_finite(mixed, infinity=True) or mixed == sympy.nan:
+            raise NonFiniteMarginalError(f"{name}[{text}] is undefined: a moment is not a number.")
+        if mixed == sympy.oo:
+            if kind == "covariance":
+                raise NonFiniteMarginalError(
+                    f"{name}[{text}] is undefined: the expected value of the product is infinite.")
+            value = sympy.oo  # an integrable variable with an infinite second moment
+        else:
+            value = tidy(mixed - mean_first * mean_second)
+        print(f"{'Variance' if kind == 'variance' else 'Covariance'}: {show(value)}")
+        query = QueryResult(kind, text, value=show(value))
+        query.note = "Exact: derivatives of the generating function at 1."
+        session.record_query(finish_query(session, query, monotone=False, probability=False))
 
     @staticmethod
     def __query_optimization(instr: OptimizationQuery, dist: Distribution,

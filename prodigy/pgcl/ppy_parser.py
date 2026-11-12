@@ -52,7 +52,7 @@ from lark.tree import Meta
 from prodigy.pgcl.ast import (AbortInstr, AsgnInstr, Binop, BinopExpr,
                               BoolLitExpr, BoolType, Bounds, CategoricalExpr,
                               ChoiceInstr, ConstDecl, Decl, ExpectationExpr,
-                              ExpectationInstr, Expr, Function, FunctionCallExpr, FunctionDecl,
+                              ExpectationInstr, CovarianceInstr, VarianceInstr, Expr, Function, FunctionCallExpr, FunctionDecl,
                               IfInstr, InferExpr, Instr, LocalDeclInstr,
                               LoopInstr, NatLitExpr, NatType, ObserveInstr,
                               OptimizationQuery, OptimizationType,
@@ -77,7 +77,7 @@ PPY_GRAMMAR = r"""
          | "const" NAME (":" type)? "=" expression ";"     -> const_decl
          | "param" NAME ":" type ";"                       -> param_decl
          | "def" NAME "(" [def_params] ")" ("->" type)? "{" statement* "return" expression ";" "}" -> def_decl
-         | "query" NAME "[" expression "]" ";"             -> query
+         | "query" NAME "[" expression ("," expression)? "]" ";" -> query
          | "print" ";"                                     -> print_query
          | "plot" "(" NAME ("," NAME)? ("," plot_literal)? ")" ";" -> plot
          | "optimize" "(" expression "," NAME "," NAME ")" ";" -> optimize
@@ -215,7 +215,7 @@ _HINTS = {
     "//": "comments in .ppy start with '#'",
     "&": "use 'and' or '&&'",
     "^": "powers in .ppy are written 'x ** 2'",
-    "?": "queries in .ppy are written 'query Pr[…]' or 'query Ex[…]'",
+    "?": "queries in .ppy are written 'query Pr[…]', 'query Ex[…]', 'query Var[…]' or 'query Cov[…, …]'",
 }
 
 
@@ -651,11 +651,20 @@ class _ToAst(Transformer):
     def query(self, meta: Meta, children: List[Any]) -> Any:
         kind = str(children[0])
         expr = self._plain(children[1], meta)
+        if kind == "Cov":
+            if len(children) < 3:
+                raise _error(children[0], "'query Cov[…]' takes two expressions: 'query Cov[x, y]'.")
+            return _Query(CovarianceInstr(expr, self._plain(children[2], meta)), meta)
+        if len(children) > 2:
+            raise _error(children[0], f"'query {kind}[…]' takes one expression.")
         if kind == "Pr":
             return _Query(ProbabilityQueryInstr(expr), meta)
         if kind == "Ex":
             return _Query(ExpectationInstr(expr), meta)
-        raise _error(children[0], f"Unknown query '{kind}': use 'query Pr[…]' or 'query Ex[…]'.")
+        if kind == "Var":
+            return _Query(VarianceInstr(expr), meta)
+        raise _error(children[0], f"Unknown query '{kind}': use 'query Pr[…]', 'query Ex[…]', "
+                     "'query Var[…]' or 'query Cov[…, …]'.")
 
     @_spanned
     def print_query(self, meta: Meta, children: List[Any]) -> Any:

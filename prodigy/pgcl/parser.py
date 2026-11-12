@@ -77,6 +77,8 @@ _PGCL_BASE_GRAMMAR = """
                | "query" "{" instructions "}"                -> query
 
     query: "?Ex" "[" expression "]"                          -> expectation
+               | "?Var" "[" expression "]"                   -> variance
+               | "?Cov" "[" expression "," expression "]"    -> covariance
                | "?Pr" "[" expression "]"                    -> prquery
                | "!Print"                                    -> print
                | "!Plot" "[" var ("," var)? ("," literal)?"]"-> plot
@@ -520,6 +522,10 @@ def _parse_queries(t: Tree) -> List[Instr]:
 def _parse_query(t: Tree):
     if t.data == 'expectation':
         return ExpectationInstr(_parse_expr(_child_tree(t, 0)))
+    elif t.data == 'variance':
+        return VarianceInstr(_parse_expr(_child_tree(t, 0)))
+    elif t.data == 'covariance':
+        return CovarianceInstr(_parse_expr(_child_tree(t, 0)), _parse_expr(_child_tree(t, 1)))
     elif t.data == 'prquery':
         return ProbabilityQueryInstr(_parse_expr(_child_tree(t, 0)))
     elif t.data == 'print':

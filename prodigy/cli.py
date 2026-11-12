@@ -59,6 +59,9 @@ class _CliGroup(click.Group):
 
 
 # pylint: disable-msg=too-many-arguments
+_QUERY_LABELS = {"probability": "Pr", "expectation": "E", "variance": "Var", "covariance": "Cov"}
+
+
 @click.group(cls=_CliGroup)
 @click.pass_context
 @click.option('--engine', type=str, required=False, default='')
@@ -559,12 +562,12 @@ def _print_summary(result: Dict[str, Any]) -> None:
     for query in result.get("queries", []):
         where = f"line {query['line']}: " if query.get("line") else ""
         if query.get("error"):
-            label = {"probability": "Pr", "expectation": "E"}.get(query["kind"], query["kind"])
-            label = f"{label}[{query['expr']}]" if query["kind"] in ("probability", "expectation") else \
+            label = _QUERY_LABELS.get(query["kind"], query["kind"])
+            label = f"{label}[{query['expr']}]" if query["kind"] in _QUERY_LABELS else \
                 f"{label} of {query['expr']}" if query["expr"] else label
             print(f"  {where}{label}: {Style.OKRED}not computed:{Style.RESET} {query['error']['message']}")
-        elif query["kind"] in ("probability", "expectation"):
-            label = ("Pr" if query["kind"] == "probability" else "E") + f"[{query['expr']}]"
+        elif query["kind"] in _QUERY_LABELS:
+            label = f"{_QUERY_LABELS[query['kind']]}[{query['expr']}]"
             value = _format_value(query["value"], query["value_float"])
             interval = ""
             if query["bound"] != "exact":

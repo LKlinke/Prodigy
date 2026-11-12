@@ -25,7 +25,7 @@ from prodigy.pgcl.ast.types import DistributionType
 from prodigy.pgcl.util.ref import Mut
 
 from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
-                  CategoricalExpr, ChoiceInstr, Decl, ExpectationInstr, Expr,
+                  CategoricalExpr, ChoiceInstr, CovarianceInstr, Decl, ExpectationInstr, VarianceInstr, Expr,
                   IfInstr, Instr, LoopInstr, NatLitExpr, NatType, Node,
                   ObserveInstr, OptimizationQuery, PlotInstr, PrintInstr,
                   ProbabilityQueryInstr, Program, RealLitExpr, RealType,
@@ -804,7 +804,12 @@ def check_instr(
                                                cond_type)
         return None
 
-    if isinstance(instr, (ProbabilityQueryInstr, ExpectationInstr, OptimizationQuery)):
+    if isinstance(instr, CovarianceInstr):
+        dist_fail = _check_query_without_dist(program, instr, [instr.lhs, instr.rhs])
+        if dist_fail is not None:
+            return dist_fail
+
+    if isinstance(instr, (ProbabilityQueryInstr, ExpectationInstr, VarianceInstr, OptimizationQuery)):
         dist_fail = _check_query_without_dist(program, instr, [instr.expr])
         if dist_fail is not None:
             return dist_fail
@@ -826,13 +831,14 @@ def check_instr(
                                                cond_type)
         return None
 
-    if isinstance(instr, ExpectationInstr):
-        expr_type = get_type(program,
-                             instr.expr,
-                             check=True,
-                             predefined_functions=predefined_functions)
-        if isinstance(expr_type, CheckFail):
-            return expr_type
+    if isinstance(instr, (ExpectationInstr, VarianceInstr, CovarianceInstr)):
+        for operand in ([instr.lhs, instr.rhs] if isinstance(instr, CovarianceInstr) else [instr.expr]):
+            expr_type = get_type(program,
+                                 operand,
+                                 check=True,
+                                 predefined_functions=predefined_functions)
+            if isinstance(expr_type, CheckFail):
+                return expr_type
         return None
 
     if isinstance(instr, PrintInstr):

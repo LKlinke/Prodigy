@@ -31,7 +31,7 @@ from typing import List, Tuple
 from prodigy.pgcl.ast import (AbortInstr, AsgnInstr, Binop, BinopExpr,
                               BoolLitExpr, BoolType, CategoricalExpr,
                               ChoiceInstr, ConstDecl, Decl, ExpectationExpr,
-                              ExpectationInstr, Expr, FunctionCallExpr, FunctionDecl, IfInstr,
+                              ExpectationInstr, CovarianceInstr, VarianceInstr, Expr, FunctionCallExpr, FunctionDecl, IfInstr,
                               InferExpr, Instr, LocalDeclInstr, LoopInstr,
                               NatLitExpr, NatType, ObserveInstr,
                               OptimizationQuery, OptimizationType,
@@ -278,6 +278,10 @@ class PpyPrinter:
             return f"query Pr[{expr_to_ppy(instr.expr)}];"
         if isinstance(instr, ExpectationInstr):
             return f"query Ex[{expr_to_ppy(instr.expr)}];"
+        if isinstance(instr, VarianceInstr):
+            return f"query Var[{expr_to_ppy(instr.expr)}];"
+        if isinstance(instr, CovarianceInstr):
+            return f"query Cov[{expr_to_ppy(instr.lhs)}, {expr_to_ppy(instr.rhs)}];"
         if isinstance(instr, PrintInstr):
             return "print;"
         if isinstance(instr, PlotInstr):

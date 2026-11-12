@@ -11,7 +11,7 @@ import sympy
 from prodigy.pgcl import Program, Instr, SkipInstr, AbortInstr, WhileInstr, LoopInstr, QueryInstr, Query, \
     ObserveInstr, ChoiceInstr, AsgnInstr, IfInstr, Binop, BinopExpr, NatLitExpr, VarExpr
 from prodigy.pgcl.ast.expressions import InferExpr, SampleExpr
-from prodigy.pgcl.ast.instructions import ExpectationInstr, ProbabilityQueryInstr
+from prodigy.pgcl.ast.instructions import CovarianceInstr, ExpectationInstr, ProbabilityQueryInstr, VarianceInstr
 from prodigy.pgcl.draws import find_draw
 
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -291,7 +291,8 @@ def _semantics(
 
 
 _CONDITIONS = {IfInstr: "the guard of if", WhileInstr: "the guard of while",
-               ObserveInstr: "observe", ProbabilityQueryInstr: "a query", ExpectationInstr: "a query"}
+               ObserveInstr: "observe", ProbabilityQueryInstr: "a query", ExpectationInstr: "a query",
+               VarianceInstr: "a query", CovarianceInstr: "a query"}
 
 
 def _check_no_draw_in_condition(instruction: Instr) -> None:
@@ -301,13 +302,15 @@ def _check_no_draw_in_condition(instruction: Instr) -> None:
     where = _CONDITIONS.get(type(instruction))
     if where is None:
         return
-    condition = getattr(instruction, "cond", None) or getattr(instruction, "expr")
-    draw = find_draw(condition)
-    if draw is not None:
-        session = current_session()
-        raise NotImplementedError(
-            f"Sampling inside {where} ({session.spell(draw)} in {session.spell(condition)}) is not "
-            f"implemented. Draw the value into a variable first and use the variable there.")
+    conditions = [getattr(instruction, name) for name in ("cond", "expr", "lhs", "rhs")
+                  if getattr(instruction, name, None) is not None]
+    for condition in conditions:
+        draw = find_draw(condition)
+        if draw is not None:
+            session = current_session()
+            raise NotImplementedError(
+                f"Sampling inside {where} ({session.spell(draw)} in {session.spell(condition)}) is not "
+                f"implemented. Draw the value into a variable first and use the variable there.")
 
 
 def _nested_inference(
