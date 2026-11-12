@@ -585,7 +585,16 @@ def has_current_session() -> bool:
 
 
 def current_session() -> "AnalysisSession":
-    """The session of the running analysis, or a detached interactive one."""
+    """
+    The session of the running analysis (the innermost :meth:`AnalysisSession.activate`).
+
+    Without an active session, every call returns a new detached interactive session (#195): nothing it
+    records (decisions, loop records, steps, queries) outlives the call. This is only for code that runs
+    handlers directly, e.g. tests. Every entry point of an analysis activates one session for the whole run,
+    so that all its parts share the decisions and the records: :func:`~prodigy.analysis.analyzer.
+    compute_discrete_distribution` (a detached one if none is active), :meth:`AnalysisSession.run`, the CLI
+    commands and the GUI's jobs. Use :func:`has_current_session` to tell the two cases apart.
+    """
     session = _CURRENT.get()
     if session is None:
         return AnalysisSession.detached()
