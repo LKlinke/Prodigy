@@ -23,5 +23,5 @@ Exact Division
 """
 
 from .distribution import (CommonDistributionsFactory, Distribution,
-                           DistributionParam, MarginalType, NonFiniteMarginalError,
+                           DistributionParam, MarginalType, NonFiniteMarginalError, ZeroDivisorError,
                            State)

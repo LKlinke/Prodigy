@@ -10,6 +10,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.distribution.distribution import Distribution
+from prodigy.distribution.equality import sympify_distribution
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
@@ -90,7 +91,7 @@ def evt_invariant_check(loop: WhileInstr,
     # If the invariant does not match, we need to find a solution.
     diff = invariant - phi
     # Without parameters there is nothing to solve for (and sympy.solve rejects an empty set of symbols).
-    solution_candidates = sympy.solve(sympy.S(str(diff)), invariant.get_parameters(), dict=True) \
+    solution_candidates = sympy.solve(sympify_distribution(diff), invariant.get_parameters(), dict=True) \
         if invariant.get_parameters() else []
     print(f"Solution candidates: {solution_candidates}")
     solutions = []
@@ -108,7 +109,7 @@ def evt_invariant_check(loop: WhileInstr,
     variables = prog_info.program.variables.keys()
     verified = []
     for candidate in solutions:
-        full = str(sympy.S(str(invariant)).subs(candidate)).replace("**", "^")
+        full = str(sympify_distribution(invariant).subs(candidate)).replace("**", "^")
         full_dist = config.factory.from_expr(full, *variables)
         if is_evt_fixed_point(loop, prog_info, distribution, full_dist, config, analyzer):
             verified.append((candidate, full_dist))

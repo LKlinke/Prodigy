@@ -4,7 +4,9 @@ import contextlib
 import functools
 import logging
 import time
-from typing import Callable, Iterator, Optional, Union, Sequence, cast, get_args
+from typing import Callable, Iterable, Iterator, Optional, Union, Sequence, cast, get_args
+
+import sympy
 
 from prodigy.pgcl import Program, Instr, SkipInstr, AbortInstr, WhileInstr, LoopInstr, QueryInstr, Query, \
     ObserveInstr, ChoiceInstr, AsgnInstr, IfInstr, Binop, BinopExpr, NatLitExpr, VarExpr
@@ -27,6 +29,7 @@ from prodigy.analysis.instructionhandler.while_handler import WhileHandler
 from prodigy.analysis import nested_inference
 from prodigy.analysis.session import AnalysisSession, current_session, has_current_session
 from prodigy.distribution import Distribution, MarginalType
+from prodigy.distribution.equality import sympify_engine_string
 from prodigy.util.logger import log_setup
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
@@ -38,12 +41,32 @@ def condition_distribution(
     # lets the session rescale the residual mass of approximated loops
     current_session().on_normalize(error_prob)
     one = config.factory.one(*error_prob.get_variables())
-    zero = one * "0"
-    if dist == zero and error_prob == one:
-        raise ObserveZeroEventError(
-            "Undefined semantics: Probability of observing a valid run is 0.")
-    result = dist / (one - error_prob)
+    valid = one - error_prob
+    if dist.is_provably_zero():
+        # Each is compared to the zero measure over its own variables and parameters: SymPy's equality also
+        # compares them, and `dist == one * "0"` failed when they differed (#248).
+        if valid.is_provably_zero():
+            raise ObserveZeroEventError("Undefined semantics: Probability of observing a valid run is 0.")
+        # Nothing terminates without violating an observation: the result is the zero measure only if the
+        # probability of a valid run is positive (the remaining runs diverge). If an engine cannot show that
+        # (e.g. an unsimplified sum of roots of unity that is in fact 1 - 1), dividing by it would report 0 as
+        # an exact result for a program without semantics (#248).
+        if not _provably_positive(valid.get_probability_mass(), valid.get_parameters()):
+            raise ObserveZeroEventError(
+                "Undefined semantics: Probability of observing a valid run is 0, or could not be shown to be "
+                "positive.")
+    result = dist / valid
     return result, error_prob
+
+
+def _provably_positive(mass: object, parameters: Iterable[str]) -> bool:
+    """Whether the engine's value ``mass`` is provably positive (SymPy's assumptions; False: not shown)."""
+    # parameters stay symbols; the constants pi, E and I keep their meaning
+    names = [name for name in parameters if name not in ("pi", "E", "I")]
+    try:
+        return bool(sympify_engine_string(str(mass), names).is_positive)
+    except (SyntaxError, TypeError, ValueError, sympy.SympifyError):
+        return False
 
 
 def compute_discrete_distribution(

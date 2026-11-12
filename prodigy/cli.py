@@ -23,7 +23,8 @@ from prodigy.pgcl.syntax_errors import ProgramSyntaxError
 
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.exceptions import HeuristicsError, UndefinedDistributionError, UnsupportedFeatureError
+from prodigy.analysis.exceptions import (HeuristicsError, UndefinedDistributionError, UnsupportedFeatureError,
+                                        VerificationError)
 from prodigy.analysis.input_distribution import InputDistributionError, input_distribution_from_text
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
@@ -31,8 +32,7 @@ from prodigy.analysis.evtinvariants.heuristics.strategies import (DEFAULT_MAX_DE
                                                                   SynthesisStrategies)
 from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
 from prodigy.analysis.evtinvariants.invariant_synthesis import (DEFAULT_SYNTHESIS_TIME_LIMIT,
-                                                                DEFAULT_TEMPLATE_TIME_LIMIT, SynthesisBoundReached,
-                                                                evt_invariant_synthesis)
+                                                                DEFAULT_TEMPLATE_TIME_LIMIT, evt_invariant_synthesis)
 from prodigy.analysis.evtinvariants.invariant_verification import evt_invariant_verification
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
@@ -53,8 +53,8 @@ class _CliGroup(click.Group):
         try:
             return super().invoke(ctx)
         except (UnsupportedFeatureError, UndefinedDistributionError, InputDistributionError, HeuristicsError,
-                SynthesisBoundReached) as exc:
-            # e.g. the undecided candidates of a synthesis
+                VerificationError) as exc:
+            # e.g. a refuted sub-invariant (#321) or the undecided candidates of a synthesis
             raise click.ClickException("\n".join([str(exc), *getattr(exc, "messages", ())])) from exc
 
 
@@ -579,7 +579,13 @@ def _print_summary(result: Dict[str, Any]) -> None:
             print(f"  {where}optimum for {query['expr']}: {query['value']}")
     for loop in result.get("loops", []):
         where = f" (line {loop['line']})" if loop.get("line") else ""
-        print(f"  loop {loop['id']}{where} [{loop['strategy']}] {loop['kind']}: " + " ".join(loop["messages"]))
+        line = f"  loop {loop['id']}{where} [{loop['strategy']}] {loop['kind']}"
+        if loop["messages"]:
+            line += ": " + " ".join(loop["messages"])
+        elif loop.get("failed"):
+            # the error itself is printed above (#333)
+            line += " (the strategy failed, see the error above)"
+        print(line)
     for warning in result.get("warnings", []):
         print(f"{Style.YELLOW}Warning:{Style.RESET} {warning}")
     print(f"CPU-time elapsed: {result['timing'].get('analysis', 0):04f} seconds")

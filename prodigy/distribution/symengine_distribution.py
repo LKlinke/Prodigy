@@ -20,6 +20,7 @@ from prodigy.pgcl.util.ref import Mut
 from prodigy.pgcl.parser import parse_expr
 
 from prodigy.distribution import Distribution
+from prodigy.distribution.equality import sympify_engine_string
 from prodigy.distribution.exact_division import divide_exponents
 from prodigy.distribution.multisection import rational_sections
 from prodigy.distribution.negative_values import can_be_negative, operand
@@ -249,7 +250,8 @@ class SymengineDist(Distribution):
     def _expected_value_of(self, expression: Union[Expr, str]) -> str:
         # todo replace sympy by symengine if method is implemented
         logger.info("Falling back to sympy")
-        expr = sp.S(str(expression)).ratsimp().expand()
+        # names such as `sum` are symbols here, not Python builtins (#321)
+        expr = sympify_engine_string(str(expression), self.get_variables() | self.get_parameters()).ratsimp().expand()
         if not expr.is_polynomial():
             raise NotImplementedError(
                 "Expected Value only computable for polynomial expressions.")

@@ -170,6 +170,19 @@ class NonFiniteMarginalError(ArithmeticError):
     """
 
 
+class ZeroDivisorError(ValueError):
+    """
+    A modulus or divisor (``%``, ``/``) is 0 in a reachable state: the update is undefined (#273). All
+    engines raise this error, for a literal 0 and for a variable that takes the value 0; the update of
+    an expression adds the expression to the message (``expression``).
+    """
+
+    def __init__(self, message: str, expression: Optional[str] = None):
+        super().__init__(message if expression is None else f"{message} (in {expression})")
+        self.reason = message
+        self.expression = expression
+
+
 # Spellings of non-finite values (nan, infinity, complex infinity, unevaluated limits) in the engines'
 # string forms; a program variable or parameter of the same name is not one of them
 _NON_FINITE_NAMES = frozenset({"nan", "NaN", "zoo", "oo", "inf", "Inf", "infinity", "Infinity",
@@ -765,14 +778,8 @@ class Distribution(ABC):
                             f"Cannot compute {expression} exactly: subtraction on natural numbers is truncated "
                             f"at 0, which needs the states with {expression.lhs} < {expression.rhs}, and these "
                             f"cannot be filtered here (not implemented). Details: {error}") from error
-                elif expression.operator == Binop.MODULO:
-                    f = f._split_on_finite_support(
-                        lambda part, left, right: part._update_modulo(temp_var, left, right, approximate),
-                        t_1, t_2)
-                elif expression.operator == Binop.DIVIDE:
-                    f = f._split_on_finite_support(
-                        lambda part, left, right: part._update_division(temp_var, left, right, approximate),
-                        t_1, t_2)
+                elif expression.operator in (Binop.MODULO, Binop.DIVIDE):
+                    f = f._divisor_update(expression, temp_var, t_1, t_2, approximate)
                 elif expression.operator == Binop.POWER:
                     f = f._split_on_finite_support(
                         lambda part, left, right: part._update_power(temp_var, left, right, approximate),
@@ -840,6 +847,25 @@ class Distribution(ABC):
             # Not just a literal assignment, need to evaluate the expression first
             result, _ = evaluate(self, expression.rhs, variable)
         return result
+
+    def _divisor_update(self, expression: BinopExpr, temp_var: str, left: str, right: str,
+                        approximate: str | float | None) -> Distribution:
+        """
+        `temp_var = left % right` or `left / right` for the operands `left`, `right` of `expression` (a
+        modulo or division); a divisor 0 names `expression` in the error (#273).
+        """
+        def update(part: Distribution, lhs: str, rhs: str) -> Distribution:
+            # pylint: disable=protected-access
+            if expression.operator == Binop.MODULO:
+                return part._update_modulo(temp_var, lhs, rhs, approximate)
+            return part._update_division(temp_var, lhs, rhs, approximate)
+
+        try:
+            return self._split_on_finite_support(update, left, right)
+        except ZeroDivisorError as error:
+            if error.expression is not None:
+                raise
+            raise ZeroDivisorError(error.reason, str(expression)) from error
 
     def _split_on_finite_support(self, update: Callable[[Distribution, str, str], Distribution],
                                  left: str, right: str) -> Distribution:
@@ -971,18 +997,28 @@ class Distribution(ABC):
                           else self._approximated_support(variable, approximate, message))
         return values[0], values[1]
 
-    @staticmethod
-    def _require_nonzero_divisor(right: str | int, operator: str) -> None:
+    def _require_nonzero_divisor(self, right: str | int, operator: str) -> None:
         """
-        Raises `ValueError` if `right`, the right operand of `%` or `/` (`operator`), is the literal 0:
-        a modulus or divisor 0 is undefined. All engines raise this error, before any case split
-        (GiNaC reported a non-finite marginal on measures with infinite mass, #257).
+        Raises `ZeroDivisorError` if `right`, the right operand of `%` or `/` (`operator`), is 0: the
+        literal 0, or a variable that takes the value 0 on this finite distribution. A modulus or divisor
+        0 is undefined. All engines raise this error before any case split or call of the bindings
+        (GiNaC reported a non-finite marginal on measures with infinite mass, #257, and its bindings a
+        bare division by zero, #273). On an infinite distribution, the case split over the values of a
+        variable `right` passes each value as a literal, so the value 0 is caught there.
         """
-        if str(right).strip() != "0":
+        text = str(right).strip()
+        if text == "0":
+            zero = True
+        elif text in self.get_variables() and self.is_finite():
+            support = self.finite_support(text)
+            zero = support is not None and any(state[text] == 0 for state in self._unique_states(support))
+        else:
+            zero = False
+        if not zero:
             return
         if operator == "%":
-            raise ValueError("The modulus has to be positive, got 0.")
-        raise ValueError("Division by zero: the divisor is 0.")
+            raise ZeroDivisorError("The modulus has to be positive, got 0.")
+        raise ZeroDivisorError("Division by zero: the divisor is 0.")
 
     def finite_support(self, *variables: Union[str, VarExpr]) -> Optional[Distribution]:
         """

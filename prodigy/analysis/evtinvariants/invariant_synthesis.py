@@ -31,6 +31,7 @@ from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.distribution import Distribution
+from prodigy.distribution.equality import sympify_distribution
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
@@ -139,7 +140,7 @@ def _template_solutions(template: Distribution, phi: Distribution,
     unknowns = sorted(template.get_parameters() - program_parameters)
     # unknowns that occur only linearly in the template's numerator are solved by linear algebra, all others
     # (those of the denominator) by the conditions on them
-    numerator, denominator = sympy.fraction(sympy.together(sympy.S(str(template).replace("^", "**"))))
+    numerator, denominator = sympy.fraction(sympy.together(sympify_distribution(template)))
     linear = [sympy.Symbol(name) for name in unknowns if sympy.Symbol(name) not in denominator.free_symbols]
     if linear and sympy.Poly(numerator, *linear).total_degree() > 1:
         linear = []
@@ -149,7 +150,7 @@ def _template_solutions(template: Distribution, phi: Distribution,
     parameters = [sympy.Symbol(name) for name in sorted((template.get_parameters() | phi.get_parameters())
                                                         - set(unknowns))]
     # the difference in SymPy: together() in the solver combines it, cheaper than the engine's subtraction
-    equation = sympy.S(str(template).replace("^", "**")) - sympy.S(str(phi).replace("^", "**"))
+    equation = sympify_distribution(template) - sympify_distribution(phi)
     return solve_template(equation, numerator_unknowns, denominator_unknowns, variables, parameters)
 
 
@@ -214,7 +215,7 @@ def _solutions(evt_candidate: Distribution, loop: WhileInstr, prog_info: Program
     # Exclude "all zero" solutions, as well as solutions which make the denominator 0.
     solutions = []
     # only computed when there are candidates (the engine's subtraction is not free)
-    denominator = sympy.S(str(evt_inv - phi_inv)).as_numer_denom()[1] if solution_candidates else sympy.S.One
+    denominator = sympify_distribution(evt_inv - phi_inv).as_numer_denom()[1] if solution_candidates else sympy.S.One
     for candidate in solution_candidates:
         if all(map(lambda x: x == 0, candidate.values())):
             continue
@@ -232,7 +233,7 @@ def _solutions(evt_candidate: Distribution, loop: WhileInstr, prog_info: Program
     result: Candidates = []
     inv_found = False
     for sol in solutions:
-        sol_inv = sympy.S(str(evt_inv)).subs(sol).ratsimp()
+        sol_inv = sympify_distribution(evt_inv).subs(sol).ratsimp()
         # The solver's solution is only a proposal (its values pass through string conversions).
         sol_dist = config.factory.from_expr(str(sol_inv).replace("**", "^"), *prog_info.program.variables)
         if not is_evt_fixed_point(loop, prog_info, distribution, sol_dist, config, analyzer):

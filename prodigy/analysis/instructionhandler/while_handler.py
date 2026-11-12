@@ -32,6 +32,7 @@ from prodigy.analysis.evtinvariants.series_identity import converges_on_unit_pol
 from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
+from prodigy.distribution.equality import sympify_distribution
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
                                               get_loop_strategy, register_loop_strategy)
@@ -126,7 +127,7 @@ def _positivity(config: ForwardAnalysisConfig, variables, invariant: Any) -> Opt
         return True
     try:
         strategy: SynthesisStrategy = SynthesisStrategies.from_config(config, variables)
-        verdict = strategy.positivity_heuristics.is_positive(sympy.S(str(invariant).replace("^", "**")))
+        verdict = strategy.positivity_heuristics.is_positive(sympify_distribution(invariant))
         return verdict if verdict in (True, False) else None
     except Exception:  # pylint: disable=broad-except
         return None
