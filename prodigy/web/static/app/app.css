@@ -170,12 +170,42 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 }
 
 .toolbar-group { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.toolbar-trailing { flex-shrink: 0; }
+.toolbar-trailing { flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+/* a narrow window wraps the trailing group (engine, Analyze) under the file actions */
+.toolbar { flex-wrap: wrap; row-gap: 8px; }
+
+/* pop-up button: a native select (keyboard and menu come from the system) drawn as a toolbar button */
+.engine-popup { display: flex; align-items: center; gap: 6px; }
+.toolbar-label { font-size: var(--text-callout); color: var(--text-2); }
+.popup-button { position: relative; display: inline-flex; align-items: center; }
+.popup-button select {
+  appearance: none; -webkit-appearance: none;
+  width: auto; height: var(--control-height); min-height: 0;
+  padding: 0 28px 0 12px;
+  border: 0; border-radius: var(--radius-control);
+  background: var(--fill); color: var(--text);
+  font: inherit; font-weight: 500;
+}
+.popup-button select:hover { background: var(--fill-hover); }
+.popup-button select:active { background: var(--fill-pressed); }
+.popup-button select:disabled { opacity: 0.45; }
+.popup-button .icon {
+  position: absolute; right: 8px; width: 12px; height: 12px;
+  pointer-events: none; color: var(--text-2);
+}
+/* menus drawn by the browser itself keep the system colours */
+.popup-button option { background: var(--surface); color: var(--text); }
+.popup-button option:disabled { color: var(--text-3); }
 .file-actions { display: flex; gap: 4px; flex-shrink: 0; }
 @media (max-width: 1180px) {
   /* symbols only; the names stay available as accessible labels and tooltips */
   .file-actions .button-label { display: none; }
   .file-actions .button { padding: 0 8px; }
+  /* the pop-up keeps "Engine" as its accessible name and tooltip */
+  .engine-popup .toolbar-label {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+  }
 }
 
 .doc-title { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }

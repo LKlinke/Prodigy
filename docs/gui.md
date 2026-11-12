@@ -24,7 +24,7 @@ Prodigy is tested with Python 3.11 and 3.14.
   The chip next to the title shows the syntax of the program; see [Two syntaxes](#two-syntaxes).
 * **Setup** (right): initial distribution (refused with a message unless it is proven to be a
   distribution, see the language reference), one strategy per loop with its parameters,
-  analysis options (engine, conditioning, simplification, number of coefficients, time
+  analysis options (conditioning, simplification, number of coefficients, time
   limit, EVT synthesis strategy, solver, recording of intermediate distributions). The
   synthesis strategy *from heuristics* combines a template heuristic and a positivity
   heuristic chosen below it (on the command line: `--strategy from_heuristics
@@ -77,6 +77,13 @@ Prodigy is tested with Python 3.11 and 3.14.
   Safari and Firefox cannot write to a folder: Open reads the chosen file, Save downloads the
   program. The program is also kept in the browser, together with the setup (the strategy of each
   loop), so a reload never loses either; replacing a program with unsaved changes (New, Open…, an example) asks first.
+* **Engine** (toolbar, pop-up button before Analyze, #308): SymPy, GiNaC or SymEngine for the next
+  run; GiNaC is usually much faster, SymPy is the reference implementation. An engine the server
+  cannot use (GiNaC without `prodigy-ppl-ginac`) is listed as *not installed* and cannot be chosen;
+  the tooltip says how to install it. The choice is part of the setup kept in the browser, stays
+  across New, Open… and reloads, and changing it marks the shown result as out of date. The
+  default is the server's `--engine`. In a narrow window the label is dropped (the pop-up keeps
+  the name "Engine" for assistive technology) and the toolbar wraps.
 
 Keyboard: ⌘/Ctrl + Return analyses, ⌘/Ctrl + . (or Esc) stops, ⌘/Ctrl + O opens,
 ⌘/Ctrl + S saves; in the stepper F10 / ⇧F10 go to the next / previous step, F5 / ⇧F5 to the next /
@@ -398,7 +405,7 @@ The strategy then appears in the CLI menu (after the six historic entries), in
 
 | Endpoint | |
 | --- | --- |
-| `GET /api/meta` | version, engines, loop strategies with parameter specs, synthesis strategies and heuristics, limits |
+| `GET /api/meta` | version, engines (`name, label, available, reason, default`; `reason` says why an unavailable engine cannot be used), loop strategies with parameter specs, synthesis strategies and heuristics, limits |
 | `POST /api/check` `{source, syntax}` | diagnostics `{severity, message, line, column, end_line, end_column}` and outline (variables, loops with ids and lines, queries) |
 | `POST /api/convert` `{source}` | the pGCL program in `.ppy`: `{source, renamings: [{from, to}], messages}`; 422 with `line`/`column` if it is not valid pGCL |
 | `POST /api/analyze` | starts an analysis (`source, syntax, input_distribution, engine, normalize, simplification, decisions, coefficients, record_steps, watches, step_iterations, synthesis_strategy, template_heuristic, positivity_heuristic, solver, time_limit`; the two heuristics only apply to `synthesis_strategy` `from_heuristics`; `record_steps` records the step trace, `watches` (at most 8 queries such as `Pr[x == 3]`, in the program's syntax) are evaluated after every top-level step, `step_iterations` (1–200, default 40) bounds the iterates kept per loop) and returns a job id |

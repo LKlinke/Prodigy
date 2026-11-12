@@ -337,26 +337,6 @@ function selectRow(label, help, value, choices, onValue) {
   return h("div", { class: "form-row" }, h("label", { for: id }, label), select, help ? h("p", { class: "help" }, help) : null);
 }
 
-function engineControl(meta, options, onChange) {
-  const group = h("div", { class: "segmented", role: "radiogroup", "aria-label": "Engine" });
-  for (const engine of meta.engines.filter((e) => e.available)) {
-    const button = h("button", { type: "button", role: "radio", "aria-checked": String(options.engine === engine.name),
-      "aria-pressed": String(options.engine === engine.name) }, engine.label);
-    button.addEventListener("click", () => {
-      options.engine = engine.name;
-      for (const b of group.children) {
-        const on = b === button;
-        b.setAttribute("aria-checked", String(on));
-        b.setAttribute("aria-pressed", String(on));
-      }
-      onChange();
-    });
-    group.append(button);
-  }
-  return h("div", { class: "form-row" }, h("span", { class: "label" }, "Engine"), group,
-    h("p", { class: "help" }, "GiNaC is usually much faster; SymPy is the reference implementation."));
-}
-
 /** Renders the setup panel. ctx: {outline, setup, strategies, meta, source, onChange, focusLoop,
  * suggest(loopId, form, {signal, onProgress}), currentSource()} */
 export function renderSetup(container, ctx) {
@@ -383,7 +363,6 @@ export function renderSetup(container, ctx) {
   ];
   for (const row of heuristicRows) row.hidden = options.synthesis !== "from_heuristics";
   const optionsBody = h("div", { class: "disclosure-body options-grid" },
-    engineControl(meta, options, onChange),
     toggleRow("Condition on observations", "Divide by the probability that all observe statements hold.", options.normalize,
       (v) => { options.normalize = v; onChange(); }),
     toggleRow("Simplify expressions", "Slower, but gives shorter closed forms.", options.simplification,

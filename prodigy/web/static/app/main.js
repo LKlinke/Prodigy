@@ -238,6 +238,30 @@ function renderSetupPanel() {
   save("setup", state.setup);
 }
 
+// ---- engine (toolbar pop-up button) --------------------------------------------------------------
+
+const ENGINE_HELP = "The engine that computes the generating functions. GiNaC is usually much faster; "
+  + "SymPy is the reference implementation.";
+
+/** Fills the engine pop-up from the server's engines; unavailable ones stay listed but disabled. */
+function renderEngine() {
+  const select = $("engine-select");
+  const engines = state.meta.engines;
+  select.replaceChildren(...engines.map((engine) => h("option", {
+    value: engine.name, disabled: engine.available ? null : "", title: engine.reason || null,
+  }, engine.available ? engine.label : `${engine.label} (not installed)`)));
+  select.value = state.setup.options.engine;
+  const missing = engines.filter((e) => !e.available && e.reason).map((e) => e.reason);
+  select.title = [ENGINE_HELP, ...missing].join(" ");
+}
+
+function engineChanged() {
+  state.setup.options.engine = $("engine-select").value;
+  save("setup", state.setup);
+  markStale();
+  updateAnnotations();
+}
+
 function showLoop(loopId) {
   selectTab("setup");
   focusLoopCard($("panel-setup"), loopId);
@@ -791,6 +815,8 @@ async function boot() {
   $("btn-convert").addEventListener("click", convertProgram);
   renderSyntax();
   $("btn-examples").addEventListener("click", () => library.open());
+  renderEngine();
+  $("engine-select").addEventListener("change", engineChanged);
   $("btn-run").addEventListener("click", run);
   $("btn-stop").addEventListener("click", stop);
   document.addEventListener("keydown", (event) => {

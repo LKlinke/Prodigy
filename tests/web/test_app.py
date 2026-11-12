@@ -44,6 +44,20 @@ def test_page_and_meta(client):
     unroll = next(s for s in meta["strategies"] if s["name"] == "unroll")
     assert unroll["params"][0]["name"] == "iterations"
     assert all(p["kind"] != "file" for s in meta["strategies"] for p in s["params"])
+    engines = {e["name"]: e for e in meta["engines"]}
+    assert list(engines) == ["sympy", "ginac", "symengine"]
+    assert all(e["available"] == (e["reason"] is None) for e in engines.values())
+    assert sum(e["default"] for e in engines.values()) == 1
+
+
+def test_engine_is_chosen_in_the_toolbar_not_in_the_setup(client):
+    """The engine pop-up sits in the toolbar right before Analyze (#308); Setup no longer has it."""
+    page = client.get("/", headers=HOST).get_data(as_text=True)
+    toolbar = page[page.index('<header class="toolbar"'):page.index("</header>")]
+    assert '<label for="engine-select"' in toolbar and ">Engine</label>" in toolbar
+    assert toolbar.index('id="engine-select"') < toolbar.index('id="btn-run"')
+    setup = (Path(__file__).parents[2] / "prodigy/web/static/app/setup.js").read_text(encoding="utf-8")
+    assert "engineControl" not in setup and "options.engine" not in setup
 
 
 def test_check_reports_syntax_errors_with_position(client):
