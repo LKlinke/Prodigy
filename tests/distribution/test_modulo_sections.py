@@ -105,3 +105,15 @@ def test_rational_sections_rejects_functions_that_are_not_rational():
     assert rational_sections(sympy.exp(L * (X - 1)), X, 2) is None
     assert rational_sections(sympy.sqrt(1 - X), X, 2) is None
     assert rational_sections(X ** P, X, 2) is None
+
+
+def test_roots_of_unity_constants_are_not_parameters():
+    """After a modulo guard on a variable with infinite support, I and pi are constants, not parameters (#342)."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.analyzer import compute_discrete_distribution
+    from prodigy.analysis.config import ForwardAnalysisConfig
+    from prodigy.pgcl import parse_pgcl
+    program = parse_pgcl("x: nat;\ny: nat;\nx = poisson(2);\nif (x % 3 == 1) {\n    y = 1;\n}\nquery Ex[x];\n", "ppy")
+    config = ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.SYMPY)
+    result, _ = compute_discrete_distribution(program, config.factory.one(*program.variables), config)
+    assert result.get_parameters() == set()
