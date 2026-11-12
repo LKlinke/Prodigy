@@ -434,5 +434,72 @@ def test_finished_run_keeps_edits_and_marks_its_result():
     assert "changeSince(request, buildRequest())" in finish and "__request: request" in finish
     assert "resultStale = false" not in finish and "setSource" not in finish and "state.setup =" not in finish
     assert "state.job = { id: response.job, request," in main
+    assert "markStale" not in main  # replaced by refreshStale, which compares both ways
     view = (COMPONENTS / "result-view.js").read_text(encoding="utf-8")
     assert '"Analyze Again"' in view and "staleText(options.change)" in view
+
+
+def test_meta_groups_the_strategies(client):
+    """Every strategy has a group, one plain sentence and its outcome for Setup's grouped pop-up (#324)."""
+    meta = client.get("/api/meta", headers=HOST).get_json()
+    strategies = {s["name"]: s for s in meta["strategies"]}
+    assert strategies["auto"]["group"] == "automatic"
+    assert strategies["evt_iterate"]["group"] == "explore" and strategies["evt_iterate"]["outcome"] == "exploration"
+    assert {s["group"] for s in strategies.values()} == {"automatic", "exact", "bounds", "explore"}
+    assert all(s["summary"] and s["outcome"] for s in strategies.values())
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_setup_groups_defaults_and_progressive_disclosure(client, tmp_path):
+    """Setup: the pop-up's sections follow the groups, a new loop gets "auto", and parameters with a
+    default sit behind the "Parameters" disclosure while those without one are shown (#324)."""
+    meta = client.get("/api/meta", headers=HOST).get_json()
+    module = COMPONENTS.parent / "setup.js"
+    script = tmp_path / "check.mjs"
+    script.write_text(
+        f"const s = await import({str(module.as_uri())!r});\n"
+        f"const strategies = {json.dumps(meta['strategies'])};\n"
+        "const by = Object.fromEntries(strategies.map((x) => [x.name, x]));\n"
+        "const names = (ps) => ps.map((p) => p.name);\n"
+        "console.log(JSON.stringify({\n"
+        "  groups: s.groupStrategies(strategies).map((g) => [g.title, g.members.map((m) => m.name)]),\n"
+        "  fallback: s.groupStrategies([{ ...by.unroll, group: 'mystery' }]).map((g) => g.key),\n"
+        "  decision: s.defaultDecision(strategies),\n"
+        "  withoutAuto: s.defaultDecision(strategies.filter((x) => x.name !== 'auto')).strategy,\n"
+        "  unroll: [names(s.splitParams(by.unroll).required), names(s.splitParams(by.unroll).more)],\n"
+        "  invariant: [names(s.splitParams(by.evt_invariant).required), names(s.splitParams(by.evt_invariant).more)],\n"
+        "}));\n", encoding="utf-8")
+    output = json.loads(subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60,
+                                       check=True).stdout)
+    assert output["groups"] == [
+        ["Automatic", ["auto"]],
+        ["Exact result", ["invariant", "evt_invariant", "evt_synthesis", "ai_invariant"]],
+        ["Bounds", ["unroll", "mass_threshold", "evt_subinvariant", "evt_sandwich"]],
+        ["Explore", ["evt_iterate"]],
+    ]
+    assert output["fallback"] == ["other"]
+    assert output["decision"] == {"strategy": "auto", "params": {"iterations": 25}}
+    assert output["withoutAuto"] == "unroll"
+    assert output["unroll"] == [[], ["iterations"]]
+    assert output["invariant"] == [["invariant"], []]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_evt_exploration_candidate(tmp_path):
+    """The candidate of an exploration: the rational fit if there is one, else the chosen iterate unless
+    its closed form was cut (#324)."""
+    module = COMPONENTS / "evt-exploration.js"
+    script = tmp_path / "check.mjs"
+    fit = {"guess": {"candidate": "1/(1-c/2)"}, "iterates": [{"n": 1, "closed_form": "1", "truncated": False}]}
+    plain = {"guess": None, "iterates": [{"n": 1, "closed_form": "x", "truncated": False},
+                                         {"n": 9, "closed_form": "x+…", "truncated": True}]}
+    result = {"loops": [{"id": 0, "certificates": [{"type": "evt_iteration", "exploration": plain}]},
+                        {"id": 1, "certificates": [{"type": "unrolling"}]}]}
+    script.write_text(
+        f"const e = await import({str(module.as_uri())!r});\n"
+        f"const fit = {json.dumps(fit)}, plain = {json.dumps(plain)}, result = {json.dumps(result)};\n"
+        "console.log(JSON.stringify([e.candidateFor(fit, 0), e.candidateFor(plain, 0), e.candidateFor(plain, 1),"
+        " e.explorations(result).map((x) => x.loop.id)]));\n", encoding="utf-8")
+    output = json.loads(subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60,
+                                       check=True).stdout)
+    assert output == [{"text": "1/(1-c/2)", "kind": "fit"}, {"text": "x", "kind": "iterate", "n": 1}, None, [0]]

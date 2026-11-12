@@ -66,6 +66,9 @@ class SynthesisBoundReached(VerificationError):
 MAX_REPORTED_CANDIDATES = 5
 """At most this many undecided fixed points are reported as candidates."""
 
+MAX_REPORTED_SOLVER_ERRORS = 3
+"""At most this many distinct solver errors are reported in the loop's messages."""
+
 
 class _TimeLimitReached(BaseException):
     """Raised by the alarm of :func:`_time_limit`. A ``BaseException`` so that no ``except Exception``
@@ -150,12 +153,40 @@ def _template_solutions(template: Distribution, phi: Distribution,
     return solve_template(equation, numerator_unknowns, denominator_unknowns, variables, parameters)
 
 
+def _solver_failed(evt_candidate: Distribution, exc: Exception, stats: Dict[str, int], errors: List[str]) -> None:
+    """Records that the solver failed on the template ``evt_candidate``: the template has no candidate."""
+    logger.info("The solver failed on the template %s: %r", evt_candidate, exc)
+    stats["failed"] += 1
+    error = f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
+    if error not in errors:
+        errors.append(error)
+
+
+def _solve_fixed_point_equation(evt_inv: Distribution, phi_inv: Distribution, prog_info: ProgramInfo,
+                                config: ForwardAnalysisConfig) -> Optional[List[Dict[Any, Any]]]:
+    """The solver's proposals for the template's coefficients (an empty list: none), ``None`` if the
+    solver could not decide the template."""
+    if config.solver_type == SolverType.SYMPY:
+        # linear in the numerator coefficients (#281)
+        return _template_solutions(evt_inv, phi_inv, prog_info)
+    if config.solver_type == SolverType.Z3:
+        solver = SolverType.make(config.solver_type, config.factory)
+    else:
+        solver = SolverType.make(config.solver_type)
+    # Check equality between the iterated expression and the invariant.
+    is_solution, solution_candidates = solver.solve(evt_inv, phi_inv)
+    if is_solution is False or is_solution is None:
+        return []
+    return solution_candidates
+
+
 def _solutions(evt_candidate: Distribution, loop: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,
                config: ForwardAnalysisConfig, strategy: SynthesisStrategy, analyzer: Analyzer,
-               stats: Dict[str, int], undecided: List[str]) -> Tuple[Candidates, bool]:
+               stats: Dict[str, int], undecided: List[str], errors: List[str]) -> Tuple[Candidates, bool]:
     """The certified fixed points among the instances of the template ``evt_candidate`` and whether one of
     them was shown to have non-negative coefficients. Certified fixed points whose non-negativity is not
-    decided are also added to ``undecided`` (once per function)."""
+    decided are also added to ``undecided`` (once per function). If the solver fails on the template
+    (raises), the template has no candidate and the error is added to ``errors`` (#305)."""
     zero_dist: Distribution = config.factory.from_expr("0", *prog_info.program.variables)
     # Compute one iteration step.
     evt_inv = evt_candidate
@@ -167,21 +198,17 @@ def _solutions(evt_candidate: Distribution, loop: WhileInstr, prog_info: Program
     phi_inv = distribution + one_step_dist
 
     logger.debug("Check Invariant candidate %s", evt_inv)
-    if config.solver_type == SolverType.SYMPY:
-        # linear in the numerator coefficients (#281)
-        solution_candidates = _template_solutions(evt_inv, phi_inv, prog_info)
-        if solution_candidates is None:
-            stats["failed"] += 1
-            return [], False
-    else:
-        if config.solver_type == SolverType.Z3:
-            solver = SolverType.make(config.solver_type, config.factory)
-        else:
-            solver = SolverType.make(config.solver_type)
-        # Check equality between the iterated expression and the invariant.
-        is_solution, solution_candidates = solver.solve(evt_inv, phi_inv)
-        if is_solution is False or is_solution is None:
-            return [], False
+    try:
+        solution_candidates = _solve_fixed_point_equation(evt_inv, phi_inv, prog_info, config)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        # Any error of the solver (e.g. SymPy's IndexError in minsolve_linear_system, #305) only means that
+        # this template yields no candidate; skipping it is sound, since only candidates that pass the exact
+        # fixed-point check below are ever reported. The time limits are BaseExceptions and pass through.
+        _solver_failed(evt_candidate, exc, stats, errors)
+        return [], False
+    if solution_candidates is None:
+        stats["failed"] += 1
+        return [], False
     logger.debug("Filter solutions in: %s", solution_candidates)
 
     # Exclude "all zero" solutions, as well as solutions which make the denominator 0.
@@ -263,7 +290,7 @@ def _bound_message(reason: str, strategy: SynthesisStrategy, time_limit: Optiona
         message += f" {len(undecided)} fixed point(s) were found whose coefficients could not be shown to be " \
                    "non-negative (reported as candidates, not as results)."
     if stats["failed"]:
-        message += f" SymPy could not solve {stats['failed']} template(s)."
+        message += f" The solver could not solve {stats['failed']} template(s)."
     return message
 
 
@@ -294,6 +321,7 @@ def evt_invariant_synthesis(loop: WhileInstr,
         return [(distribution, True)]
     stats = {"tried": 0, "failed": 0, "skipped": 0}
     undecided: List[str] = []
+    errors: List[str] = []
     reason = "degree"
     try:
         with _time_limit(time_limit) as expired:
@@ -306,15 +334,15 @@ def evt_invariant_synthesis(loop: WhileInstr,
                 try:
                     with _time_limit(template_time_limit, _TemplateTimeLimitReached):
                         result, inv_found = _solutions(evt_candidate, loop, prog_info, distribution, config,
-                                                       strategy, analyzer, stats, undecided)
+                                                       strategy, analyzer, stats, undecided, errors)
                 except _TemplateTimeLimitReached:
                     logger.info("Skipping the template %s after %s s.", evt_candidate, template_time_limit)
                     stats["skipped"] += 1
                     continue
                 except BasePolynomialError as exc:
-                    # e.g. HeuristicGCDFailed('no luck'): this template cannot be decided, try the next one
-                    logger.info("SymPy failed on the template %s: %r", evt_candidate, exc)
-                    stats["failed"] += 1
+                    # e.g. HeuristicGCDFailed('no luck') outside the solver call (in the engine or the
+                    # fixed-point check): this template cannot be decided, try the next one
+                    _solver_failed(evt_candidate, exc, stats, errors)
                     continue
                 finally:
                     if progress is not None:
@@ -342,9 +370,14 @@ def evt_invariant_synthesis(loop: WhileInstr,
         "templates_skipped": stats["skipped"],
         "unproven_fixed_points": len(undecided),
         "candidates": candidates,
+        "solver_errors": errors[:MAX_REPORTED_SOLVER_ERRORS],
     }
     messages = [f"Candidate EVT invariant (not certified, its coefficients could not be shown to be non-negative): "
                 f"{candidate}" for candidate in candidates]
     if len(undecided) > len(candidates):
         messages.append(f"… {len(undecided) - len(candidates)} further candidate(s) omitted.")
+    messages += [f"Solver error on a template (the template was skipped): {error}"
+                 for error in errors[:MAX_REPORTED_SOLVER_ERRORS]]
+    if len(errors) > MAX_REPORTED_SOLVER_ERRORS:
+        messages.append(f"… {len(errors) - MAX_REPORTED_SOLVER_ERRORS} further solver error(s) omitted.")
     raise SynthesisBoundReached(message, details=details, messages=messages)

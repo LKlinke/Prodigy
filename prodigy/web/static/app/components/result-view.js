@@ -4,6 +4,7 @@
 // result-view.css and analysis-card.css and optionally KaTeX, so that the VS Code integration can
 // reuse it in a webview. Callbacks connect it to an editor (jump to a loop or line, highlight the
 // step of the analysis card's timeline).
+import { explorationCard, explorations } from "./evt-exploration.js";
 import { h, icon } from "./dom.js";
 import { intervalBar } from "./charts.js";
 import { BOUND_TEXT, exactIsInformative, formatNumber, formatSeconds, formatValue, qualify, shortExact } from "./format.js";
@@ -294,7 +295,8 @@ export function cleanLog(text) {
  * options: { onSelectLoop(id), onSelectLine(line), strategyTitles: {name: title}, stale: bool,
  *            change: "program" | "setup" | "both" (what changed since, see staleness.js), onRun(), elapsed,
  *            loadJoint(payload, signal) -> Promise<grid>, analysisState: {}, maxJointAxis,
- *            onPosition(step | null), onRecord(), onAddWatch(text), onRemoveWatch(text), breakpoints }
+ *            onPosition(step | null), onRecord(), onAddWatch(text), onRemoveWatch(text), breakpoints,
+ *            onUseCandidate(loopId, candidate), explorationState: {} }
  */
 export function renderResult(container, result, options = {}) {
   const children = [];
@@ -308,6 +310,11 @@ export function renderResult(container, result, options = {}) {
   children.push(warningNotice(result, details));
   if (result.status !== "ok") children.push(errorView(result, options));
   children.push(answerCard(result, options));
+  // loops analysed with "Expected visiting times H_N": their iterates, not a distribution (#324)
+  for (const { loop, exploration } of explorations(result)) {
+    const memory = options.explorationState ? (options.explorationState[loop.id] ||= {}) : {};
+    children.push(explorationCard(loop, exploration, { ...options, state: memory }));
+  }
   const analysis = analysisCard(result, options);
   children.push(analysis?.element, details);
   container.replaceChildren(h("div", { class: "result-view", "data-stale": options.stale ? "true" : "false" },

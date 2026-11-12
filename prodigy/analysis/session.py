@@ -422,7 +422,7 @@ class InteractiveDecisions(DecisionProvider):
                 key = str(extra_key)
                 extra_key += 1
             options[key] = strategy
-            lines.append(f"[{key}]: {strategy.menu_text}\n")
+            lines.append(f"[{key}]: {strategy.menu_line}\n")
         lines.append("[q]: Quit.\n")
         menu = "".join(lines)
         while True:

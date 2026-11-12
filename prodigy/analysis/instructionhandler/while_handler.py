@@ -20,6 +20,7 @@ from lark.exceptions import LarkError
 
 from prodigy.pgcl import Instr, parse_pgcl, Program, WhileInstr
 
+from prodigy.analysis import evt_exploration
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.strategies import (DEFAULT_MAX_DEGREE, SynthesisStrategy,
@@ -364,6 +365,11 @@ def _strategy_evt_iterate(task: LoopTask) -> LoopOutcome:
 
     evt = distribution * 0
     mass_in = _mass(distribution)
+    # iterates kept for the exploration (#324): H_N is no output distribution, but shows the expected visiting
+    # times, from which a user (or a rational fit) guesses an EVT invariant
+    samples = set(evt_exploration.sample_points(max_iter)) if task.session.collect_details else set()
+    kept: List[Tuple[int, Distribution]] = []
+    recent: List[Distribution] = []
     with task.session.sub_analysis("EVT iteration") as scope:
         for i in range(max_iter):
             logger.debug("Iteration %i", i)
@@ -375,10 +381,20 @@ def _strategy_evt_iterate(task: LoopTask) -> LoopOutcome:
             task.iterate(i + 1, functools.partial(_exit_part, evt, instruction.cond),
                          residual=lambda exit_dist: mass_in - _mass(exit_dist),
                          kind=Bound.LOWER if scope.kind in (Bound.EXACT, Bound.LOWER) else Bound.UNKNOWN)
+            if samples:
+                recent = (recent + [evt])[-3:]
+                if i + 1 in samples:
+                    kept.append((i + 1, evt))
     result = evt - evt.filter(instruction.cond)
     remaining = sympy.simplify(mass_in - _mass(result))
-    certificate = {"type": "evt_iteration", "iterations": max_iter, "remaining_mass": str(remaining),
-                   "evt": str(evt)}
+    certificate: Dict[str, Any] = {"type": "evt_iteration", "iterations": max_iter, "remaining_mass": str(remaining),
+                                   "evt": str(evt)}
+    if kept:
+        try:
+            certificate["exploration"] = evt_exploration.exploration(
+                kept, [str(v) for v in prog_info.program.variables.keys()], task.session.syntax, recent)
+        except Exception as exc:  # pylint: disable=broad-except  # the exploration is optional
+            logger.debug("EVT exploration failed: %s", exc)
     if scope.kind not in (Bound.EXACT, Bound.LOWER):
         return LoopOutcome(result, error_prob, kind=Bound.UNKNOWN, certificate=certificate,
                            messages=["Loops inside the body were over-approximated; no guarantee."])
@@ -387,7 +403,8 @@ def _strategy_evt_iterate(task: LoopTask) -> LoopOutcome:
                            messages=[f"Exact: all mass has left the loop within {max_iter} iterations."])
     return LoopOutcome(result, error_prob, kind=Bound.LOWER, residual=remaining, certificate=certificate,
                        messages=[f"Lower bound from {max_iter} iterations of the EVT operator; "
-                                 f"mass {remaining} is not accounted for."])
+                                 f"mass {remaining} is not accounted for. The iterates H_N are expected "
+                                 "visiting times, not the output distribution."])
 
 
 def _series_identity(invariant: Distribution, variables: Sequence[str], loop: WhileInstr,
@@ -469,8 +486,8 @@ def _strategy_evt_synthesis(task: LoopTask) -> LoopOutcome:
     def _sorting_key(elem):
         return 1 if elem[1] else 0
 
-    if task.interactive:
-        # historic order of the CLI (kept unchanged)
+    if task.interactive and getattr(task.record, "strategy", "evt_synthesis") == "evt_synthesis":
+        # historic order of the CLI (kept unchanged; not inside the strategy auto, which needs a certified one)
         invariants = sorted(invariants, key=_sorting_key)
     else:
         # certified candidates first
@@ -516,7 +533,10 @@ _INVARIANT_PARAMS = (
 register_loop_strategy(LoopStrategy(
     name="invariant",
     title="Check invariant",
-    menu_text="Solve using invariants (Checks whether the invariant over-approximates the loop)",
+    group="exact",
+    outcome="upper bound",
+    summary="Exact if the loop terminates almost surely, otherwise an upper bound; you provide a loop-free "
+            "program that behaves like the loop; one check, usually fast.",
     legacy_key="1",
     soundness=Bound.UPPER,
     description="Checks that a loop-free program I satisfies I ≡ if (guard) { body; I } on all "
@@ -529,7 +549,10 @@ register_loop_strategy(LoopStrategy(
 register_loop_strategy(LoopStrategy(
     name="unroll",
     title="Unroll N iterations",
-    menu_text="Fix a maximum number of iterations (This results in an under-approximation)",
+    group="bounds",
+    outcome="lower bound",
+    summary="A lower bound whose missing mass makes every query an interval; you provide N; the cost grows "
+            "with N.",
     legacy_key="2",
     soundness=Bound.LOWER,
     description="Executes at most N iterations. Mass that is still inside the loop afterwards is "
@@ -542,7 +565,10 @@ register_loop_strategy(LoopStrategy(
 register_loop_strategy(LoopStrategy(
     name="mass_threshold",
     title="Iterate until mass captured",
-    menu_text="Analyse until a certain probability mass is captured (might not terminate!)",
+    group="bounds",
+    outcome="lower bound",
+    summary="A lower bound that captures at least the given mass; you provide the mass, e.g. 0.99; may not "
+            "stop if the loop rarely terminates.",
     legacy_key="3",
     soundness=Bound.LOWER,
     description="Iterates until the terminated (or conditioned-away) mass reaches the threshold. "
@@ -556,12 +582,18 @@ register_loop_strategy(LoopStrategy(
 
 register_loop_strategy(LoopStrategy(
     name="evt_iterate",
-    title="Approximate expected visiting times",
-    menu_text="Compute expected visiting times (might be an approximation)",
+    title="Expected visiting times H_N",
+    group="explore",
+    outcome="exploration",
+    summary="Shows the iterates H_N of the expected visiting times (not the output distribution) to help you "
+            "guess an EVT invariant; you provide N; the result is only a lower bound.",
     legacy_key="4",
     soundness=Bound.LOWER,
     description="Iterates the expected-visiting-time operator Ψ_G(H) = G + ⟦body⟧(⟨H⟩_guard) N times "
-                "from 0; the terminating part is a lower bound.",
+                "from 0. The coefficient of a state in H_N is the expected number of times the loop head "
+                "is reached in that state within N iterations; the GUI shows how they grow with N and a "
+                "guessed EVT invariant to check with Check EVT invariant. The loop's result is the "
+                "terminating part of H_N, a lower bound (the mass that left the loop within N iterations).",
     params=(ParamSpec("iterations", "int", "Iterations N", prompt="Enter the number of iterations: ",
                       default=50, minimum=0, help="Number of applications of the EVT operator."),),
     run=_strategy_evt_iterate,
@@ -571,7 +603,10 @@ register_loop_strategy(LoopStrategy(
 register_loop_strategy(LoopStrategy(
     name="evt_invariant",
     title="Check EVT invariant",
-    menu_text="Use EVT Invariant",
+    group="exact",
+    outcome="exact or upper bound",
+    summary="Exact if your invariant has finite mass, otherwise an upper bound; you provide a generating "
+            "function of the expected visiting times; one check, usually fast.",
     legacy_key="5",
     soundness=Bound.UPPER,
     description="Checks a generating function I against I = G + ⟦body⟧(⟨I⟩_guard), solving for its "
@@ -586,7 +621,10 @@ register_loop_strategy(LoopStrategy(
 register_loop_strategy(LoopStrategy(
     name="evt_synthesis",
     title="Synthesise EVT invariant",
-    menu_text="EVT Invariant syntesis",
+    group="exact",
+    outcome="exact or upper bound",
+    summary="Like Check EVT invariant, but Prodigy searches the invariant; you provide nothing; seconds up to "
+            "the time limit (60 s), and no result if none is found.",
     legacy_key="6",
     soundness=Bound.UPPER,
     description="Searches rational-function templates up to a maximal degree for a fixed point of the "
@@ -699,8 +737,11 @@ def _strategy_evt_sandwich(task: LoopTask) -> LoopOutcome:
 
 register_loop_strategy(LoopStrategy(
     name="evt_subinvariant",
-    title="EVT sub-invariant (lower bound)",
-    menu_text="Use EVT sub-invariant (lower bound, no termination assumption)",
+    title="Check EVT sub-invariant",
+    group="bounds",
+    outcome="lower bound",
+    summary="A lower bound without termination assumption; you provide a generating function with finite "
+            "mass below one more iteration of itself; one check, usually fast.",
     legacy_key="7",
     soundness=Bound.LOWER,
     description="Checks that a generating function nu with finite mass satisfies nu ≤ Φ(nu) "
@@ -715,8 +756,11 @@ register_loop_strategy(LoopStrategy(
 
 register_loop_strategy(LoopStrategy(
     name="evt_sandwich",
-    title="EVT sandwich (lower and upper bounds)",
-    menu_text="EVT sandwich: synthesise EVT sub- and super-invariants (lower and upper bounds)",
+    title="EVT sandwich",
+    group="bounds",
+    outcome="lower and upper bounds",
+    summary="Lower and upper bounds for the queries right after the loop, both searched and checked by "
+            "Prodigy; you provide nothing; needs a rational input and no observe.",
     legacy_key="8",
     soundness=Bound.LOWER,
     description="Synthesises a finite-mass EVT sub-invariant (lower bound) and an EVT super-invariant "
@@ -849,7 +893,10 @@ def _strategy_ai_invariant(task: LoopTask) -> LoopOutcome:
 register_loop_strategy(LoopStrategy(
     name="ai_invariant",
     title="EVT invariant from a language model",
-    menu_text="Ask a language model for an EVT invariant or sub-invariant (checked by Prodigy)",
+    group="exact",
+    outcome="exact or a bound",
+    summary="Like Check EVT invariant or Check EVT sub-invariant, with candidates from a language model that "
+            "Prodigy checks; you provide an API key; one model request per attempt.",
     legacy_key="9",
     soundness=Bound.UPPER,
     description="A language model proposes an EVT invariant or a finite-mass sub-invariant. Prodigy checks "
@@ -865,6 +912,69 @@ register_loop_strategy(LoopStrategy(
                       help="How often the model is asked in total: again after a rejected candidate, and "
                            "after a proven sub-invariant for a larger one.")),
     run=_strategy_ai_invariant,
+))
+
+# ---------------------------------------------------------------------------------------
+# Automatic: a short synthesis, otherwise unrolling (the GUI's default, #324)
+# ---------------------------------------------------------------------------------------
+
+AUTO_MAX_DEGREE = 2
+AUTO_TIME_LIMIT = 5
+AUTO_TEMPLATE_TIME_LIMIT = 2
+
+
+def _strategy_auto(task: LoopTask) -> LoopOutcome:
+    """Synthesis first, accepted only if certified exact; otherwise unrolling. Each part is the
+    unchanged strategy with its own checks, so the outcome is exactly as sound as theirs."""
+    reason = ""
+    if not task.error_prob.is_zero_dist():
+        reason = "an observe statement comes before the loop, which EVT reasoning does not support"
+    else:
+        synthesis = get_loop_strategy("evt_synthesis")
+        params = {"max_degree": task.param("max_degree"), "time_limit": task.param("time_limit"),
+                  "template_time_limit": AUTO_TEMPLATE_TIME_LIMIT}
+        try:
+            outcome = synthesis.run(dataclasses.replace(task, strategy=synthesis,
+                                                        decision=LoopDecision("evt_synthesis", params)))
+        except Exception as exc:  # pylint: disable=broad-except  # any failure falls back to unrolling
+            reason = (str(exc) or type(exc).__name__).splitlines()[0][:300]
+        else:
+            if outcome.kind == Bound.EXACT:
+                outcome.certificate["automatic"] = {"chosen": "evt_synthesis"}
+                outcome.messages.insert(0, "Automatic: an EVT invariant was synthesised and certified exact.")
+                return outcome
+            reason = (f"the synthesised invariant {outcome.certificate.get('invariant')} gives only "
+                      f"{'an upper bound' if outcome.kind == Bound.UPPER else 'no guarantee'}")
+    unroll = get_loop_strategy("unroll")
+    outcome = unroll.run(dataclasses.replace(task, strategy=unroll, decision=LoopDecision(
+        "unroll", {"iterations": task.param("iterations")})))
+    outcome.certificate["automatic"] = {"chosen": "unroll", "synthesis": reason}
+    outcome.messages.insert(0, f"Automatic: unrolled {task.param('iterations')} iterations, since no exact "
+                               f"EVT invariant was found ({reason}).")
+    return outcome
+
+
+register_loop_strategy(LoopStrategy(
+    name="auto",
+    title="Automatic",
+    group="automatic",
+    outcome="exact or lower bound",
+    summary="Exact if Prodigy finds an EVT invariant within a few seconds, otherwise a lower bound from "
+            "unrolling N iterations; you provide nothing.",
+    soundness=Bound.LOWER,
+    description="Runs Synthesise EVT invariant with small templates (degree ≤ 2) and a short time limit and "
+                "keeps its result only if it is certified exact. Otherwise (no invariant found, only an "
+                "upper bound, an observe statement before the loop, or any failure) it unrolls the loop N "
+                "times, which gives a lower bound whose missing mass turns every query into an interval. "
+                "Both parts are the unchanged strategies with their own checks.",
+    params=(ParamSpec("iterations", "int", "Iterations N", default=50, minimum=0,
+                      prompt="Specify a maximum iteration limit: ",
+                      help="Loop iterations to unroll when the synthesis finds no exact invariant."),
+            ParamSpec("max_degree", "int", "Maximal template degree", default=AUTO_MAX_DEGREE, minimum=0,
+                      optional=True, help="Templates of the synthesis up to this degree in each variable."),
+            ParamSpec("time_limit", "int", "Synthesis time limit (seconds)", default=AUTO_TIME_LIMIT, minimum=1,
+                      optional=True, help="How long to search for an invariant before unrolling.")),
+    run=_strategy_auto,
 ))
 
 # ---------------------------------------------------------------------------------------
