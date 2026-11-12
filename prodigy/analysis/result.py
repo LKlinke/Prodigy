@@ -105,7 +105,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import sympy
 from prodigy.pgcl import (Binop, BinopExpr, BoolType, Expr, NatLitExpr, NatType, RealLitExpr,
-                           UnopExpr, VarExpr)
+                           Program, UnopExpr, VarExpr)
 
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.util.integers import unlimited_int_digits
@@ -739,6 +739,16 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
         return _build_result(session)
 
 
+def _require_type_correct(program: Program, source: Optional[str], syntax: str) -> None:
+    """Rejects a program that the type checker rejects, with the GUI's message (#351)."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.exceptions import ForwardAnalysisError
+    from prodigy.web.diagnostics import type_error
+    diagnostic = type_error(program, source or "", syntax)
+    if diagnostic is not None:
+        raise ForwardAnalysisError(f"Type error: {diagnostic['message']}")
+
+
 def _build_result(session: "AnalysisSession") -> AnalysisResult:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.analyzer import compute_discrete_distribution
@@ -765,6 +775,7 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
         try:
             program = session.program
             assert program is not None
+            _require_type_correct(program, session.source, session.syntax)
             if session.input_distribution is None:
                 dist = config.factory.one(*program.variables.keys())
             elif isinstance(session.input_distribution, str):

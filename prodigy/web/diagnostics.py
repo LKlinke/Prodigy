@@ -188,6 +188,14 @@ def _check_failure(source: str, failure: CheckFail, syntax: str = "pgcl") -> Dic
                             "program.")
 
 
+def type_error(program: Any, source: str, syntax: str = "pgcl") -> Optional[Dict[str, Any]]:
+    """The GUI's diagnostic for the first type error of ``program`` (None if it type checks); also used by the CLI."""
+    checked_program = copy.deepcopy(program)
+    substitute.substitute_constants(checked_program)
+    failure = check_program(checked_program)
+    return _check_failure(source, failure, syntax) if isinstance(failure, CheckFail) else None
+
+
 def check_source(source: str, syntax: str = "pgcl") -> Dict[str, Any]:
     """Diagnostics and outline for ``source`` in ``syntax`` (``pgcl`` or ``ppy``; cached,
     thread-safe)."""

@@ -152,6 +152,17 @@ def _read_program(program_file: IO, syntax: Optional[str]) -> Tuple[str, Program
     return source, program, chosen
 
 
+def _require_type_correct(program_file: IO, program: Program, source: str, syntax: str) -> None:
+    """Ends with the GUI's message if the type checker rejects the program (#334)."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.web.diagnostics import type_error
+    diagnostic = type_error(program, source, syntax)
+    if diagnostic is not None:
+        name = getattr(program_file, "name", "<program>")
+        raise click.ClickException(_with_source_line(f"{name}: type error: {diagnostic['message']}", source,
+                                                     diagnostic["line"], diagnostic["column"]))
+
+
 _LOOP_OPTION_HELP = ("Strategy for a loop, as ID=STRATEGY[:NAME=VALUE,...], e.g. 0=unroll:iterations=100 or "
                      "'*=auto' for all loops. See `prodigy loop_strategies` for the strategies by group: "
                      "automatic, exact result, bounds, explore.")
@@ -224,6 +235,7 @@ def main(ctx, program_file: IO, input_dist: str,  # pylint: disable=too-many-arg
     logger.debug("Read file %s", program_file.name)
     logger.debug("Input distribution: %s", input_dist)
     program_source, program, syntax = _read_program(program_file, syntax)
+    _require_type_correct(program_file, program, program_source, syntax)
 
     if show_input_program:
         print("Program source:")
@@ -260,8 +272,10 @@ def check_equality(ctx, program_file: IO, other_program_file: IO, syntax: Option
     Checks whether a certain loop-free program is an invariant of a specified while loop.
     Each file is read in the syntax of its extension, unless --syntax is given.
     """
-    _, prog, program_syntax = _read_program(program_file, syntax)
-    _, other_prog, _ = _read_program(other_program_file, syntax)
+    source, prog, program_syntax = _read_program(program_file, syntax)
+    _require_type_correct(program_file, prog, source, program_syntax)
+    other_source, other_prog, other_syntax = _read_program(other_program_file, syntax)
+    _require_type_correct(other_program_file, other_prog, other_source, other_syntax)
 
     start = time.perf_counter()
     # invariant files asked for on the terminal are read in the syntax of the program
@@ -308,7 +322,8 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool, syntax: Optiona
     :param compute_exact: if True, also compute and return the actual stochastic independencies
     :return: under-approximation or the actual relation
     """
-    _, prog, _ = _read_program(program_file, syntax)
+    source, prog, program_syntax = _read_program(program_file, syntax)
+    _require_type_correct(program_file, prog, source, program_syntax)
 
     start = time.perf_counter()
     indep_rel: Set[frozenset[Var]] = get_independent_vars_of(prog) #, program_file, compute_exact)
@@ -366,7 +381,8 @@ def invariant_synthesis(ctx,  # pylint: disable=too-many-arguments
     """
 
     # read the program source file and parse it into a program object.
-    _, prog, syntax = _read_program(program_file, syntax)
+    source, prog, syntax = _read_program(program_file, syntax)
+    _require_type_correct(program_file, prog, source, syntax)
     if invariant:
         invariant = _expression_option(invariant, "--invariant", prog, syntax)
     with AnalysisSession.detached(syntax).activate():
@@ -435,7 +451,8 @@ def evt_lower_bound(ctx, program_file: IO, invariant: str, input_dist: str, synt
     """
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.lowerbounds.subinvariant import evt_subinvariant_verification
-    _, prog, syntax = _read_program(program_file, syntax)
+    source, prog, syntax = _read_program(program_file, syntax)
+    _require_type_correct(program_file, prog, source, syntax)
     prefix, loop, rest = _loop_parts(prog)
     invariant = _expression_option(invariant, "--invariant", prog, syntax)
     config = ctx.obj["CONFIG"]
@@ -497,7 +514,8 @@ def evt_sandwich(  # pylint: disable=too-many-arguments
     """
     from prodigy.analysis.lowerbounds.problem import load_problem
     from prodigy.analysis.lowerbounds.sandwich import evt_sandwich as run_sandwich, print_result, write_json
-    _, prog, _ = _read_program(program_file, syntax)
+    source, prog, program_syntax = _read_program(program_file, syntax)
+    _require_type_correct(program_file, prog, source, program_syntax)
     problem = load_problem(prog)
     lower = [_parse_shape(s) for s in lower_specs] or None
     upper = [_parse_shape(s) for s in upper_specs] or None
@@ -621,6 +639,7 @@ def analyze(  # pylint: disable=too-many-arguments
     --decisions). Queries are answered with sound intervals.
     """
     program_source, program, syntax = _read_program(program_file, syntax)
+    _require_type_correct(program_file, program, program_source, syntax)
     config: ForwardAnalysisConfig = ctx.obj['CONFIG']
     decisions = parse_decisions(_checked_decisions(_collect_decisions(loop_specs, decisions_file), program,
                                                    program_source, syntax))
@@ -667,6 +686,7 @@ def outline(program_file: IO, as_json: bool, syntax: Optional[str]) -> None:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import outline_program
     source, program, syntax = _read_program(program_file, syntax)
+    _require_type_correct(program_file, program, source, syntax)
     info = outline_program(program, source, syntax)
     if as_json:
         print(json.dumps(info, indent=2))
@@ -707,6 +727,7 @@ def convert(program_file: IO, output: Optional[IO]) -> None:
         raise _pgcl_syntax_error(name, source, exc) from exc
     except PpyPrintError as exc:
         raise click.ClickException(f"{name}: {exc}") from exc
+    _require_type_correct(program_file, compiler.parse_pgcl(source, "pgcl"), source, "pgcl")
     for message in result.messages():
         click.echo(f"{name}: {message}", err=True)
     if output is None:
