@@ -50,6 +50,50 @@ def test_categorical_is_computed(engine):
     assert decide_equal_strings(result["distribution"]["closed_form"], "x/2 + x^2/2", ["x"]) is True
 
 
+# #248: the guard x % 3 gives SymPy and GiNaC a distribution with the parameters I and pi (roots of unity), the
+# error probability has none. SymPy's equality compares them, so the check for probability 0 failed and the
+# division ended in nan ("Undefined value") instead of the error of the other engines.
+OBSERVE_ZERO_AFTER_MODULO = """x: nat;
+y: nat;
+x = poisson(2);
+if ((x % 3) == 0 and (x % 3) == 1) {
+    skip;
+} else {
+    y = bernoulli(0.1);
+}
+observe((y % 3) == 2);
+query Ex[x];
+"""
+# #248: here the error probability is an unsimplified sum of roots of unity that is 1; SymPy and GiNaC could not
+# show it and reported E[x] = 0 as an exact result for a program without semantics
+OBSERVE_ZERO_UNPROVEN = """x: nat;
+y: nat;
+x = poisson(2);
+y = x % 3;
+observe(y == 5);
+query Ex[x];
+"""
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+@pytest.mark.parametrize("source", [OBSERVE_ZERO_AFTER_MODULO, OBSERVE_ZERO_UNPROVEN])
+def test_observation_with_probability_zero_is_an_error_on_all_engines(engine, source):
+    result = analyse(source, "ppy", ENGINES[engine], {})
+    assert result["status"] == "error"
+    assert result["error"]["type"] == "ObserveZeroEventError", result["error"]
+    assert result["error"]["message"].startswith("Undefined semantics: Probability of observing a valid run is 0")
+    if source == OBSERVE_ZERO_AFTER_MODULO:
+        assert result["error"]["message"] == "Undefined semantics: Probability of observing a valid run is 0."
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_zero_result_with_positive_probability_of_a_valid_run(engine):
+    # the loop never terminates and nothing is observed: the zero measure is the (exact) result, not an error
+    result = analyse("x: nat;\nwhile (x == 0) {\n    skip;\n}\nquery Pr[x == 0];\n", "ppy", ENGINES[engine],
+                     {"0": "unroll:iterations=3"})
+    assert result["status"] == "ok", result.get("error")
+
+
 def test_time_budget_interrupts_a_slow_analysis_and_restores_the_outer_timer():
     outer_handler = signal.getsignal(signal.SIGALRM)
     signal.setitimer(signal.ITIMER_REAL, 50)
