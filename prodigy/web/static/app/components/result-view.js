@@ -9,6 +9,7 @@ import { intervalBar } from "./charts.js";
 import { BOUND_TEXT, exactIsInformative, formatNumber, formatSeconds, formatValue, qualify, shortExact } from "./format.js";
 import { analysisCard, verdictText } from "./analysis-card.js";
 import { distributionFigure, expressionBox, guaranteeBadge } from "./parts.js";
+import { changedWhileRunningText, staleText } from "../staleness.js";
 
 export { guaranteeBadge, distributionFigure };
 
@@ -290,15 +291,18 @@ export function cleanLog(text) {
 /**
  * Renders `result` into `container` and returns {analysis} (the analysis card's controller, or
  * null; see analysis-card.js).
- * options: { onSelectLoop(id), onSelectLine(line), strategyTitles: {name: title}, stale: bool, elapsed,
+ * options: { onSelectLoop(id), onSelectLine(line), strategyTitles: {name: title}, stale: bool,
+ *            change: "program" | "setup" | "both" (what changed since, see staleness.js), onRun(), elapsed,
  *            loadJoint(payload, signal) -> Promise<grid>, analysisState: {}, maxJointAxis,
  *            onPosition(step | null), onRecord(), onAddWatch(text), onRemoveWatch(text), breakpoints }
  */
 export function renderResult(container, result, options = {}) {
   const children = [];
   if (options.stale) {
-    children.push(h("p", { class: "notice" }, icon("info"),
-      h("span", {}, "The program or setup changed since this result. Analyze again to update it.")));
+    children.push(h("div", { class: "notice rv-stale", role: "status" }, icon("info"),
+      h("span", {}, staleText(options.change)),
+      options.onRun ? h("button", { type: "button", class: "button small", onclick: () => options.onRun() },
+        "Analyze Again") : null));
   }
   const details = detailsLine(result);
   children.push(warningNotice(result, details));
@@ -311,7 +315,8 @@ export function renderResult(container, result, options = {}) {
   return { analysis };
 }
 
-/** Progress view while an analysis runs. state: {elapsed, timeLimit, progress: [...], log, loops} */
+/** Progress view while an analysis runs. state: {elapsed, timeLimit, progress: [...], log, loops};
+ * options: {strategyTitles, change: what changed since the analysis started (see staleness.js)} */
 export function renderRunning(container, state, options = {}) {
   const titles = options.strategyTitles || {};
   const bars = (state.progress || []).map((p) => {
@@ -335,6 +340,8 @@ export function renderRunning(container, state, options = {}) {
         h("span", {}, `Analyzing · ${formatSeconds(state.elapsed || 0)}`),
         state.timeLimit ? h("span", { class: "rv-muted" }, `limit ${formatSeconds(state.timeLimit)}`) : null),
       ...bars,
+      options.change ? h("p", { class: "notice", role: "status" }, icon("info"),
+        h("span", {}, changedWhileRunningText(options.change))) : null,
       logBox)));
   logBox.scrollTop = logBox.scrollHeight;
 }
