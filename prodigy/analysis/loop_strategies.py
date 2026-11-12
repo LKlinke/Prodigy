@@ -103,11 +103,22 @@ def _parse_text(raw: Any) -> str:
     return text
 
 
+def _parse_expression(raw: Any, syntax: str = "pgcl") -> str:
+    """A generating function given from outside (CLI, decisions, GUI), checked before any engine
+    sees it: SymPy's parser evaluates Python code. Returns it in the engines' spelling (powers as
+    ``^``, which GiNaC needs); raises ``ValueError`` (a
+    :class:`~prodigy.analysis.ai_candidates.CandidateError`) for anything else
+    (:func:`~prodigy.analysis.ai_candidates.admissible_expression`)."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.ai_candidates import MATH_FUNCTIONS, admissible_expression
+    return admissible_expression(_parse_text(raw).strip(), syntax=syntax, functions=MATH_FUNCTIONS)
+
+
 _PARSERS: Dict[str, Callable[[Any], Any]] = {
     "int": _parse_int,
     "probability": _parse_probability,
     "pgcl": _parse_text,
-    "expression": _parse_text,
+    "expression": _parse_expression,
     "file": _parse_text,
     "choice": _parse_text,
 }
@@ -150,8 +161,10 @@ class ParamSpec:
     """Optional parameters are never asked for; if missing, :attr:`default` (or ``None``)
     is used."""
 
-    def parse(self, raw: Any) -> Any:
-        value = _PARSERS[self.kind](raw)
+    def parse(self, raw: Any, syntax: str = "pgcl") -> Any:
+        """The value of ``raw``; raises ``ValueError`` if it is not admissible. ``expression``
+        parameters must be generating functions of the program's ``syntax`` (``pgcl`` or ``ppy``)."""
+        value: Any = _parse_expression(raw, syntax) if self.kind == "expression" else _PARSERS[self.kind](raw)
         if self.kind == "int" and self.minimum is not None and value < self.minimum:
             raise ValueError(f"{self.label} must be at least {self.minimum}")
         if self.kind == "choice" and self.choices and value not in self.choices:
@@ -224,13 +237,18 @@ class LoopTask:
         spec = self.strategy.param(name)
         raw = self.decision.params.get(name)
         if not _missing(raw):
-            return spec.parse(raw)
+            try:
+                return spec.parse(raw, self.session.syntax)
+            except ValueError as exc:
+                where = self.loop.describe() if self.loop is not None else "a loop"
+                raise ValueError(f"{where}: parameter {name!r} of strategy {self.strategy.name} "
+                                 f"({spec.label}): {exc}") from exc
         # alternative spelling, e.g. invariant_file instead of invariant
         for alias in self.strategy.params:
             if alias.alias_of == name and not _missing(self.decision.params.get(alias.name)):
                 return self.session.resolve_alias(self, alias, self.decision.params[alias.name])
         if spec.optional:
-            return spec.parse(spec.default) if spec.default is not None else None
+            return spec.parse(spec.default, self.session.syntax) if spec.default is not None else None
         return self.session.ask_param(self, spec)
 
     def progress(self, done: int, total: Optional[int], message: str = "") -> None:

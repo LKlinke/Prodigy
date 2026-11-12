@@ -112,7 +112,8 @@ on its own.
   (`docs/source/language-design.md`).
 - Untrusted input: SymPy's `sympify`/`parse_expr` evaluate Python code. Validate external text
   (GUI input, model answers) with the pGCL parser or an allowlist before SymPy sees it (see
-  `ai_candidates.candidate_from_answer`).
+  `ai_candidates.candidate_from_answer`; generating functions of loop decisions and CLI options go
+  through `ParamSpec.parse` and `cli._expression_option`).
 - Tests do not use the network; fake external services (see `tests/analysis/test_ai_candidates.py`).
   `tests/conftest.py` seeds random draws per test and restores the global flags of
   `GeneratingFunction` after each test.

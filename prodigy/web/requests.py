@@ -107,6 +107,8 @@ def validate_request(request: Dict[str, Any]) -> List[str]:
         problems.append(str(exc))
         syntax = "pgcl"
     for label, container, key in _expressions(request):
+        if container is not request:
+            continue  # the generating functions of the decisions are checked by validate_decisions
         try:
             admissible_expression(container[key], syntax=syntax, functions=MATH_FUNCTIONS)
         except CandidateError as exc:
@@ -129,7 +131,7 @@ def validate_request(request: Dict[str, Any]) -> List[str]:
         problems.append(f"Unknown solver {request.get('solver')!r}.")
     try:
         decisions = parse_decisions(request.get("decisions") or {})
-        problems.extend(validate_decisions(decisions))
+        problems.extend(validate_decisions(decisions, syntax=syntax))
     except ValueError as exc:
         problems.append(str(exc))
     problems.extend(_trace_problems(request, syntax))
