@@ -54,7 +54,8 @@ class _CliGroup(click.Group):
             return super().invoke(ctx)
         except (UnsupportedFeatureError, UndefinedDistributionError, InputDistributionError, HeuristicsError,
                 SynthesisBoundReached) as exc:
-            raise click.ClickException(str(exc)) from exc
+            # e.g. the undecided candidates of a synthesis
+            raise click.ClickException("\n".join([str(exc), *getattr(exc, "messages", ())])) from exc
 
 
 # pylint: disable-msg=too-many-arguments

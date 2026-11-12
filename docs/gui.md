@@ -269,6 +269,14 @@ template whose equations are not solved in time, so that one expensive template 
 whole time limit (skipped templates are counted in the message and in
 `error.details.templates_skipped`). The denominator D has the constant term 1, which loses no
 invariant: a generating function N/D in lowest terms has a denominator with a non-zero constant term.
+The fixed-point equation is linear in the coefficients of N, so these are solved by linear algebra and
+only those of D need a non-linear solver; templates with few unknowns come first, those of D counted
+eight times. Templates whose numerator would have more than 500 coefficients (with many variables,
+e.g. degree 2 and more in seven variables) are left out, and the message names the degree reached. Every solution
+is a proposal that the exact fixed-point check decides. Fixed points whose coefficients the positivity
+heuristic cannot show to be non-negative are not results: if no certified invariant is found, they are
+listed as candidates in the loop's messages and in `error.details.candidates`, e.g. for a program
+parameter p the candidate (1 + b·p)/(1 − (1 − p)·x), which may be checked by other means.
 Many loops have no rational invariant at all, e.g. those with algebraic or
 non-D-finite generating functions in `pgfexamples/inference/loopy/hard_distributions`. If no
 invariant is found within the bounds, the analysis ends with status `error`, verdict *unknown*

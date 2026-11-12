@@ -16,7 +16,6 @@ from prodigy.analysis.evtinvariants.heuristics.strategies import DEFAULT_MAX_DEG
 from prodigy.analysis.evtinvariants.invariant_synthesis import DEFAULT_SYNTHESIS_TIME_LIMIT
 from prodigy.analysis.loop_strategies import get_loop_strategy
 from prodigy.analysis.session import AnalysisSession
-from prodigy.analysis.solver.sympy_solver import SympySolver
 from prodigy.cli import cli
 from prodigy.pgcl import parse_pgcl
 
@@ -63,8 +62,12 @@ def test_degree_bound_ends_without_invariant(engine, name):
 
 
 @pytest.mark.parametrize("engine", ENGINES)
-def test_time_limit_interrupts_a_running_solver_call(engine):
-    # with degree 1 SymPy's Gröbner basis for one of the templates runs for minutes
+def test_time_limit_interrupts_a_running_solver_call(engine, monkeypatch):
+    # a solver call that does not return (as SymPy's Gröbner basis did for minutes before #281)
+    def hangs(*_args, **_kwargs):
+        time.sleep(60)
+
+    monkeypatch.setattr(invariant_synthesis, "solve_template", hangs)
     start = time.monotonic()
     result = _run(HARD / "non_d_finite" / "st_petersburg.ppy", "evt_synthesis:max_degree=1,time_limit=1", engine)
     assert time.monotonic() - start < 30
@@ -99,9 +102,9 @@ def test_parameters_are_registered():
 
 def test_sympy_failure_on_a_template_is_skipped(monkeypatch):
     """SymPy's HeuristicGCDFailed('no luck') ended the analysis before; now the template is skipped."""
-    def fail(self, f, g):
+    def fail(*_args, **_kwargs):
         raise HeuristicGCDFailed("no luck")
-    monkeypatch.setattr(SympySolver, "solve", fail)
+    monkeypatch.setattr(invariant_synthesis, "solve_template", fail)
     result = _run(HARD / "non_d_finite" / "st_petersburg.ppy", "evt_synthesis:max_degree=0",
                   ForwardAnalysisConfig.Engine.SYMPY)
     error = _assert_no_invariant(result, "degree")

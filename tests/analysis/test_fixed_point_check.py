@@ -103,12 +103,10 @@ def test_wrong_solution_of_the_solver_is_not_certified(monkeypatch):
     assert result["status"] == "error"
 
 
-class WrongSolver:
+def wrong_solutions(_equation, numerator_unknowns, denominator_unknowns, *_args, **_kwargs):
     """Proposes a = 1/2 + 10^-20 for every template; the right value would be 1/2."""
-
-    def solve(self, f, g):  # pylint: disable=unused-argument
-        params = [sympy.Symbol(p) for p in sorted(f.get_parameters() | g.get_parameters())]
-        return True, [{p: sympy.Rational(1, 2) + sympy.Rational(1, 10 ** 20) for p in params}]
+    return [{p: sympy.Rational(1, 2) + sympy.Rational(1, 10 ** 20)
+             for p in [*numerator_unknowns, *denominator_unknowns]}]
 
 
 def one_template(_strategy, variables, factory, **_heuristics):
@@ -129,7 +127,7 @@ def test_synthesised_parameter_is_certified(monkeypatch, engine):
 @pytest.mark.parametrize("engine", ENGINES)
 def test_wrong_solution_of_the_synthesis_solver_is_not_certified(monkeypatch, engine):
     monkeypatch.setattr(while_handler.SynthesisStrategies, "make", one_template)
-    monkeypatch.setattr(invariant_synthesis.SolverType, "make", lambda *args, **kwargs: WrongSolver())
+    monkeypatch.setattr(invariant_synthesis, "solve_template", wrong_solutions)
     result = analyse("evt_synthesis", engine)
     assert result["status"] == "error"
 
