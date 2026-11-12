@@ -487,12 +487,8 @@ def _strategy_evt_synthesis(task: LoopTask) -> LoopOutcome:
     def _sorting_key(elem):
         return 1 if elem[1] else 0
 
-    if task.interactive and getattr(task.record, "strategy", "evt_synthesis") == "evt_synthesis":
-        # historic order of the CLI (kept unchanged; not inside the strategy auto, which needs a certified one)
-        invariants = sorted(invariants, key=_sorting_key)
-    else:
-        # certified candidates first
-        invariants = sorted(invariants, key=_sorting_key, reverse=True)
+    # certified candidates first, so that the default candidate 0 is a certified one (#337)
+    invariants = sorted(invariants, key=_sorting_key, reverse=True)
 
     # give associated distributions:
     distributions = [inv - inv.filter(instruction.cond) for inv, inv_type in invariants]

@@ -120,3 +120,20 @@ def test_evt_iterate_shows_an_exploration_with_a_checkable_candidate():
     # the guess is only a proposal; Check EVT invariant proves this one exact
     checked = analyse(GEOMETRIC, {"*": {"strategy": "evt_invariant", "params": {"invariant": candidate}}})
     assert checked["status"] == "ok" and checked["bounds"]["kind"] == "exact"
+
+
+def test_evt_synthesis_lists_certified_candidates_first(monkeypatch):
+    """The default candidate 0 is a certified one, also if the synthesis returns an uncertified one first (#337)."""
+    from prodigy.analysis.instructionhandler import while_handler  # pylint: disable=import-outside-toplevel
+    real = while_handler.evt_invariant_synthesis
+
+    def uncertified_first(*args, **kwargs):
+        found = real(*args, **kwargs)
+        return [(found[0][0], False)] + found
+
+    monkeypatch.setattr(while_handler, "evt_invariant_synthesis", uncertified_first)
+    result = analyse(GEOMETRIC, {"*": "evt_synthesis"})
+    candidates = result["loops"][0]["certificates"][0]["candidates"]
+    assert [c["nonnegative"] for c in candidates] == [True, False]
+    assert result["loops"][0]["certificates"][0]["chosen"] == 0
+    assert result["bounds"]["kind"] == "exact"
