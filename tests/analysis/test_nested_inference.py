@@ -341,6 +341,56 @@ def test_not_implemented_cases_say_so(source, message):
     assert "traceback" not in result["error"]
 
 
+# Calls inside functions (#209). two(q) = coin(q) + coin(0) with coin(p) = bernoulli(1/2) + p, so
+# x = two(1) is 1, 2, 3 with 1/4, 1/2, 1/4; cond(0) samples from infer(coin, 0) and observes w >= 1,
+# so k = 1 and the observation fails with probability 1/2.
+CALLS_INSIDE_FUNCTIONS = """
+def coin(p: nat) -> nat {
+    a: nat = bernoulli(1/2);
+    return a + p;
+}
+def two(q: nat) -> nat {
+    u: nat = coin(q);
+    v: nat = coin(0);
+    return u + v;
+}
+def cond(r: nat) -> nat {
+    d: dist = infer(coin, r);
+    w: nat = sample(d);
+    observe(w >= 1);
+    return w;
+}
+x: nat = two(1);
+y: nat = bernoulli(1/2);
+z: nat = two(y);
+k: nat = cond(0);
+"""
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_functions_call_functions(engine):
+    result, _ = analyse(CALLS_INSIDE_FUNCTIONS, engine)
+    # x = 1 + coin + coin; z = y + coin + coin with y = bernoulli(1/2); k = 1 after the observation
+    expected = "k * x*(1/2 + x/2)^2 * (1/2 + z/2)^2 * (1/2 + y*z/2)"
+    assert same(closed_form(result), expected)
+    assert sym(result["distribution"]["error_probability"]) == sympy.Rational(1, 2)
+
+
+@pytest.mark.parametrize("source, calls", [
+    ("def f(a: nat) -> nat {\n    b: nat = 0;\n    if (a > 0) { b = f(a - 1); }\n    return b;\n}\n"
+     "x: nat = f(2);\n", "f calls f"),
+    ("def f(a: nat) -> nat { b: nat = g(a); return b; }\n"
+     "def g(a: nat) -> nat { d: dist = infer(f, a); b: nat = sample(d); return b; }\n"
+     "x: nat = g(1);\n", "g calls f, f calls g"),
+])
+def test_recursion_is_not_implemented(source, calls):
+    assert isinstance(compile_pgcl(source, syntax="ppy"), Program)  # the type checker accepts it
+    result, _ = analyse(source)
+    assert result["status"] == "error"
+    assert result["error"]["type"] == "UnsupportedFeatureError"
+    assert result["error"]["message"] == f"Recursive functions are not implemented: {calls}."
+
+
 def test_pgcl_syntax():
     source = """
 dist d;

@@ -64,6 +64,7 @@ from prodigy.pgcl import (AsgnInstr, Binop, BinopExpr, BoolLitExpr,
 from prodigy.pgcl.ast.expressions import (ExpectationExpr, InferExpr,
                                           ProbabilityExpr, SampleExpr)
 from prodigy.pgcl.ast.types import DistributionType
+from prodigy.pgcl.pgcl_checks import recursion
 from prodigy.pgcl.ast.walk import (Walk, mut_expr_children, walk_expr,
                                    walk_instr_exprs, walk_instrs)
 from prodigy.pgcl.util.ref import Mut
@@ -391,8 +392,16 @@ def _sym(value: Any) -> Any:
 
 def function_program_info(prog_info: ProgramInfo, function: Function,
                           bindings: Optional[Dict[str, DistSite]] = None) -> ProgramInfo:
-    """The program info for running the body of ``function``."""
-    return replace(prog_info, program=Program.from_function(function, prog_info.program),
+    """The program info for running the body of ``function``. Functions may call other
+    functions (#209), but recursion is not implemented (#188)."""
+    for name, candidate in prog_info.program.functions.items():
+        if candidate is function:
+            calls = recursion(prog_info.program, name)
+            if calls is not None:
+                raise UnsupportedFeatureError(
+                    f"Recursive functions are not implemented: {calls}.")
+    return replace(prog_info, program=Program.from_function(function, prog_info.program,
+                                                                 copy_functions=True),
                    dist_bindings=frozendict(bindings or {}))
 
 
@@ -506,8 +515,7 @@ def infer(instr: AsgnInstr, prog_info: ProgramInfo, distribution: Distribution,
     call = instr.rhs.function
     if call.function not in prog_info.program.functions:
         raise UnsupportedFeatureError(
-            f"{_spell(instr.rhs)}: infer inside a function is not implemented (functions cannot call "
-            "functions yet).")
+            f"{_spell(instr.rhs)}: unknown function {call.function}.")
     function = prog_info.program.functions[call.function]
     reg = registry()
     reg.functions[call.function] = function

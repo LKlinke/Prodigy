@@ -334,8 +334,10 @@ The implementation follows the table. Where the design left a gap, it decided as
   `dist` in it is a type error, with the hint to query a draw `y = sample(d)` instead. `Pr`/`Ex` on
   `nat` variables inside a program are a type error with the hint to wrap the code in a function
   and use `infer`.
-- **`infer` inside functions.** Functions cannot call functions yet, so `infer` is only available
-  in the program itself; `sample`, `Pr` and `Ex` of `dist` parameters work inside functions.
+- **Calls inside functions.** A function body sees the functions of the program, so it may call
+  them and use `infer` on them (#209). Recursion (a function that calls itself, directly or
+  through other functions) has a semantics, so the type checker accepts it, but the analysis ends
+  with "Recursive functions are not implemented: f calls g, g calls f." (#188).
 - **Not implemented: the special case Z(a) = c·rᵃ** of the sixth row. It would need a proof that Z
   has this form; it is left to the research issue.
 - **Function calls.** `x = f(y)` with an argument that depends on the state ran the body on the
