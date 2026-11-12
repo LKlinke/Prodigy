@@ -999,7 +999,7 @@ def check_function(
                 message=
                 "Only variables of type nat or dist are allowed in functions")
 
-    as_prog = Program.from_function(function, context)
+    as_prog = Program.from_function(function, context, copy_functions=True)
     res = check_program(as_prog, predefined_functions)
     if isinstance(res, CheckFail):
         return res

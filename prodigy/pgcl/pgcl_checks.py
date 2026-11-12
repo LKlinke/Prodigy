@@ -1,7 +1,7 @@
-from typing import NamedTuple, Optional, Set, TypeGuard
+from typing import List, NamedTuple, Optional, Set, TypeGuard
 
-from prodigy.pgcl import Binop, BinopExpr, Expr, NatLitExpr, VarExpr
-from prodigy.pgcl.ast.walk import Walk, mut_expr_children, walk_expr
+from prodigy.pgcl import Binop, BinopExpr, Expr, FunctionCallExpr, NatLitExpr, Program, VarExpr
+from prodigy.pgcl.ast.walk import Walk, instr_exprs, mut_expr_children, walk_expr, walk_instrs
 from prodigy.pgcl.util.ref import Mut
 
 
@@ -67,3 +67,44 @@ def check_is_constant_constraint(
         return True
     else:
         return False
+
+
+def called_functions(program: Program, name: str) -> List[str]:
+    """The functions of ``program`` that the body of the function ``name`` calls (also in
+    ``infer``), in order."""
+    function = program.functions[name]
+    exprs: List[Expr] = [function.returns]
+    for ref in walk_instrs(Walk.DOWN, function.instructions):
+        exprs.extend(instr_exprs(ref.val))
+    return [sub.val.function for expr in exprs for sub in walk_expr(Walk.DOWN, Mut.alloc(expr))
+            if isinstance(sub.val, FunctionCallExpr) and sub.val.function in program.functions]
+
+
+def recursion(program: Program, name: str) -> Optional[str]:
+    """
+    If the function ``name`` calls itself, directly or through other functions, the calls that
+    lead back to it (e.g. ``"f calls g, g calls f"``), else ``None``.
+
+    .. doctest::
+
+        >>> from prodigy.pgcl.ppy_parser import parse_ppy
+        >>> program = parse_ppy("def f(a: nat) -> nat { b: nat = g(a); return b; }\\n"
+        ...                     "def g(a: nat) -> nat { b: nat = f(a); return b; }\\n"
+        ...                     "def h(a: nat) -> nat { b: nat = f(a); return b; }\\nx: nat = h(1);")
+        >>> recursion(program, "f"), recursion(program, "h")
+        ('f calls g, g calls f', None)
+    """
+    def cycle(path: List[str]) -> Optional[List[str]]:
+        for callee in called_functions(program, path[-1]):
+            if callee == name:
+                return path
+            if callee not in path:
+                found = cycle(path + [callee])
+                if found is not None:
+                    return found
+        return None
+
+    path = cycle([name])
+    if path is None:
+        return None
+    return ", ".join(f"{caller} calls {callee}" for caller, callee in zip(path, path[1:] + [name]))

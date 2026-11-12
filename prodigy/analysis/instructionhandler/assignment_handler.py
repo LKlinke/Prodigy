@@ -7,7 +7,7 @@ import re
 from typing import get_args, Callable, List, Union, Sequence
 
 from prodigy.pgcl import (Instr, AsgnInstr, CategoricalExpr, FunctionCallExpr, Expr, BinopExpr, Binop,
-                          NatType, VarExpr)
+                          BoolLitExpr, IfInstr, NatType, Unop, UnopExpr, VarExpr)
 from prodigy.pgcl.draws import Helpers, lower_draws
 
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -48,6 +48,14 @@ class AssignmentHandler(InstructionHandler):
             return _with_helpers(AsgnInstr(instruction.lhs, rhs), helpers, prog_info, distribution,
                                  error_prob, config, analyzer)
 
+        if _is_boolean_operation(instruction.rhs):
+            # "b = cond" is "if (cond) { b = true } else { b = false }" (#319)
+            logger.info("Lower %s to a case split", instruction)
+            return analyzer(IfInstr(cond=instruction.rhs,
+                                    true=[AsgnInstr(instruction.lhs, BoolLitExpr(True))],
+                                    false=[AsgnInstr(instruction.lhs, BoolLitExpr(False))]),
+                            prog_info, distribution, error_prob, config)
+
         if isinstance(instruction.rhs, CategoricalExpr):
             return _categorical(instruction.lhs, instruction.rhs, prog_info, distribution, error_prob,
                                 config, analyzer)
@@ -66,6 +74,13 @@ class AssignmentHandler(InstructionHandler):
                       lhs=VarExpr(instruction.lhs),
                       rhs=instruction.rhs)), \
             error_prob
+
+
+def _is_boolean_operation(expr: object) -> bool:
+    """Is ``expr`` a comparison or a boolean operation (``not``, ``and``, ``or``), not a literal?"""
+    if isinstance(expr, UnopExpr):
+        return expr.operator == Unop.NEG
+    return isinstance(expr, BinopExpr) and expr.operator.returns_boolean()
 
 
 def _with_helpers(

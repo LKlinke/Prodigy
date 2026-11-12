@@ -37,7 +37,7 @@ class InstrClass(Node):
             >>> print(IfInstr(BoolLitExpr(False), [SkipInstr()], []))
             if (false) {
                 skip;
-            }
+            } else { }
         """
 
 
@@ -78,11 +78,8 @@ class IfInstr(InstrClass):
     false: List[Instr] = attr.ib()
 
     def __str__(self) -> str:
-        if len(self.false) > 0:
-            else_str = f" else {_str_block(self.false)}"
-        else:
-            else_str = ""
-        return f"if ({self.cond}) {_str_block(self.true)}{else_str}"
+        # the pGCL grammar needs both blocks, so an empty false branch is printed as "else { }" (#207)
+        return f"if ({self.cond}) {_str_block(self.true)} else {_str_block(self.false)}"
 
 
 @attr.s

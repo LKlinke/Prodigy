@@ -67,7 +67,9 @@ appending `_` (`switch` becomes `switch_`).
 
 A value assigned to a `nat` variable must be a natural number in every state; Prodigy never
 rounds (`x = x / 2` is only accepted where `x` is even). A `bool` variable accepts boolean
-expressions and expressions that are provably 0 or 1 (e.g. `bernoulli(p)`).
+expressions and expressions that are provably 0 or 1 (e.g. `bernoulli(p)`). A comparison or
+boolean operation on the right-hand side, e.g. `b = x < 2` or `b = not c`, is the case split
+`if (x < 2) { b = true } else { b = false }`.
 
 ## Declarations and scope
 
@@ -236,6 +238,9 @@ y = f(2, b = 3);
 - A call `x = f(…);` runs the body on the distribution of the arguments and assigns the
   distribution of the returned value to `x`.
 - A function may be declared after the code that calls it.
+- A function may call other functions (also with `infer`). Recursion, a function that calls itself
+  directly or through other functions, is accepted by the type checker, but its analysis is not
+  implemented yet: it ends with "Recursive functions are not implemented: f calls f."
 
 ## Nested inference
 
@@ -264,8 +269,7 @@ if (Ex[d] > 1 and Pr[d == 1] < 3/4) { … }
   as probabilities: `{ … } [Pr[d == 0]] { … }`, `bernoulli(Ex[d] / 10)`. `Ex[d]` may be `∞`.
 - A `dist` may be passed to a function: `def g(e: dist) -> nat { a: nat = sample(e); return a; }`.
 - `infer` and `sample` are the whole right-hand side of an assignment or a declaration
-  (`return sample(e);` works, too). `infer` is not available inside functions, since functions
-  cannot call functions yet.
+  (`return sample(e);` works, too). `infer` is available inside functions, too.
 - `Pr[…]` and `Ex[…]` inside a program are only about `dist` values. For the probability of an
   event of the program state, wrap the code in a function and use `infer`. Queries are about the
   program state, so a `dist` cannot appear in a query; query a draw instead

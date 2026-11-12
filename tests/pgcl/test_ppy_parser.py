@@ -174,6 +174,15 @@ def test_if_with_optional_else():
            "nat x; if (x = 1) { x := 2 } else { x := 3 }")
 
 
+def test_if_without_else_prints_as_pgcl_that_parses_again():
+    """The pGCL printer writes ``else { }`` for an empty branch, which the grammar needs (#207)."""
+    program = parse_ppy("x: nat; b: bool; if (x == 1) { x = 2; if (b) { x = 3; } } "
+                        "while (x < 5) { if (x == 0) { x = 1; } x = x + 1; }")
+    printed = str(program)
+    assert "if (x = 1) {" in printed and printed.count("else { }") == 3
+    _same(parse_pgcl(printed), program)
+
+
 def test_else_if():
     _agree("x: nat; if (x == 1) { x = 2; } else if (x == 2) { x = 3; } else { skip; }",
            "nat x; if (x = 1) { x := 2 } else { if (x = 2) { x := 3 } else { skip } }")
