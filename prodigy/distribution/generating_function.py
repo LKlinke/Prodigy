@@ -28,7 +28,7 @@ from prodigy.pgcl.pgcl_checks import has_variable
 from prodigy.pgcl.util.ref import Mut
 from prodigy.util.logger import log_setup, logging
 
-logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG, file="GF_operations.log")
+logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
 @dataclass(frozen=True)

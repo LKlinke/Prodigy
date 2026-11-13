@@ -167,3 +167,16 @@ def test_web_refuses_invalid_inputs(client, engine):
         if status == "error":
             assert result["error"]["type"] == "InputDistributionError"
             assert "is not a distribution" in result["error"]["message"]
+
+
+@pytest.mark.parametrize("text", ["1 - sqrt(1 - x)", "1/2 - sqrt(1 - x)/2", "1 - sqrt(1 - x/2)", "3 - 2*(1 - x)^(1/3)"])
+def test_constant_coefficient_is_the_series_value_at_0(text):
+    # #355: the constant coefficient of 1 - sqrt(1 - x) is 0, not that of its summand -sqrt(1 - x)
+    assert check_input_expression(text, ["x"]) == (True, "")
+
+
+@pytest.mark.parametrize("text, reason", [("1 - 2*sqrt(1 - x)", "coefficient of 1 is -1"),
+                                          ("1 + sqrt(1 - x)", "coefficient of x is -1/2")])
+def test_really_negative_coefficients_of_fractional_powers_are_refused(text, reason):
+    verdict, message = check_input_expression(text, ["x"])
+    assert verdict is False and reason in message, message

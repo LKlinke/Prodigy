@@ -117,7 +117,8 @@ Floor division
 
 ``e // q`` (``.ppy`` only; in ``.pgcl`` ``//`` starts a comment) rounds down, as in Python:
 ``7 // 2 == 3``. It is implemented for a natural expression ``e`` and a positive natural constant
-``q`` (a literal or a ``const``); other divisors are rejected by the type checker. Guards and
+``q`` (a literal or a ``const``). The type checker also accepts other natural divisors (only a literal
+``0`` is rejected); the analysis then ends with a "not implemented" error. Guards and
 assignments round alike, so ``x // 2 <= 1`` holds for ``x = 3``.
 
 As an update, ``t := e // q`` splits the distribution into the residue classes of ``e`` modulo

@@ -234,6 +234,9 @@ def _check_rational(expr: sympy.Expr, syms: List[sympy.Symbol]) -> _Verdict:
 
 def _check_structure(expr: sympy.Expr, syms: List[sympy.Symbol]) -> _Verdict:
     """Sufficient rules for closed forms that are not rational (see the module documentation)."""
+    power_verdict = _check_fractional_power(expr, syms)
+    if power_verdict is not None:
+        return power_verdict
     if isinstance(expr, (sympy.Add, sympy.Mul)):
         rational = [a for a in expr.args if a.is_rational_function(*syms)]
         others = [a for a in expr.args if not a.is_rational_function(*syms)]
@@ -259,6 +262,36 @@ def _check_structure(expr: sympy.Expr, syms: List[sympy.Symbol]) -> _Verdict:
         return _PROVEN
     return None, (f"{_text(expr)} is not proven to be a power series at 0 with non-negative coefficients "
                   "(Prodigy certifies polynomials, rational functions, exp, and their sums and products)")
+
+
+def _check_fractional_power(expr: sympy.Expr, syms: List[sympy.Symbol]) -> Optional[_Verdict]:
+    """``A + B * (1 - r*x)^a`` with numbers A, B, a rational in (0, 1) and r in (0, 1]: the series of
+    ``(1 - r*x)^a`` is ``1 - sum_{n>=1} |binom(a, n)| r^n x^n``, so the constant coefficient of the sum is
+    ``A + B`` (the series value at 0, not that of a single summand) and the others are ``-B |binom(a, n)| r^n``.
+    The coefficients are non-negative iff ``B <= 0`` and ``A + B >= 0``; the mass is ``A + B (1 - r)^a``."""
+    if not isinstance(expr, sympy.Add) or len(expr.args) != 2:
+        return None
+    constants = [a for a in expr.args if a.is_number]
+    powers = [a for a in expr.args if not a.is_number]
+    if len(constants) != 1 or len(powers) != 1:
+        return None
+    offset = constants[0]
+    coefficient, power = powers[0].as_independent(*syms, as_Add=False)
+    if not (isinstance(power, sympy.Pow) and power.exp.is_Rational and 0 < power.exp < 1 and coefficient.is_number):
+        return None
+    base = sympy.expand(power.base)
+    used = [s for s in syms if base.has(s)]
+    if len(used) != 1 or not base.is_polynomial(used[0]) or sympy.degree(base, used[0]) != 1:
+        return None
+    ratio = -base.coeff(used[0], 1)
+    if base.subs(used[0], 0) != 1 or not (ratio.is_number and ratio.is_positive and (ratio - 1).is_nonpositive):
+        return None
+    if coefficient.is_positive:
+        return False, (f"the coefficient of {used[0]} is {sympy.simplify(-coefficient * power.exp * ratio)}, "
+                       "which is negative")
+    if not (coefficient.is_nonpositive and (offset + coefficient).is_nonnegative):
+        return False, f"the coefficient of 1 is {sympy.simplify(offset + coefficient)}, which is negative"
+    return _PROVEN
 
 
 def _text(expr: sympy.Expr) -> str:
