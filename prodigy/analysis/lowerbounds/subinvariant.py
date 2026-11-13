@@ -21,6 +21,7 @@ from fractions import Fraction
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
 
 import sympy
+from prodigy.distribution.equality import sympify_symbolic_string
 from prodigy.pgcl import Instr, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -38,7 +39,7 @@ def to_product_form(expr: Union[str, sympy.Expr], variables: Sequence[str]) -> O
     """Write a rational generating function as ``P / prod_i (1 - r_i X_i^{p_i})`` (at most one factor per variable,
     ``r_i >= 0``), or return None if this is not possible."""
     syms = [sympy.Symbol(v) for v in variables]
-    e = sympy.sympify(expr, locals=dict(zip(variables, syms))) if isinstance(expr, str) else expr
+    e = sympify_symbolic_string(expr) if isinstance(expr, str) else expr
     e = sympy.together(sympy.expand(e))
     num, den = sympy.fraction(e)
     if any(s not in syms for s in e.free_symbols):
@@ -112,7 +113,7 @@ def decide_nonneg(expr_str: str, variables: Sequence[str], config: ForwardAnalys
     try:
         heuristic = PositivityHeuristics.create(PositivityHeuristics.MIXED_RAT_FUNC, config.factory,
                                                 variables=variables)
-        res = heuristic.is_positive(sympy.S(expr_str))
+        res = heuristic.is_positive(sympify_symbolic_string(expr_str))
     except Exception as exc:  # pylint: disable=broad-except
         return None, f"positivity heuristic failed: {exc}"
     return res, "positivity heuristic of Prodigy"
@@ -133,7 +134,7 @@ def rational_mass(expr_str: str, variables: Sequence[str]):
     infinite iff ``f`` has a pole in ``(0, 1]``, and equals ``f(1)`` otherwise.  Evaluating the closed form at ``1``
     directly is unsound: ``(1 + X)/(1 - 2X) = 1 + 3X + 6X^2 + ...`` evaluates to ``-2``."""
     t = sympy.Symbol("_t", positive=True)
-    expr = sympy.S(expr_str).subs({sympy.Symbol(v): t for v in variables}, simultaneous=True)
+    expr = sympify_symbolic_string(expr_str).subs({sympy.Symbol(v): t for v in variables}, simultaneous=True)
     f = sympy.cancel(sympy.together(expr))
     numer, den = sympy.fraction(f)
     if not (numer.is_polynomial(t) and den.is_polynomial(t)):

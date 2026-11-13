@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Collection, Iterable, List, Optional, Sequence, Tuple, Union
 
 import sympy
+from prodigy.distribution.equality import sympify_symbolic_string
 
 MAX_DIVISION_ORDERS = 6
 """How many variable orders :func:`nonneg_by_construction` tries for the polynomial division."""
@@ -24,7 +25,7 @@ def series_form(f: Union[str, sympy.Expr], variables: Collection[str]) -> Tuple[
     and the symbols of the variables that occur in it (sorted by name). A parameter that is already real keeps
     its assumptions (e.g. a ``nat`` parameter as non-negative integer)."""
     names = {str(v) for v in variables}
-    expr = sympy.S(f.replace("^", "**")) if isinstance(f, str) else sympy.S(f)
+    expr = sympify_symbolic_string(f) if isinstance(f, str) else sympy.S(f)
     parameters = {s: sympy.Symbol(s.name, real=True) for s in expr.free_symbols
                   if s.name not in names and s.is_real is not True}
     if parameters:
