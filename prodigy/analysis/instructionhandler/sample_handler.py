@@ -5,13 +5,14 @@ from abc import abstractmethod
 from fractions import Fraction
 from typing import Callable, Dict, List, Sequence, Set, Tuple, Union
 
-from prodigy.pgcl import (Instr, AsgnInstr, Expr, FunctionCallExpr, NatLitExpr, Var, VarExpr,
+from prodigy.pgcl import (Instr, AsgnInstr, ChoiceInstr, Expr, FunctionCallExpr, NatLitExpr, Var, VarExpr,
                           sample_predefined_functions as distr_functions)
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+from prodigy.analysis.instructionhandler.counter_operators import counter_probability
 from prodigy.analysis.instructionhandler.state_dependent import (expression_variables, instantiate,
                                                                  split_states, state_variables)
 from prodigy.distribution import Distribution, MarginalType
@@ -191,6 +192,16 @@ def _sample_state_dependent(
     values in each part.
     """
     assert isinstance(instruction.rhs, FunctionCallExpr)
+    if instruction.rhs.function == "bernoulli":
+        probability = instruction.rhs.params[0][0]
+        operator = counter_probability(probability, variables)
+        if operator is not None and not distribution.is_zero_dist() \
+                and distribution.finite_support(operator.variable) is None:
+            # x = bernoulli(p) is {x = 1} [p] {x = 0}; p is evaluated before the assignment, as in the choice, so
+            # the choice applies p as an operator in the counter (#323)
+            choice = ChoiceInstr(probability, [AsgnInstr(instruction.lhs, NatLitExpr(1))],
+                                 [AsgnInstr(instruction.lhs, NatLitExpr(0))])
+            return analyzer(choice, prog_info, distribution, error_prob, config)
     logger.info("Splitting the states for the arguments of %s", instruction.rhs)
     construct = f"The distribution {instruction.rhs}"
     result = distribution * "0"

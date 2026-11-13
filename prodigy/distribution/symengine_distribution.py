@@ -32,6 +32,12 @@ from prodigy.util.order import default_monomial_iterator
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG, file="GF_operations.log")
 
 
+
+def _text(expr: Any) -> str:
+    """The string form of a SymEngine expression with Euler's number as ``exp(1)``: SymEngine prints it as ``E``,
+    which Prodigy reads back as a symbol elsewhere (a variable named E is rejected on SymEngine, #204)."""
+    return re.sub(r"\bE\b", "exp(1)", str(expr))
+
 class SymengineDist(Distribution):
     @staticmethod
     def factory() -> Type[CommonDistributionsFactory]:
@@ -141,7 +147,7 @@ class SymengineDist(Distribution):
         return _parse_to_symengine(coefficient_sum)
 
     def __str__(self) -> str:
-        return f"{self._s_func}"
+        return _text(self._s_func)
 
     def __iter__(self) -> Iterator[Tuple[str, State]]:
 
@@ -245,7 +251,7 @@ class SymengineDist(Distribution):
                 f"Indeterminate expression {self._s_func} with {self._variables} mapped to " +
                 f"{(1,) * len(self._variables)}"
             )
-        return str(fast_result)
+        return _text(fast_result)
 
     def _expected_value_of(self, expression: Union[Expr, str]) -> str:
         # todo replace sympy by symengine if method is implemented
@@ -257,7 +263,7 @@ class SymengineDist(Distribution):
                 "Expected Value only computable for polynomial expressions.")
 
         if len(self._find_symbols(expr) & self.get_variables()) == 0:
-            return str(expr)
+            return _text(expr)
         if not self._find_symbols(expr).issubset(
                 self.get_variables().union(self.get_parameters())):
             raise ValueError(
@@ -283,7 +289,7 @@ class SymengineDist(Distribution):
         if expected_value == sp.S('oo'):
             return str(RealLitExpr.infinity())
         else:
-            return str(expected_value)
+            return _text(expected_value)
 
     def normalize(self) -> SymengineDist:
         mass = _parse_to_symengine(self.get_probability_mass())

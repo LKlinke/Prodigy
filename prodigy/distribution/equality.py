@@ -35,8 +35,9 @@ def decide_equal(lhs: sympy.Expr, rhs: sympy.Expr, use_simplify: bool = True) ->
       them are only equal if they are identical; otherwise the answer is None.
     * The difference is put over a common denominator and cancelled. This is exact polynomial arithmetic
       over the rationals in which every non-rational subterm (e.g. ``exp(p*x)``) is an indeterminate, so a
-      zero result proves the difference zero. If the difference is a rational function over the rationals
-      (:func:`is_rational_over_q`), a nonzero result proves it nonzero.
+      zero result proves the difference zero. If the difference, or its cancelled form, is a rational
+      function over the rationals (:func:`is_rational_over_q`), a nonzero result proves it nonzero (cancelling
+      is an identity, so ``exp(x) + 1 - exp(x)`` is proven different from 0).
     * Otherwise (only if ``use_simplify``) SymPy's ``Expr.equals`` may prove equality: it returns True only
       if ``simplify`` turns the difference into 0 or, for constant differences, by an algebraic proof
       (minimal polynomials). Its False comes from evaluation at random points and is no proof, so it counts
@@ -47,16 +48,32 @@ def decide_equal(lhs: sympy.Expr, rhs: sympy.Expr, use_simplify: bool = True) ->
     if lhs.has(sympy.Float) or rhs.has(sympy.Float):
         return None
     difference = lhs - rhs
+    reduced = None
     try:
-        if sympy.cancel(sympy.together(difference)) == 0:
+        reduced = sympy.cancel(sympy.together(difference))
+        if reduced == 0:
             return True
     except sympy.PolynomialError:
         pass
-    if is_rational_over_q(difference):
+    if is_rational_over_q(difference) or (reduced is not None and not reduced.has(sympy.Float)
+                                          and is_rational_over_q(reduced)):
         return False
     if use_simplify and difference.equals(0) is True:
         return True
     return None
+
+
+class _EngineStrPrinter(sympy.printing.str.StrPrinter):
+    """SymPy's string form, but Euler's number as ``exp(1)``: Prodigy reads ``E`` back as a symbol (a variable or
+    parameter may be called E), so ``E - 2`` would lose its value."""
+
+    def _print_Exp1(self, expr):  # pylint: disable=invalid-name,unused-argument
+        return "exp(1)"
+
+
+def sympy_text(expr: Any) -> str:
+    """The string form of a SymPy expression as Prodigy reads it back (:class:`_EngineStrPrinter`)."""
+    return _EngineStrPrinter().doprint(expr)
 
 
 def sympify_engine_string(text: str, names: Iterable[str]) -> sympy.Expr:

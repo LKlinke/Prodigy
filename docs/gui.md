@@ -321,6 +321,15 @@ probabilities are constants, and it only assigns `x := x + c`, `x := x - c` and 
 Otherwise the result is unknown (issue #276). The walk above is formal, so its upper bound
 stands. The certificate names the reason as `series_identity`.
 
+An invariant may also be an exponential polynomial `A·exp(c·k) + B` (polynomials A and B), which
+arises from a choice probability such as `1/(k + 1)` in a counter k (issue #323): such a
+probability acts on the generating function as an integral operator, and the fixed-point check
+needs only derivatives and evaluation at 0. Its non-negativity is decided coefficient-wise, and
+its series converges everywhere, so with non-negative coefficients the result is exact. The same
+holds for logarithmic invariants `P + Q·log(1 - c·k)` (exact with finite mass, otherwise an upper
+bound) and for products of such factors over disjoint variables. See
+"Probabilities rational in a counter" in `docs/source/language-design.md`.
+
 An invariant that fails its check gets a verdict. *Refuted* means it is provably wrong: a
 counterexample, or Φ(I) − I is a nonzero rational function after exact cancellation.
 *Not proven* means the check could neither prove nor refute it, e.g. for non-rational
