@@ -126,27 +126,72 @@ def test_parameters(engine, simplification):
         assert sympy.simplify(sympy.sympify(str(value), locals={"p": p}) - (1 - p) ** 3 / p) == 0
 
 
+# x geometric(1/2): Pr[x = i] = 2^-(i+1); y geometric(1/3): Pr[y = j] = (1/3) (2/3)^j
+TWO_GEOMETRIC = "x: nat = geometric(1/2);\ny: nat = geometric(1/3);\n"
+
+
 @pytest.mark.parametrize("engine", ENGINES)
-@pytest.mark.parametrize("source", [
-    pytest.param("x: nat = geometric(1/2);\ny: nat = geometric(1/3);\nz: nat = x - y;", id="assignment"),
-    pytest.param("x: nat = geometric(1/2);\ny: nat = geometric(1/3);\nquery Ex[x - y];", id="query"),
+@pytest.mark.parametrize("source, expected", [
+    # the example of #243: Ex[x - y] = sum_k>=1 Pr[x >= y + k] = sum_k 2^-k E[2^-y] = 1/2
+    pytest.param(TWO_GEOMETRIC + "z: nat = x - y;\nquery Ex[z];\nquery Ex[x - y];\nquery Pr[x < y];\n"
+                 "query Pr[z == 0];\nquery Pr[x == y + 1];",
+                 [Fraction(1, 2), Fraction(1, 2), Fraction(1, 2), Fraction(3, 4), Fraction(1, 8)], id="issue"),
+    pytest.param(TWO_GEOMETRIC + "query Ex[y - x];", [Fraction(3, 2)], id="query"),
+    # y negative binomial (a sum of two geometric(1/2)): Ex[x - y] = E[2^-y] = (2/3)^2
+    pytest.param("x: nat = geometric(1/2);\na: nat = geometric(1/2);\nb: nat = geometric(1/2);\n"
+                 "y: nat = a + b;\nz: nat = x - y;\nquery Ex[z];", [Fraction(4, 9)], id="negative-binomial"),
+    pytest.param(TWO_GEOMETRIC + "w: nat = 0;\nif (x < y) { w = 1; } else { w = 2; }\nquery Pr[w == 1];\n"
+                 "query Ex[w];", [Fraction(1, 2), Fraction(3, 2)], id="guard"),
+    pytest.param(TWO_GEOMETRIC + "observe(x >= y + 1);\nquery Ex[x - y];", [Fraction(2)], id="observe"),
 ])
-def test_two_infinite_variables_are_not_implemented(engine, source):
-    program = compile_pgcl(source, syntax="ppy")
-    assert isinstance(program, Program), program
+def test_two_independent_infinite_variables(engine, source, expected):
+    assert _queries(source, engine) == expected
+
+
+@pytest.mark.parametrize("simplification", SIMPLIFICATION)
+@pytest.mark.parametrize("engine", ENGINES)
+def test_two_independent_infinite_variables_with_a_parameter(engine, simplification):
+    # Pr[x = i] = p (1-p)^i, y geometric(1/2): Ex[x - y] = sum_k>=1 (1-p)^k E[(1-p)^y] = (1-p) / (p (1+p))
+    source = "param p: real;\nx: nat = geometric(p);\ny: nat = geometric(1/2);\nz: nat = x - y;\nquery Ex[z];\n"
+    p = sympy.Symbol("p")
+    (value,) = _queries(source, engine, simplification)
+    assert sympy.simplify(sympy.sympify(str(value), locals={"p": p}) - (1 - p) / (p * (1 + p))) == 0
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_two_dependent_infinite_variables(engine):
+    # x - y = b - a can be negative, and x and y are dependent (both contain a): the residue method;
+    # Pr[b - a = k] = 2^-k / 3 for k >= 1, so Ex[max(b - a, 0)] = 2/3
+    source = ("a: nat = geometric(1/2);\nb: nat = geometric(1/2);\nx: nat = a + b;\ny: nat = 2 * a;\n"
+              "z: nat = x - y;\nquery Ex[z];\nquery Ex[x - y];")
+    assert _queries(source, engine) == [Fraction(2, 3), Fraction(2, 3)]
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_algebraic_result(engine):
+    # the counterexample of #243: the joint distribution after z := x - y is algebraic, not rational
+    source = "x: nat;\ny: nat;\nz: nat = x - y;\nquery Ex[z];\nquery Pr[z == 0];"
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(program, source=source, syntax="ppy", capture_output=True, config=config)
+    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+                              config=config, input_distribution="(1/2)/(1 - x/4 - y/4)")
     result = session.run().to_json()
-    if "query" in source:
-        # a query that cannot be computed fails only itself (#306)
-        assert result["status"] == "ok", result["error"]
-        (query,) = result["queries"]
-        error = query["error"]
-    else:
-        assert result["status"] == "error"
-        error = result["error"]
-    assert error["type"] == "NotImplementedError"
-    assert "x - y" in error["message"]
+    assert result["status"] == "ok", result["error"]
+    expected, probability = 1 / (2 * sympy.sqrt(3)), (1 + 1 / sympy.sqrt(3)) / 2
+    values = [sympy.sympify(str(query["value"]).replace("^", "**")) for query in result["queries"]]
+    assert [sympy.simplify(value - target) for value, target in zip(values, [expected, probability])] == [0, 0]
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_dependent_infinite_variables_outside_the_method_are_not_implemented(engine):
+    # (1/2) / (1 - x/4 - y^2/4): the kernel of the residue method is cubic
+    source = "x: nat;\ny: nat;\nz: nat = x - y;"
+    config = ForwardAnalysisConfig(engine=engine)
+    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+                              config=config, input_distribution="(1/2)/(1 - x/4 - y^2/4)")
+    result = session.run().to_json()
+    assert result["status"] == "error"
+    assert result["error"]["type"] == "NotImplementedError"
+    assert "x - y" in result["error"]["message"] and "degree more than 2" in result["error"]["message"]
 
 
 # --- the exact calculus of the lower-bound strategies agrees with the forward analysis

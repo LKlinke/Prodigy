@@ -382,6 +382,13 @@ class SymengineDist(Distribution):
         return SymengineDist(se.expand(result)).set_variables_and_parameters(self.get_variables(),
                                                                               self.get_parameters())
 
+    def _sympy_expression(self) -> sp.Expr:
+        return sp.sympify(self._s_func)
+
+    def _from_sympy_expression(self, expression: Any) -> SymengineDist:
+        return SymengineDist(se.sympify(expression)).set_variables_and_parameters(
+            self.get_variables(), self.get_parameters())
+
     def _arithmetic_progression(self, variable: str, modulus: str) -> Sequence[SymengineDist]:
         a = _parse_to_symengine(modulus)
         var = _parse_to_symengine(variable)

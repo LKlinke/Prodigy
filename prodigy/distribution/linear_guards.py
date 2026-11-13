@@ -23,6 +23,7 @@ non-natural intermediate results.
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from fractions import Fraction
 from typing import Dict, Set
 
@@ -192,3 +193,52 @@ def normalize_guard(condition: Expr, variables: Set[str]) -> Expr | None:
     positive = {key: value for key, value in scaled.items() if value > 0}
     negative = {key: -value for key, value in scaled.items() if value < 0}
     return BinopExpr(condition.operator, _natural_side(positive), _natural_side(negative))
+
+
+@dataclass(frozen=True)
+class DifferenceComparison:
+    """
+    A comparison of two variables x and y that holds if and only if `y - x >= shift` (relation
+    `"ge"`) or `y - x = shift` (relation `"eq"`) holds, or does not hold if `complement` is set.
+    """
+    x: str
+    y: str
+    relation: str
+    shift: int
+    complement: bool = False
+
+
+def difference_comparison(condition: Expr, variables: Set[str]) -> DifferenceComparison | BoolLitExpr | None:
+    """
+    The comparison `condition` of two natural variables as a :class:`DifferenceComparison` if it is
+    linear with coefficients a and -a for its two variables, e.g. `x < y + 2` or `2*x <= 2*y + 1`;
+    `false` for an equation that never holds (`2*x = 2*y + 1`); None for every other condition.
+    """
+    if not isinstance(condition, BinopExpr) or condition.operator not in _COMPARISONS:
+        return None
+    left = _linear_form(condition.lhs, variables)
+    right = _linear_form(condition.rhs, variables)
+    if left is None or right is None:
+        return None
+    difference = _sum(left, right, -1)
+    constant = difference.pop("", Fraction(0))
+    if len(difference) != 2 or sum(difference.values()) != 0:
+        return None
+    # difference = a * (x - y) + constant with a > 0, so the condition compares x - y with -constant / a
+    (x, scale), = ((key, value) for key, value in difference.items() if value > 0)
+    (y,) = (key for key, value in difference.items() if value < 0)
+    bound = constant / scale  # the condition is `x - y + bound OP 0`, i.e. `y - x  OP'  bound`
+    floor_plus_one, ceiling = math.floor(bound) + 1, math.ceil(bound)
+    operator = condition.operator
+    if operator == Binop.EQ:
+        if bound.denominator != 1:
+            return BoolLitExpr(False)
+        return DifferenceComparison(x, y, "eq", bound.numerator)
+    if operator == Binop.LT:  # y - x > bound
+        return DifferenceComparison(x, y, "ge", floor_plus_one)
+    if operator == Binop.LEQ:  # y - x >= bound
+        return DifferenceComparison(x, y, "ge", ceiling)
+    if operator == Binop.GT:  # y - x < bound
+        return DifferenceComparison(x, y, "ge", ceiling, complement=True)
+    # y - x <= bound
+    return DifferenceComparison(x, y, "ge", floor_plus_one, complement=True)

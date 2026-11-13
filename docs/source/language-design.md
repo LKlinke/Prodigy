@@ -97,8 +97,12 @@ in the current state. By induction on `b`, this is `max(a - b, 0)`: for `b = 0` 
 - Computation: the distribution is split into the states with `a < b` (value `0`) and the others
   (the ordinary difference). This is exact whenever `a < b` can be filtered: always with a
   constant operand, and for two variables if one of them has a finite marginal or the difference is
-  provably never negative. Two variables with infinite marginals and a difference that can be
-  negative end with "not implemented".
+  provably never negative. For two variables with infinite marginals (#243), the filter is
+  rational if the generating function is a product of a rational function of each (e.g.
+  independent variables); otherwise the residue method computes it for many rational generating
+  functions, with a result that may be algebraic (a square root) and has no guarantee of staying
+  rational. The other cases end with "not implemented" with the reason ("Guards" in
+  {ref}`pgcl_grammar`).
 - Before, an assignment `x = a - b` was rejected unless the difference was provably never
   negative, and queries were evaluated differently on each engine (issue #220).
 

@@ -103,8 +103,10 @@ def _worker(request: Dict[str, Any], conn, memory_limit: Optional[int], kind: st
     except BaseException as exc:  # pylint: disable=broad-except
         try:
             sender.flush()
+            # (a subclass of NotImplementedError is reported as NotImplementedError, as in the result)
             sender.send("result", {"status": "error",
-                                   "error": {"type": type(exc).__name__,
+                                   "error": {"type": "NotImplementedError" if isinstance(exc, NotImplementedError)
+                                             else type(exc).__name__,
                                              "message": str(exc) or type(exc).__name__,
                                              "traceback": traceback.format_exc()}})
         except Exception:  # pylint: disable=broad-except
