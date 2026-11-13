@@ -234,9 +234,9 @@ def _check_rational(expr: sympy.Expr, syms: List[sympy.Symbol]) -> _Verdict:
 
 def _check_structure(expr: sympy.Expr, syms: List[sympy.Symbol]) -> _Verdict:
     """Sufficient rules for closed forms that are not rational (see the module documentation)."""
-    verdict = _check_fractional_power(expr, syms)
-    if verdict is not None:
-        return verdict
+    power_verdict = _check_fractional_power(expr, syms)
+    if power_verdict is not None:
+        return power_verdict
     if isinstance(expr, (sympy.Add, sympy.Mul)):
         rational = [a for a in expr.args if a.is_rational_function(*syms)]
         others = [a for a in expr.args if not a.is_rational_function(*syms)]

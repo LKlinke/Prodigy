@@ -29,7 +29,7 @@ from prodigy.distribution import MarginalType, State, CommonDistributionsFactory
 from prodigy.util.logger import log_setup
 from prodigy.util.order import default_monomial_iterator
 
-logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG, file="GF_operations.log")
+logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
 
