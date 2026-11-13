@@ -126,14 +126,14 @@ class _Factors:
         """Coefficient lists (lowest degree first, in `self.coefficients`) of numerator and denominator in
         `variable`; the denominator is not 0 at 0."""
         ring = self.domain.get_ring()
-        pair = []
+        pair: List[List] = []
         for part in (self.domain.numer(element), self.domain.denom(element)):
             expression = ring.to_sympy(part)
             if expression.has(self.x if variable == self.y else self.y):  # pragma: no cover - product checked
                 raise ComparisonNotImplemented(condition, DEPENDENT)
             poly = sympy.Poly(expression, variable, domain=self.coefficients)
             pair.append([self.coefficients.convert(c) for c in reversed(poly.all_coeffs())])
-        numerator, denominator = pair
+        numerator, denominator = pair[0], pair[1]
         if not denominator[0]:
             raise ComparisonNotImplemented(condition, "the generating function has a pole at 0")
         return numerator, denominator

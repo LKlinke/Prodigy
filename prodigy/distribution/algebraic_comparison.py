@@ -5,12 +5,12 @@ independent, by the residue (kernel) method. The result is algebraic in general,
 
 Let F(x, y, r) be rational with F(0, 0, r) defined (r: the other variables). With i the exponent of
 x and j that of y, H(s) = F(x/s, y*s) = sum_k h_k s^k, h_k = sum_{j - i = k} f_ij x^i y^j, is a
-Laurent series in s converging on an annulus that contains |s| = 1 for small x and y. So
+Laurent series in s converging on an annulus that contains abs(s) = 1 for small x and y. So
 
-    sum_{j - i >= c} f_ij x^i y^j = sum_{k >= c} h_k = (1/2 pi i) oint_{|s| = rho} H(s) s^(-c) / (s - 1) ds,
-    sum_{j - i = c}  f_ij x^i y^j = h_c        = (1/2 pi i) oint_{|s| = rho} H(s) s^(-c-1) ds
+    sum_{j - i >= c} f_ij x^i y^j = sum_{k >= c} h_k = (1/2 pi i) oint_{abs(s) = rho} H(s) s^(-c) / (s - 1) ds,
+    sum_{j - i = c}  f_ij x^i y^j = h_c        = (1/2 pi i) oint_{abs(s) = rho} H(s) s^(-c-1) ds
 
-with rho slightly larger than 1, i.e. the sum of the residues inside |s| < rho: at s = 0, at s = 1
+with rho slightly larger than 1, i.e. the sum of the residues inside abs(s) < rho: at s = 0, at s = 1
 and at the "small" roots of the kernel K, the denominator of H without the factors s and s - 1. At
 x = y = 0 the kernel must be c0 * s^n (c0 a nonzero rational number); then, for small x and y,
 exactly n roots of K are small (they tend to 0) and the others are large (they tend to infinity).
@@ -24,7 +24,7 @@ exactly n roots of K are small (they tend to 0) and the others are large (they t
 
 The branch of the square root is proven, not guessed: R is a polynomial with R = 1 at x = y = 0 and
 rational coefficients whose non-constant ones have absolute values summing to less than 1. So
-|R - 1| < 1 on the closed unit polydisk of all variables, the principal square root is analytic
+abs(R - 1) < 1 on the closed unit polydisk of all variables, the principal square root is analytic
 there and W = c0 at x = y = 0, which makes rho0 the small root. The result equals the power series
 near 0 and therefore on the whole open unit polydisk, where the filtered series converges as well
 (it is a part of the series of F), so substituting values of modulus at most 1 (marginals,

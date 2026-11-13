@@ -165,8 +165,10 @@ statement, is rejected with a syntax error at its position.
 `(n - 7) + 7` is `7` for `n = 5`, in assignments, guards and queries alike. This follows from the
 semantics of pGCL, which defines only the decrement `x--` (with `0-- = 0`): `a - b` decrements `a`
 `b` times, with `b` evaluated first. So `a - (b + c) = (a - b) - c`, but `a - b + b = a` only if
-`a ≥ b`. A subtraction of two variables that both take infinitely many values ends with "not
-implemented" unless it is provably never negative. Details: {doc}`language-design`.
+`a ≥ b`. A subtraction of two variables that both take infinitely many values is exact if they
+are independent, and otherwise for many rational generating functions (the result can contain a
+square root); in the remaining cases it ends with "not implemented". Details:
+{doc}`language-design`.
 
 **Division.** `/` is rational division and never rounds: in a guard, `x / 2 <= 1` means
 `x <= 2`; assigned to a `nat` variable, the result must be a natural number. `e // q` rounds down

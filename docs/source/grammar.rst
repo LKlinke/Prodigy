@@ -38,8 +38,8 @@ intermediate result of assignments, guards and queries, e.g. ``(n - 7) + 7`` is 
 ``a < b``, which get ``0``, and the others, which get the difference. If the difference is provably
 never negative (:mod:`prodigy.distribution.negative_values`), nothing is split. The split is exact
 whenever the guard ``a < b`` can be filtered: always if ``b`` (or ``a``) is a constant, and for two
-variables if one of them has a finite marginal. Otherwise (two variables with infinite marginals
-and a difference that can be negative) the analysis ends with "not implemented". A guard, ``Pr[…]``
+variables if one of them has a finite marginal or if the generating function is rational (see
+"Guards"). Otherwise the analysis ends with "not implemented" and names the reason. A guard, ``Pr[…]``
 or ``Ex[…]`` with a subtraction is computed through fresh variables ``t := a - b``, exactly as an
 assignment; a subtraction that involves ``/``, a constant that is not a natural number or a
 parameter is rational subtraction.
@@ -49,11 +49,39 @@ Guards
 
 Comparisons in guards (``if``, ``while``, ``observe``) are compared over the rationals. Guards
 with one variable can be filtered on every distribution, including infinite ones; other guards
-need a variable with a finite marginal. Linear guards are first rewritten exactly into guards with
-natural numbers only:
+need a variable with a finite marginal, except comparisons of two variables of the form
+``x < y + c`` (also ``<=``, ``==``, ``>``, ``>=``, and with both sides scaled by the same number),
+see below. Linear guards are first rewritten exactly into guards with natural numbers only:
 
 .. automodule:: prodigy.distribution.linear_guards
    :no-index:
+
+**Two variables with infinite marginals.** Rational generating functions are not closed under the
+filter ``x < y`` (the counterexample ``(1/2)/(1 - x/4 - y/4)`` of issue #243 has an algebraic part
+with ``x < y``). Prodigy computes the filter exactly in two cases and keeps the joint distribution
+over all variables:
+
+- the generating function is a product of a rational function in ``x`` and a rational function in
+  ``y``, with the other variables and parameters as coefficients (e.g. independent ``x`` and ``y``):
+  the result is rational;
+- otherwise, for a rational generating function without parameters, by the residue (kernel)
+  method: the result is rational or contains a square root, and it is not marked as rational, so
+  later operations that need a rational function (another comparison of two variables, ``%``,
+  multisections) end with "not implemented".
+
+Everything else (kernels of degree more than two, a branch of the square root that cannot be
+proven, parameters with dependent variables, generating functions that are not rational) ends
+with "not implemented" and names the reason; nothing is approximated.
+
+.. automodule:: prodigy.distribution.independent_comparison
+   :no-index:
+
+.. automodule:: prodigy.distribution.algebraic_comparison
+   :no-index:
+
+A query (``Pr[…]``, ``Ex[…]``) that cannot be computed on the joint distribution is computed on
+the marginal of its variables, which is exact: e.g. ``Pr[x < y]`` after ``z := x - y`` (``x`` and
+``y`` are dependent given ``z``, but not on their marginal).
 
 Modulo
 ------
