@@ -92,15 +92,17 @@ def sympify_engine_string(text: str, names: Iterable[str]) -> sympy.Expr:
 _IDENTIFIER = re.compile(r"\b[A-Za-z_]\w*\b(?!\s*\()")
 
 
-def sympify_symbolic_string(text: str) -> sympy.Expr:
+def sympify_symbolic_string(text: Any) -> sympy.Expr:
     """
-    The SymPy expression of an expression string whose variable and parameter names are not known (``^`` or
-    ``**`` for powers). Every identifier that is not a function call (not followed by ``(``) is a plain symbol,
-    so variables named like builtins or constants (``pow``, ``pi``, ``I``, ``S``) stay symbols (#354); real
+    The SymPy expression of an expression string (anything else is sympified as it is) whose variable and
+    parameter names are not known (``^`` or ``**`` for powers). Every identifier that is not a function call
+    (not followed by ``(``) is a plain symbol, so variables named like builtins or constants (``pow``, ``pi``, ``I``, ``S``) stay symbols (#354); real
     functions (``exp``, ``log``, ``sqrt``, ...) keep their meaning.
 
     The string must come from Prodigy, not from the user: SymPy's parser evaluates Python code.
     """
+    if not isinstance(text, str):
+        return sympy.sympify(text)
     return sympify_engine_string(text, set(_IDENTIFIER.findall(text)))
 
 
