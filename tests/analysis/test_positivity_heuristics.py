@@ -106,8 +106,28 @@ def test_dominant_root_refutes_only_by_pringsheim():
     assert heuristic.is_positive("1/(1 + x^2)") is False
     assert heuristic.is_positive("1/(1 - x)") is None
     assert heuristic.is_positive("1/x") is None
-    with pytest.raises(VerificationError):
-        heuristic.is_positive("1/(1 - p)")
+    assert heuristic.is_positive("1/(1 - p)") is None  # a parameter: cannot decide (it used to raise)
+
+
+def test_dominant_root_is_conservative_outside_its_preconditions():
+    heuristic = DominantRootHeuristic(variables=["x"])
+    assert heuristic.is_positive("1/(1 - x + x^2)") is False      # complex dominant roots: eventually negative
+    assert heuristic.is_positive("1/(1 - x/2)") is None           # positive real dominant root
+    assert heuristic.is_positive("1/(1 + x)") is None             # real dominant root (negative): not decided
+    assert heuristic.is_positive("1/(1 - x^3)") is None           # moduli tie: undecided
+    assert heuristic.is_positive("1/(1 - p*x + x^2)") is None     # a parameter
+    assert heuristic.is_positive("x*y/(1 - x*y + x^2*y^2)") is None  # two variables
+    assert heuristic.is_positive("1/(1.0 - x + x^2)") is None      # floating point
+    assert heuristic.is_positive("1") is None or heuristic.is_positive("1") is True  # no variable: no crash
+
+
+def test_default_strategy_refutes_only_where_the_proof_fails():
+    from prodigy.analysis.evtinvariants.heuristics.strategies import DefaultStrategy
+    strategy = DefaultStrategy(variables=["x"], dist_factory=_factory("sympy"))
+    heuristic = strategy.positivity_heuristics
+    assert heuristic.is_positive("1/(1 - x + x^2)") is False
+    assert heuristic.is_positive("1/(2 - x)") is True             # proven by the existing heuristic
+    assert heuristic.is_positive("1/(1 + x)") is None
 
 
 # -- combining heuristics ---------------------------------------------------------------------------------------

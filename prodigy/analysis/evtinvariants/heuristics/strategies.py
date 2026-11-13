@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Collection, Optional
 
+from prodigy.analysis.evtinvariants.heuristics.positivity.dominat_root_rejection import DominantRootHeuristic
 from prodigy.analysis.exceptions import HeuristicsError
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic
@@ -36,9 +37,12 @@ class DefaultStrategy(SynthesisStrategy):
             self.variables,
             self.dist_factory
         )
+        # the proving heuristic first; the refuter only turns "undecided" into "refuted"
         self.positivity_heuristics = PositivityHeuristics.create(
-            PositivityHeuristics.MIXED_RAT_FUNC, self.dist_factory, variables=self.variables
-        )
+            PositivityHeuristics.OR, None,
+            PositivityHeuristics.create(PositivityHeuristics.MIXED_RAT_FUNC, self.dist_factory,
+                                        variables=self.variables),
+            DominantRootHeuristic(variables=self.variables))
 
 
 @dataclass
@@ -107,7 +111,8 @@ class AllOrPartialRational(SynthesisStrategy):
         sum_heur = PositivityHeuristics.create(PositivityHeuristics.INDIVIDUAL_SUM, rat_func_heur)
 
         self.positivity_heuristics = (
-            PositivityHeuristics.create(PositivityHeuristics.OR, sum_heur, mixed_rat_func))
+            PositivityHeuristics.create(PositivityHeuristics.OR, sum_heur, mixed_rat_func,
+                                        DominantRootHeuristic(variables=self.variables)))
 
 
 # Positivity heuristics that combine other heuristics; they can only be used inside a predefined strategy.
