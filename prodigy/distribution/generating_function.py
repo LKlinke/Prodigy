@@ -107,10 +107,12 @@ def _denominator_vanishes_at_ones(function: sympy.Expr) -> bool:
 def _term_generator(function: sympy.Poly):
     assert isinstance(function,
                       sympy.Poly), "Terms can only be generated for finite GF"
-    poly = function
-    while poly.as_expr() != 0:
-        yield poly.EC(), poly.EM().as_expr()
-        poly -= poly.EC() * poly.EM().as_expr()
+    # `terms()` lists the monomials in decreasing lex order; the states come in increasing order. One pass,
+    # instead of repeatedly subtracting the smallest term from the polynomial (quadratic in the number of terms).
+    for monomial, coefficient in reversed(function.terms()):
+        if coefficient == 0:
+            continue
+        yield coefficient, sympy.Mul(*(gen ** power for gen, power in zip(function.gens, monomial)))
 
 
 def _parse_to_sympy(expr: Any, real=True, **kwargs) -> sympy.Expr:
