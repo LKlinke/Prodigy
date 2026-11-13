@@ -205,13 +205,14 @@ def test_nan_distribution_is_an_error(monkeypatch):
 
 @pytest.mark.parametrize("kind, value", [("probability", "nan"), ("probability", "\\infty"),
                                          ("expectation", "zoo"), ("probability", "x*nan")])
-def test_undefined_query_value_is_an_error(monkeypatch, kind, value):
+def test_undefined_query_value_loses_its_guarantee(monkeypatch, kind, value):
+    # the query has no guarantee, but the analysis does not fail: the distribution is not affected (#316)
     query = QueryResult(kind=kind, expr="x == 1", value=value, lower=value, upper=value,
                         bound=Bound.EXACT, line=3)
     result = _run_with(monkeypatch, "x/3 + x^2/3 + x^3/3", [query])
-    assert result["status"] == "error"
-    assert result["error"]["details"]["parts"] == ["the query x == 1 (line 3)"]
-    assert result["bounds"]["kind"] == Bound.UNKNOWN
+    assert result["status"] == "ok", result["error"]
+    assert result["distribution"] is not None
+    assert any("the query x == 1 (line 3)" in warning for warning in result["warnings"])
     (answer,) = result["queries"]
     assert answer["bound"] == Bound.UNKNOWN
     assert answer["lower"] is None and answer["upper"] is None

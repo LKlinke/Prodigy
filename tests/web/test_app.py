@@ -96,6 +96,25 @@ def test_analysis_job_returns_result(client):
     assert (result["queries"][0]["lower"], result["queries"][0]["upper"]) == ("1/2", "9/16")
 
 
+def test_yule_simon_example_with_its_invariant(client):
+    # the example's comment says the invariant gives upper bounds; the GUI must show them, with Ex[red] ≤ ∞
+    path = Path(__file__).parents[2] / "pgfexamples/inference/loopy/hard_distributions/d_finite/yule_simon_urn.ppy"
+    invariant = "-log(1 - red) + stop*(-log(1 - red) + log(1 - red)/red + 1)"
+    response = client.post("/api/analyze", json={"source": path.read_text(), "syntax": "ppy", "engine": "sympy",
+                                                 "decisions": {"0": {"strategy": "evt_invariant",
+                                                                     "params": {"invariant": invariant}}}},
+                           headers=HOST)
+    assert response.status_code == 202
+    status = wait_for(client, response.get_json()["job"])
+    assert status["state"] == "done"
+    result = status["result"]
+    assert result["status"] == "ok", result["error"]
+    assert result["bounds"]["kind"] == "upper"
+    assert result["distribution"] is not None
+    assert [q["upper"] for q in result["queries"]] == ["1/2", "1/6", "1/12", "\\infty"]
+    assert all(q["bound"] == "upper" for q in result["queries"])
+
+
 def test_invalid_requests_are_rejected_before_running(client):
     response = client.post("/api/analyze", json={"source": GEOMETRIC,
                                                  "decisions": {"0": "unroll:iterations=many"}}, headers=HOST)

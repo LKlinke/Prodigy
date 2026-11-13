@@ -20,7 +20,8 @@
 #     -log(1 - red) + stop*(-log(1 - red) + log(1 - red)/red + 1):
 # its coefficients are proven non-negative and its series converges on the open unit polydisc, but its mass
 # (the expected number of iterations) is infinite, so the result is an upper bound: Pr[red == 1] ≤ 1/2,
-# Pr[red == 2] ≤ 1/6, Pr[red == 3] ≤ 1/12, which are the exact values.
+# Pr[red == 2] ≤ 1/6, Pr[red == 3] ≤ 1/12, which are the exact values, and Ex[red] ≤ ∞ (true, but trivial;
+# GiNaC cannot evaluate it and leaves this query alone without a value).
 
 red: nat;
 

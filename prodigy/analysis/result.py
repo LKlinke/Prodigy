@@ -78,10 +78,12 @@ empty for programs without ``dist``.
 
 Undefined values
 ----------------
-A distribution, mass or query value that contains ``nan``, ``zoo`` (complex infinity) or ``oo`` is
-not a result: such a run ends with ``status`` ``error`` and ``error.type`` ``NonFiniteResult``, and
-the affected queries get ``bound`` ``unknown`` without interval. The only exception is the value ∞
-of an expectation query (``Ex[x]`` may diverge).
+A distribution, mass or error probability that contains ``nan``, ``zoo`` (complex infinity) or ``oo``
+is not a result: such a run ends with ``status`` ``error`` and ``error.type`` ``NonFiniteResult``. A
+query value that contains them gets ``bound`` ``unknown`` without interval and a warning, but does not
+fail the analysis (#316). The value ∞ of an expectation or variance query is no such value
+(``Ex[x]`` may diverge): it is reported with the guarantee of the result, e.g. ``Ex[x] ≤ ∞`` under an
+upper bound.
 
 Failed invariant checks
 -----------------------
@@ -119,7 +121,7 @@ SCHEMA = "prodigy/analysis-result@1"
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
-_INFINITY_SPELLINGS = {"\\infty", "∞", "oo", "inf", "infinity"}
+_INFINITY_SPELLINGS = {"\\infty", "∞", "oo", "inf", "infinity", "Infinity"}  # Infinity: str(RealLitExpr.infinity())
 
 
 
@@ -839,9 +841,13 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
                             "traceback": traceback.format_exc()}
 
     result.queries = list(session.queries)
+    undefined_queries: List[str] = []
     if result.status == "ok" and final is not None:
         parts = _non_finite_parts(result, final)
-        if parts:
+        # an undefined query value loses its interval but does not fail the analysis (#316): the distribution and
+        # the other queries are not affected
+        undefined_queries = [part for part in parts if part.startswith("the query")]
+        if len(undefined_queries) < len(parts):
             result.status = "error"
             result.error = {
                 "type": "NonFiniteResult",
@@ -855,7 +861,9 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
     result.loops.sort(key=lambda r: (r["id"] is None, r["id"] if r["id"] is not None else 0))
     result.steps = session.steps
     result.trace = session.tracer.to_json() if session.tracer is not None else None
-    result.warnings = list(session.warnings)
+    result.warnings = list(session.warnings) + [
+        f"Undefined value (nan or ∞) in {part}; it has no guarantee. The distribution and the other queries "
+        "are not affected." for part in undefined_queries]
     result.log = _ANSI.sub("", session.log.getvalue())
     result.timing["analysis"] = round(analysis_time, 6)
     result.timing["total"] = round(time.perf_counter() - started, 6)

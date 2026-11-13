@@ -2,7 +2,7 @@
 Variables that do not occur in the generating function, and poles at 1, on all engines.
 
 - #232: ``a = b`` where ``b`` does not occur in the function (``b`` is 0 in every state).
-- #227: an infinite expected value is ∞ (and the analysis ends with ``NonFiniteResult``), not a crash.
+- #227: an infinite expected value is ∞, not a crash; it does not fail the analysis.
 - #242 (GiNaC): marginalising a variable at a pole raises `NonFiniteMarginalError`.
 """
 import pytest
@@ -94,15 +94,14 @@ query Ex[c];
 
 
 @pytest.mark.parametrize("engine", ["SYMPY", "GINAC", "SYMENGINE"])
-def test_infinite_expectation_is_non_finite_result(engine):
+def test_infinite_expectation_is_infinity(engine):
     decisions = {"0": {"strategy": "evt_invariant",
                        "params": {"invariant": "(1-(1-c^2)^(1/2)+c*x)/(c+(1-c^2)^(1/2)*x-x)"}}}
     config = ForwardAnalysisConfig(engine=_engine(engine))
     session = AnalysisSession(parse_pgcl(RANDOM_WALK, "ppy"), source=RANDOM_WALK, syntax="ppy", config=config,
                               decisions=decisions, capture_output=True)
     result = session.run().to_json()
-    assert result["status"] == "error"
-    assert result["error"]["type"] == "NonFiniteResult"
+    assert result["status"] == "ok", result["error"]
     expectation = next(q for q in result["queries"] if q["kind"] == "expectation")
-    assert expectation["value"] == "Infinity"
-    assert expectation["bound"] == "unknown"
+    assert expectation["value"] == "\\infty"
+    assert expectation["bound"] == result["bounds"]["kind"]
