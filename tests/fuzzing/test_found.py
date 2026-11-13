@@ -82,8 +82,6 @@ def test_observation_with_probability_zero_is_an_error_on_all_engines(engine, so
     assert result["status"] == "error"
     assert result["error"]["type"] == "ObserveZeroEventError", result["error"]
     assert result["error"]["message"].startswith("Undefined semantics: Probability of observing a valid run is 0")
-    if source == OBSERVE_ZERO_AFTER_MODULO:
-        assert result["error"]["message"] == "Undefined semantics: Probability of observing a valid run is 0."
 
 
 @pytest.mark.parametrize("engine", ENGINES)

@@ -16,10 +16,10 @@ import {
 
 export const SYNTAXES = {
   pgcl: { label: "pGCL", extension: ".pgcl", language: pgcl, words: PGCL_WORDS,
-    queries: ["?Pr[", "?Ex[", "!Print", "!Plot["],
+    queries: ["?Pr[", "?Ex[", "?Var[", "?Cov[", "!Print", "!Plot["],
     declaration: /\b(?:nat|bool|real|rparam|nparam|const|dist)\s+([A-Za-z_]\w*)/g },
   ppy: { label: ".ppy", extension: ".ppy", language: ppy, words: PPY_WORDS,
-    queries: ["query Pr[", "query Ex["],
+    queries: ["query Pr[", "query Ex[", "query Var[", "query Cov["],
     declaration: /(?:^|[;{]\s*|\b(?:const|param|def)\s+)([A-Za-z_]\w*)(?=\s*[:=(])/gm },
 };
 

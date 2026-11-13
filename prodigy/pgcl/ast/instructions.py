@@ -138,6 +138,29 @@ class ExpectationInstr(InstrClass):
         return f"?Ex[{self.expr}];"
 
 
+@attr.s
+class VarianceInstr(InstrClass):
+    """
+    The variance ``Var[e]`` of an expression, a query inside of a pGCL program.
+    """
+    expr: Expr = attr.ib()
+
+    def __str__(self) -> str:
+        return f"?Var[{self.expr}];"
+
+
+@attr.s
+class CovarianceInstr(InstrClass):
+    """
+    The covariance ``Cov[lhs, rhs]`` of two expressions, a query inside of a pGCL program.
+    """
+    lhs: Expr = attr.ib()
+    rhs: Expr = attr.ib()
+
+    def __str__(self) -> str:
+        return f"?Cov[{self.lhs}, {self.rhs}];"
+
+
 class OptimizationType(Enum):
     MAXIMIZE = auto()
     MINIMIZE = auto()
@@ -215,7 +238,7 @@ class LocalDeclInstr(InstrClass):
         return f"local {str(self.decl)[:-1]}{value};"
 
 
-Query = Union[ProbabilityQueryInstr, ExpectationInstr, PlotInstr, PrintInstr,
+Query = Union[ProbabilityQueryInstr, ExpectationInstr, VarianceInstr, CovarianceInstr, PlotInstr, PrintInstr,
               OptimizationQuery]
 """Union type for all query objects. See :class:`QueryInstr` for use with isinstance."""
 

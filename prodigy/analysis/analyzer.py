@@ -11,7 +11,7 @@ import sympy
 from prodigy.pgcl import Program, Instr, SkipInstr, AbortInstr, WhileInstr, LoopInstr, QueryInstr, Query, \
     ObserveInstr, ChoiceInstr, AsgnInstr, IfInstr, Binop, BinopExpr, NatLitExpr, VarExpr
 from prodigy.pgcl.ast.expressions import InferExpr, SampleExpr
-from prodigy.pgcl.ast.instructions import ExpectationInstr, ProbabilityQueryInstr
+from prodigy.pgcl.ast.instructions import CovarianceInstr, ExpectationInstr, ProbabilityQueryInstr, VarianceInstr
 from prodigy.pgcl.draws import find_draw
 
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -35,6 +35,12 @@ from prodigy.util.logger import log_setup
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
+# one wording on every engine: whether an engine proves the probability to be 0 or only fails to prove it positive
+# depends on its simplification (#349)
+OBSERVE_ZERO_MESSAGE = ("Undefined semantics: Probability of observing a valid run is 0, or could not be shown to "
+                        "be positive.")
+
+
 def condition_distribution(
         dist: Distribution, error_prob: Distribution,
         config: ForwardAnalysisConfig) -> tuple[Distribution, Distribution]:
@@ -46,15 +52,13 @@ def condition_distribution(
         # Each is compared to the zero measure over its own variables and parameters: SymPy's equality also
         # compares them, and `dist == one * "0"` failed when they differed (#248).
         if valid.is_provably_zero():
-            raise ObserveZeroEventError("Undefined semantics: Probability of observing a valid run is 0.")
+            raise ObserveZeroEventError(OBSERVE_ZERO_MESSAGE)
         # Nothing terminates without violating an observation: the result is the zero measure only if the
         # probability of a valid run is positive (the remaining runs diverge). If an engine cannot show that
         # (e.g. an unsimplified sum of roots of unity that is in fact 1 - 1), dividing by it would report 0 as
         # an exact result for a program without semantics (#248).
         if not _provably_positive(valid.get_probability_mass(), valid.get_parameters()):
-            raise ObserveZeroEventError(
-                "Undefined semantics: Probability of observing a valid run is 0, or could not be shown to be "
-                "positive.")
+            raise ObserveZeroEventError(OBSERVE_ZERO_MESSAGE)
     result = dist / valid
     return result, error_prob
 
@@ -291,7 +295,8 @@ def _semantics(
 
 
 _CONDITIONS = {IfInstr: "the guard of if", WhileInstr: "the guard of while",
-               ObserveInstr: "observe", ProbabilityQueryInstr: "a query", ExpectationInstr: "a query"}
+               ObserveInstr: "observe", ProbabilityQueryInstr: "a query", ExpectationInstr: "a query",
+               VarianceInstr: "a query", CovarianceInstr: "a query"}
 
 
 def _check_no_draw_in_condition(instruction: Instr) -> None:
@@ -301,13 +306,15 @@ def _check_no_draw_in_condition(instruction: Instr) -> None:
     where = _CONDITIONS.get(type(instruction))
     if where is None:
         return
-    condition = getattr(instruction, "cond", None) or getattr(instruction, "expr")
-    draw = find_draw(condition)
-    if draw is not None:
-        session = current_session()
-        raise NotImplementedError(
-            f"Sampling inside {where} ({session.spell(draw)} in {session.spell(condition)}) is not "
-            f"implemented. Draw the value into a variable first and use the variable there.")
+    conditions = [getattr(instruction, name) for name in ("cond", "expr", "lhs", "rhs")
+                  if getattr(instruction, name, None) is not None]
+    for condition in conditions:
+        draw = find_draw(condition)
+        if draw is not None:
+            session = current_session()
+            raise NotImplementedError(
+                f"Sampling inside {where} ({session.spell(draw)} in {session.spell(condition)}) is not "
+                f"implemented. Draw the value into a variable first and use the variable there.")
 
 
 def _nested_inference(

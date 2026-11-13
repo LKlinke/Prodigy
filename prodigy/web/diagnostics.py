@@ -273,8 +273,9 @@ def _check(source: str, syntax: str) -> Dict[str, Any]:
     if outline is not None and not outline["queries"]:
         line, _ = _end_of_source(source)
         diagnostics.append({"severity": "info", "line": line, "column": 1, "end_line": line, "end_column": 1,
-                            "message": "No queries: add " + ("query Pr[...] or query Ex[...]" if syntax == "ppy"
-                                                             else "?Pr[...] or ?Ex[...]")
+                            "message": "No queries: add " + (
+                                "query Pr[...], Ex[...], Var[...] or Cov[...]" if syntax == "ppy"
+                                else "?Pr[...], ?Ex[...], ?Var[...] or ?Cov[...]")
                                        + " to get values with bounds.",
                             "hint": ""})
     return {"ok": not any(d["severity"] == "error" for d in diagnostics), "diagnostics": diagnostics,

@@ -313,7 +313,7 @@ function updateAnnotations() {
   const queries = [];
   if (state.result && !state.resultStale) {
     for (const query of state.result.queries || []) {
-      if (!query.line || !["probability", "expectation"].includes(query.kind)) continue;
+      if (!query.line || !["probability", "expectation", "variance", "covariance"].includes(query.kind)) continue;
       const { glyph, text } = qualify(query, { withValue: true });
       queries.push({ line: query.line, kind: query.bound, glyph: glyph || "", text,
         title: `${(BOUND_TEXT[query.bound] || BOUND_TEXT.unknown).label}: ${query.value ?? ""}` });

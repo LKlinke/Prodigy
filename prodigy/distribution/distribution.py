@@ -267,6 +267,13 @@ def _is_true(variable: VarExpr) -> Expr:
     """The condition that the ``bool`` variable ``variable`` holds: ``not (variable = 0)``."""
     return UnopExpr(Unop.NEG, BinopExpr(Binop.EQ, variable, NatLitExpr(0)))
 
+def _spelled(expression: Expr) -> str:
+    """The expression in the program's syntax if an analysis session is running (else pGCL)."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.session import current_session, has_current_session
+    return current_session().spell(expression) if has_current_session() else str(expression)
+
+
 class Distribution(ABC):
     """ Abstract class that models different representations of probability distributions. """
 
@@ -785,7 +792,7 @@ class Distribution(ABC):
                         lambda part, left, right: part._update_power(temp_var, left, right, approximate),
                         t_1, t_2)
                 elif expression.operator == Binop.FLOOR_DIVIDE:
-                    f = f._update_floor_division(temp_var, t_1, t_2, approximate)
+                    f = f._update_floor_division(temp_var, t_1, t_2, approximate, _spelled(expression))
                 else:
                     raise ValueError(
                         f"Unsupported binary operator: {expression.operator}")
@@ -1161,7 +1168,7 @@ class Distribution(ABC):
         """
 
     def _update_floor_division(self, temp_var: str, numerator: str | int, divisor: str | int,
-                               approximate: str | float | None) -> Distribution:
+                               approximate: str | float | None, text: str | None = None) -> Distribution:
         """
         Applies the expression `temp_var = numerator // divisor` (rounding down) to this distribution. The
         divisor must be a positive natural literal.
@@ -1172,14 +1179,15 @@ class Distribution(ABC):
         cannot be proven exact (an infinite marginal of `numerator` that is not rational, without
         approximation), this raises an error.
         """
+        text = text or f"{numerator} // {divisor}"  # the program's expression, not the temporary names
         if not str(divisor).isdigit() or int(str(divisor)) < 1:
-            raise ValueError(f"Cannot compute {numerator} // {divisor}: the divisor must be a positive natural "
+            raise ValueError(f"Cannot compute {text}: the divisor must be a positive natural "
                              f"constant (not implemented otherwise).")
         q = int(str(divisor))
         if str(numerator) not in self.get_variables():
             value = Fraction(str(numerator))
             if value.denominator != 1:
-                raise ValueError(f"Cannot compute {numerator} // {divisor}: not a natural number")
+                raise ValueError(f"Cannot compute {text}: not a natural number")
             return self._update_var(temp_var, value.numerator // q)
         if q == 1:
             return self._update_var(temp_var, str(numerator))

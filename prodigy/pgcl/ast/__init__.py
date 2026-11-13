@@ -96,6 +96,8 @@ Instructions
 .. autoclass:: LoopInstr
 .. autoclass:: ObserveInstr
 .. autoclass:: ExpectationInstr
+.. autoclass:: VarianceInstr
+.. autoclass:: CovarianceInstr
 .. autoclass:: OptimizationType
 .. autoclass:: OptimizationQuery
 .. autoclass:: ProbabilityQueryInstr
@@ -132,7 +134,7 @@ from .expressions import (Binop, BinopExpr, BoolLitExpr, CategoricalExpr, Expr,
                           InferExpr, NatLitExpr, ProbabilityExpr,
                           RealLitExpr, SampleExpr, SubstExpr, Unop,
                           UnopExpr, VarExpr, expr_str_parens)
-from .instructions import (AsgnInstr, ChoiceInstr, ExpectationInstr, IfInstr,
+from .instructions import (AsgnInstr, ChoiceInstr, CovarianceInstr, VarianceInstr, ExpectationInstr, IfInstr,
                            Instr, InstrClass, LocalDeclInstr, LoopInstr,
                            ObserveInstr,
                            OptimizationQuery, OptimizationType, PlotInstr,
