@@ -13,9 +13,13 @@ from lark.exceptions import LarkError
 
 from prodigy.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr,
                            RealLitExpr, Unop, UnopExpr, VarExpr)
+from prodigy.pgcl.ast.walk import Walk, walk_expr
 from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.util.ref import Mut
 from prodigy.distribution.equality import decide_equal_strings
-from prodigy.distribution.linear_guards import normalize_guard
+from prodigy.distribution.independent_comparison import (NOT_A_DIFFERENCE, ComparisonNotImplemented,
+                                                          filter_difference)
+from prodigy.distribution.linear_guards import difference_comparison, normalize_guard
 
 from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
                                       has_variable, modulus_condition)
@@ -351,7 +355,28 @@ class Distribution(ABC):
         expr = condition
         if isinstance(expr, str):
             expr = parse_expr(expr)
-        return self.filter(expr).get_probability_mass()
+        try:
+            return self.filter(expr).get_probability_mass()
+        except NotImplementedError as error:
+            marginal = self.query_marginal(expr, error)
+            return marginal.filter(expr).get_probability_mass()
+
+    def query_marginal(self, expression: Expr, error: NotImplementedError) -> Distribution:
+        """
+        The marginal of the variables of `expression` for a query (`Pr`, `Ex`) that could not be computed on
+        this distribution with `error`: the query only depends on these variables, and on the marginal
+        e.g. `x < y` may be computable when it is not on the joint distribution (x and y independent,
+        but dependent given another variable, as after `z := x - y`). Raises `error` if the marginal has
+        all variables of this distribution or is not a finite measure.
+        """
+        names = {node.val.var for node in walk_expr(Walk.DOWN, Mut.alloc(expression))
+                 if isinstance(node.val, VarExpr)} & self.get_variables()
+        if not names or names == self.get_variables():
+            raise error
+        try:
+            return self.checked_marginal(*sorted(names))
+        except NonFiniteMarginalError:
+            raise error from None
 
     @abstractmethod
     def get_probability_mass(self) -> str:
@@ -372,7 +397,11 @@ class Distribution(ABC):
                 # not in pGCL syntax (e.g. `x**2`): the engine reads it itself
                 return self._expected_value_of(expression)
         assert not isinstance(parsed, str)
-        extended, replaced, _ = self.without_computed_terms(parsed)
+        try:
+            extended, replaced, _ = self.without_computed_terms(parsed)
+        except NotImplementedError as error:
+            marginal = self.query_marginal(parsed, error)
+            extended, replaced, _ = marginal.without_computed_terms(parsed)
         return extended._expected_value_of(replaced)  # pylint: disable=protected-access
 
     @abstractmethod
@@ -483,8 +512,42 @@ class Distribution(ABC):
         # Worst case: infinite Generating function and  non-standard condition.
         # Here we try marginalization and hope that the marginal is finite so we can do
         # exhaustive search again. If this is not possible, we raise an NotComputableException
-        expression = self._explicit_state_unfolding(condition)
+        try:
+            expression = self._explicit_state_unfolding(condition)
+        except NotImplementedError as error:
+            # two variables with infinite support: exact if they are independent (#243)
+            return self._filter_difference(condition, error)
         return self.filter(expression)
+
+    def _filter_difference(self, condition: Expr, error: NotImplementedError) -> Distribution:
+        """
+        Filters a comparison of two variables such as `x < y + c` exactly if the generating
+        function is a product of a rational function in x and a rational function in y (given the
+        other variables, see :mod:`prodigy.distribution.independent_comparison`). Raises a
+        :class:`ComparisonNotImplemented` naming the reason for every other comparison of several
+        variables, and `error` (from the unfolding of finite supports) for all other conditions.
+        """
+        comparison = difference_comparison(condition, self.get_variables())
+        if isinstance(comparison, BoolLitExpr):
+            return self.filter(comparison)
+        if comparison is None:
+            if isinstance(condition, BinopExpr) and len(self._find_symbols(str(condition))
+                                                        & self.get_variables()) >= 2:
+                raise ComparisonNotImplemented(str(condition), NOT_A_DIFFERENCE) from error
+            raise error
+        filtered = self._from_sympy_expression(filter_difference(
+            self._sympy_expression(), comparison.x, comparison.y, comparison.relation, comparison.shift,
+            str(condition)))
+        return self - filtered if comparison.complement else filtered
+
+    @abstractmethod
+    def _sympy_expression(self) -> Any:
+        """This generating function as a SymPy expression (for exact computations in SymPy)."""
+
+    @abstractmethod
+    def _from_sympy_expression(self, expression: Any) -> Distribution:
+        """A distribution of this engine with the variables and parameters of `self` from a SymPy
+        expression."""
 
     def without_computed_terms(self, expression: Expr) -> Tuple[Distribution, Expr, List[str]]:
         """

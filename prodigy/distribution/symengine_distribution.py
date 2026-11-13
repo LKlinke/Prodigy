@@ -6,7 +6,7 @@ import logging
 import operator
 import re
 from fractions import Fraction
-from typing import Union, Generator, Sequence, Iterator, Tuple, Type, List, get_args, Callable
+from typing import Any, Union, Generator, Sequence, Iterator, Tuple, Type, List, get_args, Callable
 
 import symengine as se
 # pylint: disable-msg=no-name-in-module
@@ -375,6 +375,13 @@ class SymengineDist(Distribution):
                        * variable ** i)
         return SymengineDist(se.expand(result)).set_variables_and_parameters(self.get_variables(),
                                                                               self.get_parameters())
+
+    def _sympy_expression(self) -> sp.Expr:
+        return sp.sympify(self._s_func)
+
+    def _from_sympy_expression(self, expression: Any) -> SymengineDist:
+        return SymengineDist(se.sympify(expression)).set_variables_and_parameters(
+            self.get_variables(), self.get_parameters())
 
     def _arithmetic_progression(self, variable: str, modulus: str) -> Sequence[SymengineDist]:
         a = _parse_to_symengine(modulus)

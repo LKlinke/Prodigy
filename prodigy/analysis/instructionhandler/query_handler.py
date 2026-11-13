@@ -305,7 +305,11 @@ class QueryHandler(InstructionHandler):
             # the loop strategy right before may know the exact value already (e.g. from its certificate)
             prob = session.loop_query_value("?Pr", str(expression), dist)
             if prob is None:
-                prob = filter_by_cases(dist, expression).get_probability_mass()
+                try:
+                    prob = filter_by_cases(dist, expression).get_probability_mass()
+                except NotImplementedError as error:
+                    # the probability only depends on the marginal of the variables of the condition
+                    prob = filter_by_cases(dist.query_marginal(expression, error), expression).get_probability_mass()
             text = session.spell(expression)
             print(f"Probability of {text}: {prob}")
             session.record_query(finish_query(session, QueryResult("probability", text, value=prob),

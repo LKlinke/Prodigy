@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from typing import (Callable, Dict, FrozenSet, Generator, Iterator, List, Set, Tuple, Type,
+from typing import (Any, Callable, Dict, FrozenSet, Generator, Iterator, List, Set, Tuple, Type,
                     Union)
 
 import prodigy_ginac  # type: ignore
@@ -456,6 +456,13 @@ class FPS(Distribution):
         symbols = {name: Symbol(name) for name in prodigy_ginac.find_symbols(text)}
         return parse_expr(text, local_dict=symbols,
                           transformations=standard_transformations + (convert_xor,))
+
+    def _sympy_expression(self) -> Expr_:
+        return self._sympy_function()
+
+    def _from_sympy_expression(self, expression: Any) -> FPS:
+        dist = prodigy_ginac.Dist(str(expression).replace('**', '^'), list(self._parameters))
+        return FPS.from_dist(dist, set(self._variables), set(self._parameters))
 
     def _divide_exponents(self, temp_var: str, numerator: str, divisor: int) -> FPS | None:
         """
