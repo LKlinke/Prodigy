@@ -28,6 +28,8 @@ from prodigy.analysis.evtinvariants.heuristics.strategies import (DEFAULT_MAX_DE
 from prodigy.analysis.evtinvariants.invariant_synthesis import (DEFAULT_SYNTHESIS_TIME_LIMIT,
                                                                 DEFAULT_TEMPLATE_TIME_LIMIT, evt_invariant_synthesis)
 from prodigy.analysis.evtinvariants.invariant_verification import FixedPointCheckFailed, evt_invariant_check
+from prodigy.analysis.evtinvariants.exp_polynomial import (entire_exp_polynomial, exp_polynomial_nonneg,
+                                                           exp_polynomial_value_at_one)
 from prodigy.analysis.evtinvariants.series_identity import converges_on_unit_polydisc, formal_loop
 from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
 from prodigy.analysis.instructionhandler import _assume
@@ -94,12 +96,15 @@ def finite_mass(invariant: Any, variables: Sequence[str]) -> Tuple[Optional[bool
     Substitutes t for every variable; f(t) = I(t, …, t) has the same mass. For a rational f
     with f's denominator q(0) ≠ 0, Pringsheim's theorem says the radius of convergence is a
     singularity on the positive axis, so ``|I| < ∞`` iff q has no root in (0, 1]; then
-    ``|I| = f(1)``. Returns (None, None) when this cannot be decided (parameters, non-rational).
+    ``|I| = f(1)``. An exponential polynomial ``A·exp(c·k) + B`` (#323) is entire, so its mass is
+    ``I(1, …, 1)``. Returns (None, None) when this cannot be decided (parameters, other forms).
     """
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import sym
     try:
         expr = sym(invariant)
+        if entire_exp_polynomial(expr, list(variables)):
+            return True, exp_polynomial_value_at_one(expr, list(variables))
         t = sympy.Symbol("t__mass", positive=True)
         substitution = {s: t for s in expr.free_symbols if s.name in set(variables)}
         if any(s.name not in set(variables) for s in expr.free_symbols):
@@ -118,6 +123,15 @@ def finite_mass(invariant: Any, variables: Sequence[str]) -> Tuple[Optional[bool
         return None, None
 
 
+def _exp_polynomial_positivity(variables, invariant: Any) -> Optional[bool]:
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.result import sym
+    try:
+        return exp_polynomial_nonneg(sym(invariant), [str(v) for v in variables])
+    except Exception:  # pylint: disable=broad-except
+        return None
+
+
 def _positivity(config: ForwardAnalysisConfig, variables, invariant: Any) -> Optional[bool]:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.lowerbounds.subinvariant import nonneg_by_construction
@@ -125,6 +139,10 @@ def _positivity(config: ForwardAnalysisConfig, variables, invariant: Any) -> Opt
     # several variables (SymPy has no multivariate partial fraction decomposition).
     if nonneg_by_construction(str(invariant), [str(v) for v in variables]):
         return True
+    # A·exp(c·k) + B with polynomials A, B: decided coefficient-wise (#323)
+    verdict = _exp_polynomial_positivity(variables, invariant)
+    if verdict is not None:
+        return verdict
     try:
         strategy: SynthesisStrategy = SynthesisStrategies.from_config(config, variables)
         verdict = strategy.positivity_heuristics.is_positive(sympify_distribution(invariant))

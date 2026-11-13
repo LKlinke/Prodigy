@@ -1,0 +1,30 @@
+# Poisson(1/2) from coin flips: the variant of poisson_from_coins.ppy without the inner loop.
+#
+# As there, K is drawn geometrically, Pr[K = k] = (1 - λ) λ^k with λ = 1/2, and K is accepted only if K
+# independent uniform values come out sorted, which has probability 1/k!. The (k+1)-th value is a record
+# (larger than the k earlier ones) with probability 1/(k + 1); here this is a probabilistic choice with that
+# probability instead of the random walk of poisson_from_coins.ppy. Given acceptance, K ~ Poisson(λ) with
+# generating function exp(λ(k - 1)).
+#
+# The choice probability 1/(k + 1) depends on k, which takes infinitely many values. Prodigy applies it as an
+# operator on the generating function: weighting the coefficient of k^n with 1/(n + 1) and then setting
+# k := k + 1 maps G to its integral ∫_0^k G (#323). The EVT invariant
+#     ok*exp(k/2)*(1 + stop/2) + (k/2 - 1)*exp(k/2) + 1
+# (strategy "Check EVT invariant") is verified exactly: its fixed-point equation is checked with derivatives
+# and evaluation at 0 only, its coefficients are proven non-negative, and its mass 1 + exp(1/2) is finite.
+
+k: nat = 0;  # the number of values so far; the result
+ok: nat = 1;  # all values so far are sorted
+stop: nat = 0;  # the geometric draw has ended
+
+while (ok == 1 and stop == 0) {
+    {stop = 1;} [1/2] {
+        # the (k+1)-th value is a record with probability 1/(k+1)
+        {k = k + 1;} [1/(k + 1)] {k = k + 1; ok = 0;}
+    }
+}
+observe(ok == 1);  # accept only sorted values
+query Pr[k == 0];  # expected: exp(-1/2) ≈ 0.6065
+query Pr[k == 1];  # expected: exp(-1/2)/2 ≈ 0.3033
+query Pr[k == 2];  # expected: exp(-1/2)/8 ≈ 0.07582
+query Ex[k];  # expected: 1/2
