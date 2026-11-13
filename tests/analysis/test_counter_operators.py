@@ -135,6 +135,9 @@ query Pr[k == 0 and x == 1];
 @pytest.mark.parametrize("source, expected", [
     # Pr[x = 1] = Σ_n e^(-1)/n! · 2/((n + 1)(n + 2)) = 2/e · Σ_n 1/(n + 2)! = 2 - 4/e
     pytest.param(LOOP_FREE_TWO_POLES, [2 - 4 * sympy.exp(-1), sympy.exp(-1)], id="two-poles"),
+    # x = bernoulli(p) is {x = 1} [p] {x = 0}; Σ_n e^(-1)/n! · 1/(n + 1) = 1 - 1/e, Σ_n e^(-1)/n! · 1/(n + 2) = 1/e
+    pytest.param("k: nat = poisson(1);\nx: nat = bernoulli(1/(k + 1));\nk = bernoulli(1/(k + 2));\n"
+                 "query Pr[x == 1];\nquery Pr[k == 1];\n", [1 - sympy.exp(-1), sympy.exp(-1)], id="bernoulli"),
     # Pr[x = 1] = Σ_(n≥1) e^(-1)/n! · 1/(n + 1) = 1 - 2/e
     pytest.param(LOOP_FREE, [sympy.exp(-1), 1 - 2 * sympy.exp(-1), sympy.exp(-1)], id="1/(k+1)"),
     # Ex[k·x] = Σ_n e^(-1)/n! · n · (2 - 1/(n + 2)) = 1 + 2/e

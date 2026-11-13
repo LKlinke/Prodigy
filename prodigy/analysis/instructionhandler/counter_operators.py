@@ -25,7 +25,14 @@ loop is checked with the same operator: the check needs the integral of an expon
 formula needs no integration. The computation works on the
 SymPy form of the distribution and gives the result back to the distribution's engine, so it is the same on all
 engines. Anything else (another shape of p, e.g. a polynomial or a double pole, or an integral that is not certified) is
-not implemented.
+not implemented. ``x = bernoulli(p)`` with such a p is the choice ``{x = 1} [p] {x = 0}`` and uses the same operator.
+
+**Removable singularities.** The closed form of ``H_a`` is ``F/k^a`` with ``F = ∫_0^k t^(a-1) G``, whose series
+starts at ``k^a``; so the closed form has a removable singularity at ``k = 0``, while its series is an ordinary power
+series. The engines treat a closed form as its Taylor series at the origin (coefficients by series expansion or
+derivatives); where an engine instead substitutes ``k = 0``, both numerator and denominator vanish, so it gets an
+undefined value (``nan``, ``zoo`` or a division by zero), never a wrong finite one, which Prodigy reports as
+undefined instead of as a result (#259). The tests filter and query at ``k = 0`` on all engines.
 """
 from __future__ import annotations
 

@@ -137,7 +137,7 @@ def test_values_that_are_not_probabilities_are_rejected(engine, source, message)
 @pytest.mark.parametrize("source", [
     # not of the form α + β/(k + a) (#323)
     pytest.param("k: nat = geometric(1/2);\nx: nat = 0;\n{x = 1;} [1/(k*k+1)] {x = 2;}", id="choice"),
-    pytest.param("k: nat = geometric(1/2);\nx: nat = bernoulli(1/(k+1));", id="bernoulli"),
+    pytest.param("k: nat = geometric(1/2);\nx: nat = bernoulli(1/(k*k+1));", id="bernoulli"),
 ])
 def test_infinitely_many_values_are_not_implemented(engine, source):
     with pytest.raises(NotImplementedError, match="infinitely many values"):
