@@ -503,8 +503,10 @@ class GeneratingFunction(Distribution):
         return self._function
 
     def _from_sympy_expression(self, expression: Any) -> GeneratingFunction:
-        # a reduced fraction: finite iff the denominator has no variable
-        finite = not sympy.denom(expression).free_symbols & self._variables
+        # a reduced fraction: finite iff the denominator has no variable; an algebraic function (with
+        # square roots of the variables) is not rational and never finite
+        finite = not sympy.denom(expression).free_symbols & self._variables \
+            and expression.is_rational_function(*self._variables)
         # (the flags are set afterwards: passing False makes the constructor run its heuristics)
         gf = GeneratingFunction(expression, *self._variables, closed=True, finite=True)
         gf._is_closed_form, gf._is_finite = not finite, finite

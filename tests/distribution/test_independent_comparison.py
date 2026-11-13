@@ -1,11 +1,13 @@
 """
-Exact filters x < y + c and x = y + c for products of rational functions (Prodigy#243), checked
-against the power series coefficient by coefficient and on all engines.
+Exact filters x < y + c and x = y + c (Prodigy#243): for products of rational functions (rational
+results) and by the residue method for dependent variables (algebraic results), checked against the
+power series coefficient by coefficient and on all engines.
 """
 import pytest
 import sympy
 
 from prodigy.analysis.config import ForwardAnalysisConfig
+from prodigy.distribution.algebraic_comparison import filter_difference_algebraic
 from prodigy.distribution.independent_comparison import ComparisonNotImplemented, filter_difference
 from prodigy.pgcl.parser import parse_expr
 
@@ -80,8 +82,8 @@ def test_closed_forms():
     assert sympy.simplify(probability - (1 - p) / (2 - p)) == 0
 
 
-def test_counterexample_of_the_issue_is_not_implemented():
-    # the part with x < y of (1/2) / (1 - x/4 - y/4) is algebraic, not rational
+def test_counterexample_is_no_product():
+    # the part with x < y of (1/2) / (1 - x/4 - y/4) is algebraic, not rational: no product either
     with pytest.raises(ComparisonNotImplemented, match="not independent"):
         filter_difference(HALF / (1 - x / 4 - y / 4), "x", "y", "ge", 1, "x < y")
 
@@ -113,20 +115,93 @@ def test_engines(engine, guard, probability):
     assert filtered + rest == dist
 
 
+# --- dependent variables: the residue method
+
+COUNTEREXAMPLE = HALF / (1 - x / 4 - y / 4)
+t = sympy.Symbol("t")
+
+
+def _check_algebraic(function, relation, shift, variables=("x", "y"), point=None):
+    """Compares the series of the filtered part along x = a t, y = b t with the filtered series of `function`."""
+    point = point or {}
+    filtered = filter_difference_algebraic(function, "x", "y", relation, shift, variables, "guard")
+    order = 6
+    for a, b in ((1, 1), (THIRD, 2)):
+        series = sympy.series(filtered.subs({x: a * t, y: b * t} | point), t, 0, order).removeO()
+        full = sympy.series(function.subs({x: t * x, y: t * y} | point), t, 0, order).removeO()
+        for n in range(order):
+            part = sympy.Poly(sympy.expand(full.coeff(t, n)), x, y)
+            expected = sum((c * a ** i * b ** j for (i, j), c in part.terms()
+                            if (j - i >= shift if relation == "ge" else j - i == shift)), sympy.Integer(0))
+            assert sympy.simplify(series.coeff(t, n) - expected) == 0, (n, a, b)
+    return filtered
+
+
+def test_counterexample_of_the_issue_comment():
+    # the part with x < y of (1/2) / (1 - x/4 - y/4) is algebraic: along x = y = t its coefficient of
+    # t^(2m) is 1/4^(m+1) - binomial(2m, m) / (4 * 16^m) (the comment on #243)
+    below = _check_algebraic(COUNTEREXAMPLE, "ge", 1)
+    assert below.has(sympy.sqrt(4 - x * y)) or below.has(sympy.sqrt(1 - x * y / 4))
+    series = sympy.series(below.subs({x: t, y: t}), t, 0, 12).removeO()
+    for m in range(6):
+        expected = sympy.Rational(1, 4 ** (m + 1)) - sympy.binomial(2 * m, m) / (4 * 16 ** m)
+        assert sympy.simplify(series.coeff(t, 2 * m) - expected) == 0
+    # Pr[x - y = k] = (2 - sqrt(3))^|k| / sqrt(3), so Pr[x < y] = (1 - 1/sqrt(3)) / 2
+    assert sympy.simplify(below.subs({x: 1, y: 1}) - (1 - 1 / sympy.sqrt(3)) / 2) == 0
+
+
+@pytest.mark.parametrize("function, variables, point", [
+    pytest.param(COUNTEREXAMPLE, ("x", "y"), None, id="counterexample"),
+    pytest.param(THIRD / (1 - x / 3 - y / 3 - x * y / 9), ("x", "y"), None, id="with-xy"),
+    # another variable r and a second, rational root of the kernel
+    pytest.param((1 - r / 2) / ((1 - x / 4 - y / 4) * (1 - r * x / 2)), ("x", "y", "r"), {r: HALF}, id="other-variable"),
+    pytest.param(HALF / (1 - x / 2 - x * y / 4) * (1 + y) / 2, ("x", "y"), None, id="kernel-with-y-factor"),
+])
+@pytest.mark.parametrize("relation", ["ge", "eq"])
+@pytest.mark.parametrize("shift", [-1, 0, 1, 2])
+def test_algebraic_coefficients(function, variables, point, relation, shift):
+    _check_algebraic(function, relation, shift, variables, point)
+
+
+@pytest.mark.parametrize("function, reason", [
+    # the kernel s - x/4 - y^2 s^3 / 4 is cubic
+    pytest.param(HALF / (1 - x / 4 - y ** 2 / 4), "degree", id="cubic-kernel"),
+    # infinite mass: the radicand 1 - x*y reaches 0 on the unit polydisk
+    pytest.param(1 / (1 - x / 2 - y / 2), "branch", id="branch-not-proven"),
+    pytest.param(p / (1 - p * x / 2 - p * y / 2), "parameters", id="parameter"),
+    pytest.param(sympy.exp(x * y - 1), "not rational", id="not-rational"),
+])
+def test_algebraic_outside(function, reason):
+    with pytest.raises(ComparisonNotImplemented, match=reason):
+        filter_difference_algebraic(function, "x", "y", "ge", 1, ("x", "y"), "x < y")
+
+
 @pytest.mark.parametrize("engine", ENGINES)
 def test_engines_counterexample(engine):
     factory = ForwardAnalysisConfig(engine=engine).factory
     dist = factory.from_expr("(1/2)/(1 - x/4 - y/4)", "x", "y")
-    with pytest.raises(ComparisonNotImplemented, match="not independent"):
-        dist.filter(parse_expr("x < y"))
+    below = dist.filter(parse_expr("x < y"))
+    assert not below.is_finite()
+    value = sympy.sympify(str(below.get_probability_mass()).replace("^", "**"))
+    assert sympy.simplify(value - (1 - 1 / sympy.sqrt(3)) / 2) == 0
+    monus = dist.set_variables("x", "y", "z").update(parse_expr("z = x - y"))
+    # Ex[z] = sum_k>=1 k (2 - sqrt(3))^k / sqrt(3) = 1 / (2 sqrt(3))
+    value = sympy.sympify(str(monus.get_expected_value_of("z")).replace("^", "**"))
+    assert abs(float(value) - 1 / (2 * 3 ** 0.5)) < 1e-12
+    assert sympy.simplify(sympy.nsimplify(value, [sympy.sqrt(3)]) - 1 / (2 * sympy.sqrt(3))) == 0
+    # the algebraic part is not rational: comparing two variables on it is not implemented
+    with pytest.raises(ComparisonNotImplemented, match="not rational"):
+        below.filter(parse_expr("x + 1 < y"))
     with pytest.raises(ComparisonNotImplemented, match="of the form"):
         dist.filter(parse_expr("2*x < y"))
+    with pytest.raises(ComparisonNotImplemented, match="degree"):
+        factory.from_expr("(1/2)/(1 - x/4 - y^2/4)", "x", "y").filter(parse_expr("x < y"))
 
 
 @pytest.mark.parametrize("engine", ENGINES)
-def test_engines_filtered_part_is_no_product(engine):
-    # the part with x < y is no product any more: a second comparison on it is not implemented
+def test_engines_second_comparison_on_a_filtered_part(engine):
+    # the part with x < y is no product any more: its filter y < x goes through the residue method
     factory = ForwardAnalysisConfig(engine=engine).factory
     dist = factory.from_expr(str(_geometric(HALF, x) * _geometric(THIRD, y)).replace("**", "^"), "x", "y")
-    with pytest.raises(ComparisonNotImplemented, match="not independent"):
-        dist.filter(parse_expr("x < y || y < x"))
+    either = dist.filter(parse_expr("x < y || y < x"))
+    assert sympy.nsimplify(sympy.sympify(str(either.get_probability_mass()))) == sympy.Rational(3, 5)

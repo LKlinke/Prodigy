@@ -17,7 +17,8 @@ from prodigy.pgcl.ast.walk import Walk, walk_expr
 from prodigy.pgcl.parser import parse_expr
 from prodigy.pgcl.util.ref import Mut
 from prodigy.distribution.equality import decide_equal_strings
-from prodigy.distribution.independent_comparison import (NOT_A_DIFFERENCE, ComparisonNotImplemented,
+from prodigy.distribution.algebraic_comparison import filter_difference_algebraic
+from prodigy.distribution.independent_comparison import (DEPENDENT, NOT_A_DIFFERENCE, ComparisonNotImplemented,
                                                           filter_difference)
 from prodigy.distribution.linear_guards import difference_comparison, normalize_guard
 
@@ -538,9 +539,16 @@ class Distribution(ABC):
             if isinstance(condition, BinopExpr) and len(_variables_of(condition) & self.get_variables()) >= 2:
                 raise ComparisonNotImplemented(str(condition), NOT_A_DIFFERENCE) from error
             raise error
-        filtered = self._from_sympy_expression(filter_difference(
-            self._sympy_expression(), comparison.x, comparison.y, comparison.relation, comparison.shift,
-            str(condition)))
+        function = self._sympy_expression()
+        arguments = (comparison.x, comparison.y, comparison.relation, comparison.shift)
+        try:
+            filtered = self._from_sympy_expression(filter_difference(function, *arguments, str(condition)))
+        except ComparisonNotImplemented as not_independent:
+            if not_independent.reason != DEPENDENT:
+                raise
+            # dependent variables: the residue method, whose result may be algebraic (not rational)
+            filtered = self._from_sympy_expression(filter_difference_algebraic(
+                function, *arguments, self.get_variables(), str(condition)))
         return self - filtered if comparison.complement else filtered
 
     @abstractmethod
