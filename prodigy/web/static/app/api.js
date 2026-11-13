@@ -36,7 +36,7 @@ async function request(method, path, body, { signal } = {}) {
 
 export const api = {
   meta: () => request("GET", "api/meta"),
-  check: (source, syntax, signal) => request("POST", "api/check", { source, syntax }, { signal }),
+  check: (source, syntax, signal, input = {}) => request("POST", "api/check", { source, syntax, ...input }, { signal }),
   convert: (source) => request("POST", "api/convert", { source }),
   analyze: (payload) => request("POST", "api/analyze", payload),
   suggest: (payload) => request("POST", "api/suggest", payload),

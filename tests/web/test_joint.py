@@ -208,7 +208,7 @@ def test_grids_are_pruned_before_analyses():
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
 def test_heatmap_colour_scale(tmp_path):
     """The colour scale of the heatmap (viridis, colour-blind safe): linear from 0 to the largest
-    value, logarithmic by whole decades, no colour for 0 or unknown values."""
+    value, logarithmic with both ends labelled (#307), no colour for 0 or unknown values."""
     module = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components" / "joint-view.js"
     script = tmp_path / "check.mjs"
     script.write_text(
@@ -216,10 +216,10 @@ def test_heatmap_colour_scale(tmp_path):
         "const lin = j.colourScale([0, 0.25, 0.5, null], 'linear');\n"
         "const log = j.colourScale([0.001, 0.1, 0], 'log');\n"
         "console.log(JSON.stringify([lin.t(0.5), lin.t(0.25), lin.t(0), lin.t(null), log.t(0.1), log.t(0.001),"
-        " log.t(0), j.viridis(0), j.viridis(1)]));\n",
+        " log.t(0), j.viridis(0), j.viridis(1), log.ticks[0] === log.min, log.ticks.at(-1) === log.max]));\n",
         encoding="utf-8")
     output = subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60, check=True).stdout
-    assert json.loads(output) == [1, 0.5, None, None, 1, 0, None, "#440154", "#fde725"]
+    assert json.loads(output) == [1, 0.5, None, None, 1, 0, None, "#440154", "#fde725", True, True]
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")

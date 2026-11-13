@@ -104,13 +104,13 @@ request names `step` and `iterate`; a closed form the trace kept only in part ha
 * **Heatmap**: one cell per pair of values, coloured on the viridis scale (perceptually uniform,
   readable with colour-vision deficiencies) by probability; probability 0 is an empty grey cell,
   a value that depends on parameters is hatched. *Linear / Log* switches the colour scale (the same
-  setting as the bar charts; the log scale spans at most 12 decades). Values never depend on colour
+  setting as the bar charts; the log scale spans at most 12 decades and labels both ends). Values never depend on colour
   alone: the line below the heatmap names the selected cell (`x = 1, y = 2: at least 0.0277778
   (1/36); at most 0.031684` for a lower bound), large cells print their value, and the table lists
   all of them. Keyboard: Tab focuses the heatmap, the arrow keys move between cells (↑ is the next
   larger y), Home/End go to the first/last column, Page Up/Page Down to the top/bottom row; the
   pointer selects the cell under it.
-* **3D**: a bar per cell (plain canvas, no library), height and colour by probability. Pointing at
+* **3D**: a bar per cell (plain canvas, no library), height and colour by probability; the view fits the bars, so low bars leave no empty space. Pointing at
   a bar (or at the floor of a cell with probability 0) shows a tooltip with the values of both
   variables and the probability, formatted as in the heatmap's line; the bar gets an outline and the
   line below the view repeats the text. Keyboard: Tab focuses the view and shows the tooltip of the
@@ -497,7 +497,7 @@ in the GUI's strategy pop-up in the section of its `group` (`automatic`, `exact`
 | Endpoint | |
 | --- | --- |
 | `GET /api/meta` | version, engines (`name, label, available, reason, default`; `reason` says why an unavailable engine cannot be used), loop strategies with parameter specs, synthesis strategies and heuristics, limits |
-| `POST /api/check` `{source, syntax}` | diagnostics `{severity, message, line, column, end_line, end_column}` and outline (variables, loops with ids and lines, queries) |
+| `POST /api/check` `{source, syntax}` | diagnostics `{severity, message, line, column, end_line, end_column}` and outline (variables, loops with ids and lines, queries); with `input_distribution` (and `engine`) also `input_distribution: {status: ok | refused | skipped | timeout, message}`, shown at the Setup field (the check runs in a process that is killed after 8 s) |
 | `POST /api/convert` `{source}` | the pGCL program in `.ppy`: `{source, renamings: [{from, to}], messages}`; 422 with `line`/`column` if it is not valid pGCL |
 | `POST /api/analyze` | starts an analysis (`source, syntax, input_distribution, engine, normalize, simplification, decisions, coefficients, record_steps, watches, step_iterations, synthesis_strategy, template_heuristic, positivity_heuristic, solver, time_limit`; the two heuristics only apply to `synthesis_strategy` `from_heuristics`; `record_steps` records the step trace, `watches` (at most 8 queries such as `Pr[x == 3]`, in the program's syntax) are evaluated after every top-level step, `step_iterations` (1–200, default 40) bounds the iterates kept per loop) and returns a job id |
 | `GET /api/jobs/<id>?log_offset=n` | state (`running`, `done`, `timeout`, `cancelled`, `crashed`), new console output, progress per loop, result |

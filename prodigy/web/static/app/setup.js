@@ -409,16 +409,25 @@ function selectRow(label, help, value, choices, onValue) {
   return h("div", { class: "form-row" }, h("label", { for: id }, label), select, help ? h("p", { class: "help" }, help) : null);
 }
 
+/** Shows `message` (empty: none) as the error of the initial-distribution field `input`. The error
+ * paragraph is the one after the field unless given. */
+export function applyInputProblem(input, message, error = input.parentElement?.querySelector(".field-error")) {
+  if (error) error.textContent = message;
+  input.setAttribute("aria-invalid", message ? "true" : "false");
+}
+
 /** Renders the setup panel. ctx: {outline, setup, strategies, meta, source, onChange, focusLoop,
  * suggest(loopId, form, {signal, onProgress}), currentSource()} */
 export function renderSetup(container, ctx) {
   const { outline, setup, meta, onChange } = ctx;
   placeholders = PLACEHOLDERS[ctx.syntax] || PLACEHOLDERS.pgcl;
   const inputId = nextId("input");
-  const input = h("input", { id: inputId, class: "field mono", type: "text", spellcheck: "false", autocomplete: "off",
-    placeholder: "1   (every variable starts at 0)" });
+  const input = h("input", { id: inputId, class: "field mono input-distribution", type: "text", spellcheck: "false",
+    autocomplete: "off", placeholder: "1   (every variable starts at 0)", "aria-describedby": `${inputId}-error ${inputId}-help` });
   input.value = setup.input || "";
-  input.addEventListener("input", () => { setup.input = input.value; onChange(); });
+  const inputError = h("p", { class: "field-error", id: `${inputId}-error`, "aria-live": "polite" });
+  applyInputProblem(input, ctx.inputProblem || "", inputError);
+  input.addEventListener("input", () => { setup.input = input.value; onChange(); ctx.onInputChange?.(); });
 
   const loops = outline?.loops || [];
   const loopCards = loops.map((loop) => loopCard(loop, ctx));
@@ -471,8 +480,8 @@ export function renderSetup(container, ctx) {
   container.replaceChildren(
     h("section", { class: "section", "aria-labelledby": "input-title" },
       h("div", { class: "section-header" }, h("h3", { class: "section-title", id: "input-title" }, "Input")),
-      h("div", { class: "form-row" }, h("label", { for: inputId }, "Initial distribution"), input,
-        h("p", { class: "help" }, ctx.syntax === "ppy"
+      h("div", { class: "form-row" }, h("label", { for: inputId }, "Initial distribution"), input, inputError,
+        h("p", { class: "help", id: `${inputId}-help` }, ctx.syntax === "ppy"
           ? "A generating function over the program variables, e.g. x**3 for x = 3, or (x + x**2)/2."
           : "A generating function over the program variables, e.g. x^3 for x = 3, or (x + x^2)/2."))),
     loopsSection,

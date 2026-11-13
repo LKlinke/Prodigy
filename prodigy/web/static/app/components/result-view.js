@@ -342,7 +342,7 @@ export function renderRunning(container, state, options = {}) {
   // (also while still empty, so that its first line does not move the view either)
   const logBox = h("pre", { class: "rv-pre rv-log rv-running-log", "aria-label": "Console output", tabindex: log ? "0" : null }, log);
   container.replaceChildren(h("div", { class: "result-view" },
-    h("div", { class: "rv-running", "data-bars": String(bars.length) },
+    h("div", { class: "rv-running", "data-bars": String(bars.length), style: `--bars: ${bars.length}` },
       h("div", { class: "rv-running-head" }, h("span", { class: "spinner", "aria-hidden": "true" }),
         h("span", {}, `Analyzing · ${formatSeconds(state.elapsed || 0)}`),
         state.timeLimit ? h("span", { class: "rv-muted" }, `limit ${formatSeconds(state.timeLimit)}`) : null),

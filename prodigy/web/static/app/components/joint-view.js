@@ -49,9 +49,15 @@ export function colourScale(values, scale = "linear", atLeast = 0) {
     const hi = Math.log10(max);
     const lo = Math.max(Math.log10(Math.min(...positive)), hi - LOG_DECADES);
     const t = (p) => (Number.isFinite(p) && p > 0 ? (hi === lo ? 1 : Math.max(0, Math.min(1, (Math.log10(p) - lo) / (hi - lo)))) : null);
-    const ticks = [];
-    for (let k = Math.ceil(lo - 1e-9); k <= Math.floor(hi + 1e-9); k += Math.max(1, Math.ceil((hi - lo) / 4))) ticks.push(10 ** k);
-    return { scale, min: 10 ** lo, max, t, ticks: ticks.length ? ticks : [max] };
+    // both ends are labelled (#307); whole decades between them, as far as they leave room for the
+    // labels (a tick closer than a third of the scale to an end would overlap its label)
+    const span = Math.max(hi - lo, 1e-9);
+    const ticks = [10 ** lo];
+    for (let k = Math.ceil(lo - 1e-9); k <= Math.floor(hi + 1e-9); k += Math.max(1, Math.ceil((hi - lo) / 4))) {
+      if (k - lo > span * 0.35 && hi - k > span * 0.35) ticks.push(10 ** k);
+    }
+    if (hi > lo) ticks.push(max);
+    return { scale, min: 10 ** lo, max, t, ticks };
   }
   const t = (p) => (Number.isFinite(p) && p > 0 && max > 0 ? Math.min(1, p / max) : null);
   return { scale: "linear", min: 0, max, t, ticks: max > 0 ? [0, max / 2, max] : [0] };
@@ -198,7 +204,45 @@ function bars3d(grid, colours, view, readout, width) {
   const cols = grid.x_values.length;
   const rows = grid.y_values.length;
   const cssW = Math.max(280, Math.min(720, Math.round(width)));
-  const cssH = Math.round(cssW * 0.62);
+  // the window is drawn on a square floor of side SIDE, whatever its numbers of rows and columns
+  const SIDE = 10;
+  const heightUnits = SIDE * 0.55;
+  // the tops of the bars, which decide how much room the scene needs above the floor
+  const tops = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const t = colours.t(grid.cells[r][c].p);
+      if (t !== null) tops.push({ c, r, z: Math.max(0.02, t) * heightUnits });
+    }
+  }
+  const projection = (cam, scale, cx, cy) => {
+    const yaw = (cam.yaw * Math.PI) / 180;
+    const pitch = (cam.pitch * Math.PI) / 180;
+    return (gx, gy, z) => {
+      const X = (gx / cols - 0.5) * SIDE;
+      const Y = (gy / rows - 0.5) * SIDE;
+      const u = X * Math.cos(yaw) - Y * Math.sin(yaw);
+      const v = X * Math.sin(yaw) + Y * Math.cos(yaw);
+      return { x: cx + u * scale, y: cy - (z * Math.cos(pitch) + v * Math.sin(pitch)) * scale, depth: v };
+    };
+  };
+  // the box around floor, bars and axis labels at scale 1, for a camera
+  const extent = (cam) => {
+    const project = projection(cam, 1, 0, 0);
+    const points = [
+      project(0, 0, 0), project(cols, 0, 0), project(cols, rows, 0), project(0, rows, 0),
+      // where the axis labels are
+      project(0, -0.2 * rows, 0), project(cols, -0.2 * rows, 0), project(-0.2 * cols, 0, 0), project(-0.2 * cols, rows, 0),
+    ];
+    for (const { c, r, z } of tops) points.push(project(c, r, z), project(c + 1, r, z), project(c, r + 1, z), project(c + 1, r + 1, z));
+    const xs = points.map((p) => p.x);
+    const ys = points.map((p) => p.y);
+    return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+  };
+  const PAD = 12;
+  // the height follows the shape of the scene at the default camera, so that low bars leave no empty space
+  const first = extent(view.camera || DEFAULT_CAMERA);
+  const cssH = Math.max(160, Math.min(Math.round(cssW * 0.75), Math.round(((first.y1 - first.y0) / (first.x1 - first.x0)) * (cssW - 2 * PAD) + 2 * PAD)));
   const canvas = h("canvas", { class: "jv-canvas", width: cssW, height: cssH, style: `width:${cssW}px;height:${cssH}px`,
     "aria-hidden": "true" });
   // the tooltip of the bar under the pointer (or the bar chosen with the keyboard); never the only
@@ -224,22 +268,11 @@ function bars3d(grid, colours, view, readout, width) {
     const text = style.getPropertyValue("--rv-text-2").trim() || "#6E6E73";
     const strong = style.getPropertyValue("--rv-text").trim() || "#1D1D1F";
     const line = style.getPropertyValue("--jv-floor").trim() || "rgba(128,128,128,0.45)";
-    const yaw = (camera.yaw * Math.PI) / 180;
-    const pitch = (camera.pitch * Math.PI) / 180;
-    // the window is drawn on a square floor of side SIDE, whatever its numbers of rows and columns
-    const SIDE = 10;
-    const scale = (camera.zoom * Math.min(cssW, cssH * 1.4)) / (SIDE * 1.75);
-    const heightUnits = SIDE * 0.55;
-    const cx = cssW / 2;
-    const cy = cssH * 0.6;
-    // ground coordinates in cells (gx along x, gy along y), centred on the window; z up
-    const project = (gx, gy, z) => {
-      const X = (gx / cols - 0.5) * SIDE;
-      const Y = (gy / rows - 0.5) * SIDE;
-      const u = X * Math.cos(yaw) - Y * Math.sin(yaw);
-      const v = X * Math.sin(yaw) + Y * Math.cos(yaw);
-      return { x: cx + u * scale, y: cy - (z * Math.cos(pitch) + v * Math.sin(pitch)) * scale, depth: v };
-    };
+    // fit the scene into the canvas; zoom magnifies around its centre
+    const box = extent(camera);
+    const fit = Math.min((cssW - 2 * PAD) / (box.x1 - box.x0), (cssH - 2 * PAD) / (box.y1 - box.y0));
+    const scale = camera.zoom * fit;
+    const project = projection(camera, scale, cssW / 2 - ((box.x0 + box.x1) / 2) * scale, cssH / 2 - ((box.y0 + box.y1) / 2) * scale);
     const polygon = (points, fill, stroke, lineWidth = 1) => {
       ctx.beginPath();
       points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));

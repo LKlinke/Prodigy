@@ -181,6 +181,64 @@ def make_config(request: Dict[str, Any]):
     )
 
 
+def check_input_distribution(source: str, syntax: str, text: str, engine: str = "sympy") -> Dict[str, Any]:
+    """Whether the initial distribution ``text`` is accepted for the program ``source`` (the check
+    :func:`run_analysis` makes after the job started, #307): ``{"status": "ok"}``,
+    ``{"status": "refused", "message": ..., "proof": ...}`` or ``{"status": "skipped"}`` if the
+    program does not parse (its diagnostics say why) or the engine is not available."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.input_distribution import InputDistributionError, input_distribution_from_text
+    from prodigy.pgcl import parse_pgcl
+    try:
+        program = parse_pgcl(source, syntax)
+        config = make_config({"engine": engine})
+        with config.activate():
+            input_distribution_from_text(config, text.strip().replace("**", "^"), program, syntax)
+    except InputDistributionError as exc:
+        return {"status": "refused", "message": str(exc), "proof": exc.details.get("proof")}
+    except Exception:  # pylint: disable=broad-except
+        return {"status": "skipped"}
+    return {"status": "ok"}
+
+
+INPUT_CHECK_SECONDS = 8.0
+"""How long /api/check waits for the check of an initial distribution before it gives up."""
+_INPUT_CHECK_CONTEXT = "spawn"  # tests use "fork", which carries their fakes into the process
+
+
+def _input_check_worker(connection, source: str, syntax: str, text: str, engine: str) -> None:
+    try:
+        connection.send(check_input_distribution(source, syntax, text, engine))
+    finally:
+        connection.close()
+
+
+def check_input_distribution_bounded(source: str, syntax: str, text: str, engine: str = "sympy",
+                                     timeout: Optional[float] = None) -> Dict[str, Any]:
+    """:func:`check_input_distribution` in a process of its own that is killed after ``timeout``
+    seconds (:data:`INPUT_CHECK_SECONDS`), so that a hard input never blocks the server (the exact
+    positivity checks of SymPy cannot be interrupted). Then ``{"status": "timeout"}``: the check is
+    made when the analysis runs."""
+    # pylint: disable=import-outside-toplevel
+    import multiprocessing
+    context: Any = multiprocessing.get_context(_INPUT_CHECK_CONTEXT)
+    receiver, sender = context.Pipe(duplex=False)
+    process = context.Process(target=_input_check_worker, args=(sender, source, syntax, text, engine), daemon=True)
+    process.start()
+    sender.close()
+    try:
+        if receiver.poll(INPUT_CHECK_SECONDS if timeout is None else timeout):
+            return receiver.recv()
+        return {"status": "timeout"}
+    except (EOFError, OSError):
+        return {"status": "skipped"}
+    finally:
+        receiver.close()
+        if process.is_alive():
+            process.kill()
+        process.join(1)
+
+
 def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], None]] = None,
                  progress: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
     """Runs one analysis request and returns the JSON result (never raises for analysis errors)."""

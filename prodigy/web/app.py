@@ -6,7 +6,9 @@ A small Flask application: one page (``templates/app.html`` with the ES modules 
 
 ================================  ==================================================================
 ``GET  /api/meta``                version, engines, loop strategies with their parameters
-``POST /api/check``               diagnostics (syntax/type errors with positions) and outline
+``POST /api/check``               diagnostics (syntax/type errors with positions) and outline;
+                                  with ``input_distribution`` also whether that initial
+                                  distribution is accepted
 ``POST /api/convert``             a pGCL program in the ``.ppy`` syntax, with the renamed names
 ``POST /api/analyze``             starts an analysis in its own process, returns a job id
 ``GET  /api/jobs/<id>``           state, new console output, progress, result when done
@@ -40,9 +42,11 @@ from flask import Flask, abort, jsonify, render_template, request
 
 from prodigy.web.examples import ConversionError, ExampleLibrary, convert, default_examples_dir
 from prodigy.web.jobs import BusyError, JobManager
-from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, joint_request, request_syntax,
-                                  validate_request, validate_suggestion)
+from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, check_input_distribution_bounded, joint_request,
+                                  request_syntax, validate_request, validate_suggestion)
 
+# Longest initial distribution that /api/check examines (longer ones are checked by the analysis).
+MAX_INPUT_DISTRIBUTION = 500
 _LOOPBACK = {"localhost", "127.0.0.1", "::1", "[::1]"}
 
 
@@ -152,7 +156,13 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
             syntax = request_syntax(payload)
         except ValueError as exc:
             abort(400, description=str(exc))
-        return jsonify({**check_source(source, syntax), "syntax": syntax})
+        result = {**check_source(source, syntax), "syntax": syntax}
+        text = payload.get("input_distribution")
+        if isinstance(text, str) and text.strip() and len(text) <= MAX_INPUT_DISTRIBUTION:
+            engine = payload.get("engine")
+            result["input_distribution"] = check_input_distribution_bounded(
+                source, syntax, text, engine if isinstance(engine, str) else "sympy")
+        return jsonify(result)
 
     @app.post("/api/convert")
     def convert_program():
