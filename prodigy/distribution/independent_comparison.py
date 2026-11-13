@@ -1,5 +1,6 @@
 """
-Exact filters `x < y + c` and `x = y + c` for two variables that are independent given the others.
+Exact filters `x < y + c` and `x = y + c` for generating functions that are a product of a rational
+function in x and a rational function in y, e.g. for independent x and y.
 
 Rational generating functions are not closed under the filter `x < y` in general: for the rational
 F = (1/2) / (1 - x/4 - y/4) the part with x < y is algebraic but not rational (Prodigy#243). The
@@ -8,7 +9,8 @@ filter is rational, however, if F is a product
     F(x, y, r) = A(x, r) * B(y, r)
 
 of a function rational in x and a function rational in y, where r stands for the other variables
-and the parameters (x and y are independent given r). The coefficients a_i, b_j of A and B are then
+and the parameters, which are coefficients here (e.g. for independent x and y, or after `u := x`
+and `v := y` with independent x and y, for u and v given x and y). The coefficients a_i, b_j of A and B are then
 rational functions in r, and the filtered parts are, with i the exponent of x and j that of y,
 
     sum_{j - i >= s} a_i b_j x^i y^j    and    sum_{j - i = s} a_i b_j x^i y^j    (s >= 0).
@@ -56,8 +58,9 @@ class ComparisonNotImplemented(NotImplementedError):
 
 
 NOT_RATIONAL = "the generating function is not rational in the compared variables"
-DEPENDENT = ("the compared variables both have infinite support and are dependent (the generating function is "
-             "not a product of a function of one and a function of the other)")
+DEPENDENT = ("the compared variables both have infinite support and are not independent: the generating "
+             "function is not a product of a rational function of one of them and a rational function of the "
+             "other (with the other variables as coefficients)")
 NOT_A_DIFFERENCE = ("on infinite generating functions only comparisons of two variables of the form "
                     "x < y + c, x <= y + c, x = y + c, x > y + c and x >= y + c are implemented")
 

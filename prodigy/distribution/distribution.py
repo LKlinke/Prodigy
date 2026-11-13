@@ -165,6 +165,11 @@ def _replace_term(expression: Expr, term: Expr, replacement: Expr) -> Expr:
     return expression
 
 
+def _variables_of(expression: Expr) -> Set[str]:
+    """The names of the variables in `expression`."""
+    return {node.val.var for node in walk_expr(Walk.DOWN, Mut.alloc(expression)) if isinstance(node.val, VarExpr)}
+
+
 class NonFiniteMarginalError(ArithmeticError):
     """
     A marginal that a computation needs as a distribution over finitely or infinitely many states is
@@ -369,8 +374,7 @@ class Distribution(ABC):
         but dependent given another variable, as after `z := x - y`). Raises `error` if the marginal has
         all variables of this distribution or is not a finite measure.
         """
-        names = {node.val.var for node in walk_expr(Walk.DOWN, Mut.alloc(expression))
-                 if isinstance(node.val, VarExpr)} & self.get_variables()
+        names = _variables_of(expression) & self.get_variables()
         if not names or names == self.get_variables():
             raise error
         try:
@@ -531,8 +535,7 @@ class Distribution(ABC):
         if isinstance(comparison, BoolLitExpr):
             return self.filter(comparison)
         if comparison is None:
-            if isinstance(condition, BinopExpr) and len(self._find_symbols(str(condition))
-                                                        & self.get_variables()) >= 2:
+            if isinstance(condition, BinopExpr) and len(_variables_of(condition) & self.get_variables()) >= 2:
                 raise ComparisonNotImplemented(str(condition), NOT_A_DIFFERENCE) from error
             raise error
         filtered = self._from_sympy_expression(filter_difference(
