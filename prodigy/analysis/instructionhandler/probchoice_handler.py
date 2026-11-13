@@ -9,6 +9,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+from prodigy.analysis.instructionhandler.counter_operators import apply_operator, counter_probability
 from prodigy.analysis.instructionhandler.state_dependent import (checked_probability, instantiate,
                                                                  split_states, state_variables)
 from prodigy.distribution import Distribution
@@ -49,13 +50,20 @@ class PChoiceHandler(InstructionHandler):
             return lhs_block * str(
                 instruction.prob) + rhs_block * f"1-({instruction.prob})", new_prob
 
-        logger.info("Splitting the states for the probability %s", instruction.prob)
-        left = distribution * "0"
-        for part in split_states(distribution, variables, construct):
-            probability = instantiate(instruction.prob, part.state)
-            checked_probability(probability, construct, part)
-            left += part.distribution * str(probability)
-        right = distribution - left
+        operator = counter_probability(instruction.prob, variables)
+        if operator is not None and not distribution.is_zero_dist() \
+                and distribution.finite_support(operator.variable) is None:
+            # infinitely many values of the counter: the probability acts as an operator (#323)
+            logger.info("Applying the probability %s as an operator in %s", instruction.prob, operator.variable)
+            left, right = apply_operator(operator, distribution, construct)
+        else:
+            logger.info("Splitting the states for the probability %s", instruction.prob)
+            left = distribution * "0"
+            for part in split_states(distribution, variables, construct):
+                probability = instantiate(instruction.prob, part.state)
+                checked_probability(probability, construct, part)
+                left += part.distribution * str(probability)
+            right = distribution - left
         zero = error_prob * "0"
         lhs_block, lhs_error_prob = analyzer(instruction.lhs, prog_info, left, zero, config)
         rhs_block, rhs_error_prob = analyzer(instruction.rhs, prog_info, right, zero, config)

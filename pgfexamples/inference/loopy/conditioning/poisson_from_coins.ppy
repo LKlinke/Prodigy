@@ -19,6 +19,8 @@
 # exactly. An exact proof of exp((k - 1)/2) is not possible with the current strategies: the inner
 # loop maps Σ c_k k^k to Σ c_k (1/k) (w k)^k + …, an integral of the generating function, which no
 # rational or closed-form invariant of the inner loop expresses; the sandwich strategy does not support nested loops.
+# poisson_from_coins_choice.ppy replaces the record test by a choice with probability 1/(k + 1); Prodigy applies it
+# as an integral operator and proves exp((k - 1)/2) exactly.
 
 k: nat = 0;  # the number of values so far; the result
 ok: nat = 1;  # all values so far are sorted

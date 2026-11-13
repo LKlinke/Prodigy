@@ -3,7 +3,8 @@ Probabilities and distribution arguments that depend on program variables (issue
 ``{ok = 1;} [1/k] {ok = 0;}`` or ``x = bernoulli(1/k)``. They are computed exactly by a case split
 over the values of the variables if these take finitely many values; a value that is not a
 probability (or not an admissible argument) in a state with positive probability is an error, and
-infinitely many values are "not implemented". The expected generating functions are computed by
+infinitely many values are "not implemented" (except for choices with a probability α + β/(k + a), which act
+as operators, #323; see ``tests/analysis/test_counter_operators.py``). The expected generating functions are computed by
 hand, state by state.
 """
 import re
@@ -134,8 +135,9 @@ def test_values_that_are_not_probabilities_are_rejected(engine, source, message)
 
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("source", [
-    pytest.param("k: nat = geometric(1/2);\nx: nat = 0;\n{x = 1;} [1/(k+1)] {x = 2;}", id="choice"),
-    pytest.param("k: nat = geometric(1/2);\nx: nat = bernoulli(1/(k+1));", id="bernoulli"),
+    # not of the form α + β/(k + a) (#323)
+    pytest.param("k: nat = geometric(1/2);\nx: nat = 0;\n{x = 1;} [1/(k*k+1)] {x = 2;}", id="choice"),
+    pytest.param("k: nat = geometric(1/2);\nx: nat = bernoulli(1/(k*k+1));", id="bernoulli"),
 ])
 def test_infinitely_many_values_are_not_implemented(engine, source):
     with pytest.raises(NotImplementedError, match="infinitely many values"):

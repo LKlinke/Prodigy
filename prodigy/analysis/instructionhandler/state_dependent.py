@@ -8,7 +8,9 @@ an instruction by a case split over the states: if the program variables in ``p`
 finitely many values, the distribution is split into the parts in which they have fixed values,
 ``p`` is evaluated in each part, and the parts are combined again. The split is exact. If the
 variables take infinitely many values, the instruction is not computed (``NotImplementedError``);
-multiplying the generating function by ``p`` as if it were a constant would be wrong.
+multiplying the generating function by ``p`` as if it were a constant would be wrong. The exception are choice
+probabilities ``α + β/(k + a)`` in one counter k, which act as operators on the generating function
+(:mod:`~prodigy.analysis.instructionhandler.counter_operators`, #323).
 """
 from __future__ import annotations
 
