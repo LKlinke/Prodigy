@@ -137,7 +137,7 @@ def check_equivalence(
         for dist_sol, err_sol in itertools.product(dist_candidates, err_candidates):
             to_be_solved = []
             for var, constr in dist_sol.items() | err_sol.items():
-                to_be_solved.append(sympy.S(f'({var}) - ({constr})'))
+                to_be_solved.append(var - constr)
             logger.debug("Solving the equation system: %s", to_be_solved)
             res_both += sympy.solve(
                 to_be_solved, dict=True) if len(to_be_solved) > 1 else sympy.solve(

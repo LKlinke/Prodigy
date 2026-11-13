@@ -1003,7 +1003,7 @@ class SymengineDist(Distribution):
                 continue
             logger.info("Falling back to sympy")
             sympy_func: sp.Expr = sp.S(fun)
-            sympy_var, sympy_value = sp.S(variable), sp.S(value)
+            sympy_var, sympy_value = sp.Symbol(str(variable)), sympify_engine_string(str(value), ())
             if sympy_func.is_rational_function(sympy_var):
                 fun = _parse_to_symengine(sympy_func.cancel().subs(sympy_var, sympy_value))
             else:
@@ -1043,7 +1043,7 @@ class SymengineDist(Distribution):
         logger.info("Falling back to sympy")
         sympy_f: sp.Expr = sp.S(self._s_func)
         # todo remove with symengine method
-        for element in sympy_f.series(sp.S(var), n=None):
+        for element in sympy_f.series(sp.Symbol(str(var)), n=None):
             result += element
             mass_res += self.safe_subs(*[(sym, 1)
                                          for sym in element.free_symbols], fun=element)
