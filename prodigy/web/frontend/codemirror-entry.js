@@ -26,7 +26,7 @@ const ATOMS = new Set(["true", "false"]);
 
 export const PGCL_WORDS = { keywords: [...KEYWORDS], types: [...TYPES], builtins: [...BUILTINS] };
 
-/** pGCL as accepted by the parser in prodigy/pgcl (comments: # and //, queries ?Pr ?Ex ?Opt !Print !Plot). */
+/** pGCL as accepted by the parser in prodigy/pgcl (comments: # and //, queries ?Pr ?Ex ?Var ?Cov ?Opt !Print !Plot). */
 export const pgcl = StreamLanguage.define({
   name: "pgcl",
   startState: () => ({ afterType: false }),
@@ -36,7 +36,7 @@ export const pgcl = StreamLanguage.define({
       stream.skipToEnd();
       return "comment";
     }
-    if (stream.match(/^\?(?:Pr|Ex|Opt)\b/) || stream.match(/^!(?:Print|Plot)\b/)) return "meta";
+    if (stream.match(/^\?(?:Pr|Ex|Var|Cov|Opt)\b/) || stream.match(/^!(?:Print|Plot)\b/)) return "meta";
     if (stream.match(/^\\infty/) || stream.match("∞")) return "atom";
     if (stream.match(/^\d+\.\d*(?:[eE][+-]?\d+)?/) || stream.match(/^\.\d+/) || stream.match(/^\d+/)) {
       return "number";
@@ -93,7 +93,7 @@ export const ppy = StreamLanguage.define({
     }
     const start = state.statementStart;
     state.statementStart = false;
-    if (state.afterQuery && stream.match(/^(?:Pr|Ex)\b/)) { state.afterQuery = false; return "meta"; }
+    if (state.afterQuery && stream.match(/^(?:Pr|Ex|Var|Cov)\b/)) { state.afterQuery = false; return "meta"; }
     state.afterQuery = false;
     if (stream.match(/^\\infty/) || stream.match("∞")) return "atom";
     if (stream.match(/^\d+\.\d*(?:[eE][+-]?\d+)?/) || stream.match(/^\.\d+/) || stream.match(/^\d+/)) {
