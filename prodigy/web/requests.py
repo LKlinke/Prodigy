@@ -181,6 +181,26 @@ def make_config(request: Dict[str, Any]):
     )
 
 
+def check_input_distribution(source: str, syntax: str, text: str, engine: str = "sympy") -> Dict[str, Any]:
+    """Whether the initial distribution ``text`` is accepted for the program ``source`` (the check
+    :func:`run_analysis` makes after the job started, #307): ``{"status": "ok"}``,
+    ``{"status": "refused", "message": ..., "proof": ...}`` or ``{"status": "skipped"}`` if the
+    program does not parse (its diagnostics say why) or the engine is not available."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.input_distribution import InputDistributionError, input_distribution_from_text
+    from prodigy.pgcl import parse_pgcl
+    try:
+        program = parse_pgcl(source, syntax)
+        config = make_config({"engine": engine})
+        with config.activate():
+            input_distribution_from_text(config, text.strip().replace("**", "^"), program, syntax)
+    except InputDistributionError as exc:
+        return {"status": "refused", "message": str(exc), "proof": exc.details.get("proof")}
+    except Exception:  # pylint: disable=broad-except
+        return {"status": "skipped"}
+    return {"status": "ok"}
+
+
 def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], None]] = None,
                  progress: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
     """Runs one analysis request and returns the JSON result (never raises for analysis errors)."""

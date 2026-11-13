@@ -68,6 +68,21 @@ def test_check_reports_syntax_errors_with_position(client):
     assert result["outline"] is None
 
 
+def test_check_examines_the_input_distribution(client):
+    """The Setup field shows a refused initial distribution before the job starts (#307)."""
+    def check(text, source="nat x;\nx := 1;\n"):
+        body = {"source": source, "input_distribution": text}
+        return client.post("/api/check", json=body, headers=HOST).get_json().get("input_distribution")
+    assert check("x**3") == {"status": "ok"}
+    negative = check("1 - x")
+    assert negative["status"] == "refused" and "is negative" in negative["message"] and negative["proof"] == "refuted"
+    assert check("1 / (1 - x)")["status"] == "refused"          # infinite mass
+    assert check("x +")["status"] == "refused"                    # not an expression
+    assert check("x", source="nat x;\nx := ")["status"] == "skipped"  # the program does not parse
+    assert "input_distribution" not in client.post(
+        "/api/check", json={"source": "nat x;\nx := 1;\n", "input_distribution": "  "}, headers=HOST).get_json()
+
+
 def test_check_outline_and_type_warnings(client):
     result = client.post("/api/check", json={"source": "nat x;\ny := 2\n" + GEOMETRIC.split("\n", 1)[1]},
                          headers=HOST).get_json()

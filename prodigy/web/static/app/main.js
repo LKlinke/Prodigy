@@ -3,7 +3,7 @@ import { api } from "./api.js";
 import { canWriteFiles, createDocument } from "./document.js";
 import { createEditor, SYNTAXES } from "./editor.js";
 import { createLibrary } from "./library.js";
-import { defaultDecision, focusLoopCard, renderSetup, setupProblems, swapInvariants } from "./setup.js";
+import { applyInputProblem, defaultDecision, focusLoopCard, renderSetup, setupProblems, swapInvariants } from "./setup.js";
 import { changeSince } from "./staleness.js";
 import { load, save } from "./store.js";
 import { h, icon } from "./components/dom.js";
@@ -160,8 +160,9 @@ async function runCheck() {
   checkController?.abort();
   checkController = new AbortController();
   try {
-    const result = await api.check(source, syntax, checkController.signal);
+    const result = await api.check(source, syntax, checkController.signal, inputToCheck());
     if (source !== editor.getSource() || syntax !== editor.getSyntax()) return;
+    showInputProblem(result);
     state.diagnostics = result.diagnostics;
     editor.setDiagnostics(result.diagnostics);
     renderProblems();
@@ -177,6 +178,41 @@ async function runCheck() {
     state.diagnostics = [];
     renderProblems(error.message);
   }
+}
+
+/** The initial distribution the server should check along with the program ({} if none). */
+function inputToCheck() {
+  const text = (state.setup.input || "").trim();
+  return text ? { input_distribution: text, engine: state.setup.options.engine } : {};
+}
+
+/** Shows at the Setup field whether the server refused the initial distribution (#307), without
+ * re-rendering the panel (the person is typing in it). */
+function showInputProblem(result) {
+  const check = result?.input_distribution;
+  state.inputProblem = check?.status === "refused" ? check.message : "";
+  const field = $("panel-setup").querySelector(".input-distribution");
+  if (field) applyInputProblem(field, state.inputProblem);
+}
+
+/** An input-distribution check of its own: the program is cached on the server, so typing in the
+ * field does not re-parse it, and the outline and diagnostics stay as they are. */
+let inputCheckTimer = null;
+let inputController = null;
+function scheduleInputCheck() {
+  clearTimeout(inputCheckTimer);
+  inputController?.abort();
+  if (!(state.setup.input || "").trim()) { showInputProblem(null); return; }
+  inputCheckTimer = setTimeout(async () => {
+    inputController = new AbortController();
+    const source = editor.getSource();
+    try {
+      const result = await api.check(source, editor.getSyntax(), inputController.signal, inputToCheck());
+      if (source === editor.getSource()) showInputProblem(result);
+    } catch (error) {
+      if (error.name !== "AbortError") showInputProblem(null);
+    }
+  }, 500);
 }
 
 function renderProblems(failure = null) {
@@ -230,6 +266,8 @@ function renderSetupPanel() {
     outlineStale: Boolean(state.outlineStale && state.outline),
     optionsOpen: state.optionsOpen,
     onOptionsToggle: (open) => { state.optionsOpen = open; },
+    inputProblem: state.inputProblem || "",
+    onInputChange: scheduleInputCheck,
     onChange: () => {
       save("setup", state.setup);
       refreshStale();
@@ -261,6 +299,7 @@ function renderEngine() {
 function engineChanged() {
   state.setup.options.engine = $("engine-select").value;
   save("setup", state.setup);
+  scheduleInputCheck();
   refreshStale();
   updateAnnotations();
 }
