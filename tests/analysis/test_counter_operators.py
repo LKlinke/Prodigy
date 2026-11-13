@@ -320,15 +320,12 @@ def test_yule_simon_urn_gets_an_upper_bound(engine):
     assert certificate["series_identity"] == "converges on the open unit polydisc"
     for query, value in zip(result["queries"][:3], ["1/2", "1/6", "1/12"]):
         assert query["bound"] == Bound.UPPER and _equal(query["upper"], value)
-    # Ex[red] = ∞ is a valid (trivial) upper bound, not an undefined value, and fails nothing; GiNaC cannot evaluate
-    # the derivative at red = 1 (log(0)), so there the query alone is not computed
+    # Ex[red] = ∞ is a valid (trivial) upper bound on every engine (#371): GiNaC hits log(0) when it substitutes
+    # red = 1 and falls back on the limit from below, like at a pole
     assert result["status"] == "ok", result["error"]
     expectation = result["queries"][3]
     assert expectation["kind"] == "expectation"
-    if engine == ForwardAnalysisConfig.Engine.GINAC:
-        assert expectation["bound"] == Bound.UNKNOWN and "log(0)" in expectation["note"]
-    else:
-        assert expectation["bound"] == Bound.UPPER and expectation["upper"] == "\\infty"
+    assert expectation["bound"] == Bound.UPPER and expectation["upper"] == "\\infty"
     assert result["bounds"]["kind"] == Bound.UPPER
     assert result["distribution"] is not None and result["distribution"]["closed_form"]
     assert not any("Undefined" in warning for warning in result["warnings"])
@@ -369,3 +366,13 @@ def test_independent_factors():
     assert decide_equal(sympy.Mul(*factors), sympy.exp(k / 2) * ok * 3 / (2 - j)) is True
     assert independent_factors(sympy.exp(k / 2) / (2 - k), ["k"]) is None
     assert independent_factors(sympy.exp(k / 2) + 1 / (2 - j), ["k", "j"]) is None
+
+
+@pytest.mark.parametrize("name", ["pow", "S", "I", "pi", "E"])
+def test_evt_modules_parse_strings_with_protected_names(name):
+    """String inputs with variables named like builtins or constants stay symbols (#373)."""
+    finite, mass = log_form_mass(f"{name}/3 + log(1 - {name}/2)", [name])
+    assert finite is True and mass is not None
+    assert decide_equal(sympy.S(mass), sympy.Rational(1, 3) + sympy.log(sympy.Rational(1, 2))) is True
+    assert entire_exp_polynomial(f"exp({name}/2)*{name}", [name]) is True
+    assert exp_polynomial_nonneg(f"exp({name}/2)*{name}", [name]) is not False

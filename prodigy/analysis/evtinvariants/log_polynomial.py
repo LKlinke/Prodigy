@@ -33,6 +33,7 @@ from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 import sympy
 
 from prodigy.analysis.evtinvariants.exp_polynomial import eventually_nonneg
+from prodigy.distribution.equality import sympify_symbolic_string
 
 Laurent = Dict[int, Fraction]
 """A Laurent polynomial in k: ``{j: q_j}`` stands for ``Σ q_j k^j``."""
@@ -49,7 +50,7 @@ class LogForm(NamedTuple):
 def log_form(expr: sympy.Expr, variables: Sequence[str]) -> Optional[LogForm]:
     """``expr`` as ``P + Q·log(1 - c·k)`` (module docstring), or None if it has another form, contains parameters or
     is no power series (a negative power of k does not cancel)."""
-    expr = sympy.S(expr)
+    expr = sympify_symbolic_string(expr)
     names = set(variables)
     if any(s.name not in names for s in expr.free_symbols):
         return None
@@ -156,7 +157,7 @@ def log_form_mass(expr: sympy.Expr, variables: Sequence[str]) -> Optional[Tuple[
             for j, value in laurent.items():
                 target[j + sum(monomial)] += value  # the diagonal t = k = w
     if form.rate < 1:
-        value = sympy.S(expr).subs({s: 1 for s in sympy.S(expr).free_symbols})
+        value = sympify_symbolic_string(expr).subs({s: 1 for s in sympify_symbolic_string(expr).free_symbols})
         return True, value
     if sum(log_total.values()) != 0:
         return False, None

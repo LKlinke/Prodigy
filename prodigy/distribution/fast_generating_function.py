@@ -26,6 +26,11 @@ def _is_division_by_zero(error: ValueError) -> bool:
     return "division by zero" in str(error)
 
 
+def _is_singular_at_one(error: ValueError) -> bool:
+    """Whether the bindings failed to evaluate a moment at 1 because of a pole or a logarithmic singularity (#371)."""
+    return _is_division_by_zero(error) or "log(0)" in str(error)
+
+
 class FPS(Distribution):
     """
     This class models a probability distribution in terms of a formal power series.
@@ -197,9 +202,10 @@ class FPS(Distribution):
         try:
             return self._dist.E(text)
         except ValueError as error:
-            if not _is_division_by_zero(error):
+            if not _is_singular_at_one(error):
                 raise
-        # The bindings evaluate the moments at 1 and fail at a pole, e.g. an infinite expected value (#227).
+        # The bindings evaluate the moments at 1 and fail at a pole (#227) or at log(0) for a logarithmic
+        # generating function (#371), e.g. an infinite expected value.
         # The SymPy engine computes the limit from below, which is the value of the series (Abel's theorem).
         # The other symbols of the function are its parameters.
         sympy_engine = GeneratingFunction(str(self._dist), *self._variables)

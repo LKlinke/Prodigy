@@ -228,9 +228,9 @@ def _floor_division_type(
         program: Program, expr: BinopExpr, check: bool,
         predefined_functions: Mapping[Var, List[VarDecl]]) -> Union[Type, CheckFail]:
     """
-    ``e // q`` rounds down for natural ``e`` and ``q``. A literal divisor 0 is rejected (the division is
-    undefined); a divisor that is not a literal is accepted here, and the analysis decides what it can compute
-    (syntax and semantics are separate, #356).
+    ``e // q`` rounds down a quotient of numbers; the result is natural. A literal divisor 0 is rejected (the
+    division is undefined); any other divisor and a real dividend or divisor are accepted here, and the analysis
+    decides what it can compute (syntax and semantics are separate, #356, #372).
     """
     divisor = expr.rhs
     if isinstance(divisor, NatLitExpr) and divisor.value < 1:
@@ -238,17 +238,12 @@ def _floor_division_type(
     divisor_type = get_type(program, divisor, check, predefined_functions)
     if isinstance(divisor_type, CheckFail):
         return divisor_type
-    if not isinstance(divisor_type, (NatType, BoolType)):
-        return CheckFail(
-            expr,
-            f"Floor division 'e // q' is only implemented for a natural number q, got {divisor_type}.")
     typ = get_type(program, expr.lhs, check, predefined_functions)
     if isinstance(typ, CheckFail):
         return typ
-    if not isinstance(typ, (NatType, BoolType)):
-        return CheckFail(
-            expr,
-            f"Floor division 'e // q' is only implemented for a natural number e, got {typ}.")
+    for operand, operand_type in ((divisor, divisor_type), (expr.lhs, typ)):
+        if not isinstance(operand_type, (NatType, BoolType, RealType)):
+            return CheckFail(operand, f"Floor division '//' expects numbers, got {operand_type}.")
     return NatType(bounds=None)
 
 
