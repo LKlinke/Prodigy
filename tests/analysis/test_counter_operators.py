@@ -3,6 +3,7 @@ Probabilities rational in a counter, applied as operators on the generating func
 are exponential polynomials (#323); see :mod:`prodigy.analysis.instructionhandler.counter_operators` and
 :mod:`prodigy.analysis.evtinvariants.exp_polynomial`.
 """
+from fractions import Fraction
 from pathlib import Path
 
 import pytest
@@ -122,8 +123,18 @@ query Ex[k * x];
 """
 
 
+LOOP_FREE_TWO_POLES = """k: nat = poisson(1);
+x: nat = 0;
+{x = 1;} [2/((k + 1)*(k + 2))] {x = 2;}
+query Pr[x == 1];
+query Pr[k == 0 and x == 1];
+"""
+
+
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("source, expected", [
+    # Pr[x = 1] = Σ_n e^(-1)/n! · 2/((n + 1)(n + 2)) = 2/e · Σ_n 1/(n + 2)! = 2 - 4/e
+    pytest.param(LOOP_FREE_TWO_POLES, [2 - 4 * sympy.exp(-1), sympy.exp(-1)], id="two-poles"),
     # Pr[x = 1] = Σ_(n≥1) e^(-1)/n! · 1/(n + 1) = 1 - 2/e
     pytest.param(LOOP_FREE, [sympy.exp(-1), 1 - 2 * sympy.exp(-1), sympy.exp(-1)], id="1/(k+1)"),
     # Ex[k·x] = Σ_n e^(-1)/n! · n · (2 - 1/(n + 2)) = 1 + 2/e
@@ -162,25 +173,28 @@ def test_integrand_without_certified_antiderivative_is_not_implemented(engine):
 
 # --- units ----------------------------------------------------------------------------------------------------
 
+def _pr(alpha, *poles):
+    return CounterProbability("k", Fraction(alpha), tuple((Fraction(beta), shift) for beta, shift in poles))
+
+
 @pytest.mark.parametrize("probability, expected", [
-    ("1/(k + 1)", CounterProbability("k", 0, 1, 1)),
-    ("k/(k + 1)", CounterProbability("k", 1, -1, 1)),
-    ("1 - 1/(k + 1)", CounterProbability("k", 1, -1, 1)),
-    ("1/(2*k + 2) + 1/2", CounterProbability("k", sympy.Rational(1, 2), sympy.Rational(1, 2), 1)),
-    ("1/(k + 3)", CounterProbability("k", 0, 1, 3)),
+    ("1/(k + 1)", _pr(0, (1, 1))),
+    ("k/(k + 1)", _pr(1, (-1, 1))),
+    ("1 - 1/(k + 1)", _pr(1, (-1, 1))),
+    ("1/(2*k + 2) + 1/2", _pr("1/2", ("1/2", 1))),
+    ("1/(k + 3)", _pr(0, (1, 3))),
+    ("2/((k + 1)*(k + 2))", _pr(0, (2, 1), (-2, 2))),  # two poles
     ("2/(k + 1)", None),  # 2 at k = 0
+    ("3/((k + 1)*(k + 2))", None),  # 3/2 at k = 0
+    ("(k + 3)/((k + 1)*(k + 2))", None),  # 3/2 at k = 0
     ("1/k", None),  # undefined at k = 0
     ("1/(k - 1 + 2)", None),  # k - 1 is a monus for k = 0
-    ("1/(k*k + 1)", None),
+    ("1/(k*k + 1)", None),  # complex poles
+    ("1/((k + 1)*(k + 1))", None),  # a double pole
     ("1/(k + 1/2)", None),
 ])
 def test_counter_probability_shapes(probability, expected):
-    result = counter_probability(parse_expr(probability), {"k"})
-    if expected is None:
-        assert result is None
-    else:
-        assert result == CounterProbability(expected.variable, *(sympy.Rational(v) for v in expected[1:3]),
-                                            expected.shift)
+    assert counter_probability(parse_expr(probability), {"k"}) == expected
 
 
 def test_counter_probability_needs_one_variable():

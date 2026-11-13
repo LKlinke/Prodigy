@@ -8,11 +8,14 @@ weighting has a closed form: weighting the coefficient ``g_n`` of ``k^n`` with `
 with the Euler operator ``θ = k·∂/∂k`` (``θ k^n = n k^n``). The forward semantics is
 ``⟦A⟧(p(θ) G) + ⟦B⟧((1 - p)(θ) G)``.
 
-This module covers the probabilities ``p(k) = α + β/(k + a)`` with rational constants α, β and a natural
-number ``a ≥ 1`` (e.g. ``1/(k + 1)``, ``k/(k + 1) = 1 - 1/(k + 1)``, ``1/2 + 1/(2k + 2)``). They are probabilities
-for every value of k iff ``p(0)`` and ``α = lim p(n)`` are in [0, 1], because p is monotone in n. Then
+This module covers the probabilities rational in k with rational coefficients whose partial fractions are
+``p(k) = α + Σ_i β_i/(k + a_i)`` with distinct natural numbers ``a_i ≥ 1`` (simple poles at negative integers),
+e.g. ``1/(k + 1)``, ``k/(k + 1) = 1 - 1/(k + 1)``, ``1/2 + 1/(2k + 2)`` or ``2/((k + 1)(k + 2))``. Whether p is a
+probability for every value of k is decided exactly: with p = N/D and D > 0 on the naturals, ``N ≥ 0`` and
+``D - N ≥ 0`` on all naturals is checked directly up to Cauchy's root bound and by the leading coefficient beyond
+(:func:`prodigy.analysis.evtinvariants.exp_polynomial.eventually_nonneg`). Then
 
-    p(θ) G = α·G + β·H   with   H = k^(-a) ∫_0^k t^(a-1) G(t) dt,
+    p(θ) G = α·G + Σ_i β_i·H_(a_i)   with   H_a = k^(-a) ∫_0^k t^(a-1) G(t) dt,
 
 since ``∫_0^k t^(n+a-1) dt = k^(n+a)/(n+a)``. For ``1/(k + 1)`` followed by ``k := k + 1`` this is just
 ``∫_0^k G``. The integral is proposed by a formula for exponential polynomials in k, otherwise by SymPy's
@@ -21,31 +24,31 @@ by differentiation and evaluation at 0, so no symbolic integration has to be tru
 loop is checked with the same operator: the check needs the integral of an exponential polynomial only, whose
 formula needs no integration. The computation works on the
 SymPy form of the distribution and gives the result back to the distribution's engine, so it is the same on all
-engines. Anything else (another shape of p, an integrand that is no exponential polynomial) is not implemented.
+engines. Anything else (another shape of p, e.g. a polynomial or a double pole, or an integral that is not certified) is
+not implemented.
 """
 from __future__ import annotations
 
 from fractions import Fraction
-from typing import NamedTuple, Optional, Set
+from typing import NamedTuple, Optional, Set, Tuple
 
 import sympy
 
 from prodigy.pgcl import Binop, BinopExpr, Expr, NatLitExpr, RealLitExpr, VarExpr
 
-from prodigy.analysis.evtinvariants.exp_polynomial import integral_from_zero
+from prodigy.analysis.evtinvariants.exp_polynomial import eventually_nonneg, integral_from_zero
 from prodigy.distribution import Distribution
 from prodigy.distribution.equality import sympify_distribution, sympy_text
 
 
 class CounterProbability(NamedTuple):
-    """A probability ``α + β/(k + a)`` in the counter ``k`` (module docstring)."""
+    """A probability ``α + Σ_i β_i/(k + a_i)`` in the counter ``k`` (module docstring); ``poles`` lists ``(β_i, a_i)``."""
     variable: str
     alpha: Fraction
-    beta: Fraction
-    shift: int
+    poles: Tuple[Tuple[Fraction, int], ...]
 
     def __str__(self) -> str:
-        return f"{self.alpha} + {self.beta}/({self.variable} + {self.shift})"
+        return " + ".join([str(self.alpha)] + [f"{beta}/({self.variable} + {shift})" for beta, shift in self.poles])
 
 
 def _to_sympy(expr: Expr, counter: str) -> Optional[sympy.Expr]:
@@ -72,80 +75,99 @@ def _to_sympy(expr: Expr, counter: str) -> Optional[sympy.Expr]:
         return lhs / rhs if rhs != 0 else None
     if expr.operator == Binop.MINUS:
         difference = lhs - rhs
-        shape = _shape(difference, sympy.Symbol(counter))
-        if shape is None or min(_value_at_zero(*shape), shape[0]) < 0:
+        if _nonneg_for_naturals(difference, sympy.Symbol(counter)) is not True:
             return None
         return difference
     return None
 
 
-def _shape(expr: sympy.Expr, k: sympy.Symbol) -> Optional[tuple[Fraction, Fraction, int]]:
-    """``(α, β, a)`` if ``expr = α + β/(k + a)`` with rationals α, β and a natural number ``a ≥ 1``."""
+def _nonneg_for_naturals(expr: sympy.Expr, k: sympy.Symbol) -> Optional[bool]:
+    """Decides ``expr(n) ≥ 0`` for all naturals n, for a rational function with rational coefficients whose
+    denominator has no root in the naturals; None for other expressions."""
+    numerator, denominator = sympy.fraction(sympy.cancel(sympy.together(expr)))
+    try:
+        num, den = sympy.Poly(numerator, k), sympy.Poly(denominator, k)
+    except sympy.PolynomialError:
+        return None
+    if not all(c.is_Rational for c in num.all_coeffs() + den.all_coeffs()):
+        return None
+    # the denominator must have one sign on all naturals (and no root there): then p ≥ 0 iff ±numerator ≥ 0
+    for sign in (1, -1):
+        if eventually_nonneg([Fraction(str(sign * c)) for c in den.all_coeffs()], -1, strict=True) is True:
+            return eventually_nonneg([Fraction(str(sign * c)) for c in num.all_coeffs()], -1)
+    return None
+
+
+def _partial_fractions(expr: sympy.Expr, k: sympy.Symbol) -> Optional[Tuple[Fraction, Tuple[Tuple[Fraction, int], ...]]]:
+    """``(α, ((β_i, a_i), …))`` if ``expr = α + Σ_i β_i/(k + a_i)`` with rationals and distinct naturals a_i ≥ 1."""
     expr = sympy.cancel(sympy.together(expr))
     if not expr.has(k):
-        return (Fraction(str(expr)), Fraction(0), 1) if expr.is_Rational else None
+        return (Fraction(str(expr)), ()) if expr.is_Rational else None
     numerator, denominator = sympy.fraction(expr)
     try:
         num, den = sympy.Poly(numerator, k), sympy.Poly(denominator, k)
     except sympy.PolynomialError:
         return None
-    if den.degree() != 1 or num.degree() > 1 or not all(c.is_Rational for c in num.all_coeffs() + den.all_coeffs()):
+    if not all(c.is_Rational for c in num.all_coeffs() + den.all_coeffs()) or num.degree() > den.degree():
         return None
-    lead = den.all_coeffs()[0]
-    shift = den.all_coeffs()[1] / lead
-    if not (shift.is_Integer and shift >= 1):
+    roots = sympy.roots(den, multiple=True)
+    if len(roots) != den.degree() or len(set(roots)) != len(roots) \
+            or not all(r.is_Integer and r <= -1 for r in roots):
         return None
     alpha, remainder = sympy.div(num, den)
-    beta = remainder.as_expr() / lead
-    return Fraction(str(alpha.as_expr())), Fraction(str(beta)), int(shift)
-
-
-def _value_at_zero(alpha: Fraction, beta: Fraction, shift: int) -> Fraction:
-    return alpha + beta / shift
+    poles = []
+    derivative = den.diff(k)
+    for root in sorted(roots, reverse=True):
+        beta = remainder.eval(root) / derivative.eval(root)  # residue at a simple pole
+        if beta != 0:
+            poles.append((Fraction(str(beta)), int(-root)))
+    return Fraction(str(alpha.as_expr())), tuple(poles)
 
 
 def counter_probability(probability: Expr, variables: Set[str]) -> Optional[CounterProbability]:
-    """The probability as ``α + β/(k + a)`` in its only program variable k, if it has this shape and is a
-    probability for every value of k; otherwise None."""
+    """The probability as ``α + Σ_i β_i/(k + a_i)`` in its only program variable k, if it has this shape and is
+    a probability for every value of k; otherwise None."""
     if len(variables) != 1:
         return None
     counter = next(iter(variables))
+    k = sympy.Symbol(counter)
     expr = _to_sympy(probability, counter)
     if expr is None:
         return None
-    shape = _shape(expr, sympy.Symbol(counter))
-    if shape is None or shape[1] == 0:
+    shape = _partial_fractions(expr, k)
+    if shape is None or not shape[1]:
         return None
-    alpha, beta, shift = shape
-    # p(n) is monotone in n, so it lies between p(0) and α
-    if not (0 <= alpha <= 1 and 0 <= _value_at_zero(alpha, beta, shift) <= 1):
+    if _nonneg_for_naturals(expr, k) is not True or _nonneg_for_naturals(1 - expr, k) is not True:
         return None
-    return CounterProbability(counter, alpha, beta, shift)
+    return CounterProbability(counter, shape[0], shape[1])
+
+
+def _rational(value: Fraction) -> sympy.Rational:
+    return sympy.Rational(value.numerator, value.denominator)
 
 
 def apply_operator(probability: CounterProbability, distribution: Distribution,
                    construct: str) -> tuple[Distribution, Distribution]:
     """The two parts ``p(θ) G`` and ``(1 - p)(θ) G`` of ``distribution`` G (module docstring). Raises
-    ``NotImplementedError`` (naming ``construct``) if the integral cannot be computed and certified."""
+    ``NotImplementedError`` (naming ``construct``) if an integral cannot be computed and certified."""
     function = sympify_distribution(distribution)
     names = distribution.get_variables()
     k = sympy.Symbol(probability.variable)
-    shift = probability.shift
-    integral = integral_from_zero(function * k ** (shift - 1), k, [sympy.Symbol(v) for v in names])
-    if integral is None:
-        integrand = str(function * k ** (shift - 1))
-        integrand = integrand if len(integrand) <= 200 else integrand[:200] + " …"
-        raise NotImplementedError(
-            f"{construct} depends on the program variable {probability.variable}, which can take infinitely many "
-            f"values here. Prodigy applies a probability of the form α + β/({probability.variable} + a) as an "
-            f"operator on the generating function, which needs the integral from 0 of "
-            f"{integrand} in {probability.variable}. No antiderivative was found that passes the "
-            f"check (derivative, value 0 at {probability.variable} = 0, analytic at 0): Prodigy integrates sums of "
-            f"terms {probability.variable}^n·exp(c·{probability.variable}) (e.g. a Poisson distribution) by a "
-            f"formula and other integrands without parameters with SymPy; this one is not implemented.")
-    alpha = sympy.Rational(probability.alpha.numerator, probability.alpha.denominator)
-    beta = sympy.Rational(probability.beta.numerator, probability.beta.denominator)
-    left = alpha * function + beta * integral / k ** shift
+    left = _rational(probability.alpha) * function
+    for beta, shift in probability.poles:
+        integral = integral_from_zero(function * k ** (shift - 1), k, [sympy.Symbol(v) for v in names])
+        if integral is None:
+            integrand = str(function * k ** (shift - 1))
+            integrand = integrand if len(integrand) <= 200 else integrand[:200] + " …"
+            raise NotImplementedError(
+                f"{construct} depends on the program variable {probability.variable}, which can take infinitely "
+                f"many values here. Prodigy applies a probability α + Σ β/({probability.variable} + a) as an "
+                f"operator on the generating function, which needs the integral from 0 of "
+                f"{integrand} in {probability.variable}. No antiderivative was found that passes the "
+                f"check (derivative, value 0 at {probability.variable} = 0, analytic at 0): Prodigy integrates sums "
+                f"of terms {probability.variable}^n·exp(c·{probability.variable}) (e.g. a Poisson distribution) by "
+                f"a formula and other integrands without parameters with SymPy; this one is not implemented.")
+        left += _rational(beta) * integral / k ** shift
     right = function - left
 
     def back(expr: sympy.Expr) -> Distribution:

@@ -289,15 +289,15 @@ def _series_nonneg(a: Dict[int, Fraction], b: Dict[int, Fraction], c: Fraction) 
     return eventually_nonneg([Fraction(str(x)) for x in r.all_coeffs()], head)
 
 
-def eventually_nonneg(coefficients: List[Fraction], head: int) -> Optional[bool]:
-    """Decides ``r(m) ≥ 0`` for all integers ``m > head``, for the polynomial r with the ``coefficients`` (leading
+def eventually_nonneg(coefficients: List[Fraction], head: int, strict: bool = False) -> Optional[bool]:
+    """Decides ``r(m) ≥ 0`` (``r(m) > 0`` if ``strict``) for all integers ``m > head``, for the polynomial r with the ``coefficients`` (leading
     first): False if r is negative at some such m, None if that needs more than :data:`MAX_DIRECT_COEFFICIENTS`
     evaluations. Beyond Cauchy's root bound ``1 + max |r_i/r_lead|``, r has the sign of its leading coefficient; below
     it, r is evaluated."""
     while coefficients and coefficients[0] == 0:
         coefficients = coefficients[1:]
     if not coefficients:
-        return True
+        return not strict
     if coefficients[0] < 0:
         return False  # r(m) < 0 for all large m
     bound = 1 + max((abs(x / coefficients[0]) for x in coefficients[1:]), default=Fraction(0))
@@ -305,7 +305,8 @@ def eventually_nonneg(coefficients: List[Fraction], head: int) -> Optional[bool]
     if last - head > MAX_DIRECT_COEFFICIENTS:
         return None
     for m in range(head + 1, last + 1):
-        if sum(x * m ** (len(coefficients) - 1 - i) for i, x in enumerate(coefficients)) < 0:
+        value = sum(x * m ** (len(coefficients) - 1 - i) for i, x in enumerate(coefficients))
+        if value < 0 or (strict and value == 0):
             return False
     return True
 
