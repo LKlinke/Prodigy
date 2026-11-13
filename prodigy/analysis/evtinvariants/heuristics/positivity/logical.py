@@ -3,6 +3,7 @@ from typing import List, Optional
 import sympy
 
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic
+from prodigy.distribution.equality import sympify_symbolic_string
 
 
 # pylint: disable-msg=keyword-arg-before-vararg
@@ -50,7 +51,7 @@ class NotHeuristic(PositivityHeuristic):
         self._heuristic = heuristic
 
     def _is_positive(self, f) -> Optional[bool]:
-        s_f = sympy.S(f.replace("^", "**") if isinstance(f, str) else f)
+        s_f = sympify_symbolic_string(f) if isinstance(f, str) else sympy.S(f)
         if sympy.cancel(sympy.together(s_f)) == 0:
             return True
         if self._heuristic.is_positive(-s_f) is True:

@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 
 import sympy
+from prodigy.distribution.equality import sympify_symbolic_string
 
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic
 from prodigy.analysis.exceptions import HeuristicsError
@@ -18,7 +19,7 @@ class SumPositivity(PositivityHeuristic):
         self._term_heuristic = term_heuristic
 
     def _is_positive(self, f: str) -> Optional[bool]:
-        s_f = sympy.S(f)
+        s_f = sympify_symbolic_string(f)
         if isinstance(s_f, sympy.Add):
             for term in s_f.args:
                 self.logger.debug("checking positivity for %s", term)
