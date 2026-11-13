@@ -39,9 +39,10 @@ def test_engines_give_the_same_message(source):
     assert len(set(messages.values())) == 1, messages
 
 
-def test_variable_divisor_is_rejected_by_the_type_check():
-    # the type checker (#351) stops a variable divisor before the engine can fail with its own message
-    assert "positive natural constant" in _message(VARIABLE_DIVISOR, ForwardAnalysisConfig.Engine.SYMPY)
+def test_variable_divisor_passes_the_type_check_and_is_not_implemented():
+    # syntax and semantics are separate (#356): the analysis ends with a clear "not implemented"
+    message = _message(VARIABLE_DIVISOR, ForwardAnalysisConfig.Engine.SYMPY)
+    assert "Cannot compute b // a" in message and "not implemented" in message, message
 
 
 def test_variable_divisor_is_named_as_written_by_the_engine():

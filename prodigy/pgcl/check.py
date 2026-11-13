@@ -228,14 +228,20 @@ def _floor_division_type(
         program: Program, expr: BinopExpr, check: bool,
         predefined_functions: Mapping[Var, List[VarDecl]]) -> Union[Type, CheckFail]:
     """
-    ``e // q`` rounds down; it is implemented for a natural ``e`` and a positive natural
-    literal ``q`` (constants are substituted before type checking).
+    ``e // q`` rounds down for natural ``e`` and ``q``. A literal divisor 0 is rejected (the division is
+    undefined); a divisor that is not a literal is accepted here, and the analysis decides what it can compute
+    (syntax and semantics are separate, #356).
     """
     divisor = expr.rhs
-    if not isinstance(divisor, NatLitExpr) or divisor.value < 1:
+    if isinstance(divisor, NatLitExpr) and divisor.value < 1:
+        return CheckFail(divisor, "Floor division by 0 is undefined.")
+    divisor_type = get_type(program, divisor, check, predefined_functions)
+    if isinstance(divisor_type, CheckFail):
+        return divisor_type
+    if not isinstance(divisor_type, (NatType, BoolType)):
         return CheckFail(
             expr,
-            "Floor division 'e // q' is only implemented for a positive natural constant q.")
+            f"Floor division 'e // q' is only implemented for a natural number q, got {divisor_type}.")
     typ = get_type(program, expr.lhs, check, predefined_functions)
     if isinstance(typ, CheckFail):
         return typ

@@ -72,8 +72,8 @@ answers of language models) simple.
 `nat` variable requires a natural result and is rejected otherwise; it never rounds (see the
 section "Division" in the grammar page). `//` is floor division, as in Python (`7 // 2 == 3`). It
 rounds the same way in guards and in assignments. As an update of a generating function it is
-computed exactly via the residue classes modulo the divisor, as for `x % q`. Implemented: `e // q`
-for a natural expression `e` and a positive natural constant `q`, exact if `e` has a finite marginal
+computed exactly via the residue classes modulo the divisor, as for `x % q`. Accepted by the type checker: `e // q` for natural `e` and `q` (a literal divisor 0 is rejected).
+Implemented: a positive natural constant `q`, exact if `e` has a finite marginal
 or the generating function is rational in it; other cases end with an error.
 
 ### Subtraction
