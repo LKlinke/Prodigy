@@ -9,9 +9,11 @@ finite sums ``Σ r_(n,c)(w) · k^n · exp(c·k)`` with numbers ``c`` and coeffic
 on ``k`` (``w`` are the other variables and the parameters). The Poisson generating function ``exp(λ(k - 1))``
 is one. This module provides what the operator semantics and the EVT certificates need for them.
 
-**Integration from 0 without integrating.** :func:`integral_from_zero` writes the integrand as an exponential
-polynomial and integrates each term ``k^n exp(c k)`` by a closed formula (repeated integration by parts). The
-formula is only a proposal: the result G is accepted only if the engine-independent checks prove
+**Integration from 0: the integration proposes, the derivative certifies.** :func:`integral_from_zero` writes the
+integrand as an exponential polynomial and integrates each term ``k^n exp(c k)`` by a closed formula (repeated
+integration by parts); for other integrands it asks SymPy's ``integrate`` (e.g. a logarithm for a rational
+integrand). The antiderivative is only a proposal: the result G is accepted only if the engine-independent checks
+prove
 
 * ``∂G/∂k = J`` (an identity of closed forms, :func:`prodigy.distribution.equality.decide_equal`),
 * ``G|_(k=0) = 0`` (an identity in the other variables), and
@@ -48,15 +50,19 @@ Terms = Dict[Tuple[int, sympy.Expr], sympy.Expr]
 """An exponential polynomial in one variable k: ``{(n, c): r}`` stands for ``Σ r · k^n · exp(c·k)``."""
 
 
-def _exponent_rate(factor: sympy.Expr, k: sympy.Symbol) -> Optional[sympy.Expr]:
-    """``c`` if ``factor`` is ``exp(c·k)`` with a number c, else None."""
-    if not isinstance(factor, sympy.exp):
+def _affine_exponent(atom: sympy.Expr, k: sympy.Symbol) -> Optional[Tuple[sympy.Rational, sympy.Expr]]:
+    """``(c, d)`` if ``atom`` is ``exp(c·k + d)`` with a rational c and d free of k, else None."""
+    try:
+        poly = sympy.Poly(sympy.expand(atom.args[0]), k)
+    except sympy.PolynomialError:
         return None
-    argument = sympy.expand(factor.args[0])
-    rate = sympy.simplify(argument / k)
-    if not rate.is_number or rate.has(k) or sympy.expand(argument - rate * k) != 0:
+    if poly.degree() > 1:
         return None
-    return rate
+    coefficients = poly.all_coeffs()
+    rate, offset = (coefficients[0], coefficients[1]) if len(coefficients) == 2 else (sympy.Integer(0), coefficients[0])
+    if not sympy.S(rate).is_Rational:
+        return None
+    return sympy.Rational(rate), offset
 
 
 def exp_polynomial_terms(expr: sympy.Expr, k: sympy.Symbol) -> Optional[Terms]:
@@ -64,36 +70,44 @@ def exp_polynomial_terms(expr: sympy.Expr, k: sympy.Symbol) -> Optional[Terms]:
 
     The coefficients may be any expressions free of k (rational functions of the other variables, parameters).
     Terms with the same ``(n, c)`` are combined, so the decomposition is unique: the functions ``k^n exp(c k)``
-    are linearly independent over the functions of the other variables."""
-    terms: Terms = defaultdict(lambda: sympy.Integer(0))
-    expanded = sympy.expand(sympy.powsimp(sympy.expand(expr), combine="exp"))
-    for term in sympy.Add.make_args(expanded):
-        coefficient, dependent = term.as_independent(k, as_Add=False)
-        degree, rate = 0, sympy.Integer(0)
-        for factor in sympy.Mul.make_args(dependent):
-            if factor == 1:
-                continue
-            if factor == k:
-                degree += 1
-                continue
-            if isinstance(factor, sympy.Pow) and factor.base == k:
-                if not (factor.exp.is_Integer and factor.exp >= 0):
-                    return None
-                degree += int(factor.exp)
-                continue
-            if isinstance(factor, sympy.Pow) and factor.exp.is_Integer and factor.exp > 0:
-                inner = _exponent_rate(factor.base, k)
-                if inner is None:
-                    return None
-                rate += inner * factor.exp
-                continue
-            inner = _exponent_rate(factor, k)
-            if inner is None:
+    are linearly independent over the functions of the other variables. Computed by polynomial arithmetic: with
+    ``z = exp(k/L)`` for a common denominator L of the rates, ``expr`` must be ``N(k, z)/(z^j·D)`` with a polynomial
+    N and D free of k and z."""
+    expr = sympy.S(expr)
+    exponents = {}
+    for atom in expr.atoms(sympy.exp):
+        if atom.has(k):
+            affine = _affine_exponent(atom, k)
+            if affine is None:
                 return None
-            rate += inner
-        key = (degree, sympy.nsimplify(rate))
-        terms[key] = terms[key] + coefficient
-    return {key: value for key, value in terms.items() if sympy.simplify(value) != 0}
+            exponents[atom] = affine
+    common = math.lcm(1, *(int(rate.q) for rate, _ in exponents.values()))
+    z = sympy.Dummy("z")
+    substituted = expr.xreplace({atom: sympy.exp(offset) * z ** int(rate * common)
+                                 for atom, (rate, offset) in exponents.items()})
+    numerator, denominator = sympy.fraction(sympy.together(substituted))
+    constant, dependent = denominator.as_independent(k, z, as_Add=False)
+    shift = 0
+    for factor in sympy.Mul.make_args(dependent):
+        if factor == 1:
+            continue
+        if factor == z:
+            shift += 1
+        elif isinstance(factor, sympy.Pow) and factor.base == z and factor.exp.is_Integer and factor.exp > 0:
+            shift += int(factor.exp)
+        else:
+            return None
+    try:
+        poly = sympy.Poly(sympy.expand(numerator), k, z)
+    except sympy.PolynomialError:
+        return None
+    if any(c.has(k) or c.has(z) for c in poly.coeffs()):
+        return None
+    terms: Terms = defaultdict(lambda: sympy.Integer(0))
+    for (n, m), coefficient in poly.terms():
+        key = (int(n), sympy.Rational(int(m) - shift, common))
+        terms[key] = terms[key] + coefficient / constant
+    return {key: value for key, value in terms.items() if sympy.cancel(value) != 0}
 
 
 def _integral_of_term(n: int, c: sympy.Expr, k: sympy.Symbol) -> sympy.Expr:
@@ -137,17 +151,52 @@ def analytic_at_zero(expr: sympy.Expr, variables: Collection[sympy.Symbol]) -> b
     return check(sympy.S(expr))
 
 
+def _cas_antiderivative(integrand: sympy.Expr, k: sympy.Symbol,
+                        variables: Collection[sympy.Symbol]) -> Optional[sympy.Expr]:
+    """An antiderivative of ``integrand`` in k from SymPy's ``integrate`` (a proposal), or None if SymPy finds none.
+    Only for integrands without parameters (symbols outside ``variables``): with the parameters of a template,
+    ``integrate`` can take very long."""
+    names = {v.name for v in variables}
+    if any(s.name not in names for s in integrand.free_symbols):
+        return None
+    try:
+        result = sympy.integrate(integrand, k)
+    except Exception:  # pylint: disable=broad-except
+        return None
+    if result.has(sympy.Integral):
+        return None
+    # SymPy writes ∫ 1/(2 - k) as -log(k - 2), whose principal branch has its cut at the origin; log(-a) differs
+    # from log(a) by a constant, so it is an antiderivative as well, and analytic where -a > 0
+    origin = {v: 0 for v in variables}
+
+    def flipped(argument: sympy.Expr) -> sympy.Expr:
+        value = argument.subs(origin)
+        return sympy.log(-argument) if value.is_number and value.is_negative is True else sympy.log(argument)
+
+    return result.replace(sympy.log, flipped)
+
+
 def integral_from_zero(integrand: sympy.Expr, k: sympy.Symbol,
                        variables: Collection[sympy.Symbol]) -> Optional[sympy.Expr]:
-    """The power series ``∫_0^k J(t) dt`` of ``J = integrand`` as a closed form G, or None if the integrand is no
-    exponential polynomial in k or the result is not certified (module docstring: ``∂G/∂k = J``, ``G(0) = 0``, G
-    analytic at the origin of ``variables``, which must contain k)."""
+    """The power series ``∫_0^k J(t) dt`` of ``J = integrand`` as a closed form G, or None if no antiderivative is
+    found or the result is not certified (module docstring: ``∂G/∂k = J``, ``G(0) = 0``, G analytic at the origin of
+    ``variables``, which must contain k).
+
+    The antiderivative g is proposed by the formula for exponential polynomials, otherwise by SymPy's ``integrate``
+    (e.g. a logarithm for a rational integrand). Its constant is fixed as in the module docstring: G = g - g(0)."""
     terms = exp_polynomial_terms(integrand, k)
-    if terms is None:
+    if terms is not None:
+        antiderivative: Optional[sympy.Expr] = sympy.Add(
+            *(coefficient * _integral_of_term(n, c, k) for (n, c), coefficient in terms.items()))
+    else:
+        antiderivative = _cas_antiderivative(integrand, k, variables)
+    if antiderivative is None:
         return None
-    proposal = sympy.Add(*(coefficient * _integral_of_term(n, c, k) for (n, c), coefficient in terms.items()))
     # the integration constant: the integral from 0 is the antiderivative with value 0 at k = 0
-    proposal = proposal - proposal.subs(k, 0)
+    at_zero = antiderivative.subs(k, 0)
+    if at_zero.has(sympy.nan, sympy.zoo, sympy.oo, -sympy.oo):
+        return None
+    proposal = antiderivative - at_zero
     if decide_equal(sympy.diff(proposal, k), integrand, use_simplify=False) is not True:
         return None
     if decide_equal(proposal.subs(k, 0), sympy.Integer(0), use_simplify=False) is not True:

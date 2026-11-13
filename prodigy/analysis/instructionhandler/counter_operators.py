@@ -15,9 +15,11 @@ for every value of k iff ``p(0)`` and ``α = lim p(n)`` are in [0, 1], because p
     p(θ) G = α·G + β·H   with   H = k^(-a) ∫_0^k t^(a-1) G(t) dt,
 
 since ``∫_0^k t^(n+a-1) dt = k^(n+a)/(n+a)``. For ``1/(k + 1)`` followed by ``k := k + 1`` this is just
-``∫_0^k G``. The integral is computed for exponential polynomials in k only
-(:func:`prodigy.analysis.evtinvariants.exp_polynomial.integral_from_zero`); its result is certified by
-differentiation and evaluation at 0, so no symbolic integration has to be trusted. The computation works on the
+``∫_0^k G``. The integral is proposed by a formula for exponential polynomials in k, otherwise by SymPy's
+``integrate`` (:func:`prodigy.analysis.evtinvariants.exp_polynomial.integral_from_zero`); the proposal is certified
+by differentiation and evaluation at 0, so no symbolic integration has to be trusted. A given EVT invariant of a
+loop is checked with the same operator: the check needs the integral of an exponential polynomial only, whose
+formula needs no integration. The computation works on the
 SymPy form of the distribution and gives the result back to the distribution's engine, so it is the same on all
 engines. Anything else (another shape of p, an integrand that is no exponential polynomial) is not implemented.
 """
@@ -131,19 +133,25 @@ def apply_operator(probability: CounterProbability, distribution: Distribution,
     shift = probability.shift
     integral = integral_from_zero(function * k ** (shift - 1), k, [sympy.Symbol(v) for v in names])
     if integral is None:
+        integrand = str(function * k ** (shift - 1))
+        integrand = integrand if len(integrand) <= 200 else integrand[:200] + " …"
         raise NotImplementedError(
             f"{construct} depends on the program variable {probability.variable}, which can take infinitely many "
             f"values here. Prodigy applies a probability of the form α + β/({probability.variable} + a) as an "
-            f"operator on the generating function, which needs the integral of {function} in "
-            f"{probability.variable}; this is implemented only for sums of terms "
-            f"{probability.variable}^n·exp(c·{probability.variable}) (e.g. a Poisson distribution), not here.")
+            f"operator on the generating function, which needs the integral from 0 of "
+            f"{integrand} in {probability.variable}. No antiderivative was found that passes the "
+            f"check (derivative, value 0 at {probability.variable} = 0, analytic at 0): Prodigy integrates sums of "
+            f"terms {probability.variable}^n·exp(c·{probability.variable}) (e.g. a Poisson distribution) by a "
+            f"formula and other integrands without parameters with SymPy; this one is not implemented.")
     alpha = sympy.Rational(probability.alpha.numerator, probability.alpha.denominator)
     beta = sympy.Rational(probability.beta.numerator, probability.beta.denominator)
     left = alpha * function + beta * integral / k ** shift
     right = function - left
 
     def back(expr: sympy.Expr) -> Distribution:
-        text = str(sympy.together(sympy.expand(expr))).replace("**", "^")
+        # exp factors merged again (exp(k - 1), not exp(-1)*exp(k)): at k = 1 the latter is E*exp(-1), and the
+        # string "E" would be read back as a symbol
+        text = str(sympy.powsimp(sympy.together(sympy.expand(expr)), combine="exp")).replace("**", "^")
         result = distribution.factory().from_expr(text, *sorted(names))
         parameters = distribution.get_parameters()
         return result.set_parameters(*parameters) if parameters else result
