@@ -44,7 +44,8 @@ def _evt(invariant):
 
 
 def _equal(value, expected) -> bool:
-    return decide_equal(sym(value), sympy.S(expected)) is True
+    # the strings come from Prodigy (trusted); SymPy may print exp(1) as E, which sympify reads as e
+    return decide_equal(sympy.sympify(str(value).replace("^", "**")), sympy.S(expected)) is True
 
 
 # --- the Poisson example --------------------------------------------------------------------------------------
@@ -60,6 +61,8 @@ def test_poisson_from_coins_choice_is_exact(engine):
     assert certificate["finite_mass"] is True
     assert _equal(certificate["mass"], 1 + sympy.exp(sympy.Rational(1, 2)))
     half = sympy.Rational(1, 2)
+    # the output distribution, computed from the invariant: Poisson(1/2) in k after conditioning on ok = 1
+    assert _equal(result["distribution"]["closed_form"], ok * stop * sympy.exp((k - 1) / 2))
     expected = [sympy.exp(-half), sympy.exp(-half) / 2, sympy.exp(-half) / 8, half]  # Poisson(1/2)
     for query, value in zip(result["queries"], expected):
         assert query["bound"] == Bound.EXACT
@@ -134,12 +137,25 @@ def test_loop_free_choices_are_exact(engine, source, expected):
 
 
 @pytest.mark.parametrize("engine", ENGINES)
-def test_non_exponential_integrand_is_not_implemented(engine):
-    # a geometric k: the integral of 1/(2 - k) is a logarithm, which is not implemented
-    result = _run("k: nat = geometric(1/2);\nx: nat = 0;\n{x = 1;} [1/(k + 1)] {x = 2;}\nquery Pr[x == 1];",
-                  engine)
+def test_rational_integrand_is_integrated_by_sympy(engine):
+    # a geometric k: ∫_0^k 1/(2 - t) dt = log(2) - log(2 - k), proposed by SymPy and certified by its derivative
+    result = _run("k: nat = geometric(1/2);\nx: nat = 0;\n{x = 1;} [1/(k + 1)] {x = 2;}\n"
+                  "query Pr[x == 1];\nquery Pr[k == 2 and x == 1];", engine)
+    assert result["status"] == "ok", result.get("error")
+    for query, value in zip(result["queries"], [sympy.log(2), sympy.Rational(1, 24)]):
+        assert query["bound"] == Bound.EXACT
+        assert _equal(query["value"], value), (query["value"], value)
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_integrand_without_certified_antiderivative_is_not_implemented(engine):
+    # exp(k - 1)/(2 - k) (Poisson plus geometric): SymPy's antiderivative is the exponential integral Ei, which
+    # is not certified as analytic at 0
+    result = _run("k: nat = poisson(1);\nj: nat = geometric(1/2);\nk = k + j;\nx: nat = 0;\n"
+                  "{x = 1;} [1/(k + 1)] {x = 2;}\nquery Pr[x == 1];", engine)
     assert result["status"] == "error"
-    assert "exp(c·k)" in result["error"]["message"]
+    message = result["error"]["message"]
+    assert "1 / (k + 1)" in message and "not implemented" in message
 
 
 # --- units ----------------------------------------------------------------------------------------------------
@@ -176,7 +192,9 @@ def test_integral_from_zero():
     integral = integral_from_zero(k ** 3 * sympy.exp(-k) / (2 - x), k, variables)
     assert decide_equal(sympy.diff(integral, k), k ** 3 * sympy.exp(-k) / (2 - x)) is True
     assert integral.subs(k, 0) == 0
-    assert integral_from_zero(1 / (2 - k), k, variables) is None  # not an exponential polynomial
+    # not an exponential polynomial: SymPy proposes -log(k - 2), taken as -log(2 - k) (analytic at 0)
+    assert decide_equal(integral_from_zero(1 / (2 - k), k, variables), sympy.log(2) - sympy.log(2 - k)) is True
+    assert integral_from_zero(sympy.exp(k) / (2 - k), k, variables) is None  # Ei: not certified
     assert integral_from_zero(sympy.exp(k * x), k, variables) is None  # the rate is not a number
 
 
@@ -184,6 +202,23 @@ def test_integral_from_zero_rejects_a_wrong_proposal(monkeypatch):
     # the formula is only a proposal: a wrong antiderivative fails the derivative check
     monkeypatch.setattr(exp_polynomial, "_integral_of_term", lambda n, c, var: 2 * var ** (n + 1))
     assert integral_from_zero(sympy.exp(k / 2), k, [k]) is None
+
+
+def test_integration_constant_is_minus_the_value_at_zero(monkeypatch):
+    # an antiderivative g with any constant: g - g(0) is the integral from 0
+    monkeypatch.setattr(exp_polynomial, "_integral_of_term",
+                        lambda n, c, var: sympy.exp(c * var) / c + 7 if c != 0 else var ** (n + 1) / (n + 1) + 7)
+    assert decide_equal(integral_from_zero(sympy.exp(k / 2), k, [k]), 2 * sympy.exp(k / 2) - 2) is True
+
+
+def test_integral_with_a_wrong_constant_from_the_cas_is_corrected(monkeypatch):
+    monkeypatch.setattr(exp_polynomial.sympy, "integrate", lambda f, var: -sympy.log(var - 2) + 5)
+    assert decide_equal(integral_from_zero(1 / (2 - k), k, [k]), sympy.log(2) - sympy.log(2 - k)) is True
+
+
+def test_wrong_antiderivative_from_the_cas_is_rejected(monkeypatch):
+    monkeypatch.setattr(exp_polynomial.sympy, "integrate", lambda f, var: -sympy.log(2 - 2 * var))
+    assert integral_from_zero(1 / (2 - k), k, [k]) is None
 
 
 def test_analytic_at_zero():
