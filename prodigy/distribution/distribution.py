@@ -119,6 +119,9 @@ def _without_fractional_constants(expression: BinopExpr) -> BinopExpr | None:
         return BinopExpr(Binop.DIVIDE, BinopExpr(Binop.TIMES, denominator, other), numerator)
     if expression.operator == Binop.DIVIDE:
         return BinopExpr(Binop.DIVIDE, numerator, BinopExpr(Binop.TIMES, denominator, other))
+    if expression.operator == Binop.FLOOR_DIVIDE:
+        raise ValueError(f"Cannot compute {expression}: floor division by or of the non-integer constant "
+                         f"{fraction} is not implemented")
     raise ValueError(
         f"Cannot evaluate {expression} because the constant {fraction} is not a natural number")
 
@@ -830,6 +833,12 @@ class Distribution(ABC):
             # For binary operator, we need to introduce fresh variables to prevent clashes
             # and recursively evaluate the left- and right-hand side of the operator
             if isinstance(expression, BinopExpr):
+                if expression.operator == Binop.FLOOR_DIVIDE:
+                    for operand in (expression.lhs, expression.rhs):
+                        if isinstance(operand, VarExpr) and operand.var in function.get_parameters():
+                            raise NotImplementedError(
+                                f"Cannot compute {_spelled(expression)}: floor division with the parameter "
+                                f"{operand.var} is not implemented")
                 # Get two fresh variables
                 xl = function.get_fresh_variable()
                 xr = function.get_fresh_variable({xl})

@@ -45,6 +45,18 @@ def test_variable_divisor_passes_the_type_check_and_is_not_implemented():
     assert "Cannot compute b // a" in message and "not implemented" in message, message
 
 
+@pytest.mark.parametrize("source, construct", [
+    ("x: nat;\nx = 7;\nx = x // 1.5;\nquery Ex[x];\n", "x // 1.5"),
+    ("x: nat;\nparam p: real;\nx = poisson(3);\nx = p // 2;\nquery Ex[x];\n", "p // 2"),
+    ("x: nat;\nparam p: real;\nx = poisson(3);\nx = x // p;\nquery Ex[x];\n", "x // p"),
+], ids=["real-divisor", "real-dividend", "real-parameter-divisor"])
+@pytest.mark.parametrize("engine", ENGINES)
+def test_real_floor_division_passes_the_type_check_and_is_not_implemented(source, construct, engine):
+    # #372: accepted by the type checker, "not implemented" in the analysis
+    message = _message(source, engine)
+    assert f"Cannot compute {construct}" in message and "not implemented" in message, message
+
+
 def test_variable_divisor_is_named_as_written_by_the_engine():
     config = ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.SYMPY)
     program = parse_pgcl(VARIABLE_DIVISOR, "ppy")

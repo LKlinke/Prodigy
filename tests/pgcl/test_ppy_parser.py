@@ -263,14 +263,13 @@ def test_floor_division_is_parsed_and_checked():
     for source in ["x: nat; x = 7 // 2;", "x: nat; while (x // 2 < 3) { x = x + 1; }",
                    "x: nat; query Ex[x // 2];", "const Q: nat = 3; x, y: nat; y = (x + 1) // Q;",
                    "x: nat; b: bool; x = b // 2;",
+                   "x: nat; x = x // 1.5;", "x: nat; param p: real; x = p // 2;",
                    "x, y: nat; x = x // y;", "x, y: nat; while (x // (y + 1) < 3) { x = x + 1; }"]:
         assert not isinstance(compile_pgcl(source, syntax="ppy"), CheckFail), source
 
 
 @pytest.mark.parametrize("source, message", [
     ("x: nat; x = x // 0;", "by 0 is undefined"),
-    ("x: nat; x = x // 1.5;", "only implemented for a natural number q"),
-    ("x: nat; param p: real; x = p // 2;", "only implemented for a natural number e"),
     ("x: nat[0, 10 // 2];", "not implemented in bounds"),
 ])
 def test_floor_division_rejected(source, message):
