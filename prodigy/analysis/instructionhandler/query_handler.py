@@ -45,9 +45,10 @@ class QueryHandler(InstructionHandler):
         recorded = len(session.queries)
         try:
             return QueryHandler.__answer(instruction, prog_info, distribution, error_prob, config, session)
-        except (NotImplementedError, NonFiniteMarginalError) as exc:
+        except (NotImplementedError, NonFiniteMarginalError, ArithmeticError, ValueError) as exc:
             # A query does not change the distribution: one that cannot be computed fails only
-            # itself, and the distribution and the other queries are kept (#306).
+            # itself, and the distribution and the other queries are kept (#306, #316). This includes an
+            # engine's arithmetic error, e.g. GiNaC's log(0) for Ex[x] of a logarithmic generating function.
             if len(session.queries) != recorded:
                 raise
             QueryHandler.__record_failure(instruction, exc, session)
