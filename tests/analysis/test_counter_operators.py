@@ -320,15 +320,12 @@ def test_yule_simon_urn_gets_an_upper_bound(engine):
     assert certificate["series_identity"] == "converges on the open unit polydisc"
     for query, value in zip(result["queries"][:3], ["1/2", "1/6", "1/12"]):
         assert query["bound"] == Bound.UPPER and _equal(query["upper"], value)
-    # Ex[red] = ∞ is a valid (trivial) upper bound, not an undefined value, and fails nothing; GiNaC cannot evaluate
-    # the derivative at red = 1 (log(0)), so there the query alone is not computed
+    # Ex[red] = ∞ is a valid (trivial) upper bound on every engine (#371): GiNaC hits log(0) when it substitutes
+    # red = 1 and falls back on the limit from below, like at a pole
     assert result["status"] == "ok", result["error"]
     expectation = result["queries"][3]
     assert expectation["kind"] == "expectation"
-    if engine == ForwardAnalysisConfig.Engine.GINAC:
-        assert expectation["bound"] == Bound.UNKNOWN and "log(0)" in expectation["note"]
-    else:
-        assert expectation["bound"] == Bound.UPPER and expectation["upper"] == "\\infty"
+    assert expectation["bound"] == Bound.UPPER and expectation["upper"] == "\\infty"
     assert result["bounds"]["kind"] == Bound.UPPER
     assert result["distribution"] is not None and result["distribution"]["closed_form"]
     assert not any("Undefined" in warning for warning in result["warnings"])
