@@ -190,7 +190,8 @@ function inputToCheck() {
  * re-rendering the panel (the person is typing in it). */
 function showInputProblem(result) {
   const check = result?.input_distribution;
-  state.inputProblem = check?.status === "refused" ? check.message : "";
+  state.inputProblem = check?.status === "refused" ? check.message
+    : check?.status === "timeout" ? "Could not check yet; it will be checked when you analyze." : "";
   const field = $("panel-setup").querySelector(".input-distribution");
   if (field) applyInputProblem(field, state.inputProblem);
 }

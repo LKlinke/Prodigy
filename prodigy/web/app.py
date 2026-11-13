@@ -42,7 +42,7 @@ from flask import Flask, abort, jsonify, render_template, request
 
 from prodigy.web.examples import ConversionError, ExampleLibrary, convert, default_examples_dir
 from prodigy.web.jobs import BusyError, JobManager
-from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, check_input_distribution, joint_request,
+from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, check_input_distribution_bounded, joint_request,
                                   request_syntax, validate_request, validate_suggestion)
 
 # Longest initial distribution that /api/check examines (longer ones are checked by the analysis).
@@ -160,7 +160,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         text = payload.get("input_distribution")
         if isinstance(text, str) and text.strip() and len(text) <= MAX_INPUT_DISTRIBUTION:
             engine = payload.get("engine")
-            result["input_distribution"] = check_input_distribution(
+            result["input_distribution"] = check_input_distribution_bounded(
                 source, syntax, text, engine if isinstance(engine, str) else "sympy")
         return jsonify(result)
 

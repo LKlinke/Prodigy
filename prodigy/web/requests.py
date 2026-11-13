@@ -201,6 +201,44 @@ def check_input_distribution(source: str, syntax: str, text: str, engine: str = 
     return {"status": "ok"}
 
 
+INPUT_CHECK_SECONDS = 8.0
+"""How long /api/check waits for the check of an initial distribution before it gives up."""
+_INPUT_CHECK_CONTEXT = "spawn"  # tests use "fork", which carries their fakes into the process
+
+
+def _input_check_worker(connection, source: str, syntax: str, text: str, engine: str) -> None:
+    try:
+        connection.send(check_input_distribution(source, syntax, text, engine))
+    finally:
+        connection.close()
+
+
+def check_input_distribution_bounded(source: str, syntax: str, text: str, engine: str = "sympy",
+                                     timeout: Optional[float] = None) -> Dict[str, Any]:
+    """:func:`check_input_distribution` in a process of its own that is killed after ``timeout``
+    seconds (:data:`INPUT_CHECK_SECONDS`), so that a hard input never blocks the server (the exact
+    positivity checks of SymPy cannot be interrupted). Then ``{"status": "timeout"}``: the check is
+    made when the analysis runs."""
+    # pylint: disable=import-outside-toplevel
+    import multiprocessing
+    context: Any = multiprocessing.get_context(_INPUT_CHECK_CONTEXT)
+    receiver, sender = context.Pipe(duplex=False)
+    process = context.Process(target=_input_check_worker, args=(sender, source, syntax, text, engine), daemon=True)
+    process.start()
+    sender.close()
+    try:
+        if receiver.poll(INPUT_CHECK_SECONDS if timeout is None else timeout):
+            return receiver.recv()
+        return {"status": "timeout"}
+    except (EOFError, OSError):
+        return {"status": "skipped"}
+    finally:
+        receiver.close()
+        if process.is_alive():
+            process.kill()
+        process.join(1)
+
+
 def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], None]] = None,
                  progress: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
     """Runs one analysis request and returns the JSON result (never raises for analysis errors)."""

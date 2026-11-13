@@ -518,3 +518,18 @@ def test_evt_exploration_candidate(tmp_path):
     output = json.loads(subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60,
                                        check=True).stdout)
     assert output == [{"text": "1/(1-c/2)", "kind": "fit"}, {"text": "x", "kind": "iterate", "n": 1}, None, [0]]
+
+
+def test_check_of_a_hard_input_distribution_is_bounded(client, monkeypatch):
+    """A check that does not finish in time is killed and reported as 'timeout' (#307)."""
+    import time
+    from prodigy.web import requests as web_requests
+
+    monkeypatch.setattr(web_requests, "_INPUT_CHECK_CONTEXT", "fork")
+    monkeypatch.setattr(web_requests, "INPUT_CHECK_SECONDS", 0.5)
+    monkeypatch.setattr(web_requests, "check_input_distribution", lambda *args: time.sleep(60))
+    started = time.monotonic()
+    result = client.post("/api/check", json={"source": "nat x;\nx := 1;\n", "input_distribution": "x"},
+                         headers=HOST).get_json()
+    assert result["input_distribution"] == {"status": "timeout"}
+    assert time.monotonic() - started < 10
