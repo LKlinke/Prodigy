@@ -369,3 +369,13 @@ def test_independent_factors():
     assert decide_equal(sympy.Mul(*factors), sympy.exp(k / 2) * ok * 3 / (2 - j)) is True
     assert independent_factors(sympy.exp(k / 2) / (2 - k), ["k"]) is None
     assert independent_factors(sympy.exp(k / 2) + 1 / (2 - j), ["k", "j"]) is None
+
+
+@pytest.mark.parametrize("name", ["pow", "S", "I", "pi", "E"])
+def test_evt_modules_parse_strings_with_protected_names(name):
+    """String inputs with variables named like builtins or constants stay symbols (#373)."""
+    finite, mass = log_form_mass(f"{name}/3 + log(1 - {name}/2)", [name])
+    assert finite is True and mass is not None
+    assert decide_equal(sympy.S(mass), sympy.Rational(1, 3) + sympy.log(sympy.Rational(1, 2))) is True
+    assert entire_exp_polynomial(f"exp({name}/2)*{name}", [name]) is True
+    assert exp_polynomial_nonneg(f"exp({name}/2)*{name}", [name]) is not False

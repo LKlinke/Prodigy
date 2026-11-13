@@ -41,7 +41,7 @@ from typing import Collection, Dict, List, Optional, Sequence, Tuple
 
 import sympy
 
-from prodigy.distribution.equality import decide_equal
+from prodigy.distribution.equality import decide_equal, sympify_symbolic_string
 
 MAX_DIRECT_COEFFICIENTS = 10_000
 """How many coefficients :func:`exp_polynomial_nonneg` checks one by one before it gives up (``None``)."""
@@ -60,7 +60,7 @@ def _affine_exponent(atom: sympy.Expr, k: sympy.Symbol) -> Optional[Tuple[sympy.
         return None
     coefficients = poly.all_coeffs()
     rate, offset = (coefficients[0], coefficients[1]) if len(coefficients) == 2 else (sympy.Integer(0), coefficients[0])
-    if not sympy.S(rate).is_Rational:
+    if not sympify_symbolic_string(rate).is_Rational:
         return None
     return sympy.Rational(rate), offset
 
@@ -73,7 +73,7 @@ def exp_polynomial_terms(expr: sympy.Expr, k: sympy.Symbol) -> Optional[Terms]:
     are linearly independent over the functions of the other variables. Computed by polynomial arithmetic: with
     ``z = exp(k/L)`` for a common denominator L of the rates, ``expr`` must be ``N(k, z)/(z^j·D)`` with a polynomial
     N and D free of k and z."""
-    expr = sympy.S(expr)
+    expr = sympify_symbolic_string(expr)
     exponents = {}
     for atom in expr.atoms(sympy.exp):
         if atom.has(k):
@@ -148,7 +148,7 @@ def analytic_at_zero(expr: sympy.Expr, variables: Collection[sympy.Symbol]) -> b
             return check(node.args[0]) and value.is_number and value.is_positive is True
         return False
 
-    return check(sympy.S(expr))
+    return check(sympify_symbolic_string(expr))
 
 
 def _cas_antiderivative(integrand: sympy.Expr, k: sympy.Symbol,
@@ -212,7 +212,7 @@ def _polynomial_parts(expr: sympy.Expr, variables: Sequence[str]) \
     """``expr`` as ``A·exp(c·k) + B`` for one variable k, a rational ``c > 0`` and polynomials A, B with rational
     coefficients in ``variables``: (k, c, A, B), where A and B map the exponents of the other variables to the
     coefficients of the powers of k. None if ``expr`` has another form or contains parameters."""
-    expr = sympy.S(expr)
+    expr = sympify_symbolic_string(expr)
     names = set(variables)
     if any(s.name not in names for s in expr.free_symbols):
         return None
@@ -243,7 +243,7 @@ def _polynomial_parts(expr: sympy.Expr, variables: Sequence[str]) \
             return None
         monomials = poly.terms() if poly is not None else [((), coefficient)]
         for monomial, value in monomials:
-            if not sympy.S(value).is_Rational:
+            if not sympify_symbolic_string(value).is_Rational:
                 return None
             target = exp_part if c != 0 else plain_part
             target[monomial][n] = target[monomial].get(n, Fraction(0)) + Fraction(str(value))
@@ -336,7 +336,7 @@ def independent_factors(expr: sympy.Expr, variables: Sequence[str]) -> Optional[
     ``exp(k/2)·ok`` times ``1/(2 - j)``), or None. Constants go with the first factor. The coefficients of such a
     product are products of coefficients of the factors, so it has non-negative coefficients if all factors have;
     it converges where all factors converge, and its mass is the product of their masses."""
-    expr = sympy.S(expr)
+    expr = sympify_symbolic_string(expr)
     if not isinstance(expr, sympy.Mul):
         return None
     names = set(variables)
@@ -373,7 +373,7 @@ def independent_factors(expr: sympy.Expr, variables: Sequence[str]) -> Optional[
 
 def exp_polynomial_value_at_one(expr: sympy.Expr, variables: Sequence[str]) -> sympy.Expr:
     """``expr`` with every variable set to 1 (its mass, if it is an entire function with non-negative coefficients)."""
-    expr = sympy.S(expr)
+    expr = sympify_symbolic_string(expr)
     names = set(variables)
     return expr.subs({s: 1 for s in expr.free_symbols if s.name in names})
 
