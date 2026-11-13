@@ -218,10 +218,8 @@ class State:
         return self.valuations.__str__()
 
     def __hash__(self):
-        h = 0
-        for key, val in self.valuations.items():
-            h += hash(key) + hash(val)
-            return h
+        # Order-independent, consistent with __eq__. A state must not change while it is used as a key.
+        return hash(frozenset(self.valuations.items()))
 
     def __eq__(self, other) -> bool:
         if isinstance(other, dict):

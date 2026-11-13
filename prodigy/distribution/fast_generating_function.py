@@ -57,8 +57,8 @@ class FPS(Distribution):
                   finite: bool | None = None):
         result = cls("0")
         result._dist = dist
-        result._variables = variables
-        result._parameters = parameters
+        result._variables = set(variables)
+        result._parameters = set(parameters)
         result._finite = finite if finite is not None else dist.is_polynomial(variables) == prodigy_ginac.troolean.true
         return result
 
@@ -209,10 +209,10 @@ class FPS(Distribution):
         return FPS.from_dist(self._dist.normalize(), self._variables, self._parameters)
 
     def get_variables(self) -> Set[str]:
-        return self._variables
+        return set(self._variables)
 
     def get_parameters(self) -> Set[str]:
-        return self._parameters
+        return set(self._parameters)
 
     def _find_symbols(self, expr: str) -> Set[str]:
         return set(prodigy_ginac.find_symbols(expr))
@@ -291,11 +291,6 @@ class FPS(Distribution):
 
     def is_finite(self) -> bool:
         return self._finite
-
-    def old_update(self, expression: BinopExpr) -> FPS:
-        return FPS.from_dist(
-            self._dist.update(str(expression.lhs), str(expression.rhs)),
-            self._variables, self._parameters, self._finite)
 
     def get_fresh_variable(
             self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
@@ -584,8 +579,8 @@ class FPS(Distribution):
             raise ValueError(
                 f"Indeterminate(s) {new_variables.intersection(self._parameters)} cannot be parameters and"
                 f" variables at the same time.")
-        self._parameters |= self._variables - new_variables
-        return FPS.from_dist(self._dist, new_variables, self._parameters,
+        new_parameters = self._parameters | (self._variables - new_variables)
+        return FPS.from_dist(self._dist, new_variables, new_parameters,
                              self._finite)
 
     def set_parameters(self, *parameters: str) -> FPS:
@@ -594,8 +589,8 @@ class FPS(Distribution):
             raise ValueError(
                 f"Indeterminate(s) {new_parameters.intersection(self._variables)} cannot be parameters and"
                 f" variables at the same time.")
-        self._variables |= self._parameters - new_parameters
-        return FPS.from_dist(self._dist, self._variables, new_parameters,
+        new_variables = self._variables | (self._parameters - new_parameters)
+        return FPS.from_dist(self._dist, new_variables, new_parameters,
                              self._finite)
 
     def approximate(
