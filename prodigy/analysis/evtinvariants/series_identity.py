@@ -65,14 +65,15 @@ def converges_on_unit_polydisc(invariant: Any, variables: Sequence[str]) -> Opti
     convergence is the smallest positive root of its reduced denominator q (Pringsheim). I converges on the open
     polydisc iff f converges on [0, 1), i.e. iff q has no root in (0, 1). A root at 1 is allowed (infinite mass,
     e.g. ``(1 + x)/(1 - x)``). An exponential polynomial ``A·exp(c·k) + B`` with polynomials A, B is entire and
-    converges everywhere (#323). Returns None when this cannot be decided (parameters, other forms, q(0) = 0).
+    converges everywhere, and ``P + Q·log(1 - c·k)`` with c ≤ 1 has radius ≥ 1 in k (#323). Returns None when this cannot be decided (parameters, other forms, q(0) = 0).
     """
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import sym
     from prodigy.analysis.evtinvariants.exp_polynomial import entire_exp_polynomial
+    from prodigy.analysis.evtinvariants.log_polynomial import is_log_form
     try:
         expr = sym(invariant)
-        if entire_exp_polynomial(expr, list(variables)):
+        if entire_exp_polynomial(expr, list(variables)) or is_log_form(expr, list(variables)):
             return True
         names = set(variables)
         if any(s.name not in names for s in expr.free_symbols):

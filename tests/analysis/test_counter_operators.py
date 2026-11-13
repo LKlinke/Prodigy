@@ -12,6 +12,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.evtinvariants import exp_polynomial
 from prodigy.analysis.evtinvariants.exp_polynomial import (analytic_at_zero, entire_exp_polynomial,
                                                            exp_polynomial_nonneg, integral_from_zero)
+from prodigy.analysis.evtinvariants.log_polynomial import log_form_mass, log_form_nonneg
 from prodigy.analysis.instructionhandler.counter_operators import CounterProbability, counter_probability
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import sym
@@ -271,3 +272,51 @@ def test_values_with_eulers_number_keep_their_float(engine):
 def test_sympy_text_writes_exp_1():
     assert sympy_text(sympy.E - 2) in ("-2 + exp(1)", "exp(1) - 2")
     assert _equal(sympy_text((sympy.E - 2) * x), (sympy.E - 2) * x)
+
+
+# --- logarithmic invariants -----------------------------------------------------------------------------------
+
+YULE_SIMON = Path(__file__).parents[2] / "pgfexamples/inference/loopy/hard_distributions/d_finite/yule_simon_urn.ppy"
+YULE_SIMON_INVARIANT = "-log(1-red) + stop*(-log(1-red) + log(1-red)/red + 1)"
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_yule_simon_urn_gets_an_upper_bound(engine):
+    # [red/(red+1)] = 1 - 1/(red+1) is an operator; the invariant has infinite mass (Ex[iterations] = ∞), so Park
+    # gives an upper bound; its series converges on the open unit polydisc (log(1 - red) has radius 1)
+    result = _run(YULE_SIMON.read_text(), engine, _evt(YULE_SIMON_INVARIANT))
+    loop = result["loops"][0]
+    assert loop["kind"] == Bound.UPPER
+    certificate = loop["certificates"][0]
+    assert certificate["nonnegative"] is True and certificate["finite_mass"] is False
+    assert certificate["series_identity"] == "converges on the open unit polydisc"
+    for query, value in zip(result["queries"][:3], ["1/2", "1/6", "1/12"]):
+        assert query["bound"] == Bound.UPPER and _equal(query["upper"], value)
+
+
+@pytest.mark.parametrize("expr, expected", [
+    (YULE_SIMON_INVARIANT, True),
+    ("-log(1-red)/red", True),
+    ("log(1-red)", False),
+    ("log(1-red)/red", False),
+    ("-log(1-red) - red - red^2", False),  # coefficient of red^2: 1/2 - 1
+    ("-log(1-red/2) - red/2 - red^2/8", True),  # the first two coefficients cancel to 0
+    ("(1-red)*log(1-red) + red", True),
+    ("-log(1-2*red)", None),  # radius 1/2: not in the class
+    ("-log(1-red)/red^2", None),  # not a power series
+    ("-log(1-red) + p", None),  # a parameter
+])
+def test_log_form_nonneg(expr, expected):
+    assert log_form_nonneg(sym(expr), ["red", "stop"]) is expected
+
+
+@pytest.mark.parametrize("expr, expected", [
+    ("-log(1-red/2) - red/2 - red^2/8", (True, sympy.log(2) - sympy.Rational(5, 8))),
+    ("(1-red)*log(1-red) + red", (True, 1)),  # Q(1) = 0: the mass is P(1)
+    ("-log(1-red)", (False, None)),
+    (YULE_SIMON_INVARIANT, (False, None)),
+])
+def test_log_form_mass(expr, expected):
+    finite, mass = log_form_mass(sym(expr), ["red", "stop"])
+    assert finite is expected[0]
+    assert (mass is None) if expected[1] is None else decide_equal(sympy.S(mass), sympy.S(expected[1])) is True

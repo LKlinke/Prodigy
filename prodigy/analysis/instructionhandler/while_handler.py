@@ -30,6 +30,7 @@ from prodigy.analysis.evtinvariants.invariant_synthesis import (DEFAULT_SYNTHESI
 from prodigy.analysis.evtinvariants.invariant_verification import FixedPointCheckFailed, evt_invariant_check
 from prodigy.analysis.evtinvariants.exp_polynomial import (entire_exp_polynomial, exp_polynomial_nonneg,
                                                            exp_polynomial_value_at_one)
+from prodigy.analysis.evtinvariants.log_polynomial import log_form_mass, log_form_nonneg
 from prodigy.analysis.evtinvariants.series_identity import converges_on_unit_polydisc, formal_loop
 from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
 from prodigy.analysis.instructionhandler import _assume
@@ -97,7 +98,7 @@ def finite_mass(invariant: Any, variables: Sequence[str]) -> Tuple[Optional[bool
     with f's denominator q(0) ≠ 0, Pringsheim's theorem says the radius of convergence is a
     singularity on the positive axis, so ``|I| < ∞`` iff q has no root in (0, 1]; then
     ``|I| = f(1)``. An exponential polynomial ``A·exp(c·k) + B`` (#323) is entire, so its mass is
-    ``I(1, …, 1)``. Returns (None, None) when this cannot be decided (parameters, other forms).
+    ``I(1, …, 1)``; for ``P + Q·log(1 - c·k)`` see :func:`log_form_mass`. Returns (None, None) when this cannot be decided (parameters, other forms).
     """
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import sym
@@ -105,6 +106,9 @@ def finite_mass(invariant: Any, variables: Sequence[str]) -> Tuple[Optional[bool
         expr = sym(invariant)
         if entire_exp_polynomial(expr, list(variables)):
             return True, exp_polynomial_value_at_one(expr, list(variables))
+        logarithmic = log_form_mass(expr, list(variables))
+        if logarithmic is not None:
+            return logarithmic
         t = sympy.Symbol("t__mass", positive=True)
         substitution = {s: t for s in expr.free_symbols if s.name in set(variables)}
         if any(s.name not in set(variables) for s in expr.free_symbols):
@@ -127,7 +131,9 @@ def _exp_polynomial_positivity(variables, invariant: Any) -> Optional[bool]:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import sym
     try:
-        return exp_polynomial_nonneg(sym(invariant), [str(v) for v in variables])
+        expr, names = sym(invariant), [str(v) for v in variables]
+        verdict = exp_polynomial_nonneg(expr, names)
+        return verdict if verdict is not None else log_form_nonneg(expr, names)
     except Exception:  # pylint: disable=broad-except
         return None
 
@@ -139,7 +145,7 @@ def _positivity(config: ForwardAnalysisConfig, variables, invariant: Any) -> Opt
     # several variables (SymPy has no multivariate partial fraction decomposition).
     if nonneg_by_construction(str(invariant), [str(v) for v in variables]):
         return True
-    # A·exp(c·k) + B with polynomials A, B: decided coefficient-wise (#323)
+    # A·exp(c·k) + B with polynomials A, B, and P + Q·log(1 - c·k): decided coefficient-wise (#323)
     verdict = _exp_polynomial_positivity(variables, invariant)
     if verdict is not None:
         return verdict

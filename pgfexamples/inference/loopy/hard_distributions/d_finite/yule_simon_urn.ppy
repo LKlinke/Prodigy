@@ -15,8 +15,12 @@
 #
 # What Prodigy proves: with "Unroll" (30 iterations) all three engines give Pr[red == 1] ∈
 # [1/2, 0.5323], Pr[red == 2] ∈ [1/6, 0.1990] and Pr[red == 3] ∈ [1/12, 0.1156] in about 2 s.
-# Strategies that reason about the whole loop give no result: red takes infinitely many values
-# there.
+# The probability red/(red + 1) = 1 - 1/(red + 1) acts as an integral operator on the generating function
+# (#323), so "Check EVT invariant" works with
+#     -log(1 - red) + stop*(-log(1 - red) + log(1 - red)/red + 1):
+# its coefficients are proven non-negative and its series converges on the open unit polydisc, but its mass
+# (the expected number of iterations) is infinite, so the result is an upper bound: Pr[red == 1] ≤ 1/2,
+# Pr[red == 2] ≤ 1/6, Pr[red == 3] ≤ 1/12, which are the exact values.
 
 red: nat;
 

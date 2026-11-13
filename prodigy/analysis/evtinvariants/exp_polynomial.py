@@ -286,9 +286,20 @@ def _series_nonneg(a: Dict[int, Fraction], b: Dict[int, Fraction], c: Fraction) 
     m_symbol = sympy.Symbol("m")
     r = sympy.Poly(sum(sympy.Rational(v.numerator, v.denominator) / sympy.Rational(c.numerator, c.denominator) ** j
                        * sympy.ff(m_symbol, j) for j, v in a.items()), m_symbol)
-    coefficients = [Fraction(str(x)) for x in r.all_coeffs()]
+    return eventually_nonneg([Fraction(str(x)) for x in r.all_coeffs()], head)
+
+
+def eventually_nonneg(coefficients: List[Fraction], head: int) -> Optional[bool]:
+    """Decides ``r(m) ≥ 0`` for all integers ``m > head``, for the polynomial r with the ``coefficients`` (leading
+    first): False if r is negative at some such m, None if that needs more than :data:`MAX_DIRECT_COEFFICIENTS`
+    evaluations. Beyond Cauchy's root bound ``1 + max |r_i/r_lead|``, r has the sign of its leading coefficient; below
+    it, r is evaluated."""
+    while coefficients and coefficients[0] == 0:
+        coefficients = coefficients[1:]
+    if not coefficients:
+        return True
     if coefficients[0] < 0:
-        return False  # r(m) < 0 for all large m: a negative coefficient
+        return False  # r(m) < 0 for all large m
     bound = 1 + max((abs(x / coefficients[0]) for x in coefficients[1:]), default=Fraction(0))
     last = max(head, math.ceil(bound))
     if last - head > MAX_DIRECT_COEFFICIENTS:
@@ -296,7 +307,7 @@ def _series_nonneg(a: Dict[int, Fraction], b: Dict[int, Fraction], c: Fraction) 
     for m in range(head + 1, last + 1):
         if sum(x * m ** (len(coefficients) - 1 - i) for i, x in enumerate(coefficients)) < 0:
             return False
-    return True  # beyond Cauchy's root bound, r has the sign of its leading coefficient
+    return True
 
 
 def exp_polynomial_nonneg(expr: sympy.Expr, variables: Sequence[str]) -> Optional[bool]:
@@ -325,5 +336,5 @@ def exp_polynomial_value_at_one(expr: sympy.Expr, variables: Sequence[str]) -> s
     return expr.subs({s: 1 for s in expr.free_symbols if s.name in names})
 
 
-__all__: List[str] = ["exp_polynomial_terms", "integral_from_zero", "analytic_at_zero", "entire_exp_polynomial",
-                      "exp_polynomial_nonneg", "exp_polynomial_value_at_one"]
+__all__: List[str] = ["eventually_nonneg", "exp_polynomial_terms", "integral_from_zero", "analytic_at_zero",
+                      "entire_exp_polynomial", "exp_polynomial_nonneg", "exp_polynomial_value_at_one"]
