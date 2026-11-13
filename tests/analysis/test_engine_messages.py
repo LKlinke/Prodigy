@@ -1,6 +1,7 @@
 """Engines report the same error message, in terms of the program (#349)."""
 import pytest
 
+from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
 from prodigy.pgcl import parse_pgcl
@@ -38,8 +39,17 @@ def test_engines_give_the_same_message(source):
     assert len(set(messages.values())) == 1, messages
 
 
-def test_variable_divisor_is_named_as_written():
-    assert "Cannot compute b // a:" in _message(VARIABLE_DIVISOR, ForwardAnalysisConfig.Engine.SYMPY)
+def test_variable_divisor_is_rejected_by_the_type_check():
+    # the type checker (#351) stops a variable divisor before the engine can fail with its own message
+    assert "positive natural constant" in _message(VARIABLE_DIVISOR, ForwardAnalysisConfig.Engine.SYMPY)
+
+
+def test_variable_divisor_is_named_as_written_by_the_engine():
+    config = ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.SYMPY)
+    program = parse_pgcl(VARIABLE_DIVISOR, "ppy")
+    with AnalysisSession(program, source=VARIABLE_DIVISOR, syntax="ppy", config=config).activate(), \
+            config.activate(), pytest.raises(Exception, match="Cannot compute b // a:"):
+        compute_discrete_distribution(program, config.factory.one(*program.variables), config)
 
 
 def test_cli_analyze_reports_type_errors(tmp_path):
