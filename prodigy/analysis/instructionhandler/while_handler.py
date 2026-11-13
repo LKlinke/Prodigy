@@ -35,7 +35,7 @@ from prodigy.analysis.evtinvariants.series_identity import converges_on_unit_pol
 from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
-from prodigy.distribution.equality import sympify_distribution
+from prodigy.distribution.equality import sympify_distribution, sympify_engine_string
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
                                               get_loop_strategy, register_loop_strategy)
@@ -91,6 +91,17 @@ def _require_unconditioned(task: LoopTask) -> None:
             f"'{task.strategy.title}' cannot be used after an observe statement.")
 
 
+def _names_as_symbols(invariant: Any, variables) -> sympy.Expr:
+    """``invariant`` as a SymPy expression in which the variables are symbols, also when they are named like a
+    function (``sum``, #321)."""
+    if isinstance(invariant, sympy.Basic):
+        return invariant
+    names = {str(v) for v in variables}
+    if hasattr(invariant, "get_parameters"):
+        names |= set(invariant.get_parameters())
+    return sympify_engine_string(str(invariant), names)
+
+
 def finite_mass(invariant: Any, variables: Sequence[str]) -> Tuple[Optional[bool], Optional[sympy.Expr]]:
     """Decides ``|I| < ∞`` for a generating function I with non-negative coefficients.
 
@@ -106,7 +117,7 @@ def finite_mass(invariant: Any, variables: Sequence[str]) -> Tuple[Optional[bool
     from prodigy.analysis.result import sym
     try:
         expr = sym(invariant)
-        factors = independent_factors(expr, list(variables))
+        factors = independent_factors(_names_as_symbols(invariant, variables), list(variables))
         if factors is not None:
             masses = [finite_mass(factor, variables) for factor in factors]
             if all(finite is True for finite, _ in masses):
@@ -114,7 +125,6 @@ def finite_mass(invariant: Any, variables: Sequence[str]) -> Tuple[Optional[bool
             # a non-zero factor with non-negative coefficients has positive mass
             if any(finite is False for finite, _ in masses) and all(finite is not None for finite, _ in masses):
                 return False, None
-            return None, None
         if entire_exp_polynomial(expr, list(variables)):
             return True, exp_polynomial_value_at_one(expr, list(variables))
         logarithmic = log_form_mass(expr, list(variables))
@@ -162,13 +172,11 @@ def _positivity(config: ForwardAnalysisConfig, variables, invariant: Any) -> Opt
         return verdict
     # a product of factors over disjoint variables: its coefficients are products of theirs
     try:
-        # pylint: disable=import-outside-toplevel
-        from prodigy.analysis.result import sym
-        factors = independent_factors(sym(invariant), [str(v) for v in variables])
+        factors = independent_factors(_names_as_symbols(invariant, variables), [str(v) for v in variables])
     except Exception:  # pylint: disable=broad-except
         factors = None
-    if factors is not None:
-        return True if all(_positivity(config, variables, factor) is True for factor in factors) else None
+    if factors is not None and all(_positivity(config, variables, factor) is True for factor in factors):
+        return True
     try:
         strategy: SynthesisStrategy = SynthesisStrategies.from_config(config, variables)
         verdict = strategy.positivity_heuristics.is_positive(sympify_distribution(invariant))
