@@ -145,6 +145,8 @@ def test_modulo_guard_after_loop_with_root_invariant_is_rejected(engine, f):
     session = AnalysisSession(parse_pgcl(WALK), source=WALK, config=config, decisions=decisions,
                               capture_output=True)
     result = session.run().to_json()
-    assert result["status"] == "error"
-    assert "not provably single-valued in 'c'" in result["error"]["message"]
-    assert not result["queries"]
+    # the query fails alone (#316): no value, never the wrong Pr = 1; the distribution stays
+    assert result["status"] == "ok", result["error"]
+    (query,) = result["queries"]
+    assert query["bound"] == "unknown" and query["value"] is None
+    assert "not provably single-valued in 'c'" in query["note"]
