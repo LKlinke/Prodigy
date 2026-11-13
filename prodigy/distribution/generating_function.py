@@ -15,7 +15,7 @@ import sympy
 # TODO Implement these checks in prodigy.pgcl
 from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
-from prodigy.distribution.equality import decide_equal
+from prodigy.distribution.equality import decide_equal, sympy_text
 from prodigy.distribution.exact_division import divide_exponents
 from prodigy.distribution.rational_series import rational_taylor_coefficients
 from prodigy.distribution.negative_values import can_be_negative
@@ -1183,7 +1183,7 @@ class GeneratingFunction(Distribution):
                 "Expected Value only computable for polynomial expressions.")
 
         if len(expr.free_symbols & self._variables) == 0:
-            return str(expr)
+            return sympy_text(expr)
         if not expr.free_symbols.issubset(
                 self._variables.union(self._parameters)):
             raise ValueError(
@@ -1209,7 +1209,7 @@ class GeneratingFunction(Distribution):
         if expected_value == sympy.S('oo'):
             return str(RealLitExpr.infinity())
         else:
-            return str(expected_value)
+            return sympy_text(expected_value)
 
     def copy(self, deep: bool = True) -> GeneratingFunction:
         res = GeneratingFunction(self._function,
@@ -1312,7 +1312,7 @@ class GeneratingFunction(Distribution):
         if GeneratingFunction.settings().latex_output:
             return sympy.latex(self._function)
         else:
-            output = f"{self._function}"
+            output = sympy_text(self._function)
         return output
 
     def __repr__(self):
@@ -1463,7 +1463,7 @@ class GeneratingFunction(Distribution):
         return coefficient_sum
 
     def get_probability_mass(self):
-        return str(self.coefficient_sum())
+        return sympy_text(self.coefficient_sum())
 
     def get_parameters(self) -> Set[str]:
         return set(map(str, self._parameters))

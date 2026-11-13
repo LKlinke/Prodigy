@@ -34,7 +34,7 @@ from prodigy.pgcl import Binop, BinopExpr, Expr, NatLitExpr, RealLitExpr, VarExp
 
 from prodigy.analysis.evtinvariants.exp_polynomial import integral_from_zero
 from prodigy.distribution import Distribution
-from prodigy.distribution.equality import sympify_distribution
+from prodigy.distribution.equality import sympify_distribution, sympy_text
 
 
 class CounterProbability(NamedTuple):
@@ -149,9 +149,8 @@ def apply_operator(probability: CounterProbability, distribution: Distribution,
     right = function - left
 
     def back(expr: sympy.Expr) -> Distribution:
-        # exp factors merged again (exp(k - 1), not exp(-1)*exp(k)): at k = 1 the latter is E*exp(-1), and the
-        # string "E" would be read back as a symbol
-        text = str(sympy.powsimp(sympy.together(sympy.expand(expr)), combine="exp")).replace("**", "^")
+        # exp factors merged again (exp(k - 1), not exp(-1)*exp(k)); Euler's number as exp(1), never "E"
+        text = sympy_text(sympy.powsimp(sympy.together(sympy.expand(expr)), combine="exp")).replace("**", "^")
         result = distribution.factory().from_expr(text, *sorted(names))
         parameters = distribution.get_parameters()
         return result.set_parameters(*parameters) if parameters else result

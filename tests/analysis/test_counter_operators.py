@@ -16,7 +16,7 @@ from prodigy.analysis.instructionhandler.counter_operators import CounterProbabi
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
-from prodigy.distribution.equality import decide_equal
+from prodigy.distribution.equality import decide_equal, sympy_text
 from prodigy.pgcl import parse_pgcl
 from prodigy.pgcl.parser import parse_expr
 
@@ -32,8 +32,7 @@ k, x, ok, stop = sympy.symbols("k x ok stop")
 def _run(source, engine, decisions=None):
     if engine == ForwardAnalysisConfig.Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
-    # simplification as in the CLI and the GUI: without it, SymPy may print exp(1) as E (read back as a symbol)
-    config = ForwardAnalysisConfig(engine=engine, use_simplification=True)
+    config = ForwardAnalysisConfig(engine=engine)
     session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
                               decisions=decisions or {}, capture_output=True)
     return session.run().to_json()
@@ -44,8 +43,10 @@ def _evt(invariant):
 
 
 def _equal(value, expected) -> bool:
-    # the strings come from Prodigy (trusted); SymPy may print exp(1) as E, which sympify reads as e
-    return decide_equal(sympy.sympify(str(value).replace("^", "**")), sympy.S(expected)) is True
+    # read back as Prodigy reads results: Euler's number must be written exp(1), not E (a symbol for sym)
+    parsed = sym(value)
+    parsed = parsed.xreplace({s: sympy.Symbol(s.name) for s in parsed.free_symbols})  # without assumptions
+    return decide_equal(parsed, sympy.S(expected)) is True
 
 
 # --- the Poisson example --------------------------------------------------------------------------------------
@@ -256,3 +257,17 @@ def test_entire_exp_polynomial():
 def test_cancelled_rational_difference_is_proven_different():
     assert decide_equal(sympy.exp(k) + 1, sympy.exp(k)) is False
     assert decide_equal(sympy.exp(k) + 1, sympy.exp(k) + 1) is True
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_values_with_eulers_number_keep_their_float(engine):
+    # Pr[x = 1] = (e - 2)/e: SymPy prints e as E, which Prodigy would read back as a symbol
+    result = _run(LOOP_FREE, engine)
+    query = result["queries"][1]
+    assert "E" not in query["value"]
+    assert query["value_float"] == pytest.approx(1 - 2 / 2.718281828459045)
+
+
+def test_sympy_text_writes_exp_1():
+    assert sympy_text(sympy.E - 2) in ("-2 + exp(1)", "exp(1) - 2")
+    assert _equal(sympy_text((sympy.E - 2) * x), (sympy.E - 2) * x)

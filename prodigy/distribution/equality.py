@@ -63,6 +63,19 @@ def decide_equal(lhs: sympy.Expr, rhs: sympy.Expr, use_simplify: bool = True) ->
     return None
 
 
+class _EngineStrPrinter(sympy.printing.str.StrPrinter):
+    """SymPy's string form, but Euler's number as ``exp(1)``: Prodigy reads ``E`` back as a symbol (a variable or
+    parameter may be called E), so ``E - 2`` would lose its value."""
+
+    def _print_Exp1(self, expr):  # pylint: disable=invalid-name,unused-argument
+        return "exp(1)"
+
+
+def sympy_text(expr: Any) -> str:
+    """The string form of a SymPy expression as Prodigy reads it back (:class:`_EngineStrPrinter`)."""
+    return _EngineStrPrinter().doprint(expr)
+
+
 def sympify_engine_string(text: str, names: Iterable[str]) -> sympy.Expr:
     """
     The SymPy expression of an engine's string form ``text`` (``^`` or ``**`` for powers). ``names`` are the

@@ -108,6 +108,7 @@ from prodigy.pgcl import (Binop, BinopExpr, BoolType, Expr, NatLitExpr, NatType,
                            Program, UnopExpr, VarExpr)
 
 from prodigy.analysis.loop_strategies import Bound
+from prodigy.distribution.equality import sympy_text
 from prodigy.util.integers import unlimited_int_digits
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -208,7 +209,8 @@ def show(expr: Any) -> Optional[str]:
         return expr
     if expr == sympy.oo:
         return "\\infty"
-    return str(expr).replace("**", "^")
+    # Euler's number as exp(1): sym reads "E" back as a symbol
+    return sympy_text(expr).replace("**", "^")
 
 
 def exact_and_float(value: Any) -> Tuple[Optional[str], Optional[float]]:
