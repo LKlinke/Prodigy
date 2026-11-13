@@ -325,7 +325,9 @@ An invariant may also be an exponential polynomial `A·exp(c·k) + B` (polynomia
 arises from a choice probability such as `1/(k + 1)` in a counter k (issue #323): such a
 probability acts on the generating function as an integral operator, and the fixed-point check
 needs only derivatives and evaluation at 0. Its non-negativity is decided coefficient-wise, and
-its series converges everywhere, so with non-negative coefficients the result is exact. See
+its series converges everywhere, so with non-negative coefficients the result is exact. The same
+holds for logarithmic invariants `P + Q·log(1 - c·k)` (exact with finite mass, otherwise an upper
+bound) and for products of such factors over disjoint variables. See
 "Probabilities rational in a counter" in `docs/source/language-design.md`.
 
 An invariant that fails its check gets a verdict. *Refuted* means it is provably wrong: a

@@ -204,17 +204,21 @@ The parser and the type checker accept every such program.
 
 #### Probabilities rational in a counter (operators)
 
-A choice probability `p(k) = α + β/(k + a)` in one program variable `k`, with rational constants
-α, β and a natural number `a ≥ 1` (e.g. `1/(k + 1)`, `k/(k + 1)`, `1/(k + 3)`), is computed for
-infinitely many values of `k` as an operator on the generating function (issue #323). Weighting
+A choice probability rational in one program variable `k` whose partial fractions are
+`p(k) = α + Σ_i β_i/(k + a_i)`, with rational constants α, β_i and distinct natural numbers
+`a_i ≥ 1` (e.g. `1/(k + 1)`, `k/(k + 1)`, `1/(k + 3)`, `2/((k + 1)(k + 2))`), is computed for
+infinitely many values of `k` as an operator on the generating function (issue #323);
+`x = bernoulli(p)` is the choice `{x = 1} [p] {x = 0}` and is computed the same way. Weighting
 the coefficient `g_n` of `k^n` with `p(n)` is the operator `p(θ)` with the Euler operator
 `θ = k·∂/∂k`, so the choice computes `A(p(θ) G) + B((1 − p)(θ) G)`. For `1/(k + a)`,
 
     p(θ) G = k^(−a) ∫_0^k t^(a−1) G(t) dt,
 
-and `{k = k + 1;} [1/(k + 1)] {…}` turns `G` into `∫_0^k G`. Such a `p` is a probability for
-every `k` iff `p(0)` and `α` lie in [0, 1] (it is monotone in `k`); other shapes keep the
-"not implemented" message.
+and `{k = k + 1;} [1/(k + 1)] {…}` turns `G` into `∫_0^k G`; several poles give the sum of such
+terms. Whether `p` is a probability for every natural `k` is decided exactly (numerator and
+denominator are polynomials: checked directly up to Cauchy's root bound, by the leading
+coefficient beyond). Other shapes (a polynomial, a double pole) keep the "not implemented"
+message.
 
 - **The integration proposes, the derivative certifies.** An antiderivative `g` comes from a
   formula for sums of terms `k^n·exp(c·k)` (e.g. a Poisson distribution) or, for other integrands
@@ -233,8 +237,20 @@ every `k` iff `p(0)` and `α` lie in [0, 1] (it is monotone in `k`); other shape
   integration. Non-negativity of the coefficients of such an invariant is decided: the
   coefficient of `k^m` is `c^m/m!·r(m)` for a polynomial `r`, so finitely many coefficients are
   checked directly and the rest by the sign of `r` beyond Cauchy's root bound. Such an invariant
-  is entire, so its series converges everywhere and its mass is its value at 1. Other
-  non-rational invariants (e.g. `exp(k/2)/(2 − j)`) are not decided and give `unknown`.
+  is entire, so its series converges everywhere and its mass is its value at 1.
+- **Logarithmic invariants** `P + Q·log(1 − c·k)` (P, Q polynomials in the other variables with
+  Laurent polynomials in `k` as coefficients, `0 < c ≤ 1`) arise from rational inputs, e.g. the
+  Pólya urn `yule_simon_urn.ppy`. The coefficient of `k^m` is a rational function of `m` beyond
+  the polynomial part, so non-negativity is decided the same way; the series converges on the open
+  unit polydisc, and the mass is finite iff `c < 1` or `Q(1) = 0` (then it is `P(1)`). The urn's
+  invariant has infinite mass (infinitely many expected iterations), so the result is an upper
+  bound, which equals the exact values.
+- A product of factors over disjoint variables (e.g. `exp(k/2)·… / (2 − j)`) is decided factor by
+  factor. Other non-rational invariants, and coefficients that depend on parameters, are not
+  decided and give `unknown`.
+- The closed form of a branch weighted with `1/(k + a)` has a removable singularity at `k = 0`;
+  the engines take the series there, and a substitution of `k = 0` gives an undefined value (an
+  error), never a wrong number.
 - Example: `pgfexamples/inference/loopy/conditioning/poisson_from_coins_choice.ppy` draws a
   geometric number and accepts it with probability 1/k!, through choices with probability
   `1/(k + 1)`. With the EVT invariant `ok*exp(k/2)*(1 + stop/2) + (k/2 - 1)*exp(k/2) + 1` the
