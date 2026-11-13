@@ -48,7 +48,8 @@ Waiting: no command blocks for more than about 2 minutes.
 - Give every run of a program or script a limit (`timeout 120 uv run prodigy …`); pytest stops each
   test after 120 s (`timeout` in `pyproject.toml`).
 - Anything that may take longer runs in the background and reports when it is done; do not set a
-  long tool timeout (e.g. 900 s) to wait for it.
+  long tool timeout (e.g. 900 s) to wait for it. The same holds for monitors and waiting loops:
+  none of them waits for more than about 2 minutes.
 - Do not wait for the CI in a loop (`gh pr checks --watch`, `sleep`): after pushing, end the turn;
   Lutz or the supervising session follows up on the result.
 - If something runs longer than expected, stop it and find out why (it is often a bug, like #252).
@@ -114,6 +115,14 @@ on its own.
   (GUI input, model answers) with the pGCL parser or an allowlist before SymPy sees it (see
   `ai_candidates.candidate_from_answer`; generating functions of loop decisions and CLI options go
   through `ParamSpec.parse` and `cli._expression_option`).
+- Engines share their mathematics; only the computer algebra differs:
+  - new case analysis (support splits, the order of case splits, zero mass, which cases are
+    computed and which are "not implemented") goes into the shared `Distribution` logic;
+  - CAS-specific operations (substitution, series, polynomial arithmetic, simplification) stay in
+    the engines, as small hooks the shared logic calls;
+  - existing duplication is not copied into another engine because an issue needs the same
+    feature there; extract the shared part instead (#362);
+  - a PR that deviates from this says why in its text.
 - Tests do not use the network; fake external services (see `tests/analysis/test_ai_candidates.py`).
   `tests/conftest.py` seeds random draws per test and restores the global flags of
   `GeneratingFunction` after each test.
