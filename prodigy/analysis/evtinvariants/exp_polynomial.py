@@ -290,7 +290,8 @@ def _series_nonneg(a: Dict[int, Fraction], b: Dict[int, Fraction], c: Fraction) 
 
 
 def eventually_nonneg(coefficients: List[Fraction], head: int, strict: bool = False) -> Optional[bool]:
-    """Decides ``r(m) ≥ 0`` (``r(m) > 0`` if ``strict``) for all integers ``m > head``, for the polynomial r with the ``coefficients`` (leading
+    """Decides ``r(m) ≥ 0`` (``r(m) > 0`` if ``strict``) for all integers ``m > head``, for the polynomial r with
+    the ``coefficients`` (leading
     first): False if r is negative at some such m, None if that needs more than :data:`MAX_DIRECT_COEFFICIENTS`
     evaluations. Beyond Cauchy's root bound ``1 + max |r_i/r_lead|``, r has the sign of its leading coefficient; below
     it, r is evaluated."""
@@ -330,6 +331,46 @@ def exp_polynomial_nonneg(expr: sympy.Expr, variables: Sequence[str]) -> Optiona
     return verdict
 
 
+def independent_factors(expr: sympy.Expr, variables: Sequence[str]) -> Optional[List[sympy.Expr]]:
+    """``expr`` as a product of at least two factors over pairwise disjoint sets of ``variables`` (e.g.
+    ``exp(k/2)·ok`` times ``1/(2 - j)``), or None. Constants go with the first factor. The coefficients of such a
+    product are products of coefficients of the factors, so it has non-negative coefficients if all factors have;
+    it converges where all factors converge, and its mass is the product of their masses."""
+    expr = sympy.S(expr)
+    if not isinstance(expr, sympy.Mul):
+        return None
+    names = set(variables)
+    groups: List[Tuple[set, List[sympy.Expr]]] = []
+    constants: List[sympy.Expr] = []
+    for factor in expr.args:
+        used = {s.name for s in factor.free_symbols} & names
+        if not used:
+            constants.append(factor)
+            continue
+        merged = [g for g in groups if g[0] & used]
+        rest = [g for g in groups if not g[0] & used]
+        group_names = set(used).union(*(g[0] for g in merged))
+        group_factors = [f for g in merged for f in g[1]] + [factor]
+        groups = rest + [(group_names, group_factors)]
+    if len(groups) < 2:
+        return None
+    factors = [sympy.Mul(*g[1]) for g in groups]
+    # a non-negative series that is not 0 at the origin is positive there: a factor negative at the origin is
+    # negated, and its sign goes to the constant (GiNaC writes 1/(2 - j) as -(-2 + j)^(-1))
+    # The constant goes to a factor that is 0 at the origin (whose sign is not fixed that way), if there is one.
+    origin = {s: 0 for s in expr.free_symbols if s.name in names}
+    target = 0
+    for i, factor in enumerate(factors):
+        value = factor.subs(origin)
+        if value.is_number and value.is_negative is True:
+            factors[i] = -factor
+            constants.append(sympy.Integer(-1))
+        elif value.is_number and value.is_zero is True:
+            target = i
+    factors[target] = sympy.Mul(*constants) * factors[target]
+    return factors
+
+
 def exp_polynomial_value_at_one(expr: sympy.Expr, variables: Sequence[str]) -> sympy.Expr:
     """``expr`` with every variable set to 1 (its mass, if it is an entire function with non-negative coefficients)."""
     expr = sympy.S(expr)
@@ -338,4 +379,5 @@ def exp_polynomial_value_at_one(expr: sympy.Expr, variables: Sequence[str]) -> s
 
 
 __all__: List[str] = ["eventually_nonneg", "exp_polynomial_terms", "integral_from_zero", "analytic_at_zero",
-                      "entire_exp_polynomial", "exp_polynomial_nonneg", "exp_polynomial_value_at_one"]
+                      "entire_exp_polynomial", "exp_polynomial_nonneg", "exp_polynomial_value_at_one",
+                      "independent_factors"]

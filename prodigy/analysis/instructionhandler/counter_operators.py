@@ -49,7 +49,8 @@ from prodigy.distribution.equality import sympify_distribution, sympy_text
 
 
 class CounterProbability(NamedTuple):
-    """A probability ``α + Σ_i β_i/(k + a_i)`` in the counter ``k`` (module docstring); ``poles`` lists ``(β_i, a_i)``."""
+    """A probability ``α + Σ_i β_i/(k + a_i)`` in the counter ``k`` (module docstring); ``poles`` lists
+    ``(β_i, a_i)``."""
     variable: str
     alpha: Fraction
     poles: Tuple[Tuple[Fraction, int], ...]
@@ -105,7 +106,10 @@ def _nonneg_for_naturals(expr: sympy.Expr, k: sympy.Symbol) -> Optional[bool]:
     return None
 
 
-def _partial_fractions(expr: sympy.Expr, k: sympy.Symbol) -> Optional[Tuple[Fraction, Tuple[Tuple[Fraction, int], ...]]]:
+Poles = Tuple[Tuple[Fraction, int], ...]
+
+
+def _partial_fractions(expr: sympy.Expr, k: sympy.Symbol) -> Optional[Tuple[Fraction, Poles]]:
     """``(α, ((β_i, a_i), …))`` if ``expr = α + Σ_i β_i/(k + a_i)`` with rationals and distinct naturals a_i ≥ 1."""
     expr = sympy.cancel(sympy.together(expr))
     if not expr.has(k):

@@ -12,7 +12,8 @@ import sympy
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.evtinvariants import exp_polynomial
 from prodigy.analysis.evtinvariants.exp_polynomial import (analytic_at_zero, entire_exp_polynomial,
-                                                           exp_polynomial_nonneg, integral_from_zero)
+                                                           exp_polynomial_nonneg, independent_factors,
+                                                           integral_from_zero)
 from prodigy.analysis.evtinvariants.log_polynomial import log_form_mass, log_form_nonneg
 from prodigy.analysis.instructionhandler.counter_operators import CounterProbability, counter_probability
 from prodigy.analysis.loop_strategies import Bound
@@ -90,11 +91,21 @@ def test_wrong_candidates_are_rejected(engine, invariant, verdicts):
 
 
 @pytest.mark.parametrize("engine", ENGINES)
-def test_unproven_non_negativity_gives_unknown(engine):
-    # an independent geometric factor 1/(2 - j): a fixed point, but A·exp(c·k) + B with polynomials A, B is the
-    # only non-rational form whose non-negativity is decided
+def test_independent_factor_keeps_the_result_exact(engine):
+    # an independent geometric factor 1/(2 - j): a product over disjoint variables, decided factor by factor
     source = EXAMPLE.read_text().replace("stop: nat = 0;", "stop: nat = 0;\nj: nat = geometric(1/2);")
     result = _run(source, engine, _evt(f"({INVARIANT})/(2 - j)"))
+    assert result["status"] == "ok", result.get("error")
+    loop = result["loops"][0]
+    assert loop["kind"] == Bound.EXACT
+    assert loop["certificates"][0]["nonnegative"] is True
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_unproven_non_negativity_gives_unknown(engine):
+    # the factor 1 - p + p*j has non-negative coefficients only for p in [0, 1]; parameters have no known sign
+    source = EXAMPLE.read_text().replace("stop: nat = 0;", "stop: nat = 0;\nparam p: real;\nj: nat = bernoulli(p);")
+    result = _run(source, engine, _evt(f"({INVARIANT})*(1 - p + p*j)"))
     assert result["status"] == "ok", result.get("error")
     loop = result["loops"][0]
     assert loop["kind"] == Bound.UNKNOWN
@@ -337,3 +348,12 @@ def test_log_form_mass(expr, expected):
     finite, mass = log_form_mass(sym(expr), ["red", "stop"])
     assert finite is expected[0]
     assert (mass is None) if expected[1] is None else decide_equal(sympy.S(mass), sympy.S(expected[1])) is True
+
+
+def test_independent_factors():
+    j = sympy.Symbol("j")
+    factors = independent_factors(sympy.exp(k / 2) * ok * 3 / (2 - j), ["k", "ok", "j"])
+    assert factors is not None and len(factors) == 3  # 3*ok, exp(k/2), 1/(2 - j)
+    assert decide_equal(sympy.Mul(*factors), sympy.exp(k / 2) * ok * 3 / (2 - j)) is True
+    assert independent_factors(sympy.exp(k / 2) / (2 - k), ["k"]) is None
+    assert independent_factors(sympy.exp(k / 2) + 1 / (2 - j), ["k", "j"]) is None

@@ -29,7 +29,7 @@ from prodigy.analysis.evtinvariants.invariant_synthesis import (DEFAULT_SYNTHESI
                                                                 DEFAULT_TEMPLATE_TIME_LIMIT, evt_invariant_synthesis)
 from prodigy.analysis.evtinvariants.invariant_verification import FixedPointCheckFailed, evt_invariant_check
 from prodigy.analysis.evtinvariants.exp_polynomial import (entire_exp_polynomial, exp_polynomial_nonneg,
-                                                           exp_polynomial_value_at_one)
+                                                           exp_polynomial_value_at_one, independent_factors)
 from prodigy.analysis.evtinvariants.log_polynomial import log_form_mass, log_form_nonneg
 from prodigy.analysis.evtinvariants.series_identity import converges_on_unit_polydisc, formal_loop
 from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
@@ -98,12 +98,23 @@ def finite_mass(invariant: Any, variables: Sequence[str]) -> Tuple[Optional[bool
     with f's denominator q(0) ≠ 0, Pringsheim's theorem says the radius of convergence is a
     singularity on the positive axis, so ``|I| < ∞`` iff q has no root in (0, 1]; then
     ``|I| = f(1)``. An exponential polynomial ``A·exp(c·k) + B`` (#323) is entire, so its mass is
-    ``I(1, …, 1)``; for ``P + Q·log(1 - c·k)`` see :func:`log_form_mass`. Returns (None, None) when this cannot be decided (parameters, other forms).
+    ``I(1, …, 1)``; for ``P + Q·log(1 - c·k)`` see :func:`log_form_mass`. A product of factors over disjoint
+    variables has the product of their masses. Returns (None, None) when this cannot be decided (parameters,
+    other forms).
     """
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import sym
     try:
         expr = sym(invariant)
+        factors = independent_factors(expr, list(variables))
+        if factors is not None:
+            masses = [finite_mass(factor, variables) for factor in factors]
+            if all(finite is True for finite, _ in masses):
+                return True, sympy.Mul(*(mass for _, mass in masses))
+            # a non-zero factor with non-negative coefficients has positive mass
+            if any(finite is False for finite, _ in masses) and all(finite is not None for finite, _ in masses):
+                return False, None
+            return None, None
         if entire_exp_polynomial(expr, list(variables)):
             return True, exp_polynomial_value_at_one(expr, list(variables))
         logarithmic = log_form_mass(expr, list(variables))
@@ -149,6 +160,15 @@ def _positivity(config: ForwardAnalysisConfig, variables, invariant: Any) -> Opt
     verdict = _exp_polynomial_positivity(variables, invariant)
     if verdict is not None:
         return verdict
+    # a product of factors over disjoint variables: its coefficients are products of theirs
+    try:
+        # pylint: disable=import-outside-toplevel
+        from prodigy.analysis.result import sym
+        factors = independent_factors(sym(invariant), [str(v) for v in variables])
+    except Exception:  # pylint: disable=broad-except
+        factors = None
+    if factors is not None:
+        return True if all(_positivity(config, variables, factor) is True for factor in factors) else None
     try:
         strategy: SynthesisStrategy = SynthesisStrategies.from_config(config, variables)
         verdict = strategy.positivity_heuristics.is_positive(sympify_distribution(invariant))
