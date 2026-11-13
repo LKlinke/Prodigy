@@ -626,7 +626,9 @@ register_loop_strategy(LoopStrategy(
     soundness=Bound.UPPER,
     description="Checks a generating function I against I = G + ⟦body⟧(⟨I⟩_guard), solving for its "
                 "parameters. With non-negative coefficients the result is an upper bound (Park), and "
-                "exact if I has finite mass.",
+                "exact if I has finite mass. Choice probabilities α + β/(k + a) in a counter k act as "
+                "integral operators; then I may be an exponential polynomial A·exp(c·k) + B, e.g. for a "
+                "Poisson output (#323).",
     params=(ParamSpec("invariant", "expression", "EVT invariant I", prompt="Enter EVT invariant: ",
                       help="Generating function over the program variables, e.g. 1/(1-c/2)."),),
     run=_strategy_evt_invariant,

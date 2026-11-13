@@ -196,11 +196,50 @@ The parser and the type checker accept every such program.
 - A value that is not a probability or not an admissible argument (also undefined, e.g. `1/k` for
   `k = 0`) in a state with positive probability ends with an error naming the state. Constant
   arguments are checked the same way, on every engine.
-- If the variables take infinitely many values, the analysis is "not implemented": multiplying the
-  generating function by `p` as if it were a constant would be wrong, and dividing coefficients by
-  a value that depends on the state (as for `1/(k + 1)`) is not an operation on the generating
-  function. Strategies that reason about a whole loop (invariants, the EVT operator) meet this
-  case for a probability that depends on a variable the loop changes.
+- If the variables take infinitely many values, the analysis is "not implemented" in general:
+  multiplying the generating function by `p` as if it were a constant would be wrong. Strategies
+  that reason about a whole loop (invariants, the EVT operator) meet this case for a probability
+  that depends on a variable the loop changes. The exception is a choice probability that is
+  rational in one counter, see below.
+
+#### Probabilities rational in a counter (operators)
+
+A choice probability `p(k) = α + β/(k + a)` in one program variable `k`, with rational constants
+α, β and a natural number `a ≥ 1` (e.g. `1/(k + 1)`, `k/(k + 1)`, `1/(k + 3)`), is computed for
+infinitely many values of `k` as an operator on the generating function (issue #323). Weighting
+the coefficient `g_n` of `k^n` with `p(n)` is the operator `p(θ)` with the Euler operator
+`θ = k·∂/∂k`, so the choice computes `A(p(θ) G) + B((1 − p)(θ) G)`. For `1/(k + a)`,
+
+    p(θ) G = k^(−a) ∫_0^k t^(a−1) G(t) dt,
+
+and `{k = k + 1;} [1/(k + 1)] {…}` turns `G` into `∫_0^k G`. Such a `p` is a probability for
+every `k` iff `p(0)` and `α` lie in [0, 1] (it is monotone in `k`); other shapes keep the
+"not implemented" message.
+
+- **The integration proposes, the derivative certifies.** An antiderivative `g` comes from a
+  formula for sums of terms `k^n·exp(c·k)` (e.g. a Poisson distribution) or, for other integrands
+  without parameters, from SymPy's `integrate` (e.g. a logarithm for a geometric `k`), on every
+  engine (the computation runs on the SymPy form and is handed back to the engine). It counts
+  only if `F = g − g(0)` passes three checks: `∂F/∂k` equals the integrand (exact cancellation),
+  `F(0) = 0`, and `F` is analytic at the origin by construction (sums, products, `exp`, `log` of
+  an argument positive at 0, denominators non-zero at 0). Then `F` is the power series
+  `∫_0^k G`. Otherwise the choice ends with a "not implemented" message that names it.
+- **The integration constant.** If `g + c = ∫_0^k G` for an antiderivative `g`, then `c = −g(0)`,
+  because the integral from 0 vanishes at `k = 0`. So `g − g(0)` is the only candidate, and the
+  check `F(0) = 0` checks this choice.
+- **EVT invariants.** A given EVT invariant (`evt_invariant`, or a candidate of `ai_invariant`) is
+  checked with the same operator. For an invariant `A·exp(c·k) + B` with polynomials `A`, `B`,
+  the check needs only the formula, derivatives and evaluation at 0, never a symbolic
+  integration. Non-negativity of the coefficients of such an invariant is decided: the
+  coefficient of `k^m` is `c^m/m!·r(m)` for a polynomial `r`, so finitely many coefficients are
+  checked directly and the rest by the sign of `r` beyond Cauchy's root bound. Such an invariant
+  is entire, so its series converges everywhere and its mass is its value at 1. Other
+  non-rational invariants (e.g. `exp(k/2)/(2 − j)`) are not decided and give `unknown`.
+- Example: `pgfexamples/inference/loopy/conditioning/poisson_from_coins_choice.ppy` draws a
+  geometric number and accepts it with probability 1/k!, through choices with probability
+  `1/(k + 1)`. With the EVT invariant `ok*exp(k/2)*(1 + stop/2) + (k/2 - 1)*exp(k/2) + 1` the
+  result is exact on all engines: Poisson(1/2), `exp((k − 1)/2)`, after conditioning.
+
 - Parameters in `p` stay symbolic, as in a constant choice; the range of a probability with
   parameters is not checked.
 
