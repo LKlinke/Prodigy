@@ -121,6 +121,15 @@ _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 _INFINITY_SPELLINGS = {"\\infty", "∞", "oo", "inf", "infinity"}
 
 
+
+def error_type(exc: BaseException) -> str:
+    """
+    The `type` of an error in the result: the class name, except that every subclass of
+    NotImplementedError (e.g. `ComparisonNotImplemented`) is reported as `NotImplementedError`,
+    the type consumers of the result check for; the reason is in the message.
+    """
+    return "NotImplementedError" if isinstance(exc, NotImplementedError) else type(exc).__name__
+
 def prodigy_version() -> str:
     """The version of prodigy-ppl, taken from the Git tag ``v<version>`` when it was built or installed.
 
@@ -824,7 +833,7 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
         except Exception as exc:  # pylint: disable=broad-except
             analysis_time = time.perf_counter() - started
             result.status = "error"
-            result.error = {"type": type(exc).__name__, "message": str(exc) or type(exc).__name__,
+            result.error = {"type": error_type(exc), "message": str(exc) or type(exc).__name__,
                             "traceback": traceback.format_exc()}
 
     result.queries = list(session.queries)

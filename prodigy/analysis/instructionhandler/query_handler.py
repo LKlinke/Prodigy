@@ -14,8 +14,9 @@ from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.result import (QueryResult, describe_distribution, finish_query, is_non_finite,
-                                     is_monotone_nonnegative, joint_table, show, sym, tidy, univariate_table)
+from prodigy.analysis.result import (QueryResult, describe_distribution, error_type, finish_query,
+                                     is_non_finite, is_monotone_nonnegative, joint_table, show, sym, tidy,
+                                     univariate_table)
 from prodigy.analysis.session import AnalysisSession, current_session
 from prodigy.distribution import Distribution, MarginalType
 from prodigy.distribution.distribution import NonFiniteMarginalError
@@ -74,7 +75,7 @@ class QueryHandler(InstructionHandler):
             kind, expr = "print", None
         print(f"Query {expr if expr is not None else kind} could not be computed: {message}")
         query = QueryResult(kind, expr, bound=Bound.UNKNOWN, note=f"Not computed: {message}",
-                            error={"type": type(exc).__name__, "message": message})
+                            error={"type": error_type(exc), "message": message})
         session.record_query(query)
         where = f" (line {query.line})" if query.line is not None else ""
         session.warn(f"`{session.spell(instruction).strip()}`{where} could not be computed; the distribution "

@@ -63,7 +63,9 @@ def test_query_that_cannot_be_computed_fails_only_itself(syntax, engine):
     failed, expectation = result["queries"]
     assert failed["kind"] == "probability" and failed["line"] == (3 if syntax == "ppy" else 5)
     assert failed["error"]["type"] == "NotImplementedError"
-    assert "not computable" in failed["error"]["message"]
+    # the message names the guard and the reason, not the generating function (#243, #225)
+    assert "(x * y) < 3 is not implemented" in failed["error"]["message"]
+    assert "geometric" not in failed["error"]["message"] and "/(" not in failed["error"]["message"]
     assert failed["value"] is None and failed["lower"] is None and failed["upper"] is None
     assert failed["bound"] == Bound.UNKNOWN
     assert failed["note"].startswith("Not computed:")

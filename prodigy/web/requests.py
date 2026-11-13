@@ -324,7 +324,7 @@ def run_joint(request: Dict[str, Any], *, output: Optional[Callable[[str], None]
         except GridError as exc:
             return _error("request", str(exc))
         except Exception as exc:  # pylint: disable=broad-except
-            return _error(type(exc).__name__, f"The grid could not be computed: {str(exc) or type(exc).__name__}")
+            return _error(_error_type(exc), f"The grid could not be computed: {str(exc) or type(exc).__name__}")
     return {"status": "ok", "joint": grid}
 
 
@@ -391,6 +391,12 @@ def _stopping_session(target: int, **kwargs):
     return StoppingSession(**kwargs)
 
 
+def _error_type(exc: BaseException) -> str:
+    """The error type as in the analysis result (:func:`prodigy.analysis.result.error_type`)."""
+    from prodigy.analysis.result import error_type  # pylint: disable=import-outside-toplevel
+    return error_type(exc)
+
+
 def _error(kind: str, message: str, **extra: Any) -> Dict[str, Any]:
     return {"status": "error", "error": {"type": kind, "message": message, **extra}}
 
@@ -444,7 +450,7 @@ def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], 
         except _LoopReached as reached:
             task = reached.task
         except Exception as exc:  # pylint: disable=broad-except
-            return _error(type(exc).__name__, f"The distribution entering loop {loop_id} could not be "
+            return _error(_error_type(exc), f"The distribution entering loop {loop_id} could not be "
                                               f"computed: {str(exc) or type(exc).__name__}")
         if task is None:
             return _error("unreachable", f"The analysis never reaches loop {loop_id}, so there is nothing "
