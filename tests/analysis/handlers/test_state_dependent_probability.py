@@ -4,7 +4,8 @@ Probabilities and distribution arguments that depend on program variables (issue
 over the values of the variables if these take finitely many values; a value that is not a
 probability (or not an admissible argument) in a state with positive probability is an error, and
 infinitely many values are "not implemented" (except for choices with a probability α + β/(k + a), which act
-as operators, #323; see ``tests/analysis/test_counter_operators.py``). The expected generating functions are computed by
+as operators, #323; see ``tests/analysis/test_counter_operators.py``; and ``x = unif(0, n)``, #385, see
+``tests/analysis/test_uniform_operator.py``). The expected generating functions are computed by
 hand, state by state.
 """
 import re

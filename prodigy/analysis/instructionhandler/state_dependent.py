@@ -10,7 +10,8 @@ finitely many values, the distribution is split into the parts in which they hav
 variables take infinitely many values, the instruction is not computed (``NotImplementedError``);
 multiplying the generating function by ``p`` as if it were a constant would be wrong. The exception are choice
 probabilities ``α + β/(k + a)`` in one counter k, which act as operators on the generating function
-(:mod:`~prodigy.analysis.instructionhandler.counter_operators`, #323).
+(:mod:`~prodigy.analysis.instructionhandler.counter_operators`, #323), and ``x = unif(0, n)`` with the
+operator ``1/(θ + 1)`` in n (#385).
 """
 from __future__ import annotations
 
