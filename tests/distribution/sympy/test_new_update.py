@@ -55,7 +55,7 @@ def test_var_assignment():
     with raises(ValueError) as e:
         gf = GeneratingFunction('p*x + (1-p) * x^2', 'x')
         gf.update(parse_expr('x = p'))
-    assert 'Assignment to parameters is not allowed' in str(e)
+    assert 'a parameter cannot be the source of an assignment' in str(e)
 
     with raises(ValueError) as e:
         gf = GeneratingFunction('x')

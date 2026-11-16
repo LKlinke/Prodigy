@@ -270,6 +270,8 @@ def test_floor_division_is_parsed_and_checked():
 
 @pytest.mark.parametrize("source, message", [
     ("x: nat; x = x // 0;", "by 0 is undefined"),
+    ("x: nat; x = x // 0.0;", "by 0 is undefined"),
+    ("x: nat; x = x // (0/5);", "by 0 is undefined"),
     ("x: nat[0, 10 // 2];", "not implemented in bounds"),
 ])
 def test_floor_division_rejected(source, message):

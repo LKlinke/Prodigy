@@ -460,7 +460,7 @@ class TestDistributionInterface:
     def test_update_var(self):
         # Parameter assignment is not allowed
         gf = SymengineDist("x").set_parameters("y")
-        with pytest.raises(ValueError, match=re.escape("Assignment to parameters is not allowed")):
+        with pytest.raises(ValueError, match=re.escape("a parameter cannot be the source of an assignment")):
             gf._update_var("x", "y")
 
         # Variables should all be known

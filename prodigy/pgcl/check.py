@@ -233,7 +233,7 @@ def _floor_division_type(
     decides what it can compute (syntax and semantics are separate, #356, #372).
     """
     divisor = expr.rhs
-    if isinstance(divisor, NatLitExpr) and divisor.value < 1:
+    if isinstance(divisor, (NatLitExpr, RealLitExpr)) and divisor.value == 0:
         return CheckFail(divisor, "Floor division by 0 is undefined.")
     divisor_type = get_type(program, divisor, check, predefined_functions)
     if isinstance(divisor_type, CheckFail):
