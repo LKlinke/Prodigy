@@ -41,7 +41,7 @@ import functools
 import re
 from decimal import Decimal
 from fractions import Fraction
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 import attr
 from lark import Lark, Token, Transformer, v_args
@@ -252,11 +252,11 @@ class _Query:
     meta: Meta = attr.ib()
 
 
-def _spanned(method):
+def _spanned(method: Callable[..., Any]) -> Callable[..., Any]:
     """Attaches the source span of the statement to the instruction (or query) it returns
     (see :mod:`prodigy.pgcl.positions`)."""
     @functools.wraps(method)
-    def wrapper(self, meta: Meta, children: List[Any]) -> Any:
+    def wrapper(self: Any, meta: Meta, children: List[Any]) -> Any:
         result = method(self, meta, children)
         set_span(result.instr if isinstance(result, _Query) else result, span_from_meta(meta))
         return result

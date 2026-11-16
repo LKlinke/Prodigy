@@ -251,7 +251,7 @@ def _floor_division_type(
 def get_type(
     program: Program,
     expr: Expr,
-    check=True,
+    check: bool = True,
     predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions
 ) -> Union[Type, CheckFail]:
@@ -946,7 +946,7 @@ def check_program(
 
 
 def check_expression(
-    program,
+    program: Program,
     expr: Expr,
     predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions
@@ -973,7 +973,7 @@ def check_expression(
 
 
 def check_expectation(
-    program,
+    program: Program,
     expr: Expr,
     predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions

@@ -127,7 +127,7 @@ class _Binder:
         self._bound.append(expr)
         return _BoundExpr(bound_index)
 
-    def resolve(self):
+    def resolve(self) -> None:
         """
         In the internal list of bound expressions, replace all
         :class:`_BoundExpr` by the the bound expressions.
@@ -182,7 +182,7 @@ class _Subst:
         self._symbolic = symbolic
 
     def add_bound(self, binder: _Binder, var: Union[Var, _BoundExpr],
-                  expr: Expr):
+                  expr: Expr) -> None:
         """
         Bind the expression using ``binder``, then add a new substitution that
         replaces ``var`` by the newly created bound expression.
@@ -220,7 +220,7 @@ class _Subst:
         return _Subst(subst=self._subst, symbolic=self._symbolic)
 
 
-def _bind_substs(binder: _Binder, subst: _Subst, expr_ref: Mut[Expr]):
+def _bind_substs(binder: _Binder, subst: _Subst, expr_ref: Mut[Expr]) -> None:
     """
     Walk the `expr_ref` and replace all right-hand sides of each :class:`SubstExpr` by a locally bound :class:`_BoundExpr`.
 
@@ -275,7 +275,7 @@ def _bind_substs(binder: _Binder, subst: _Subst, expr_ref: Mut[Expr]):
         _bind_substs(binder, subst, child_expr_ref)
 
 
-def _resolve_bound_exprs(binder: _Binder, expr_ref: Mut[Expr]):
+def _resolve_bound_exprs(binder: _Binder, expr_ref: Mut[Expr]) -> None:
     for child_expr_ref in walk_expr(Walk.UP, expr_ref):
         if isinstance(child_expr_ref.val, _BoundExpr):
             child_expr_ref.val = binder.lookup(child_expr_ref.val)
@@ -290,7 +290,7 @@ def _resolve_bound_exprs(binder: _Binder, expr_ref: Mut[Expr]):
 def substitute_expr(expr_ref: Mut[Expr],
                     *,
                     symbolic: Optional[FrozenSet[Var]] = None,
-                    deepcopy: bool = False):
+                    deepcopy: bool = False) -> None:
     """
     Apply substitutions in this expression/expectation.
     After execution, the `expr_ref` contains no :class:`SubstExpr` anywhere except directly around `symbolic` variables.
@@ -311,7 +311,7 @@ def substitute_expr(expr_ref: Mut[Expr],
 def substitute_constants_expr(program: Program,
                               expr_ref: Mut[Expr],
                               *,
-                              symbolic: Optional[FrozenSet[Var]] = None):
+                              symbolic: Optional[FrozenSet[Var]] = None) -> None:
     """
     Substitute constants in this expression/expectation.
 
@@ -326,7 +326,7 @@ def substitute_constants_expr(program: Program,
 
 def substitute_constants(program: Program,
                          *,
-                         symbolic: Optional[FrozenSet[Var]] = None):
+                         symbolic: Optional[FrozenSet[Var]] = None) -> None:
     """
     Substitute constants in this program.
 

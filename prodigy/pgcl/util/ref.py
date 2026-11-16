@@ -30,10 +30,10 @@ class Mut(Generic[M]):
         return self.read()
 
     @val.setter
-    def val(self, value: M):
+    def val(self, value: M) -> None:
         self.write(value)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'Mut(val={self.val!r})'
 
     @staticmethod
@@ -41,7 +41,7 @@ class Mut(Generic[M]):
         """Create a new Mut in a new anonmyous location."""
         mut = Mut(lambda: value, lambda v: None)
 
-        def setter(new_value: M):
+        def setter(new_value: M) -> None:
             nonlocal value
             value = new_value
 
@@ -70,10 +70,10 @@ class Mut(Generic[M]):
         """
         for i in range(len(values)):
 
-            def getter(ii=i):
+            def getter(ii: int = i) -> M:
                 return values[ii]
 
-            def setter(new_value: M, ii=i):
+            def setter(new_value: M, ii: int = i) -> None:
                 values[ii] = new_value
 
             yield Mut(getter, setter)
@@ -93,10 +93,10 @@ class Mut(Generic[M]):
         """
         for key in values.keys():
 
-            def getter(keyy=key):
+            def getter(keyy: Key = key) -> M:
                 return values[keyy]
 
-            def setter(new_value: M, keyy=key):
+            def setter(new_value: M, keyy: Key = key) -> None:
                 values[keyy] = new_value
 
             yield (key, Mut(getter, setter))
@@ -130,10 +130,10 @@ class Mut(Generic[M]):
 
         for i in range(len(values)):
 
-            def getter(ii=i):
+            def getter(ii: int = i) -> M:
                 return values[ii]
 
-            def setter(new_value: M, ii=i):
+            def setter(new_value: M, ii: int = i) -> None:
                 # this always raises an exception, which is what we want here
                 values[ii] = new_value  # type: ignore
 

@@ -84,10 +84,10 @@ def _mut_tuple_items(tuple_ref: Mut[tuple]) -> Iterable[Mut]:
     """
     for i in range(len(tuple_ref.val)):
 
-        def getter(ii=i):
+        def getter(ii: int = i) -> Any:
             return tuple_ref.val[ii]
 
-        def setter(new_value, ii=i):
+        def setter(new_value: Any, ii: int = i) -> None:
             items = list(tuple_ref.val)
             items[ii] = new_value
             tuple_ref.val = tuple(items)

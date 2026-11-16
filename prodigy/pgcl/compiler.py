@@ -28,7 +28,7 @@ def compile_pgcl(
     *,
     syntax: Optional[str] = None,
     path: Union[str, os.PathLike, None] = None,
-    substitute_constants=True,
+    substitute_constants: bool = True,
     predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions
 ) -> Union[Program, CheckFail]:
@@ -63,7 +63,7 @@ def compile_expr(
     program: Program,
     code: str,
     *,
-    substitute_constants=True,
+    substitute_constants: bool = True,
     predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions
 ) -> Union[Expr, CheckFail]:
@@ -90,7 +90,7 @@ def compile_expectation(
     program: Program,
     code: str,
     *,
-    substitute_constants=True,
+    substitute_constants: bool = True,
     predefined_functions: Mapping[Var,
                                List[VarDecl]] = sample_predefined_functions
 ) -> Union[Expr, CheckFail]:

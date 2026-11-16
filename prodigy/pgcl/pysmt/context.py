@@ -9,7 +9,7 @@ How to translate variables to pySMT, how to handle infinities, and so on. The
 :py:class:`TranslationContext` handles all that.
 """
 
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import attr
 from pysmt.fnode import FNode
@@ -19,7 +19,7 @@ from pysmt.typing import BOOL, INT, REAL
 from prodigy.pgcl.ast import BoolType, NatType, Program, RealType, Type, Var
 
 
-def _translate_type(typ: Type):
+def _translate_type(typ: Type) -> Any:
     if isinstance(typ, BoolType):
         return BOOL
     elif isinstance(typ, NatType):

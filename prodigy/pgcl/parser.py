@@ -25,7 +25,7 @@ from contextvars import ContextVar
 from decimal import Decimal
 from fractions import Fraction
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Union
 
 import attr
 from lark import Lark, Tree
@@ -34,7 +34,7 @@ from lark.exceptions import UnexpectedCharacters, UnexpectedInput, UnexpectedTok
 from prodigy.pgcl.ast import *
 from prodigy.pgcl.ast.expressions import (ExpectationExpr, InferExpr, ProbabilityExpr,
                                            SampleExpr)
-from prodigy.pgcl.ast.instructions import QueryInstr, AbortInstr
+from prodigy.pgcl.ast.instructions import QueryInstr, AbortInstr, Query
 from prodigy.pgcl.ast.types import DistributionType
 from prodigy.pgcl.ast.walk import Walk, walk_expr
 from prodigy.pgcl.positions import mark_parenthesized, set_span, span_from_meta
@@ -189,11 +189,14 @@ def _parse_tree(parser: Lark, code: str, start: str) -> Tree:
         raise ProgramSyntaxError(message + ".", *position(code, offset)) from None
 
 
-def _record_lines(parse):
+_N = TypeVar('_N')
+
+
+def _record_lines(parse: Callable[[Tree], _N]) -> Callable[[Tree], _N]:
     """Attaches the source span to the parsed node (:mod:`prodigy.pgcl.positions`) and records its
     lines while :func:`parse_pgcl_with_lines` runs."""
     @functools.wraps(parse)
-    def wrapper(t: Tree):
+    def wrapper(t: Tree) -> _N:
         node = parse(t)
         set_span(node, span_from_meta(t.meta))
         lines = _LINES.get()
@@ -203,7 +206,7 @@ def _record_lines(parse):
     return wrapper
 
 
-def _doc_parser_grammar():
+def _doc_parser_grammar() -> None:
     raise Exception(
         "This function only exists for documentation purposes and should never be called"
     )
@@ -276,10 +279,10 @@ def _parse_function(t: Tree) -> Function:
 
 @_record_lines
 def _parse_declaration(t: Tree) -> Decl:
-    def var0():
+    def var0() -> Var:
         return _parse_var(_child_tree(t, 0))
 
-    def opt_child1():
+    def opt_child1() -> Optional[Tree]:
         if len(t.children) <= 1:
             return None
         return _child_tree(t, 1)
@@ -405,7 +408,7 @@ def _parse_function_call(t: Tree) -> FunctionCallExpr:
     function_name = _parse_var(_child_tree(t, 0))
     params: Tuple[List[Expr], Dict[Var, Expr]] = ([], {})
 
-    def walk_params(data):
+    def walk_params(data: str) -> List[Tree]:
         if len(t.children) <= 1:
             return []
         param_list = _child_tree(t, 1)
@@ -519,7 +522,7 @@ def _parse_queries(t: Tree) -> List[Instr]:
 
 
 @_record_lines
-def _parse_query(t: Tree):
+def _parse_query(t: Tree) -> Query:
     if t.data == 'expectation':
         return ExpectationInstr(_parse_expr(_child_tree(t, 0)))
     elif t.data == 'variance':
