@@ -101,7 +101,7 @@ class Program:
             context.functions.copy(),
             function.instructions.copy())
 
-    def add_variable(self, var: Var, typ: Type):
+    def add_variable(self, var: Var, typ: Type) -> None:
         """
         Add a new variable declaration to the program's list of declarations and
         to the dict of variables.

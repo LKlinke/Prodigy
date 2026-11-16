@@ -43,7 +43,7 @@ class VarExpr(ExprClass):
     """A variable is an expression."""
     var: Var = attr.ib()
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         assert self.var not in {'true', 'false'}
 
     def __str__(self) -> str:
@@ -78,7 +78,7 @@ class NatLitExpr(ExprClass):
 
 
 def _validate_real_lit_value(_object: RealLitExpr, _attribute: Any,
-                             value: Any):
+                             value: Any) -> None:
     if not isinstance(value, Decimal) and not isinstance(value, Fraction):
         raise ValueError(
             f"Expected a Decimal or Fraction value, got: {value!r}")
@@ -128,7 +128,7 @@ class RealLitExpr(ExprClass):
         """
         return RealLitExpr(Decimal('Infinity'))
 
-    def is_infinite(self):
+    def is_infinite(self) -> bool:
         """
         Whether this expression represents infinity.
         """
@@ -296,7 +296,7 @@ class BinopExpr(ExprClass):
 
 
 def _check_categorical_exprs(_self: CategoricalExpr, _attribute: Any,
-                             value: List[Tuple[Expr, RealLitExpr]]):
+                             value: List[Tuple[Expr, RealLitExpr]]) -> None:
     probabilities = (prob.to_fraction() for _, prob in value)
     if sum(probabilities) != 1:
         raise ValueError("Probabilities need to sum up to 1!")
@@ -371,7 +371,7 @@ class FunctionCallExpr(ExprClass):
     The parameters of the function call. First come the positional parameters,
     then the named ones.
     """
-    def __str__(self):
+    def __str__(self) -> str:
         params = ', '.join(
             [str(p) for p in self.params[0]] +
             [f'{var} := {expr}' for var, expr in self.params[1].items()])
@@ -382,7 +382,7 @@ class FunctionCallExpr(ExprClass):
 class InferExpr(ExprClass):
     function: FunctionCallExpr = attr.ib()
     """The function call to infer a distribution from"""
-    def __str__(self):
+    def __str__(self) -> str:
         return f"infer {{ {self.function} }}"
 
 
@@ -390,7 +390,7 @@ class InferExpr(ExprClass):
 class SampleExpr(ExprClass):
     dist: Var = attr.ib()
     """The distribution from which to sample a value"""
-    def __str__(self):
+    def __str__(self) -> str:
         return f"sample {{ {self.dist} }}"
 
 
