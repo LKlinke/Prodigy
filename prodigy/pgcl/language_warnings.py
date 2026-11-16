@@ -12,16 +12,19 @@ Two checks exist:
 
 * ``monus``: on ``nat``, ``-`` is truncated at 0 in every intermediate result, so ``x - y + z`` is
   ``(x - y) + z`` and ``a - (b - c)`` is not ``a - b + c``. Chains of subtractions
-  (``a - b - c``) and ``(a - b) * c`` are harmless and not reported; neither are subtractions of
-  constants, where truncation is decided by the numbers.
+  (``a - b - c``) and ``(a - b) * c`` are harmless and not reported, nor are subtractions of
+  constants, where the numbers decide. Explicit parentheses around the subtraction
+  (``(x - y) + z``) are the user's statement that the grouping is intended: no warning
+  (:func:`prodigy.pgcl.positions.is_parenthesized`). Since ``a - (b - c)`` needs its parentheses,
+  a parsed program never gets the subtrahend warning; it applies to programs built as ASTs.
 * ``cast``: assigning a ``bool`` to a ``nat`` variable converts ``true`` to 1 and ``false`` to 0.
 
 .. doctest::
 
     >>> from prodigy.pgcl.parser import parse_pgcl
-    >>> program = parse_pgcl("nat x; nat y; nat z; x := x - y + z")
-    >>> [w.message for w in language_warnings(program)]
-    ['`(x - y) + z`: `-` is truncated at 0 before `+` is applied; write `(x + z) - y` for integer arithmetic.']
+    >>> program = parse_pgcl("nat x; nat y; nat z; x := x - y + z; x := (x - y) + z")
+    >>> [w.message.split(":")[0] for w in language_warnings(program)]
+    ['`(x - y) + z`']
 """
 from __future__ import annotations
 
@@ -32,6 +35,7 @@ from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType, Expr, Inst
                   Program, RealLitExpr, UnopExpr, VarExpr)
 from .ast.walk import Walk, walk_instr_exprs, walk_instrs
 from .check import get_type
+from .positions import is_parenthesized
 from .ppy_printer import expr_to_ppy
 
 
@@ -71,22 +75,34 @@ def _truncating_subtraction(program: Program, expr: Expr) -> bool:
     return isinstance(get_type(program, expr, check=False), NatType)
 
 
+def _operand(expr: Expr, spell: Callable[[Expr], str]) -> str:
+    """``expr`` as an operand of ``+``/``-``: sums and differences get parentheses."""
+    text = spell(expr)
+    if isinstance(expr, BinopExpr) and expr.operator in (Binop.PLUS, Binop.MINUS):
+        return f"({text})"
+    return text
+
+
 def _monus_warnings(program: Program, instr: Instr, expr: Expr,
                     spell: Callable[[Expr], str]) -> Iterator[LanguageWarning]:
+    """Explicit parentheses around the subtraction state that the grouping is intended: no warning."""
     if not isinstance(expr, BinopExpr):
         return
-    if expr.operator == Binop.PLUS and _truncating_subtraction(program, expr.lhs):
+    if expr.operator == Binop.PLUS and _truncating_subtraction(program, expr.lhs) \
+            and not is_parenthesized(expr.lhs):
         assert isinstance(expr.lhs, BinopExpr)
-        better = BinopExpr(Binop.MINUS, BinopExpr(Binop.PLUS, expr.lhs.lhs, expr.rhs), expr.lhs.rhs)
+        keep = f"({spell(expr.lhs)}) + {_operand(expr.rhs, spell)}"
+        better = f"({_operand(expr.lhs.lhs, spell)} + {_operand(expr.rhs, spell)}) - {_operand(expr.lhs.rhs, spell)}"
         yield LanguageWarning(
-            "monus", f"`{spell(expr)}`: `-` is truncated at 0 before `+` is applied; write `{spell(better)}` "
-            "for integer arithmetic.", instr, expr)
-    elif expr.operator == Binop.MINUS and _truncating_subtraction(program, expr.rhs):
+            "monus", f"`{spell(expr)}`: `-` is truncated at 0 before `+` is applied; write `{keep}` to keep it, "
+            f"or `{better}` for integer arithmetic.", instr, expr)
+    elif expr.operator == Binop.MINUS and _truncating_subtraction(program, expr.rhs) \
+            and not is_parenthesized(expr.rhs):
         assert isinstance(expr.rhs, BinopExpr)
-        better = BinopExpr(Binop.MINUS, BinopExpr(Binop.PLUS, expr.lhs, expr.rhs.rhs), expr.rhs.lhs)
+        better = f"({_operand(expr.lhs, spell)} + {_operand(expr.rhs.rhs, spell)}) - {_operand(expr.rhs.lhs, spell)}"
         yield LanguageWarning(
             "monus", f"`{spell(expr)}`: the subtraction on the right of `-` is truncated at 0 first, so this is "
-            f"not `a - b + c`; write `{spell(better)}` for integer arithmetic.", instr, expr)
+            f"not `a - b + c`; write `{better}` for integer arithmetic.", instr, expr)
 
 
 def _cast_warnings(program: Program, instr: Instr) -> Iterator[LanguageWarning]:

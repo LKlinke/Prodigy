@@ -65,7 +65,7 @@ from prodigy.pgcl.ast import (AbortInstr, AsgnInstr, Binop, BinopExpr,
                               VarExpr, WhileInstr)
 from prodigy.pgcl.ast.types import DistributionType
 from prodigy.pgcl.ast.walk import Walk, walk_expr, walk_instr_exprs, walk_instrs
-from prodigy.pgcl.positions import set_span, span_from_meta
+from prodigy.pgcl.positions import mark_parenthesized, set_span, span_from_meta
 from prodigy.pgcl.scope import ScopeError, lower_block_scope
 from prodigy.pgcl.syntax_errors import (ProgramSyntaxError, position,
                                         removed_construct)
@@ -167,7 +167,7 @@ PPY_GRAMMAR = r"""
          | "infer" "(" NAME ("," arguments)? ")" -> infer
          | "sample" "(" NAME ")"         -> sample
          | NAME "[" expression "]"       -> dist_query
-         | "(" expression ")"
+         | "(" expression ")"            -> parens
 
     arguments: argument ("," argument)*
     ?argument: expression
@@ -344,6 +344,9 @@ class _ToAst(Transformer):
 
     def false(self, meta: Meta, children: List[Any]) -> Any:
         return BoolLitExpr(False)
+
+    def parens(self, meta: Meta, children: List[Any]) -> Any:
+        return mark_parenthesized(children[0])
 
     def var(self, meta: Meta, children: List[Any]) -> Any:
         return VarExpr(self._name(children[0]))

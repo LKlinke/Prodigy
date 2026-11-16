@@ -177,18 +177,19 @@ square root); in the remaining cases it ends with "not implemented". Details:
 
 Because `+` and `-` bind equally and associate to the left, `x - y + z` is `(x - y) + z`, and
 the truncation happens before the `+`: for `x = 1, y = 2, z = 3` it is `3`, not `x + z - y = 2`.
-The same holds for a subtraction as subtrahend: `a - (b - c)` is not `a - b + c`. Both are
-accepted, and the GUI and the command line warn about them with the position of the
-expression: "`x - y + z`: `-` is truncated at 0 before `+` is applied; write `x + z - y` for
-integer arithmetic." Chains `a - b - c` and products `(a - b) * c` are not reported, nor are
-subtractions of constants, whose result does not depend on the state. In the GUI the warning is
-an editor hint at the expression; on the command line it is printed on stderr, so `--json` stays
-clean.
+The GUI and the command line warn about it, with the position of the expression: "`x - y + z`:
+`-` is truncated at 0 before `+` is applied; write `(x - y) + z` to keep it, or `(x + z) - y` for
+integer arithmetic." Explicit parentheses state that the grouping is intended and silence the
+warning. Chains `a - b - c`, products `(a - b) * c` and subtractions of constants are not
+reported either, and `a - (b - c)` needs its parentheses, so it is never reported. In the GUI the
+warning is an editor hint at the expression; on the command line it is printed on stderr, so
+`--json` stays clean, and the result lists it in `warnings` as "line L, column C: …". It applies
+to queries as well as to instructions.
 
 ```text
 x = x - y + z;        # warning: (x - y) + z
-x = x + z - y;        # integer arithmetic: no truncation before the +
-x = x - (y - z);      # warning: not x - y + z
+x = (x - y) + z;      # no warning: the grouping is stated
+x = (x + z) - y;      # integer arithmetic: no truncation before the +
 x = x - y - z;        # no warning
 ```
 

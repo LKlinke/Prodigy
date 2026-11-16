@@ -37,7 +37,7 @@ from prodigy.pgcl.ast.expressions import (ExpectationExpr, InferExpr, Probabilit
 from prodigy.pgcl.ast.instructions import QueryInstr, AbortInstr
 from prodigy.pgcl.ast.types import DistributionType
 from prodigy.pgcl.ast.walk import Walk, walk_expr
-from prodigy.pgcl.positions import set_span, span_from_meta
+from prodigy.pgcl.positions import mark_parenthesized, set_span, span_from_meta
 from prodigy.pgcl.syntax_errors import (ProgramSyntaxError, ProgramTypeError, position,
                                         removed_construct)
 from prodigy.pgcl.util.lark_expr_parser import (atom, build_expr_parser, infixl,
@@ -366,7 +366,7 @@ def _parse_expr(t: Tree) -> Expr:
     elif t.data == 'neg':
         return UnopExpr(Unop.NEG, expr0())
     elif t.data == 'parens':
-        return _parse_expr(_child_tree(t, 0))
+        return mark_parenthesized(_parse_expr(_child_tree(t, 0)))
     elif t.data == 'dist_probability':
         return ProbabilityExpr(expr0())
     elif t.data == 'dist_expectation':

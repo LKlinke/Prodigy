@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional, TypeVar
 
 _ATTRIBUTE = "_prodigy_source_span"
+_PARENS = "_prodigy_parenthesized"
 
 T = TypeVar("T")
 
@@ -76,3 +77,19 @@ def copy_span(source: Any, target: T) -> T:
     if span_of(target) is None:
         set_span(target, span_of(source))
     return target
+
+
+def mark_parenthesized(expr: T) -> T:
+    """Records that the parser read ``expr`` in explicit parentheses (the AST has no node for them);
+    like the span, the mark stays outside of equality and ``repr`` and survives ``copy.deepcopy``."""
+    try:
+        object.__setattr__(expr, _PARENS, True)
+    except (AttributeError, TypeError):
+        pass
+    return expr
+
+
+def is_parenthesized(expr: Any) -> bool:
+    """Whether the parser read ``expr`` in explicit parentheses; language warnings use it as the user's way
+    to state that the grouping is intended (:mod:`prodigy.pgcl.language_warnings`)."""
+    return getattr(expr, _PARENS, False) is True

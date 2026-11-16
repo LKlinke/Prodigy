@@ -15,13 +15,13 @@ def kinds(source, syntax="pgcl"):
     return [(w.kind, w.message) for w in language_warnings(parse_pgcl(source, syntax), syntax)]
 
 
-@pytest.mark.parametrize("expr", ["x - y + z", "x - y + 1", "x - (y - z)", "x + 1 - (y - z)"])
+@pytest.mark.parametrize("expr", ["x - y + z", "x - y + 1", "x - y + (z - 1)"])
 def test_monus_warns(expr):
     found = kinds(DECLS + f"x := {expr}")
     assert [kind for kind, _ in found] == ["monus"]
 
 
-@pytest.mark.parametrize("expr", ["x - y - z", "(x - y) * z", "x + z - y", "5 - 3 + z", "x - (y + z)", "z + (x - y)"])
+@pytest.mark.parametrize("expr", ["x - y - z", "(x - y) * z", "x + z - y", "5 - 3 + z", "x - (y + z)", "z + (x - y)", "(x - y) + z", "x - (y - z)", "(x - y) + (z - 1)"])
 def test_monus_does_not_warn(expr):
     assert kinds(DECLS + f"x := {expr}") == []
 
@@ -33,10 +33,44 @@ def test_monus_skips_constants_and_reals():
 
 def test_monus_message_in_the_programs_syntax():
     assert kinds(PPY_DECLS + "x = x - y + z;", "ppy") == [
-        ("monus", "`x - y + z`: `-` is truncated at 0 before `+` is applied; write `x + z - y` for "
-                  "integer arithmetic.")]
-    [(_, message)] = kinds(PPY_DECLS + "x = x - (y - z);", "ppy")
-    assert "`x - (y - z)`" in message and "`x + z - y`" in message
+        ("monus", "`x - y + z`: `-` is truncated at 0 before `+` is applied; write `(x - y) + z` to keep it, "
+                  "or `(x + z) - y` for integer arithmetic.")]
+
+
+@pytest.mark.parametrize("syntax,source", [("pgcl", DECLS + "x := (x - y) + z"),
+                                           ("ppy", PPY_DECLS + "x = (x - y) + z;"),
+                                           ("ppy", PPY_DECLS + "x = ((x - y)) + z;")])
+def test_explicit_parentheses_silence_the_warning(syntax, source):
+    assert kinds(source, syntax) == []
+
+
+def test_subtrahend_warning_for_programs_built_as_asts():
+    # `a - (b - c)` needs its parentheses in the syntax, so only an AST without the mark gets the warning
+    program = parse_pgcl(DECLS + "x := x - (y - z)")
+    instr = program.instructions[0]
+    assert language_warnings(program) == []
+    instr.rhs.rhs.__dict__.pop("_prodigy_parenthesized")
+    [warning] = language_warnings(program)
+    assert "`(x + z) - y`" in warning.message
+
+
+def test_parentheses_survive_deepcopy():
+    import copy
+    program = copy.deepcopy(parse_pgcl(DECLS + "x := (x - y) + z"))
+    assert language_warnings(program) == []
+
+
+def test_warnings_in_queries():
+    assert [k for k, _ in kinds(DECLS + "?Ex[x - y + z]")] == ["monus"]
+    assert [k for k, _ in kinds(PPY_DECLS + "query Ex[x - y + z];", "ppy")] == ["monus"]
+    assert [k for k, _ in kinds(PPY_DECLS + "query Pr[x - y + z > 1];", "ppy")] == ["monus"]
+
+
+def test_json_result_carries_the_warnings_with_position():
+    from prodigy.analysis.session import AnalysisSession
+    source = PPY_DECLS + "x = x - y + z;\nquery Ex[x];\n"
+    result = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy").run()
+    assert result.warnings[0].startswith("line 4, column 5: `x - y + z`: ")
 
 
 def test_monus_in_guards_and_functions():
@@ -80,10 +114,9 @@ def test_endpoint_delivers_warnings_with_positions(client):
     assert "implicit cast" in warnings[1]["message"]
 
 
-def test_endpoint_marks_the_whole_expression_with_redundant_parentheses(client):
+def test_endpoint_silent_with_parentheses(client):
     result = diagnostics(client, PPY_DECLS + "x = (x - y) + z;\n")
-    warning = next(d for d in result["diagnostics"] if d["severity"] == "warning")
-    assert warning["line"] == 4  # not found as printed: the instruction is marked
+    assert [d for d in result["diagnostics"] if d["severity"] == "warning"] == []
 
 
 def test_endpoint_no_warning_for_clean_program(client):

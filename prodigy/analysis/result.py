@@ -861,13 +861,24 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
     result.loops.sort(key=lambda r: (r["id"] is None, r["id"] if r["id"] is not None else 0))
     result.steps = session.steps
     result.trace = session.tracer.to_json() if session.tracer is not None else None
-    result.warnings = list(session.warnings) + [
+    result.warnings = _language_warnings(session) + list(session.warnings) + [
         f"Undefined value (nan or ∞) in {part}; it has no guarantee. The distribution and the other queries "
         "are not affected." for part in undefined_queries]
     result.log = _ANSI.sub("", session.log.getvalue())
     result.timing["analysis"] = round(analysis_time, 6)
     result.timing["total"] = round(time.perf_counter() - started, 6)
     return result
+
+
+def _language_warnings(session: Any) -> List[str]:
+    """The language warnings of the program (monus, implicit cast; see :mod:`prodigy.pgcl.language_warnings`) as
+    ``"line L, column C: message"``; the entries of ``warnings`` are strings, so the position is part of the text."""
+    if session.program is None or session.source is None or session.silent:
+        return []
+    # pylint: disable=import-outside-toplevel
+    from prodigy.web.diagnostics import language_warning_diagnostics
+    found = language_warning_diagnostics(session.program, session.source, session.syntax)
+    return [f"line {d['line']}, column {d['column']}: {d['message']}" for d in found]
 
 
 def _safe(function):
