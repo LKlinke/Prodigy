@@ -16,6 +16,8 @@ import copy
 
 from prodigy.pgcl import parse_pgcl, substitute
 from prodigy.pgcl.check import CheckFail, check_program
+from prodigy.pgcl.language_warnings import LanguageWarning, language_warnings
+from prodigy.pgcl.positions import span_of
 
 from prodigy.analysis.result import outline_program
 
@@ -188,6 +190,42 @@ def _check_failure(source: str, failure: CheckFail, syntax: str = "pgcl") -> Dic
                             "program.")
 
 
+_LANGUAGE_HINTS = {
+    "monus": "The program is valid and keeps its meaning; `-` on `nat` is truncated subtraction (monus).",
+    "cast": "The program is valid and keeps its meaning; write `if (…) { x = 1 } else { x = 0 }` to make it explicit.",
+}
+
+
+def _locate_in_instruction(source: str, warning: LanguageWarning, syntax: str) -> Optional[Tuple[int, int, int, int]]:
+    """The place of the warning's expression: inside the instruction's source text if the expression is found
+    as printed, otherwise the whole instruction (expressions carry no spans of their own)."""
+    span = span_of(warning.instr)
+    if span is None:
+        return _locate_compact(_blank_comments(source, syntax), _spelling(warning.expr, syntax))
+    lines = source.split("\n")
+    start = sum(len(line) + 1 for line in lines[:span.line - 1]) + span.column - 1
+    end = sum(len(line) + 1 for line in lines[:span.end_line - 1]) + span.end_column - 1
+    segment = _blank_comments(source, syntax)[start:end]
+    found = _locate_compact(segment, _spelling(warning.expr, syntax))
+    if found is None:
+        return (span.line, span.column, span.end_line, span.end_column)
+    first_line, first_column, last_line, last_column = found
+    base_line, base_column = _position(source, start)
+    return (base_line + first_line - 1, first_column + (base_column - 1 if first_line == 1 else 0),
+            base_line + last_line - 1, last_column + (base_column - 1 if last_line == 1 else 0))
+
+
+def language_warning_diagnostics(program: Any, source: str, syntax: str = "pgcl") -> List[Dict[str, Any]]:
+    """Warnings for valid programs that are likely to surprise (monus, implicit casts), as diagnostics
+    with the position of the expression; also used by the CLI."""
+    try:
+        warnings = language_warnings(program, syntax)
+    except Exception:  # pylint: disable=broad-except  # a heuristic check must never hide the real diagnostics
+        return []
+    return [_diagnostic("warning", warning.message, _locate_in_instruction(source, warning, syntax), source,
+                        hint=_LANGUAGE_HINTS[warning.kind]) for warning in warnings]
+
+
 def type_error(program: Any, source: str, syntax: str = "pgcl") -> Optional[Dict[str, Any]]:
     """The GUI's diagnostic for the first type error of ``program`` (None if it type checks); also used by the CLI."""
     checked_program = copy.deepcopy(program)
@@ -221,7 +259,6 @@ def _nested_inference_limits(program: Any, source: str) -> List[Dict[str, Any]]:
     from prodigy.pgcl import LoopInstr, WhileInstr
     from prodigy.pgcl.ast.types import DistributionType
     from prodigy.pgcl.ast.walk import Walk, walk_instrs
-    from prodigy.pgcl.positions import span_of
     found = []
     bodies = [(program.instructions, program.variables)]
     bodies += [(function.instructions, {decl.var: decl.typ for decl in function.declarations})
@@ -269,6 +306,7 @@ def _check(source: str, syntax: str) -> Dict[str, Any]:
         diagnostics.append(_diagnostic("warning", f"Type check failed: {exc}", None, source,
                                        hint="Reported by the pGCL type checker; Prodigy may still be "
                                             "able to analyse the program."))
+    diagnostics.extend(language_warning_diagnostics(program, source, syntax))
     diagnostics.extend(_nested_inference_limits(program, source))
     if outline is not None and not outline["queries"]:
         line, _ = _end_of_source(source)
