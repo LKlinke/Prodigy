@@ -156,14 +156,18 @@ def _read_program(program_file: IO, syntax: Optional[str]) -> Tuple[str, Program
 
 
 def _require_type_correct(program_file: IO, program: Program, source: str, syntax: str) -> None:
-    """Ends with the GUI's message if the type checker rejects the program (#334)."""
+    """Ends with the GUI's message if the type checker rejects the program (#334); prints its warnings on stderr."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.web.diagnostics import type_error
+    from prodigy.web.diagnostics import language_warning_diagnostics, type_error
     diagnostic = type_error(program, source, syntax)
+    name = getattr(program_file, "name", "<program>")
     if diagnostic is not None:
-        name = getattr(program_file, "name", "<program>")
         raise click.ClickException(_with_source_line(f"{name}: type error: {diagnostic['message']}", source,
                                                      diagnostic["line"], diagnostic["column"]))
+    # warnings go to stderr, so that --json stays clean (#377, #335)
+    for warning in language_warning_diagnostics(program, source, syntax):
+        print(f"{name}:{warning['line']}:{warning['column']}: {Style.YELLOW}warning:{Style.RESET} "
+              f"{warning['message']}", file=sys.stderr)
 
 
 _LOOP_OPTION_HELP = ("Strategy for a loop, as ID=STRATEGY[:NAME=VALUE,...], e.g. 0=unroll:iterations=100 or "

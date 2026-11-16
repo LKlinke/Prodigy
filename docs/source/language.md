@@ -71,6 +71,11 @@ expressions and expressions that are provably 0 or 1 (e.g. `bernoulli(p)`). A co
 boolean operation on the right-hand side, e.g. `b = x < 2` or `b = not c`, is the case split
 `if (x < 2) { b = true } else { b = false }`.
 
+The other direction is allowed but warned about: assigning a `bool` to a `nat` variable (`x = x < 2`,
+`x = true`, `x = b` with `b: bool`) is an implicit cast, `true` becomes 1 and `false` becomes 0. The
+warning ("implicit cast from bool to nat (true → 1, false → 0)") shows at the right-hand side
+in the GUI and on stderr of the command line; the result does not change.
+
 ## Declarations and scope
 
 ```text
@@ -169,6 +174,23 @@ semantics of pGCL, which defines only the decrement `x--` (with `0-- = 0`): `a -
 are independent, and otherwise for many rational generating functions (the result can contain a
 square root); in the remaining cases it ends with "not implemented". Details:
 {doc}`language-design`.
+
+Because `+` and `-` bind equally and associate to the left, `x - y + z` is `(x - y) + z`, and
+the truncation happens before the `+`: for `x = 1, y = 2, z = 3` it is `3`, not `x + z - y = 2`.
+The same holds for a subtraction as subtrahend: `a - (b - c)` is not `a - b + c`. Both are
+accepted, and the GUI and the command line warn about them with the position of the
+expression: "`x - y + z`: `-` is truncated at 0 before `+` is applied; write `x + z - y` for
+integer arithmetic." Chains `a - b - c` and products `(a - b) * c` are not reported, nor are
+subtractions of constants, whose result does not depend on the state. In the GUI the warning is
+an editor hint at the expression; on the command line it is printed on stderr, so `--json` stays
+clean.
+
+```text
+x = x - y + z;        # warning: (x - y) + z
+x = x + z - y;        # integer arithmetic: no truncation before the +
+x = x - (y - z);      # warning: not x - y + z
+x = x - y - z;        # no warning
+```
 
 **Division.** `/` is rational division and never rounds: in a guard, `x / 2 <= 1` means
 `x <= 2`; assigned to a `nat` variable, the result must be a natural number. `e // q` rounds down
