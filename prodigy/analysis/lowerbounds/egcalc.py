@@ -26,7 +26,7 @@ from __future__ import annotations
 import math
 from fractions import Fraction
 
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 
@@ -80,10 +80,10 @@ class Denominator:
         rates[i] = ZERO
         return Denominator(rates, self.p)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, Denominator) and self.r == other.r and self.p == other.p
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Denominator(rates={[str(r) for r in self.r]}, periods={self.p})"
 
 
@@ -96,7 +96,7 @@ def padd(*polys: Num) -> Num:
     return {e: c for e, c in out.items() if c != 0}
 
 
-def pscale(poly: Num, a) -> Num:
+def pscale(poly: Num, a: Any) -> Num:
     if a == 0:
         return {}
     return {e: c * a for e, c in poly.items() if c != 0}
@@ -131,7 +131,7 @@ def degrees(poly: Num, d: int) -> List[int]:
     return deg
 
 
-def monomial(d: int, e: Iterable[int], c=ONE) -> Num:  # pylint: disable=unused-argument
+def monomial(d: int, e: Iterable[int], c: Any = ONE) -> Num:  # pylint: disable=unused-argument
     return {tuple(e): Fraction(c)} if c != 0 else {}
 
 
@@ -224,7 +224,7 @@ def _decrement(e: IR) -> Optional[Tuple[str, int]]:
     return None if inner is None else (inner[0], inner[1] + k)
 
 
-def _int_pred(op: str, c: Fraction):
+def _int_pred(op: str, c: Fraction) -> Tuple[Callable[[int], bool], int]:
     """Predicate on naturals for ``v op c`` and the threshold beyond which it is constant."""
     preds = {"<": lambda v: v < c, "<=": lambda v: v <= c, ">": lambda v: v > c, ">=": lambda v: v >= c,
              "=": lambda v: v == c}
@@ -269,7 +269,7 @@ class GFCalculus:
         """Numerator over ``D`` without the ``X_i`` factor -> numerator over ``D``."""
         return pmul(poly_minus, self.den.factor(i)) if self.den.r[i] != 0 else poly_minus
 
-    def restrict_pred(self, poly: Num, i: int, pred, threshold: int, modulus: int) -> Num:
+    def restrict_pred(self, poly: Num, i: int, pred: Callable[[int], bool], threshold: int, modulus: int) -> Num:
         """Restriction of ``P / D`` to the states whose ``i``-th component satisfies ``pred``, where ``pred(v)``
         depends only on ``v mod modulus`` for ``v >= threshold``; requires ``modulus | p_i`` if ``r_i != 0``."""
         r, p = self.den.r[i], self.den.p[i]
@@ -347,7 +347,8 @@ class GFCalculus:
                     i, m, res = self.idx[a[1][1]], int(a[2][1]), Fraction(b[1])
                     if res.denominator != 1:
                         return {}
-                    return self.restrict_pred(poly, i, lambda v, m=m, res=int(res): v % m == res, 0, m)
+                    residue = int(res)
+                    return self.restrict_pred(poly, i, lambda v: v % m == residue, 0, m)
             la, ra = _affine(lhs), _affine(rhs)
             if la is not None and ra is not None:
                 a, var, b = la[0] - ra[0], la[1] if la[1] is not None else ra[1], ra[2] - la[2]
@@ -603,7 +604,7 @@ class GFCalculus:
     # ---------------------------------------------------------------- printing
     def to_expr(self, poly: Num) -> str:
         """``P / D`` as an expression string in the program variables (parsable by Prodigy's factories)."""
-        def mono(e, c):
+        def mono(e: Sequence[int], c: Fraction) -> str:
             parts = []
             for v, k in zip(self.vars, e):
                 if k == 1:
@@ -620,7 +621,7 @@ class GFCalculus:
         return f"({num}) / ({'*'.join(dens)})"
 
 
-def directed_decimal(q, upward: bool, digits: int = 10) -> str:
+def directed_decimal(q: Any, upward: bool, digits: int = 10) -> str:
     """Decimal string with ``digits`` significant digits rounded towards ``+inf`` (``upward``) or ``-inf``."""
     if q == math.inf:
         return "inf"

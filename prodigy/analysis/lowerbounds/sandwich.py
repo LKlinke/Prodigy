@@ -18,7 +18,7 @@ import math
 import time
 from dataclasses import dataclass, field
 from fractions import Fraction
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from prodigy.analysis.lowerbounds import explicit
 from prodigy.analysis.lowerbounds.egcalc import Denominator, GFCalculus, Num, directed_decimal, pmul
@@ -136,7 +136,7 @@ def _post(calc: GFCalculus, problem: LoopProblem, cert_num: Num) -> Num:
     return calc.run(problem.epilogue, calc.restrict(cert_num, ("not", problem.guard)))
 
 
-def _moment_bound(calc: GFCalculus, num: Num, expr: IR):
+def _moment_bound(calc: GFCalculus, num: Num, expr: IR) -> Union[Fraction, float]:
     """sum_n e(n) * coeff_n for an affine expression e = a0 + sum a_i x_i with nonnegative coefficients."""
     from prodigy.analysis.lowerbounds.egcalc import _affine
     aff = _affine(expr)
@@ -159,7 +159,7 @@ def _moment_bound(calc: GFCalculus, num: Num, expr: IR):
     return total
 
 
-def _event_mass(calc: GFCalculus, num: Num, event: IR):
+def _event_mass(calc: GFCalculus, num: Num, event: IR) -> Union[Fraction, float]:
     return calc.mass(calc.restrict(num, event))
 
 
@@ -200,7 +200,7 @@ def synthesize_lower(problem: LoopProblem, shapes: Sequence[TemplateShape], verb
     return best
 
 
-def upper_objective(lp: TemplateLP, problem: LoopProblem, objective: str):
+def upper_objective(lp: TemplateLP, problem: LoopProblem, objective: str) -> List[Any]:
     if objective == "mass":
         return lp.exit_functional()
     base = lp.exit_functional()
@@ -285,7 +285,8 @@ def refine_upper_per_query(problem: LoopProblem, upper: Certificate, verbose: bo
 
 
 def query_bounds(problem: LoopProblem, lower: Optional[Certificate], upper: Optional[Certificate],
-                 per_query: Optional[Dict[tuple, Certificate]] = None):
+                 per_query: Optional[Dict[tuple, Certificate]] = None
+                 ) -> Tuple[List[QueryBound], Tuple[Union[Fraction, float], Union[Fraction, float]]]:
     """Bounds on the queries of the program from the two certificates (after the epilogue).
 
     For an event ``A`` with ``L(A) <= Post(A) <= U(A)`` (and likewise for the complement) and ``|Post| <= |g|``:
@@ -302,8 +303,8 @@ def query_bounds(problem: LoopProblem, lower: Optional[Certificate], upper: Opti
 
     per_query = per_query or {}
 
-    def upper_mass(event, key):
-        vals = []
+    def upper_mass(event: IR, key: Tuple[Optional[int], bool]) -> Union[Fraction, float]:
+        vals: List[Union[Fraction, float]] = []
         if upper is not None and upost is not None:
             vals.append(_event_mass(upper.calc, upost, event))
         cert = per_query.get(key)
@@ -311,7 +312,8 @@ def query_bounds(problem: LoopProblem, lower: Optional[Certificate], upper: Opti
             vals.append(_event_mass(cert.calc, _post(cert.calc, problem, cert.numerator), event))
         return min(vals) if vals else INF
 
-    def event_bounds(event, k=None, flip=False):
+    def event_bounds(event: IR, k: Optional[int] = None, flip: bool = False
+                     ) -> Tuple[Union[Fraction, float], Union[Fraction, float], Union[Fraction, float]]:
         la = _event_mass(lower.calc, lpost, event) if lower else Fraction(0)
         lac = _event_mass(lower.calc, lpost, ("not", event)) if lower else Fraction(0)
         ua = upper_mass(event, (k, not flip))
@@ -388,7 +390,7 @@ def evt_sandwich(problem: LoopProblem, lower_shapes: Optional[Sequence[TemplateS
     return res
 
 
-def print_result(res: SandwichResult, show_certificates: bool = False):
+def print_result(res: SandwichResult, show_certificates: bool = False) -> None:
     if res.lower is None:
         print(f"{Style.OKRED}No lower certificate found.{Style.RESET}")
     else:
@@ -417,6 +419,6 @@ def print_result(res: SandwichResult, show_certificates: bool = False):
     print(f"CPU-time elapsed: {res.time_total:04f} seconds")
 
 
-def write_json(res: SandwichResult, path: str):
+def write_json(res: SandwichResult, path: str) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(res.to_json(), f, indent=1)

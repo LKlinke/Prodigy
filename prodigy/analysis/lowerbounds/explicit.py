@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 from fractions import Fraction
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from prodigy.analysis.lowerbounds.ir import IR, UnsupportedProgram, eval_expr, eval_number
 
@@ -18,11 +18,12 @@ State = Tuple[int, ...]
 Measure = Dict[State, Any]  # weights: Fractions or floats
 
 
-def _weight(p, like):
+def _weight(p: Any, like: Any) -> Any:
     return p if isinstance(like, Fraction) else float(p)
 
 
-def run_state(stmt: IR, state: dict, w, out: Measure, variables: Sequence[str], geo_cut: int = 400):
+def run_state(stmt: IR, state: Dict[str, Any], w: Any, out: Measure, variables: Sequence[str],
+              geo_cut: int = 400) -> None:
     """Execute ``stmt`` from a single state with weight ``w`` and add the output sub-measure to ``out``."""
     t = stmt[0]
     if t == "seq":
@@ -107,9 +108,9 @@ class Kernel:
     def __init__(self, guard: IR, body: IR, variables: Sequence[str], exact: bool = False):
         self.guard, self.body, self.vars = guard, body, list(variables)
         self.exact = exact
-        self.cache: Dict[State, Optional[List[Tuple[State, object]]]] = {}
+        self.cache: Dict[State, Optional[List[Tuple[State, Any]]]] = {}
 
-    def step(self, s: State):
+    def step(self, s: State) -> Optional[List[Tuple[State, Any]]]:
         if s in self.cache:
             return self.cache[s]
         st = dict(zip(self.vars, s))
@@ -151,7 +152,8 @@ class Exploration:
     def remaining(self) -> float:
         return sum(self.current.values())
 
-    def run(self, n: int, tol: float = 0.0, max_work: Optional[int] = None, time_limit: Optional[float] = None):
+    def run(self, n: int, tol: float = 0.0, max_work: Optional[int] = None,
+            time_limit: Optional[float] = None) -> Exploration:
         """Perform up to ``n`` iterations; stop early when the mass inside the loop drops to ``tol``, after
         ``max_work`` state expansions, or after ``time_limit`` seconds."""
         import time as _time
@@ -187,8 +189,8 @@ class Exploration:
         return self
 
 
-def reachable(init_states, guard: IR, body: IR, variables: Sequence[str], box: Sequence[int],
-              limit: int = 1_000_000) -> set:
+def reachable(init_states: Iterable[State], guard: IR, body: IR, variables: Sequence[str], box: Sequence[int],
+              limit: int = 1_000_000) -> Set[State]:
     """States reachable from ``init_states`` without leaving ``box`` (support only, no weights)."""
     kernel = Kernel(guard, body, variables)
     seen = set(s for s in init_states if all(0 <= s[i] <= box[i] for i in range(len(s))))

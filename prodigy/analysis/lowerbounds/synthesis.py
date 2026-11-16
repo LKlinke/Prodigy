@@ -63,7 +63,8 @@ class Certificate:
                     exit_mass=str(self.exit_mass), total_mass=str(self.total_mass))
 
 
-def scaled_expansion(calc: GFCalculus, polys: Sequence[Num], box: Sequence[int]):
+def scaled_expansion(calc: GFCalculus, polys: Sequence[Num],
+                     box: Sequence[int]) -> Tuple[np.ndarray, np.ndarray, List[Any]]:
     """Coefficients of ``P_j / D`` on the box ``prod_i [0, box_i]`` for all ``P_j`` at once, as an exact integer
     array ``M[n, j] = S(n) * coeff_n(P_j / D)`` with positive row scales ``S(n) = L * prod_i b_i^floor(n_i / p_i)``
     (``r_i = a_i / b_i``, ``L`` a common denominator of the coefficients), and as a floating-point array of the
@@ -260,7 +261,8 @@ class TemplateLP:
         self.time_lp = time.perf_counter() - t0
         return None
 
-    def _exact_vertex(self, x, a_s, b_s, rows, kind, target) -> Optional[List[Fraction]]:
+    def _exact_vertex(self, x: np.ndarray, a_s: np.ndarray, b_s: np.ndarray, rows: np.ndarray, kind: str,
+                      target: Sequence[Fraction]) -> Optional[List[Fraction]]:
         """Reconstruct the LP vertex exactly: the tight rows ``k`` satisfy ``b + A h = target_k`` exactly."""
         import flint
         import scipy.linalg

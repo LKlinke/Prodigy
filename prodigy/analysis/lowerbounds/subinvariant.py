@@ -119,7 +119,7 @@ def decide_nonneg(expr_str: str, variables: Sequence[str], config: ForwardAnalys
     return res, "positivity heuristic of Prodigy"
 
 
-def exact_mass(expr_str: str, variables: Sequence[str]):
+def exact_mass(expr_str: str, variables: Sequence[str]) -> Optional[Union[Fraction, float]]:
     form = to_product_form(expr_str, variables)
     if form is None:
         return None
@@ -127,7 +127,7 @@ def exact_mass(expr_str: str, variables: Sequence[str]):
     return GFCalculus(list(variables), den).mass(numer)
 
 
-def rational_mass(expr_str: str, variables: Sequence[str]):
+def rational_mass(expr_str: str, variables: Sequence[str]) -> Optional[Union[Fraction, float]]:
     """Total mass of a rational generating function with NONNEGATIVE coefficients, or ``None`` if the closed form is
     not rational.  Let ``f(t) = F(t, ..., t)`` in lowest terms.  By Pringsheim's theorem, the radius of convergence of
     ``f`` is its smallest pole on the positive real axis; hence the mass ``sum of coefficients = lim_{t -> 1-} f(t)`` is

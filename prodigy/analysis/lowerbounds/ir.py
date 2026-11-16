@@ -21,10 +21,10 @@ Expressions::
 from __future__ import annotations
 
 from fractions import Fraction
-from typing import List, Sequence, Tuple, Union
+from typing import Any, Dict, List, Sequence, Tuple, Union
 
 from prodigy.pgcl import (AbortInstr, AsgnInstr, Binop, BinopExpr, BoolLitExpr, ChoiceInstr, ExpectationInstr,
-                           FunctionCallExpr, IfInstr, Instr, NatLitExpr, ObserveInstr, ProbabilityQueryInstr,
+                           Expr, FunctionCallExpr, IfInstr, Instr, NatLitExpr, ObserveInstr, ProbabilityQueryInstr,
                            Program, RealLitExpr, SkipInstr, Unop, UnopExpr, VarExpr, WhileInstr)
 
 IR = tuple
@@ -41,7 +41,7 @@ _BINOPS = {
 _CMPS = {Binop.LEQ: "<=", Binop.LT: "<", Binop.GT: ">", Binop.GEQ: ">=", Binop.EQ: "="}
 
 
-def expr_to_ir(expr) -> IR:
+def expr_to_ir(expr: Expr) -> IR:
     """Translate a pGCL expression."""
     if isinstance(expr, NatLitExpr):
         return "num", Fraction(int(expr.value))
@@ -120,7 +120,7 @@ def queries_of(instructions: Sequence[Instr]) -> List[Tuple[str, IR, str]]:
     return out
 
 
-def eval_expr(e: IR, state: dict):
+def eval_expr(e: IR, state: Dict[str, Any]) -> Any:
     """Evaluate an IR expression in a concrete state (used by the explicit-state reference semantics)."""
     t = e[0]
     if t == "num":

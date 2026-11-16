@@ -13,11 +13,11 @@ import logging
 import sys
 import time
 from itertools import combinations
-from typing import IO, Any, Dict, Optional, Set, Tuple
+from typing import IO, Any, Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
 import click
 from lark.exceptions import UnexpectedInput
-from prodigy.pgcl import Program, Var, compiler, WhileInstr
+from prodigy.pgcl import Instr, Program, Var, compiler, WhileInstr
 from prodigy.pgcl.parser import SYNTAXES, select_syntax
 from prodigy.pgcl.syntax_errors import ProgramSyntaxError
 
@@ -42,6 +42,9 @@ from prodigy.analysis.session import AnalysisSession, DEFAULT_KEY, parse_decisio
 from prodigy.distribution.distribution import State
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
+
+if TYPE_CHECKING:
+    from prodigy.analysis.lowerbounds.parameters import TemplateShape
 
 logger = log_setup("CLI", logging.DEBUG)
 
@@ -88,10 +91,10 @@ _QUERY_LABELS = {"probability": "Pr", "expectation": "E", "variance": "Var", "co
 @click.option('--use-latex', is_flag=True, required=False, default=False)
 @click.option("--no-normalize", is_flag=True, required=False, default=False)
 @click.option("--show-all-invs", is_flag=True, required=False, default=False)
-def cli(ctx,
+def cli(ctx: click.Context,
         engine: str, strategy: str, solver: str, template_heuristic: Optional[str], pos_heuristic: Optional[str],
         intermediate_results: bool, stepwise: bool, no_simplification: bool, use_latex: bool, no_normalize: bool,
-        show_all_invs: bool):
+        show_all_invs: bool) -> None:
     ctx.ensure_object(dict)
     if solver.upper() not in SolverType.__members__:
         raise ValueError(f"Solver {solver} is not known.")
@@ -125,7 +128,7 @@ _SYNTAX_HELP = ("Syntax of the program files, pgcl or ppy (default: by file exte
                 "everything else pgcl). Invariants given as program text use the program's syntax.")
 
 
-def _syntax_option(command):
+def _syntax_option(command: Callable[..., Any]) -> Callable[..., Any]:
     return click.option('--syntax', type=click.Choice(SYNTAXES), default=None, help=_SYNTAX_HELP)(command)
 
 
@@ -230,7 +233,7 @@ def _expression_option(text: str, option: str, program: Program, syntax: str) ->
 @click.option('--loop', 'loop_specs', multiple=True,
               help=_LOOP_OPTION_HELP + " Loops without a decision are asked for.")
 @_syntax_option
-def main(ctx, program_file: IO, input_dist: str,  # pylint: disable=too-many-arguments
+def main(ctx: click.Context, program_file: IO, input_dist: str,  # pylint: disable=too-many-arguments
          show_input_program: bool, loop_specs: Tuple[str, ...], syntax: Optional[str]) -> None:
     """
     Compile the given program and print some information about it.
@@ -274,7 +277,8 @@ def main(ctx, program_file: IO, input_dist: str,  # pylint: disable=too-many-arg
 @click.argument('program_file', type=click.File('r'))
 @click.argument('other_program_file', type=click.File('r'))
 @_syntax_option
-def check_equality(ctx, program_file: IO, other_program_file: IO, syntax: Optional[str]):
+def check_equality(ctx: click.Context, program_file: IO, other_program_file: IO, syntax: Optional[str]
+                   ) -> Tuple[Optional[bool], Any]:
     """
     Checks whether a certain loop-free program is an invariant of a specified while loop.
     Each file is read in the syntax of its extension, unless --syntax is given.
@@ -321,7 +325,8 @@ def check_equality(ctx, program_file: IO, other_program_file: IO, syntax: Option
 @click.argument('program_file', type=click.File('r'))
 @click.option('--compute-exact', is_flag=True, required=False, default=False)
 @_syntax_option
-def independent_vars(ctx, program_file: IO, compute_exact: bool, syntax: Optional[str]):
+def independent_vars(ctx: click.Context, program_file: IO, compute_exact: bool,
+                     syntax: Optional[str]) -> Set[frozenset[Var]]:
     """
     Outputs an under-approximation or the actual result of the pairwise stochastic independence relation.
 
@@ -379,9 +384,9 @@ def independent_vars(ctx, program_file: IO, compute_exact: bool, syntax: Optiona
 @click.option('--template-time-limit', type=click.IntRange(min=1), default=DEFAULT_TEMPLATE_TIME_LIMIT,
               show_default=True, help="Seconds after which a single template is skipped.")
 @_syntax_option
-def invariant_synthesis(ctx,  # pylint: disable=too-many-arguments
+def invariant_synthesis(ctx: click.Context,  # pylint: disable=too-many-arguments
                         program_file: IO, invariant: str, input_dist: str, max_degree: int, time_limit: int,
-                        template_time_limit: int, syntax: Optional[str]):
+                        template_time_limit: int, syntax: Optional[str]) -> None:
     """
     Tries to synthesize an EVT Invariant for the given input file.
     Supports a loop-free program to prefix the actual loop describing an initial distribution.
@@ -435,12 +440,14 @@ def _invariant_synthesis(config: ForwardAnalysisConfig, prog: Program,  # pylint
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
 
 
-def _loop_parts(prog):
+def _loop_parts(prog: Program) -> Tuple[List[Instr], WhileInstr, List[Instr]]:
     loops = [1 if isinstance(instr, WhileInstr) else 0 for instr in prog.instructions]
     if sum(loops) != 1:
         raise ValueError(f"There are {sum(loops)} top-level loops in the program. Exactly 1 is supported.")
     k = loops.index(1)
-    return prog.instructions[:k], prog.instructions[k], prog.instructions[k + 1:]
+    loop = prog.instructions[k]
+    assert isinstance(loop, WhileInstr)
+    return prog.instructions[:k], loop, prog.instructions[k + 1:]
 
 
 @cli.command('evt_lower_bound')
@@ -450,7 +457,8 @@ def _loop_parts(prog):
               help="EVT sub-invariant nu (a generating function in the program variables).")
 @click.argument('input_dist', type=str, required=False)
 @_syntax_option
-def evt_lower_bound(ctx, program_file: IO, invariant: str, input_dist: str, syntax: Optional[str]):
+def evt_lower_bound(ctx: click.Context, program_file: IO, invariant: str, input_dist: Optional[str],
+                    syntax: Optional[str]) -> None:
     """
     Lower induction: verifies that NU is an EVT sub-invariant of finite mass (NU <= Phi(NU) coefficient-wise and
     NU(1,...,1) < oo) and continues the analysis with the resulting lower bound on the output distribution of the
@@ -478,7 +486,7 @@ def evt_lower_bound(ctx, program_file: IO, invariant: str, input_dist: str, synt
     print(f"CPU-time elapsed: {time.perf_counter() - start:04f} seconds")
 
 
-def _parse_shape(spec: str):
+def _parse_shape(spec: str) -> "TemplateShape":
     """'r1,r2;p1,p2;b1,b2' -> TemplateShape"""
     # pylint: disable=import-outside-toplevel
     from fractions import Fraction
@@ -511,8 +519,9 @@ def _parse_shape(spec: str):
 @click.option('--json', 'json_path', type=str, default=None, help="Write certificates and bounds to this file.")
 @_syntax_option
 def evt_sandwich(  # pylint: disable=too-many-arguments
-        program_file: IO, size: int, lower_specs, upper_specs, no_upper: bool, objective: str,
-        per_query, show_certificates: bool, json_path: str, syntax: Optional[str]):
+        program_file: IO, size: int, lower_specs: Tuple[str, ...], upper_specs: Tuple[str, ...], no_upper: bool,
+        objective: str, per_query: Optional[bool], show_certificates: bool, json_path: Optional[str],
+        syntax: Optional[str]) -> None:
     # pylint: disable=import-outside-toplevel
     """
     Sandwich bounds for a program with one loop: synthesises an EVT sub-invariant of finite mass (lower bound,
@@ -534,21 +543,21 @@ def evt_sandwich(  # pylint: disable=too-many-arguments
 
 
 @cli.command()
-def print_strategies():
+def print_strategies() -> None:
     print("Currently implemented strategies are: ")
     for strategy in SynthesisStrategies:
         print(strategy.name)
 
 
 @cli.command()
-def print_pos_heuristics():
+def print_pos_heuristics() -> None:
     print("Positivity heuristics for --pos-heuristic (with --strategy from_heuristics): ")
     for name in SELECTABLE_POSITIVITY_HEURISTICS:
         print(name.upper())
 
 
 @cli.command()
-def print_template_heuristics():
+def print_template_heuristics() -> None:
     print("Currently implemented template generation heuristics are: ")
     for heuristic in TemplateHeuristics:
         print(heuristic.name)
@@ -638,7 +647,7 @@ def _print_summary(result: Dict[str, Any]) -> None:
 @click.option('--output', type=click.File('w'), required=False, help="Write the JSON result to this file.")
 @_syntax_option
 def analyze(  # pylint: disable=too-many-arguments
-        ctx, program_file: IO, input_dist: Optional[str], loop_specs: Tuple[str, ...],
+        ctx: click.Context, program_file: IO, input_dist: Optional[str], loop_specs: Tuple[str, ...],
         decisions_file: Optional[IO], as_json: bool, coefficients: int, steps: bool,
         watches: Tuple[str, ...], step_iterations: int, output: Optional[IO], syntax: Optional[str]) -> None:
     """
@@ -780,7 +789,7 @@ def print_loop_strategies(as_json: bool) -> None:
 @click.option('--allowed-host', 'allowed_hosts', multiple=True,
               help="Additional host name the server may be reached under (when not on localhost).")
 def web(  # pylint: disable=too-many-arguments
-        ctx, host: str, port: int, no_browser: bool, time_limit: float, max_jobs: int,
+        ctx: click.Context, host: str, port: int, no_browser: bool, time_limit: float, max_jobs: int,
         memory_limit: Optional[int], examples_dir: Optional[str], allowed_hosts: Tuple[str, ...]) -> None:
     """
     Start the web GUI (a local web server) and open it in the browser.

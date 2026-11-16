@@ -31,11 +31,11 @@ import math
 from dataclasses import dataclass, field
 from fractions import Fraction
 from itertools import product
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from prodigy.analysis.lowerbounds.explicit import Exploration, Measure, reachable, run_state
+from prodigy.analysis.lowerbounds.explicit import Exploration, Measure, State, reachable, run_state
 from prodigy.analysis.lowerbounds.ir import IR, eval_expr
 
 
@@ -216,7 +216,7 @@ class TailKernel:
     phases: List[tuple]
     transitions: List[Tuple[int, int, tuple, float]]
 
-    def _entries(self, log_s: np.ndarray):
+    def _entries(self, log_s: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         rows = np.fromiter((j for j, _, _, _ in self.transitions), dtype=np.int64, count=len(self.transitions))
         cols = np.fromiter((i for _, i, _, _ in self.transitions), dtype=np.int64, count=len(self.transitions))
         deltas = np.array([d for _, _, d, _ in self.transitions], dtype=float).reshape(len(self.transitions), -1)
@@ -270,10 +270,10 @@ def tail_kernel(guard: IR, body: IR, variables: Sequence[str], profiles: List[Va
     d = len(variables)
     unb = [i for i, p in enumerate(profiles) if p.kind != "bounded"]
 
-    def phase_of(t):
+    def phase_of(t: Sequence[int]) -> Tuple[int, ...]:
         return tuple(t[i] if profiles[i].kind == "bounded" else (t[i] - base) % profiles[i].period for i in range(d))
 
-    def state_of(ph):
+    def state_of(ph: Sequence[int]) -> Tuple[int, ...]:
         return tuple(ph[i] if profiles[i].kind == "bounded" else base + ph[i] for i in range(d))
 
     if seeds is not None:
@@ -306,7 +306,7 @@ def tail_kernel(guard: IR, body: IR, variables: Sequence[str], profiles: List[Va
 
 
 def upper_tail_rates(kernel: TailKernel, profiles: List[VariableProfile], slack: float = 0.0,
-                     fixed: Optional[Dict[int, float]] = None):
+                     fixed: Optional[Dict[int, float]] = None) -> Optional[Dict[int, float]]:
     """Per-unit rates ``s_i`` of the unbounded variables minimising the rates of the exit-relevant variables
     subject to ``rho(M(s)) <= 1``, the condition under which a product tail ``a_e * prod_i s_i^(n_i)`` with
     phase-dependent coefficients ``a_e > 0`` can be super-invariant far out in the tail (Perron--Frobenius:
@@ -323,12 +323,12 @@ def upper_tail_rates(kernel: TailKernel, profiles: List[VariableProfile], slack:
     base_t = np.array([math.log(fixed[i]) if i in fixed else 0.0 for i in unb])
     weights = np.array([1.0 if profiles[unb[k]].exit_unbounded else 1e-3 for k in free])
 
-    def full(t):
+    def full(t: np.ndarray) -> np.ndarray:
         out = base_t.copy()
         out[free] = t
         return out
 
-    def margin(t):
+    def margin(t: np.ndarray) -> float:
         lr = kernel.log_radius(full(t))
         return 50.0 if lr == -math.inf else -lr - math.log1p(slack)
 
@@ -349,7 +349,8 @@ def upper_tail_rates(kernel: TailKernel, profiles: List[VariableProfile], slack:
 
 
 # ------------------------------------------------------------------------------------------- sizes
-def _reach_count(init_states, guard, body, variables, shape: TemplateShape, cap: int = 100_000) -> int:
+def _reach_count(init_states: Iterable[State], guard: IR, body: IR, variables: Sequence[str],
+                 shape: TemplateShape, cap: int = 100_000) -> int:
     """Number of template values that survive the restriction to reachable states (the box size itself if the box
     has more than ``cap`` states, which avoids exploring huge boxes)."""
     assert shape.reach_box is not None
@@ -362,8 +363,9 @@ def _reach_count(init_states, guard, body, variables, shape: TemplateShape, cap:
 
 
 def plan_parameters(init: Measure, guard: IR, body: IR, variables: Sequence[str], size: int = 1200,
-                    upper_size: Optional[int] = None, lower_multipliers=(0.95, 0.985, 0.998),
-                    upper_steps=(0.01, 0.05, 0.15, 0.35), aspect_factors=(1.0, 0.6),
+                    upper_size: Optional[int] = None, lower_multipliers: Sequence[float] = (0.95, 0.985, 0.998),
+                    upper_steps: Sequence[float] = (0.01, 0.05, 0.15, 0.35),
+                    aspect_factors: Sequence[float] = (1.0, 0.6),
                     forced: Optional[Dict[str, Tuple[Fraction, int]]] = None) -> ParameterPlan:
     """Candidate template shapes for lower and upper certificates.  ``forced`` maps the variables that are sampled
     from a geometric distribution before the loop to the rate and period of that distribution."""
@@ -402,7 +404,7 @@ def plan_parameters(init: Measure, guard: IR, body: IR, variables: Sequence[str]
     periods_low = [profiles[i].period if i in geometric else 1 for i in range(d)]
     bulk = {i: max(bulk_low.get(i, profiles[i].scale_bulk), 4 * profiles[i].period) for i in geometric}
 
-    def lower_shape(lam_t, lam_g):
+    def lower_shape(lam_t: float, lam_g: float) -> TemplateShape:
         tail = [0] * d
         for i in range(d):
             if i in geometric:
@@ -453,13 +455,13 @@ def plan_parameters(init: Measure, guard: IR, body: IR, variables: Sequence[str]
     per_unit = upper_tail_rates(kernel, profiles, fixed=fixed)
     periods_up = [profiles[i].period if i in unb else 1 for i in range(d)]
 
-    def extent(i):
+    def extent(i: int) -> int:
         pr = profiles[i]
         if pr.kind == "persistent":
             return max(pr.max_value, 4)
         return max(pr.scale_bulk, 2 * pr.period)
 
-    def upper_box(tail):
+    def upper_box(tail: Sequence[int]) -> List[int]:
         return [tail[i] + periods_up[i] - 1 if i in unb else tail[i] for i in range(d)]
 
     upper = []
@@ -468,7 +470,7 @@ def plan_parameters(init: Measure, guard: IR, body: IR, variables: Sequence[str]
         base_up = {i: extent(i) * (factor if profiles[i].exit_unbounded else 1.0) for i in unb}
         top = max(base_up.values(), default=1.0)
 
-        def upper_tail(lam, base_up=base_up, top=top):
+        def upper_tail(lam: float, base_up: Dict[int, float] = base_up, top: float = top) -> List[int]:
             tail = [0] * d
             for i in range(d):
                 if i in unb:
@@ -478,7 +480,7 @@ def plan_parameters(init: Measure, guard: IR, body: IR, variables: Sequence[str]
                     tail[i] = profiles[i].max_value
             return tail
 
-        def upper_count(lam):
+        def upper_count(lam: float) -> int:
             tail = upper_tail(lam)  # pylint: disable=cell-var-from-loop  # called in this iteration only
             full = int(np.prod([b + 1 for b in upper_box(tail)]))
             if full <= upper_size:

@@ -74,7 +74,7 @@ def _contains(stmt: IR, tag: str) -> bool:
     return False
 
 
-def _geometric_samples(stmt: IR, acc: Dict[str, Tuple[Fraction, int]]):
+def _geometric_samples(stmt: IR, acc: Dict[str, Tuple[Fraction, int]]) -> Dict[str, Tuple[Fraction, int]]:
     if not isinstance(stmt, tuple) or not stmt:
         return acc
     if stmt[0] == "assign" and stmt[2][0] == "call" and stmt[2][1] == "geometric":
