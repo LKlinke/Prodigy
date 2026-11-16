@@ -205,3 +205,18 @@ def test_engines_second_comparison_on_a_filtered_part(engine):
     dist = factory.from_expr(str(_geometric(HALF, x) * _geometric(THIRD, y)).replace("**", "^"), "x", "y")
     either = dist.filter(parse_expr("x < y || y < x"))
     assert sympy.nsimplify(sympy.sympify(str(either.get_probability_mass()))) == sympy.Rational(3, 5)
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_engines_message_names_the_guard_not_the_generating_function(engine):
+    """Prodigy#225: a guard on an infinite generating function with unknown coefficients (as in the
+    templates of the synthesis) is not implemented; the message names the guard and the reason, and
+    does not print the generating function."""
+    factory = ForwardAnalysisConfig(engine=engine).factory
+    template = factory.from_expr("(a + b*x)/((1 - x/4 - y/4)*(1 - y/3))", "x", "y")
+    with pytest.raises(NotImplementedError) as info:
+        template.filter(parse_expr("y < x + 2"))
+    message = str(info.value)
+    assert "y < (x + 2)" in message or "y < x + 2" in message
+    assert "not implemented on infinite generating functions" in message
+    assert "(a + b" not in message and "a + b*x" not in message
