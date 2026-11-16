@@ -199,6 +199,14 @@ function queryRow(query, result, options, overall = null) {
     : (query.line ? h("span", { class: "rv-q-line" }, `line ${query.line}`) : null);
   const head = h("div", { class: "rv-q-head" }, h("span", { class: "rv-q-expr mono" }, ...queryLabel(query)), lineButton);
 
+  if (query.error) {
+    const reason = typeof query.error === "string" ? query.error : (query.error.message || query.error.type || "");
+    // a failed query is no value: its own display, with the reason in full (#316)
+    return h("li", { class: "rv-query rv-query-failed", "data-kind": "error" }, head,
+      h("div", { class: "rv-q-failed", role: "alert" }, icon("error"),
+        h("span", {}, h("strong", {}, "This query failed. "), reason)));
+  }
+
   if (["probability", "expectation", "variance", "covariance"].includes(query.kind)) {
     const value = h("div", { class: "rv-q-value-row" }, ...valueParts(query.value, query.value_float), boundNote(query, overall));
     const children = [head, value];

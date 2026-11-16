@@ -660,7 +660,8 @@ function loopRow(loop, ctx, traceLoop = null, jump = null) {
     h("div", { class: "rv-loop-title" }, h("span", { class: "rv-loop-name" }, name), " ",
       line && options.onSelectLine ? h("button", { type: "button", class: "link-button rv-loop-line", onclick: () => options.onSelectLine(loop.line) }, line)
         : h("span", { class: "rv-loop-line" }, line)),
-    loop.failed ? failedBadge(loop) : (loop.time ? h("span", { class: "rv-meta" }, formatSeconds(loop.time)) : null));
+    loop.failed ? failedBadge(loop) : (loop.time ? h("span", { class: "rv-meta", title: traceLoop ? "Including the time to record the snapshots of its iterates; the Time lens leaves that out" : null },
+      traceLoop ? `${formatSeconds(loop.time)} with recording` : formatSeconds(loop.time)) : null));
   const strategy = h("div", { class: "rv-loop-strategy" }, titles[loop.strategy] || loop.strategy,
     loop.failed ? null : [" · ", loopVerdict(loop)],
     loop.invocations > 1 ? ` · entered ${loop.invocations}×` : "",

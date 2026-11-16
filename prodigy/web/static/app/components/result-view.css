@@ -330,3 +330,7 @@
 .jv-table table { width: auto; }
 .jv-table caption { text-align: left; caption-side: top; padding-bottom: 4px; }
 .jv-table th[scope="row"] { border-right: 1px solid var(--rv-separator); }
+
+/* a failed query: the icon and the words carry the state, the colour only supports them */
+.rv-q-failed { display: flex; gap: 6px; align-items: flex-start; color: var(--rv-error, var(--error)); overflow-wrap: anywhere; }
+.rv-q-failed strong { font-weight: 600; }
