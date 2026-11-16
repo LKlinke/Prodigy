@@ -3,7 +3,7 @@ import { api } from "./api.js";
 import { canWriteFiles, createDocument } from "./document.js";
 import { createEditor, SYNTAXES } from "./editor.js";
 import { createLibrary } from "./library.js";
-import { applyInputProblem, defaultDecision, focusLoopCard, renderSetup, setupProblems, swapInvariants } from "./setup.js";
+import { applyInputProblem, defaultDecision, focusLoopCard, renderSetup, rekeyDecisions, setupProblems, swapInvariants } from "./setup.js";
 import { changeSince } from "./staleness.js";
 import { load, save } from "./store.js";
 import { h, icon } from "./components/dom.js";
@@ -31,6 +31,7 @@ const state = {
   strategies: [],
   titles: {},
   outline: null,
+  graveyard: {}, // decisions of loops that are gone for now, by loop signature (#277)
   diagnostics: [],
   setup: null,
   job: null,
@@ -133,6 +134,7 @@ async function programReplaced() {
   state.setup.decisions = {};
   state.setup.input = "";
   state.pendingDefault = null;
+  state.graveyard = {};
   state.outline = null;
   state.result = null;
   state.resultStale = false;
@@ -168,7 +170,11 @@ async function runCheck() {
     renderProblems();
     const wasStale = state.outlineStale;
     state.outlineStale = !result.outline;
-    if (result.outline) state.outline = result.outline;
+    if (result.outline) {
+      // decisions follow their loops when loops are inserted, removed or commented out (#277)
+      if (rekeyDecisions(state.setup.decisions, state.outline, result.outline, state.graveyard)) save("setup", state.setup);
+      state.outline = result.outline;
+    }
     if (result.outline || wasStale !== state.outlineStale) renderSetupPanel();
     // the request depends on the outline's loops
     if (result.outline) refreshStale();

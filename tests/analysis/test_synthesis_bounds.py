@@ -206,3 +206,20 @@ def test_time_limit_keeps_an_earlier_alarm():
 def test_no_time_limit_never_expires():
     with invariant_synthesis._time_limit(None) as expired:  # pylint: disable=protected-access
         assert not expired()
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_recursion_error_on_a_template_is_undecided_not_proven(engine, monkeypatch):
+    """#341: SymPy's parser hit a RecursionError on very long GiNaC strings. The template stays undecided with a
+    clear message; nothing is reported as proven because of it."""
+    def too_deep(*_args, **_kwargs):
+        raise RecursionError("maximum recursion depth exceeded during compilation")
+    monkeypatch.setattr(invariant_synthesis, "solve_template", too_deep)
+    result = _run(EXAMPLES / "lower_bounds" / "sandwich" / "rw_counter_23.ppy", "evt_synthesis:max_degree=1",
+                  engine)
+    error = _assert_no_invariant(result, "degree")
+    assert error["details"]["templates_failed"] == error["details"]["templates_tried"] >= 1
+    assert result["bounds"]["kind"] == "unknown"
+    assert len(error["details"]["solver_errors"]) == 1
+    assert "too large for SymPy" in error["details"]["solver_errors"][0]
+    assert "stays undecided" in error["details"]["solver_errors"][0]

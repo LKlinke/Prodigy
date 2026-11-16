@@ -60,6 +60,67 @@ export function splitParams(strategy) {
   return { required: params.filter((p) => !hasDefault(p)), more: params.filter(hasDefault) };
 }
 
+/** A loop's identity across edits: its guard and the function it is in. */
+function loopSignature(loop) {
+  return JSON.stringify([loop.cond, loop.function || null]);
+}
+
+/** Moves the decisions to the loops of a new outline (issue #277). Loop ids are positions, so
+ * inserting or removing a loop shifts them. A decision follows the loop with the same guard (and
+ * function), in order among equals; the leftover old and new loops are paired in order when there
+ * are as many of each (a guard edited in place). A decision whose loop is gone is kept in
+ * `graveyard` (signature to decisions) and comes back when an unclaimed loop with that guard
+ * reappears, e.g. on undo. Nothing is ever attached to a loop it did not belong to.
+ * Returns whether any decision changed its key or was buried or restored. */
+export function rekeyDecisions(decisions, oldOutline, newOutline, graveyard = {}) {
+  if (!oldOutline || !newOutline) return false;
+  const oldLoops = oldOutline.loops || [];
+  const newLoops = newOutline.loops || [];
+  const target = new Map(); // old id -> new id
+  const claimed = new Set();
+  const bySignature = new Map();
+  for (const loop of newLoops) {
+    const list = bySignature.get(loopSignature(loop)) || [];
+    list.push(loop);
+    bySignature.set(loopSignature(loop), list);
+  }
+  const seen = new Map();
+  for (const loop of oldLoops) {
+    const signature = loopSignature(loop);
+    const rank = seen.get(signature) || 0;
+    seen.set(signature, rank + 1);
+    const match = (bySignature.get(signature) || [])[rank];
+    if (match) { target.set(String(loop.id), String(match.id)); claimed.add(String(match.id)); }
+  }
+  const lostOld = oldLoops.filter((l) => !target.has(String(l.id)));
+  const freeNew = newLoops.filter((l) => !claimed.has(String(l.id)));
+  if (lostOld.length === freeNew.length) {
+    lostOld.forEach((l, i) => { target.set(String(l.id), String(freeNew[i].id)); claimed.add(String(freeNew[i].id)); });
+  }
+  let changed = false;
+  const moved = {};
+  for (const [key, decision] of Object.entries(decisions)) {
+    if (key === "*") continue;
+    delete decisions[key];
+    if (target.has(key)) {
+      moved[target.get(key)] = decision;
+      if (target.get(key) !== key) changed = true;
+    } else {
+      const loop = oldLoops.find((l) => String(l.id) === key);
+      if (loop) { (graveyard[loopSignature(loop)] ||= []).push(decision); changed = true; }
+    }
+  }
+  for (const loop of newLoops) {
+    const id = String(loop.id);
+    if (moved[id] === undefined && !claimed.has(id)) {
+      const buried = graveyard[loopSignature(loop)];
+      if (buried?.length) { moved[id] = buried.shift(); changed = true; }
+    }
+  }
+  Object.assign(decisions, moved);
+  return changed;
+}
+
 /** Drops the decisions of loops the program no longer has. Without an outline (before the first
  * check after a reload, or while the program has never parsed) the loops are unknown, so every
  * decision is kept (issue #194). */

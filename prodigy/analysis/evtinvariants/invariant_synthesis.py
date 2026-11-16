@@ -158,7 +158,12 @@ def _solver_failed(evt_candidate: Distribution, exc: Exception, stats: Dict[str,
     """Records that the solver failed on the template ``evt_candidate``: the template has no candidate."""
     logger.info("The solver failed on the template %s: %r", evt_candidate, exc)
     stats["failed"] += 1
-    error = f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
+    if isinstance(exc, RecursionError):
+        # SymPy's parser recurses once per nesting level and the string form of a large GiNaC expression nests
+        # too deeply (#341). The template stays undecided; no candidate comes out of it.
+        error = "RecursionError: a template's expression is too large for SymPy to read; the template stays undecided"
+    else:
+        error = f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
     if error not in errors:
         errors.append(error)
 
