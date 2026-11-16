@@ -50,7 +50,7 @@ def test_var_assignment():
     with raises(ValueError) as e:
         gf = FPS('p*x + (1-p) * x^2', 'x')
         gf.update(parse_expr('x = p'))
-    assert 'is a parameter' in str(e)
+    assert 'a parameter cannot be the source of an assignment' in str(e)
 
     with raises(ValueError) as e:
         gf = FPS('x')
