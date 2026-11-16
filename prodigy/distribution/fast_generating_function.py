@@ -306,6 +306,10 @@ class FPS(Distribution):
         return res
 
     def _update_var(self, updated_var: str, assign_var: str | int) -> FPS:
+        if str(assign_var) in self._parameters:
+            raise ValueError("Not implemented: a parameter cannot be the source of an assignment "
+                             f"({updated_var} = {assign_var}); parameters are unknown constants, "
+                             "not values a program variable can take")
         # A variable that does not occur in the generating function is 0 (prodigy-ppl-ginac >= 0.0.6, #232).
         return FPS.from_dist(
             self._dist.update_var(updated_var, str(assign_var)),

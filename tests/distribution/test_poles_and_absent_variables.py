@@ -105,3 +105,11 @@ def test_infinite_expectation_is_infinity(engine):
     expectation = next(q for q in result["queries"] if q["kind"] == "expectation")
     assert expectation["value"] == "\\infty"
     assert expectation["bound"] == result["bounds"]["kind"]
+
+
+@pytest.mark.parametrize("factory", FACTORIES)
+def test_assignment_from_parameter_is_not_implemented(factory):
+    """#375: ``x = p`` on a parameter names the unsupported construct on every engine."""
+    dist = factory().from_expr("p*x", "x").set_parameters("p")
+    with pytest.raises(ValueError, match="a parameter cannot be the source of an assignment"):
+        dist.update(parse_expr("x = p"))

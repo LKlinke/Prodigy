@@ -1000,7 +1000,9 @@ class GeneratingFunction(Distribution):
     def _update_var(self, updated_var: str,
                     assign_var: str | int) -> GeneratingFunction:
         if _sympy_symbol(str(assign_var)) in self._parameters:
-            raise ValueError('Assignment to parameters is not allowed')
+            raise ValueError(("Not implemented: a parameter cannot be the source of an assignment "
+                             f"({updated_var} = {assign_var}); parameters are unknown constants, "
+                             "not values a program variable can take"))
         if _parse_to_sympy(str(assign_var)).is_Symbol and _parse_to_sympy(
                 str(assign_var)) not in self._variables:
             raise ValueError(f"Unknown symbol: {assign_var}")
