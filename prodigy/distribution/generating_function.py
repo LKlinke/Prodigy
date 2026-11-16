@@ -487,7 +487,7 @@ class GeneratingFunction(Distribution):
 
             # after we have the list of new monomials, create (probability, state) pais and yielding them.
             for monomial in new_monomials:
-                state = {}
+                state: dict[str, int] = {}
                 if monomial == 1:
                     for var in self._variables:
                         state[var.name] = 0
@@ -497,7 +497,7 @@ class GeneratingFunction(Distribution):
                         for var, val in
                         monomial.as_expr().as_powers_dict().items()
                     }
-                yield self._probability_of_state(state), monomial.as_expr()
+                yield self._probability_of_state(State(valuations=state)), monomial.as_expr()
             logger.debug("\t>Terms generated until total degree of %d", i)
             i += 1
 

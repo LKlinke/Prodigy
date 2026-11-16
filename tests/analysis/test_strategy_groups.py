@@ -1,5 +1,6 @@
 """The loop strategies by what the user wants, the strategy ``auto`` and the exploration of
 ``evt_iterate`` (#324)."""
+import dataclasses
 from fractions import Fraction
 
 import pytest
@@ -137,3 +138,37 @@ def test_evt_synthesis_lists_certified_candidates_first(monkeypatch):
     assert [c["nonnegative"] for c in candidates] == [True, False]
     assert result["loops"][0]["certificates"][0]["chosen"] == 0
     assert result["bounds"]["kind"] == "exact"
+
+
+def test_auto_keeps_the_upper_bound_of_an_infinite_mass_invariant(monkeypatch):
+    """#336: unrolling gives the lower bound, the invariant (an upper bound by Park's lemma) tightens the
+    queries right after the loop; the loop stays a lower bound, only the intervals shrink."""
+    from prodigy.analysis.instructionhandler import while_handler  # pylint: disable=import-outside-toplevel
+    real = while_handler.get_loop_strategy
+
+    def fake(name):
+        strategy = real(name)
+        if name != "evt_synthesis":
+            return strategy
+
+        def run(task):  # the synthesis finds an invariant whose upper bound has mass 1/2 (the truth)
+            outcome = strategy.run(task)
+            assert outcome.kind == "upper"
+            outcome.distribution = task.config.factory.from_expr("1/2", "x")
+            return outcome
+
+        return dataclasses.replace(strategy, run=run)
+
+    monkeypatch.setattr(while_handler, "get_loop_strategy", fake)
+    result = analyse(BIASED_WALK, {"*": "auto:iterations=6"})
+    query = result["queries"][0]
+    assert result["bounds"]["kind"] == "lower" and query["bound"] == "lower"
+    assert Fraction(query["lower"]) == Fraction(107, 243) and Fraction(query["upper"]) == Fraction(1, 2)
+    assert any("upper bound of the synthesised invariant" in m for m in result["loops"][0]["messages"])
+
+
+def test_auto_without_upper_bound_keeps_the_mass_based_interval():
+    """The upper bound of the invariant is only an addition: for a query it cannot bound, nothing changes."""
+    source = BIASED_WALK.replace("?Pr[x = 0]", "?Ex[x]")
+    query = analyse(source, {"*": "auto:iterations=6"})["queries"][0]
+    assert query["upper"] is None or Fraction(query["upper"]) >= Fraction(query["lower"])

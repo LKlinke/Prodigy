@@ -304,7 +304,7 @@ def query_bounds(problem: LoopProblem, lower: Optional[Certificate], upper: Opti
 
     def upper_mass(event, key):
         vals = []
-        if upper is not None:
+        if upper is not None and upost is not None:
             vals.append(_event_mass(upper.calc, upost, event))
         cert = per_query.get(key)
         if cert is not None:
