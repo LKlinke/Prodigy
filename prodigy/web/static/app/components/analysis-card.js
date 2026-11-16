@@ -276,7 +276,8 @@ function snapshotDists(snap) {
   const several = new Set(dists.map((d) => d.variable)).size < dists.length;
   return disclosure(`Values of dist variables (${dists.length})`, ...dists.map((d) => h("div", { class: "rv-dist-card" },
     h("div", { class: "rv-card-head" }, h("span", { class: "mono rv-dist-infer" }, `${d.variable} = ${d.infer ?? "no value"}`),
-      several ? h("span", { class: "rv-meta", title: d.probability }, `probability ${formatValue(d.probability, Number(d.probability) || null, 6)}`) : null),
+      several ? h("span", { class: "rv-meta", title: d.probability }, `probability ${formatValue(d.probability, Number(d.probability) || null, 6)}`) : null,
+      d.latex ? h("span", { class: "rv-actions" }, copyButton("LaTeX", d.latex)) : null),
     d.closed_form ? formulaBox({ latex: d.latex, text: d.closed_form, label: `Generating function of ${d.variable}` }) : null)));
 }
 
@@ -285,6 +286,7 @@ function distValueCard(variable, value, entry, result) {
     h("span", { class: "mono rv-dist-infer" }, `${variable} = ${value.infer ?? "no value"}`),
     h("span", { class: "rv-actions" },
       value.closed ? guaranteeBadge("exact") : null,
+      value.latex ? copyButton("LaTeX", value.latex) : null,
       value.closed_form ? copyButton("Text", value.closed_form) : null));
   const children = [head];
   if (value.closed_form) {

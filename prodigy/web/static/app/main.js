@@ -858,7 +858,7 @@ async function boot() {
     onChange: renderTitle });
   documents.changed();
 
-  const library = createLibrary($("library"), { api, onLoad: loadExample });
+  const library = createLibrary($("library"), { api, onLoad: loadExample, onLoadFile: (entry) => documents.openRecentFile(entry) });
   $("btn-new").addEventListener("click", () => documents.new());
   $("btn-open").addEventListener("click", () => documents.open());
   $("btn-save").addEventListener("click", () => documents.save());
