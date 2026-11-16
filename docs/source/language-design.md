@@ -260,6 +260,27 @@ message.
   `1/(k + 1)`. With the EVT invariant `ok*exp(k/2)*(1 + stop/2) + (k/2 - 1)*exp(k/2) + 1` the
   result is exact on all engines: Poisson(1/2), `exp((k − 1)/2)`, after conditioning.
 
+#### A uniform value below a variable bound
+
+`x = unif(0, n)` with a program variable `n` that takes infinitely many values (issue #385) uses
+the same operator. Let `G` be the generating function before the assignment, with `x`
+marginalised. A term `n^k` must become `n^k (1 + x + … + x^k)/(k + 1)`:
+
+- appending the geometric sum is the substitution `H = (G(n) − x·G(n·x))/(1 − x)`;
+- the weight `1/(k + 1)` is the operator `1/(θ + 1)` in `n`, i.e. `(1/n) ∫_0^n H(t) dt`. Since
+  `∫_0^n x·G(t·x) dt = I(n·x)` for `I = ∫_0^n G`, the result is
+  `(I(n) − I(n·x)) / (n (1 − x))`, and only `I` has to be integrated. `I` is proposed and
+  certified as above; in addition the derivative of `n·F` in `n` is checked to be `H`, and
+  `n·F` vanishes at `n = 0`, so the division by `n` is exact (`unif(0, 0)` is `x = 0`).
+
+For a geometric `n`, `G = 1/(2 − n)`, the result is `log((2 − n·x)/(2 − n)) / (n (1 − x))`
+(`pgfexamples/inference/loop_free/uniform_geometric_bound.ppy`). The closed form has removable
+singularities at `n = 0` and `x = 1`; SymPy and SymEngine take the value there, GiNaC cancels
+them only for rational functions and otherwise ends with a division by zero (an error, never a
+wrong number). Other bounds that take infinitely many values (`unif(a, n)` with `a ≠ 0`,
+`unif(0, n + 1)`, `n = unif(0, n)`) and integrals that are not certified (e.g. with parameters)
+are "not implemented".
+
 - Parameters in `p` stay symbolic, as in a constant choice; the range of a probability with
   parameters is not checked.
 

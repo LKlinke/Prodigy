@@ -1,0 +1,15 @@
+# A uniform value below a geometric bound: n is geometric, Pr[n = k] = 2^-(k+1), and x is uniform on
+# {0, …, n}, so Pr[n = k, x = j] = 2^-(k+1) / (k + 1) for j ≤ k.
+#
+# The bound n takes infinitely many values, so unif(0, n) cannot be computed by a case split over them.
+# Prodigy computes it on the generating function G of n (#385): appending 1 + x + … + x^k to every term n^k is
+# the substitution (G(n) - x·G(n·x))/(1 - x), and the weight 1/(k + 1) is the operator 1/(θ + 1) with
+# θ = n·∂/∂n, i.e. (1/n)·∫_0^n. The integral is proposed and certified by its derivative and its value at 0;
+# here the result is log((2 - n·x)/(2 - n)) / (n (1 - x)).
+
+n: nat = geometric(1/2);  # the bound
+x: nat = unif(0, n);  # uniform on {0, …, n}
+query Pr[x == 0];  # expected: log(2) ≈ 0.6931
+query Pr[x == 1];  # expected: log(2) - 1/2 ≈ 0.1931
+query Ex[x];  # expected: Ex[n]/2 = 1/2
+query Pr[n == 2 and x == 1];  # expected: 1/8 · 1/3 = 1/24

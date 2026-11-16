@@ -12,7 +12,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.analysis.instructionhandler.counter_operators import counter_probability
+from prodigy.analysis.instructionhandler.counter_operators import counter_probability, uniform_up_to
 from prodigy.analysis.instructionhandler.state_dependent import (expression_variables, instantiate,
                                                                  split_states, state_variables)
 from prodigy.distribution import Distribution, MarginalType
@@ -178,6 +178,26 @@ def _instantiate_call(call: FunctionCallExpr, state: State) -> FunctionCallExpr:
                             ([instantiate(arg, state) for arg in call.params[0]], call.params[1]))
 
 
+def _uniform_infinite_bound(instruction: AsgnInstr, variables: Set[str], distribution: Distribution) -> Distribution:
+    """
+    ``x = unif(0, n)`` for a program variable n with infinitely many values, by the operator ``1/(θ + 1)`` in n
+    (:func:`~prodigy.analysis.instructionhandler.counter_operators.uniform_up_to`, #385). Other bounds that depend
+    on such variables are not implemented.
+    """
+    assert isinstance(instruction.rhs, FunctionCallExpr)
+    construct = f"The distribution {instruction.rhs}"
+    start, end = instruction.rhs.params[0]
+    if expression_variables([start]) or constant_value(start) != 0 or not isinstance(end, VarExpr):
+        distribution.checked_marginal(*sorted(variables))
+        names = ", ".join(sorted(variables))
+        raise NotImplementedError(
+            f"{construct} depends on the program variable(s) {names}, which can take infinitely many values "
+            f"here. For infinitely many values, Prodigy computes only unif(0, n) with a program variable n as "
+            f"upper bound; other bounds (a lower bound other than 0, an expression as bound) are not implemented.")
+    logger.info("Applying %s as an operator in %s", instruction.rhs, end.var)
+    return uniform_up_to(distribution, instruction.lhs, end.var, construct)
+
+
 def _sample_state_dependent(
         instruction: AsgnInstr, variables: Set[str], prog_info: ProgramInfo,
         distribution: Distribution, error_prob: Distribution, config: ForwardAnalysisConfig,
@@ -202,6 +222,9 @@ def _sample_state_dependent(
             choice = ChoiceInstr(probability, [AsgnInstr(instruction.lhs, NatLitExpr(1))],
                                  [AsgnInstr(instruction.lhs, NatLitExpr(0))])
             return analyzer(choice, prog_info, distribution, error_prob, config)
+    if instruction.rhs.function in ("unif", "unif_d") and not distribution.is_zero_dist() \
+            and distribution.finite_support(*sorted(variables)) is None:
+        return _uniform_infinite_bound(instruction, variables, distribution), error_prob
     logger.info("Splitting the states for the arguments of %s", instruction.rhs)
     construct = f"The distribution {instruction.rhs}"
     result = distribution * "0"

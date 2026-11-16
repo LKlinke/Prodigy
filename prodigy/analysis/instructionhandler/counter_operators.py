@@ -26,6 +26,7 @@ formula needs no integration. The computation works on the
 SymPy form of the distribution and gives the result back to the distribution's engine, so it is the same on all
 engines. Anything else (another shape of p, e.g. a polynomial or a double pole, or an integral that is not certified) is
 not implemented. ``x = bernoulli(p)`` with such a p is the choice ``{x = 1} [p] {x = 0}`` and uses the same operator.
+``x = unif(0, n)`` uses the operator ``1/(θ + 1)`` in n after a substitution (:func:`uniform_up_to`, #385).
 
 **Removable singularities.** The closed form of ``H_a`` is ``F/k^a`` with ``F = ∫_0^k t^(a-1) G``, whose series
 starts at ``k^a``; so the closed form has a removable singularity at ``k = 0``, while its series is an ordinary power
@@ -44,8 +45,8 @@ import sympy
 from prodigy.pgcl import Binop, BinopExpr, Expr, NatLitExpr, RealLitExpr, VarExpr
 
 from prodigy.analysis.evtinvariants.exp_polynomial import eventually_nonneg, integral_from_zero
-from prodigy.distribution import Distribution
-from prodigy.distribution.equality import sympify_distribution, sympy_text
+from prodigy.distribution import Distribution, MarginalType
+from prodigy.distribution.equality import decide_equal, sympify_distribution, sympy_text
 
 
 class CounterProbability(NamedTuple):
@@ -189,3 +190,55 @@ def apply_operator(probability: CounterProbability, distribution: Distribution,
         return result.set_parameters(*parameters) if parameters else result
 
     return back(left), back(right)
+
+
+def uniform_up_to(distribution: Distribution, variable: str, bound: str, construct: str) -> Distribution:
+    """
+    ``variable = unif(0, bound)`` on ``distribution`` G, for a program variable ``bound`` that takes infinitely many
+    values (#385). Raises ``NotImplementedError`` (naming ``construct``) if the integral below cannot be computed
+    and certified.
+
+    With x = ``variable``, n = ``bound`` and G with x marginalised, a term ``n^k`` becomes
+    ``n^k (1 + x + … + x^k)/(k + 1)``. Appending the geometric sum is the substitution
+    ``H = (G(n) - x·G(n·x))/(1 - x)``, and the weight ``1/(k + 1)`` is the operator ``1/(θ + 1)`` of the module
+    docstring: ``F = (1/n) ∫_0^n H(t) dt``. Since ``∫_0^n x·G(t·x) dt = I(n·x)`` for ``I = ∫_0^n G``, only the
+    integral I is needed: ``F = (I(n) - I(n·x)) / (n (1 - x))``. I is proposed and certified by
+    :func:`~prodigy.analysis.evtinvariants.exp_polynomial.integral_from_zero` (``I' = G``, ``I(0) = 0``, I analytic
+    at the origin); in addition, the derivative of ``n·F`` in n is checked to be H. As ``n·F`` vanishes at n = 0,
+    the division by n is exact: the term ``n^0`` of F is the term ``n^0`` of G (``unif(0, 0)`` is ``x = 0``).
+
+    The closed form has removable singularities at n = 0 and x = 1 (module docstring); its series is an ordinary
+    power series. The result is computed on the SymPy form and given back to the distribution's engine, as
+    :func:`apply_operator` does.
+    """
+    if variable == bound:
+        raise NotImplementedError(
+            f"{construct} assigns to its own upper bound {bound}, which can take infinitely many values here; "
+            f"Prodigy computes unif(0, n) for infinitely many values of n only if n is another variable.")
+    names = distribution.get_variables() | {variable}
+    marginal = distribution.marginal(variable, method=MarginalType.EXCLUDE)
+    function = sympify_distribution(marginal)
+    n, x = sympy.Symbol(bound), sympy.Symbol(variable)
+    symbols = [sympy.Symbol(v) for v in names]
+    integral = integral_from_zero(function, n, symbols)
+    proposal = None
+    if integral is not None:
+        proposal = (integral - integral.subs(n, n * x)) / (1 - x)
+        integrand = (function - x * function.subs(n, n * x)) / (1 - x)
+        if decide_equal(sympy.diff(proposal, n), integrand, use_simplify=False) is not True \
+                or decide_equal(proposal.subs(n, 0), sympy.Integer(0), use_simplify=False) is not True:
+            proposal = None
+    if proposal is None:
+        text = str(function)
+        text = text if len(text) <= 200 else text[:200] + " …"
+        raise NotImplementedError(
+            f"{construct} depends on the program variable {bound}, which can take infinitely many values here. "
+            f"Prodigy computes unif(0, {bound}) with the operator 1/({bound} + 1) on the generating function, "
+            f"which needs the integral from 0 of {text} in {bound}. No antiderivative was found that passes the "
+            f"check (derivative, value 0 at {bound} = 0, analytic at 0): Prodigy integrates sums of terms "
+            f"{bound}^k·exp(c·{bound}) by a formula and other integrands without parameters with SymPy; this one "
+            f"is not implemented.")
+    text = sympy_text(sympy.powsimp(sympy.together(proposal / n), combine="exp")).replace("**", "^")
+    result = distribution.factory().from_expr(text, *sorted(names))
+    parameters = distribution.get_parameters()
+    return result.set_parameters(*parameters) if parameters else result
