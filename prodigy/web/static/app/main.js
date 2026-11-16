@@ -31,7 +31,7 @@ const state = {
   strategies: [],
   titles: {},
   outline: null,
-  graveyard: {}, // decisions of loops that are gone for now, by loop signature (#277)
+  graveyard: load("graveyard", {}), // decisions of loops that are gone for now, by loop signature (#277); kept across reloads
   diagnostics: [],
   setup: null,
   job: null,
@@ -172,7 +172,10 @@ async function runCheck() {
     state.outlineStale = !result.outline;
     if (result.outline) {
       // decisions follow their loops when loops are inserted, removed or commented out (#277)
-      if (rekeyDecisions(state.setup.decisions, state.outline, result.outline, state.graveyard)) save("setup", state.setup);
+      if (rekeyDecisions(state.setup.decisions, state.outline, result.outline, state.graveyard)) {
+        save("setup", state.setup);
+        save("graveyard", state.graveyard);
+      }
       state.outline = result.outline;
     }
     if (result.outline || wasStale !== state.outlineStale) renderSetupPanel();

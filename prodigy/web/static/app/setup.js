@@ -473,7 +473,17 @@ function selectRow(label, help, value, choices, onValue) {
 /** Shows `message` (empty: none) as the error of the initial-distribution field `input`. The error
  * paragraph is the one after the field unless given. */
 export function applyInputProblem(input, message, error = input.parentElement?.querySelector(".field-error")) {
-  if (error) error.textContent = message;
+  if (error) {
+    error.textContent = message;
+    // a refused distribution can persist across reloads: offer to reset it right at the field
+    if (message && input.value.trim()) {
+      error.append(" ", h("button", { type: "button", class: "link-button", onclick: () => {
+        input.value = "";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.focus();
+      } }, "Reset to 1"));
+    }
+  }
   input.setAttribute("aria-invalid", message ? "true" : "false");
 }
 
