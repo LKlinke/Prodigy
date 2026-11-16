@@ -64,7 +64,12 @@ Prodigy is tested with Python 3.11 and 3.14.
 * **Examples**: the programs in `pgfexamples/` (in `.ppy`), with a suggested setup derived from
   their first line (e.g. `check_equality` examples come with their invariant). A `.pgcl` example
   in a folder given with `prodigy web --examples` is converted to `.ppy` on the fly (with its
-  invariants).
+  invariants). The sheet lists the eight most recently opened programs (examples and local files)
+  first, reachable with ↑ ↓ and Return; "Clear recent" empties the list. It is kept in the browser's
+  `localStorage` only. A file is remembered with its text (up to 60 000 characters), not as a link to
+  the file on disk.
+* **Copy LaTeX**: the generating function of the result and of each `dist` value has a "LaTeX"
+  button that copies the LaTeX KaTeX renders; the button reads "Copied" afterwards.
 * **New, Open…, Save** (toolbar): in Chrome and Edge, Open and Save work directly on `.ppy` and
   `.pgcl` files on disk, and the file stays linked across reloads; Save As… (⇧⌘S) picks another file.
   Safari and Firefox cannot write to a folder: Open reads the chosen file, Save downloads the
