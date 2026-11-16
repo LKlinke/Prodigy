@@ -19,7 +19,7 @@ import traceback
 import uuid
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 _MAX_LOG = 2_000_000
@@ -36,7 +36,7 @@ class BusyError(Exception):
 # ---------------------------------------------------------------------------------------
 
 class _Sender:
-    def __init__(self, conn):
+    def __init__(self, conn: Any) -> None:
         self._conn = conn
         self._buffer: List[str] = []
         self._size = 0
@@ -86,7 +86,7 @@ def _limit_memory(megabytes: Optional[int]) -> None:
         pass
 
 
-def _worker(request: Dict[str, Any], conn, memory_limit: Optional[int], kind: str = "analysis") -> None:
+def _worker(request: Dict[str, Any], conn: Any, memory_limit: Optional[int], kind: str = "analysis") -> None:
     """Entry point of the analysis process; ``kind`` "suggest" asks a language model for a
     candidate instead (:func:`prodigy.web.requests.run_suggestion`), ``kind`` "joint" computes the
     coefficient grid of two variables of a finished analysis (:func:`prodigy.web.requests.run_joint`)."""
@@ -123,7 +123,7 @@ def _worker(request: Dict[str, Any], conn, memory_limit: Optional[int], kind: st
 # ---------------------------------------------------------------------------------------
 
 @contextlib.contextmanager
-def _importable_main():
+def _importable_main() -> Iterator[None]:
     """``spawn`` re-imports the parent's main module in the child. If the server was started
     from a source that cannot be re-imported (stdin, a notebook), hide it for the moment the
     child starts; the worker does not need it."""
