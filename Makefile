@@ -1,8 +1,8 @@
-.PHONY: help install lint mypy test fuzz bench docs clean docker-build docker-run docker-artifact
+.PHONY: help install lint mypy test fuzz bench bench-compare docs clean docker-build docker-run docker-artifact
 
 .DEFAULT: help
 help:
-	@echo "Available targets: install, lint, mypy, test, fuzz, bench, docs, clean, format, docker-build, docker-run, docker-artifact"
+	@echo "Available targets: install, lint, mypy, test, fuzz, bench, bench-compare, docs, clean, format, docker-build, docker-run, docker-artifact"
 
 install:
 	uv sync
@@ -29,6 +29,10 @@ fuzz:
 # The benchmark set (benchmarks/suite.json) on every engine against benchmarks/baseline.json (docs/source/testing.md)
 bench:
 	uv run python benchmarks/run.py ${ARGS}
+
+# Compare two result files of `make bench ARGS="--output FILE"`: make bench-compare BASE=base.json HEAD=head.json
+bench-compare:
+	uv run python benchmarks/compare.py ${BASE} ${HEAD} ${ARGS}
 
 docs:
 	uv run --group docs sphinx-build -M html docs/source docs/build -W --keep-going ${ARGS}

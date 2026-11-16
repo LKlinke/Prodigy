@@ -2,6 +2,7 @@
 // keyboard navigation (↑ ↓ to move, Return to open, Esc to close). Examples open in .ppy; a .pgcl
 // example from a custom examples folder (prodigy web --examples) is converted on the fly.
 import { h, icon } from "./components/dom.js";
+import { clearRecent, recentEntries } from "./recent.js";
 
 const COMMAND_LABELS = {
   check_equality: "invariant",
@@ -11,12 +12,13 @@ const COMMAND_LABELS = {
   skip: "",
 };
 
-export function createLibrary(dialog, { api, onLoad }) {
+export function createLibrary(dialog, { api, onLoad, onLoadFile }) {
   const list = dialog.querySelector("#library-list");
   const search = dialog.querySelector("#library-search");
   let examples = null;
   let rows = [];
   let active = -1;
+  const clearButton = dialog.querySelector("#library-clear-recent");
 
   function setActive(index) {
     active = Math.max(0, Math.min(rows.length - 1, index));
@@ -40,6 +42,27 @@ export function createLibrary(dialog, { api, onLoad }) {
       return;
     }
     let group = null;
+    const recent = query ? [] : recentEntries();
+    clearButton.hidden = !recent.length;
+    if (recent.length) {
+      list.append(h("div", { class: "library-group", role: "presentation" }, "Recent"));
+      for (const entry of recent) {
+        const isFile = entry.kind === "file";
+        const row = h("button", {
+          type: "button", class: "library-row", role: "option", id: `example-${rows.length}`, "aria-selected": "false",
+          title: isFile ? `${entry.file} (a local file)` : entry.id,
+        },
+        h("span", { class: "row-title" }, entry.title),
+        h("span", { class: "chip" }, isFile ? "file" : "example"));
+        row.addEventListener("click", () => chooseRecent(entry));
+        const index = rows.length;
+        row.addEventListener("mousemove", () => { if (active !== index) setActive(index); });
+        rows.push(row);
+        list.append(row);
+      }
+    }
+    if (recent.length) list.append(h("div", { class: "library-group", role: "presentation" }, "All examples"));
+    group = null;
     for (const example of matches) {
       if (example.category_title !== group) {
         group = example.category_title;
@@ -56,6 +79,7 @@ export function createLibrary(dialog, { api, onLoad }) {
         label ? h("span", { class: "chip" }, label) : null));
       const index = rows.length;
       row.addEventListener("click", () => choose(example));
+      row.dataset.exampleId = example.id;
       row.addEventListener("mousemove", () => { if (active !== index) setActive(index); });
       rows.push(row);
       list.append(row);
@@ -68,15 +92,25 @@ export function createLibrary(dialog, { api, onLoad }) {
     await onLoad(example, "ppy");
   }
 
+  async function chooseRecent(entry) {
+    dialog.close("load");
+    if (entry.kind === "file") await onLoadFile(entry);
+    else await onLoad({ id: entry.id, title: entry.title, category_title: entry.category }, "ppy");
+  }
+
+  clearButton.addEventListener("click", () => {
+    clearRecent();
+    render();
+    search.focus();
+  });
+
   search.addEventListener("input", render);
   search.addEventListener("keydown", (event) => {
     if (event.key === "ArrowDown") { event.preventDefault(); setActive(active + 1); }
     else if (event.key === "ArrowUp") { event.preventDefault(); setActive(active - 1); }
     else if (event.key === "Enter") {
       event.preventDefault();
-      const query = search.value.trim().toLowerCase();
-      const matches = (examples || []).filter((e) => !query || `${e.title} ${e.category_title} ${e.id}`.toLowerCase().includes(query));
-      if (matches[active]) choose(matches[active]);
+      rows[active]?.click();
     }
   });
 

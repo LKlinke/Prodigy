@@ -110,3 +110,27 @@ and writes the table to the job summary. It is not required by `build`, so a noi
 blocks a pull request; a red benchmark job is a hint to look at the table. After an intended change of
 the times (a faster engine, a new case), the baseline is updated with `--write-baseline` in the same
 pull request.
+
+### Comparison with `main`
+
+A pull request can make a program slower without exceeding the (generous) baseline factor, so the CI
+job also benchmarks the merge base with `main` on the same runner and compares the two runs with
+`benchmarks/compare.py`:
+
+```sh
+make bench ARGS="--output $PWD/head.json"    # on the branch
+git worktree add ../base main               # a second checkout (or the merge base)
+(cd ../base && uv run python benchmarks/run.py --output "$OLDPWD/base.json")
+make bench-compare BASE=base.json HEAD=head.json
+make bench-compare BASE=base.json HEAD=head.json ARGS="--factor 3 --min-seconds 1"
+```
+
+The script prints a Markdown table (program × engine, base → head seconds and the ratio) and lists the
+cases that are slower: more than `--factor` times the base time (default 2) and more than
+`--min-seconds` (default 0.5), so that the noise of short runs is ignored. Cases that exist on one
+side only are marked `new` or `removed`; a status that changes to something other than `ok` (e.g. a
+time-out) is flagged too. The exit code is 0 unless `--fail-on-slower` is given, 2 if a file cannot be
+read. In the CI the comparison is written to the job summary; its steps are `continue-on-error`, so
+the comparison never fails a pull request. The base is measured with its own `benchmarks/` and its own
+locked dependencies; the table is a hint to look at the case, and a single flagged case on a shared
+runner may be noise (run the job again).

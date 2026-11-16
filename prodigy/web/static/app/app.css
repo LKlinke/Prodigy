@@ -458,7 +458,7 @@ dialog.sheet::backdrop { background: rgba(0, 0, 0, 0.28); }
 .sheet-header h2 { font-size: var(--text-title3); }
 .sheet-subtitle { margin: 0; color: var(--text-2); font-size: var(--text-callout); }
 .sheet-body { overflow: auto; padding: 8px; min-height: 120px; }
-.sheet-footer { padding: 12px 16px; display: flex; justify-content: flex-end; border-top: 1px solid var(--separator); }
+.sheet-footer { padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--separator); }
 
 /* ---- alerts (unsaved changes, name for a download) ---------------------------------- */
 

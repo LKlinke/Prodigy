@@ -8,6 +8,7 @@
 // A program is pGCL or .ppy; the file extension decides when opening, and Save writes the
 // extension of the program's syntax (a .pgcl file converted to .ppy is saved as a new file).
 import { h } from "./components/dom.js";
+import { addRecent } from "./recent.js";
 import { load, save } from "./store.js";
 
 const EXTENSIONS = { pgcl: ".pgcl", ppy: ".ppy" };
@@ -239,6 +240,24 @@ export function createDocument({ editor, initialText, onReplace, notify, onChang
     });
   }
 
+  /** Opens a file's text (from the Open… dialog or the recent list) as the program. */
+  function openPicked(picked) {
+    // a fresh editor state: undo must not bring another program into this file
+    editor.load(picked.text, syntaxOf(picked.name));
+    become({ name: stem(picked.name), origin: "file", category: "", saved: picked.text, file: picked.name },
+      picked.handle);
+    addRecent({ kind: "file", title: stem(picked.name), file: picked.name, text: picked.text });
+    onReplace({ kind: "open" });
+    notify(`Opened ${picked.name}.`, "info");
+    editor.focus();
+  }
+
+  /** A file of the recent list: its remembered text, without a link to the file on disk. */
+  async function openRecentFile(entry) {
+    if (!(await confirmClose())) return;
+    openPicked({ handle: null, name: entry.file || `${entry.title}.pgcl`, text: entry.text });
+  }
+
   async function openDocument() {
     if (!(await confirmClose())) return;
     let picked;
@@ -249,13 +268,7 @@ export function createDocument({ editor, initialText, onReplace, notify, onChang
       return;
     }
     if (!picked) return;
-    // a fresh editor state: undo must not bring another program into this file
-    editor.load(picked.text, syntaxOf(picked.name));
-    become({ name: stem(picked.name), origin: "file", category: "", saved: picked.text, file: picked.name },
-      picked.handle);
-    onReplace({ kind: "open" });
-    notify(`Opened ${picked.name}.`, "info");
-    editor.focus();
+    openPicked(picked);
   }
 
   async function saveDocument({ as = false } = {}) {
@@ -300,6 +313,7 @@ export function createDocument({ editor, initialText, onReplace, notify, onChang
   function exampleLoaded(example, text) {
     become({ name: example.title, origin: "example", category: example.category_title || "", saved: text,
       fileStem: stem(example.id) });
+    addRecent({ kind: "example", id: example.id, title: example.title, category: example.category_title || "" });
   }
 
   async function restoreHandle() {
@@ -314,6 +328,7 @@ export function createDocument({ editor, initialText, onReplace, notify, onChang
     confirmClose,
     new: newDocument,
     open: openDocument,
+    openRecentFile,
     save: saveDocument,
     exampleLoaded,
     changed,
