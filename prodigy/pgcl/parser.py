@@ -419,7 +419,7 @@ def _parse_function_call(t: Tree) -> FunctionCallExpr:
                 break
         if child is None:
             return []
-        res = []
+        res: list = []
         while len(child.children) > 1:
             res = [_child_tree(child, 1)] + res
             child = _child_tree(child, 0)

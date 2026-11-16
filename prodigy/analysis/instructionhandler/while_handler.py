@@ -974,10 +974,49 @@ AUTO_TIME_LIMIT = 5
 AUTO_TEMPLATE_TIME_LIMIT = 2
 
 
+def _upper_query_bounds(task: LoopTask, upper: Distribution) -> Dict[Tuple[str, str], Tuple[Any, Any]]:
+    """Upper bounds on the ``?Pr`` and ``?Ex`` queries directly after the loop, evaluated on ``upper``, an
+    upper bound of the loop's result (#336). The queries are monotone in the measure (an expectation only if its
+    expression is non-negative), so each value bounds the query of the exact result. A query that cannot be
+    evaluated, or whose value is not finite, is left out: the bound is only an addition."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.instructionhandler.query_handler import filter_by_cases
+    from prodigy.analysis.result import is_monotone_nonnegative
+    from prodigy.pgcl import ExpectationInstr, PlotInstr, PrintInstr, ProbabilityQueryInstr, VarExpr
+    program = task.prog_info.program
+    instructions = list(program.instructions)
+    index = next((i for i, ins in enumerate(instructions) if ins is task.instruction), None)
+    bounds: Dict[Tuple[str, str], Tuple[Any, Any]] = {}
+    for ins in instructions[index + 1:] if index is not None else []:
+        if isinstance(ins, (PlotInstr, PrintInstr)):
+            continue
+        if not isinstance(ins, (ProbabilityQueryInstr, ExpectationInstr)):
+            break
+        try:
+            if isinstance(ins, ProbabilityQueryInstr):
+                if isinstance(ins.expr, VarExpr):
+                    continue  # a marginal
+                value = filter_by_cases(upper, ins.expr).get_probability_mass()
+                kind = "?Pr"
+            else:
+                if not is_monotone_nonnegative(ins.expr, program):
+                    continue
+                value = upper.get_expected_value_of(ins.expr)
+                kind = "?Ex"
+            value = sympy.sympify(str(value))
+            if value.is_finite is not True or value.is_real is not True or value < 0:
+                continue
+        except Exception:  # pylint: disable=broad-except  # the bound is optional
+            continue
+        bounds[(kind, str(ins.expr))] = (None, value)
+    return bounds
+
+
 def _strategy_auto(task: LoopTask) -> LoopOutcome:
     """Synthesis first, accepted only if certified exact; otherwise unrolling. Each part is the
     unchanged strategy with its own checks, so the outcome is exactly as sound as theirs."""
     reason = ""
+    upper_bounds: Dict[Tuple[str, str], Tuple[Any, Any]] = {}
     if not task.error_prob.is_zero_dist():
         reason = "an observe statement comes before the loop, which EVT reasoning does not support"
     else:
@@ -996,10 +1035,18 @@ def _strategy_auto(task: LoopTask) -> LoopOutcome:
                 return outcome
             reason = (f"the synthesised invariant {outcome.certificate.get('invariant')} gives only "
                       f"{'an upper bound' if outcome.kind == Bound.UPPER else 'no guarantee'}")
+            if outcome.kind == Bound.UPPER:
+                # kept: it tightens the queries right after the loop to intervals (like evt_sandwich)
+                upper_bounds = _upper_query_bounds(task, outcome.distribution)
     unroll = get_loop_strategy("unroll")
     outcome = unroll.run(dataclasses.replace(task, strategy=unroll, decision=LoopDecision(
         "unroll", {"iterations": task.param("iterations")})))
     outcome.certificate["automatic"] = {"chosen": "unroll", "synthesis": reason}
+    if upper_bounds:
+        outcome.query_bounds = {key: (outcome.query_bounds.get(key, (None, None))[0], upper)
+                                for key, (_, upper) in upper_bounds.items()}
+        outcome.messages.append("The upper bound of the synthesised invariant (infinite mass) is kept: it bounds "
+                                "the queries right after the loop from above.")
     outcome.messages.insert(0, f"Automatic: unrolled {task.param('iterations')} iterations, since no exact "
                                f"EVT invariant was found ({reason}).")
     return outcome

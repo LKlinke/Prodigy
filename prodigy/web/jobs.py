@@ -132,6 +132,7 @@ def _importable_main():
     if path is None or os.path.isfile(path):
         yield
         return
+    assert main is not None  # a missing main module has no path, handled above
     del main.__file__
     try:
         yield
