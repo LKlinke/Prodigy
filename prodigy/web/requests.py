@@ -30,7 +30,10 @@ and :func:`prepare_request` turns them into the engines' spelling (``x**2`` -> `
 from __future__ import annotations
 
 import copy
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
+
+if TYPE_CHECKING:
+    from prodigy.analysis.config import ForwardAnalysisConfig
 
 ENGINES = {
     "sympy": "SymPy",
@@ -163,7 +166,7 @@ def _trace_problems(request: Dict[str, Any], syntax: str) -> List[str]:
     return problems
 
 
-def make_config(request: Dict[str, Any]):
+def make_config(request: Dict[str, Any]) -> ForwardAnalysisConfig:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
@@ -206,7 +209,7 @@ INPUT_CHECK_SECONDS = 8.0
 _INPUT_CHECK_CONTEXT = "spawn"  # tests use "fork", which carries their fakes into the process
 
 
-def _input_check_worker(connection, source: str, syntax: str, text: str, engine: str) -> None:
+def _input_check_worker(connection: Any, source: str, syntax: str, text: str, engine: str) -> None:
     try:
         connection.send(check_input_distribution(source, syntax, text, engine))
     finally:
@@ -428,12 +431,12 @@ class _LoopReached(BaseException):
     """Stops the analysis at the loop to suggest a candidate for. A ``BaseException``, so
     that handlers which turn failures of a strategy into results do not catch it."""
 
-    def __init__(self, task):
+    def __init__(self, task: Any) -> None:
         super().__init__("loop reached")
         self.task = task
 
 
-def _stopping_session(target: int, **kwargs):
+def _stopping_session(target: int, **kwargs: Any) -> Any:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.session import AnalysisSession
 
@@ -441,7 +444,7 @@ def _stopping_session(target: int, **kwargs):
         """Analyses the program up to the first time loop ``target`` is reached outside of
         another strategy's checks."""
 
-        def run_loop(self, task):
+        def run_loop(self, task: Any) -> Any:
             if task.loop is not None and task.loop.id == target and not self.silent:
                 raise _LoopReached(task)
             return super().run_loop(task)

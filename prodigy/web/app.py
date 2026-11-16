@@ -35,7 +35,7 @@ from __future__ import annotations
 import os
 import threading
 import webbrowser
-from typing import Any, Dict, Iterable, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence
 from urllib.parse import urlparse
 
 from flask import Flask, abort, jsonify, render_template, request
@@ -50,7 +50,7 @@ MAX_INPUT_DISTRIBUTION = 500
 _LOOPBACK = {"localhost", "127.0.0.1", "::1", "[::1]"}
 
 
-def _engine_info(default_engine: str):
+def _engine_info(default_engine: str) -> List[Dict[str, Any]]:
     engines = []
     for name, label in ENGINES.items():
         available, reason = True, None
@@ -101,7 +101,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
     strategies_json = [s.to_json() for s in loop_strategies()]
 
     @app.before_request
-    def _guard():
+    def _guard() -> None:
         if not request.path.startswith("/api/"):
             return None
         if permitted_hosts is not None:
@@ -121,17 +121,17 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
     @app.errorhandler(404)
     @app.errorhandler(413)
     @app.errorhandler(415)
-    def _error(error):
+    def _error(error: Any) -> Any:
         if request.path.startswith("/api/"):
             return jsonify({"error": getattr(error, "description", str(error))}), error.code
         return error
 
     @app.get("/")
-    def index():
+    def index() -> Any:
         return render_template("app.html", version=version)
 
     @app.get("/api/meta")
-    def meta():
+    def meta() -> Any:
         return jsonify({
             "version": version,
             "engines": _engine_info(default_engine),
@@ -147,7 +147,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         })
 
     @app.post("/api/check")
-    def check():
+    def check() -> Any:
         payload = request.get_json(silent=True) or {}
         source = payload.get("source")
         if not isinstance(source, str):
@@ -165,7 +165,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         return jsonify(result)
 
     @app.post("/api/convert")
-    def convert_program():
+    def convert_program() -> Any:
         payload = request.get_json(silent=True) or {}
         source = payload.get("source")
         if not isinstance(source, str):
@@ -176,7 +176,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
             return jsonify({"error": str(exc), "line": exc.line, "column": exc.column}), 422
 
     @app.post("/api/analyze")
-    def analyze():
+    def analyze() -> Any:
         payload: Dict[str, Any] = request.get_json(silent=True) or {}
         problems = validate_request(payload)
         if problems:
@@ -192,7 +192,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         return jsonify({"job": job.id, "time_limit": job.time_limit}), 202
 
     @app.post("/api/suggest")
-    def suggest():
+    def suggest() -> Any:
         """Starts a job that asks the language model for one candidate for a loop; the API key
         stays in the job process (see :func:`prodigy.web.requests.run_suggestion`)."""
         payload: Dict[str, Any] = request.get_json(silent=True) or {}
@@ -213,7 +213,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         return jsonify({"job": job.id, "time_limit": job.time_limit}), 202
 
     @app.get("/api/jobs/<job_id>")
-    def job_status(job_id: str):
+    def job_status(job_id: str) -> Any:
         job = jobs.get(job_id)
         if job is None:
             abort(404, description="Unknown analysis.")
@@ -224,14 +224,14 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         return jsonify(job.to_json(offset))
 
     @app.delete("/api/jobs/<job_id>")
-    def job_cancel(job_id: str):
+    def job_cancel(job_id: str) -> Any:
         job = jobs.cancel(job_id)
         if job is None:
             abort(404, description="Unknown analysis.")
         return jsonify(job.to_json(0))
 
     @app.post("/api/jobs/<job_id>/joint")
-    def job_joint(job_id: str):
+    def job_joint(job_id: str) -> Any:
         """Starts a job for the coefficient grid of two variables of a finished analysis; the
         distribution comes from the result the server keeps, never from the client."""
         job = jobs.get(job_id)
@@ -250,11 +250,11 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         return jsonify({"job": grid_job.id, "time_limit": grid_job.time_limit}), 202
 
     @app.get("/api/examples")
-    def examples():
+    def examples() -> Any:
         return jsonify({"examples": library.list()})
 
     @app.get("/api/examples/<path:example_id>")
-    def example(example_id: str):
+    def example(example_id: str) -> Any:
         syntax = request.args.get("syntax")
         if syntax not in (None, "pgcl", "ppy"):
             abort(400, description=f"Unknown syntax {syntax!r}, expected pgcl or ppy.")
