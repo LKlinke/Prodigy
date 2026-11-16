@@ -396,6 +396,53 @@ def test_setup_decisions_survive_a_reload_and_follow_a_conversion(tmp_path):
                                   [True, "x: nat;", True, "nat x;", False, "nat x; nat c;", False]]
 
 
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_setup_decisions_follow_their_loop_across_edits(tmp_path):
+    """Decisions are matched to loops by guard and function, not by index (issue #277): inserting or
+    removing a loop moves them along, a guard edited in place keeps its decision, a loop that is
+    commented out and comes back (undo) gets its decision back, and a decision never lands on a
+    loop with another guard."""
+    setup = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "setup.js"
+    script = tmp_path / "check.mjs"
+    script.write_text(
+        f"const s = await import({str(setup.as_uri())!r});\n"
+        "const outline = (...conds) => ({ loops: conds.map((cond, id) => ({ id, cond, function: null })) });\n"
+        "const d = (name) => ({ strategy: name, params: {} });\n"
+        "const names = (x) => Object.fromEntries(Object.entries(x).map(([k, v]) => [k, v.strategy]));\n"
+        "const out = [];\n"
+        "const grave = {};\n"
+        "let decisions = { '0': d('a'), '1': d('b'), '*': d('star') };\n"
+        "let old = outline('x < 1', 'y < 2');\n"
+        "// a loop is inserted in front\n"
+        "s.rekeyDecisions(decisions, old, outline('z < 3', 'x < 1', 'y < 2'), grave);\n"
+        "out.push(names(decisions));\n"
+        "old = outline('z < 3', 'x < 1', 'y < 2');\n"
+        "// the guard of the second loop is edited\n"
+        "s.rekeyDecisions(decisions, old, outline('z < 3', 'x < 10', 'y < 2'), grave);\n"
+        "out.push(names(decisions));\n"
+        "old = outline('z < 3', 'x < 10', 'y < 2');\n"
+        "// the first loop is commented out, then comes back\n"
+        "decisions['0'] = d('c');\n"
+        "s.rekeyDecisions(decisions, old, outline('x < 10', 'y < 2'), grave);\n"
+        "out.push(names(decisions));\n"
+        "s.rekeyDecisions(decisions, outline('x < 10', 'y < 2'), outline('z < 3', 'x < 10', 'y < 2'), grave);\n"
+        "out.push(names(decisions));\n"
+        "// a different loop appears where one was removed: it gets nothing\n"
+        "s.rekeyDecisions(decisions, outline('z < 3', 'x < 10', 'y < 2'), outline('x < 10', 'y < 2'), grave);\n"
+        "s.rekeyDecisions(decisions, outline('x < 10', 'y < 2'), outline('w < 9', 'x < 10', 'y < 2'), grave);\n"
+        "out.push(names(decisions));\n"
+        "console.log(JSON.stringify(out));\n",
+        encoding="utf-8")
+    output = subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60, check=True).stdout
+    assert json.loads(output) == [
+        {"1": "a", "2": "b", "*": "star"},
+        {"1": "a", "2": "b", "*": "star"},
+        {"0": "a", "1": "b", "*": "star"},
+        {"0": "c", "1": "a", "2": "b", "*": "star"},
+        {"1": "a", "2": "b", "*": "star"},
+    ]
+
+
 def test_result_tab_is_an_answer_card_an_analysis_card_and_a_details_line():
     """The Result tab (#288, #311): an answer card with the guarantee once, the analysis card with
     the lenses Distribution, Size, Time and Checks (one control row, one figure, one fact line,
