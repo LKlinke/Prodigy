@@ -13,7 +13,7 @@ import functools
 import json
 import logging
 from fractions import Fraction
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 import sympy
 from lark.exceptions import LarkError
@@ -32,7 +32,8 @@ from prodigy.analysis.evtinvariants.exp_polynomial import (entire_exp_polynomial
                                                            exp_polynomial_value_at_one, independent_factors)
 from prodigy.analysis.evtinvariants.log_polynomial import log_form_mass, log_form_nonneg
 from prodigy.analysis.evtinvariants.series_identity import converges_on_unit_polydisc, formal_loop
-from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
+from prodigy.analysis.exceptions import (ForwardAnalysisError, HeuristicsError, SolveError,
+                                              VerificationError)
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.distribution.equality import sympify_distribution, sympify_engine_string
@@ -1012,6 +1013,14 @@ def _upper_query_bounds(task: LoopTask, upper: Distribution) -> Dict[Tuple[str, 
     return bounds
 
 
+# Errors of the synthesis that mean "no invariant found": solver, CAS, verification, unsupported
+# input, and the time limit. Everything else is a bug and is reported as such (#318).
+_EXPECTED_SYNTHESIS_ERRORS: Tuple[Type[BaseException], ...] = (
+    ForwardAnalysisError, VerificationError, SolveError, HeuristicsError, NotImplementedError,
+    TimeoutError, ArithmeticError, sympy.SympifyError, sympy.PolynomialError,
+    sympy.polys.polyerrors.BasePolynomialError)
+
+
 def _strategy_auto(task: LoopTask) -> LoopOutcome:
     """Synthesis first, accepted only if certified exact; otherwise unrolling. Each part is the
     unchanged strategy with its own checks, so the outcome is exactly as sound as theirs."""
@@ -1026,8 +1035,15 @@ def _strategy_auto(task: LoopTask) -> LoopOutcome:
         try:
             outcome = synthesis.run(dataclasses.replace(task, strategy=synthesis,
                                                         decision=LoopDecision("evt_synthesis", params)))
-        except Exception as exc:  # pylint: disable=broad-except  # any failure falls back to unrolling
+        except _EXPECTED_SYNTHESIS_ERRORS as exc:
             reason = (str(exc) or type(exc).__name__).splitlines()[0][:300]
+        except Exception as exc:  # pylint: disable=broad-except  # unexpected: logged, never proof of anything
+            # A bug inside the synthesis must not look like "no invariant found". Unrolling is still
+            # sound (it is its own strategy with its own checks), so the analysis continues, but the
+            # error is logged with its traceback and named in the message.
+            logger.error("The invariant synthesis of the automatic strategy failed unexpectedly",
+                         exc_info=True)
+            reason = f"unexpected error {type(exc).__name__}: {(str(exc) or '-').splitlines()[0][:200]}"
         else:
             if outcome.kind == Bound.EXACT:
                 outcome.certificate["automatic"] = {"chosen": "evt_synthesis"}

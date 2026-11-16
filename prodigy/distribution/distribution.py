@@ -617,8 +617,8 @@ class Distribution(ABC):
         """
         if not isinstance(condition, BinopExpr):
             raise NotImplementedError(
-                f"Instruction {condition} is not computable on infinite generating function"
-                f" {self}")
+                f"The guard {condition} is not implemented on infinite generating functions: guards "
+                "built from comparisons of variables and numbers are")
         # The side whose variables take finitely many values is unfolded: the right-hand side if
         # possible (`left_side_original`: the left-hand side stays in the condition), else the left.
         # Only the values of the side matter, not their mass, so its finite support is unfolded
@@ -642,8 +642,8 @@ class Distribution(ABC):
                     self.checked_marginal(*syms)
             # We are not able to marginalize into a finite amount of states! -> FAIL filtering.
             raise NotImplementedError(
-                f"Instruction {condition} is not computable on infinite generating function"
-                f" {self}")
+                f"The guard {condition} is not implemented on infinite generating functions: neither side "
+                "takes finitely many values, so the guard cannot be unfolded into finitely many cases")
 
         # Now we know that `expr` can be instantiated with finitely many states.
         # We generate these explicit state.

@@ -172,3 +172,35 @@ def test_auto_without_upper_bound_keeps_the_mass_based_interval():
     source = BIASED_WALK.replace("?Pr[x = 0]", "?Ex[x]")
     query = analyse(source, {"*": "auto:iterations=6"})["queries"][0]
     assert query["upper"] is None or Fraction(query["upper"]) >= Fraction(query["lower"])
+
+
+def _auto_with_failing_synthesis(monkeypatch, error):
+    from prodigy.analysis.instructionhandler import while_handler  # pylint: disable=import-outside-toplevel
+
+    real = while_handler.get_loop_strategy
+
+    def failing(_task):
+        raise error
+
+    def patched(name):
+        strategy = real(name)
+        return dataclasses.replace(strategy, run=failing) if name == "evt_synthesis" else strategy
+
+    monkeypatch.setattr(while_handler, "get_loop_strategy", patched)
+    result = analyse(GEOMETRIC, {"*": "auto"})
+    return result["loops"][0] if "loops" in result else result
+
+
+def test_auto_names_an_unexpected_synthesis_error_and_logs_it(monkeypatch, caplog):
+    """#318: a bug inside the synthesis is not "no invariant found": it is logged with its traceback and
+    named; the fallback (unrolling) is still only as exact as its own check, so nothing is proven."""
+    loop = _auto_with_failing_synthesis(monkeypatch, RuntimeError("boom"))
+    assert "unexpected error RuntimeError: boom" in str(loop)
+    assert any(record.levelname == "ERROR" and record.exc_info and "boom" in str(record.exc_info[1]) for record in caplog.records)
+    assert "unroll" in str(loop)  # the fallback ran, with its own guarantee
+
+
+def test_auto_treats_expected_synthesis_errors_as_no_invariant(monkeypatch, caplog):
+    loop = _auto_with_failing_synthesis(monkeypatch, NotImplementedError("not here"))
+    assert "not here" in str(loop) and "unexpected" not in str(loop)
+    assert not [record for record in caplog.records if record.levelname == "ERROR"]
