@@ -31,3 +31,9 @@ def test_a_huge_constant_difference_does_not_hang():
     constant = sum(sympy.exp(k * OMEGA + sympy.Rational(1, k)) * (OMEGA ** k) for k in range(1, 6))
     result = decide_equal(constant ** 3, constant ** 3 + sympy.exp(OMEGA) - sympy.exp(OMEGA), use_simplify=False)
     assert result is True
+
+
+def test_nonzero_difference_with_irrational_constants_is_not_cancelled():
+    # nothing to decide: not zero, and not rational over Q; the answer comes without a cancel over the extension
+    value = sympy.exp(Y * OMEGA) * (OMEGA + 2) - sympy.exp(Y)
+    assert decide_equal(value, sympy.Integer(0), use_simplify=False) is None

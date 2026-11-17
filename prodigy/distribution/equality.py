@@ -63,6 +63,11 @@ def _constants_in_normal_form(expression: sympy.Expr) -> sympy.Expr:
         return expression
 
 
+def _has_irrational_constants(expression: sympy.Expr) -> bool:
+    """Whether ``expression`` has a constant subterm that is not a rational number (``I``, ``sqrt(3)``, ``exp(1)``)."""
+    return any(node.is_number and not node.is_Rational for node in sympy.preorder_traversal(expression))
+
+
 NORMAL_FORM_LIMIT = 3000
 """Operations of the difference in normal form (:func:`_constants_in_normal_form`) up to which ``cancel`` is
 tried over the algebraic extension; for larger ones only the cheap proof (:func:`_cancels_with_frozen_constants`)."""
@@ -107,6 +112,10 @@ def decide_equal(lhs: sympy.Expr, rhs: sympy.Expr, use_simplify: bool = True) ->
     difference = lhs - rhs
     reduced = None
     try:
+        if _has_irrational_constants(difference) and _numerically_nonzero(difference):
+            # nonzero, so no proof of 0; and not rational over Q (the constants stay in it), so no proof of
+            # inequality: cancelling over the algebraic extension (seconds) cannot decide anything
+            return None
         normal_form = _constants_in_normal_form(difference)
         if normal_form.count_ops() <= NORMAL_FORM_LIMIT:
             reduced = sympy.cancel(sympy.together(normal_form))
