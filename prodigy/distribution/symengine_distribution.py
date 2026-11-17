@@ -1026,8 +1026,8 @@ class SymengineDist(Distribution):
 
         return fun
 
-    def checked_marginal(self, *variables: Union[str, VarExpr]) -> SymengineDist:
-        res = super().checked_marginal(*variables)
+    def checked_marginal(self, *variables: Union[str, VarExpr], proof: bool = True) -> SymengineDist:
+        res = super().checked_marginal(*variables, proof=proof)
         assert isinstance(res, SymengineDist)
         return res
 

@@ -90,6 +90,49 @@ def test_formal_loop_keeps_the_upper_bound(engine):
     assert result["queries"][0]["bound"] == Bound.UPPER
 
 
+# A symmetric walk that ends at x = 0 almost surely, with y = 0 throughout. The body is formal, so every
+# non-negative closed-form fixed point is one of the series: I = ((1 + x^2) I0(y) - 2x^2)/(1 - x)^2 for any
+# I0(y) = I(0, y) (the terminating part), here I0 = 2/(1 - 2y). Park bounds its coefficients, but its series
+# diverges at y = 1, where the closed form gives -2: main reported Pr[x = 0] <= -2 and Ex[y] <= 4 (#393).
+FORMAL_WALK = """nat x; nat y;
+x := 1
+while (x > 0) { {x := x - 1} [1/2] {x := x + 1} }
+?Pr[x = 0]
+?Ex[y]
+"""
+DIVERGENT_EXIT = "(2 + 4*x^2*y)/((1 - x)^2*(1 - 2*y))"
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_formal_loop_with_a_divergent_terminating_part_gives_no_upper_bound(engine):
+    result = _run(FORMAL_WALK, {"strategy": "evt_invariant", "params": {"invariant": DIVERGENT_EXIT}}, engine)
+    assert result["status"] == "ok", result.get("error")
+    loop = result["loops"][0]
+    assert loop["certificates"][0]["nonnegative"] is True
+    assert loop["certificates"][0]["series_identity"] == "formal loop body"
+    assert loop["kind"] == Bound.UNKNOWN
+    assert "not proven to converge at 1" in " ".join(loop["messages"])
+    for query in result["queries"]:
+        assert query["bound"] == Bound.UNKNOWN and query["upper"] is None
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_formal_loop_with_a_convergent_terminating_part_keeps_the_upper_bound(engine):
+    # the same family with I0 = 1: the least fixed point (1 + x)/(1 - x), whose terminating part is the point
+    # mass at 0; its series converges on the open polydisc (test_formal_loop_keeps_the_upper_bound has the
+    # formal body as the only reason)
+    result = _run(FORMAL_WALK, {"strategy": "evt_invariant", "params": {"invariant": "(1 + x^2 - 2*x^2)/(1 - x)^2"}},
+                  engine)
+    assert result["status"] == "ok", result.get("error")
+    loop = result["loops"][0]
+    if loop["certificates"][0]["nonnegative"] is not True:
+        pytest.skip("non-negativity is not shown on this engine")
+    assert loop["kind"] == Bound.UPPER
+    probability, expectation = result["queries"]
+    assert probability["bound"] == Bound.UPPER and probability["upper"] == "1"
+    assert expectation["bound"] == Bound.UPPER and expectation["upper"] == "0"
+
+
 @pytest.mark.parametrize("engine", ENGINES)
 def test_infinite_mass_converging_on_the_polydisc_keeps_the_upper_bound(engine):
     result = _run(DIVERGING, {"strategy": "evt_invariant", "params": {"invariant": "1/(1 - c)"}}, engine)

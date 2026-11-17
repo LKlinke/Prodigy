@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import contextlib
 import functools
 import re
 from abc import ABC, abstractmethod
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from fractions import Fraction
@@ -16,6 +18,7 @@ from prodigy.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr,
 from prodigy.pgcl.ast.walk import Walk, walk_expr
 from prodigy.pgcl.parser import parse_expr
 from prodigy.pgcl.util.ref import Mut
+from prodigy.distribution.convergence import marginal_obstacle
 from prodigy.distribution.equality import decide_equal_strings
 from prodigy.distribution.algebraic_comparison import filter_difference_algebraic
 from prodigy.distribution.independent_comparison import (DEPENDENT, NOT_A_DIFFERENCE, ComparisonNotImplemented,
@@ -181,6 +184,30 @@ class NonFiniteMarginalError(ArithmeticError):
     on measures with infinite mass (candidate measures, not program distributions): summing out the
     other variables diverges, so the marginal does not describe which values the variables take.
     """
+
+
+# Whether every generating function in the current context is a measure whose marginals are the sums of
+# their series (see `known_convergent_series`)
+_KNOWN_CONVERGENT: ContextVar[bool] = ContextVar("prodigy_known_convergent_series", default=False)
+
+
+@contextlib.contextmanager
+def known_convergent_series(known: bool) -> Iterator[None]:
+    """
+    Declares whether the generating functions computed in this context are known to be measures whose
+    marginals are the sums of their series, so that :meth:`Distribution.checked_marginal` may skip the
+    proof (#393). This holds for the analysis of a program from a validated input (#300): its
+    distributions are non-negative measures with finite mass for every admissible value of the
+    parameters, also those that a proof would have to bound (e.g. `geometric(p)` with a parameter p),
+    and the outcomes of loop strategies keep this or are not guaranteed at all. It does not hold for
+    candidate measures (invariants, second-order generating functions, signed differences in checks):
+    the sub-analyses that compute with them set it to False. The default is False.
+    """
+    token = _KNOWN_CONVERGENT.set(known)
+    try:
+        yield
+    finally:
+        _KNOWN_CONVERGENT.reset(token)
 
 
 class ZeroDivisorError(ValueError):
@@ -638,8 +665,10 @@ class Distribution(ABC):
             for side in (condition.rhs, condition.lhs):
                 syms = self._find_symbols(str(side))
                 if syms:
-                    # raises NonFiniteMarginalError on a measure with infinite mass
-                    self.checked_marginal(*syms)
+                    # raises NonFiniteMarginalError on a measure with infinite mass; nothing is computed
+                    # from the marginal, so one that is only not proven to converge (#393) does not keep
+                    # the guard from the formal comparison (`_filter_difference`)
+                    self.checked_marginal(*syms, proof=False)
             # We are not able to marginalize into a finite amount of states! -> FAIL filtering.
             raise NotImplementedError(
                 f"The guard {condition} is not implemented on infinite generating functions: neither side "
@@ -1324,14 +1353,16 @@ class Distribution(ABC):
         :return: The marginal distribution.
         """
 
-    def checked_marginal(self, *variables: Union[str, VarExpr]) -> Distribution:
+    def checked_marginal(self, *variables: Union[str, VarExpr], proof: bool = True) -> Distribution:
         """
         The marginal of `variables` (MarginalType.INCLUDE) for code that unfolds it into its states,
         e.g. a filter or update that does a case split over the values of these variables.
 
         Raises `NonFiniteMarginalError` if the marginal is not a finite measure (infinite mass, see
         :class:`NonFiniteMarginalError`): then its terms do not tell which values the variables take,
-        and unfolding it would give a wrong result (#242).
+        and unfolding it would give a wrong result (#242). With `proof` (the default), also if it is
+        not proven that the closed form is the sum of the series (#393); without, only a non-finite
+        value is detected, for callers that use the marginal only to choose their error.
         """
         names = ", ".join(str(var) for var in variables)
         try:
@@ -1346,6 +1377,8 @@ class Distribution(ABC):
             raise NonFiniteMarginalError(
                 f"The marginal of {names} is undefined (division by zero) in {self}") from exc
         self._require_finite_values(marginal, *variables)
+        if proof:
+            self._require_convergent_marginal(marginal, *variables)
         return marginal
 
     def _require_finite_values(self, marginal: Distribution, *variables: Union[str, VarExpr]) -> None:
@@ -1355,6 +1388,27 @@ class Distribution(ABC):
             raise NonFiniteMarginalError(
                 f"The marginal of {names} is {marginal}, not a finite measure: {self} has infinite "
                 f"mass, so a case split over the values of {names} is not computable.")
+
+    def _require_convergent_marginal(self, marginal: Distribution, *variables: Union[str, VarExpr]) -> None:
+        """
+        Raises `NonFiniteMarginalError` if it is not proven that `marginal`, the closed form of this
+        generating function at 1 in the variables other than `variables`, is the sum of its series
+        (#393): a series that diverges at 1 can have a closed form with a finite value there, e.g.
+        `1/((1 - 2x)(1 - y))` at x = 1. The decision is :func:`marginal_obstacle`; a finite support
+        (a polynomial) sums finitely many terms and needs no check, and neither do the distributions of
+        a program analysis (:func:`known_convergent_series`).
+        """
+        kept = {str(var) for var in variables}
+        summed = self.get_variables() - kept
+        if _KNOWN_CONVERGENT.get() or not summed or self.is_finite():
+            return
+        obstacle = marginal_obstacle(self._sympy_expression(), summed, kept)
+        if obstacle is not None:
+            names = ", ".join(str(var) for var in variables)
+            raise NonFiniteMarginalError(
+                f"The marginal of {names} is not proven to be a finite measure: summing out "
+                f"{', '.join(sorted(summed))} may diverge, as {obstacle}; its closed form {marginal} "
+                f"need not be the sum of the series of {self}.")
 
     def has_non_finite_value(self) -> bool:
         """

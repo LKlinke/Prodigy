@@ -15,6 +15,12 @@ GiNaC Implementation
 
 .. automodule:: prodigy.distribution.fast_generating_function
 
+Convergence of Marginals
+########################
+
+.. automodule:: prodigy.distribution.convergence
+   :members:
+
 Exact Division
 ##############
 
@@ -24,4 +30,4 @@ Exact Division
 
 from .distribution import (CommonDistributionsFactory, Distribution,
                            DistributionParam, MarginalType, NonFiniteMarginalError, ZeroDivisorError,
-                           State)
+                           State, known_convergent_series)
