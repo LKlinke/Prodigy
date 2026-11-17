@@ -31,10 +31,11 @@ every engine.
 """
 from __future__ import annotations
 
+import contextlib
 import itertools
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Mapping, Optional, Tuple
 
 import sympy
 
@@ -121,10 +122,13 @@ def _loop_constraints(session: "AnalysisSession") -> List[Dict[str, str]]:
     return found
 
 
-def run_check(program: "Program", other: "Program", session: "AnalysisSession") -> CheckOutcome:
+def run_check(program: "Program", other: "Program", session: "AnalysisSession",
+              other_decisions: Optional[Mapping[str, Any]] = None) -> CheckOutcome:
     """Runs the second-order check of ``program`` against ``other`` in ``session`` (which must be
     active, with its configuration) and records the bound kind of each analysis. Never raises for
-    analysis errors: they end up in :attr:`CheckOutcome.error`."""
+    analysis errors: they end up in :attr:`CheckOutcome.error`. With ``other_decisions`` the loops of
+    ``other`` are decided by their own ids (:meth:`AnalysisSession.other_program`); without, they are
+    looked up among the loops of ``program``."""
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.analyzer import compute_semantics
     from prodigy.analysis.equivalence.equivalence_check import check_equivalence
@@ -133,7 +137,9 @@ def run_check(program: "Program", other: "Program", session: "AnalysisSession") 
     kinds: List[str] = []
 
     def analyzer(*args: Any) -> Any:
-        with session.sub_analysis("equivalence check") as scope:
+        own = other_decisions is not None and getattr(args[1], "program", None) is other
+        decided = session.other_program(other, other_decisions) if own else contextlib.nullcontext()
+        with decided, session.sub_analysis("equivalence check") as scope:
             outcome = compute_semantics(*args)
         kinds.append(scope.kind)
         return outcome

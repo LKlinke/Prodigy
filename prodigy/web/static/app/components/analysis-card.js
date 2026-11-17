@@ -64,7 +64,7 @@ function disclosure(summary, ...body) {
 // ---- distribution ---------------------------------------------------------------------------------
 
 /** The mass line of a marginal: total mass, the values shown, the values beyond them, the "?" mass. */
-function marginalMass(table, name, total, residual) {
+export function marginalMass(table, name, total, residual) {
   if (!table || table.error || !table.truncated || !table.rows?.length) return massSummary({ total, residual });
   const first = table.rows[0].value;
   const last = table.rows[table.rows.length - 1].value;
@@ -75,7 +75,7 @@ function marginalMass(table, name, total, residual) {
 }
 
 /** The mass line of a window of the joint view (null: no grid yet). */
-function jointMass(grid, total, residual) {
+export function jointMass(grid, total, residual) {
   if (!grid) return massSummary({ total, residual });
   const range = (values) => `${values[0]}–${values[values.length - 1]}`;
   return massSummary({ total,

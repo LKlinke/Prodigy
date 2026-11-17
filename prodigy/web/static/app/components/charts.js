@@ -87,8 +87,12 @@ export function logAxis(values) {
  * `pending` more values are still being computed: their slots are hatched and labelled "computing…".
  * Each value is an interval (#405, format.js: probabilityText): for a lower bound the bar is solid up
  * to the lower end and hatched up to the upper end; for an upper bound it is hatched up to the upper end.
+ * Two charts side by side (Compare, #154) share their scale through `peers` (the probabilities the other chart
+ * draws), and `differ` (a Set of values) marks the bars whose probability differs from the other program's with
+ * "≠" above the bar and in its title (not by colour alone).
  */
-export function marginalChart(table, { residual = null, residualExact = null, variable = "x", bound = "exact", width: pixelWidth = 560, scale = "linear", pending = 0 } = {}) {
+export function marginalChart(table, { residual = null, residualExact = null, variable = "x", bound = "exact", width: pixelWidth = 560, scale = "linear", pending = 0,
+  peers = [], differ = null } = {}) {
   const rows = (table.rows || []).filter((row) => row.p !== null);
   const extras = [];
   if (table.truncated && table.tail_mass_float && table.tail_mass_float > 1e-12) {
@@ -108,7 +112,8 @@ export function marginalChart(table, { residual = null, residualExact = null, va
     up: bound === "lower" && Number.isFinite(row.upper_p) && row.upper_p > row.p ? row.upper_p : null,
     title: `${variable} = ${row.value}: ${probabilityText(bound, row)}` })),
   ...extras];
-  const tops = bars.map((b) => Math.max(b.p, b.up ?? 0));
+  const tops = [...bars.map((b) => Math.max(b.p, b.up ?? 0)), ...peers.filter((p) => Number.isFinite(p))];
+  const marked = (bar) => bar.kind === "value" && Boolean(differ?.has(Number(bar.label)));
 
   const width = Math.max(260, Math.round(pixelWidth));
   const height = 168;
@@ -121,6 +126,7 @@ export function marginalChart(table, { residual = null, residualExact = null, va
   const id = `hatch-${++patternCounter}`;
   const labelEvery = Math.max(1, Math.ceil((bars.length + pending) / Math.max(1, Math.floor(plotW / 26))));
   const axis = scale === "log" ? logAxis([...bars.map((b) => b.p), ...tops]) : null;
+  const top0 = top;
   const max = axis ? 10 ** axis.hi : niceMax(Math.max(0, ...tops));
   // the fraction of the plot height that a probability fills (log: decades above 10^lo)
   const fraction = axis
@@ -151,8 +157,9 @@ export function marginalChart(table, { residual = null, residualExact = null, va
     const kindClass = bar.kind === "value" && (bound === "upper" || bound === "unknown") ? `mc-${bound}` : `mc-${bar.kind}`;
     const hatched = bar.kind === "residual" || (bar.kind === "value" && bound === "upper");
     // data-* keep the bar's own state, so that the analysis card can tween from one chart to the next (motion.js)
-    return s("g", { class: `mc-bar ${kindClass}`, "data-key": bar.kind === "value" ? `v${bar.label}` : bar.kind },
-      s("title", {}, bar.title),
+    const differs = marked(bar);
+    return s("g", { class: `mc-bar ${kindClass}${differs ? " mc-differs" : ""}`, "data-key": bar.kind === "value" ? `v${bar.label}` : bar.kind },
+      s("title", {}, differs ? `${bar.title} — differs from the other program` : bar.title),
       s("rect", { x: cx - barW / 2, y: top + plotH - barHeight, width: barW, height: barHeight, rx: Math.min(3, barW / 4),
         fill: hatched ? `url(#${id})` : null, "data-p": bar.p, "data-cx": cx, "data-w": barW }),
       // the rest of the interval of a lower bound: hatched from the lower to the upper end
@@ -160,8 +167,12 @@ export function marginalChart(table, { residual = null, residualExact = null, va
         height: Math.max(1, top + plotH - barHeight - y(bar.up)), style: `fill: url(#${id})`, "data-up": bar.up }) : null,
       // log scale: probability 0 has no bar height at all; an outline on the axis marks it as empty
       axis && bar.p === 0 ? s("rect", { class: "mc-zero", x: cx - barW / 2, y: top + plotH - 3, width: barW, height: 3 }) : null,
-      showLabel ? s("text", { x: cx, y: height - 6, class: "mc-label" }, bar.label) : null);
+      showLabel ? s("text", { x: cx, y: height - 6, class: "mc-label" }, bar.label) : null,
+      // a differing value: "≠" above its bar (above the hatched part of an interval)
+      differs ? s("text", { class: "mc-differs-mark", x: cx, "text-anchor": "middle", "aria-hidden": "true",
+        y: Math.max(top0 + 1, Math.min(top + plotH - barHeight, bar.up ? y(bar.up) : Infinity) - 3) }, "≠") : null);
   });
+  const differing = bars.filter(marked).length;
 
   // the values still being computed: one hatched band over their slots, labelled (not colour alone)
   const pendingMarks = [];
@@ -183,7 +194,8 @@ export function marginalChart(table, { residual = null, residualExact = null, va
   const summary = `Bar chart of the distribution of ${variable}: ${rows.length} values` +
     (pending > 0 ? `, ${pending} more still being computed` : "") +
     (extras.length ? `, plus ${extras.map((e) => e.kind === "tail" ? "the remaining tail" : "the mass not yet accounted for").join(" and ")}` : "") +
-    (axis ? `, logarithmic scale from ${powerOfTen(axis.lo)} to ${powerOfTen(axis.hi)}` : "") + ".";
+    (axis ? `, logarithmic scale from ${powerOfTen(axis.lo)} to ${powerOfTen(axis.hi)}` : "") +
+    (differing ? `; ${differing} ${differing === 1 ? "value differs" : "values differ"} from the other program (marked ≠)` : "") + ".";
   return s("svg", { class: "marginal-chart", viewBox: `0 0 ${width} ${height}`, width, height, role: "img", "aria-label": summary,
     "data-variable": variable, "data-max": max, "data-scale": axis ? "log" : "linear", "data-width": width, "data-top": top, "data-plot-h": plotH },
     s("defs", {}, ...defs), ...grid, ...pendingMarks, ...marks,

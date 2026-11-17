@@ -116,13 +116,39 @@ back button keep it. While a job runs the mode stays; stop it first.
   * two editors, side by side in a wide editor pane, and in a narrow one with tabs *Program A |
     Program B* above them (← → move between the tabs); each has its syntax chip, diagnostics,
     warnings and the strategy pills above its loops;
-  * its own Setup: the initial distribution, **Loops of program A** and **Loops of program B** (each
-    loop of either program has its own strategy), and the analysis options;
+  * its own Setup: the input of the plots, **Loops of program A** and **Loops of program B** (each
+    loop of either program has its own strategy), and the options of the check;
   * its own run button, **Check** (⌘↩), and its own result (below).
 
-Switching modes keeps program A (the first editor and the strategies of its loops); program B
-and its strategies are kept as well (also across reloads, in the browser). Each mode keeps its own
-last result. Opening a program (Open…, New) replaces program A in either mode. In the example
+**What the modes share and what each keeps.** Compare is a mode of its own; nothing set up for an
+analysis reaches a comparison, and back:
+
+| State | Shared by both modes | Analyze only | Compare only |
+| --- | --- | --- | --- |
+| Program A (the first editor, its syntax, the open file) | ✓ | | |
+| Program B and the strategies of its loops | | | ✓ |
+| Strategies of program A's loops | | its own | its own |
+| Input | | the initial distribution | the input of the plots (default or a given distribution) |
+| Engine (toolbar), options, time limit | | its own | its own (no step recording) |
+| Last result | | its own | its own |
+
+Each setup is kept in the browser across reloads. The strategies of program A's loops follow the
+loops of the shared program in both modes when loops are inserted or removed (#277). Opening a
+program (Open…, New) replaces program A in either mode and clears the loop strategies and inputs of
+both modes.
+
+**Loops in Compare.** An equivalence verdict needs proven results, and the check runs every program on
+all inputs at once, where unrolling or a synthesis gives no verdict. So a loop nobody chose a strategy
+for gets **Check invariant**: with the other program as its invariant when its program is that one loop
+and the other program is loop-free, otherwise with an invariant program still to write (Check then
+says so and puts the cursor into the field). The card says that this is Compare's default; a default
+follows the programs (it is recomputed when they change) until you change the strategy or the field.
+The pill above the loop says *Check invariant: program B* or *Check invariant · write it in Setup*.
+**Use program B** (on a loop of program A) and **Use program A** (on a loop of program B) fill in the
+other program. "Compare this loop" takes only the loop-free program the loop continues with along,
+never the loop's Analyze strategy.
+
+In the example
 library, the examples marked *compare* (`check_equality` in `pgfexamples/equivalence/` and
 `template_parameter_synthesis/`) open in Compare mode with both programs, and a loop of program
 A then uses program B as its invariant, as `prodigy check_equality` does; every other example
@@ -176,9 +202,10 @@ The check runs as a job like an analysis (own process, time limit, Stop). It has
    compares the results; for programs with parameters it looks for parameter values that make
    them equal (parameter synthesis, see [Check invariant and parameter synthesis](#choosing-a-loop-strategy));
    the verdict card lists the values found.
-2. **Both programs on one input**: the initial distribution of the Setup, or, without one, the
-   input on which the solver found the programs to differ, or the default input. These are the
-   two results shown below the verdict.
+2. **Both programs on one input**: the distribution given in Compare's Setup (*This distribution*),
+   or else (*Default input*) the input on which the solver found the programs to differ, or every
+   variable 0. These are the two results plotted below the verdict. While they are computed, the
+   progress view plots the coefficients of both programs as they come in (#405).
 
 The **verdict** at the top has a glyph and a word:
 
@@ -196,10 +223,15 @@ raw "the generating functions differ" of the solver is not a verdict either: it 
 approximation, so without a witness the result stays *Not decided*. *How it was checked* lists
 what the check found (and the difference of the generating functions if it could not decide).
 
-**Output distributions** puts the marginals of the two programs side by side; when both results
-are exact, rows whose values differ are marked *≠ differs* (a hint where to look; the witness is
-the proof). **Result of** switches between the full results of programs A and B (the cards of an
-ordinary analysis).
+**Output distributions** plots both programs like an analysis does, with the same components:
+the marginal of a variable as a chart (intervals for bounds, linear or log scale) or as one table of
+both programs, and the joint distribution of two variables (heatmap, 3D or table). The two programs
+stand side by side, one above the other in a narrow pane, on one scale. A value whose probabilities
+differ is marked `≠` above its bar (and *≠ differs* in the table): exact values that differ, or
+intervals of bounds that do not overlap. It is a hint where to look; the witness is the proof. In the
+joint view, program B follows the pair and the window chosen for program A. **Result of** switches
+between the full results of programs A and B (the cards of an ordinary analysis, joint view
+included).
 
 The result is the analysis result of program A with the key `equivalence`
 (see [HTTP API](#http-api-used-by-the-gui)).
@@ -652,8 +684,8 @@ in the GUI's strategy pop-up in the section of its `group` (`automatic`, `exact`
 | `POST /api/analyze` | starts an analysis (`source, syntax, input_distribution, engine, normalize, simplification, decisions, coefficients, record_steps, watches, step_iterations, synthesis_strategy, template_heuristic, positivity_heuristic, solver, time_limit`; the two heuristics only apply to `synthesis_strategy` `from_heuristics`; `record_steps` records the step trace, `watches` (at most 8 queries such as `Pr[x == 3]`, in the program's syntax) are evaluated after every top-level step, `step_iterations` (1–200, default 40) bounds the iterates kept per loop) and returns a job id |
 | `GET /api/jobs/<id>?log_offset=n` | state (`running`, `done`, `timeout`, `cancelled`, `crashed`), new console output, progress per loop, result; while it runs, `stream`: the coefficients computed so far (`variables`, `limit`, `bound`, `residual_mass`, `marginals: {x: {rows, done}}`, or for a grid job `grid` with `cells[r][c]` null while pending; `prodigy/web/jobs.py: merge_stream`) |
 | `DELETE /api/jobs/<id>` | cancels the analysis |
-| `POST /api/jobs/<id>/joint` `{x, y, x_window, y_window}` | starts a job for the exact coefficient grid of two variables of the finished analysis `<id>`; the windows `[from, to]` are optional (default: the support of a finite distribution, else 0–15) with at most 50 values per axis (`limits.max_joint_axis` in `GET /api/meta`) and values up to 1000. The distribution, the engine and the guarantee come from the result the server keeps, never from the request. The job's result is `{status: "ok", joint: {x, y, x_values, y_values, cells, bound, mass, shown_mass, outside_mass, residual_mass, finite_support, support}}`: `cells[r][c]` is `{prob, p}` (exact and float; for a lower bound also `upper`, `upper_p`) for `y = y_values[r]`, `x = x_values[c]`. 400 for an unknown variable, the same variable twice or a window beyond the limits, 404 for an unknown or pruned analysis (analyze again), 409 while it runs |
-| `POST /api/equivalence` | compares program A with program B: an analysis request for program A (without `record_steps` and `watches`) plus `other_source`, `other_syntax` (default: `syntax`) and `other_decisions` (the strategies of B's loops, keyed by loop id) for program B; returns a job id. The job's result is the analysis result of program A on the shown input with the key `equivalence`: `{verdict: equivalent \| not_equivalent \| unknown, reason, relation: null \| first_below_second \| second_below_first, constraints: [{param: value}], witness: null \| {state, input, first, second}, check: {answer: equal \| different \| undecided \| failed, first, second, constraints, counterexample, difference, error, time}, input: {distribution, source: request \| counterexample \| default}, other}`. `first`/`second` of the witness are `{lower, lower_float, upper, upper_float, kind}`; `check.first`/`check.second` are the guarantees (`exact`, `lower`, `upper`, `unknown`) of the two analyses inside the check; `other` is the analysis result of program B. The rules are in `prodigy/analysis/equivalence/verdict.py`. |
+| `POST /api/jobs/<id>/joint` `{x, y, x_window, y_window, program}` | starts a job for the exact coefficient grid of two variables of the finished analysis `<id>` (for a comparison `<id>`, `program` `"first"` (default) or `"second"` picks the program); the windows `[from, to]` are optional (default: the support of a finite distribution, else 0–15) with at most 50 values per axis (`limits.max_joint_axis` in `GET /api/meta`) and values up to 1000. The distribution, the engine and the guarantee come from the result the server keeps, never from the request. The job's result is `{status: "ok", joint: {x, y, x_values, y_values, cells, bound, mass, shown_mass, outside_mass, residual_mass, finite_support, support}}`: `cells[r][c]` is `{prob, p}` (exact and float; for a lower bound also `upper`, `upper_p`) for `y = y_values[r]`, `x = x_values[c]`. 400 for an unknown variable, the same variable twice or a window beyond the limits, 404 for an unknown or pruned analysis (analyze again), 409 while it runs |
+| `POST /api/equivalence` | compares program A with program B: an analysis request for program A (without `record_steps` and `watches`) plus `other_source`, `other_syntax` (default: `syntax`) and `other_decisions` (the strategies of B's loops, keyed by B's own loop ids; they decide B's loops in the check for every input as well, and B never takes A's decisions) for program B; returns a job id. While it runs, the job's `stream` has program A's coefficients and program B's in `stream.second`, and progress events say `program` (`first`, `second`). The job's result is the analysis result of program A on the shown input with the key `equivalence`: `{verdict: equivalent \| not_equivalent \| unknown, reason, relation: null \| first_below_second \| second_below_first, constraints: [{param: value}], witness: null \| {state, input, first, second}, check: {answer: equal \| different \| undecided \| failed, first, second, constraints, counterexample, difference, error, time}, input: {distribution, source: request \| counterexample \| default}, other}`. `first`/`second` of the witness are `{lower, lower_float, upper, upper_float, kind}`; `check.first`/`check.second` are the guarantees (`exact`, `lower`, `upper`, `unknown`) of the two analyses inside the check; `other` is the analysis result of program B. The rules are in `prodigy/analysis/equivalence/verdict.py`. |
 | `POST /api/suggest` | asks the language model for one candidate for a loop: an analysis request without `coefficients` and `record_steps`, plus `loop` (id) and `form` (`evt_invariant` or `evt_subinvariant`), `time_limit` optional (default: the server's); returns a job id. The job's result is `{status: "ok", suggestion: {candidate, param, answer, model, provider, entering, loop, form}}` or an error (the model's answer in `error.suggestion` if it held no admissible candidate). `GET /api/meta` says under `ai` whether a model is configured. |
 | `GET /api/examples`, `GET /api/examples/<path>?syntax=ppy` | example library; source in the syntax of the example file (`syntax`; a `.pgcl` example is converted to `.ppy` with `syntax=ppy`, with `renamings`), `file_name` and suggested setup; a `check_equality` example also has `other: {id, source, syntax, file_name}`, its second program |
 

@@ -862,6 +862,24 @@ class AnalysisSession:
         finally:
             self.loops.unalias(copy)
 
+    @contextlib.contextmanager
+    def other_program(self, program: Program, decisions: Optional[Mapping[Any, Any]] = None, *,
+                      source: Optional[str] = None, syntax: Optional[str] = None) -> Iterator[None]:
+        """Decides the loops of ``program``, another program than the session's (the second program of a
+        comparison), by their own ids and ``decisions`` while it runs, instead of looking them up among
+        the loops of the session's program. Their records are kept apart (keyed ``("other", id)``)."""
+        loops, presets, records = self.loops, self.provider.decisions, self.loop_records
+        self.loops = LoopRegistry(program, source, syntax or self.syntax)
+        self.provider.decisions = parse_decisions(decisions)
+        self.loop_records = {}
+        try:
+            yield
+        finally:
+            other = self.loop_records
+            self.loops, self.provider.decisions, self.loop_records = loops, presets, records
+            for key, record in other.items():
+                self.loop_records[("other", key)] = record
+
     def on_normalize(self, error_prob: Distribution) -> None:
         """Called right before the distribution is conditioned on the observations."""
         if self.silent:

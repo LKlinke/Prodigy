@@ -345,12 +345,14 @@ export function renderResult(container, result, options = {}) {
 const LIVE_TWEEN_MS = 180;
 let liveMotions = [];
 
-/** The state of the streamed charts in `container` (chartState per variable), for a transition. */
+/** The state of the streamed charts in `container` (chartState per variable), for a transition. The charts of
+ * a comparison are keyed "<program>:<variable>". */
 export function liveChartStates(container) {
   const states = {};
   for (const svg of container?.querySelectorAll(".rv-live .marginal-chart") || []) {
     const state = chartState(svg);
-    if (state) states[state.variable] = state;
+    const program = svg.closest(".rv-live")?.dataset.program;
+    if (state) states[program ? `${program}:${state.variable}` : state.variable] = state;
   }
   return states;
 }
@@ -359,7 +361,7 @@ export function liveChartStates(container) {
  * The coefficients computed so far (the job's `stream`, prodigy/web/jobs.py: merge_stream): one chart
  * per variable, its values done as bars and the values still being computed hatched and labelled.
  */
-function liveCharts(stream, width, key) {
+function liveCharts(stream, width, key, { title = "Distribution so far", program = null } = {}) {
   const bound = stream.bound || "exact";
   const limit = stream.limit || 0;
   const items = (stream.variables || []).map((name) => {
@@ -377,21 +379,22 @@ function liveCharts(stream, width, key) {
       h("h4", { class: "rv-live-title" }, h("span", { class: "mono" }, name), h("span", { class: "rv-note" }, status)),
       chart);
   });
-  return h("section", { class: "rv-live", "data-key": key, "aria-label": "Coefficients computed so far" },
-    h("div", { class: "rv-live-head" }, h("h3", { class: "rv-block-title" }, "Distribution so far"), guaranteeBadge(bound),
+  return h("section", { class: "rv-live", "data-key": key, "data-program": program, "aria-label": `${title}: coefficients computed so far` },
+    h("div", { class: "rv-live-head" }, h("h3", { class: "rv-block-title" }, title), guaranteeBadge(bound),
       h("span", { class: "rv-note" }, chartLegend(bound))),
     ...items);
 }
 
 /** Progress view while an analysis runs. state: {elapsed, timeLimit, progress: [...], log, loops,
- * stream: the coefficients computed so far or null};
+ * stream: the coefficients computed so far or null; a comparison's has the second program's in `stream.second`};
  * options: {strategyTitles, change: what changed since the analysis started (see staleness.js),
- * label: what runs ("Analyzing" by default)} */
+ * label: what runs ("Analyzing" by default), comparing: whether two programs run (their charts are labelled)} */
 export function renderRunning(container, state, options = {}) {
   const titles = options.strategyTitles || {};
   const bars = (state.progress || []).map((p) => {
     const fraction = p.total ? Math.min(1, p.done / p.total) : null;
-    const label = `Loop ${p.loop ?? "?"} · ${titles[p.strategy] || p.strategy}` + (p.message ? ` · ${p.message}` : "");
+    const program = options.comparing && p.program ? `Program ${p.program === "second" ? "B" : "A"} · ` : "";
+    const label = `${program}Loop ${p.loop ?? "?"} · ${titles[p.strategy] || p.strategy}` + (p.message ? ` · ${p.message}` : "");
     return h("div", { class: "rv-progress" },
       h("div", { class: "rv-progress-label" }, h("span", { title: label }, label),
         h("span", { class: "num" }, fraction !== null ? `${Math.round(fraction * 100)} %` : "")),
@@ -404,30 +407,41 @@ export function renderRunning(container, state, options = {}) {
   // differently, which must not move the view
   // (also while still empty, so that its first line does not move the view either)
   const logBox = h("pre", { class: "rv-pre rv-log rv-running-log", "aria-label": "Console output", tabindex: log ? "0" : null }, log);
-  const live = state.stream?.variables ? state.stream : null;
+  // the streamed coefficients: of the program, or of each program of a comparison
+  const streams = (options.comparing
+    ? [[state.stream, "Program A so far", "first"], [state.stream?.second, "Program B so far", "second"]]
+    : [[state.stream, "Distribution so far", null]]).filter(([stream]) => stream?.variables);
   // a transition still running ends in its final state first (the charts are drawn anew below)
   for (const motion of liveMotions) motion?.finish();
   liveMotions = [];
   // unchanged coefficients keep their charts; new ones grow in (motion.js; at once with reduced motion)
   const width = Math.max(260, (container.clientWidth || 600) - 40);
-  const liveKey = live ? JSON.stringify([width, loadScale(), live.limit, live.bound,
-    (live.variables || []).map((name) => [name, live.marginals?.[name]?.rows?.length ?? -1, Boolean(live.marginals?.[name]?.done)])]) : null;
-  const previous = container.querySelector(".rv-live");
-  const reuse = live && previous && previous.dataset.key === liveKey ? previous : null;
-  const before = live && !reuse ? liveChartStates(container) : {};
+  const before = {};
+  const sections = streams.map(([live, title, program]) => {
+    const liveKey = JSON.stringify([width, loadScale(), live.limit, live.bound,
+      (live.variables || []).map((name) => [name, live.marginals?.[name]?.rows?.length ?? -1, Boolean(live.marginals?.[name]?.done)])]);
+    const previous = container.querySelector(program ? `.rv-live[data-program="${program}"]` : ".rv-live");
+    if (previous && previous.dataset.key === liveKey) return previous;
+    for (const svg of previous?.querySelectorAll(".marginal-chart") || []) {
+      const chart = chartState(svg);
+      if (chart) before[program ? `${program}:${chart.variable}` : chart.variable] = { chart, program };
+    }
+    return liveCharts(live, width, liveKey, { title, program });
+  });
   container.replaceChildren(h("div", { class: "result-view" },
-    h("div", { class: "rv-running", "data-bars": String(bars.length), "data-live": String(Boolean(live)), style: `--bars: ${bars.length}` },
+    h("div", { class: "rv-running", "data-bars": String(bars.length), "data-live": String(sections.length > 0), style: `--bars: ${bars.length}` },
       h("div", { class: "rv-running-head" }, h("span", { class: "spinner", "aria-hidden": "true" }),
         h("span", {}, `${options.label || "Analyzing"} · ${formatSeconds(state.elapsed || 0)}`),
         state.timeLimit ? h("span", { class: "rv-muted" }, `limit ${formatSeconds(state.timeLimit)}`) : null),
       ...bars,
       options.change ? h("p", { class: "notice", role: "status" }, icon("info"),
         h("span", {}, changedWhileRunningText(options.change))) : null,
-      reuse || (live ? liveCharts(live, width, liveKey) : null),
+      ...sections,
       logBox)));
   logBox.scrollTop = logBox.scrollHeight;
-  for (const [variable, from] of Object.entries(before)) {
-    const find = () => container.querySelector(`.rv-live .marginal-chart[data-variable="${CSS.escape(variable)}"]`);
+  for (const { chart: from, program } of Object.values(before)) {
+    const section = program ? `.rv-live[data-program="${program}"]` : ".rv-live";
+    const find = () => container.querySelector(`${section} .marginal-chart[data-variable="${CSS.escape(from.variable)}"]`);
     liveMotions.push(tweenChart(find, from, LIVE_TWEEN_MS));
   }
 }
