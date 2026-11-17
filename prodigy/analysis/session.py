@@ -48,6 +48,7 @@ from prodigy.pgcl import (ChoiceInstr, CovarianceInstr, ExpectationInstr, Varian
 
 from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
                                               get_loop_strategy, loop_strategies)
+from prodigy.distribution import known_convergent_series
 from prodigy.util.logger import log_setup, print_progress_bar
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -753,7 +754,9 @@ class AnalysisSession:
         scope = _Scope(silent=True, reason=reason)
         self._scopes.append(scope)
         try:
-            yield scope
+            # their measures need not converge at 1: marginals are proven to be the sums of the series (#393)
+            with known_convergent_series(False):
+                yield scope
         finally:
             # The strategy that opened the sub-analysis decides what an inexact sub-analysis
             # means for its own outcome (see e.g. the invariant strategy).

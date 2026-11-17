@@ -327,7 +327,8 @@ class FPS(Distribution):
         Calls `update`, an update of the bindings that does a case split over the values of the
         variables among `operands`. The bindings sum out the other variables for it and raise
         `ValueError: power::eval(): division by zero` if that diverges; this becomes the
-        `NonFiniteMarginalError` of the other engines (#250).
+        `NonFiniteMarginalError` of the other engines (#250). Callers check the marginals the bindings
+        approximate first (:meth:`_require_approximable`, #393).
         """
         try:
             return update()
@@ -338,6 +339,17 @@ class FPS(Distribution):
                 if name in self._variables:
                     self.checked_marginal(name)
             raise
+
+    def _require_approximable(self, variable: str, approximate: str | float | None, message: str) -> None:
+        """
+        Before the bindings split over the approximated marginal of `variable`, which takes infinitely
+        many values: raises `NonFiniteMarginalError` if this marginal is not proven to be the sum of its
+        series (:meth:`checked_marginal`, #242, #393), and `ValueError` with `message` if `approximate`
+        is None (nothing to approximate with).
+        """
+        self.checked_marginal(variable)
+        if approximate is None:
+            raise ValueError(message)
 
     def _split_operands(self, update: Callable[[Distribution, str, str], Distribution], left: str | int,
                         right: str | int, *names: str | int) -> FPS | None:
@@ -364,9 +376,13 @@ class FPS(Distribution):
                         temp_var, left, right, approximate), first_factor, second_factor, fixed)
                 if split is not None:
                     return split
-            if approximate is None:
-                # both take infinitely many values: raises
-                self._product_case_split(first_factor, second_factor, approximate)
+            # both take infinitely many values: raises without an approximation, and the bindings
+            # approximate a marginal that has to be the sum of its series (#393)
+            self.checked_marginal(second_factor)
+            self._require_approximable(
+                first_factor, approximate,
+                f'Cannot perform the multiplication {first_factor} * {second_factor} because both variables have '
+                f'infinite range')
         return FPS.from_dist(
             self._case_split(lambda: self._dist.update_product(temp_var, first_factor, second_factor,
                                                                self._variables, self._finite, approximate),
@@ -396,9 +412,8 @@ class FPS(Distribution):
                 left, right, right)
             if split is not None:
                 return split
-            if approximate is None:
-                self._approximated_support(
-                    str(right), approximate, f'Cannot perform modulo operation with infinite right hand side {right}')
+            self._require_approximable(
+                str(right), approximate, f'Cannot perform modulo operation with infinite right hand side {right}')
         elif not self._finite and str(left) in variables:
             split = self._split_operands(
                 lambda part, l, r: part._update_modulo(temp_var, l, r, approximate),  # pylint: disable=protected-access
@@ -447,8 +462,7 @@ class FPS(Distribution):
                 divided = self._divide_exponents(temp_var, str(numerator), int(str(denominator)))
                 if divided is not None:
                     return divided
-            if approximate is None:
-                self._approximated_support(str(fixed), approximate, infinite)
+            self._require_approximable(str(fixed), approximate, infinite)
         return FPS.from_dist(
             self._case_split(lambda: self._dist.update_division(temp_var, str(numerator), str(denominator),
                                                                 approximate),
@@ -490,8 +504,8 @@ class FPS(Distribution):
         if split is not None:
             return split
         for operand_ in (base, exp):
-            if approximate is None and str(operand_) in self._variables:
-                self._approximated_support(
+            if str(operand_) in self._variables:
+                self._require_approximable(
                     str(operand_), approximate,
                     "Can only perform exponentiation if the base and the exponent have a finite marginal")
         return FPS.from_dist(

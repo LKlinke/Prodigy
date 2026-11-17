@@ -28,7 +28,7 @@ from prodigy.analysis.instructionhandler.queryblock_handler import QueryBlockHan
 from prodigy.analysis.instructionhandler.while_handler import WhileHandler
 from prodigy.analysis import nested_inference
 from prodigy.analysis.session import AnalysisSession, current_session, has_current_session
-from prodigy.distribution import Distribution, MarginalType
+from prodigy.distribution import Distribution, MarginalType, known_convergent_series
 from prodigy.distribution.equality import sympify_engine_string
 from prodigy.util.logger import log_setup
 
@@ -98,7 +98,10 @@ def compute_discrete_distribution(
         check_names([*program.variables, *program.parameters])
     # the input must be proven to be a distribution, else the guarantees of the result mean nothing (#296)
     validate_input_distribution(dist, program)
-    with config.activate(), _active_session(), nested_inference.analysis_registry(), _printed_steps(config):
+    # the input is a finite measure, so are all distributions of the program's analysis; candidate checks
+    # inside it clear this again (AnalysisSession.sub_analysis, #393)
+    with config.activate(), _active_session(), nested_inference.analysis_registry(), _printed_steps(config), \
+            known_convergent_series(True):
         return _compute_discrete_distribution(program, dist, config, step_callback)
 
 

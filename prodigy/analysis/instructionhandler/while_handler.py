@@ -42,7 +42,7 @@ from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
                                               get_loop_strategy, register_loop_strategy)
 from prodigy.analysis.session import LoopDecision, current_session
-from prodigy.distribution import Distribution, State
+from prodigy.distribution import Distribution, State, known_convergent_series
 from prodigy.distribution.generating_function import SympyPGF
 from prodigy.pgcl.pgcl_operations import cav_phi
 from prodigy.util.color import Style
@@ -528,12 +528,30 @@ def _series_identity(invariant: Distribution, variables: Sequence[str], loop: Wh
     return None
 
 
+def _exit_part_converges(result: Distribution, variables: Sequence[str]) -> bool:
+    """Whether the closed form of the terminating part ⟨I⟩_¬B (non-negative coefficients) gives the values of
+    its series where queries evaluate it, at 1: with finite mass, or converging on the open unit polydisc (by
+    Abel's theorem, a finite value of the closed form at 1 is then the sum of the series)."""
+    return finite_mass(str(result), list(variables))[0] is True \
+        or converges_on_unit_polydisc(str(result), variables) is True
+
+
 def _evt_certificate(kind_name: str, invariant: Distribution, variables, config, scope_kind: str,
-                     loop: WhileInstr, loop_cond: str) -> Tuple[str, Dict[str, Any], List[str]]:
+                     loop: WhileInstr, loop_cond: str,
+                     result: Distribution) -> Tuple[str, Dict[str, Any], List[str]]:
     positive = _positivity(config, variables, invariant)
     finite, mass = finite_mass(str(invariant), list(variables)) if positive else (None, None)
     series = _series_identity(invariant, [str(v) for v in variables], loop, finite) if positive else None
     kind, messages = _evt_outcome_kind(scope_kind, positive, finite, series)
+    if kind == Bound.UPPER and series == "formal loop body" \
+            and not _exit_part_converges(result, [str(v) for v in variables]):
+        # (B) holds for a series of any radius: Park bounds the coefficients of ⟨I⟩_¬B, but queries and
+        # the rest of the program evaluate it at 1, where its series may diverge (#393)
+        kind = Bound.UNKNOWN
+        messages = ["I = G + ⟦body⟧(⟨I⟩_B) holds for the power series of I (formal loop body), but the series "
+                    f"of the terminating part {result} is not proven to converge at 1, where queries and the rest "
+                    "of the program evaluate it; its closed form need not be the sum of the series there. "
+                    "No guarantee."]
     certificate = {
         "type": kind_name,
         "rule": "Park + finite-mass lower induction" if kind == Bound.EXACT else "Park",
@@ -568,7 +586,8 @@ def _strategy_evt_invariant(task: LoopTask) -> LoopOutcome:
                                              "verdict": "unknown", "reason": str(exc)}) from exc
     print(f"{Style.OKGREEN}Continuing with {solution}{Style.RESET}")
     kind, certificate, messages = _evt_certificate("evt_invariant", full_invariant, variables, config,
-                                                   scope.kind, instruction, task.session.spell(instruction.cond))
+                                                   scope.kind, instruction, task.session.spell(instruction.cond),
+                                                   solution)
     certificate["candidate"] = str(evt_inv)
     certificate["solutions"] = solutions
     return LoopOutcome(solution, task.error_prob, kind=kind, certificate=certificate, messages=messages)
@@ -616,7 +635,8 @@ def _strategy_evt_synthesis(task: LoopTask) -> LoopOutcome:
                            "mass": str(mass) if mass is not None else None})
     chosen, positive = invariants[index]
     kind, certificate, messages = _evt_certificate("evt_synthesis", chosen, variables, config, scope.kind,
-                                                   instruction, task.session.spell(instruction.cond))
+                                                   instruction, task.session.spell(instruction.cond),
+                                                   distributions[index])
     certificate["chosen"] = index
     certificate["candidates"] = candidates
     certificate["synthesis_strategy"] = config.strategy.name
@@ -779,8 +799,10 @@ def _strategy_evt_subinvariant(task: LoopTask) -> LoopOutcome:
     variables = [str(v) for v in task.prog_info.program.variables.keys()]
     subinvariant = config.factory.from_expr(task.param("subinvariant"), *variables)
     details: Dict[str, Any] = {}
-    lower = evt_subinvariant_verification(task.instruction, task.prog_info, task.distribution, subinvariant, config,
-                                          task.analyzer, details=details)
+    # the body runs on the candidate, which is not proven to be a finite measure yet (#393)
+    with known_convergent_series(False):
+        lower = evt_subinvariant_verification(task.instruction, task.prog_info, task.distribution, subinvariant,
+                                              config, task.analyzer, details=details)
     # The output lies coefficient-wise above `lower` (lower induction). The mass it misses is at most
     # |Phi(nu)| - |nu|, and at most the mass that entered the loop minus |lower|.
     residual = _mass(task.distribution) - _mass(lower)

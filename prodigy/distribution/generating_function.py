@@ -1573,8 +1573,8 @@ class GeneratingFunction(Distribution):
 
         return marginal
 
-    def checked_marginal(self, *variables: Union[str, VarExpr]) -> GeneratingFunction:
-        res = super().checked_marginal(*variables)
+    def checked_marginal(self, *variables: Union[str, VarExpr], proof: bool = True) -> GeneratingFunction:
+        res = super().checked_marginal(*variables, proof=proof)
         assert isinstance(res, GeneratingFunction)
         return res
 
