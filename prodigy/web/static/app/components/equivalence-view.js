@@ -56,9 +56,12 @@ function continueAction(continueTo) {
 
 /** The witness: on one input, one output state whose probabilities in A and B provably differ. */
 function witnessTable(witness) {
+  // an interval whose ends round to the same decimals gets more digits, so that it never reads as one value
+  const digits = (side) => [6, 9, 12].find((d) => side.lower === side.upper
+    || formatValue(side.lower, side.lower_float, d) !== formatValue(side.upper, side.upper_float, d)) ?? 12;
   const row = (label, side) => h("tr", {}, h("th", { scope: "row" }, label),
     h("td", { class: "num", title: side.lower === side.upper ? side.lower : `[${side.lower}, ${side.upper}]` },
-      intervalText(side, (exact, number) => formatValue(exact, number, 6))),
+      intervalText(side, (exact, number) => formatValue(exact, number, digits(side)))),
     h("td", {}, guaranteeBadge(side.kind)));
   return h("div", { class: "eq-witness" },
     h("h4", { class: "rv-block-title" }, "Witness"),
@@ -80,8 +83,8 @@ function checkDetails(check) {
     h("summary", {}, "How it was checked"),
     h("div", { class: "disclosure-body" },
       h("p", { class: "rv-muted" }, "Prodigy runs both programs on one generating function that stands for every "
-        + "input at once (second-order check). Unless that proves them equal, it runs both on the input of the solver's "
-        + "counterexample (or every variable 0) to look for a witness."),
+        + "input at once (second-order check). Unless that proves them equal, it runs both on one input to look for a "
+        + "witness: the solver's counterexample, the input on which an invariant was refuted, or every variable 0."),
       ...body));
 }
 
