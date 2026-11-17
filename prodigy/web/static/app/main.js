@@ -3,9 +3,10 @@ import { api } from "./api.js";
 import { canWriteFiles, createDocument } from "./document.js";
 import { createEditor, SYNTAXES } from "./editor.js";
 import { createLibrary } from "./library.js";
-import { applyInputProblem, defaultDecision, focusLoopCard, offeredStrategies, renderSetup, rekeyDecisions, setupProblems,
+import { applyInputProblem, defaultDecision, focusLoopCard, renderSetup, rekeyDecisions, setupProblems,
   swapInvariants } from "./setup.js";
 import { changeSince } from "./staleness.js";
+import { SETUP_KEYS, applyCompareDefaults, compareDefault, requestDecisions, restoreSetup, setupInput } from "./mode-setup.js";
 import { load, save } from "./store.js";
 import { h, icon } from "./components/dom.js";
 import { BOUND_TEXT, formatSeconds, formatValue, qualify } from "./components/format.js";
@@ -36,7 +37,10 @@ const state = {
   outline: null,
   graveyard: load("graveyard", {}), // decisions of loops that are gone for now, by loop signature (#277); kept across reloads
   diagnostics: [],
-  setup: null,
+  // each mode keeps its own setup (input, loop decisions, options); only the programs are shared (mode-setup.js)
+  setups: { analyze: null, compare: null },
+  /** The setup of the mode that is shown. */
+  get setup() { return this.setups[this.mode]; },
   job: null,
   result: null,
   // whether the result no longer matches the program and setup, and what changed: null, "program",
@@ -54,7 +58,10 @@ const state = {
   // program B of Compare mode: diagnostics, outline and loop decisions of its own, which column a narrow
   // editor pane shows, and which program's result the comparison shows
   compare: { diagnostics: [], outline: null, outlineStale: false, decisions: {}, graveyard: {}, active: "first",
-    programView: { which: "first" },
+    // decisions of program A's loops in Compare that are gone for now (Analyze has state.graveyard)
+    graveyardA: {},
+    // which program's full result the comparison shows, and the choices of its distribution plots
+    programView: { which: "first" }, plots: {},
     // "Compare this loop" (#399): the program the loop was taken from ({source, syntax, decisions, input, loop,
     // program, programLoop, whole}), restored when going back to Analyze; kept across reloads
     origin: null,
@@ -151,16 +158,21 @@ function renderTitle({ name, category, edited, fileName }) {
 /** New or Open replaced the program: its loops and results no longer apply. */
 async function programReplaced() {
   forgetOrigin();
-  state.setup.decisions = {};
-  state.setup.input = "";
+  // the decisions and inputs of both modes belonged to the program that is gone
+  for (const mode of Object.keys(state.setups)) {
+    state.setups[mode].decisions = {};
+    state.setups[mode].input = "";
+    saveSetup(mode);
+  }
   state.pendingDefault = null;
   state.graveyard = {};
+  state.compare.graveyardA = {};
   state.outline = null;
   state.result = null;
   state.resultStale = false;
   state.resultChange = null;
   resetAnalysis();
-  save("setup", state.setup);
+  saveSetup();
   renderResultPanel();
   selectTab("setup");
   clearTimeout(checkTimer);
@@ -191,12 +203,17 @@ async function runCheck() {
     const wasStale = state.outlineStale;
     state.outlineStale = !result.outline;
     if (result.outline) {
-      // decisions follow their loops when loops are inserted, removed or commented out (#277)
-      if (rekeyDecisions(state.setup.decisions, state.outline, result.outline, state.graveyard)) {
-        save("setup", state.setup);
+      // decisions follow their loops when loops are inserted, removed or commented out (#277); program A is
+      // shared, so the decisions of both modes follow it
+      if (rekeyDecisions(state.setups.analyze.decisions, state.outline, result.outline, state.graveyard)) {
+        saveSetup("analyze");
         save("graveyard", state.graveyard);
       }
+      if (rekeyDecisions(state.setups.compare.decisions, state.outline, result.outline, state.compare.graveyardA)) {
+        saveSetup("compare");
+      }
       state.outline = result.outline;
+      if (state.mode === "compare") compareDefaults();
     }
     if (result.outline || wasStale !== state.outlineStale) renderSetupPanel();
     // the request depends on the outline's loops
@@ -211,7 +228,7 @@ async function runCheck() {
 
 /** The initial distribution the server should check along with the program ({} if none). */
 function inputToCheck() {
-  const text = (state.setup.input || "").trim();
+  const text = setupInput(state.setup, state.mode);
   return text ? { input_distribution: text, engine: state.setup.options.engine } : {};
 }
 
@@ -232,7 +249,7 @@ let inputController = null;
 function scheduleInputCheck() {
   clearTimeout(inputCheckTimer);
   inputController?.abort();
-  if (!(state.setup.input || "").trim()) { showInputProblem(null); return; }
+  if (!setupInput(state.setup, state.mode)) { showInputProblem(null); return; }
   inputCheckTimer = setTimeout(async () => {
     inputController = new AbortController();
     const source = editor.getSource();
@@ -331,6 +348,11 @@ function setMode(mode, { focus = false, history: how = "push", continueWith = nu
     if (url.href !== window.location.href) window.history[how === "push" ? "pushState" : "replaceState"]({ mode }, "", url);
   }
   renderRunButton();
+  // the engine belongs to the setup of the mode
+  if (state.meta) $("engine-select").value = state.setup.options.engine;
+  if (compare && state.outline && state.compare.outline) compareDefaults();
+  state.inputProblem = "";
+  scheduleInputCheck();
   state.resultChange = state.result ? changeSince(state.result.__request, buildRequest()) : null;
   state.resultStale = Boolean(state.resultChange);
   renderSetupPanel();
@@ -432,11 +454,11 @@ async function runOtherCheck() {
     compare.outlineStale = !result.outline;
     if (result.outline) {
       if (rekeyDecisions(compare.decisions, compare.outline, result.outline, compare.graveyard)) {
-        save("otherDecisions", compare.decisions);
+        save("compareDecisionsB", compare.decisions);
       }
       const changed = JSON.stringify(compare.outline?.loops || null) !== JSON.stringify(result.outline.loops);
       compare.outline = result.outline;
-      if (changed) renderSetupPanel();
+      if (compareDefaults() || changed) renderSetupPanel();
       refreshStale();
     } else if (wasStale !== compare.outlineStale) {
       renderSetupPanel();
@@ -457,17 +479,23 @@ function renderOtherSyntax() {
 
 // ---- setup ------------------------------------------------------------------------------------
 
-function defaultSetup(meta) {
-  const engine = meta.engines.find((e) => e.default)?.name || "sympy";
-  return {
-    input: "",
-    decisions: {},
-    options: {
-      engine, normalize: true, simplification: true, coefficients: 30,
-      timeLimit: Math.min(120, meta.limits.time_limit), synthesis: "default", solver: "sympy", recordSteps: false,
-      templateHeuristic: "default", positivityHeuristic: "default",
-    },
-  };
+/** Keeps the setup of the shown mode (or of `mode`) in the browser. */
+function saveSetup(mode = state.mode) {
+  if (state.setups[mode]) save(SETUP_KEYS[mode], state.setups[mode]);
+}
+
+/** Compare: every loop of programs A and B without a chosen strategy gets the Compare default (mode-setup.js);
+ * defaults follow the programs. Returns whether a decision changed. */
+function compareDefaults() {
+  const changed = applyCompareDefaults(
+    { outline: state.outline, source: editor.getSource(), decisions: state.setups.compare.decisions },
+    { outline: state.compare.outline, source: otherEditor.getSource(), decisions: state.compare.decisions },
+    state.strategies);
+  if (changed) {
+    saveSetup("compare");
+    save("compareDecisionsB", state.compare.decisions);
+  }
+  return changed;
 }
 
 function renderSetupPanel() {
@@ -484,28 +512,35 @@ function renderSetupPanel() {
     inputProblem: state.inputProblem || "",
     onInputChange: scheduleInputCheck,
     onChange: () => {
-      save("setup", state.setup);
+      saveSetup();
       refreshStale();
       updateAnnotations();
     },
     suggest: requestSuggestion,
     currentSource: () => editor.getSource(),
     ...(state.mode === "analyze" ? { hidden: COMPARE_ONLY, onCompareLoop: compareLoop } : {}),
-    ...(state.mode === "compare" ? { programB: () => otherEditor.getSource(), second: {
-      outline: state.compare.outline,
-      outlineStale: Boolean(state.compare.outlineStale && state.compare.outline),
-      setup: { decisions: state.compare.decisions },
-      source: otherEditor.getSource(),
-      syntax: otherEditor.getSyntax(),
-      onChange: () => {
-        save("otherDecisions", state.compare.decisions);
-        refreshStale();
-        updateAnnotations();
+    ...(state.mode === "compare" ? {
+      programName: "A",
+      programB: () => otherEditor.getSource(),
+      programA: () => editor.getSource(),
+      defaultFor: (loop) => compareDefault(loop, state.outline, { outline: state.compare.outline, source: otherEditor.getSource() }),
+      second: {
+        outline: state.compare.outline,
+        outlineStale: Boolean(state.compare.outlineStale && state.compare.outline),
+        setup: { decisions: state.compare.decisions },
+        source: otherEditor.getSource(),
+        syntax: otherEditor.getSyntax(),
+        defaultFor: (loop) => compareDefault(loop, state.compare.outline, { outline: state.outline, source: editor.getSource() }),
+        onChange: () => {
+          save("compareDecisionsB", state.compare.decisions);
+          refreshStale();
+          updateAnnotations();
+        },
       },
-    } } : {}),
+    } : {}),
   });
-  if (state.mode === "compare") save("otherDecisions", state.compare.decisions);
-  save("setup", state.setup);
+  if (state.mode === "compare") save("compareDecisionsB", state.compare.decisions);
+  saveSetup();
 }
 
 // ---- engine (toolbar pop-up button) --------------------------------------------------------------
@@ -527,22 +562,22 @@ function renderEngine() {
 
 function engineChanged() {
   state.setup.options.engine = $("engine-select").value;
-  save("setup", state.setup);
+  saveSetup();
   scheduleInputCheck();
   refreshStale();
   updateAnnotations();
 }
 
-function showLoop(loopId) {
+function showLoop(loopId, { field = false } = {}) {
   selectTab("setup");
-  focusLoopCard($("panel-setup"), loopId);
+  focusLoopCard($("panel-setup"), loopId, { field });
 }
 
 /** "Use as EVT invariant candidate" of an exploration: the loop switches to Check EVT invariant with the
  * candidate, and the Setup shows its field to review or edit before analysing again (#324). */
 function useEvtCandidate(loopId, candidate) {
   state.setup.decisions[String(loopId)] = { strategy: "evt_invariant", params: { invariant: candidate } };
-  save("setup", state.setup);
+  saveSetup();
   refreshStale();
   renderSetupPanel();
   updateAnnotations();
@@ -568,10 +603,10 @@ function openInCompare(details) {
     editor.setSource(details.program, syntax);
     state.setup.decisions = {};
     state.outline = null;
-    state.graveyard = {};
+    state.compare.graveyardA = {};
   }
   state.setup.decisions[String(details.program_loop ?? details.loop ?? 0)] = decision;
-  save("setup", state.setup);
+  saveSetup();
   setOtherSource(details.invariant, syntax);
   state.compare.decisions = {};
   state.compare.outline = null;
@@ -628,7 +663,7 @@ function restoreOrigin(decision) {
   state.setup.decisions = origin.decisions || {};
   if (decision) state.setup.decisions[String(origin.loop)] = decision;
   state.setup.input = origin.input || "";
-  save("setup", state.setup);
+  saveSetup();
   scheduleCheck(0);
 }
 
@@ -650,9 +685,10 @@ async function compareLoop(loopId) {
     return;
   }
   if (source !== editor.getSource() || syntax !== editor.getSyntax() || state.mode !== "analyze") return;
-  const { compared: _compared, ...current } = state.setup.decisions[String(loopId)]
-    || defaultDecision(offeredStrategies(state.strategies, COMPARE_ONLY));
-  const invariant = current.strategy === "invariant" ? current.params?.invariant || "" : "";
+  // only a loop-free program the loop continues with comes along (as program B); the strategy chosen for the
+  // analysis stays in Analyze, and Compare gives the loop its own default (mode-setup.js: compareDefault)
+  const current = state.setup.decisions[String(loopId)];
+  const invariant = current?.strategy === "invariant" ? current.params?.invariant || "" : "";
   rememberOrigin({ source, syntax, loop: loopId, program: isolated.program, programLoop: isolated.loop,
     whole: isolated.whole });
   // program B before the switch (an empty one would become a copy of program A)
@@ -664,14 +700,14 @@ async function compareLoop(loopId) {
   if (!setMode("compare")) { forgetOrigin(); return; }
   if (!isolated.whole) {
     editor.setSource(isolated.program, syntax);
-    state.setup.decisions = {};
     state.outline = null;
-    state.graveyard = {};
+    state.compare.graveyardA = {};
   }
-  state.setup.decisions[String(isolated.loop)] = structuredClone(current);
-  // the initial distribution belongs to the whole program
+  // the loop starts with the Compare default; the initial distribution belongs to the whole program
+  state.setup.decisions = {};
   state.setup.input = "";
-  save("setup", state.setup);
+  state.setup.inputKind = "default";
+  saveSetup();
   state.result = null;
   state.resultStale = false;
   state.resultChange = null;
@@ -717,7 +753,7 @@ function continueInAnalyze(guarantee, loopInA) {
   if (!setMode("analyze", { continueWith: fromOrigin ? decision : null })) return;
   if (!fromOrigin) {
     state.setup.decisions[String(loopInA)] = decision;
-    save("setup", state.setup);
+    saveSetup();
   }
   renderSetupPanel();
   updateAnnotations();
@@ -738,7 +774,7 @@ function followProgramB(source) {
     }
   }
   if (changed) {
-    save("setup", state.setup);
+    saveSetup();
     const field = [...$("panel-setup").querySelectorAll("textarea")].find((t) => t.value === before);
     if (field) field.value = source;
   }
@@ -753,8 +789,14 @@ function saveBlocked() {
 
 // ---- annotations in the editor ------------------------------------------------------------------
 
-function shortStrategy(decision) {
+/** The pill above a loop; `other` names the other program of a comparison and gives its text. */
+function shortStrategy(decision, other = null) {
   const p = decision.params || {};
+  if (decision.strategy === "invariant" && other) {
+    if (!String(p.invariant ?? "").trim()) return "Check invariant · write it in Setup";
+    if (p.invariant === other.source) return `Check invariant: program ${other.name}`;
+    return "Check invariant";
+  }
   switch (decision.strategy) {
     case "unroll": return `Unroll, N = ${p.iterations ?? "?"}`;
     case "mass_threshold": return `Until mass ${p.threshold ?? "?"}`;
@@ -770,7 +812,7 @@ function shortStrategy(decision) {
 function updateAnnotations() {
   const loops = (state.outline?.loops || []).map((loop) => {
     const decision = state.setup.decisions[String(loop.id)] || defaultDecision(state.strategies);
-    const strategy = shortStrategy(decision);
+    const strategy = shortStrategy(decision, state.mode === "compare" ? { name: "B", source: otherEditor.getSource() } : null);
     const spec = { id: loop.id, line: loop.line, strategy, onClick: showLoop };
     const record = !state.resultStale ? (state.result?.loops || []).find((l) => l.id === loop.id) : null;
     if (record) {
@@ -793,7 +835,8 @@ function updateAnnotations() {
   const other = state.mode === "compare" && !state.resultStale ? state.result?.equivalence?.other : null;
   otherEditor?.setAnnotations({ loops: state.mode !== "compare" ? [] : (state.compare.outline?.loops || []).map((loop) => {
     const decision = state.compare.decisions[String(loop.id)] || defaultDecision(state.strategies);
-    const spec = { id: loop.id, line: loop.line, strategy: shortStrategy(decision), onClick: (id) => showLoop(`b-${id}`) };
+    const spec = { id: loop.id, line: loop.line, strategy: shortStrategy(decision, { name: "A", source: editor.getSource() }),
+      onClick: (id) => showLoop(`b-${id}`) };
     const record = (other?.loops || []).find((l) => l.id === loop.id);
     if (record) {
       spec.kind = record.failed ? "error" : record.kind;
@@ -837,7 +880,7 @@ function showAnalysisStep() {
 /** Records steps from now on (the option in Setup) and analyzes again. */
 function recordAndRun() {
   state.setup.options.recordSteps = true;
-  save("setup", state.setup);
+  saveSetup();
   renderSetupPanel();
   run();
 }
@@ -902,8 +945,13 @@ function renderResultPanel() {
       onSelectLine: (line) => { showColumn("first"); editor.revealLine(line); },
       elapsed: state.result.__elapsed,
       programView: state.compare.programView,
+      plots: state.compare.plots,
       onSelectOtherLoop: (id) => showLoop(`b-${id}`),
       continueTo: continueTarget(),
+      ...(state.result.__job ? {
+        loadJoint: (payload, signal, onPartial) => loadJoint(state.result.__job, payload, signal, onPartial),
+        maxJointAxis: state.meta?.limits?.max_joint_axis,
+      } : {}),
     });
     state.analysis.card = null;
     const verdict = state.result.equivalence.verdict;
@@ -1005,8 +1053,9 @@ function setRunning(running) {
 
 function showRunMessage(message, tone = "error") {
   const status = $("run-status");
-  status.replaceChildren(h("span", { class: tone === "error" ? "outcome" : "", "data-kind": tone === "error" ? "error" : null },
-    icon(tone === "error" ? "error" : "info"), " ", message));
+  // a long message is cut off in the toolbar: the whole text is its tooltip
+  status.replaceChildren(h("span", { class: tone === "error" ? "outcome" : "", "data-kind": tone === "error" ? "error" : null,
+    title: message }, icon(tone === "error" ? "error" : "info"), " ", message));
 }
 
 /** A short notice (opened, saved); information disappears after a few seconds. */
@@ -1022,40 +1071,28 @@ function notify(message, tone = "info") {
 
 function buildRequest() {
   const options = state.setup.options;
-  const decisions = {};
-  for (const loop of state.outline?.loops || []) {
-    const decision = state.setup.decisions[String(loop.id)];
-    if (decision) decisions[String(loop.id)] = { strategy: decision.strategy, params: decision.params };
-  }
+  const comparing = state.mode === "compare";
+  const steps = !comparing && Boolean(options.recordSteps);
   return {
     source: editor.getSource(),
     syntax: editor.getSyntax(),
-    input_distribution: state.setup.input?.trim() || null,
+    input_distribution: setupInput(state.setup, state.mode),
     engine: options.engine,
     normalize: options.normalize,
     simplification: options.simplification,
-    decisions,
+    decisions: requestDecisions(state.setup.decisions, state.outline),
     coefficients: options.coefficients,
-    record_steps: options.recordSteps,
-    ...(options.recordSteps && state.analysis.watches.length ? { watches: state.analysis.watches } : {}),
+    record_steps: steps,
+    ...(steps && state.analysis.watches.length ? { watches: state.analysis.watches } : {}),
     synthesis_strategy: options.synthesis,
     ...(options.synthesis === "from_heuristics"
       ? { template_heuristic: options.templateHeuristic, positivity_heuristic: options.positivityHeuristic } : {}),
     solver: options.solver,
     time_limit: options.timeLimit,
-    ...(state.mode === "compare" ? { other_source: otherEditor.getSource(), other_syntax: otherEditor.getSyntax(),
-      other_decisions: otherDecisions(), record_steps: false } : {}),
+    // program B and the strategies of its loops (Compare)
+    ...(comparing ? { other_source: otherEditor.getSource(), other_syntax: otherEditor.getSyntax(),
+      other_decisions: requestDecisions(state.compare.decisions, state.compare.outline) } : {}),
   };
-}
-
-/** The decisions of program B's loops (Compare mode), as sent with the request. */
-function otherDecisions() {
-  const decisions = {};
-  for (const loop of state.compare.outline?.loops || []) {
-    const decision = state.compare.decisions[String(loop.id)];
-    if (decision) decisions[String(loop.id)] = { strategy: decision.strategy, params: decision.params };
-  }
-  return decisions;
 }
 
 /** Asks the server's language model for a candidate for one loop (a job like an analysis, with
@@ -1084,14 +1121,15 @@ async function run() {
   await runCheck();
   const errors = state.diagnostics.filter((d) => d.severity === "error");
   if (errors.length) {
-    showRunMessage(`Fix line ${errors[0].line} first.`);
+    showRunMessage(state.mode === "compare" ? `Fix line ${errors[0].line} of program A first.` : `Fix line ${errors[0].line} first.`);
+    if (state.mode === "compare") showColumn("first");
     editor.revealLine(errors[0].line);
     return;
   }
-  const problems = setupProblems(state.outline, state.setup, state.strategies);
+  const problems = setupProblems(state.outline, state.setup, state.strategies, editor.getSyntax());
   if (problems.length) {
-    showRunMessage(problems[0].message);
-    showLoop(problems[0].loop);
+    showRunMessage(state.mode === "compare" ? `Program A: ${problems[0].message}` : problems[0].message);
+    showLoop(problems[0].loop, { field: Boolean(problems[0].param) });
     return;
   }
   const comparing = state.mode === "compare";
@@ -1111,10 +1149,11 @@ async function run() {
       otherEditor.revealLine(otherErrors[0].line);
       return;
     }
-    const otherProblems = setupProblems(state.compare.outline, { decisions: state.compare.decisions }, state.strategies);
+    const otherProblems = setupProblems(state.compare.outline, { decisions: state.compare.decisions }, state.strategies,
+      otherEditor.getSyntax());
     if (otherProblems.length) {
       showRunMessage(`Program B: ${otherProblems[0].message}`);
-      showLoop(`b-${otherProblems[0].loop}`);
+      showLoop(`b-${otherProblems[0].loop}`, { field: Boolean(otherProblems[0].param) });
       return;
     }
   }
@@ -1168,7 +1207,7 @@ async function poll() {
 function showRunning(progress) {
   const change = state.job ? changeSince(state.job.request, buildRequest()) : null;
   renderRunning($("panel-result"), progress, { strategyTitles: state.titles, change,
-    label: state.job?.comparing ? "Checking" : "Analyzing" });
+    label: state.job?.comparing ? "Checking" : "Analyzing", comparing: Boolean(state.job?.comparing) });
 }
 
 function finish(result, elapsed) {
@@ -1184,7 +1223,8 @@ function finish(result, elapsed) {
   state.liveCharts = result.status === "ok" ? liveChartStates($("panel-result")) : null;
   renderResultPanel();
   updateAnnotations();
-  const message = result.status === "ok" ? null : (result.error?.message || result.status);
+  // a comparison shows its verdict and why in the result (a failed analysis of one program is part of it)
+  const message = result.status === "ok" || result.equivalence ? null : (result.error?.message || result.status);
   // parameter synthesis in Analyze is no failure but a pointer to Compare (#154)
   const neutral = result.status === "cancelled" || result.error?.details?.type === "parameter_synthesis";
   if (message) showRunMessage(message, neutral ? "info" : "error");
@@ -1233,11 +1273,14 @@ async function loadExample(example, syntax = "ppy") {
   }
   state.pendingDefault = suggestion.decisions?.["*"] || null;
   state.setup.input = suggestion.input_distribution || "";
+  if (state.mode === "compare") state.setup.inputKind = state.setup.input ? "given" : "default";
   // the suggested decisions belong to the example's loops: they must not be re-keyed from the loops of the
   // program it replaces (#277 follows edits, not replacements)
   state.outline = null;
   state.graveyard = {};
+  state.compare.graveyardA = {};
   save("graveyard", state.graveyard);
+  saveSetup();
   state.result = null;
   state.resultStale = false;
   state.resultChange = null;
@@ -1323,7 +1366,7 @@ async function convertProgram() {
 /** A conversion was applied, undone or redone: the setup's invariant programs follow. */
 function companionApplied(change) {
   if (!swapInvariants(state.setup.decisions, change)) return;
-  save("setup", state.setup);
+  saveSetup();
   renderSetupPanel();
 }
 
@@ -1340,17 +1383,8 @@ async function boot() {
   }
   state.strategies = state.meta.strategies;
   state.titles = Object.fromEntries(state.strategies.map((s) => [s.name, s.title]));
-  const saved = load("setup", null);
-  state.setup = defaultSetup(state.meta);
-  if (saved && typeof saved === "object") {
-    state.setup.input = saved.input || "";
-    state.setup.decisions = saved.decisions || {};
-    Object.assign(state.setup.options, saved.options || {});
-    if (!state.meta.engines.some((e) => e.name === state.setup.options.engine && e.available)) {
-      state.setup.options.engine = defaultSetup(state.meta).options.engine;
-    }
-    state.setup.options.timeLimit = Math.min(state.setup.options.timeLimit || 120, state.meta.limits.time_limit);
-  }
+  // each mode has its own setup (mode-setup.js); a setup kept by an earlier version is Analyze's
+  for (const mode of Object.keys(state.setups)) state.setups[mode] = restoreSetup(load(SETUP_KEYS[mode], null), state.meta, mode);
 
   const storedSource = load("source", null);
   editor = createEditor($("editor"), {
@@ -1390,7 +1424,8 @@ async function boot() {
   renderOtherSyntax();
   initCompareTabs();
   initModeSwitch();
-  state.compare.decisions = load("otherDecisions", {}) || {};
+  // (a new key: what an earlier version kept there were the defaults of Analyze, e.g. "auto")
+  state.compare.decisions = load("compareDecisionsB", {}) || {};
   state.compare.origin = load("compareOrigin", null);
   state.compare.lastOther = otherEditor.getSource();
   state.analysis.watches = (load("watches", []) || []).filter((w) => typeof w === "string").slice(0, 8);

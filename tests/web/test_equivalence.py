@@ -291,7 +291,8 @@ def test_frontend_model(tmp_path):
                                        check=True).stdout)
     assert output["differ"] == [[0, True], [1, True], [2, False]]
     assert output["same"] == [False, False]
-    assert output["bound"] == [None, None, None]  # bounds are not compared
+    # with a bound, a value differs only where the intervals do not overlap: 1/3 against [1/2, 1]
+    assert output["bound"] == [True, None, None]
     assert output["notImplemented"]["title"] == "Not decided: not implemented"
     assert output["notImplemented"]["glyph"] == "?" and not output["notImplemented"]["proven"]
     assert output["forged"] == "unknown"

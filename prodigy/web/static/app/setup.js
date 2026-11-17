@@ -1,5 +1,6 @@
 // The Setup panel: input distribution, one strategy per loop, analysis options.
 import { h, icon } from "./components/dom.js";
+import { defaultReason } from "./mode-setup.js";
 
 export const GUI_DEFAULTS = { auto: { iterations: 25 }, unroll: { iterations: 25 }, evt_iterate: { iterations: 25 } };
 
@@ -387,7 +388,8 @@ function loopCard(loop, ctx) {
   // the loops of program B in Compare mode have ids of their own: their cards are "loop-card-b-0", …
   const domId = `${ctx.idPrefix || ""}${loop.id}`;
   if (!setup.decisions[key] || !byName[setup.decisions[key].strategy]) {
-    setup.decisions[key] = defaultDecision(strategies);
+    // Compare has defaults of its own (mode-setup.js: compareDefault)
+    setup.decisions[key] = ctx.defaultFor?.(loop) || defaultDecision(strategies);
   }
   const card = h("article", { class: "card", id: `loop-card-${domId}`, "aria-labelledby": `loop-title-${domId}` });
   const offered = offeredStrategies(strategies, ctx.hidden);
@@ -419,10 +421,12 @@ function loopCard(loop, ctx) {
       warnings.push(h("p", { class: "notice warning" }, icon("warning"),
         h("span", {}, "This strategy does not support observe statements before the loop.")));
     }
+    const byDefault = ctx.programName ? defaultReason(decision, ctx.programName) : null;
     card.replaceChildren(...[
       head,
       code,
       decision.compared ? comparedNote(decision.compared) : null,
+      byDefault ? h("p", { class: "notice compare-default", "data-default": "true" }, icon("info"), h("span", {}, byDefault)) : null,
       strategySelect(offered, decision.strategy, summaryId, (name) => {
         setup.decisions[key] = { strategy: name, params: defaultParams(byName[name]) };
         render();
@@ -441,6 +445,11 @@ function loopCard(loop, ctx) {
     function field(param, onValue = null) {
       return paramField(param, decision.params[param.name], (value) => {
         decision.params[param.name] = value;
+        // a default edited by hand is a choice: it no longer follows the programs
+        if (decision.byDefault) {
+          delete decision.byDefault;
+          card.querySelector(".compare-default")?.remove();
+        }
         onValue?.();
         onChange();
       }, canSuggest(ctx, strategy, param) ? (control) => suggestAction(ctx, loop, strategy, param, control)
@@ -469,11 +478,12 @@ function loopCard(loop, ctx) {
 
 // ---- loops compared with a loop-free program (#399) ------------------------------------------------
 
-/** "Use program B" next to the invariant program of a loop of program A in Compare mode: the loop is checked
- * against program B (Park's lemma), and the invariant then follows program B's edits. */
+/** "Use program B" next to the invariant program of a loop of program A in Compare mode (and "Use program A" for
+ * a loop of program B): the loop is checked against the other program (Park's lemma). */
 function programBAction(ctx, control) {
-  const button = h("button", { type: "button", class: "button", title: "Check this loop against program B (Park's lemma)" },
-    "Use program B");
+  const other = ctx.programName === "B" ? "A" : "B";
+  const button = h("button", { type: "button", class: "button", title: `Check this loop against program ${other} (Park's lemma)` },
+    `Use program ${other}`);
   button.addEventListener("click", () => {
     control.value = ctx.programB();
     control.dispatchEvent(new Event("input"));
@@ -568,6 +578,7 @@ export function applyInputProblem(input, message, error = input.parentElement?.q
  * source, syntax, outlineStale}) adds the loops of program B in Compare mode (their cards are "loop-card-b-<id>"). */
 export function renderSetup(container, ctx) {
   const { outline, setup, meta, onChange } = ctx;
+  const comparing = Boolean(ctx.second);
   placeholders = PLACEHOLDERS[ctx.syntax] || PLACEHOLDERS.pgcl;
   const inputId = nextId("input");
   const input = h("input", { id: inputId, class: "field mono input-distribution", type: "text", spellcheck: "false",
@@ -596,7 +607,8 @@ export function renderSetup(container, ctx) {
       (v) => { options.normalize = v; onChange(); }),
     toggleRow("Simplify expressions", "Slower, but gives shorter closed forms.", options.simplification,
       (v) => { options.simplification = v; onChange(); }),
-    toggleRow("Record each step", "Record the trace for the timeline of the analysis card: the distribution at each instruction, loop iterates and certificate checks.", options.recordSteps,
+    // a comparison records no steps
+    comparing ? null : toggleRow("Record each step", "Record the trace for the timeline of the analysis card: the distribution at each instruction, loop iterates and certificate checks.", options.recordSteps,
       (v) => { options.recordSteps = v; onChange(); }),
     numberRow("Coefficients per marginal", "How many values the charts and tables show.", options.coefficients,
       { min: 0, max: meta.limits.max_coefficients }, (v) => { options.coefficients = v; onChange(); }),
@@ -612,7 +624,8 @@ export function renderSetup(container, ctx) {
     selectRow("Solver", "For equation systems during invariant checks.", options.solver,
       meta.solvers.map((s) => [s, s === "z3" ? "Z3" : "SymPy"]), (v) => { options.solver = v; onChange(); }),
   );
-  const optionsDisclosure = h("details", { class: "disclosure" }, h("summary", {}, "Analysis options"), optionsBody);
+  const optionsDisclosure = h("details", { class: "disclosure" }, h("summary", {}, comparing ? "Options of the check" : "Analysis options"),
+    comparing ? h("p", { class: "help options-note" }, "These options belong to Compare; Analyze keeps its own.") : null, optionsBody);
   optionsDisclosure.open = Boolean(ctx.optionsOpen);
   optionsDisclosure.addEventListener("toggle", () => ctx.onOptionsToggle?.(optionsDisclosure.open));
 
@@ -620,7 +633,8 @@ export function renderSetup(container, ctx) {
     titleId: "loops-title", outlineStale: ctx.outlineStale });
   // Compare mode: program B has loops and decisions of its own
   const second = ctx.second ? (() => {
-    const bCtx = { ...ctx, ...ctx.second, suggest: null, hidden: null, onCompareLoop: null, programB: null, idPrefix: "b-", loopLabel: "Loop" };
+    const bCtx = { ...ctx, ...ctx.second, suggest: null, hidden: null, onCompareLoop: null, programB: ctx.programA || null,
+      programName: "B", idPrefix: "b-", loopLabel: "Loop" };
     const bLoops = ctx.second.outline?.loops || [];
     const cards = bLoops.map((loop) => loopCard(loop, bCtx));
     pruneDecisions(ctx.second.setup.decisions, ctx.second.outline);
@@ -628,16 +642,51 @@ export function renderSetup(container, ctx) {
       titleId: "loops-b-title", outlineStale: ctx.second.outlineStale, guide: false });
   })() : null;
 
-  container.replaceChildren(
-    h("section", { class: "section", "aria-labelledby": "input-title" },
+  const inputHelp = h("p", { class: "help", id: `${inputId}-help` }, ctx.syntax === "ppy"
+    ? "A generating function over the program variables, e.g. x**3 for x = 3, or (x + x**2)/2."
+    : "A generating function over the program variables, e.g. x^3 for x = 3, or (x + x^2)/2.");
+  const inputSection = comparing ? compareInput(ctx, { input, inputId, inputError, inputHelp })
+    : h("section", { class: "section", "aria-labelledby": "input-title" },
       h("div", { class: "section-header" }, h("h3", { class: "section-title", id: "input-title" }, "Input")),
-      h("div", { class: "form-row" }, h("label", { for: inputId }, "Initial distribution"), input, inputError,
-        h("p", { class: "help", id: `${inputId}-help` }, ctx.syntax === "ppy"
-          ? "A generating function over the program variables, e.g. x**3 for x = 3, or (x + x**2)/2."
-          : "A generating function over the program variables, e.g. x^3 for x = 3, or (x + x^2)/2."))),
+      h("div", { class: "form-row" }, h("label", { for: inputId }, "Initial distribution"), input, inputError, inputHelp));
+  container.replaceChildren(
+    inputSection,
     ...[loopsSection, second].filter(Boolean),
     h("section", { class: "section" }, optionsDisclosure),
   );
+}
+
+/** The input of Compare: the check covers every input at once; the plots of the result show both programs on one
+ * input, the default one (every variable 0, or the solver's counterexample) or a distribution given here. */
+function compareInput(ctx, { input, inputId, inputError, inputHelp }) {
+  const { setup, onChange } = ctx;
+  const name = nextId("input-kind");
+  const field = h("div", { class: "form-row compare-input-field" }, h("label", { for: inputId }, "Initial distribution"), input,
+    inputError, inputHelp);
+  const choice = (value, label, help) => {
+    const id = nextId("input-kind");
+    const radio = h("input", { type: "radio", name, id, value, "aria-describedby": `${id}-help` });
+    radio.checked = (setup.inputKind === "given" ? "given" : "default") === value;
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      setup.inputKind = value;
+      field.hidden = value !== "given";
+      onChange();
+      ctx.onInputChange?.();
+      if (value === "given") input.focus();
+    });
+    return h("div", { class: "radio-row" }, radio, h("div", { class: "radio-text" }, h("label", { for: id }, label),
+      h("p", { class: "help", id: `${id}-help` }, help)));
+  };
+  field.hidden = setup.inputKind !== "given";
+  return h("section", { class: "section", "aria-labelledby": "input-title" },
+    h("div", { class: "section-header" }, h("h3", { class: "section-title", id: "input-title" }, "Input")),
+    h("p", { class: "help" }, "The check covers every input at once (a second-order generating function). "
+      + "The plots of the result show both programs on one input:"),
+    h("fieldset", { class: "radio-group" }, h("legend", { class: "visually-hidden" }, "Input of the plots"),
+      choice("default", "Default input", "Every variable 0, or the input on which the solver found the programs to differ."),
+      choice("given", "This distribution", "Both programs start from the distribution below.")),
+    field);
 }
 
 function loopSection(ctx, { outline, loopCards, title, titleId, outlineStale, guide = true }) {
@@ -663,8 +712,9 @@ export function focusLoopCard(container, loopId, { field = false } = {}) {
   (target || card.querySelector("select, .loop-actions button"))?.focus({ preventScroll: true });
 }
 
-/** Problems that prevent running (shown next to the Analyze button). */
-export function setupProblems(outline, setup, strategies) {
+/** Problems that prevent running (shown next to the Analyze button): {loop, message, param} (`param` names the
+ * parameter whose value is missing or wrong). `syntax` is the syntax of the program (for the labels). */
+export function setupProblems(outline, setup, strategies, syntax = "pgcl") {
   const byName = Object.fromEntries(strategies.map((s) => [s.name, s]));
   const problems = [];
   for (const loop of outline?.loops || []) {
@@ -676,7 +726,8 @@ export function setupProblems(outline, setup, strategies) {
     }
     for (const param of strategy.params.filter((p) => p.kind !== "file")) {
       const problem = validateParam(param, decision.params[param.name]);
-      if (problem) problems.push({ loop: loop.id, message: `Loop ${loop.id}: ${param.label}: ${problem}` });
+      const label = syntax === "ppy" ? param.label.replace("pGCL program", ".ppy program") : param.label;
+      if (problem) problems.push({ loop: loop.id, param: param.name, message: `Loop ${loop.id}: ${label}: ${problem}` });
     }
   }
   return problems;

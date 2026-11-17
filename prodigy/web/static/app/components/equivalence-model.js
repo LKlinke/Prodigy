@@ -103,10 +103,29 @@ export function cellText(exact, decimal) {
 }
 
 /**
+ * The interval in which the probability of one value of a marginal lies (floats), given the guarantee of the
+ * result: exact [p, p], lower bound [p, upper end], upper bound [0, p]; null without a guarantee. A value without
+ * a row has probability 0 (a lower bound: at most the residual mass).
+ */
+export function rowInterval(result, row) {
+  const kind = result?.bounds?.kind;
+  const p = row ? row.p : 0;
+  if (p === null || p === undefined || !Number.isFinite(p)) return null;
+  if (kind === "exact") return [p, p];
+  if (kind === "upper") return [0, p];
+  if (kind === "lower") {
+    const residual = result?.bounds?.residual_mass_float;
+    const upper = row ? row.upper_p : (Number.isFinite(residual) ? residual : 1);
+    return [p, Math.min(1, Number.isFinite(upper) ? upper : 1)];
+  }
+  return null;
+}
+
+/**
  * The marginal of `variable` in both results, row by row: [{value, first, second, differs}], where
- * first/second are table rows ({prob, p}) or null. `differs` is true only if both results are exact
- * and the probabilities differ (a hint where to look, not a proof; the witness is the proof), false if
- * they agree, and null if no comparison is possible.
+ * first/second are table rows ({prob, p}) or null. `differs` is a hint where to look, not a proof (the witness is
+ * the proof): true if both results are exact and the probabilities differ, or if the intervals of the two
+ * probabilities (rowInterval) do not overlap; false if both are exact and agree; null if no comparison is possible.
  */
 export function compareMarginals(first, second, variable) {
   const table = (result) => result?.status === "ok" ? result.distribution?.marginals?.[variable] : null;
@@ -122,14 +141,20 @@ export function compareMarginals(first, second, variable) {
     }
   }
   const complete = (t, value) => t && !t.error && (!t.truncated || value <= (t.rows?.at(-1)?.value ?? -1));
+  const close = (a, b) => Math.abs(a - b) <= 1e-12 * Math.max(1, Math.abs(a), Math.abs(b));
   return [...values.entries()].sort((a, b) => a[0] - b[0]).map(([value, [a, b]]) => {
     let differs = null;
-    if (exact && complete(one, value) && complete(two, value)) {
-      const pa = a ? a.p : 0;
-      const pb = b ? b.p : 0;
-      const same = (a?.prob ?? "0") === (b?.prob ?? "0")
-        || (pa !== null && pb !== null && Math.abs(pa - pb) <= 1e-12 * Math.max(1, Math.abs(pa), Math.abs(pb)));
-      differs = !same;
+    if (complete(one, value) && complete(two, value)) {
+      if (exact) {
+        const pa = a ? a.p : 0;
+        const pb = b ? b.p : 0;
+        const same = (a?.prob ?? "0") === (b?.prob ?? "0") || (pa !== null && pb !== null && close(pa, pb));
+        differs = !same;
+      } else {
+        const ia = rowInterval(first, a);
+        const ib = rowInterval(second, b);
+        if (ia && ib && ((ia[1] < ib[0] && !close(ia[1], ib[0])) || (ib[1] < ia[0] && !close(ib[1], ia[0])))) differs = true;
+      }
     }
     return { value, first: a, second: b, differs };
   });

@@ -421,6 +421,18 @@ select { appearance: auto; padding: 2px 6px; }
 .loop-actions .button .icon { width: 14px; height: 14px; }
 .compared-note { margin: 0; }
 .compared-note .icon { color: var(--text-2); }
+/* Compare: a loop's strategy is the default of comparisons until it is changed (mode-setup.js) */
+.compare-default { margin: 0; }
+.compare-default .icon { color: var(--text-2); }
+/* Compare: which input the plots show */
+.radio-group { border: 0; margin: 0; padding: 0; display: grid; gap: 6px; }
+.radio-row { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: start; }
+.radio-row input { margin: 2px 0 0; accent-color: var(--accent-fill); }
+.radio-row .radio-text { display: grid; gap: 1px; }
+.radio-row label { font-size: var(--text-body); cursor: pointer; }
+.radio-row input:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 50%; }
+.compare-input-field[hidden] { display: none; }
+.options-note { margin: 4px 0 0; }
 .compared-source {
   margin: 0; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-word;
   font-size: 12px; background: var(--surface-sunken); border-radius: 6px; padding: 6px 8px;

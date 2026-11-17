@@ -6,9 +6,9 @@ import { formatSeconds, formatValue } from "./format.js";
 import { card, expressionBox, guaranteeBadge, segmented, press } from "./parts.js";
 import { renderResult } from "./result-view.js";
 import {
-  CONTINUE_GUARANTEE, cellText, checkLines, compareMarginals, comparedVariables, constraintTexts, inputText, inputWords, intervalText,
-  relationText, stateText, verdictOf,
+  CONTINUE_GUARANTEE, checkLines, constraintTexts, inputText, inputWords, intervalText, relationText, stateText, verdictOf,
 } from "./equivalence-model.js";
+import { comparePlots } from "./compare-plots.js";
 import { staleText } from "../staleness.js";
 
 const PROGRAMS = [["first", "Program A"], ["second", "Program B"]];
@@ -85,57 +85,27 @@ function checkDetails(check) {
       ...body));
 }
 
-/** The marginals of both programs, side by side, with the rows where exact values differ marked. */
-function distributionsCard(result, equivalence) {
-  const other = equivalence.other || {};
-  const variables = comparedVariables(result, other);
-  const children = [h("p", { class: "rv-note" }, inputText(equivalence))];
-  const badges = h("div", { class: "eq-badges" },
-    ...PROGRAMS.map(([key, label]) => {
-      const r = key === "first" ? result : other;
-      return h("span", { class: "eq-badge-item" }, h("span", { class: "rv-muted" }, `${label}: `),
-        r.status === "ok" ? guaranteeBadge(r.bounds?.kind || "unknown") : guaranteeBadge("error", "Failed"));
-    }));
-  children.push(badges);
-  if (!variables.length || (result.status !== "ok" && other.status !== "ok")) {
-    children.push(h("p", { class: "rv-muted" }, "No output distribution to compare; see the results below."));
-    return card("eq-distributions", "Output distributions", ...children);
-  }
-  for (const variable of variables) {
-    const rows = compareMarginals(result, other, variable);
-    if (!rows.length) continue;
-    const anyDiffers = rows.some((r) => r.differs);
-    const cell = (row) => row ? h("td", { class: "num", title: row.prob ?? "" }, cellText(row.prob, formatValue(row.prob, row.p, 6)))
-      : h("td", { class: "num rv-muted" }, "0");
-    const body = rows.map((r) => h("tr", { "data-differs": r.differs ? "true" : null },
-      h("td", { class: "num" }, String(r.value)), cell(r.first), cell(r.second),
-      h("td", { class: "eq-diff" }, r.differs === true ? [h("span", { class: "glyph", "aria-hidden": "true" }, "≠"), " differs"]
-        : r.differs === false ? h("span", { class: "rv-muted" }, "same") : "")));
-    children.push(h("div", { class: "eq-marginal" },
-      h("h4", { class: "rv-block-title" }, `Pr[${variable} = k]`,
-        anyDiffers ? h("span", { class: "eq-marginal-flag" }, " · values differ") : null),
-      h("div", { class: "table-wrap" }, h("table", { class: "rv-table eq-table", "aria-label": `Distribution of ${variable} in programs A and B` },
-        h("thead", {}, h("tr", {}, h("th", { scope: "col" }, "k"), h("th", { scope: "col" }, "A"),
-          h("th", { scope: "col" }, "B"), h("th", { scope: "col" }, h("span", { class: "visually-hidden" }, "Comparison")))),
-        h("tbody", {}, ...body)))));
-  }
-  if (result.bounds?.kind !== "exact" || other.bounds?.kind !== "exact") {
-    children.push(h("p", { class: "rv-note" }, "Rows are compared only when both results are exact; bounds may "
-      + "differ without the programs differing."));
-  }
-  return card("eq-distributions", "Output distributions", ...children);
+/** The output distributions of both programs, plotted side by side (compare-plots.js). */
+function distributionsCard(result, equivalence, options) {
+  return card("eq-distributions", "Output distributions",
+    h("p", { class: "rv-note" }, inputText(equivalence)),
+    comparePlots(result, equivalence.other || {}, options.plots || {}, { loadJoint: options.loadJoint, maxJointAxis: options.maxJointAxis }));
 }
 
 /**
  * Renders a comparison result (an analysis result with an `equivalence` part) into `container`.
  * options: those of renderResult (for the result of program A) plus `programView` ({which}) to
- * remember the chosen program, `onSelectOtherLoop(id)` for the loops of program B, `stale`, `change`, `onRun`,
+ * remember the chosen program, `plots` (the choices of the distribution plots, kept across re-renders),
+ * `loadJoint(payload, signal, onPartial)` for the grids of either program (the payload names it: `program` is
+ * "first" or "second"), `onSelectOtherLoop(id)` for the loops of program B, `stale`, `change`, `onRun`,
  * and `continueTo` ({guarantee, target, onContinue} or {reason}, see continueOffer) for the continue flow (#399).
  * Returns {analysis} of the shown result.
  */
 export function renderEquivalence(container, result, options = {}) {
   const equivalence = result.equivalence;
   const view = options.programView || { which: "first" };
+  // the choices of each program's analysis card (lens, variable, view), kept while switching between them
+  const views = view.cards?.result === result ? view.cards : (view.cards = { result, first: { result }, second: { result: equivalence.other } });
   const children = [];
   if (options.stale) {
     children.push(h("div", { class: "notice rv-stale", role: "status" }, icon("info"),
@@ -144,7 +114,7 @@ export function renderEquivalence(container, result, options = {}) {
         "Check Again") : null));
   }
   children.push(verdictCard(result, equivalence, options.stale ? null : options.continueTo),
-    distributionsCard(result, equivalence));
+    distributionsCard(result, equivalence, options));
   const holder = h("div", { class: "eq-program-result" });
   let analysis = null;
   const choose = (which) => {
@@ -154,8 +124,10 @@ export function renderEquivalence(container, result, options = {}) {
     const shown = which === "second" ? equivalence.other || {} : result;
     // the editor callbacks (lines, loops) belong to the first program's editor
     const own = which === "first" ? options
-      : { strategyTitles: options.strategyTitles, onSelectLoop: options.onSelectOtherLoop };
-    ({ analysis } = renderResult(holder, shown, { ...own, stale: false, loadJoint: undefined }));
+      : { strategyTitles: options.strategyTitles, onSelectLoop: options.onSelectOtherLoop, maxJointAxis: options.maxJointAxis };
+    const loadJoint = options.loadJoint
+      ? (payload, signal, onPartial) => options.loadJoint({ ...payload, program: which }, signal, onPartial) : undefined;
+    ({ analysis } = renderResult(holder, shown, { ...own, stale: false, loadJoint, analysisState: views[which] }));
   };
   const switcher = segmented("Result of", PROGRAMS, choose);
   children.push(h("div", { class: "eq-program-head" }, h("h3", { class: "rv-card-title" }, "Result of"), switcher), holder);

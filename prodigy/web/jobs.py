@@ -133,7 +133,12 @@ def merge_stream(stream: Dict[str, Any], event: Dict[str, Any]) -> None:
     """Adds a batch of streamed coefficients (:mod:`prodigy.analysis.streaming`) to the state ``stream``
     of a job: ``marginals`` (variable -> ``{"rows", "done", ...}``) with ``variables``, ``limit``, ``bound``
     and ``residual_mass`` of an analysis, or the ``grid`` of a grid job with ``cells[r][c]`` (None while
-    pending)."""
+    pending). The coefficients of the second program of a comparison (``"program": "second"``) go into
+    ``stream["second"]``, a state of the same form."""
+    if "program" in event:
+        own = {key: value for key, value in event.items() if key != "program"}
+        merge_stream(stream.setdefault("second", {}) if event["program"] == "second" else stream, own)
+        return
     if event.get("kind") == "coefficients":
         if event.get("event") == "start":
             stream.update({key: event.get(key) for key in ("variables", "limit", "bound", "residual_mass",
@@ -306,7 +311,8 @@ class JobManager:
                 elif kind == "progress" and payload.get("kind") in STREAM_KINDS:
                     merge_stream(job.stream, payload)
                 elif kind == "progress":
-                    key = f"{payload.get('loop')}:{payload.get('strategy')}"
+                    # the two programs of a comparison have loops of the same ids
+                    key = f"{payload.get('program') or ''}{payload.get('loop')}:{payload.get('strategy')}"
                     job.progress[key] = payload
                 elif kind == "state":
                     if job.running:

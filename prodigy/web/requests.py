@@ -384,22 +384,30 @@ def run_equivalence(request: Dict[str, Any], *, output: Optional[Callable[[str],
     program, other = programs["A"], programs["B"]
 
     def session_for(part: Dict[str, Any], prog: Any, *, input_distribution: Any = None,
-                    report: Optional[Callable[[Dict[str, Any]], None]] = None) -> AnalysisSession:
+                    report: Optional[Callable[[Dict[str, Any]], None]] = None,
+                    stream: bool = False) -> AnalysisSession:
         return AnalysisSession(prog, source=part["source"], syntax=request_syntax(part), config=make_config(part),
                                decisions=part.get("decisions") or {}, input_distribution=input_distribution,
                                allow_files=False, capture_output=True, output_callback=output,
                                progress_callback=report, coefficient_limit=int(part.get("coefficients", 30)),
-                               parameter_synthesis="allow")
+                               parameter_synthesis="allow", stream_coefficients=stream and report is not None)
+
+    def tagged(which: str) -> Optional[Callable[[Dict[str, Any]], None]]:
+        """The progress of one of the two programs: its events say which."""
+        if progress is None:
+            return None
+        report = progress
+        return lambda event: report({**event, "program": which})
 
     variables_differ = equivalence.different_variables(program, other)
     check = equivalence.CheckOutcome("failed", error={"type": "variables", "message": variables_differ or ""})
     if variables_differ is None:
-        # the loops of the second program take its own decisions, the first program's loops are found by id
-        decisions = {**(second_request.get("decisions") or {}), **(first_request.get("decisions") or {})}
-        session = session_for({**first_request, "decisions": decisions}, program, report=progress)
+        # each program's loops are decided by their own ids and decisions
+        session = session_for(first_request, program, report=progress)
         with session.activate(), session.config.activate(), session._output():  # pylint: disable=protected-access
             print("Checking the equivalence for every input (second-order generating functions) …")
-            check = equivalence.run_check(program, other, session)
+            check = equivalence.run_check(program, other, session,
+                                          other_decisions=second_request.get("decisions") or {})
 
     text = first_request.get("input_distribution")
     input_source = "request"
@@ -413,8 +421,11 @@ def run_equivalence(request: Dict[str, Any], *, output: Optional[Callable[[str],
     if output is not None:
         where = f"the initial distribution {shown}" if shown else "the default input"
         output(f"Analysing both programs on {where} …\n")
-    first_result = session_for(first_request, program, input_distribution=text, report=progress).run().to_json()
-    second_result = session_for(second_request, other, input_distribution=text).run().to_json()
+    # the plots of both programs build up while their coefficients are computed (#405)
+    first_result = session_for(first_request, program, input_distribution=text, report=tagged("first"),
+                               stream=True).run().to_json()
+    second_result = session_for(second_request, other, input_distribution=text, report=tagged("second"),
+                                stream=True).run().to_json()
 
     witness = None
     if variables_differ is None:
@@ -493,6 +504,18 @@ def _step_snapshot(result: Dict[str, Any], payload: Dict[str, Any]) -> Optional[
     if snapshot.get("truncated"):
         raise ValueError("The closed form at this step is too large; the trace keeps only its beginning.")
     return snapshot
+
+
+def compared_result(result: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
+    """The result a grid request is about: ``result`` itself, or for ``"program": "second"`` the result of the
+    second program of a comparison (``result["equivalence"]["other"]``). Raises ``ValueError``."""
+    which = payload.get("program", "first")
+    if which == "first":
+        return result
+    other = (result.get("equivalence") or {}).get("other") if which == "second" else None
+    if not isinstance(other, dict):
+        raise ValueError("'program' must be 'first' or 'second' (the second only for a comparison).")
+    return other
 
 
 def joint_request(result: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
