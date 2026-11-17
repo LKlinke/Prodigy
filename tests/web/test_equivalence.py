@@ -109,23 +109,22 @@ def test_different_variables_are_not_compared():
 
 def test_equivalent_programs():
     result = compare(BERNOULLI, BERNOULLI_TWO_THIRDS)
-    assert result["schema"] == "prodigy/analysis-result@1" and result["status"] == "ok"
+    assert result["schema"] == "prodigy/equivalence-result@1" and result["status"] == "ok"
     equivalence = result["equivalence"]
     assert equivalence["verdict"] == "equivalent" and equivalence["witness"] is None
     assert equivalence["check"]["answer"] == "equal"
     assert (equivalence["check"]["first"], equivalence["check"]["second"]) == ("exact", "exact")
-    assert equivalence["other"]["schema"] == "prodigy/analysis-result@1"
-    assert equivalence["other"]["status"] == "ok"
-    assert equivalence["input"] == {"distribution": None, "source": "default"}
+    # no witness search when the check proved equality
+    assert "witness" not in result["log"] and equivalence["witness_search"] is None
 
 
 def test_programs_that_differ_get_a_witness():
     equivalence = compare(BERNOULLI, FAIR_COIN)["equivalence"]
     assert equivalence["verdict"] == "not_equivalent"
     assert equivalence["check"]["counterexample"] == {"x": 0}
-    # both programs are shown on the counterexample of the check
-    assert equivalence["input"] == {"distribution": "1", "source": "counterexample"}
     witness = equivalence["witness"]
+    # the witness search runs on the input of the solver's counterexample
+    assert witness["input"] == {"x": 0}
     assert witness["state"] in ({"x": 0}, {"x": 1})
     assert {witness["first"]["lower"], witness["second"]["lower"]} <= {"1/3", "2/3", "1/2"}
     assert witness["first"]["kind"] == witness["second"]["kind"] == "exact"
@@ -152,13 +151,17 @@ def test_parameter_values_of_a_synthesis():
 
 def test_gamblers_ruin_with_swapped_branches_is_refuted():
     """The pair of #366 with swapped branches: the probability x/n is computed (#237), and the invariant is
-    refuted on x = 0, n = 1 (the loop keeps x = 0, the closed form sets x = 1)."""
+    refuted on x = 0, n = 1 (the loop keeps x = 0, the closed form sets x = 1). The witness search on that input
+    proves the programs different."""
     equivalence = compare(GAMBLER, GAMBLER_CLOSED, decisions={"0": {"strategy": "invariant",
                                                                     "params": {"invariant": GAMBLER_CLOSED}}}
                           )["equivalence"]
-    assert equivalence["verdict"] == "unknown"
     assert equivalence["check"]["error"]["type"] == "InvariantRefutedError"
     assert equivalence["check"]["error"]["details"]["counterexample"] == {"x": 0, "n": 1}
+    assert equivalence["verdict"] == "not_equivalent"
+    witness = equivalence["witness"]
+    assert witness["input"] == {"n": 1, "x": 0} and witness["state"] == {"x": 0, "n": 1}
+    assert (witness["first"]["lower"], witness["second"]["lower"]) == ("1", "0")
 
 
 def test_gamblers_ruin_is_proven_for_every_input():
@@ -170,21 +173,6 @@ def test_gamblers_ruin_is_proven_for_every_input():
     assert equivalence["relation"] == "first_below_second"
     assert equivalence["check"]["answer"] == "equal"
     assert (equivalence["check"]["first"], equivalence["check"]["second"]) == ("upper", "exact")
-
-
-def test_gamblers_ruin_on_one_input_has_a_witness():
-    """On x = 1, n = 3 the unrolled loop is ruined with probability ≥ 0.66, the closed form says 1/3 (the
-    branches of the pair in #366 are swapped), so the programs provably differ. The guard of the closed form is
-    only n > 0 here, so x <= n is not proven and the check for every input stays not implemented (#237): with it,
-    30 iterations of the loop on the second-order generating function would take minutes."""
-    closed = GAMBLER_CLOSED.replace("n > 0 and x < n", "n > 0")
-    equivalence = compare(GAMBLER, closed, input_distribution="x*n**3",
-                          decisions={"0": {"strategy": "unroll", "params": {"iterations": 30}}})["equivalence"]
-    assert equivalence["verdict"] == "not_equivalent"
-    witness = equivalence["witness"]
-    assert witness["state"] == {"x": 0, "n": 3} and witness["input"] == "x*n**3"
-    assert witness["first"]["kind"] == "lower" and witness["second"]["lower"] == "1/3"
-    assert witness["first"]["lower_float"] > 0.66
 
 
 def test_request_problems():
@@ -259,26 +247,19 @@ def test_every_equivalence_example_has_its_second_program(client):
 
 MODEL_CHECK = """
 const m = await import(%(module)r);
-const exact = (rows) => ({ status: "ok", bounds: { kind: "exact" }, distribution: { variables: ["x"],
-  marginals: { x: { rows, truncated: false } } } });
-const first = exact([{ value: 0, prob: "1/3", p: 1 / 3 }, { value: 1, prob: "2/3", p: 2 / 3 }]);
-const second = exact([{ value: 0, prob: "1/2", p: 0.5 }, { value: 1, prob: "1/2", p: 0.5 }, { value: 2, prob: "0", p: 0 }]);
-const same = exact([{ value: 0, prob: "1/3", p: 1 / 3 }, { value: 1, prob: "2/3", p: 2 / 3 }]);
-const lower = { ...second, bounds: { kind: "lower" } };
 console.log(JSON.stringify({
-  differ: m.compareMarginals(first, second, "x").map((r) => [r.value, r.differs]),
-  same: m.compareMarginals(first, same, "x").map((r) => r.differs),
-  bound: m.compareMarginals(first, lower, "x").map((r) => r.differs),
   notImplemented: m.verdictOf({ verdict: "unknown", check: { error: { type: "NotImplementedError" } } }),
   forged: m.verdictOf({ verdict: "bogus" }).key,
   proven: m.verdictOf({ verdict: "not_equivalent" }),
+  equivalent: m.verdictOf({ verdict: "equivalent" }),
   relation: m.relationText("first_below_second"),
   constraints: m.constraintTexts([{ p: "1/3" }, { p: "1/2", q: "1" }]),
   interval: [m.intervalText({ lower: "1/3", upper: "1/3" }),
              m.intervalText({ lower: "1/3", upper: "123456789/987654321", upper_float: 0.125 }, (e, n) => String(n))],
-  input: [m.inputText({ input: { source: "counterexample", distribution: "1" } }),
-          m.inputText({ input: { source: "request", distribution: "x*n**3" } }), m.inputText({})],
+  input: [m.inputText({ n: 3, x: 1 }), m.inputText({ n: 0, x: 0 }), m.inputText(null)],
+  state: [m.stateText({ x: 0, n: 1 }), m.stateText({})],
   check: m.checkLines({ answer: "failed", error: { type: "NotImplementedError", message: "boom" } }),
+  counterexample: m.checkLines({ answer: "different", first: "exact", second: "exact", counterexample: { x: 2 } }),
 }));
 """
 
@@ -289,21 +270,18 @@ def test_frontend_model(tmp_path):
     script.write_text(MODEL_CHECK % {"module": (COMPONENTS / "equivalence-model.js").as_uri()}, encoding="utf-8")
     output = json.loads(subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60,
                                        check=True).stdout)
-    assert output["differ"] == [[0, True], [1, True], [2, False]]
-    assert output["same"] == [False, False]
-    # with a bound, a value differs only where the intervals do not overlap: 1/3 against [1/2, 1]
-    assert output["bound"] == [True, None, None]
     assert output["notImplemented"]["title"] == "Not decided: not implemented"
     assert output["notImplemented"]["glyph"] == "?" and not output["notImplemented"]["proven"]
     assert output["forged"] == "unknown"
     assert output["proven"]["glyph"] == "≠" and output["proven"]["subtitle"] == "Proven by a witness."
+    assert output["equivalent"]["glyph"] == "=" and output["equivalent"]["subtitle"] == "Proven for every input."
     assert output["relation"].startswith("Program A ⪯ Program B")
     assert output["constraints"] == ["p = 1/3", "p = 1/2, q = 1"]
     assert output["interval"] == ["1/3", "[1/3, 0.125]"]
-    assert output["input"][0] == "Both programs on the input where every variable is 0 (the solver's counterexample)."
-    assert output["input"][1] == "Both programs on the initial distribution x*n**3."
-    assert output["input"][2] == "Both programs on the default input (every variable 0)."
+    assert output["input"] == ["n = 3, x = 1", "every variable 0", "every variable 0"]
+    assert output["state"] == ["x = 0, n = 1", "the empty state"]
     assert output["check"] == ["The check did not finish.", "Not implemented: boom"]
+    assert output["counterexample"][-1] == "Counterexample of the solver: input x = 2."
 
 
 def test_compare_mode_has_its_own_url(client):

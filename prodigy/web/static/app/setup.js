@@ -607,8 +607,7 @@ export function renderSetup(container, ctx) {
       (v) => { options.normalize = v; onChange(); }),
     toggleRow("Simplify expressions", "Slower, but gives shorter closed forms.", options.simplification,
       (v) => { options.simplification = v; onChange(); }),
-    // a comparison records no steps
-    comparing ? null : toggleRow("Record each step", "Record the trace for the timeline of the analysis card: the distribution at each instruction, loop iterates and certificate checks.", options.recordSteps,
+    toggleRow("Record each step", "Record the trace for the timeline of the analysis card: the distribution at each instruction, loop iterates and certificate checks.", options.recordSteps,
       (v) => { options.recordSteps = v; onChange(); }),
     numberRow("Coefficients per marginal", "How many values the charts and tables show.", options.coefficients,
       { min: 0, max: meta.limits.max_coefficients }, (v) => { options.coefficients = v; onChange(); }),
@@ -624,8 +623,7 @@ export function renderSetup(container, ctx) {
     selectRow("Solver", "For equation systems during invariant checks.", options.solver,
       meta.solvers.map((s) => [s, s === "z3" ? "Z3" : "SymPy"]), (v) => { options.solver = v; onChange(); }),
   );
-  const optionsDisclosure = h("details", { class: "disclosure" }, h("summary", {}, comparing ? "Options of the check" : "Analysis options"),
-    comparing ? h("p", { class: "help options-note" }, "These options belong to Compare; Analyze keeps its own.") : null, optionsBody);
+  const optionsDisclosure = h("details", { class: "disclosure" }, h("summary", {}, "Analysis options"), optionsBody);
   optionsDisclosure.open = Boolean(ctx.optionsOpen);
   optionsDisclosure.addEventListener("toggle", () => ctx.onOptionsToggle?.(optionsDisclosure.open));
 
@@ -642,51 +640,42 @@ export function renderSetup(container, ctx) {
       titleId: "loops-b-title", outlineStale: ctx.second.outlineStale, guide: false });
   })() : null;
 
+  if (comparing) {
+    renderCompareSetup(container, ctx, { loopsSection, second });
+    return;
+  }
   const inputHelp = h("p", { class: "help", id: `${inputId}-help` }, ctx.syntax === "ppy"
     ? "A generating function over the program variables, e.g. x**3 for x = 3, or (x + x**2)/2."
     : "A generating function over the program variables, e.g. x^3 for x = 3, or (x + x^2)/2.");
-  const inputSection = comparing ? compareInput(ctx, { input, inputId, inputError, inputHelp })
-    : h("section", { class: "section", "aria-labelledby": "input-title" },
-      h("div", { class: "section-header" }, h("h3", { class: "section-title", id: "input-title" }, "Input")),
-      h("div", { class: "form-row" }, h("label", { for: inputId }, "Initial distribution"), input, inputError, inputHelp));
   container.replaceChildren(
-    inputSection,
-    ...[loopsSection, second].filter(Boolean),
+    h("section", { class: "section", "aria-labelledby": "input-title" },
+      h("div", { class: "section-header" }, h("h3", { class: "section-title", id: "input-title" }, "Input")),
+      h("div", { class: "form-row" }, h("label", { for: inputId }, "Initial distribution"), input, inputError, inputHelp)),
+    loopsSection,
     h("section", { class: "section" }, optionsDisclosure),
   );
 }
 
-/** The input of Compare: the check covers every input at once; the plots of the result show both programs on one
- * input, the default one (every variable 0, or the solver's counterexample) or a distribution given here. */
-function compareInput(ctx, { input, inputId, inputError, inputHelp }) {
-  const { setup, onChange } = ctx;
-  const name = nextId("input-kind");
-  const field = h("div", { class: "form-row compare-input-field" }, h("label", { for: inputId }, "Initial distribution"), input,
-    inputError, inputHelp);
-  const choice = (value, label, help) => {
-    const id = nextId("input-kind");
-    const radio = h("input", { type: "radio", name, id, value, "aria-describedby": `${id}-help` });
-    radio.checked = (setup.inputKind === "given" ? "given" : "default") === value;
-    radio.addEventListener("change", () => {
-      if (!radio.checked) return;
-      setup.inputKind = value;
-      field.hidden = value !== "given";
-      onChange();
-      ctx.onInputChange?.();
-      if (value === "given") input.focus();
-    });
-    return h("div", { class: "radio-row" }, radio, h("div", { class: "radio-text" }, h("label", { for: id }, label),
-      h("p", { class: "help", id: `${id}-help` }, help)));
-  };
-  field.hidden = setup.inputKind !== "given";
-  return h("section", { class: "section", "aria-labelledby": "input-title" },
-    h("div", { class: "section-header" }, h("h3", { class: "section-title", id: "input-title" }, "Input")),
-    h("p", { class: "help" }, "The check covers every input at once (a second-order generating function). "
-      + "The plots of the result show both programs on one input:"),
-    h("fieldset", { class: "radio-group" }, h("legend", { class: "visually-hidden" }, "Input of the plots"),
-      choice("default", "Default input", "Every variable 0, or the input on which the solver found the programs to differ."),
-      choice("given", "This distribution", "Both programs start from the distribution below.")),
-    field);
+/** The Setup of Compare: only what the check for every input needs. A loop section for each program that has
+ * loops (their strategies in the check), and the time limit (the engine is chosen in the toolbar). No input: the
+ * check covers every input at once. */
+function renderCompareSetup(container, ctx, { loopsSection, second }) {
+  const { setup, meta, onChange } = ctx;
+  const hasLoops = (outline, stale) => Boolean(stale) || (outline?.loops || []).length > 0;
+  const sections = [
+    hasLoops(ctx.outline, ctx.outlineStale) ? loopsSection : null,
+    hasLoops(ctx.second.outline, ctx.second.outlineStale) ? second : null,
+  ].filter(Boolean);
+  const intro = h("p", { class: "help compare-intro" }, "Check proves whether programs A and B have the same output "
+    + "distribution for every input (one second-order generating function stands for all inputs), so there is no "
+    + "input to choose."
+    + (sections.length ? " Each loop needs a strategy that the check can prove."
+      : ctx.outline && ctx.second.outline ? " Neither program has loops, so there is nothing to choose." : ""));
+  const check = h("section", { class: "section", "aria-labelledby": "check-options-title" },
+    h("div", { class: "section-header" }, h("h3", { class: "section-title", id: "check-options-title" }, "Check")),
+    numberRow("Time limit (seconds)", `At most ${meta.limits.time_limit} s on this server.`, setup.options.timeLimit,
+      { min: 1, max: meta.limits.time_limit }, (v) => { setup.options.timeLimit = v; onChange(); }));
+  container.replaceChildren(intro, ...sections, check);
 }
 
 function loopSection(ctx, { outline, loopCards, title, titleId, outlineStale, guide = true }) {
