@@ -31,8 +31,8 @@ from prodigy.distribution.distribution import State, constant_value
 from prodigy.distribution.equality import sympify_symbolic_string
 from prodigy.util.order import default_monomial_iterator
 
-WITNESS_SEARCH = 200
-"""How many states :func:`nonzero_state` tries before it gives up."""
+WITNESS_SEARCH = 100
+"""How many values of the free variables :func:`nonzero_state` tries before it gives up."""
 
 
 def expression_variables(expressions: List[Expr]) -> Set[str]:
@@ -90,20 +90,22 @@ def _is_finite_number(text: str) -> bool:
     return bool(value.is_number) and value.is_finite is True and not value.has(sympy.Limit)
 
 
-def nonzero_state(distribution: Distribution, limit: int = WITNESS_SEARCH) -> Optional[State]:
+def nonzero_state(distribution: Distribution, fixed: Optional[State] = None,
+                  limit: int = WITNESS_SEARCH) -> Optional[State]:
     """
-    A state of all variables whose coefficient in ``distribution`` is a non-zero number, i.e. a state that is
-    provably in the support, or None if there is none among the first ``limit`` states (by total degree).
+    A state of all variables that extends ``fixed`` and whose coefficient in ``distribution`` is a non-zero
+    number, i.e. a state that is provably in the support; None if there is none among the first ``limit`` values
+    of the other variables (by total degree).
 
     The coefficient of a state of *all* variables is a number on every engine, also for generating functions
     with infinite mass (the formal power series of an equivalence check), so a non-zero coefficient proves that
     the series is not identically zero; masses are never compared. Coefficients with parameters do not count.
     """
-    variables = sorted(distribution.get_variables())
-    if not variables:
-        return None
-    for values in itertools.islice(default_monomial_iterator(len(variables)), limit):
-        state = State(dict(zip(variables, values)))
+    given = dict(fixed.valuations) if fixed is not None else {}
+    free = sorted(distribution.get_variables() - given.keys())
+    candidates = itertools.islice(default_monomial_iterator(len(free)), limit) if free else iter([[]])
+    for values in candidates:
+        state = State({**given, **dict(zip(free, values))})
         try:
             coefficient = distribution.filter_state(state).get_probability_mass()
         except (ArithmeticError, ValueError, NotImplementedError):

@@ -300,9 +300,21 @@ A choice `{A} [x/n] {B}` with two program variables `x` and `n` that take infini
 followed by `1/θ_n`: the branch `A` gets `L = ∫_0^n (θ_x G)(t)/t dt`, the branch `B` gets `G − L`.
 
 - `L` is defined only if `G` has no terms `n^0` (no division by zero), and `x/n` is a probability
-  only if `x ≤ n`. Both are proven by filtering `G`: `n = 0` and `x > n` must give the zero measure,
-  e.g. after the guard `n > 0 and x < n`. Otherwise the choice is "not implemented" with the
-  condition that was not proven.
+  only if `x ≤ n`. As for finitely many values, a reachable state with `n = 0` or `x > n` is an error
+  of the whole program, not a partial result (no error mass). Prodigy splits off the part `G_B` of `G`
+  on `B = {n = 0} ∪ {x > n}` with the comparison filters, which work on formal power series of
+  infinite mass as well, and decides by the coefficients of the series, never by a mass:
+  - `G_B` is provably the zero series (e.g. after the guard `n > 0 and x < n`): the choice is well
+    formed and the operator is applied;
+  - `G_B` has a coefficient that is a non-zero number: an error with that state as the witness, worded
+    as for finitely many values ("x / n is 2 in the state n = 1, x = 2, which has probability 1/16" or
+    "is undefined in the state n = 0, x = 0, …: 0 / 0 has no value"). The witness is searched over the
+    values of `x` and `n` by total degree, each extended by values of the other variables with a
+    non-zero coefficient. In the second-order generating function of an equivalence check (infinite
+    mass) "reachable" means a non-zero coefficient; the probability of the state is shown only if it
+    is a finite number;
+  - neither (the comparison is not implemented on `G`, or `G_B` is not shown to be zero and no
+    witness is found): "not implemented", saying what Prodigy could not decide.
 - `L` is proposed and certified as above: `∂L/∂n = (θ_x G)/n`, `L(0) = 0` and `L` analytic at the
   origin. Besides SymPy's `integrate`, a rational integrand is integrated by its partial fractions
   in `n` (also with parameters, as in the second-order generating functions of an equivalence

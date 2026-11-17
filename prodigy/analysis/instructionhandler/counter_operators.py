@@ -38,6 +38,7 @@ undefined instead of as a result (#259). The tests filter and query at ``k = 0``
 """
 from __future__ import annotations
 
+import itertools
 from fractions import Fraction
 from typing import NamedTuple, Optional, Set, Tuple
 
@@ -46,11 +47,12 @@ import sympy
 from prodigy.pgcl import Binop, BinopExpr, Expr, NatLitExpr, RealLitExpr, VarExpr
 
 from prodigy.analysis.evtinvariants.exp_polynomial import eventually_nonneg, integral_from_zero
-from prodigy.analysis.instructionhandler.state_dependent import (WITNESS_SEARCH, StatePart, checked_probability,
-                                                                 instantiate, nonzero_state)
+from prodigy.analysis.instructionhandler.state_dependent import (StatePart, checked_probability, instantiate,
+                                                                 nonzero_state)
 from prodigy.distribution import Distribution, MarginalType
 from prodigy.distribution.distribution import State
 from prodigy.distribution.equality import decide_equal, sympify_distribution, sympy_text
+from prodigy.util.order import default_monomial_iterator
 
 
 class CounterProbability(NamedTuple):
@@ -269,6 +271,19 @@ def ratio_probability(probability: Expr, variables: Set[str]) -> Optional[RatioP
     return None
 
 
+WITNESS_PAIRS = 45
+"""How many values of (x, n) the search for a witness of a probability ``x/n`` that is not admissible tries
+(all pairs up to total degree 8)."""
+
+
+def _degree(pairs: int) -> int:
+    """The total degree up to which the first ``pairs`` values of two variables reach."""
+    degree = 0
+    while (degree + 1) * (degree + 2) // 2 < pairs:
+        degree += 1
+    return degree
+
+
 def _admissible(distribution: Distribution, probability: RatioProbability, condition: Expr,
                 construct: str) -> None:
     """
@@ -291,12 +306,21 @@ def _admissible(distribution: Distribution, probability: RatioProbability, condi
                                   ) from error
     if part.is_provably_zero():
         return
-    state = nonzero_state(part)
+    # the witness: values of (x, n) in B, by total degree, extended by values of the other variables with a
+    # non-zero coefficient (in a second-order generating function, the other variables pair with x and n)
+    x, n = probability.numerator, probability.denominator
+    state = None
+    for x_value, n_value in itertools.islice(default_monomial_iterator(2), WITNESS_PAIRS):
+        if n_value == 0 or x_value > n_value:
+            state = nonzero_state(part, State({x: x_value, n: n_value}))
+            if state is not None:
+                break
     if state is None:
         raise NotImplementedError(
-            f"{prefix}: the part of the distribution where {condition} is not shown to be zero, and none of its "
-            f"first {WITNESS_SEARCH} states has a non-zero coefficient.")
-    values = State({var: state[var] for var in (probability.numerator, probability.denominator)})
+            f"{prefix}: the part of the distribution where {condition} is not shown to be zero, and no state with "
+            f"a non-zero coefficient was found in it (values of {x} and {n} up to total degree "
+            f"{_degree(WITNESS_PAIRS)}).")
+    values = State({x: state[x], n: state[n]})
     expression = BinopExpr(Binop.DIVIDE, VarExpr(probability.numerator), VarExpr(probability.denominator))
     checked_probability(instantiate(expression, values), construct,
                         StatePart(values, distribution.filter_state(values)))
