@@ -414,11 +414,28 @@ class InteractiveDecisions(DecisionProvider):
 
     interactive = True
 
+    def __init__(self, decisions: Optional[Mapping[Any, Any]] = None, *, remember: bool = False):
+        super().__init__(decisions)
+        self.remember = remember
+        """Answer every question about the same loop instruction with the first answer, e.g. when
+        ``prodigy check_equality`` analyses a program again on one input after the check."""
+        # id of the loop instruction -> (the instruction, kept alive so that the id stays its own; the answer)
+        self._choices: Dict[int, Tuple[WhileInstr, LoopDecision]] = {}
+        self._params: Dict[Tuple[int, str], Tuple[WhileInstr, Any]] = {}
+
     def loop_decision(self, session: AnalysisSession, loop: Optional[LoopInfo],
                       instruction: WhileInstr) -> LoopDecision:
         preset = self.preset(loop)
         if preset is not None:
             return preset
+        if id(instruction) in self._choices:
+            return self._choices[id(instruction)][1]
+        decision = self._ask_strategy()
+        if self.remember:
+            self._choices[id(instruction)] = (instruction, decision)
+        return decision
+
+    def _ask_strategy(self) -> LoopDecision:
         options: Dict[str, LoopStrategy] = {}
         lines = ["While Instruction has only limited support. Choose an option:\n"]
         numbered = [int(s.legacy_key) for s in loop_strategies() if s.legacy_key and s.legacy_key.isdigit()]
@@ -442,6 +459,15 @@ class InteractiveDecisions(DecisionProvider):
             print(f"Invalid input: {user_choice}")
 
     def ask_param(self, session: AnalysisSession, task: LoopTask, spec: ParamSpec) -> Any:
+        key = (id(task.instruction), spec.name)
+        if key in self._params:
+            return self._params[key][1]
+        value = self._ask_param(session, task, spec)
+        if self.remember:
+            self._params[key] = (task.instruction, value)
+        return value
+
+    def _ask_param(self, session: AnalysisSession, task: LoopTask, spec: ParamSpec) -> Any:
         alias = next((p for p in task.strategy.params if p.alias_of == spec.name), None)
         while True:
             if alias is not None and alias.kind == "file":

@@ -6,7 +6,7 @@ from click.testing import CliRunner
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession, spell
-from prodigy.cli import cli
+from prodigy.cli import EXIT_UNDECIDED, cli
 from prodigy.pgcl import parse_pgcl
 from prodigy.pgcl.parser import parse_expectation
 
@@ -110,8 +110,9 @@ def test_cli_check_equality_reads_invariant_files_in_the_program_syntax(tmp_path
                          "if (x == 1) {\n    temp = geometric(1/2);\n    c = c + temp;\n    x = 0;\n    temp = 0;\n}\n")
     # the loop asks for its strategy (1: invariant) and the invariant file
     result = CliRunner().invoke(cli, ["check_equality", str(program), str(invariant)], input=f"1\n{invariant}\n")
-    assert result.exit_code == 0, result.output
-    assert "is equivalent" in result.output
+    # the invariant (Park's lemma) gives an upper bound: one direction is proven (#395)
+    assert result.exit_code == EXIT_UNDECIDED, result.output
+    assert "one direction proven: first_below_second" in result.output
 
 
 def test_result_json_states_the_syntax(tmp_path):

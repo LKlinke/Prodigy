@@ -13,7 +13,7 @@ import logging
 import sys
 import time
 from itertools import combinations
-from typing import IO, Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar, TYPE_CHECKING, Union
+from typing import IO, Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar, TYPE_CHECKING
 
 import click
 from lark.exceptions import UnexpectedInput
@@ -25,8 +25,8 @@ from prodigy.analysis.analyzer import compute_discrete_distribution, compute_sem
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import (HeuristicsError, UndefinedDistributionError, UnsupportedFeatureError,
                                         VerificationError)
+from prodigy.analysis.equivalence.verdict import Comparison, compare
 from prodigy.analysis.input_distribution import InputDistributionError, input_distribution_from_text
-from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from prodigy.analysis.evtinvariants.heuristics.strategies import (DEFAULT_MAX_DEGREE, SELECTABLE_POSITIVITY_HEURISTICS,
                                                                   SynthesisStrategies)
@@ -38,8 +38,8 @@ from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.analysis.independence.independence import independent_vars as get_independent_vars_of
 from prodigy.analysis.loop_strategies import loop_strategies, strategy_groups
-from prodigy.analysis.session import AnalysisSession, DEFAULT_KEY, parse_decisions, validate_decisions, LoopRegistry
-from prodigy.distribution.distribution import Distribution, State
+from prodigy.analysis.session import (AnalysisSession, DEFAULT_KEY, InteractiveDecisions, LoopRegistry, parse_decisions,
+                                      validate_decisions)
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
@@ -280,16 +280,33 @@ def main(ctx: click.Context, program_file: IO, input_dist: str,  # pylint: disab
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
 
 
+EXIT_EQUIVALENT = 0
+"""Exit code of ``prodigy check_equality``: equivalence is proven."""
+EXIT_NOT_EQUIVALENT = 3
+"""Exit code of ``prodigy check_equality``: a witness proves the programs different."""
+EXIT_UNDECIDED = 4
+"""Exit code of ``prodigy check_equality``: neither is proven (also if only one direction is)."""
+
+_VERDICT_EXIT = {"equivalent": EXIT_EQUIVALENT, "not_equivalent": EXIT_NOT_EQUIVALENT, "unknown": EXIT_UNDECIDED}
+
+
 @cli.command('check_equality')
 @click.pass_context
 @click.argument('program_file', type=click.File('r'))
 @click.argument('other_program_file', type=click.File('r'))
 @_syntax_option
-def check_equality(ctx: click.Context, program_file: IO, other_program_file: IO, syntax: Optional[str]
-                   ) -> Tuple[Optional[bool], Union[List[Dict[str, str]], State, Distribution]]:
+def check_equality(ctx: click.Context, program_file: IO, other_program_file: IO, syntax: Optional[str]) -> None:
     """
-    Checks whether a certain loop-free program is an invariant of a specified while loop.
-    Each file is read in the syntax of its extension, unless --syntax is given.
+    Checks whether two programs are equivalent, i.e. have the same output distribution for every input,
+    e.g. a while loop and a loop-free invariant program. Each file is read in the syntax of its extension,
+    unless --syntax is given. Loops are decided interactively, as in `prodigy main`.
+
+    The verdict is sound: "equivalent" only if the check proves equality and both analyses are exact,
+    "not equivalent" only with a witness (an output state whose probabilities provably differ on one
+    input), "undecided" otherwise, with the reason (e.g. only one direction is proven because a loop was
+    handled by an invariant, which gives an upper bound).
+
+    Exit codes: 0 equivalent, 3 not equivalent, 4 undecided; 1 and 2 are errors (e.g. a syntax error).
     """
     source, prog, program_syntax = _read_program(program_file, syntax)
     _require_type_correct(program_file, prog, source, program_syntax)
@@ -297,37 +314,52 @@ def check_equality(ctx: click.Context, program_file: IO, other_program_file: IO,
     _require_type_correct(other_program_file, other_prog, other_source, other_syntax)
 
     start = time.perf_counter()
-    # invariant files asked for on the terminal are read in the syntax of the program
-    session = AnalysisSession.detached(program_syntax)
-    session.parameter_synthesis = "allow"
+    # invariant files asked for on the terminal are read in the syntax of the program; the witness search
+    # analyses the programs again and takes the answers given for the check
+    session = AnalysisSession(None, syntax=program_syntax, config=ctx.obj['CONFIG'],
+                              provider=InteractiveDecisions(remember=True), parameter_synthesis="allow")
+    session.detached_session = True
     with session.activate():
-        equiv, result = check_equivalence(prog, other_prog, ctx.obj['CONFIG'], compute_semantics)
+        comparison = compare(prog, other_prog, session)
     stop = time.perf_counter()
-    if equiv is True:
-        assert isinstance(result, list)
-        print(
-            f"Program{Style.OKGREEN} is equivalent{Style.RESET} to invariant",
-            end="")
-        if len(result) == 0:
-            print(".")
-        else:
-            print(
-                f" {Style.OKGREEN}under the following constraints:{Style.RESET} {result}."
-            )
-    elif equiv is False:
-        assert isinstance(result, State)
-        print(
-            f"Program{Style.OKRED} is not equivalent{Style.RESET} to invariant. "
-            f"{Style.OKRED}Counterexample:{Style.RESET} {result.valuations}"
-        )
-    else:
-        assert equiv is None
-        print(
-            f"Program equivalence{Style.OKYELLOW} cannot be determined{Style.RESET}, but depends on {result}."
-        )
-
+    _print_comparison(comparison, program_file.name, other_program_file.name)
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
-    return equiv, result
+    ctx.exit(_VERDICT_EXIT[comparison.verdict["verdict"]])
+
+
+def _print_comparison(comparison: Comparison, first: str, second: str) -> None:
+    check, verdict, witness = comparison.check, comparison.verdict, comparison.witness
+    print(f"Program A: {first}\nProgram B: {second}")
+    answers = {"equal": "the computed distributions are equal", "different": "the computed distributions differ",
+               "undecided": "undecided", "failed": "did not finish"}
+    line = f"Check for every input: {answers.get(check.answer, check.answer)}"
+    if check.error is not None and check.error.get("type") == "variables":
+        line = "Check for every input: not run"
+    elif check.answer != "failed":
+        line += f" (analysis of A: {check.first}, of B: {check.second})"
+    print(line)
+    if verdict["verdict"] == "equivalent":
+        print(f"Verdict: {Style.OKGREEN}A is equivalent to B{Style.RESET}")
+    elif verdict["verdict"] == "not_equivalent":
+        print(f"Verdict: {Style.OKRED}A is not equivalent to B{Style.RESET}")
+    else:
+        relation = verdict.get("relation")
+        proven = f" (one direction proven: {relation})" if relation else ""
+        print(f"Verdict: {Style.OKYELLOW}undecided{Style.RESET}{proven}")
+    print(f"Reason: {verdict['reason']}")
+    if verdict.get("constraints"):
+        print("Parameter values: " + "; ".join(
+            ", ".join(f"{name} = {value}" for name, value in constraint.items())
+            for constraint in verdict["constraints"]))
+    if witness is not None:
+        shown_input = ", ".join(f"{k} = {v}" for k, v in sorted(comparison.input.items()) if v) or "every variable 0"
+        state = ", ".join(f"{k} = {v}" for k, v in witness["state"].items()) or "the empty state"
+        print(f"Witness: on the input {shown_input}, the output state {state} has probability")
+        for name, side in (("A", witness["first"]), ("B", witness["second"])):
+            value = side["lower"] if side["lower"] == side["upper"] else f"in [{side['lower']}, {side['upper']}]"
+            print(f"  {value} in program {name} ({side['kind']})")
+    elif check.difference is not None and verdict["verdict"] == "unknown":
+        print(f"Difference of the outputs (A - B) for every input: {check.difference}")
 
 
 @cli.command('independent_vars')

@@ -133,4 +133,5 @@ def test_cli_prints_warnings_on_stderr(tmp_path, flag):
     result = runner.invoke(cli, args)
     assert "w.ppy:4:5:" in result.stderr and "truncated at 0" in result.stderr
     assert "w.ppy:5:5:" in result.stderr and "implicit cast from bool to nat" in result.stderr
-    assert "warning" not in result.stdout
+    # (check_equality prints the file names, and the test's directory contains "warning")
+    assert "w.ppy:4:5:" not in result.stdout and "w.ppy:5:5:" not in result.stdout
