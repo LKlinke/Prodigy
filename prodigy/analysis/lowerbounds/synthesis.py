@@ -24,11 +24,11 @@ import math
 import time
 from dataclasses import dataclass, field
 from fractions import Fraction
-from typing import Any, Callable, List, Optional, Sequence, Tuple, Union
+from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
-from prodigy.analysis.lowerbounds.egcalc import Denominator, GFCalculus, Num, degrees, padd, pmul, pscale
+from prodigy.analysis.lowerbounds.egcalc import Denominator, GFCalculus, Num, Value, degrees, padd, pmul, pscale
 from prodigy.analysis.lowerbounds.ir import IR
 
 
@@ -44,13 +44,19 @@ class Certificate:
     margin: Optional[float]
     time_build: float
     time_lp: float
-    exit_mass: Any = None  # a Value once the certificate is verified; None before (see to_json)
-    total_mass: Any = None
+    exit_mass: Optional[Value] = None  # set once the certificate is verified; None before
+    total_mass: Optional[Value] = None
     extra: dict = field(default_factory=dict)
 
     @property
     def den(self) -> Denominator:
         return self.calc.den
+
+    def verified_exit_mass(self) -> Value:
+        """The exit mass of a verified certificate; a certificate that is not verified yet has none."""
+        if self.exit_mass is None:
+            raise ValueError("the certificate has no exit mass: it is not verified yet")
+        return self.exit_mass
 
     def to_json(self) -> dict:
         return dict(kind=self.kind,
@@ -60,7 +66,8 @@ class Certificate:
                     tail_start=list(self.tail_start), template_size=self.template_size,
                     numerator=[[list(e), str(c)] for e, c in sorted(self.numerator.items())],
                     generating_function=self.calc.to_expr(self.numerator),
-                    exit_mass=str(self.exit_mass), total_mass=str(self.total_mass))
+                    exit_mass=None if self.exit_mass is None else str(self.exit_mass),
+                    total_mass=None if self.total_mass is None else str(self.total_mass))
 
 
 def scaled_expansion(calc: GFCalculus, polys: Sequence[Num],
