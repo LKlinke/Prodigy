@@ -1,5 +1,5 @@
 import logging
-from typing import Collection, Optional
+from typing import Any, Collection, Optional
 
 import sympy
 
@@ -23,7 +23,7 @@ class SingleRationalFunction(PositivityHeuristic):
         self.variables = frozenset(map(str, variables))
         self._poly_heuristic = FinitePolynomialPositivity(sub_heuristic, variables=self.variables)
 
-    def _is_positive(self, f) -> Optional[bool]:
+    def _is_positive(self, f: Any) -> Optional[bool]:
         s_f, gens = series_form(f, self.variables)
         if not s_f.is_rational_function(*gens):
             raise HeuristicsError(f"The given function is not rational {f=}")
@@ -59,7 +59,7 @@ class RationalFunctionDenomSign(PositivityHeuristic):
         self.dist_fact = dist_fact
         self.variables = frozenset(map(str, variables))
 
-    def _is_positive(self, f) -> Optional[bool]:
+    def _is_positive(self, f: Any) -> Optional[bool]:
         """
         Checks heuristically whether a rational function _f_ = N / D (in any number of variables) has a
         non-negative power series expansion: it does if D has a positive constant term, all other

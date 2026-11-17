@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Collection, Optional
+from typing import TYPE_CHECKING, Collection, Optional, Type
 
 from prodigy.analysis.evtinvariants.heuristics.positivity.dominat_root_rejection import DominantRootHeuristic
 from prodigy.analysis.exceptions import HeuristicsError
@@ -9,6 +9,9 @@ from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import Posi
 from prodigy.analysis.evtinvariants.heuristics.templates.templates import TemplateHeuristic
 from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
 from prodigy.distribution import CommonDistributionsFactory
+
+if TYPE_CHECKING:  # pragma: no cover
+    from prodigy.analysis.config import ForwardAnalysisConfig
 
 DEFAULT_MAX_DEGREE = 4
 """Default degree bound of the templates (strategy parameter ``max_degree`` of ``evt_synthesis``). The
@@ -27,10 +30,10 @@ class SynthesisStrategy:
 @dataclass
 class DefaultStrategy(SynthesisStrategy):
     variables: Collection[str]
-    dist_factory: CommonDistributionsFactory
+    dist_factory: Type[CommonDistributionsFactory]
     max_degree: int = DEFAULT_MAX_DEGREE
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.template_heuristics = TemplateHeuristics.create(
             TemplateHeuristics.DEFAULT,
             self.max_degree,
@@ -48,10 +51,10 @@ class DefaultStrategy(SynthesisStrategy):
 @dataclass
 class PartialRational(SynthesisStrategy):
     variables: Collection[str]
-    dist_factory: CommonDistributionsFactory
+    dist_factory: Type[CommonDistributionsFactory]
     max_degree: int = DEFAULT_MAX_DEGREE
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.template_heuristics = TemplateHeuristics.create(
             TemplateHeuristics.DEFAULT,
             self.max_degree,
@@ -67,9 +70,9 @@ class PartialRational(SynthesisStrategy):
 @dataclass
 class InfinitePolynomial(SynthesisStrategy):
     variables: Collection[str]
-    dist_factory: CommonDistributionsFactory
+    dist_factory: Type[CommonDistributionsFactory]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.template_heuristics = (
             TemplateHeuristics.create(TemplateHeuristics.POLY, self.variables, self.dist_factory))
         self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.POLYNOMIAL,
@@ -79,10 +82,10 @@ class InfinitePolynomial(SynthesisStrategy):
 @dataclass
 class FinitePolynomial(SynthesisStrategy):
     variables: Collection[str]
-    dist_factory: CommonDistributionsFactory
+    dist_factory: Type[CommonDistributionsFactory]
     max_degree: int = DEFAULT_MAX_DEGREE
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.template_heuristics = (
             TemplateHeuristics.create(TemplateHeuristics.POLY, self.variables, self.dist_factory, self.max_degree))
         self.positivity_heuristics = PositivityHeuristics.create(PositivityHeuristics.POLYNOMIAL,
@@ -92,10 +95,10 @@ class FinitePolynomial(SynthesisStrategy):
 @dataclass
 class AllOrPartialRational(SynthesisStrategy):
     variables: Collection[str]
-    dist_factory: CommonDistributionsFactory
+    dist_factory: Type[CommonDistributionsFactory]
     max_degree: int = DEFAULT_MAX_DEGREE
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.template_heuristics = TemplateHeuristics.create(
             TemplateHeuristics.DEFAULT,
             self.max_degree,
@@ -130,12 +133,12 @@ SELECTABLE_POSITIVITY_HEURISTICS = tuple(
 class FromHeuristics(SynthesisStrategy):
     """A strategy made of one template heuristic and one positivity heuristic chosen by the user."""
     variables: Collection[str]
-    dist_factory: CommonDistributionsFactory
+    dist_factory: Type[CommonDistributionsFactory]
     templ_heuristic: TemplateHeuristics
     positivity_heuristic: PositivityHeuristics
     max_degree: int = DEFAULT_MAX_DEGREE
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.templ_heuristic == TemplateHeuristics.POLY:
             self.template_heuristics = TemplateHeuristics.create(
                 TemplateHeuristics.POLY, self.variables, self.dist_factory, self.max_degree)
@@ -165,7 +168,7 @@ class SynthesisStrategies(Enum):
     FROM_HEURISTICS = FromHeuristics
 
     @classmethod
-    def make(cls, st: 'SynthesisStrategies', variables: Collection[str], dist_factory: CommonDistributionsFactory,
+    def make(cls, st: 'SynthesisStrategies', variables: Collection[str], dist_factory: Type[CommonDistributionsFactory],
              templ_heuristic: Optional[TemplateHeuristics] = None,
              positivity_heuristic: Optional[PositivityHeuristics] = None,
              max_degree: int = DEFAULT_MAX_DEGREE) -> SynthesisStrategy:
@@ -185,7 +188,8 @@ class SynthesisStrategies(Enum):
         return FromHeuristics(variables, dist_factory, templ_heuristic, positivity_heuristic, max_degree)
 
     @classmethod
-    def from_config(cls, config, variables: Collection[str], max_degree: int = DEFAULT_MAX_DEGREE) -> SynthesisStrategy:
+    def from_config(cls, config: 'ForwardAnalysisConfig', variables: Collection[str],
+                    max_degree: int = DEFAULT_MAX_DEGREE) -> SynthesisStrategy:
         """Builds the strategy chosen in a :class:`ForwardAnalysisConfig` with templates up to ``max_degree``."""
         return cls.make(config.strategy, variables, config.factory,
                         templ_heuristic=config.templ_heuristic, positivity_heuristic=config.positivity_heuristic,

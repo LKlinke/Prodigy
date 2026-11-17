@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Any
 
 from prodigy.analysis.evtinvariants.heuristics.templates.polynomial_function import PolynomialEnumeration
 from prodigy.analysis.evtinvariants.heuristics.templates.rational_function import RationalFunctionMaxDeg
@@ -10,5 +11,5 @@ class TemplateHeuristics(Enum):
     POLY = PolynomialEnumeration
 
     @staticmethod
-    def create(h_type: 'TemplateHeuristics', *args, **kwargs) -> TemplateHeuristic:
+    def create(h_type: 'TemplateHeuristics', *args: Any, **kwargs: Any) -> TemplateHeuristic:
         return h_type.value(*args, **kwargs)

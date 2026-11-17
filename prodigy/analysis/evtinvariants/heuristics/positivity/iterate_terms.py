@@ -1,4 +1,4 @@
-from typing import Collection, Optional
+from typing import Any, Collection, Optional
 
 from prodigy.analysis.evtinvariants.heuristics.positivity.coefficients import series_form, sign
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic
@@ -27,7 +27,7 @@ class IterateTermsHeuristic(PositivityHeuristic):
         self._max_iters = iterations
         self._vars = tuple(sorted(map(str, variables)))
 
-    def _is_positive(self, f) -> Optional[bool]:
+    def _is_positive(self, f: Any) -> Optional[bool]:
         dist = self._factory.from_expr(str(f).replace("**", "^"), *self._vars)
         verdict: Optional[bool] = True
         for i, (prob, _) in enumerate(dist):

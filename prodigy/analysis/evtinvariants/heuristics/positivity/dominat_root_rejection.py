@@ -1,5 +1,5 @@
 import logging
-from typing import Collection, Optional
+from typing import Any, Collection, Optional
 
 import sympy
 
@@ -36,14 +36,14 @@ class DominantRootHeuristic(PositivityHeuristic):
     PRECISION = 50
     TIE = sympy.Float("1e-40")
 
-    def _is_positive(self, f) -> Optional[bool]:
+    def _is_positive(self, f: Any) -> Optional[bool]:
         try:
             return self._refute(f)
         except (VerificationError, sympy.PolynomialError, NotImplementedError, TypeError, IndexError,
                 ValueError, ZeroDivisionError, sympy.polys.polyerrors.BasePolynomialError):
             return None
 
-    def _refute(self, f) -> Optional[bool]:
+    def _refute(self, f: Any) -> Optional[bool]:
         s_f, gens = series_form(f, self.variables)
         if len(s_f.free_symbols) > 1 or set(s_f.free_symbols) - set(gens):
             raise VerificationError(f"Currently only univariate rational functions without parameters are "

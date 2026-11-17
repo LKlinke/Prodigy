@@ -9,5 +9,5 @@ class TemplateHeuristic(ABC):
     def generate(self) -> Iterator[Distribution]:
         ...
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.__class__.__name__

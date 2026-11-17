@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import sympy
 
@@ -15,7 +15,7 @@ class OrHeuristic(PositivityHeuristic):
         super().__init__(sub_heuristic)
         self._heuristics: List[PositivityHeuristic] = list(heuristics)
 
-    def _is_positive(self, f) -> Optional[bool]:
+    def _is_positive(self, f: Any) -> Optional[bool]:
         for heuristic in self._heuristics:
             result = heuristic.is_positive(f)
             if result is True or result is False:
@@ -30,7 +30,7 @@ class AndHeuristic(PositivityHeuristic):
         super().__init__(sub_heuristic)
         self._heuristics: List[PositivityHeuristic] = list(heuristics)
 
-    def _is_positive(self, f) -> Optional[bool]:
+    def _is_positive(self, f: Any) -> Optional[bool]:
         verdict: Optional[bool] = True
         for heuristic in self._heuristics:
             result = heuristic.is_positive(f)
@@ -50,7 +50,7 @@ class NotHeuristic(PositivityHeuristic):
         super().__init__(sub_heuristic)
         self._heuristic = heuristic
 
-    def _is_positive(self, f) -> Optional[bool]:
+    def _is_positive(self, f: Any) -> Optional[bool]:
         s_f = sympify_symbolic_string(f) if isinstance(f, str) else sympy.S(f)
         if sympy.cancel(sympy.together(s_f)) == 0:
             return True

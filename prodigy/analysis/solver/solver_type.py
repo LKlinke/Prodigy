@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Any
 
 from prodigy.analysis.solver.mock_solver import MockTrueSolver, MockFalseSolver, MockNoneSolver
 from prodigy.analysis.solver.smtz3_solver import SMTZ3Solver
@@ -14,5 +15,5 @@ class SolverType(Enum):
     NONE = MockNoneSolver
 
     @staticmethod
-    def make(st: 'SolverType', *args, **kwargs) -> Solver:
+    def make(st: 'SolverType', *args: Any, **kwargs: Any) -> Solver:
         return st.value(*args, **kwargs)
