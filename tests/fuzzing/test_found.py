@@ -145,3 +145,28 @@ def test_isolated_stops_a_program_over_its_budget_or_dying():
 def test_isolated_stops_a_program_that_eats_all_memory():
     with pytest.raises(ProgramCrash, match="out of memory"):
         isolated(_allocate, 2**31, seconds=60, memory=2**30)
+
+
+# The weekly fuzzing run took more than 900 s on this: the observed residue class of a Poisson draw gives a
+# sum of exponentials with complex roots of unity. The check "is the distribution zero?" fell through to
+# SymPy's `Expr.equals`, whose `solve` runs for minutes. A numeric pre-check shows the sum is nonzero.
+OBSERVE_RESIDUE_OF_POISSON = """x: nat;
+y: nat;
+loop(1) {
+  y = poisson(1);
+  observe(not (((y % 3) == 1)));
+}
+query Pr[((x % 3) == 0)];
+"""
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_observed_residue_class_of_a_poisson_draw_is_fast(engine):
+    start = time.perf_counter()
+    result = analyse(OBSERVE_RESIDUE_OF_POISSON, "ppy", ENGINES[engine], {})
+    assert result["status"] == "ok", result["error"]
+    assert time.perf_counter() - start < 30
+
+
+def test_observed_residue_class_of_a_poisson_draw_agrees_on_all_engines():
+    assert not isolated(check_program, OBSERVE_RESIDUE_OF_POISSON, "ppy", {}, seconds=100, seed=0)

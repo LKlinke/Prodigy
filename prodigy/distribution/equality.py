@@ -26,6 +26,62 @@ def is_rational_over_q(expr: sympy.Expr) -> bool:
     return True
 
 
+_SAMPLE_POINTS = (sympy.Rational(1, 3), sympy.Rational(2, 5), sympy.Rational(3, 7))
+
+
+def _numerically_nonzero(expression: sympy.Expr) -> bool:
+    """
+    Whether ``expression`` is clearly nonzero at some point (high-precision evaluation, magnitude far above
+    the error): then it is not identically 0 and ``Expr.equals`` cannot prove it so. A cheap pre-check, since
+    ``equals`` may take minutes on sums of exponentials with complex roots of unity (the residue-class filter
+    ``y % 3 == 1`` of a Poisson draw). False means only "not shown nonzero".
+    """
+    symbols = sorted(expression.free_symbols, key=str)
+    for shift in range(len(_SAMPLE_POINTS)):
+        point = {symbol: _SAMPLE_POINTS[(index + shift) % len(_SAMPLE_POINTS)] for index, symbol in enumerate(symbols)}
+        try:
+            value = sympy.N(expression.subs(point), 40)
+            if value.is_number and value.is_finite and abs(value) > sympy.Float("1e-15", 40):
+                return True
+        except (ArithmeticError, ValueError, TypeError, AttributeError):
+            continue
+    return False
+
+
+def _constants_in_normal_form(expression: sympy.Expr) -> sympy.Expr:
+    """
+    ``expression`` with every constant subterm that is not a rational number written as ``a + b*I`` (an exact
+    rewrite, ``expand_complex``): ``exp(2*I*pi/3)`` becomes ``-1/2 + sqrt(3)*I/2``. Two engines write the same roots
+    of unity differently, and ``cancel`` of the difference with both forms works over an algebraic extension
+    that takes minutes (the residue classes ``y % 3`` of a Poisson draw), while after the rewrite the terms
+    cancel at once.
+    """
+    try:
+        return expression.replace(lambda node: node.is_number and not node.is_Rational and not node.is_Atom,
+                                  sympy.expand_complex)
+    except (ArithmeticError, ValueError, TypeError, sympy.PolynomialError):
+        return expression
+
+
+NORMAL_FORM_LIMIT = 3000
+"""Operations of the difference in normal form (:func:`_constants_in_normal_form`) up to which ``cancel`` is
+tried over the algebraic extension; for larger ones only the cheap proof (:func:`_cancels_with_frozen_constants`)."""
+
+
+def _cancels_with_frozen_constants(expression: sympy.Expr) -> bool:
+    """
+    Whether ``expression`` cancels to 0 with every constant subterm that is not a rational number replaced by an
+    indeterminate. That is a polynomial identity over the rationals, so it holds for the actual values as well:
+    True proves ``expression == 0``; False means only "not shown".
+    """
+    frozen = expression.replace(lambda node: node.is_number and not node.is_Rational and not node.is_Atom,
+                                lambda node: sympy.Dummy("c"))
+    try:
+        return sympy.cancel(sympy.together(frozen)) == 0
+    except sympy.PolynomialError:
+        return False
+
+
 def decide_equal(lhs: sympy.Expr, rhs: sympy.Expr, use_simplify: bool = True) -> Optional[bool]:
     """
     Decides ``lhs == rhs`` as an identity in all symbols.
@@ -51,15 +107,19 @@ def decide_equal(lhs: sympy.Expr, rhs: sympy.Expr, use_simplify: bool = True) ->
     difference = lhs - rhs
     reduced = None
     try:
-        reduced = sympy.cancel(sympy.together(difference))
-        if reduced == 0:
+        normal_form = _constants_in_normal_form(difference)
+        if normal_form.count_ops() <= NORMAL_FORM_LIMIT:
+            reduced = sympy.cancel(sympy.together(normal_form))
+            if reduced == 0:
+                return True
+        elif _cancels_with_frozen_constants(difference):
             return True
     except sympy.PolynomialError:
         pass
     if is_rational_over_q(difference) or (reduced is not None and not reduced.has(sympy.Float)
                                           and is_rational_over_q(reduced)):
         return False
-    if use_simplify and difference.equals(0) is True:
+    if use_simplify and not _numerically_nonzero(difference) and difference.equals(0) is True:
         return True
     return None
 
