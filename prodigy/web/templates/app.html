@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='app/components/result-view.css') }}?v={{ version }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='app/components/analysis-card.css') }}?v={{ version }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='app/components/evt-exploration.css') }}?v={{ version }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app/components/equivalence-view.css') }}?v={{ version }}">
   <script src="{{ url_for('static', filename='vendor/katex/katex.min.js') }}" defer></script>
   <script type="module" src="{{ url_for('static', filename='app/main.js') }}?v={{ version }}"></script>
 </head>
@@ -62,17 +63,50 @@
   </header>
 
   <main class="split" id="split">
-    <section class="pane editor-pane" aria-labelledby="program-heading">
-      <div class="pane-header">
-        <div class="pane-title-group">
-          <h2 class="pane-title" id="program-heading">Program</h2>
-          <span class="chip syntax-chip" id="syntax-label" title="The syntax of the program"></span>
-          <button type="button" class="button small" id="btn-convert" hidden
-                  title="Convert the program to the .ppy syntax (⌘Z undoes it)">Convert to .ppy</button>
+    <section class="pane editor-pane" aria-label="Programs" data-compare="false" data-active="first" id="editor-pane">
+      <div class="compare-tabs" id="compare-tabs" hidden>
+        <div class="segmented small" role="tablist" aria-label="Program to edit">
+          <button type="button" role="tab" id="tab-first" aria-selected="true" aria-controls="column-first">Program</button>
+          <button type="button" role="tab" id="tab-second" aria-selected="false" aria-controls="column-second" tabindex="-1">Second program</button>
         </div>
-        <button type="button" class="problems" id="problems" aria-live="polite"></button>
       </div>
-      <div class="editor-host" id="editor"></div>
+      <div class="editor-columns">
+        <div class="editor-column" id="column-first" role="region" aria-labelledby="program-heading">
+          <div class="pane-header">
+            <div class="pane-title-group">
+              <h2 class="pane-title" id="program-heading">Program</h2>
+              <span class="chip syntax-chip" id="syntax-label" title="The syntax of the program"></span>
+              <button type="button" class="button small" id="btn-convert" hidden
+                      title="Convert the program to the .ppy syntax (⌘Z undoes it)">Convert to .ppy</button>
+            </div>
+            <div class="pane-header-trailing">
+              <button type="button" class="problems" id="problems" aria-live="polite"></button>
+              <button type="button" class="button small" id="btn-compare" aria-pressed="false" aria-controls="column-second"
+                      title="Compare the program with a second program (equivalence check)">
+                <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h5v9H2z M9 3.5h5v9H9z M4 7h1 M4 9h1 M11 7h1 M11 9h1"/></svg>
+                <span>Compare</span>
+              </button>
+            </div>
+          </div>
+          <div class="editor-host" id="editor"></div>
+        </div>
+        <div class="editor-column" id="column-second" role="region" aria-labelledby="other-heading" hidden>
+          <div class="pane-header">
+            <div class="pane-title-group">
+              <h2 class="pane-title" id="other-heading">Second program</h2>
+              <span class="chip syntax-chip" id="other-syntax-label" title="The syntax of the second program"></span>
+            </div>
+            <div class="pane-header-trailing">
+              <button type="button" class="problems" id="other-problems" aria-live="polite"></button>
+              <button type="button" class="button small" id="btn-compare-close" title="Close the second program and analyze the first one alone"
+                      aria-label="Close the second program">
+                <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5l7 7 M11.5 4.5l-7 7"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="editor-host" id="editor-other"></div>
+        </div>
+      </div>
     </section>
 
     <div class="divider" id="divider" role="separator" aria-orientation="vertical" aria-label="Resize panes"
@@ -99,7 +133,7 @@
   <form method="dialog" class="sheet-inner">
     <header class="sheet-header">
       <h2 id="library-title">Examples</h2>
-      <p class="sheet-subtitle">Programs from <code>pgfexamples</code>. Loading replaces the program; ⌘Z brings yours back.</p>
+      <p class="sheet-subtitle">Programs from <code>pgfexamples</code>. Loading replaces the program; ⌘Z brings yours back. Examples marked “compare” load a second program to compare with.</p>
       <input type="search" class="field" id="library-search" placeholder="Search examples" aria-label="Search examples" autocomplete="off">
     </header>
     <div class="sheet-body" id="library-list" role="listbox" aria-label="Examples and recent programs"></div>

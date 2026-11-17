@@ -1,0 +1,44 @@
+/*
+ * The comparison of two programs (equivalence-view.js). Uses the tokens of result-view.css. The verdict
+ * has a glyph and a word; the coloured edge repeats it, never replaces it.
+ */
+.eq-verdict { padding: 14px 16px; gap: 10px; border-left: 4px solid var(--rv-text-2); }
+.eq-verdict[data-tone="exact"] { border-left-color: var(--rv-exact); }
+.eq-verdict[data-tone="data"] { border-left-color: var(--rv-data); }
+.eq-verdict[data-tone="unknown"] { border-left-color: var(--rv-unknown); }
+
+.eq-verdict-head { display: flex; align-items: center; gap: 12px; }
+.eq-glyph {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 50%;
+  font-size: 22px; font-weight: 700; line-height: 1;
+  background: var(--rv-fill); color: var(--rv-text);
+}
+.eq-verdict[data-tone="exact"] .eq-glyph { background: var(--exact-fill, rgba(31, 122, 53, 0.11)); color: var(--rv-exact); }
+.eq-verdict[data-tone="unknown"] .eq-glyph { background: var(--unknown-fill, rgba(163, 71, 0, 0.1)); color: var(--rv-unknown); }
+.eq-verdict-title { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.eq-title { margin: 0; font-size: var(--text-title2, 17px); font-weight: 600; }
+.eq-verdict[data-tone="exact"] .eq-title { color: var(--rv-exact); }
+.eq-verdict[data-tone="unknown"] .eq-title { color: var(--rv-unknown); }
+.eq-subtitle { font-size: var(--text-callout, 12px); color: var(--rv-text-2); }
+.eq-reason, .eq-relation { margin: 0; line-height: 1.45; overflow-wrap: anywhere; }
+.eq-constraints { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.eq-constraints ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-weight: 600; }
+.eq-witness { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--rv-separator); }
+.eq-witness-table td:last-child { text-align: right; }
+.eq-witness-table tbody th { text-align: left; font-weight: 500; color: var(--rv-text); border-bottom: 1px solid var(--rv-separator); }
+.eq-witness-table tbody tr:last-child th { border-bottom: 0; }
+.eq-check > .disclosure-body { display: grid; gap: 6px; }
+.eq-check p { margin: 0; line-height: 1.45; overflow-wrap: anywhere; }
+
+.eq-badges { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: var(--text-callout, 12px); }
+.eq-badge-item { display: inline-flex; align-items: center; gap: 2px; }
+.eq-marginal { display: grid; gap: 4px; }
+.eq-marginal-flag { font-weight: 600; color: var(--rv-text); }
+.eq-table { max-width: 32em; }
+.eq-table tr[data-differs="true"] td { font-weight: 600; background: var(--rv-fill); }
+.eq-table .eq-diff { white-space: nowrap; text-align: right; }
+.eq-table .eq-diff .glyph { font-weight: 700; margin-right: 2px; }
+
+.eq-program-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: -8px; }
+.eq-program-result > .result-view { gap: 20px; }

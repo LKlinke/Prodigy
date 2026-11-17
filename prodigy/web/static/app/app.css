@@ -241,6 +241,33 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 
 .editor-host { flex: 1; min-height: 0; position: relative; }
 
+/* ---- the second program (Compare, #154) -------------------------------------------------
+   Side by side while the editor pane is wide enough, else one at a time with tabs above. */
+.editor-pane { container-type: inline-size; container-name: editors; }
+.editor-columns { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
+.editor-column { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.editor-column[hidden] { display: none; }
+.editor-pane[data-compare="true"] .editor-columns { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.editor-pane[data-compare="true"] #column-second { border-left: 1px solid var(--separator); }
+.pane-header-trailing { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; flex: 1; }
+.pane-header-trailing .problems { max-width: none; min-width: 0; flex: 0 1 auto; }
+.pane-header-trailing .problems > span { overflow: hidden; text-overflow: ellipsis; }
+.pane-header .pane-title-group { flex-shrink: 0; }
+.pane-header-trailing .button { flex-shrink: 0; }
+#btn-compare[aria-pressed="true"] { background: var(--accent-fill); color: var(--on-accent); }
+.compare-tabs { padding: 6px 16px; border-bottom: 1px solid var(--separator); }
+.compare-tabs[hidden] { display: none; }
+@container editors (max-width: 760px) {
+  .editor-pane[data-compare="true"] .editor-columns { grid-template-columns: minmax(0, 1fr); }
+  .editor-pane[data-compare="true"] #column-second { border-left: 0; }
+  .editor-pane[data-compare="true"][data-active="first"] #column-second,
+  .editor-pane[data-compare="true"][data-active="second"] #column-first { display: none; }
+}
+/* the tabs show only where the columns do not fit side by side */
+@container editors (min-width: 761px) {
+  .compare-tabs { display: none; }
+}
+
 .divider {
   background: var(--separator);
   cursor: col-resize;
@@ -328,6 +355,9 @@ a.button { text-decoration: none; }
 .tab-badge[data-kind="lower"], .tab-badge[data-kind="upper"] { background: var(--bound); }
 .tab-badge[data-kind="unknown"] { background: var(--unknown); }
 .tab-badge[data-kind="error"] { background: var(--error); }
+.tab-badge[data-kind="equivalent"] { background: var(--exact); }
+.tab-badge[data-kind="not_equivalent"] { background: var(--data); }
+.tab-badge[data-kind="undecided"] { background: var(--unknown); }
 .tab-badge[data-kind="running"] { background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
 
 .field, select, textarea {

@@ -21,6 +21,18 @@ the web GUI, a language server). Its top-level keys::
     steps        index, line, column, kind, instruction, before, after, bound, time, loop, watches, ...
     trace        limits, watches, hints
     warnings, log, timing
+    equivalence  only in the result of a comparison of two programs (the GUI's equivalence view):
+                 verdict, reason, relation, constraints, witness, check, input, other
+
+Comparing two programs
+----------------------
+The result of comparing two programs (``POST /api/equivalence``,
+:func:`prodigy.web.requests.run_equivalence`) is the result of the first program with the extra key
+``equivalence``; ``equivalence.other`` is the result of the second program, in this format as well.
+``verdict`` is ``equivalent`` only if equality was proven with both programs analysed exactly,
+``not_equivalent`` only with a ``witness`` (an output state whose probabilities provably differ), and
+``unknown`` otherwise, with the ``reason``; see :mod:`prodigy.analysis.equivalence.verdict`. Consumers
+that do not know the key read the result of the first program as before.
 
 Exact values are strings in Prodigy's notation; every exact value that is a number also
 comes as ``..._float``. Expressions taken from the program (query expressions, loop guards,

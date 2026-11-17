@@ -1,0 +1,143 @@
+// The comparison of two programs (issue #154) as plain data: verdict texts, what the check found,
+// and the marginals of the two output distributions side by side. No DOM, so that Node can test it;
+// equivalence-view.js draws it. The input is the `equivalence` part of a result (see
+// prodigy/analysis/equivalence/verdict.py and docs/gui.md).
+
+/** Each verdict has its own glyph and word: status is never shown by colour alone. `tone` picks the
+ * colour token (exact: proven equal; data: proven different, which is no failure; unknown). */
+export const VERDICT_TEXT = {
+  equivalent: { glyph: "=", title: "Equivalent", tone: "exact", proven: true },
+  not_equivalent: { glyph: "≠", title: "Not equivalent", tone: "data", proven: true },
+  unknown: { glyph: "?", title: "Not decided", tone: "unknown", proven: false },
+};
+
+const CHECK_ANSWERS = {
+  equal: "The second-order generating functions of the two programs are equal.",
+  different: "The solver found no way to make the second-order generating functions equal.",
+  undecided: "Equality of the second-order generating functions could be neither proven nor refuted.",
+  failed: "The check did not finish.",
+};
+
+/** The verdict of an `equivalence` part, with its texts; an unknown verdict counts as `unknown`. */
+export function verdictOf(equivalence) {
+  const key = Object.hasOwn(VERDICT_TEXT, equivalence?.verdict) ? equivalence.verdict : "unknown";
+  const text = VERDICT_TEXT[key];
+  const error = equivalence?.check?.error;
+  const notImplemented = key === "unknown" && error?.type === "NotImplementedError";
+  return {
+    key,
+    ...text,
+    // a "not implemented" stays one: its own title, never "not equivalent"
+    title: notImplemented ? "Not decided: not implemented" : text.title,
+    notImplemented,
+    subtitle: key === "unknown" ? (notImplemented ? "The analysis cannot do this yet."
+      : equivalence?.relation ? "One direction is proven." : "No proof either way.")
+      : key === "equivalent" ? "Proven for every input." : "Proven by a witness.",
+  };
+}
+
+/** One sentence for the relation that was proven when only one side is exact. */
+export function relationText(relation) {
+  if (relation === "first_below_second") return "Program ⪯ Second program (coefficient-wise, for every input)";
+  if (relation === "second_below_first") return "Second program ⪯ Program (coefficient-wise, for every input)";
+  return null;
+}
+
+/** "p = 1/3" for each solution of a parameter synthesis. */
+export function constraintTexts(constraints) {
+  return (constraints || []).map((c) => Object.entries(c).map(([name, value]) => `${name} = ${value}`).join(", "))
+    .filter(Boolean);
+}
+
+export function stateText(state) {
+  const entries = Object.entries(state || {});
+  return entries.length ? entries.map(([k, v]) => `${k} = ${v}`).join(", ") : "the empty state";
+}
+
+/** "1/3" for an exact value, "[a, b]" for an interval; long exact numbers as decimals (`format` turns an
+ * exact value and its float into text, e.g. formatValue). */
+export function intervalText(side, format = (exact) => exact) {
+  if (!side) return "—";
+  const lower = cellText(side.lower, format(side.lower, side.lower_float));
+  const upper = cellText(side.upper, format(side.upper, side.upper_float));
+  return side.lower === side.upper ? lower : `[${lower}, ${upper}]`;
+}
+
+/** Lines that say what the check for every input found (the "How it was checked" disclosure). */
+export function checkLines(check) {
+  if (!check) return [];
+  const lines = [CHECK_ANSWERS[check.answer] || check.answer];
+  if (check.answer !== "failed") {
+    lines.push(`Program analysed ${boundWord(check.first)}; second program analysed ${boundWord(check.second)}.`);
+  }
+  if (check.counterexample) lines.push(`Counterexample of the solver: input ${stateText(check.counterexample)}.`);
+  if (check.error?.message) {
+    const prefix = check.error.type === "NotImplementedError" ? "Not implemented: " : "";
+    lines.push(prefix + check.error.message);
+  }
+  return lines;
+}
+
+function boundWord(kind) {
+  return { exact: "exactly", lower: "as a lower bound", upper: "as an upper bound (Park's lemma)",
+    unknown: "without guarantee" }[kind] || kind;
+}
+
+/** An input distribution in words: "1" is the point where every variable is 0. */
+export function inputWords(distribution) {
+  if (!distribution || String(distribution).trim() === "1") return "the input where every variable is 0";
+  return `the input ${distribution}`;
+}
+
+/** Where the input of the shown distributions comes from. */
+export function inputText(equivalence) {
+  const input = equivalence?.input || {};
+  if (input.source === "counterexample") return `Both programs on ${inputWords(input.distribution)} (the solver's counterexample).`;
+  if (input.distribution) return `Both programs on the initial distribution ${input.distribution}.`;
+  return "Both programs on the default input (every variable 0).";
+}
+
+/** A probability for a table cell: a short exact value as it is, else the decimal. */
+export function cellText(exact, decimal) {
+  return exact && exact.length <= 10 && !/[a-zA-Z]/.test(exact) ? exact : decimal;
+}
+
+/**
+ * The marginal of `variable` in both results, row by row: [{value, first, second, differs}], where
+ * first/second are table rows ({prob, p}) or null. `differs` is true only if both results are exact
+ * and the probabilities differ (a hint where to look, not a proof; the witness is the proof), false if
+ * they agree, and null if no comparison is possible.
+ */
+export function compareMarginals(first, second, variable) {
+  const table = (result) => result?.status === "ok" ? result.distribution?.marginals?.[variable] : null;
+  const one = table(first);
+  const two = table(second);
+  const exact = first?.bounds?.kind === "exact" && second?.bounds?.kind === "exact";
+  const values = new Map();
+  for (const [index, rows] of [[0, one?.rows], [1, two?.rows]]) {
+    for (const row of rows || []) {
+      const entry = values.get(row.value) || [null, null];
+      entry[index] = row;
+      values.set(row.value, entry);
+    }
+  }
+  const complete = (t, value) => t && !t.error && (!t.truncated || value <= (t.rows?.at(-1)?.value ?? -1));
+  return [...values.entries()].sort((a, b) => a[0] - b[0]).map(([value, [a, b]]) => {
+    let differs = null;
+    if (exact && complete(one, value) && complete(two, value)) {
+      const pa = a ? a.p : 0;
+      const pb = b ? b.p : 0;
+      const same = (a?.prob ?? "0") === (b?.prob ?? "0")
+        || (pa !== null && pb !== null && Math.abs(pa - pb) <= 1e-12 * Math.max(1, Math.abs(pa), Math.abs(pb)));
+      differs = !same;
+    }
+    return { value, first: a, second: b, differs };
+  });
+}
+
+/** The variables of the two results (the first's order, then any only the second has). */
+export function comparedVariables(first, second) {
+  const names = [...(first?.distribution?.variables || [])];
+  for (const name of second?.distribution?.variables || []) if (!names.includes(name)) names.push(name);
+  return names;
+}

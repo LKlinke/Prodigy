@@ -331,7 +331,8 @@ export function renderResult(container, result, options = {}) {
 }
 
 /** Progress view while an analysis runs. state: {elapsed, timeLimit, progress: [...], log, loops};
- * options: {strategyTitles, change: what changed since the analysis started (see staleness.js)} */
+ * options: {strategyTitles, change: what changed since the analysis started (see staleness.js),
+ * label: what runs ("Analyzing" by default)} */
 export function renderRunning(container, state, options = {}) {
   const titles = options.strategyTitles || {};
   const bars = (state.progress || []).map((p) => {
@@ -352,7 +353,7 @@ export function renderRunning(container, state, options = {}) {
   container.replaceChildren(h("div", { class: "result-view" },
     h("div", { class: "rv-running", "data-bars": String(bars.length), style: `--bars: ${bars.length}` },
       h("div", { class: "rv-running-head" }, h("span", { class: "spinner", "aria-hidden": "true" }),
-        h("span", {}, `Analyzing · ${formatSeconds(state.elapsed || 0)}`),
+        h("span", {}, `${options.label || "Analyzing"} · ${formatSeconds(state.elapsed || 0)}`),
         state.timeLimit ? h("span", { class: "rv-muted" }, `limit ${formatSeconds(state.timeLimit)}`) : null),
       ...bars,
       options.change ? h("p", { class: "notice", role: "status" }, icon("info"),

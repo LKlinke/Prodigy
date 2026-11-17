@@ -9,6 +9,7 @@ import { load, save } from "./store.js";
 import { h, icon } from "./components/dom.js";
 import { BOUND_TEXT, formatSeconds, formatValue, qualify } from "./components/format.js";
 import { renderResult, renderRunning } from "./components/result-view.js";
+import { renderEquivalence } from "./components/equivalence-view.js";
 
 const WELCOME = `# A fair coin is flipped until it shows heads; c counts the tails.
 # Press Analyze (⌘↩). How the loop is analysed is set in Setup.
@@ -45,11 +46,15 @@ const state = {
   // the analysis card of the result: its controller, the step its timeline shows (for the editor),
   // breakpoint lines and watches (queries after every step)
   analysis: { card: null, step: null, breakpoints: [], watches: [] },
+  // the second program to compare with (#154): whether its editor is open, its diagnostics, which
+  // column a narrow editor pane shows, and which program's result the comparison shows
+  compare: { open: false, diagnostics: [], active: "first", programView: { which: "first" } },
 };
 
 const TABS = ["setup", "result"];
 
 let editor;
+let otherEditor;
 let documents;
 let checkTimer = null;
 let checkController = null;
@@ -226,8 +231,11 @@ function scheduleInputCheck() {
 }
 
 function renderProblems(failure = null) {
-  const button = $("problems");
-  const problems = state.diagnostics.filter((d) => d.severity !== "info");
+  renderProblemsButton($("problems"), state.diagnostics, editor, failure);
+}
+
+function renderProblemsButton(button, diagnostics, target, failure = null) {
+  const problems = diagnostics.filter((d) => d.severity !== "info");
   button.replaceChildren();
   button.onclick = null;
   if (failure) {
@@ -247,7 +255,103 @@ function renderProblems(failure = null) {
   button.title = "Show the first problem in the program";
   button.append(icon(first.severity === "error" ? "error" : "warning"),
     h("span", {}, `${problems.length > 1 ? `${problems.length} problems · ` : ""}Line ${first.line}: ${first.message}`));
-  button.onclick = () => editor.revealLine(first.line);
+  button.onclick = () => {
+    if (target === otherEditor) showColumn("second");
+    target.revealLine(first.line);
+  };
+}
+
+// ---- the second program (Compare, #154) -------------------------------------------------------------
+
+/** Opens or closes the second editor; while it is open, Run compares the two programs. */
+function setCompare(open, { focus = false } = {}) {
+  state.compare.open = open;
+  save("compare", open);
+  const pane = $("editor-pane");
+  pane.dataset.compare = String(open);
+  $("column-second").hidden = !open;
+  $("compare-tabs").hidden = !open;
+  $("btn-compare").setAttribute("aria-pressed", String(open));
+  $("btn-compare").title = open ? "Close the second program and analyze the first one alone"
+    : "Compare the program with a second program (equivalence check)";
+  if (open && !otherEditor.getSource().trim()) {
+    // a copy of the program is the usual start: change it and compare
+    otherEditor.setSource(editor.getSource(), editor.getSyntax());
+  }
+  if (!open) showColumn("first");
+  renderRunButton();
+  refreshStale();
+  if (!state.result && !state.job) renderResultPanel();
+  if (open) scheduleOtherCheck(0);
+  if (focus) (open ? (showColumn("second"), otherEditor) : editor).focus();
+}
+
+function renderRunButton() {
+  const open = state.compare.open;
+  $("btn-run").querySelector("span").textContent = open ? "Compare" : "Analyze";
+  $("btn-run").title = open ? "Check whether the two programs are equivalent (⌘↩)" : "Analyze the program (⌘↩)";
+}
+
+/** Which program a narrow editor pane shows (the tabs above the editors). */
+function showColumn(which) {
+  state.compare.active = which;
+  $("editor-pane").dataset.active = which;
+  for (const key of ["first", "second"]) {
+    const tab = $(`tab-${key}`);
+    tab.setAttribute("aria-selected", String(key === which));
+    tab.tabIndex = key === which ? 0 : -1;
+  }
+}
+
+function initCompareTabs() {
+  for (const key of ["first", "second"]) {
+    const tab = $(`tab-${key}`);
+    tab.addEventListener("click", () => {
+      showColumn(key);
+      (key === "first" ? editor : otherEditor).focus();
+    });
+    tab.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      event.preventDefault();
+      const next = key === "first" ? "second" : "first";
+      showColumn(next);
+      $(`tab-${next}`).focus();
+    });
+  }
+}
+
+let otherCheckTimer = null;
+let otherCheckController = null;
+
+function scheduleOtherCheck(delay = 350) {
+  clearTimeout(otherCheckTimer);
+  otherCheckTimer = setTimeout(runOtherCheck, delay);
+}
+
+/** Diagnostics of the second program, as for the first (syntax and type errors, language warnings). */
+async function runOtherCheck() {
+  if (!state.compare.open) return;
+  const source = otherEditor.getSource();
+  const syntax = otherEditor.getSyntax();
+  otherCheckController?.abort();
+  otherCheckController = new AbortController();
+  try {
+    const result = await api.check(source, syntax, otherCheckController.signal);
+    if (source !== otherEditor.getSource() || syntax !== otherEditor.getSyntax()) return;
+    state.compare.diagnostics = result.diagnostics;
+    otherEditor.setDiagnostics(result.diagnostics);
+    renderProblemsButton($("other-problems"), result.diagnostics, otherEditor);
+  } catch (error) {
+    if (error.name === "AbortError") return;
+    state.compare.diagnostics = [];
+    renderProblemsButton($("other-problems"), [], otherEditor, error.message);
+  }
+}
+
+function renderOtherSyntax() {
+  const syntax = otherEditor.getSyntax();
+  $("other-syntax-label").textContent = SYNTAXES[syntax].label;
+  $("other-syntax-label").setAttribute("aria-label", `Syntax of the second program: ${SYNTAXES[syntax].label}`);
 }
 
 // ---- setup ------------------------------------------------------------------------------------
@@ -430,7 +534,8 @@ function analysisKey(event) {
 }
 
 const BADGE_LABELS = { exact: "Exact result", lower: "Lower bound", upper: "Upper bound", unknown: "No guarantee",
-  error: "Analysis failed", running: "Analysis running" };
+  error: "Analysis failed", running: "Analysis running", equivalent: "Equivalent", not_equivalent: "Not equivalent",
+  undecided: "Equivalence not decided" };
 
 function setBadge(kind) {
   const badge = $("result-badge");
@@ -452,11 +557,29 @@ function renderResultPanel() {
     state.analysis.step = null;
     showAnalysisStep();
     panel.replaceChildren(h("div", { class: "result-view" }, h("p", { class: "help" },
-      "No result yet. Press Analyze (⌘↩) to compute the output distribution and the answers to the queries.")));
+      state.compare.open
+        ? "No result yet. Press Compare (⌘↩) to check whether the two programs are equivalent."
+        : "No result yet. Press Analyze (⌘↩) to compute the output distribution and the answers to the queries.")));
     setBadge(null);
     return;
   }
   state.analysis.card?.stop();
+  if (state.result.equivalence) {
+    renderEquivalence(panel, state.result, {
+      stale: state.resultStale,
+      change: state.resultChange,
+      onRun: run,
+      strategyTitles: state.titles,
+      onSelectLoop: showLoop,
+      onSelectLine: (line) => { showColumn("first"); editor.revealLine(line); },
+      elapsed: state.result.__elapsed,
+      programView: state.compare.programView,
+    });
+    state.analysis.card = null;
+    const verdict = state.result.equivalence.verdict;
+    setBadge(state.resultStale ? null : verdict === "equivalent" || verdict === "not_equivalent" ? verdict : "undecided");
+    return;
+  }
   const { analysis } = renderResult(panel, state.result, {
     stale: state.resultStale,
     change: state.resultChange,
@@ -582,6 +705,9 @@ function buildRequest() {
       ? { template_heuristic: options.templateHeuristic, positivity_heuristic: options.positivityHeuristic } : {}),
     solver: options.solver,
     time_limit: options.timeLimit,
+    // the loops of the second program get the default strategy (its own setup is not editable yet)
+    ...(state.compare.open ? { other_source: otherEditor.getSource(), other_syntax: otherEditor.getSyntax(),
+      other_decisions: { "*": defaultDecision(state.strategies) }, record_steps: false } : {}),
   };
 }
 
@@ -621,15 +747,34 @@ async function run() {
     showLoop(problems[0].loop);
     return;
   }
+  const comparing = state.compare.open;
+  if (comparing) {
+    clearTimeout(otherCheckTimer);
+    await runOtherCheck();
+    const otherErrors = state.compare.diagnostics.filter((d) => d.severity === "error");
+    if (!otherEditor.getSource().trim()) {
+      showRunMessage("The second program is empty.");
+      showColumn("second");
+      otherEditor.focus();
+      return;
+    }
+    if (otherErrors.length) {
+      showRunMessage(`Fix line ${otherErrors[0].line} of the second program first.`);
+      showColumn("second");
+      otherEditor.revealLine(otherErrors[0].line);
+      return;
+    }
+  }
   const request = buildRequest();
   let response;
   try {
-    response = await api.analyze(request);
+    response = await (comparing ? api.equivalence(request) : api.analyze(request));
   } catch (error) {
     showRunMessage(error.message);
     return;
   }
-  state.job = { id: response.job, request, timeLimit: response.time_limit, logOffset: 0, log: "", started: performance.now() };
+  state.job = { id: response.job, request, timeLimit: response.time_limit, logOffset: 0, log: "", started: performance.now(),
+    comparing };
   setRunning(true);
   setBadge("running");
   state.analysis.card?.stop();
@@ -668,7 +813,8 @@ async function poll() {
 /** The progress view in the Result panel. */
 function showRunning(progress) {
   const change = state.job ? changeSince(state.job.request, buildRequest()) : null;
-  renderRunning($("panel-result"), progress, { strategyTitles: state.titles, change });
+  renderRunning($("panel-result"), progress, { strategyTitles: state.titles, change,
+    label: state.job?.comparing ? "Comparing" : "Analyzing" });
 }
 
 function finish(result, elapsed) {
@@ -710,6 +856,12 @@ async function loadExample(example, syntax = "ppy") {
     return;
   }
   editor.setSource(data.source, data.syntax || "ppy");
+  if (data.other) {
+    // an equivalence example: the second program goes into the second editor (#154)
+    otherEditor.setSource(data.other.source, data.other.syntax || "ppy");
+    if (!state.compare.open) setCompare(true);
+    showColumn("first");
+  }
   const suggestion = data.suggestion || {};
   state.setup.decisions = {};
   for (const [key, decision] of Object.entries(suggestion.decisions || {})) {
@@ -718,6 +870,11 @@ async function loadExample(example, syntax = "ppy") {
   }
   state.pendingDefault = suggestion.decisions?.["*"] || null;
   state.setup.input = suggestion.input_distribution || "";
+  // the suggested decisions belong to the example's loops: they must not be re-keyed from the loops of the
+  // program it replaces (#277 follows edits, not replacements)
+  state.outline = null;
+  state.graveyard = {};
+  save("graveyard", state.graveyard);
   state.result = null;
   state.resultStale = false;
   state.resultChange = null;
@@ -852,6 +1009,26 @@ async function boot() {
       if (state.result && state.result.steps?.length) renderResultPanel();
     },
   });
+  otherEditor = createEditor($("editor-other"), {
+    doc: load("otherSource", "") || "",
+    syntax: load("otherSyntax", "ppy") === "pgcl" ? "pgcl" : "ppy",
+    label: "Second program",
+    breakpoints: false,
+    onSyntaxChange: (syntax) => { save("otherSyntax", syntax); renderOtherSyntax(); scheduleOtherCheck(0); refreshStale(); },
+    onChange: (source) => {
+      save("otherSource", source);
+      refreshStale();
+      scheduleOtherCheck();
+    },
+    onRun: run,
+    onStop: stop,
+  });
+  renderOtherSyntax();
+  initCompareTabs();
+  $("btn-compare").addEventListener("click", () => setCompare(!state.compare.open, { focus: true }));
+  $("btn-compare-close").addEventListener("click", () => setCompare(false, { focus: true }));
+  if (load("compare", false) === true) setCompare(true);
+  renderRunButton();
   state.analysis.watches = (load("watches", []) || []).filter((w) => typeof w === "string").slice(0, 8);
   save("syntax", editor.getSyntax());
   documents = createDocument({ editor, initialText: editor.getSource(), onReplace: programReplaced, notify,

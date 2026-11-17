@@ -293,6 +293,136 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
 
 
 # ---------------------------------------------------------------------------------------
+# Comparing two programs (POST /api/equivalence)
+# ---------------------------------------------------------------------------------------
+
+def other_program_request(request: Dict[str, Any]) -> Dict[str, Any]:
+    """The analysis request of the second program of an equivalence request: ``other_source`` in
+    ``other_syntax`` (default: the syntax of the first program) with ``other_decisions``, and the
+    options and initial distribution of the first."""
+    other = {key: value for key, value in request.items()
+             if key not in ("source", "syntax", "file_name", "decisions", "record_steps", "watches")}
+    other["source"] = request.get("other_source")
+    other["syntax"] = request.get("other_syntax") or request_syntax(request)
+    other["decisions"] = request.get("other_decisions") or {}
+    return {key: value for key, value in other.items() if not key.startswith("other_")}
+
+
+def validate_equivalence(request: Dict[str, Any]) -> List[str]:
+    """Problems with an equivalence request: an analysis request (the first program) plus
+    ``other_source``, optional ``other_syntax`` and ``other_decisions`` (the second program)."""
+    first = {key: value for key, value in request.items() if not key.startswith("other_")}
+    problems = validate_request(first)
+    if not isinstance(request.get("other_source"), str) or not request["other_source"].strip():
+        return problems + ["The second program is empty."]
+    try:
+        other = other_program_request(request)
+    except ValueError as exc:
+        return problems + [str(exc)]
+    return problems + [f"Second program: {problem}" for problem in validate_request(other)
+                       if problem not in problems]
+
+
+def run_equivalence(request: Dict[str, Any], *, output: Optional[Callable[[str], None]] = None,
+                    progress: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
+    """Compares two programs (in a job process): the second-order check for every input
+    (:func:`~prodigy.analysis.equivalence.verdict.run_check`), then both programs on the initial
+    distribution of the request, or on the counterexample of the check if the request has none.
+    The result is the analysis result of the first program (``prodigy/analysis-result@1``) with the
+    key ``equivalence``: the sound verdict (:mod:`prodigy.analysis.equivalence.verdict`), the
+    raw outcome of the check, a witness if there is one, and the analysis result of the second
+    program (``other``). Never raises for analysis errors."""
+    # pylint: disable=import-outside-toplevel,too-many-locals
+    from prodigy.analysis.equivalence import verdict as equivalence
+    from prodigy.analysis.session import AnalysisSession
+    from prodigy.pgcl import parse_pgcl
+
+    problems = validate_equivalence(request)
+    if problems:
+        return _error("request", " ".join(problems), problems=problems)
+    first_request = prepare_request({key: value for key, value in request.items() if not key.startswith("other_")})
+    second_request = prepare_request(other_program_request(request))
+    programs: Dict[str, Any] = {}
+    for which, part in (("first", first_request), ("second", second_request)):
+        try:
+            programs[which] = parse_pgcl(part["source"], request_syntax(part))
+        except Exception as exc:  # pylint: disable=broad-except
+            return _error("syntax", f"The {which} program: {str(exc).split(chr(10), maxsplit=1)[0]}")
+    program, other = programs["first"], programs["second"]
+
+    def session_for(part: Dict[str, Any], prog: Any, *, input_distribution: Any = None,
+                    report: Optional[Callable[[Dict[str, Any]], None]] = None) -> AnalysisSession:
+        return AnalysisSession(prog, source=part["source"], syntax=request_syntax(part), config=make_config(part),
+                               decisions=part.get("decisions") or {}, input_distribution=input_distribution,
+                               allow_files=False, capture_output=True, output_callback=output,
+                               progress_callback=report, coefficient_limit=int(part.get("coefficients", 30)))
+
+    variables_differ = equivalence.different_variables(program, other)
+    check = equivalence.CheckOutcome("failed", error={"type": "variables", "message": variables_differ or ""})
+    if variables_differ is None:
+        # the loops of the second program take its own decisions, the first program's loops are found by id
+        decisions = {**(second_request.get("decisions") or {}), **(first_request.get("decisions") or {})}
+        session = session_for({**first_request, "decisions": decisions}, program, report=progress)
+        with session.activate(), session.config.activate(), session._output():  # pylint: disable=protected-access
+            print("Checking the equivalence for every input (second-order generating functions) …")
+            check = equivalence.run_check(program, other, session)
+
+    text = first_request.get("input_distribution")
+    input_source = "request"
+    if not (isinstance(text, str) and text.strip()):
+        text, input_source = None, "default"
+        if check.counterexample and variables_differ is None:
+            text = "*".join(f"{name}^{value}" for name, value in sorted(check.counterexample.items()) if value) or "1"
+            input_source = "counterexample"
+    # the input as the person would write it, in the syntax of the first program
+    shown = text.replace("^", "**") if text and request_syntax(first_request) == "ppy" else text
+    if output is not None:
+        where = f"the initial distribution {shown}" if shown else "the default input"
+        output(f"Analysing both programs on {where} …\n")
+    first_result = session_for(first_request, program, input_distribution=text, report=progress).run().to_json()
+    second_result = session_for(second_request, other, input_distribution=text).run().to_json()
+
+    witness = None
+    if variables_differ is None:
+        witness = _equivalence_witness(first_result, second_result, first_request)
+        if witness is not None:
+            witness["input"] = shown
+    verdict = equivalence.decide(check, witness, variables_differ=variables_differ)
+    first_result["equivalence"] = {
+        **verdict,
+        "witness": witness,
+        "check": check.to_json(),
+        "input": {"distribution": shown, "source": input_source},
+        "other": second_result,
+    }
+    return first_result
+
+
+def _equivalence_witness(first: Dict[str, Any], second: Dict[str, Any], request: Dict[str, Any]
+                         ) -> Optional[Dict[str, Any]]:
+    """A witness of :func:`~prodigy.analysis.equivalence.verdict.find_witness` from two finished
+    analysis results (their distributions are read back from the closed forms the engine printed)."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.equivalence.verdict import Side, find_witness
+    from prodigy.util.integers import unlimited_int_digits
+    if first.get("status") != "ok" or second.get("status") != "ok":
+        return None
+    config = make_config(request)
+
+    def side(result: Dict[str, Any]) -> Side:
+        distribution = result["distribution"]
+        bounds = result.get("bounds") or {}
+        return Side(config.factory.from_expr(distribution["closed_form"], *distribution["variables"]),
+                    bounds.get("kind", "unknown"), bounds.get("residual_mass") or 0)
+
+    with config.activate(), unlimited_int_digits():
+        try:
+            return find_witness(side(first), side(second))
+        except Exception:  # pylint: disable=broad-except
+            return None
+
+
+# ---------------------------------------------------------------------------------------
 # Coefficient grids of two variables (POST /api/jobs/<id>/joint)
 # ---------------------------------------------------------------------------------------
 
