@@ -198,7 +198,7 @@ class QueryHandler(InstructionHandler):
 
     @staticmethod
     def __query_optimization(instr: OptimizationQuery, dist: Distribution,
-                             config: ForwardAnalysisConfig, session: AnalysisSession):
+                             config: ForwardAnalysisConfig, session: AnalysisSession) -> Distribution:
         logger.debug(
             "Computing the optimal value for parameter %s in order to %s the distribution %s with respect to %s",
             instr.parameter, 'maximize' \
@@ -259,7 +259,8 @@ class QueryHandler(InstructionHandler):
         return dist
 
     @staticmethod
-    def __plot_data(instr: PlotInstr, variables, dist: Distribution, session: AnalysisSession) -> QueryResult:
+    def __plot_data(instr: PlotInstr, variables: Sequence[str], dist: Distribution,
+                    session: AnalysisSession) -> QueryResult:
         limit = session.coefficient_limit
         threshold = None
         if instr.term_count:
