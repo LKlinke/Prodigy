@@ -428,12 +428,11 @@ class InteractiveDecisions(DecisionProvider):
         preset = self.preset(loop)
         if preset is not None:
             return preset
-        if id(instruction) in self._choices:
-            return self._choices[id(instruction)][1]
-        decision = self._ask_strategy()
-        if self.remember:
-            self._choices[id(instruction)] = (instruction, decision)
-        return decision
+        if not self.remember:
+            return self._ask_strategy()
+        if id(instruction) not in self._choices:
+            self._choices[id(instruction)] = (instruction, self._ask_strategy())
+        return self._choices[id(instruction)][1]
 
     def _ask_strategy(self) -> LoopDecision:
         options: Dict[str, LoopStrategy] = {}
@@ -459,13 +458,12 @@ class InteractiveDecisions(DecisionProvider):
             print(f"Invalid input: {user_choice}")
 
     def ask_param(self, session: AnalysisSession, task: LoopTask, spec: ParamSpec) -> Any:
+        if not self.remember:
+            return self._ask_param(session, task, spec)
         key = (id(task.instruction), spec.name)
-        if key in self._params:
-            return self._params[key][1]
-        value = self._ask_param(session, task, spec)
-        if self.remember:
-            self._params[key] = (task.instruction, value)
-        return value
+        if key not in self._params:
+            self._params[key] = (task.instruction, self._ask_param(session, task, spec))
+        return self._params[key][1]
 
     def _ask_param(self, session: AnalysisSession, task: LoopTask, spec: ParamSpec) -> Any:
         alias = next((p for p in task.strategy.params if p.alias_of == spec.name), None)
