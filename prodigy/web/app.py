@@ -48,7 +48,7 @@ from flask import Flask, abort, jsonify, render_template, request
 from prodigy.web.examples import ConversionError, ExampleLibrary, convert, default_examples_dir
 from prodigy.web.jobs import BusyError, JobManager
 from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, check_input_distribution_bounded,
-                                  compared_result, joint_request, loop_program, request_syntax, validate_equivalence,
+                                  joint_request, loop_program, request_syntax, validate_equivalence,
                                   validate_request, validate_suggestion)
 
 # Longest initial distribution that /api/check examines (longer ones are checked by the analysis).
@@ -214,16 +214,20 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
 
     @app.post("/api/equivalence")
     def equivalence() -> Any:
-        """Starts a job that compares two programs: the analysis request of the first program plus
-        ``other_source``, ``other_syntax`` and ``other_decisions`` for the second."""
+        """Starts a job that checks whether two programs are equivalent for every input: the program, its
+        loop decisions and options, plus ``other_source``, ``other_syntax`` and ``other_decisions`` for the
+        second program. There is no initial distribution: the check covers every input."""
         payload: Dict[str, Any] = request.get_json(silent=True) or {}
         problems = validate_equivalence(payload)
         if problems:
             return jsonify({"error": " ".join(problems), "problems": problems}), 400
         equivalence_request: Dict[str, Any] = {key: payload.get(key) for key in (
-            "source", "syntax", "file_name", "input_distribution", "engine", "normalize", "simplification",
-            "decisions", "coefficients", "synthesis_strategy", "template_heuristic", "positivity_heuristic", "solver",
+            "source", "syntax", "file_name", "engine", "normalize", "simplification", "decisions",
+            "synthesis_strategy", "template_heuristic", "positivity_heuristic", "solver",
             "other_source", "other_syntax", "other_decisions") if key in payload}
+        # the witness search gets a part of the job's time (requests.WITNESS_SECONDS)
+        equivalence_request["time_limit"] = jobs.time_limit if payload.get("time_limit") is None \
+            else min(float(payload["time_limit"]), jobs.time_limit)
         try:
             job = jobs.submit(equivalence_request, time_limit=payload.get("time_limit"), kind="equivalence")
         except BusyError as exc:
@@ -274,13 +278,13 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         """Starts a job for the coefficient grid of two variables of a finished analysis; the
         distribution comes from the result the server keeps, never from the client."""
         job = jobs.get(job_id)
-        if job is None or job.summary.get("kind") not in ("analysis", "equivalence"):
+        if job is None or job.summary.get("kind") != "analysis":
             abort(404, description="Unknown analysis; analyze the program again.")
         if job.running or job.result is None:
             return jsonify({"error": "The analysis has not finished yet."}), 409
         payload = request.get_json(silent=True) or {}
         try:
-            grid_request = joint_request(compared_result(job.result, payload), payload)
+            grid_request = joint_request(job.result, payload)
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
         try:

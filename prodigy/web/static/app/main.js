@@ -37,7 +37,8 @@ const state = {
   outline: null,
   graveyard: load("graveyard", {}), // decisions of loops that are gone for now, by loop signature (#277); kept across reloads
   diagnostics: [],
-  // each mode keeps its own setup (input, loop decisions, options); only the programs are shared (mode-setup.js)
+  // each mode keeps its own setup (loop decisions, options; Analyze also the input); only the programs are shared
+  // (mode-setup.js)
   setups: { analyze: null, compare: null },
   /** The setup of the mode that is shown. */
   get setup() { return this.setups[this.mode]; },
@@ -55,13 +56,11 @@ const state = {
   // the mode of the window (#154): "analyze" one program or "compare" two; each mode keeps its own result
   mode: "analyze",
   results: { analyze: null, compare: null },
-  // program B of Compare mode: diagnostics, outline and loop decisions of its own, which column a narrow
-  // editor pane shows, and which program's result the comparison shows
+  // program B of Compare mode: diagnostics, outline and loop decisions of its own, and which column a narrow
+  // editor pane shows
   compare: { diagnostics: [], outline: null, outlineStale: false, decisions: {}, graveyard: {}, active: "first",
     // decisions of program A's loops in Compare that are gone for now (Analyze has state.graveyard)
     graveyardA: {},
-    // which program's full result the comparison shows, and the choices of its distribution plots
-    programView: { which: "first" }, plots: {},
     // "Compare this loop" (#399): the program the loop was taken from ({source, syntax, decisions, input, loop,
     // program, programLoop, whole}), restored when going back to Analyze; kept across reloads
     origin: null,
@@ -703,10 +702,8 @@ async function compareLoop(loopId) {
     state.outline = null;
     state.compare.graveyardA = {};
   }
-  // the loop starts with the Compare default; the initial distribution belongs to the whole program
+  // the loop starts with the Compare default; Compare has no input (the check covers every input)
   state.setup.decisions = {};
-  state.setup.input = "";
-  state.setup.inputKind = "default";
   saveSetup();
   state.result = null;
   state.resultStale = false;
@@ -832,12 +829,12 @@ function updateAnnotations() {
   }
   editor.setAnnotations({ loops, queries });
   // program B in Compare mode: the strategy above each loop, and after a check what it certified
-  const other = state.mode === "compare" && !state.resultStale ? state.result?.equivalence?.other : null;
+  const otherLoops = state.mode === "compare" && !state.resultStale ? state.result?.other_loops || [] : [];
   otherEditor?.setAnnotations({ loops: state.mode !== "compare" ? [] : (state.compare.outline?.loops || []).map((loop) => {
     const decision = state.compare.decisions[String(loop.id)] || defaultDecision(state.strategies);
     const spec = { id: loop.id, line: loop.line, strategy: shortStrategy(decision, { name: "A", source: editor.getSource() }),
       onClick: (id) => showLoop(`b-${id}`) };
-    const record = (other?.loops || []).find((l) => l.id === loop.id);
+    const record = otherLoops.find((l) => l.id === loop.id);
     if (record) {
       spec.kind = record.failed ? "error" : record.kind;
       spec.outcome = record.failed ? "failed" : (BOUND_TEXT[record.kind] || BOUND_TEXT.unknown).label.toLowerCase();
@@ -940,18 +937,7 @@ function renderResultPanel() {
       stale: state.resultStale,
       change: state.resultChange,
       onRun: run,
-      strategyTitles: state.titles,
-      onSelectLoop: showLoop,
-      onSelectLine: (line) => { showColumn("first"); editor.revealLine(line); },
-      elapsed: state.result.__elapsed,
-      programView: state.compare.programView,
-      plots: state.compare.plots,
-      onSelectOtherLoop: (id) => showLoop(`b-${id}`),
       continueTo: continueTarget(),
-      ...(state.result.__job ? {
-        loadJoint: (payload, signal, onPartial) => loadJoint(state.result.__job, payload, signal, onPartial),
-        maxJointAxis: state.meta?.limits?.max_joint_axis,
-      } : {}),
     });
     state.analysis.card = null;
     const verdict = state.result.equivalence.verdict;
@@ -1071,8 +1057,20 @@ function notify(message, tone = "info") {
 
 function buildRequest() {
   const options = state.setup.options;
-  const comparing = state.mode === "compare";
-  const steps = !comparing && Boolean(options.recordSteps);
+  if (state.mode === "compare") {
+    // the check for every input: no initial distribution, and only the options the check uses
+    return {
+      source: editor.getSource(),
+      syntax: editor.getSyntax(),
+      engine: options.engine,
+      decisions: requestDecisions(state.setup.decisions, state.outline),
+      time_limit: options.timeLimit,
+      other_source: otherEditor.getSource(),
+      other_syntax: otherEditor.getSyntax(),
+      other_decisions: requestDecisions(state.compare.decisions, state.compare.outline),
+    };
+  }
+  const steps = Boolean(options.recordSteps);
   return {
     source: editor.getSource(),
     syntax: editor.getSyntax(),
@@ -1089,9 +1087,6 @@ function buildRequest() {
       ? { template_heuristic: options.templateHeuristic, positivity_heuristic: options.positivityHeuristic } : {}),
     solver: options.solver,
     time_limit: options.timeLimit,
-    // program B and the strategies of its loops (Compare)
-    ...(comparing ? { other_source: otherEditor.getSource(), other_syntax: otherEditor.getSyntax(),
-      other_decisions: requestDecisions(state.compare.decisions, state.compare.outline) } : {}),
   };
 }
 
@@ -1207,7 +1202,7 @@ async function poll() {
 function showRunning(progress) {
   const change = state.job ? changeSince(state.job.request, buildRequest()) : null;
   renderRunning($("panel-result"), progress, { strategyTitles: state.titles, change,
-    label: state.job?.comparing ? "Checking" : "Analyzing", comparing: Boolean(state.job?.comparing) });
+    label: state.job?.comparing ? "Checking" : "Analyzing" });
 }
 
 function finish(result, elapsed) {
@@ -1220,10 +1215,10 @@ function finish(result, elapsed) {
   state.result = { ...result, __elapsed: elapsed, __request: request };
   state.resultChange = changeSince(request, buildRequest());
   state.resultStale = Boolean(state.resultChange);
-  state.liveCharts = result.status === "ok" ? liveChartStates($("panel-result")) : null;
+  state.liveCharts = result.status === "ok" && !result.equivalence ? liveChartStates($("panel-result")) : null;
   renderResultPanel();
   updateAnnotations();
-  // a comparison shows its verdict and why in the result (a failed analysis of one program is part of it)
+  // a comparison shows its verdict and why in the result
   const message = result.status === "ok" || result.equivalence ? null : (result.error?.message || result.status);
   // parameter synthesis in Analyze is no failure but a pointer to Compare (#154)
   const neutral = result.status === "cancelled" || result.error?.details?.type === "parameter_synthesis";
@@ -1272,8 +1267,8 @@ async function loadExample(example, syntax = "ppy") {
     state.setup.decisions[key] = { strategy: decision.strategy, params: { ...(decision.params || {}) } };
   }
   state.pendingDefault = suggestion.decisions?.["*"] || null;
-  state.setup.input = suggestion.input_distribution || "";
-  if (state.mode === "compare") state.setup.inputKind = state.setup.input ? "given" : "default";
+  // Compare checks every input: an input the example suggests is Analyze's
+  if (state.mode === "analyze") state.setup.input = suggestion.input_distribution || "";
   // the suggested decisions belong to the example's loops: they must not be re-keyed from the loops of the
   // program it replaces (#277 follows edits, not replacements)
   state.outline = null;

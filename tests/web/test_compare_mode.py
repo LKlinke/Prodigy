@@ -1,6 +1,6 @@
 """Compare mode as a mode of its own: its setup does not come from Analyze, each program's loops take their own
-decisions, and the distributions of both programs are plotted (streamed while they are computed, joint grids of
-either program)."""
+decisions, and a comparison is only the check for every input: no input, no analysis of either program on one, no
+output distributions."""
 import json
 import shutil
 import subprocess
@@ -9,8 +9,9 @@ from pathlib import Path
 import pytest
 
 from prodigy.web.app import create_app
-from prodigy.web.jobs import merge_stream
-from prodigy.web.requests import compared_result, run_equivalence
+from prodigy.analysis.session import AnalysisSession
+from prodigy.web import requests as web_requests
+from prodigy.web.requests import run_equivalence, validate_equivalence
 
 from tests.web.test_app import HOST, wait_for
 
@@ -41,9 +42,10 @@ def test_the_loops_of_program_b_take_their_own_decisions_in_the_check():
     request = {"source": GEOMETRIC, "syntax": "ppy", "other_source": GEOMETRIC, "engine": "sympy",
                "decisions": {"0": INVARIANT},
                "other_decisions": {"0": {"strategy": "unroll", "params": {"iterations": 5}}}}
-    equivalence = run_equivalence(request)["equivalence"]
+    result = run_equivalence(request)
+    equivalence = result["equivalence"]
     assert (equivalence["check"]["first"], equivalence["check"]["second"]) == ("upper", "lower")
-    assert equivalence["other"]["loops"][0]["strategy"] == "unroll"
+    assert result["loops"][0]["strategy"] == "invariant" and result["other_loops"][0]["strategy"] == "unroll"
     # and the other way round: A's decision does not reach B
     swapped = {**request, "decisions": request["other_decisions"], "other_decisions": request["decisions"]}
     check = run_equivalence(swapped)["equivalence"]["check"]
@@ -59,33 +61,49 @@ def test_program_b_without_decisions_does_not_borrow_those_of_program_a():
     assert equivalence["check"]["answer"] == "failed" and equivalence["check"]["error"]["type"] == "decision"
 
 
-# ---- plots: streamed coefficients and grids of both programs --------------------------------------------
+# ---- only the check: no input, no analysis of a single program --------------------------------------
 
-def test_both_programs_stream_their_coefficients():
+def test_a_comparison_never_analyses_a_single_program(monkeypatch):
+    """The verdict comes from the check for every input and the witness search; no program runs as an analysis
+    of its own (AnalysisSession.run), and nothing streams coefficients."""
+    def refuse(self):
+        raise AssertionError("a comparison ran a single-program analysis")
+    monkeypatch.setattr(AnalysisSession, "run", refuse)
     events = []
-    result = run_equivalence({"source": TWO, "syntax": "ppy", "other_source": TWO_OTHER, "engine": "sympy",
-                              "coefficients": 5}, progress=events.append)
-    coefficients = [e for e in events if e.get("kind") == "coefficients"]
-    assert {e["program"] for e in coefficients} == {"first", "second"}
-    stream: dict = {}
-    for event in coefficients:
-        merge_stream(stream, event)
-    assert stream["variables"] == ["x", "y"] and stream["second"]["variables"] == ["x", "y"]
-    assert "program" not in stream["marginals"]["x"]
-    assert stream["marginals"]["x"]["rows"] == result["distribution"]["marginals"]["x"]["rows"]
-    assert stream["second"]["marginals"]["x"]["rows"] == result["equivalence"]["other"]["distribution"]["marginals"]["x"]["rows"]
-    assert stream["marginals"]["x"]["rows"] != stream["second"]["marginals"]["x"]["rows"]
+    same = run_equivalence({"source": TWO, "syntax": "ppy", "other_source": TWO, "engine": "sympy"},
+                           progress=events.append)
+    assert same["equivalence"]["verdict"] == "equivalent"
+    differ = run_equivalence({"source": TWO, "syntax": "ppy", "other_source": TWO_OTHER, "engine": "sympy"},
+                             progress=events.append)
+    assert differ["equivalence"]["verdict"] == "not_equivalent"
+    assert not [e for e in events if e.get("kind") == "coefficients"]
+    for result in (same, differ):
+        assert result["schema"] == "prodigy/equivalence-result@1" and result["status"] == "ok"
+        assert "distribution" not in result and "queries" not in result
+        assert {"other", "input"}.isdisjoint(result["equivalence"])
 
 
-def test_compared_result_picks_the_program():
-    result = {"status": "ok", "equivalence": {"other": {"status": "ok", "distribution": {}}}}
-    assert compared_result(result, {}) is result and compared_result(result, {"program": "first"}) is result
-    assert compared_result(result, {"program": "second"}) is result["equivalence"]["other"]
-    for payload in ({"program": "third"}, {"program": None}):
-        with pytest.raises(ValueError):
-            compared_result(result, payload)
-    with pytest.raises(ValueError):
-        compared_result({"status": "ok"}, {"program": "second"})
+def test_a_comparison_takes_no_input():
+    request = {"source": TWO, "syntax": "ppy", "other_source": TWO_OTHER, "input_distribution": "x**2"}
+    assert any("no initial distribution" in p for p in validate_equivalence(request))
+    assert run_equivalence(request)["status"] == "error"
+    assert validate_equivalence({**request, "input_distribution": "  "}) == []
+
+
+def test_the_witness_search_has_a_time_limit(monkeypatch):
+    """A witness search that runs out of time leaves the verdict open and says so (#348: witnesses on
+    logarithmic closed forms can take minutes)."""
+    from prodigy.analysis.equivalence import verdict
+
+    def slow(*_args, **_kwargs):
+        import time  # pylint: disable=import-outside-toplevel
+        time.sleep(30)
+    monkeypatch.setattr(web_requests, "WITNESS_SECONDS", 0.3)
+    monkeypatch.setattr(verdict, "analyse_on_input", slow)
+    equivalence = run_equivalence({"source": TWO, "syntax": "ppy", "other_source": TWO_OTHER,
+                                   "engine": "sympy"})["equivalence"]
+    assert equivalence["verdict"] == "unknown" and equivalence["witness_search"] == "timeout"
+    assert equivalence["witness"] is None and "ran out of time" in equivalence["reason"]
 
 
 @pytest.fixture(scope="module")
@@ -95,20 +113,18 @@ def client():
     app.extensions["prodigy_jobs"].shutdown()
 
 
-def test_joint_grids_of_both_programs_of_a_comparison(client):
+def test_the_endpoint_refuses_an_input_and_a_comparison_has_no_grids(client):
+    refused = client.post("/api/equivalence", json={"source": TWO, "syntax": "ppy", "other_source": TWO_OTHER,
+                                                    "input_distribution": "x"}, headers=HOST)
+    assert refused.status_code == 400 and "initial distribution" in refused.get_json()["error"]
     response = client.post("/api/equivalence", json={"source": TWO, "syntax": "ppy", "other_source": TWO_OTHER,
                                                      "engine": "sympy"}, headers=HOST)
     job = response.get_json()["job"]
-    assert wait_for(client, job)["state"] == "done"
-    grids = {}
-    for program in ("first", "second"):
-        started = client.post(f"/api/jobs/{job}/joint", json={"x": "x", "y": "y", "program": program}, headers=HOST)
-        assert started.status_code == 202, started.get_json()
-        grids[program] = wait_for(client, started.get_json()["job"])["result"]["joint"]
-    cell = lambda grid, x, y: grid["cells"][grid["y_values"].index(y)][grid["x_values"].index(x)]["prob"]
-    assert cell(grids["first"], 1, 2) == "1/2" and cell(grids["second"], 1, 2) == "1/3"
-    refused = client.post(f"/api/jobs/{job}/joint", json={"x": "x", "y": "y", "program": "third"}, headers=HOST)
-    assert refused.status_code == 400
+    status = wait_for(client, job)
+    assert status["state"] == "done" and not status.get("stream")
+    assert status["result"]["equivalence"]["witness"]["input"] == {"x": 0, "y": 0}
+    grid = client.post(f"/api/jobs/{job}/joint", json={"x": "x", "y": "y"}, headers=HOST)
+    assert grid.status_code == 404
 
 
 # ---- the setups of the two modes (frontend state) --------------------------------------------------------
@@ -147,7 +163,8 @@ console.log(JSON.stringify({
   followed: followed.decisions[0].params.invariant,
   both: [both.decisions[0], loopyB.decisions[0]],
   reasons: [m.defaultReason(first.decisions[0], "A"), m.defaultReason(both.decisions[0], "A"), m.defaultReason(chosen.decisions[0], "A")],
-  inputs: [m.setupInput({ input: " x ", inputKind: "default" }, "compare"), m.setupInput({ input: " x ", inputKind: "given" }, "compare"),
+  savedInput: m.restoreSetup({ input: "x", inputKind: "given", options: { coefficients: 9, engine: "sympy" } }, meta, "compare"),
+  inputs: [m.setupInput({ input: " x ", inputKind: "given" }, "compare"),
     m.setupInput({ input: " x " }, "analyze"), m.setupInput({ input: "  " }, "analyze")],
 }));
 """
@@ -163,8 +180,10 @@ def test_an_analyze_setup_does_not_reach_compare(tmp_path):
     assert analyze["decisions"]["0"]["strategy"] == "auto" and analyze["input"] == "x**3"
     assert analyze["options"]["engine"] == "sympy" and analyze["options"]["recordSteps"] is True
     assert analyze["options"]["timeLimit"] == 300  # capped by the server
-    assert compare["input"] == "" and compare["inputKind"] == "default" and "recordSteps" not in compare["options"]
-    assert compare["options"]["engine"] == "ginac" and compare["options"]["coefficients"] == 30
+    # Compare has no input and only the options of the check
+    assert "input" not in compare and "inputKind" not in compare
+    assert compare["options"] == {"engine": "ginac", "timeLimit": 120}
+    assert output["savedInput"] == {"decisions": {}, "options": {"engine": "sympy", "timeLimit": 120}}
     # the loop of A gets the Compare default: program B (loop-free) as its invariant
     assert output["changed"] is True
     assert output["compareRequest"] == {"0": {"strategy": "invariant", "params": {"invariant": "B"}}}
@@ -177,7 +196,7 @@ def test_an_analyze_setup_does_not_reach_compare(tmp_path):
         assert decision == {"strategy": "invariant", "params": {"invariant": ""}, "byDefault": True}
     assert "program B is this loop's invariant" in output["reasons"][0]
     assert "write the loop-free program" in output["reasons"][1] and output["reasons"][2] is None
-    assert output["inputs"] == [None, "x", "x", None]
+    assert output["inputs"] == [None, "x", None]
 
 
 def test_main_keeps_one_setup_per_mode():
@@ -189,81 +208,25 @@ def test_main_keeps_one_setup_per_mode():
     # "Compare this loop" takes only the loop-free program along, not the loop's strategy
     compare_loop = main[main.index("async function compareLoop"):main.index("/** What the verdict card offers")]
     assert "structuredClone(current)" not in compare_loop and "state.setup.decisions = {};" in compare_loop
+    # the request of a comparison has no input and only the options of the check
+    build = main[main.index("function buildRequest()"):main.index("async function requestSuggestion")]
+    compare_request = build[:build.index("const steps")]
+    assert 'state.mode === "compare"' in compare_request and "input_distribution" not in compare_request
+    assert "coefficients" not in compare_request and "normalize" not in compare_request
+    # Compare's Setup: no input section, loops only for programs that have loops
     setup = (APP / "setup.js").read_text(encoding="utf-8")
-    assert "comparing ? null : toggleRow(\"Record each step\"" in setup
+    compare_setup = setup[setup.index("function renderCompareSetup"):setup.index("function loopSection")]
+    assert "inputKind" not in setup and "Initial distribution" not in compare_setup and "compareInput" not in setup
+    assert "hasLoops(ctx.outline" in compare_setup and "hasLoops(ctx.second.outline" in compare_setup
 
 
-# ---- plots of both programs ---------------------------------------------------------------------------
 
-PLOTS_CHECK = """
-const m = await import(%(model)r);
-const ok = (kind, rows, extra = {}) => ({ status: "ok", bounds: { kind, ...extra }, distribution: { variables: ["x"],
-  marginals: { x: { rows, truncated: false } } } });
-const exact = ok("exact", [{ value: 0, prob: "1/2", p: 0.5 }, { value: 1, prob: "1/2", p: 0.5 }]);
-const upper = ok("upper", [{ value: 0, prob: "1/4", p: 0.25 }, { value: 1, prob: "3/4", p: 0.75 }]);
-const lower = ok("lower", [{ value: 0, prob: "1/8", p: 0.125, upper: "1/4", upper_p: 0.25 }], { residual_mass_float: 0.125 });
-console.log(JSON.stringify({
-  upper: m.compareMarginals(exact, upper, "x").map((r) => r.differs),
-  lower: m.compareMarginals(exact, lower, "x").map((r) => r.differs),
-  intervals: [m.rowInterval(exact, null), m.rowInterval(upper, { p: 0.25 }), m.rowInterval(lower, null),
-    m.rowInterval({ bounds: { kind: "unknown" } }, { p: 0.5 })],
-}));
-"""
+# ---- the view: verdict and witness only ------------------------------------------------------------------
 
-
-@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
-def test_differing_values_also_with_bounds(tmp_path):
-    """A value is marked where the probabilities provably differ: exact values that differ, or intervals that do
-    not overlap (an upper bound below an exact value, a lower bound above it)."""
-    output = node(PLOTS_CHECK % {"model": (COMPONENTS / "equivalence-model.js").as_uri()}, tmp_path)
-    # exact 1/2 against [0, 1/4] for x = 0 differs; against [0, 3/4] for x = 1 it may not
-    assert output["upper"] == [True, None]
-    # exact 1/2 against [1/8, 1/4] differs; x = 1 has no row in the lower bound: [0, 1/8] against 1/2
-    assert output["lower"] == [True, True]
-    assert output["intervals"] == [[0, 0], [0, 0.25], [0, 0.125], None]
-
-
-CHART_CHECK = """
-globalThis.Node = Object;
-globalThis.document = {
-  createElementNS: (ns, tag) => element(tag),
-  createElement: (tag) => element(tag),
-  createTextNode: (text) => ({ text }),
-};
-function element(tag) {
-  return { tag, attrs: {}, children: [], classList: { add() {} }, dataset: {},
-    setAttribute(k, v) { this.attrs[k] = String(v); }, getAttribute(k) { return this.attrs[k]; },
-    append(...c) { this.children.push(...c); }, appendChild(c) { this.children.push(c); return c; },
-    addEventListener() {} };
-}
-const c = await import(%(charts)r);
-const table = { rows: [{ value: 0, prob: "1/2", p: 0.5 }, { value: 1, prob: "1/2", p: 0.5 }] };
-const svg = c.marginalChart(table, { variable: "x", width: 300, differ: new Set([1]), peers: [0.9] });
-const texts = [];
-const walk = (n) => { if (!n || typeof n !== "object") return; if (n.tag === "text") texts.push(n.children.map((x) => x.text ?? "").join(""));
-  (n.children || []).forEach(walk); };
-walk(svg);
-const groups = [];
-const find = (n) => { if (!n || typeof n !== "object") return; if (n.tag === "g" && /mc-bar/.test(n.attrs.class || "")) groups.push(n.attrs.class);
-  (n.children || []).forEach(find); };
-find(svg);
-console.log(JSON.stringify({ label: svg.attrs["aria-label"], max: svg.attrs["data-max"], groups, marks: texts.filter((t) => t === "≠").length }));
-"""
-
-
-@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
-def test_chart_marks_differing_values_and_shares_the_scale(tmp_path):
-    output = node(CHART_CHECK % {"charts": (COMPONENTS / "charts.js").as_uri()}, tmp_path)
-    # the other program's 0.9 sets the scale of both charts
-    assert output["max"] == "1"
-    assert output["groups"] == ["mc-bar mc-value", "mc-bar mc-value mc-differs"]
-    # status not by colour alone: the glyph above the bar and the words in the chart's label
-    assert output["marks"] == 1 and "1 value differs from the other program (marked ≠)" in output["label"]
-
-
-def test_compare_view_uses_the_shared_components():
-    plots = (COMPONENTS / "compare-plots.js").read_text(encoding="utf-8")
-    for used in ('from "./charts.js"', 'from "./joint-view.js"', 'from "./parts.js"', 'from "./analysis-card.js"'):
-        assert used in plots
+def test_compare_view_shows_only_the_verdict():
     view = (COMPONENTS / "equivalence-view.js").read_text(encoding="utf-8")
-    assert "comparePlots(" in view and "loadJoint: undefined" not in view
+    assert "renderResult" not in view and "comparePlots" not in view and "Result of" not in view
+    assert "Output distributions" not in view and "witnessTable(" in view
+    assert not (COMPONENTS / "compare-plots.js").exists()
+    main = (APP / "main.js").read_text(encoding="utf-8")
+    assert "equivalence?.other" not in main and "result?.other_loops" in main

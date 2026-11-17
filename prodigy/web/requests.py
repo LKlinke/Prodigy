@@ -29,11 +29,16 @@ and :func:`prepare_request` turns them into the engines' spelling (``x**2`` -> `
 """
 from __future__ import annotations
 
+import contextlib
 import copy
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
+import time
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from prodigy.analysis.config import ForwardAnalysisConfig
+    from prodigy.analysis.equivalence.verdict import CheckOutcome
+    from prodigy.analysis.session import AnalysisSession
+    from prodigy.pgcl import Program
 
 ENGINES = {
     "sympy": "SymPy",
@@ -330,9 +335,8 @@ def loop_program(source: str, syntax: str, loop_id: int) -> Dict[str, Any]:
 
 
 def other_program_request(request: Dict[str, Any]) -> Dict[str, Any]:
-    """The analysis request of the second program of an equivalence request: ``other_source`` in
-    ``other_syntax`` (default: the syntax of the first program) with ``other_decisions``, and the
-    options and initial distribution of the first."""
+    """The request of the second program of an equivalence request: ``other_source`` in ``other_syntax``
+    (default: the syntax of the first program) with ``other_decisions``, and the options of the first."""
     other = {key: value for key, value in request.items()
              if key not in ("source", "syntax", "file_name", "decisions", "record_steps", "watches")}
     other["source"] = request.get("other_source")
@@ -342,10 +346,13 @@ def other_program_request(request: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def validate_equivalence(request: Dict[str, Any]) -> List[str]:
-    """Problems with an equivalence request: an analysis request (the first program) plus
-    ``other_source``, optional ``other_syntax`` and ``other_decisions`` (the second program)."""
+    """Problems with an equivalence request: an analysis request (the first program, without an initial
+    distribution: the check covers every input) plus ``other_source``, optional ``other_syntax`` and
+    ``other_decisions`` (the second program)."""
     first = {key: value for key, value in request.items() if not key.startswith("other_")}
     problems = validate_request(first)
+    if isinstance(request.get("input_distribution"), str) and request["input_distribution"].strip():
+        problems.append("A comparison checks every input at once; it takes no initial distribution.")
     if not isinstance(request.get("other_source"), str) or not request["other_source"].strip():
         return problems + ["Program B is empty."]
     try:
@@ -356,23 +363,121 @@ def validate_equivalence(request: Dict[str, Any]) -> List[str]:
                        if problem not in problems]
 
 
+EQUIVALENCE_SCHEMA = "prodigy/equivalence-result@1"
+"""The schema of the result of a comparison (:func:`run_equivalence`)."""
+
+WITNESS_SECONDS = 20.0
+"""How long a comparison looks for a witness (at most a third of the job's time limit)."""
+
+WITNESS_UNROLLING = 30
+"""Iterations of each loop when the witness search unrolls the loops (lower bounds with residual mass)."""
+
+
+class WitnessTimeout(Exception):
+    """The witness search ran out of its time (:data:`WITNESS_SECONDS`)."""
+
+
+@contextlib.contextmanager
+def _time_budget(seconds: float) -> Iterator[None]:
+    """Raises :class:`WitnessTimeout` in the block after ``seconds`` (SIGALRM, so only in the main thread of
+    a process; elsewhere there is no limit). A timer that was running (e.g. pytest-timeout's) is restored with
+    the time it has left. Native code (GiNaC) is interrupted only when it returns to Python."""
+    # pylint: disable=import-outside-toplevel
+    import signal
+    import threading
+    if not hasattr(signal, "setitimer") or threading.current_thread() is not threading.main_thread():
+        yield
+        return
+
+    def expire(_signum: int, _frame: Any) -> None:
+        raise WitnessTimeout()
+
+    previous = signal.signal(signal.SIGALRM, expire)
+    start = time.monotonic()
+    remaining, interval = signal.setitimer(signal.ITIMER_REAL, max(seconds, 0.001))
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
+        if remaining > 0:
+            signal.setitimer(signal.ITIMER_REAL, max(remaining - (time.monotonic() - start), 0.001), interval)
+
+
+WitnessInput = Dict[str, int]
+"""The input state of a witness search: variable values, absent variables are 0."""
+
+
+def _witness_input(check: "CheckOutcome") -> WitnessInput:
+    """Where to look for a witness: the counterexample of the check, else the input on which an invariant was
+    refuted, else every variable 0."""
+    if check.counterexample:
+        return dict(check.counterexample)
+    details = (check.error or {}).get("details") or {}
+    found = details.get("counterexample")
+    if isinstance(found, dict) and all(isinstance(v, int) and not isinstance(v, bool) for v in found.values()):
+        return {str(k): v for k, v in found.items()}
+    return {}
+
+
+def _search_witness(program: "Program", other: "Program", session: "AnalysisSession", state: WitnessInput,
+                    decisions: Tuple[Dict[str, Any], Dict[str, Any]], seconds: float
+                    ) -> Tuple[Optional[Dict[str, Any]], bool]:
+    """A witness on the input ``state`` (:func:`~prodigy.analysis.equivalence.verdict.find_witness`): both
+    programs are analysed on it, first with the strategies of the request (``decisions`` of A and B), then
+    with every loop unrolled (:data:`WITNESS_UNROLLING`; a lower bound with its residual mass is still
+    sound for a witness). Returns the witness or None, and whether the search ran out of time."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.equivalence.verdict import analyse_on_input, find_witness
+    from prodigy.analysis.session import parse_decisions
+    unrolled = {"*": {"strategy": "unroll", "params": {"iterations": WITNESS_UNROLLING}}}
+    attempts = [decisions, (unrolled, unrolled)]
+    try:
+        with _time_budget(seconds):
+            for first, second in attempts:
+                kept = session.provider.decisions
+                session.provider.decisions = parse_decisions(first)
+                try:
+                    one = analyse_on_input(program, state, session)
+                    with session.other_program(other, second):
+                        two = analyse_on_input(other, state, session)
+                    witness = find_witness(one, two)
+                except WitnessTimeout:
+                    raise
+                except Exception:  # pylint: disable=broad-except
+                    witness = None
+                finally:
+                    session.provider.decisions = kept
+                if witness is not None:
+                    return witness, False
+    except WitnessTimeout:
+        return None, True
+    return None, False
+
+
 def run_equivalence(request: Dict[str, Any], *, output: Optional[Callable[[str], None]] = None,
                     progress: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
-    """Compares two programs (in a job process): the second-order check for every input
-    (:func:`~prodigy.analysis.equivalence.verdict.run_check`), then both programs on the initial
-    distribution of the request, or on the counterexample of the check if the request has none.
-    The result is the analysis result of the first program (``prodigy/analysis-result@1``) with the
-    key ``equivalence``: the sound verdict (:mod:`prodigy.analysis.equivalence.verdict`), the
-    raw outcome of the check, a witness if there is one, and the analysis result of the second
-    program (``other``). Never raises for analysis errors."""
+    """Checks whether two programs are equivalent for every input (in a job process): the second-order check
+    (:func:`~prodigy.analysis.equivalence.verdict.run_check`) and, unless it proved the computed distributions
+    equal, a witness search on the input of its counterexample (or every variable 0). No program runs on an
+    input of the person's choosing, and there is no output distribution of either program.
+
+    The result (``prodigy/equivalence-result@1``) has ``status``, ``error``, ``syntax``, ``loops`` and
+    ``other_loops`` (what the loops of programs A and B were proven to be in the check), ``log``, ``timing``
+    and ``equivalence``: the sound verdict (:mod:`prodigy.analysis.equivalence.verdict`), the witness if there
+    is one (with its ``input``), the raw outcome of the check and, if the witness search ran out of time,
+    ``witness_search: "timeout"``. Never raises for analysis errors."""
     # pylint: disable=import-outside-toplevel,too-many-locals
     from prodigy.analysis.equivalence import verdict as equivalence
+    from prodigy.analysis.result import prodigy_version
     from prodigy.analysis.session import AnalysisSession
     from prodigy.pgcl import parse_pgcl
+    from prodigy.util.integers import unlimited_int_digits
 
     problems = validate_equivalence(request)
     if problems:
         return _error("request", " ".join(problems), problems=problems)
+    start = time.perf_counter()
     first_request = prepare_request({key: value for key, value in request.items() if not key.startswith("other_")})
     second_request = prepare_request(other_program_request(request))
     programs: Dict[str, Any] = {}
@@ -382,89 +487,58 @@ def run_equivalence(request: Dict[str, Any], *, output: Optional[Callable[[str],
         except Exception as exc:  # pylint: disable=broad-except
             return _error("syntax", f"Program {which}: {str(exc).split(chr(10), maxsplit=1)[0]}")
     program, other = programs["A"], programs["B"]
-
-    def session_for(part: Dict[str, Any], prog: Any, *, input_distribution: Any = None,
-                    report: Optional[Callable[[Dict[str, Any]], None]] = None,
-                    stream: bool = False) -> AnalysisSession:
-        return AnalysisSession(prog, source=part["source"], syntax=request_syntax(part), config=make_config(part),
-                               decisions=part.get("decisions") or {}, input_distribution=input_distribution,
-                               allow_files=False, capture_output=True, output_callback=output,
-                               progress_callback=report, coefficient_limit=int(part.get("coefficients", 30)),
-                               parameter_synthesis="allow", stream_coefficients=stream and report is not None)
-
-    def tagged(which: str) -> Optional[Callable[[Dict[str, Any]], None]]:
-        """The progress of one of the two programs: its events say which."""
-        if progress is None:
-            return None
-        report = progress
-        return lambda event: report({**event, "program": which})
-
+    decisions = (first_request.get("decisions") or {}, second_request.get("decisions") or {})
+    session = AnalysisSession(program, source=first_request["source"], syntax=request_syntax(first_request),
+                              config=make_config(first_request), decisions=decisions[0], allow_files=False,
+                              capture_output=True, output_callback=output, progress_callback=progress,
+                              parameter_synthesis="allow")
     variables_differ = equivalence.different_variables(program, other)
     check = equivalence.CheckOutcome("failed", error={"type": "variables", "message": variables_differ or ""})
-    if variables_differ is None:
-        # each program's loops are decided by their own ids and decisions
-        session = session_for(first_request, program, report=progress)
-        with session.activate(), session.config.activate(), session._output():  # pylint: disable=protected-access
+    witness: Optional[Dict[str, Any]] = None
+    timed_out = False
+    with session.activate(), session.config.activate(), session._output():  # pylint: disable=protected-access
+        if variables_differ is None:
             print("Checking the equivalence for every input (second-order generating functions) …")
-            check = equivalence.run_check(program, other, session,
-                                          other_decisions=second_request.get("decisions") or {})
+            # each program's loops are decided by their own ids and decisions
+            check = equivalence.run_check(program, other, session, other_decisions=decisions[1])
+        records = list(session.loop_records.items())
+        if variables_differ is None and check.answer != "equal":
+            state = _witness_input(check)
+            shown = ", ".join(f"{k} = {v}" for k, v in sorted(state.items()) if v) or "every variable 0"
+            print(f"Looking for a witness on the input {shown} …")
+            limit = request.get("time_limit")
+            seconds = WITNESS_SECONDS if not isinstance(limit, (int, float)) else min(WITNESS_SECONDS, limit / 3)
+            with unlimited_int_digits():
+                witness, timed_out = _search_witness(program, other, session, state, decisions, seconds)
+            if witness is not None:
+                witness["input"] = {name: state.get(name, 0) for name in sorted(program.variables)}
+            elif timed_out:
+                print(f"The witness search stopped after {seconds:g} s.")
+    verdict = equivalence.decide(check, witness, variables_differ=variables_differ, input_tips=False)
+    if timed_out and verdict["verdict"] == equivalence.UNKNOWN:
+        verdict["reason"] += " The witness search ran out of time."
 
-    text = first_request.get("input_distribution")
-    input_source = "request"
-    if not (isinstance(text, str) and text.strip()):
-        text, input_source = None, "default"
-        if check.counterexample and variables_differ is None:
-            text = "*".join(f"{name}^{value}" for name, value in sorted(check.counterexample.items()) if value) or "1"
-            input_source = "counterexample"
-    # the input as the person would write it, in the syntax of the first program
-    shown = text.replace("^", "**") if text and request_syntax(first_request) == "ppy" else text
-    if output is not None:
-        where = f"the initial distribution {shown}" if shown else "the default input"
-        output(f"Analysing both programs on {where} …\n")
-    # the plots of both programs build up while their coefficients are computed (#405)
-    first_result = session_for(first_request, program, input_distribution=text, report=tagged("first"),
-                               stream=True).run().to_json()
-    second_result = session_for(second_request, other, input_distribution=text, report=tagged("second"),
-                                stream=True).run().to_json()
+    def loops(other_program: bool) -> List[Dict[str, Any]]:
+        found = [record.to_json() for key, record in records if isinstance(key, tuple) == other_program]
+        return sorted(found, key=lambda r: (r["id"] is None, r["id"] if r["id"] is not None else 0))
 
-    witness = None
-    if variables_differ is None:
-        witness = _equivalence_witness(first_result, second_result, first_request)
-        if witness is not None:
-            witness["input"] = shown
-    verdict = equivalence.decide(check, witness, variables_differ=variables_differ)
-    first_result["equivalence"] = {
-        **verdict,
-        "witness": witness,
-        "check": check.to_json(),
-        "input": {"distribution": shown, "source": input_source},
-        "other": second_result,
+    return {
+        "schema": EQUIVALENCE_SCHEMA,
+        "prodigy_version": prodigy_version(),
+        "status": "ok",
+        "error": None,
+        "syntax": request_syntax(first_request),
+        "loops": loops(False),
+        "other_loops": loops(True),
+        "log": session.log.getvalue(),
+        "timing": {"total": round(time.perf_counter() - start, 6)},
+        "equivalence": {
+            **verdict,
+            "witness": witness,
+            "witness_search": "timeout" if timed_out else None,
+            "check": check.to_json(),
+        },
     }
-    return first_result
-
-
-def _equivalence_witness(first: Dict[str, Any], second: Dict[str, Any], request: Dict[str, Any]
-                         ) -> Optional[Dict[str, Any]]:
-    """A witness of :func:`~prodigy.analysis.equivalence.verdict.find_witness` from two finished
-    analysis results (their distributions are read back from the closed forms the engine printed)."""
-    # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.equivalence.verdict import Side, find_witness
-    from prodigy.util.integers import unlimited_int_digits
-    if first.get("status") != "ok" or second.get("status") != "ok":
-        return None
-    config = make_config(request)
-
-    def side(result: Dict[str, Any]) -> Side:
-        distribution = result["distribution"]
-        bounds = result.get("bounds") or {}
-        return Side(config.factory.from_expr(distribution["closed_form"], *distribution["variables"]),
-                    bounds.get("kind", "unknown"), bounds.get("residual_mass") or 0)
-
-    with config.activate(), unlimited_int_digits():
-        try:
-            return find_witness(side(first), side(second))
-        except Exception:  # pylint: disable=broad-except
-            return None
 
 
 # ---------------------------------------------------------------------------------------
@@ -504,18 +578,6 @@ def _step_snapshot(result: Dict[str, Any], payload: Dict[str, Any]) -> Optional[
     if snapshot.get("truncated"):
         raise ValueError("The closed form at this step is too large; the trace keeps only its beginning.")
     return snapshot
-
-
-def compared_result(result: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
-    """The result a grid request is about: ``result`` itself, or for ``"program": "second"`` the result of the
-    second program of a comparison (``result["equivalence"]["other"]``). Raises ``ValueError``."""
-    which = payload.get("program", "first")
-    if which == "first":
-        return result
-    other = (result.get("equivalence") or {}).get("other") if which == "second" else None
-    if not isinstance(other, dict):
-        raise ValueError("'program' must be 'first' or 'second' (the second only for a comparison).")
-    return other
 
 
 def joint_request(result: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:

@@ -386,15 +386,14 @@ function liveCharts(stream, width, key, { title = "Distribution so far", program
 }
 
 /** Progress view while an analysis runs. state: {elapsed, timeLimit, progress: [...], log, loops,
- * stream: the coefficients computed so far or null; a comparison's has the second program's in `stream.second`};
- * options: {strategyTitles, change: what changed since the analysis started (see staleness.js),
- * label: what runs ("Analyzing" by default), comparing: whether two programs run (their charts are labelled)} */
+ * stream: the coefficients computed so far or null}; options: {strategyTitles, change: what changed since the
+ * analysis started (see staleness.js), label: what runs ("Analyzing" by default; a comparison is "Checking" and
+ * streams no coefficients)} */
 export function renderRunning(container, state, options = {}) {
   const titles = options.strategyTitles || {};
   const bars = (state.progress || []).map((p) => {
     const fraction = p.total ? Math.min(1, p.done / p.total) : null;
-    const program = options.comparing && p.program ? `Program ${p.program === "second" ? "B" : "A"} · ` : "";
-    const label = `${program}Loop ${p.loop ?? "?"} · ${titles[p.strategy] || p.strategy}` + (p.message ? ` · ${p.message}` : "");
+    const label = `Loop ${p.loop ?? "?"} · ${titles[p.strategy] || p.strategy}` + (p.message ? ` · ${p.message}` : "");
     return h("div", { class: "rv-progress" },
       h("div", { class: "rv-progress-label" }, h("span", { title: label }, label),
         h("span", { class: "num" }, fraction !== null ? `${Math.round(fraction * 100)} %` : "")),
@@ -407,10 +406,8 @@ export function renderRunning(container, state, options = {}) {
   // differently, which must not move the view
   // (also while still empty, so that its first line does not move the view either)
   const logBox = h("pre", { class: "rv-pre rv-log rv-running-log", "aria-label": "Console output", tabindex: log ? "0" : null }, log);
-  // the streamed coefficients: of the program, or of each program of a comparison
-  const streams = (options.comparing
-    ? [[state.stream, "Program A so far", "first"], [state.stream?.second, "Program B so far", "second"]]
-    : [[state.stream, "Distribution so far", null]]).filter(([stream]) => stream?.variables);
+  // the streamed coefficients of the program
+  const streams = [[state.stream, "Distribution so far", null]].filter(([stream]) => stream?.variables);
   // a transition still running ends in its final state first (the charts are drawn anew below)
   for (const motion of liveMotions) motion?.finish();
   liveMotions = [];
