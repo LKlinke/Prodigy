@@ -49,6 +49,47 @@ A strategy is chosen per loop with ``--loop ID=STRATEGY[:NAME=VALUE,...]``, e.g.
 ``--loop '*=auto'`` or ``--loop 0=evt_iterate:iterations=20``. The names and the menu numbers of the
 older strategies are unchanged.
 
+Comparing two programs
+----------------------
+
+``prodigy check_equality A B`` checks whether the programs in the files ``A`` and ``B`` are
+equivalent, i.e. have the same output distribution for every input (e.g. a loop and a loop-free
+invariant program). The loops of both programs are decided interactively, as in ``prodigy main``.
+The check runs both programs on a second-order generating function that stands for every input at
+once (:mod:`prodigy.analysis.equivalence.equivalence_check`). Its verdict is the same as in the
+GUI's Compare mode (:mod:`prodigy.analysis.equivalence.verdict`) and never claims more than was
+proven:
+
+- **equivalent** (exit code 0): the check proves equality and both analyses are exact.
+- **not equivalent** (exit code 3): only with a *witness*, an input and an output state whose
+  probabilities provably differ in the two programs (their sound intervals are disjoint). Prodigy
+  searches it by analysing both programs again on the input of the check's counterexample (or on the
+  input where every variable is 0), with the loop decisions given for the check.
+- **undecided** (exit code 4): everything else, with the reason. If a loop was handled by an
+  invariant (Park's lemma), its result is only an upper bound, and proven equality proves one
+  direction only: the output reads ``one direction proven: first_below_second`` (the output
+  distribution of A lies coefficient-wise below that of B, equal if the loops of A terminate almost
+  surely, which Prodigy does not check). Programs that declare different variables, a step that the
+  check cannot do ("not implemented") and a difference that the solver cannot decide end here too.
+
+Exit codes 1 and 2 are errors as for every command (e.g. a syntax error or a missing file).
+
+The output names both files, what the check found for the computed distributions with the guarantee
+of each analysis (``exact``, ``lower``, ``upper``), the verdict and its reason, the parameter values
+under which equality was proven, and the witness with the probability of its state in each program
+(an interval for a bound), e.g.:
+
+.. code-block:: text
+
+   Program A: loop.ppy
+   Program B: closed.ppy
+   Check for every input: the computed distributions differ (analysis of A: lower, of B: exact)
+   Verdict: A is not equivalent to B
+   Reason: The programs give provably different probabilities to the output state x = 0, c = 0 (witness below).
+   Witness: on the input every variable 0, the output state x = 0, c = 0 has probability
+     in [1/2, 524289/1048576] in program A (lower)
+     1/3 in program B (exact)
+
 Converting programs to ``.ppy``
 -------------------------------
 

@@ -1,5 +1,5 @@
 """
-Sound verdicts for the comparison of two programs (the GUI's equivalence view).
+Sound verdicts for the comparison of two programs (``prodigy check_equality`` and the GUI's Compare mode).
 
 :func:`~prodigy.analysis.equivalence.equivalence_check.check_equivalence` compares the
 second-order generating functions of two programs: it runs both on a test distribution that
@@ -21,6 +21,10 @@ says what was proven, e.g. ``first_below_second``: for every input, the output d
 first program lies coefficient-wise below that of the second (equal if its loops terminate almost
 surely).
 
+:func:`compare` runs the whole comparison (check, witness search, verdict); the command line uses
+it, the GUI combines :func:`run_check`, :func:`find_witness` and :func:`decide` with its own analyses
+of the two programs on the input it shows.
+
 The case analysis lives here and uses only the :class:`~prodigy.distribution.Distribution`
 interface and exact SymPy arithmetic on the coefficients the engines print, so it is the same for
 every engine.
@@ -34,9 +38,12 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
 
 import sympy
 
+from prodigy.analysis.equivalence.equivalence_check import (  # pylint: disable=unused-import
+    DifferentVariablesError, different_variables)
 from prodigy.analysis.loop_strategies import Bound
 
 if TYPE_CHECKING:  # pragma: no cover
+    from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.analysis.session import AnalysisSession
     from prodigy.distribution import Distribution
     from prodigy.pgcl import Program
@@ -84,32 +91,14 @@ class CheckOutcome:
         }
 
 
-def different_variables(program: "Program", other: "Program") -> Optional[str]:
-    """Why two programs cannot be compared state by state (their variables differ), or None."""
-    first, second = set(program.variables), set(other.variables)
-    if first == second:
-        return None
-    parts = []
-    if first - second:
-        parts.append(f"only program A declares {', '.join(sorted(first - second))}")
-    if second - first:
-        parts.append(f"only program B declares {', '.join(sorted(second - first))}")
-    return ("The programs declare different variables (" + "; ".join(parts) + "). The comparison needs the "
-            "same variables in both programs; declare the missing ones (they keep the value 0).")
-
-
 def _failure(exc: BaseException) -> Dict[str, Any]:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import error_type
     from prodigy.analysis.session import DecisionRequired
-    from prodigy.distribution.distribution import NonFiniteMarginalError
+    # a NonFiniteMarginalError of the check arrives as CheckNotImplemented, a NotImplementedError
     error: Dict[str, Any] = {"type": error_type(exc), "message": str(exc) or type(exc).__name__}
-    if isinstance(exc, NonFiniteMarginalError):
-        # The test distribution of the check stands for every input at once and has infinite mass by
-        # design; a step that needs a finite measure is a limitation of the check, not of the programs.
-        error.update(type="NotImplementedError", message=(
-            "a step of the check for every input needs a finite measure, but the check works on a generating "
-            f"function with infinite mass ({error['message']})"))
+    if isinstance(exc, DifferentVariablesError):
+        error["type"] = "variables"
     if isinstance(exc, DecisionRequired):
         error.update(type="decision", **exc.to_json())
     details = getattr(exc, "details", None)
@@ -285,9 +274,10 @@ def _proven_relation_reason(check: CheckOutcome, relation: str) -> str:
 
 
 def decide(check: CheckOutcome, witness: Optional[Dict[str, Any]], *,
-           variables_differ: Optional[str] = None) -> Dict[str, Any]:
+           variables_differ: Optional[str] = None, input_tips: bool = True) -> Dict[str, Any]:
     """The verdict (``verdict``, ``reason``, ``relation``, ``constraints``) from the check and an
-    optional witness; see the module documentation for the rules."""
+    optional witness; see the module documentation for the rules. ``input_tips`` adds what to try if no
+    witness was found (for the GUI, whose input can be chosen and is conditioned on observations)."""
     if witness is not None:
         state = ", ".join(f"{k} = {v}" for k, v in witness["state"].items()) or "the empty state"
         reason = f"The programs give provably different probabilities to the output state {state} (witness below)."
@@ -312,9 +302,10 @@ def decide(check: CheckOutcome, witness: Optional[Dict[str, Any]], *,
     if check.answer == "different":
         if check.first == Bound.EXACT and check.second == Bound.EXACT:
             reason = ("The check found the generating functions to differ, but no witness was confirmed: no output "
-                      "state on the input shown has provably different probabilities. Try the input of the "
-                      "counterexample, or turn off conditioning on observations (the check compares the "
-                      "outputs before conditioning).")
+                      "state on the input shown has provably different probabilities.")
+            if input_tips:
+                reason += (" Try the input of the counterexample, or turn off conditioning on observations (the "
+                           "check compares the outputs before conditioning).")
         else:
             reason = ("The computed distributions differ, but one of them is "
                       f"{_KIND_WORDS.get(check.first if check.first != Bound.EXACT else check.second, 'a bound')}, "
@@ -322,3 +313,80 @@ def decide(check: CheckOutcome, witness: Optional[Dict[str, Any]], *,
         return {**unknown, "reason": reason}
     return {**unknown, "reason": "The check could neither prove nor refute that the generating functions are equal "
                                  "(their difference is shown below)."}
+
+
+# ---------------------------------------------------------------------------------------
+# The whole comparison (the command line)
+# ---------------------------------------------------------------------------------------
+
+@dataclass
+class Comparison:
+    """The outcome of :func:`compare`: the check, the witness (if any), the verdict (:func:`decide`)
+    and the input on which the witness was searched (variable values; absent variables are 0)."""
+
+    check: CheckOutcome
+    witness: Optional[Dict[str, Any]]
+    verdict: Dict[str, Any]
+    input: Dict[str, int] = field(default_factory=dict)
+
+
+def point_input(program: "Program", state: Dict[str, int], config: "ForwardAnalysisConfig") -> "Distribution":
+    """The distribution that is ``state`` with probability 1 (absent variables are 0)."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.pgcl import Binop, BinopExpr, BoolLitExpr, BoolType, NatLitExpr, VarExpr
+    dist = config.factory.one(*program.variables)
+    for name, value in sorted(state.items()):
+        if value:
+            literal = BoolLitExpr(True) if isinstance(program.variables.get(name), BoolType) \
+                else NatLitExpr(int(value))
+            dist = dist.update(BinopExpr(Binop.EQ, VarExpr(name), literal))
+    return dist
+
+
+def analyse_on_input(program: "Program", state: Dict[str, int], session: "AnalysisSession") -> Side:
+    """The output of ``program`` on the input ``state``, before conditioning on observations (as in the
+    check), with the guarantee of its analysis. Its loops are decided in ``session`` as usual; the
+    analysis does not count for the session's own result (a sub-analysis)."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.analyzer import compute_semantics
+    from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+    from prodigy.analysis.result import sym
+    from prodigy.distribution.distribution import known_convergent_series
+    config = session.config
+    start = point_input(program, state, config)
+    zero = config.factory.one(*program.variables) * 0
+    # the input is a point distribution, a finite measure: the marginals of the analysis are sums of series
+    with session.sub_analysis("witness search") as scope, known_convergent_series(True):
+        dist, error = compute_semantics(program.instructions, ProgramInfo(program), start, zero, config)
+    residual: sympy.Expr = sympy.Integer(0)
+    if scope.kind == Bound.LOWER:
+        # every output state misses at most the mass the analysis did not account for (the input has mass 1)
+        residual = 1 - sym(dist.get_probability_mass()) - sym(error.get_probability_mass())
+    return Side(dist, scope.kind, residual)
+
+
+def search_witness(program: "Program", other: "Program", session: "AnalysisSession",
+                   state: Dict[str, int]) -> Optional[Dict[str, Any]]:
+    """A witness (:func:`find_witness`) on the input ``state``, from fresh analyses of both programs, or
+    None (also if an analysis fails: a missing witness only leaves the verdict open)."""
+    try:
+        return find_witness(analyse_on_input(program, state, session), analyse_on_input(other, state, session))
+    except Exception:  # pylint: disable=broad-except
+        return None
+
+
+def compare(program: "Program", other: "Program", session: "AnalysisSession") -> Comparison:
+    """Compares two programs soundly: the second-order check for every input (:func:`run_check`), then,
+    unless it proved the computed distributions equal (no witness can exist then), a witness search on
+    the input of its counterexample (or on the input where every variable is 0), and the verdict
+    (:func:`decide`). ``session`` must be active, with its configuration; its decision provider decides
+    the loops. Never raises for analysis errors."""
+    differ = different_variables(program, other)
+    if differ is not None:
+        check = CheckOutcome("failed", error={"type": "variables", "message": differ})
+        return Comparison(check, None, decide(check, None, variables_differ=differ))
+    check = run_check(program, other, session)
+    state = dict(check.counterexample or {})
+    witness = None if check.answer == "equal" else search_witness(program, other, session, state)
+    # the witness search takes the counterexample's input and compares before conditioning already
+    return Comparison(check, witness, decide(check, witness, input_tips=False), state)
