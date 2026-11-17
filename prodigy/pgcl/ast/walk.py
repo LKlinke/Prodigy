@@ -37,7 +37,7 @@ This makes it hard to forget calling a recursive traversal call, which could eas
 from __future__ import annotations
 
 from enum import Enum, auto
-from typing import Any, Callable, Dict, Iterable, List, TypeVar
+from typing import Callable, Dict, Iterable, List, TypeVar, cast
 
 from prodigy.pgcl.util.ref import Mut
 
@@ -84,10 +84,10 @@ def _mut_tuple_items(tuple_ref: Mut[tuple]) -> Iterable[Mut]:
     """
     for i in range(len(tuple_ref.val)):
 
-        def getter(ii: int = i) -> Any:
+        def getter(ii: int = i) -> object:
             return tuple_ref.val[ii]
 
-        def setter(new_value: Any, ii: int = i) -> None:
+        def setter(new_value: object, ii: int = i) -> None:
             items = list(tuple_ref.val)
             items[ii] = new_value
             tuple_ref.val = tuple(items)
@@ -96,7 +96,7 @@ def _mut_tuple_items(tuple_ref: Mut[tuple]) -> Iterable[Mut]:
 
 
 def _mut_iterable_children(
-        iterable_ref: Mut[Any]) -> Iterable[Mut[Expr]]:
+        iterable_ref: Mut[object]) -> Iterable[Mut[Expr]]:
     """Get refs to the top-level Exprs found in an iterable."""
     iterable = iterable_ref.val
     if isinstance(iterable, dict):
@@ -104,7 +104,7 @@ def _mut_iterable_children(
     elif isinstance(iterable, list):
         iterator = Mut.list(iterable)
     elif isinstance(iterable, tuple):
-        iterator = _mut_tuple_items(iterable_ref)
+        iterator = _mut_tuple_items(cast(Mut[tuple], iterable_ref))
     else:
         raise ValueError(f"Unsupported iterable type: {type(iterable)}")
 

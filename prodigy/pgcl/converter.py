@@ -33,7 +33,7 @@ from __future__ import annotations
 import copy
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, TypeVar
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, TypeVar, Union
 
 import attr
 
@@ -67,7 +67,7 @@ class Conversion:
                 for old, new in self.renamings.items()]
 
 
-def _names(node: Any, out: Set[str]) -> None:
+def _names(node: Any, out: Set[str]) -> None:  # any part of an AST, see _rename
     """Collects all names of an AST. Every string in the AST is a name."""
     if isinstance(node, str):
         out.add(node)
@@ -122,6 +122,7 @@ def rename(node: T, renamings: Dict[str, str]) -> T:
 
 
 def _rename(node: Any, renamings: Dict[str, str]) -> Any:
+    # node: any part of an AST (str, list, tuple, set, dict or attrs instance); the result has the same shape
     # pylint: disable=too-many-return-statements
     if isinstance(node, str):
         return renamings.get(node, node)
@@ -188,7 +189,7 @@ def _preorder_instrs(instrs: List[Instr]) -> Iterator[Instr]:
             yield from _preorder_instrs(block)
 
 
-def _anchors(program: Program) -> Iterator[Any]:
+def _anchors(program: Program) -> Iterator[Union[Decl, Instr]]:
     """The declarations and instructions that the printer prints on their own, in source order."""
     decl: Decl
     for decl in program.declarations:
@@ -206,7 +207,7 @@ class _CommentPrinter(PpyPrinter):
         self.before = before
         self.after = after
 
-    def _decorate(self, node: Any, text: str) -> str:
+    def _decorate(self, node: object, text: str) -> str:
         lines = self.before.get(id(node), [])
         trailing = self.after.get(id(node), [])
         if trailing:
@@ -243,7 +244,8 @@ def _place_comments(program: Program, lines: Dict[int, Tuple[int, int]], source:
             if ending:
                 after.setdefault(id(ending[-1]), []).append(comment.text)
                 continue
-        following: Optional[Any] = next((node for node, first, _ in anchors if first > comment.line), None)
+        following: Optional[Union[Decl, Instr]] = next(
+            (node for node, first, _ in anchors if first > comment.line), None)
         target = tail if following is None else before.setdefault(id(following), [])
         target.extend(blank_before(comment.line) + [comment.text])
     for node, first, _ in anchors:

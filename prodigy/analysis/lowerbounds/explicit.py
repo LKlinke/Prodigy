@@ -10,19 +10,20 @@ from __future__ import annotations
 
 import math
 from fractions import Fraction
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, Mapping, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 from prodigy.analysis.lowerbounds.ir import IR, UnsupportedProgram, eval_expr, eval_number
 
 State = Tuple[int, ...]
-Measure = Dict[State, Any]  # weights: Fractions or floats
+Weight = Union[Fraction, float]
+Measure = Dict[State, Any]  # weights: Fractions or floats (numpy arrays in parameters.py)
 
 
-def _weight(p: Any, like: Any) -> Any:
+def _weight(p: Union[int, Fraction], like: Weight) -> Weight:
     return p if isinstance(like, Fraction) else float(p)
 
 
-def run_state(stmt: IR, state: Dict[str, Any], w: Any, out: Measure, variables: Sequence[str],
+def run_state(stmt: IR, state: Mapping[str, int], w: Any, out: Measure, variables: Sequence[str],
               geo_cut: int = 400) -> None:
     """Execute ``stmt`` from a single state with weight ``w`` and add the output sub-measure to ``out``."""
     t = stmt[0]
@@ -108,9 +109,9 @@ class Kernel:
     def __init__(self, guard: IR, body: IR, variables: Sequence[str], exact: bool = False):
         self.guard, self.body, self.vars = guard, body, list(variables)
         self.exact = exact
-        self.cache: Dict[State, Optional[List[Tuple[State, Any]]]] = {}
+        self.cache: Dict[State, Optional[List[Tuple[State, Weight]]]] = {}
 
-    def step(self, s: State) -> Optional[List[Tuple[State, Any]]]:
+    def step(self, s: State) -> Optional[List[Tuple[State, Weight]]]:
         if s in self.cache:
             return self.cache[s]
         st = dict(zip(self.vars, s))

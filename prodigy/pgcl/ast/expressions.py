@@ -7,7 +7,7 @@ from decimal import Decimal
 from enum import Enum, auto
 from fractions import Fraction
 from functools import reduce
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import attr
 
@@ -77,8 +77,8 @@ class NatLitExpr(ExprClass):
         return f'NatLitExpr({self.value})'
 
 
-def _validate_real_lit_value(_object: RealLitExpr, _attribute: Any,
-                             value: Any) -> None:
+def _validate_real_lit_value(_object: RealLitExpr, _attribute: object,
+                             value: Union[Decimal, Fraction]) -> None:
     if not isinstance(value, Decimal) and not isinstance(value, Fraction):
         raise ValueError(
             f"Expected a Decimal or Fraction value, got: {value!r}")
@@ -295,7 +295,7 @@ class BinopExpr(ExprClass):
         return f'{expr_str_parens(self.lhs)} {self.operator} {expr_str_parens(self.rhs)}'
 
 
-def _check_categorical_exprs(_self: CategoricalExpr, _attribute: Any,
+def _check_categorical_exprs(_self: CategoricalExpr, _attribute: object,
                              value: List[Tuple[Expr, RealLitExpr]]) -> None:
     probabilities = (prob.to_fraction() for _, prob in value)
     if sum(probabilities) != 1:

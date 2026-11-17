@@ -21,13 +21,15 @@ Expressions::
 from __future__ import annotations
 
 from fractions import Fraction
-from typing import Any, Dict, List, Sequence, Tuple, Union
+from typing import List, Mapping, Sequence, Tuple, Union
 
 from prodigy.pgcl import (AbortInstr, AsgnInstr, Binop, BinopExpr, BoolLitExpr, ChoiceInstr, ExpectationInstr,
                            Expr, FunctionCallExpr, IfInstr, Instr, NatLitExpr, ObserveInstr, ProbabilityQueryInstr,
                            Program, RealLitExpr, SkipInstr, Unop, UnopExpr, VarExpr, WhileInstr)
 
 IR = tuple
+Scalar = Union[int, bool, Fraction]
+"""A value of the explicit-state semantics: a natural number, a truth value or an exact probability."""
 
 
 class UnsupportedProgram(Exception):
@@ -120,7 +122,7 @@ def queries_of(instructions: Sequence[Instr]) -> List[Tuple[str, IR, str]]:
     return out
 
 
-def eval_expr(e: IR, state: Dict[str, Any]) -> Any:
+def eval_expr(e: IR, state: Mapping[str, int]) -> Scalar:
     """Evaluate an IR expression in a concrete state (used by the explicit-state reference semantics)."""
     t = e[0]
     if t == "num":

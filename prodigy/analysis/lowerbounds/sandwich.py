@@ -21,7 +21,7 @@ from fractions import Fraction
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from prodigy.analysis.lowerbounds import explicit
-from prodigy.analysis.lowerbounds.egcalc import Denominator, GFCalculus, Num, directed_decimal, pmul
+from prodigy.analysis.lowerbounds.egcalc import Denominator, GFCalculus, Num, Value, directed_decimal, pmul
 from prodigy.analysis.lowerbounds.ir import IR, UnsupportedProgram
 from prodigy.analysis.lowerbounds.parameters import ParameterPlan, TemplateShape, plan_parameters
 from prodigy.analysis.lowerbounds.problem import LoopProblem, Query
@@ -34,8 +34,8 @@ INF = math.inf
 @dataclass
 class QueryBound:
     query: Query
-    lower: object
-    upper: object
+    lower: Value
+    upper: Value
     value: object = None
     """The exact value of the query on the output of the lower certificate (``None`` without one or if it is
     infinite): ``L(A)`` for ``?Pr[A]`` and ``E_L[e]`` for ``?Ex[e]``.  It equals what evaluating the query on the
@@ -53,7 +53,7 @@ class SandwichResult:
     lower: Optional[Certificate]
     upper: Optional[Certificate]
     bounds: List[QueryBound]
-    mass_bounds: tuple
+    mass_bounds: Tuple[Value, Value]
     time_total: float
     plan: Optional[ParameterPlan] = None
     attempts: List[dict] = field(default_factory=list)
@@ -200,7 +200,7 @@ def synthesize_lower(problem: LoopProblem, shapes: Sequence[TemplateShape], verb
     return best
 
 
-def upper_objective(lp: TemplateLP, problem: LoopProblem, objective: str) -> List[Any]:
+def upper_objective(lp: TemplateLP, problem: LoopProblem, objective: str) -> List[Fraction]:
     if objective == "mass":
         return lp.exit_functional()
     base = lp.exit_functional()
@@ -218,7 +218,8 @@ def upper_objective(lp: TemplateLP, problem: LoopProblem, objective: str) -> Lis
 def synthesize_upper(problem: LoopProblem, shapes: Sequence[TemplateShape], objective: str = "auto",
                      verbose: bool = False, attempts: Optional[list] = None,
                      stop_after_first: bool = False) -> Optional[Certificate]:
-    best, best_score = None, None
+    best: Optional[Certificate] = None
+    best_score: Optional[Value] = None
     done_groups = set()
     for shape in shapes:
         if shape.group in done_groups:
@@ -248,7 +249,7 @@ def synthesize_upper(problem: LoopProblem, shapes: Sequence[TemplateShape], obje
             cert.extra["lp"] = lp
             score = sum(o * v for o, v in zip(obj, h))
             rec["exit_mass"] = directed_decimal(cert.exit_mass, True)
-            if best is None or score < best_score:
+            if best is None or best_score is None or score < best_score:
                 best, best_score = cert, score
         if attempts is not None:
             attempts.append(rec)
