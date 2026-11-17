@@ -248,6 +248,9 @@ def test_integral_with_a_wrong_constant_from_the_cas_is_corrected(monkeypatch):
 
 def test_wrong_antiderivative_from_the_cas_is_rejected(monkeypatch):
     monkeypatch.setattr(exp_polynomial.sympy, "integrate", lambda f, var: -sympy.log(2 - 2 * var))
+    # the partial fractions propose the right antiderivative after the rejected one (#237)
+    assert decide_equal(integral_from_zero(1 / (2 - k), k, [k]), -sympy.log(1 - k / 2)) is True
+    monkeypatch.setattr(exp_polynomial, "_rational_antiderivative", lambda *args: None)
     assert integral_from_zero(1 / (2 - k), k, [k]) is None
 
 

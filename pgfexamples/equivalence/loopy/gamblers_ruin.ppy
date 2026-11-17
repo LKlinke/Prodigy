@@ -1,0 +1,11 @@
+# check_equality pgfexamples/equivalence/loopy/gamblers_ruin.ppy pgfexamples/equivalence/loopy/invariants/gamblers_ruin_invariant.ppy
+x: nat;
+n: nat;
+
+while (x > 0 and x < n) {
+    {
+        x = x - 1;
+    } [1/2] {
+        x = x + 1;
+    }
+}

@@ -266,13 +266,20 @@ def test_equivalence_check_compares_two_variables_formally(engine, loop, invaria
 @pytest.mark.parametrize(
     'engine',
     [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE])
-def test_equivalence_check_gambler_needs_the_probability_x_over_n(engine):
-    # Issue #366: the guard x < n works now; the probability x/n of the invariant (#237) is the
-    # remaining piece and ends with "not implemented"
+@pytest.mark.parametrize('branches, expected, witness', [
+    # from x the walk reaches n with probability x/n (#366)
+    pytest.param("{x := n} [x/n] {x := 0}", True, [], id="equivalent"),
+    # swapped branches: from x = 0 and n = 1 the loop keeps x = 0, the counterpart sets x = 1
+    pytest.param("{x := 0} [x/n] {x := n}", False, {"x": 0, "n": 1}, id="swapped"),
+])
+def test_equivalence_check_gambler_with_the_probability_x_over_n(engine, branches, expected, witness):
+    # Issue #237: the probability x/n of two variables with infinitely many values is the operator
+    # θ_x followed by 1/θ_n on the second-order generating function
     if engine == ForwardAnalysisConfig.Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
     prog = compile_pgcl(GAMBLER)
-    inv = compile_pgcl("nat x; nat n; if (x > 0 & x < n) { {x := 0} [x/n] {x := n} } else {skip}")
+    inv = compile_pgcl(f"nat x; nat n; if (n > 0 & x < n) {{ {branches} }} else {{skip}}")
     assert isinstance(prog, Program) and isinstance(inv, Program)
-    with pytest.raises(NotImplementedError, match="x / n"):
-        check_equivalence(cav_phi(prog, inv), inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
+    res, subs = check_equivalence(cav_phi(prog, inv), inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
+    assert res is expected
+    assert (subs if expected else dict(subs.valuations)) == witness

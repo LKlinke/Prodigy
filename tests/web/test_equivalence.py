@@ -150,21 +150,35 @@ def test_parameter_values_of_a_synthesis():
     assert equivalence["verdict"] == "unknown" and equivalence["relation"] == "first_below_second"
 
 
-def test_gamblers_ruin_is_not_implemented():
-    """The pair of #366: the check for every input is not implemented, and says so."""
+def test_gamblers_ruin_with_swapped_branches_is_refuted():
+    """The pair of #366 with swapped branches: the probability x/n is computed (#237), and the invariant is
+    refuted on x = 0, n = 1 (the loop keeps x = 0, the closed form sets x = 1)."""
     equivalence = compare(GAMBLER, GAMBLER_CLOSED, decisions={"0": {"strategy": "invariant",
                                                                     "params": {"invariant": GAMBLER_CLOSED}}}
                           )["equivalence"]
     assert equivalence["verdict"] == "unknown"
-    assert equivalence["check"]["answer"] == "failed"
-    assert equivalence["check"]["error"]["type"] == "NotImplementedError"
-    assert equivalence["reason"].startswith("Not implemented")
+    assert equivalence["check"]["error"]["type"] == "InvariantRefutedError"
+    assert equivalence["check"]["error"]["details"]["counterexample"] == {"x": 0, "n": 1}
+
+
+def test_gamblers_ruin_is_proven_for_every_input():
+    """The corrected pair of #366: the loop is below its closed form for every input (Park's lemma); equal if
+    the loop terminates almost surely."""
+    closed = GAMBLER_CLOSED.replace("x = 0; } [x/n] { x = n;", "x = n; } [x/n] { x = 0;")
+    equivalence = compare(GAMBLER, closed, decisions={"0": {"strategy": "invariant",
+                                                            "params": {"invariant": closed}}})["equivalence"]
+    assert equivalence["relation"] == "first_below_second"
+    assert equivalence["check"]["answer"] == "equal"
+    assert (equivalence["check"]["first"], equivalence["check"]["second"]) == ("upper", "exact")
 
 
 def test_gamblers_ruin_on_one_input_has_a_witness():
     """On x = 1, n = 3 the unrolled loop is ruined with probability ≥ 0.66, the closed form says 1/3 (the
-    branches of the pair in #366 are swapped), so the programs provably differ."""
-    equivalence = compare(GAMBLER, GAMBLER_CLOSED, input_distribution="x*n**3",
+    branches of the pair in #366 are swapped), so the programs provably differ. The guard of the closed form is
+    only n > 0 here, so x <= n is not proven and the check for every input stays not implemented (#237): with it,
+    30 iterations of the loop on the second-order generating function would take minutes."""
+    closed = GAMBLER_CLOSED.replace("n > 0 and x < n", "n > 0")
+    equivalence = compare(GAMBLER, closed, input_distribution="x*n**3",
                           decisions={"0": {"strategy": "unroll", "params": {"iterations": 30}}})["equivalence"]
     assert equivalence["verdict"] == "not_equivalent"
     witness = equivalence["witness"]

@@ -27,6 +27,7 @@ SymPy form of the distribution and gives the result back to the distribution's e
 engines. Anything else (another shape of p, e.g. a polynomial or a double pole, or an integral that is not certified) is
 not implemented. ``x = bernoulli(p)`` with such a p is the choice ``{x = 1} [p] {x = 0}`` and uses the same operator.
 ``x = unif(0, n)`` uses the operator ``1/(θ + 1)`` in n after a substitution (:func:`uniform_up_to`, #385).
+The probability ``x/n`` of two program variables is ``θ_x`` followed by ``1/θ_n`` (:func:`apply_ratio`, #237).
 
 **Removable singularities.** The closed form of ``H_a`` is ``F/k^a`` with ``F = ∫_0^k t^(a-1) G``, whose series
 starts at ``k^a``; so the closed form has a removable singularity at ``k = 0``, while its series is an ordinary power
@@ -37,6 +38,7 @@ undefined instead of as a result (#259). The tests filter and query at ``k = 0``
 """
 from __future__ import annotations
 
+import itertools
 from fractions import Fraction
 from typing import NamedTuple, Optional, Set, Tuple
 
@@ -45,8 +47,12 @@ import sympy
 from prodigy.pgcl import Binop, BinopExpr, Expr, NatLitExpr, RealLitExpr, VarExpr
 
 from prodigy.analysis.evtinvariants.exp_polynomial import eventually_nonneg, integral_from_zero
+from prodigy.analysis.instructionhandler.state_dependent import (StatePart, checked_probability, instantiate,
+                                                                 nonzero_state)
 from prodigy.distribution import Distribution, MarginalType
+from prodigy.distribution.distribution import State
 from prodigy.distribution.equality import decide_equal, sympify_distribution, sympy_text
+from prodigy.util.order import default_monomial_iterator
 
 
 class CounterProbability(NamedTuple):
@@ -181,15 +187,16 @@ def apply_operator(probability: CounterProbability, distribution: Distribution,
                 f"a formula and other integrands without parameters with SymPy; this one is not implemented.")
         left += _rational(beta) * integral / k ** shift
     right = function - left
+    return _back(left, distribution), _back(right, distribution)
 
-    def back(expr: sympy.Expr) -> Distribution:
-        # exp factors merged again (exp(k - 1), not exp(-1)*exp(k)); Euler's number as exp(1), never "E"
-        text = sympy_text(sympy.powsimp(sympy.together(sympy.expand(expr)), combine="exp")).replace("**", "^")
-        result = distribution.factory().from_expr(text, *sorted(names))
-        parameters = distribution.get_parameters()
-        return result.set_parameters(*parameters) if parameters else result
 
-    return back(left), back(right)
+def _back(expr: sympy.Expr, distribution: Distribution) -> Distribution:
+    """The SymPy expression ``expr`` over the variables of ``distribution`` as a distribution of its engine."""
+    # exp factors merged again (exp(k - 1), not exp(-1)*exp(k)); Euler's number as exp(1), never "E"
+    text = sympy_text(sympy.powsimp(sympy.together(sympy.expand(expr)), combine="exp")).replace("**", "^")
+    result = distribution.factory().from_expr(text, *sorted(distribution.get_variables()))
+    parameters = distribution.get_parameters()
+    return result.set_parameters(*parameters) if parameters else result
 
 
 def uniform_up_to(distribution: Distribution, variable: str, bound: str, construct: str) -> Distribution:
@@ -242,3 +249,118 @@ def uniform_up_to(distribution: Distribution, variable: str, bound: str, constru
     result = distribution.factory().from_expr(text, *sorted(names))
     parameters = distribution.get_parameters()
     return result.set_parameters(*parameters) if parameters else result
+
+
+class RatioProbability(NamedTuple):
+    """The probability ``x/n`` of two program variables x (``numerator``) and n (``denominator``), #237."""
+    numerator: str
+    denominator: str
+
+    def __str__(self) -> str:
+        return f"{self.numerator}/{self.denominator}"
+
+
+def ratio_probability(probability: Expr, variables: Set[str]) -> Optional[RatioProbability]:
+    """The probability as ``x/n`` with two different program variables x and n (``variables``), or None."""
+    if not (isinstance(probability, BinopExpr) and probability.operator == Binop.DIVIDE):
+        return None
+    lhs, rhs = probability.lhs, probability.rhs
+    if isinstance(lhs, VarExpr) and isinstance(rhs, VarExpr) and lhs.var != rhs.var \
+            and {lhs.var, rhs.var} == variables:
+        return RatioProbability(lhs.var, rhs.var)
+    return None
+
+
+WITNESS_PAIRS = 45
+"""How many values of (x, n) the search for a witness of a probability ``x/n`` that is not admissible tries
+(all pairs up to total degree 8)."""
+
+
+def _degree(pairs: int) -> int:
+    """The total degree up to which the first ``pairs`` values of two variables reach."""
+    degree = 0
+    while (degree + 1) * (degree + 2) // 2 < pairs:
+        degree += 1
+    return degree
+
+
+def _admissible(distribution: Distribution, probability: RatioProbability, condition: Expr,
+                construct: str) -> None:
+    """
+    Checks that no state of ``distribution`` satisfies ``condition`` (``n = 0`` or ``x > n``), in which ``x/n`` is
+    not a probability. The part ``G_B`` of the distribution where the condition holds is computed with the
+    comparison filters (as a formal power series, also with infinite mass) and decided by its coefficients:
+
+    - ``G_B`` is provably zero: nothing to do;
+    - ``G_B`` has a non-zero coefficient (:func:`nonzero_state`): the probability is not admissible in a
+      reachable state, which is an error of the whole program (``ValueError``), with that state as the witness,
+      worded as for finitely many values (:func:`checked_probability`);
+    - neither: ``NotImplementedError`` saying what could not be decided.
+    """
+    prefix = (f"{construct}: Prodigy could not decide whether {probability} is a probability in every reachable "
+              f"state")
+    try:
+        part = distribution.filter(condition)
+    except NotImplementedError as error:
+        raise NotImplementedError(f"{prefix}: the comparison {condition} is not implemented here ({error})."
+                                  ) from error
+    if part.is_provably_zero():
+        return
+    # the witness: values of (x, n) in B, by total degree, extended by values of the other variables with a
+    # non-zero coefficient (in a second-order generating function, the other variables pair with x and n)
+    x, n = probability.numerator, probability.denominator
+    state = None
+    for x_value, n_value in itertools.islice(default_monomial_iterator(2), WITNESS_PAIRS):
+        if n_value == 0 or x_value > n_value:
+            state = nonzero_state(part, State({x: x_value, n: n_value}))
+            if state is not None:
+                break
+    if state is None:
+        raise NotImplementedError(
+            f"{prefix}: the part of the distribution where {condition} is not shown to be zero, and no state with "
+            f"a non-zero coefficient was found in it (values of {x} and {n} up to total degree "
+            f"{_degree(WITNESS_PAIRS)}).")
+    values = State({x: state[x], n: state[n]})
+    expression = BinopExpr(Binop.DIVIDE, VarExpr(probability.numerator), VarExpr(probability.denominator))
+    checked_probability(instantiate(expression, values), construct,
+                        StatePart(values, distribution.filter_state(values)))
+    raise ValueError(f"{construct} is not a probability in the reachable state {values}.")  # pragma: no cover
+
+
+def apply_ratio(probability: RatioProbability, distribution: Distribution,
+                construct: str) -> tuple[Distribution, Distribution]:
+    """
+    The two parts of ``distribution`` G for the probability ``x/n`` (#237): the part weighted with ``x/n`` and the
+    rest. ``x/n`` must be a probability in every state of G: a state with ``n = 0`` or ``x > n`` is an error of the
+    whole program (``ValueError`` with the state, as for finitely many values); if Prodigy can decide neither way,
+    or the integral below is not certified, it raises ``NotImplementedError`` (naming ``construct``).
+
+    Weighting the coefficient of ``x^a n^b`` with ``a/b`` is the Euler operator ``θ_x`` followed by ``1/θ_n``
+    (module docstring): ``L = ∫_0^n (θ_x G)(t)/t dt``. It is defined when G has no terms ``n^0``; then
+    ``(θ_x G)/n`` is a power series. ``x ≤ n`` makes ``x/n`` a probability. Both are decided on the filtered
+    parts of G (:func:`_admissible`): ``n = 0`` and ``x > n`` must give the zero series, e.g. after the guard
+    ``n > 0 and x < n``. The integral
+    is proposed and certified by :func:`~prodigy.analysis.evtinvariants.exp_polynomial.integral_from_zero`
+    (``∂L/∂n = (θ_x G)/n``, ``L(n = 0) = 0``, L analytic at the origin); as ``θ_n`` is injective on the power
+    series without ``n^0`` terms, L is the weighted series. The other part is ``G - L``. The computation works on
+    the SymPy form, as :func:`apply_operator` does, so it is the same on all engines.
+    """
+    x, n = probability.numerator, probability.denominator
+    _admissible(distribution, probability, BinopExpr(Binop.EQ, VarExpr(n), NatLitExpr(0)), construct)
+    _admissible(distribution, probability, BinopExpr(Binop.GT, VarExpr(x), VarExpr(n)), construct)
+    function = sympify_distribution(distribution)
+    symbols = [sympy.Symbol(v) for v in distribution.get_variables()]
+    x_symbol, n_symbol = sympy.Symbol(x), sympy.Symbol(n)
+    integrand = sympy.cancel(sympy.together(x_symbol * sympy.diff(function, x_symbol) / n_symbol))
+    integral = integral_from_zero(integrand, n_symbol, symbols)
+    if integral is None:
+        text = str(integrand)
+        text = text if len(text) <= 200 else text[:200] + " …"
+        raise NotImplementedError(
+            f"{construct} depends on the program variables {x} and {n}, which can take infinitely many values "
+            f"here. Prodigy applies the probability {probability} as the operator ∫_0^{n} {x}·∂/∂{x} G(t)/t dt on "
+            f"the generating function G, which needs the integral from 0 of {text} in {n}. No antiderivative was "
+            f"found that passes the check (derivative, value 0 at {n} = 0, analytic at 0): Prodigy integrates sums "
+            f"of terms {n}^k·exp(c·{n}), rational functions whose denominators split into linear factors in {n}, "
+            f"and other integrands without parameters with SymPy; this one is not implemented.")
+    return _back(integral, distribution), _back(function - integral, distribution)
