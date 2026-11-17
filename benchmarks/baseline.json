@@ -154,6 +154,48 @@
         "status": "ok",
         "seconds": 0.109
       }
+    },
+    "galton_watson_critical_coeffs": {
+      "sympy": {
+        "status": "ok",
+        "seconds": 2.48
+      },
+      "ginac": {
+        "status": "ok",
+        "seconds": 0.077
+      },
+      "symengine": {
+        "status": "ok",
+        "seconds": 0.388
+      }
+    },
+    "dnd_handicap_coeffs": {
+      "sympy": {
+        "status": "ok",
+        "seconds": 0.351
+      },
+      "ginac": {
+        "status": "ok",
+        "seconds": 0.021
+      },
+      "symengine": {
+        "status": "ok",
+        "seconds": 0.189
+      }
+    },
+    "poisson_from_coins_coeffs": {
+      "sympy": {
+        "status": "ok",
+        "seconds": 0.416
+      },
+      "ginac": {
+        "status": "ok",
+        "seconds": 0.05
+      },
+      "symengine": {
+        "status": "ok",
+        "seconds": 0.123
+      }
     }
   }
 }

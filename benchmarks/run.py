@@ -1,7 +1,8 @@
 """
 Runs the benchmark set (benchmarks/suite.json) on each engine and compares the times with a baseline.
 
-Each case runs ``prodigy --engine E analyze --json`` in a fresh process (so no cache survives from one case
+Each case runs ``prodigy --engine E analyze --json --coefficients N`` (``N`` is the case's ``coefficients``,
+default 0, i.e. the extraction of coefficients is not measured) in a fresh process (so no cache survives from one case
 to the next) with a time limit, and its time is the analysis time from the JSON result (without the start of
 Python and the imports). Shared CI runners differ in speed, so the baseline also stores the time of a fixed
 calibration workload, and the baseline times are scaled by the ratio of the calibration times before they
@@ -51,7 +52,7 @@ def calibrate(repetitions: int = 5) -> float:
 def run_case(case: Dict[str, Any], engine: str, timeout: float) -> Dict[str, Any]:
     """Runs one case on one engine; returns its status and analysis time in seconds."""
     command = [sys.executable, "-c", RUNNER, "--engine", engine, *case.get("options", []),
-               "analyze", "--json", "--coefficients", "0"]
+               "analyze", "--json", "--coefficients", str(case.get("coefficients", 0))]
     for loop in case.get("loops", []):
         command += ["--loop", loop]
     command.append(case["program"])

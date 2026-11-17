@@ -11,6 +11,9 @@
     {"name": "nested_while_invariant", "program": "pgfexamples/equivalence/loopy/nested_while.ppy", "loops": ["0=invariant:invariant_file=pgfexamples/equivalence/loopy/invariants/nested_while_invariant1.ppy", "1=invariant:invariant_file=pgfexamples/equivalence/loopy/invariants/nested_while_invariant2.ppy"], "note": "invariant check"},
     {"name": "random_walk_invariant", "program": "pgfexamples/equivalence/loopy/random_walk.ppy", "loops": ["0=invariant:invariant_file=pgfexamples/equivalence/loopy/invariants/random_walk_invariant.ppy"], "note": "invariant check"},
     {"name": "geometric_synthesis", "program": "pgfexamples/invariant_synthesis/geometric.ppy", "loops": ["0=evt_synthesis"], "note": "EVT invariant synthesis"},
-    {"name": "ky_die_invariant", "program": "pgfexamples/equivalence/loopy/ky_die.ppy", "loops": ["0=invariant:invariant_file=pgfexamples/equivalence/loopy/invariants/ky_die_invariant.ppy"], "note": "invariant check"}
+    {"name": "ky_die_invariant", "program": "pgfexamples/equivalence/loopy/ky_die.ppy", "loops": ["0=invariant:invariant_file=pgfexamples/equivalence/loopy/invariants/ky_die_invariant.ppy"], "note": "invariant check"},
+    {"name": "galton_watson_critical_coeffs", "program": "pgfexamples/inference/loopy/hard_distributions/algebraic/galton_watson_critical.ppy", "loops": ["0=unroll:iterations=15"], "coefficients": 100, "note": "100 coefficients of an algebraic result (#348)"},
+    {"name": "dnd_handicap_coeffs", "program": "pgfexamples/inference/loop_free/dnd_handicap.ppy", "coefficients": 100, "note": "100 coefficients of a multivariate loop-free result (#348)"},
+    {"name": "poisson_from_coins_coeffs", "program": "pgfexamples/inference/loopy/conditioning/poisson_from_coins.ppy", "loops": ["0=unroll:iterations=5", "1=unroll:iterations=10"], "coefficients": 100, "note": "100 coefficients of an unrolled nested loop with conditioning (#348)"}
   ]
 }

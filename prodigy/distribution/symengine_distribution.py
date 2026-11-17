@@ -612,7 +612,7 @@ class SymengineDist(Distribution):
                 )
             res = self.safe_subs(update_var, 1, fun=res) * update_var ** diff
 
-        res = se.expand(res)
+        res = _clear_inner_denominators(se.expand(res))
         return SymengineDist(res).set_variables_and_parameters(self.get_variables(), self.get_parameters())
 
     def _subtraction_never_negative(self, minuend: str, subtrahend: str) -> bool:
@@ -1117,6 +1117,27 @@ def _differ_at_a_point(lhs: se.Basic, rhs: se.Basic) -> bool:
     point = {symbol: se.Rational(2 * index + 3, 7 * index + 11) for index, symbol in enumerate(symbols)}
     left, right = lhs.subs(point), rhs.subs(point)
     return isinstance(left, se.Rational) and isinstance(right, se.Rational) and left != right
+
+
+def _has_inner_denominator(expr: se.Basic) -> bool:
+    """True if `expr` has a negative power of a variable inside the base of a negative power (`1/(1 - z/y)`)."""
+    if expr.is_Pow and expr.exp.is_Number and expr.exp < 0 and expr.base.is_Add:
+        if any(term.free_symbols and term.as_numer_denom()[1].free_symbols for term in expr.base.args):
+            return True
+    return any(_has_inner_denominator(arg) for arg in expr.args)
+
+
+def _clear_inner_denominators(expr: se.Basic) -> se.Basic:
+    """Multiplies out the nested fractions `_update_subtraction` leaves (`1/(1 - z/y)` becomes `y/(y - z)`).
+
+    SymEngine does not cancel (#366): a subtraction of two variables turns `1 - z` into `1 - z/y`, a denominator
+    with a negative power. `as_numer_denom` moves it to the numerator; the value is unchanged and no gcd is
+    computed, so this stays cheap. Laurent polynomials (`1/6 + z/y`) are left as they are.
+    """
+    if not _has_inner_denominator(expr):
+        return expr
+    numerator, denominator = expr.as_numer_denom()
+    return se.expand(numerator) / denominator
 
 
 def _parse_to_symengine(expression) -> se.Expr:
