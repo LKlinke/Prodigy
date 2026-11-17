@@ -189,8 +189,8 @@ def synthesize_lower(problem: LoopProblem, shapes: Sequence[TemplateShape], verb
                                    success=h is not None)
         if h is not None:
             cert = lp.certificate(h, "lower")
-            rec["exit_mass"] = directed_decimal(cert.exit_mass, False)
-            if best is None or cert.exit_mass > best.exit_mass:
+            rec["exit_mass"] = directed_decimal(cert.verified_exit_mass(), False)
+            if best is None or cert.verified_exit_mass() > best.verified_exit_mass():
                 best = cert
         if attempts is not None:
             attempts.append(rec)
@@ -248,7 +248,7 @@ def synthesize_upper(problem: LoopProblem, shapes: Sequence[TemplateShape], obje
             cert = lp.certificate(h, "upper")
             cert.extra["lp"] = lp
             score = sum(o * v for o, v in zip(obj, h))
-            rec["exit_mass"] = directed_decimal(cert.exit_mass, True)
+            rec["exit_mass"] = directed_decimal(cert.verified_exit_mass(), True)
             if best is None or best_score is None or score < best_score:
                 best, best_score = cert, score
         if attempts is not None:
@@ -398,14 +398,14 @@ def print_result(res: SandwichResult, show_certificates: bool = False) -> None:
         c = res.lower
         print(f"{Style.OKGREEN}Lower certificate{Style.RESET} (finite-mass EVT sub-invariant, {c.template_size} "
               f"template values, rates {[str(r) for r in c.den.r]}, periods {c.den.p}): "
-              f"exit mass >= {directed_decimal(c.exit_mass, False)}; {c.extra.get('check', '')}")
+              f"exit mass >= {directed_decimal(c.verified_exit_mass(), False)}; {c.extra.get('check', '')}")
         if show_certificates:
             print(f"  nu = {c.calc.to_expr(c.numerator)}")
     if res.upper is not None:
         c = res.upper
         print(f"{Style.OKGREEN}Upper certificate{Style.RESET} (EVT super-invariant, {c.template_size} template values, "
               f"rates {[str(r) for r in c.den.r]}, periods {c.den.p}): exit mass <= "
-              f"{directed_decimal(c.exit_mass, True)}; {c.extra.get('check', '')}")
+              f"{directed_decimal(c.verified_exit_mass(), True)}; {c.extra.get('check', '')}")
         if show_certificates:
             print(f"  I = {c.calc.to_expr(c.numerator)}")
     elif res.attempts and any(a["kind"] == "upper" for a in res.attempts):
