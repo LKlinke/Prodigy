@@ -46,7 +46,10 @@ import sympy
 from prodigy.pgcl import Binop, BinopExpr, Expr, NatLitExpr, RealLitExpr, VarExpr
 
 from prodigy.analysis.evtinvariants.exp_polynomial import eventually_nonneg, integral_from_zero
+from prodigy.analysis.instructionhandler.state_dependent import (WITNESS_SEARCH, StatePart, checked_probability,
+                                                                 instantiate, nonzero_state)
 from prodigy.distribution import Distribution, MarginalType
+from prodigy.distribution.distribution import State
 from prodigy.distribution.equality import decide_equal, sympify_distribution, sympy_text
 
 
@@ -266,39 +269,61 @@ def ratio_probability(probability: Expr, variables: Set[str]) -> Optional[RatioP
     return None
 
 
-def _proven_empty(distribution: Distribution, condition: Expr, construct: str, requirement: str) -> None:
-    """Raises ``NotImplementedError`` (naming ``construct`` and the ``requirement``) unless no state of
-    ``distribution`` satisfies ``condition``, as proven by the engine's filter and equality."""
+def _admissible(distribution: Distribution, probability: RatioProbability, condition: Expr,
+                construct: str) -> None:
+    """
+    Checks that no state of ``distribution`` satisfies ``condition`` (``n = 0`` or ``x > n``), in which ``x/n`` is
+    not a probability. The part ``G_B`` of the distribution where the condition holds is computed with the
+    comparison filters (as a formal power series, also with infinite mass) and decided by its coefficients:
+
+    - ``G_B`` is provably zero: nothing to do;
+    - ``G_B`` has a non-zero coefficient (:func:`nonzero_state`): the probability is not admissible in a
+      reachable state, which is an error of the whole program (``ValueError``), with that state as the witness,
+      worded as for finitely many values (:func:`checked_probability`);
+    - neither: ``NotImplementedError`` saying what could not be decided.
+    """
+    prefix = (f"{construct}: Prodigy could not decide whether {probability} is a probability in every reachable "
+              f"state")
     try:
-        empty = distribution.filter(condition).is_provably_zero()
-        reason = f"the part where {condition} is not provably zero"
+        part = distribution.filter(condition)
     except NotImplementedError as error:
-        empty, reason = False, f"filtering {condition} is not implemented here: {error}"
-    if not empty:
+        raise NotImplementedError(f"{prefix}: the comparison {condition} is not implemented here ({error})."
+                                  ) from error
+    if part.is_provably_zero():
+        return
+    state = nonzero_state(part)
+    if state is None:
         raise NotImplementedError(
-            f"{construct} acts as an operator on the generating function only if {requirement} in every state "
-            f"that reaches it; Prodigy could not prove this ({reason}). This is not implemented.")
+            f"{prefix}: the part of the distribution where {condition} is not shown to be zero, and none of its "
+            f"first {WITNESS_SEARCH} states has a non-zero coefficient.")
+    values = State({var: state[var] for var in (probability.numerator, probability.denominator)})
+    expression = BinopExpr(Binop.DIVIDE, VarExpr(probability.numerator), VarExpr(probability.denominator))
+    checked_probability(instantiate(expression, values), construct,
+                        StatePart(values, distribution.filter_state(values)))
+    raise ValueError(f"{construct} is not a probability in the reachable state {values}.")  # pragma: no cover
 
 
 def apply_ratio(probability: RatioProbability, distribution: Distribution,
                 construct: str) -> tuple[Distribution, Distribution]:
     """
     The two parts of ``distribution`` G for the probability ``x/n`` (#237): the part weighted with ``x/n`` and the
-    rest. Raises ``NotImplementedError`` (naming ``construct``) unless ``n > 0`` and ``x ≤ n`` are proven for
-    every state of G and the integral below is computed and certified.
+    rest. ``x/n`` must be a probability in every state of G: a state with ``n = 0`` or ``x > n`` is an error of the
+    whole program (``ValueError`` with the state, as for finitely many values); if Prodigy can decide neither way,
+    or the integral below is not certified, it raises ``NotImplementedError`` (naming ``construct``).
 
     Weighting the coefficient of ``x^a n^b`` with ``a/b`` is the Euler operator ``θ_x`` followed by ``1/θ_n``
     (module docstring): ``L = ∫_0^n (θ_x G)(t)/t dt``. It is defined when G has no terms ``n^0``; then
-    ``(θ_x G)/n`` is a power series. ``x ≤ n`` makes ``x/n`` a probability. Both are proven by filtering G
-    (``n = 0`` and ``x > n`` must give the zero measure, e.g. after the guard ``n > 0 and x < n``). The integral
+    ``(θ_x G)/n`` is a power series. ``x ≤ n`` makes ``x/n`` a probability. Both are decided on the filtered
+    parts of G (:func:`_admissible`): ``n = 0`` and ``x > n`` must give the zero series, e.g. after the guard
+    ``n > 0 and x < n``. The integral
     is proposed and certified by :func:`~prodigy.analysis.evtinvariants.exp_polynomial.integral_from_zero`
     (``∂L/∂n = (θ_x G)/n``, ``L(n = 0) = 0``, L analytic at the origin); as ``θ_n`` is injective on the power
     series without ``n^0`` terms, L is the weighted series. The other part is ``G - L``. The computation works on
     the SymPy form, as :func:`apply_operator` does, so it is the same on all engines.
     """
     x, n = probability.numerator, probability.denominator
-    _proven_empty(distribution, BinopExpr(Binop.EQ, VarExpr(n), NatLitExpr(0)), construct, f"{n} > 0")
-    _proven_empty(distribution, BinopExpr(Binop.GT, VarExpr(x), VarExpr(n)), construct, f"{x} <= {n}")
+    _admissible(distribution, probability, BinopExpr(Binop.EQ, VarExpr(n), NatLitExpr(0)), construct)
+    _admissible(distribution, probability, BinopExpr(Binop.GT, VarExpr(x), VarExpr(n)), construct)
     function = sympify_distribution(distribution)
     symbols = [sympy.Symbol(v) for v in distribution.get_variables()]
     x_symbol, n_symbol = sympy.Symbol(x), sympy.Symbol(n)
