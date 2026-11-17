@@ -1,8 +1,8 @@
 import logging
-from typing import Any, Collection, Optional
+from typing import Collection, Optional
 
 from prodigy.analysis.evtinvariants.heuristics.positivity.coefficients import polynomial_verdict, series_form
-from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic
+from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic, PositivityInput
 from prodigy.analysis.exceptions import HeuristicsError
 from prodigy.util.logger import log_setup
 
@@ -16,7 +16,7 @@ class FinitePolynomialPositivity(PositivityHeuristic):
         super().__init__(sub_heuristic)
         self.variables = frozenset(map(str, variables))
 
-    def _is_positive(self, f: Any) -> Optional[bool]:
+    def _is_positive(self, f: PositivityInput) -> Optional[bool]:
         s_f, gens = series_form(f, self.variables)
         if not s_f.is_polynomial(*gens):
             raise HeuristicsError(f"Given function {f} is not a polynomial.")

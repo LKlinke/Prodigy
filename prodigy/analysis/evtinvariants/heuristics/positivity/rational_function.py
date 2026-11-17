@@ -1,12 +1,12 @@
 import logging
-from typing import Any, Collection, Optional
+from typing import Collection, Optional
 
 import sympy
 
 from prodigy.analysis.evtinvariants.heuristics.positivity.coefficients import nonneg_by_construction, \
     nonneg_quotient, series_form
 from prodigy.analysis.evtinvariants.heuristics.positivity.polynomial_positivity import FinitePolynomialPositivity
-from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic
+from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic, PositivityInput
 from prodigy.analysis.exceptions import HeuristicsError
 from prodigy.distribution import CommonDistributionsFactory
 from prodigy.util.logger import log_setup
@@ -23,7 +23,7 @@ class SingleRationalFunction(PositivityHeuristic):
         self.variables = frozenset(map(str, variables))
         self._poly_heuristic = FinitePolynomialPositivity(sub_heuristic, variables=self.variables)
 
-    def _is_positive(self, f: Any) -> Optional[bool]:
+    def _is_positive(self, f: PositivityInput) -> Optional[bool]:
         s_f, gens = series_form(f, self.variables)
         if not s_f.is_rational_function(*gens):
             raise HeuristicsError(f"The given function is not rational {f=}")
@@ -59,7 +59,7 @@ class RationalFunctionDenomSign(PositivityHeuristic):
         self.dist_fact = dist_fact
         self.variables = frozenset(map(str, variables))
 
-    def _is_positive(self, f: Any) -> Optional[bool]:
+    def _is_positive(self, f: PositivityInput) -> Optional[bool]:
         """
         Checks heuristically whether a rational function _f_ = N / D (in any number of variables) has a
         non-negative power series expansion: it does if D has a positive constant term, all other

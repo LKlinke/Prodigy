@@ -1,5 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Union
+
+import sympy
+
+PositivityInput = Union[str, sympy.Expr]
+"""A function given as text or as a SymPy expression (SymPy has no stubs, so mypy sees the latter as ``Any``)."""
 
 
 class PositivityHeuristic(ABC):
@@ -7,7 +12,7 @@ class PositivityHeuristic(ABC):
     def __init__(self, sub_heuristic: Optional['PositivityHeuristic'] = None):
         self.sub_heuristic = sub_heuristic
 
-    def is_positive(self, f: str) -> Optional[bool]:
+    def is_positive(self, f: PositivityInput) -> Optional[bool]:
         """
         Checks heuristically whether a function _f_ has a non-negative power series
         expansion.
@@ -24,7 +29,7 @@ class PositivityHeuristic(ABC):
         return self._is_positive(f)
 
     @abstractmethod
-    def _is_positive(self, f: str) -> Optional[bool]:
+    def _is_positive(self, f: PositivityInput) -> Optional[bool]:
         ...
 
     def __str__(self) -> str:
