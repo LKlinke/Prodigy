@@ -1127,14 +1127,23 @@ def _has_inner_denominator(expr: se.Basic) -> bool:
     return any(_has_inner_denominator(arg) for arg in expr.args)
 
 
+def _has_fractional_power(expr: se.Basic) -> bool:
+    """True if `expr` has a power with a non-integer exponent (a root): algebraic results are left alone."""
+    if expr.is_Pow and not expr.exp.is_Integer:
+        return True
+    return any(_has_fractional_power(arg) for arg in expr.args)
+
+
 def _clear_inner_denominators(expr: se.Basic) -> se.Basic:
     """Multiplies out the nested fractions `_update_subtraction` leaves (`1/(1 - z/y)` becomes `y/(y - z)`).
 
     SymEngine does not cancel (#366): a subtraction of two variables turns `1 - z` into `1 - z/y`, a denominator
     with a negative power. `as_numer_denom` moves it to the numerator; the value is unchanged and no gcd is
-    computed, so this stays cheap. Laurent polynomials (`1/6 + z/y`) are left as they are.
+    computed, so this stays cheap. Results with roots (algebraic, #365) are left alone: expanding their
+    numerators made `test_algebraic_result` more than 8 times slower.
+    Laurent polynomials (`1/6 + z/y`) are left as they are.
     """
-    if not _has_inner_denominator(expr):
+    if not _has_inner_denominator(expr) or _has_fractional_power(expr):
         return expr
     numerator, denominator = expr.as_numer_denom()
     return se.expand(numerator) / denominator

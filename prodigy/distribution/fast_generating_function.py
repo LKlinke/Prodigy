@@ -610,7 +610,7 @@ class FPS(Distribution):
                 kept = ", ".join(sorted(self._variables - remove_vars[method])) or "no variable"
                 raise NonFiniteMarginalError(
                     f"The marginal of {kept} is not a finite measure, or this engine cannot evaluate it: "
-                    f"division by zero at {var} = 1 (a pole, or a singularity whose limit it cannot take) "
+                    f"division by zero (a pole at {var} = 1, or a singularity whose limit it cannot take) "
                     f"in {self._dist}") from error
         return FPS.from_dist(result, self._variables - remove_vars[method],
                              self._parameters)
