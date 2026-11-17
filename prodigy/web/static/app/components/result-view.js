@@ -6,10 +6,11 @@
 // step of the analysis card's timeline).
 import { explorationCard, explorations } from "./evt-exploration.js";
 import { h, icon } from "./dom.js";
-import { intervalBar } from "./charts.js";
-import { BOUND_TEXT, exactIsInformative, formatNumber, formatSeconds, formatValue, qualify, shortExact } from "./format.js";
+import { intervalBar, marginalChart } from "./charts.js";
+import { BOUND_TEXT, chartLegend, exactIsInformative, formatNumber, formatSeconds, formatValue, qualify, shortExact } from "./format.js";
 import { analysisCard, verdictText } from "./analysis-card.js";
-import { distributionFigure, expressionBox, guaranteeBadge } from "./parts.js";
+import { chartState, tweenChart } from "./motion.js";
+import { distributionFigure, expressionBox, guaranteeBadge, loadScale } from "./parts.js";
 import { changedWhileRunningText, staleText } from "../staleness.js";
 
 export { guaranteeBadge, distributionFigure };
@@ -339,7 +340,51 @@ export function renderResult(container, result, options = {}) {
   return { analysis };
 }
 
-/** Progress view while an analysis runs. state: {elapsed, timeLimit, progress: [...], log, loops};
+// ---- coefficients streamed while the analysis runs (#405) ------------------------------------
+
+const LIVE_TWEEN_MS = 180;
+let liveMotions = [];
+
+/** The state of the streamed charts in `container` (chartState per variable), for a transition. */
+export function liveChartStates(container) {
+  const states = {};
+  for (const svg of container?.querySelectorAll(".rv-live .marginal-chart") || []) {
+    const state = chartState(svg);
+    if (state) states[state.variable] = state;
+  }
+  return states;
+}
+
+/**
+ * The coefficients computed so far (the job's `stream`, prodigy/web/jobs.py: merge_stream): one chart
+ * per variable, its values done as bars and the values still being computed hatched and labelled.
+ */
+function liveCharts(stream, width, key) {
+  const bound = stream.bound || "exact";
+  const limit = stream.limit || 0;
+  const items = (stream.variables || []).map((name) => {
+    const marginal = stream.marginals?.[name];
+    const rows = marginal?.rows || [];
+    const done = Boolean(marginal?.done);
+    let status = "waiting";
+    if (marginal?.error) status = `not available: ${marginal.error}`;
+    else if (done) status = `done · ${rows.length} ${rows.length === 1 ? "value" : "values"}`;
+    else if (marginal) status = `computing… ${rows.length} of ${limit}`;
+    const pending = done ? 0 : Math.max(0, limit - rows.length);
+    const chart = marginal?.error ? null
+      : marginalChart({ rows }, { variable: name, bound, width, pending, scale: loadScale() });
+    return h("section", { class: "rv-live-item", "data-done": String(done), "aria-label": `Distribution of ${name}: ${status}` },
+      h("h4", { class: "rv-live-title" }, h("span", { class: "mono" }, name), h("span", { class: "rv-note" }, status)),
+      chart);
+  });
+  return h("section", { class: "rv-live", "data-key": key, "aria-label": "Coefficients computed so far" },
+    h("div", { class: "rv-live-head" }, h("h3", { class: "rv-block-title" }, "Distribution so far"), guaranteeBadge(bound),
+      h("span", { class: "rv-note" }, chartLegend(bound))),
+    ...items);
+}
+
+/** Progress view while an analysis runs. state: {elapsed, timeLimit, progress: [...], log, loops,
+ * stream: the coefficients computed so far or null};
  * options: {strategyTitles, change: what changed since the analysis started (see staleness.js),
  * label: what runs ("Analyzing" by default)} */
 export function renderRunning(container, state, options = {}) {
@@ -359,16 +404,32 @@ export function renderRunning(container, state, options = {}) {
   // differently, which must not move the view
   // (also while still empty, so that its first line does not move the view either)
   const logBox = h("pre", { class: "rv-pre rv-log rv-running-log", "aria-label": "Console output", tabindex: log ? "0" : null }, log);
+  const live = state.stream?.variables ? state.stream : null;
+  // a transition still running ends in its final state first (the charts are drawn anew below)
+  for (const motion of liveMotions) motion?.finish();
+  liveMotions = [];
+  // unchanged coefficients keep their charts; new ones grow in (motion.js; at once with reduced motion)
+  const width = Math.max(260, (container.clientWidth || 600) - 40);
+  const liveKey = live ? JSON.stringify([width, loadScale(), live.limit, live.bound,
+    (live.variables || []).map((name) => [name, live.marginals?.[name]?.rows?.length ?? -1, Boolean(live.marginals?.[name]?.done)])]) : null;
+  const previous = container.querySelector(".rv-live");
+  const reuse = live && previous && previous.dataset.key === liveKey ? previous : null;
+  const before = live && !reuse ? liveChartStates(container) : {};
   container.replaceChildren(h("div", { class: "result-view" },
-    h("div", { class: "rv-running", "data-bars": String(bars.length), style: `--bars: ${bars.length}` },
+    h("div", { class: "rv-running", "data-bars": String(bars.length), "data-live": String(Boolean(live)), style: `--bars: ${bars.length}` },
       h("div", { class: "rv-running-head" }, h("span", { class: "spinner", "aria-hidden": "true" }),
         h("span", {}, `${options.label || "Analyzing"} · ${formatSeconds(state.elapsed || 0)}`),
         state.timeLimit ? h("span", { class: "rv-muted" }, `limit ${formatSeconds(state.timeLimit)}`) : null),
       ...bars,
       options.change ? h("p", { class: "notice", role: "status" }, icon("info"),
         h("span", {}, changedWhileRunningText(options.change))) : null,
+      reuse || (live ? liveCharts(live, width, liveKey) : null),
       logBox)));
   logBox.scrollTop = logBox.scrollHeight;
+  for (const [variable, from] of Object.entries(before)) {
+    const find = () => container.querySelector(`.rv-live .marginal-chart[data-variable="${CSS.escape(variable)}"]`);
+    liveMotions.push(tweenChart(find, from, LIVE_TWEEN_MS));
+  }
 }
 
 export { formatValue, formatNumber };

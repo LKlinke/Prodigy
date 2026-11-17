@@ -290,6 +290,8 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
         watches=watches,
         # Analyze mode: parameter synthesis is a comparison (Compare mode, #154)
         parameter_synthesis="refuse",
+        # the plots build up while the coefficients are computed (#405)
+        stream_coefficients=progress is not None,
     )
     return session.run().to_json()
 
@@ -533,7 +535,8 @@ def joint_request(result: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, 
 
 def run_joint(request: Dict[str, Any], *, output: Optional[Callable[[str], None]] = None,
               progress: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
-    """Computes the coefficient grid of a :func:`joint_request` (in a job process)."""
+    """Computes the coefficient grid of a :func:`joint_request` (in a job process); the cells go to
+    ``progress`` while they are computed (#405)."""
     # pylint: disable=import-outside-toplevel,unused-argument
     from prodigy.analysis.joint_grid import GridError, joint_grid
     from prodigy.util.integers import unlimited_int_digits
@@ -543,7 +546,7 @@ def run_joint(request: Dict[str, Any], *, output: Optional[Callable[[str], None]
             dist = config.factory.from_expr(request["closed_form"], *request["variables"])
             grid = joint_grid(dist, request["x"], request["y"], x_window=request.get("x_window"),
                               y_window=request.get("y_window"), kind=request["bound"],
-                              residual=request.get("residual_mass") or 0)
+                              residual=request.get("residual_mass") or 0, stream=progress)
         except GridError as exc:
             return _error("request", str(exc))
         except Exception as exc:  # pylint: disable=broad-except

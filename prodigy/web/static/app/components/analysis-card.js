@@ -10,7 +10,7 @@
 // through callbacks (onPosition, loadJoint, onRecord, ...).
 import { h } from "./dom.js";
 import { marginalChart, marginalTable, massSummary, positionChart } from "./charts.js";
-import { BOUND_TEXT, formatNumber, formatSeconds, formatValue, qualify } from "./format.js";
+import { BOUND_TEXT, chartLegend, formatNumber, formatSeconds, formatValue, qualify } from "./format.js";
 import { formulaBox } from "./formula-box.js";
 import { JOINT_VIEWS, jointView } from "./joint-view.js";
 import { chartState, reducedMotion, tweenChart } from "./motion.js";
@@ -192,10 +192,9 @@ function distributionLens(ctx) {
       figure.replaceChildren(mode() === "chart"
         ? marginalChart(table, { residual: residual?.p, residualExact: residual?.exact, variable: name, bound, width: drawnWidth, scale: loadScale() })
         : marginalTable(table, { variable: name, bound }));
-      if (bound === "upper" && mode() === "chart") {
-        legend.textContent = "Hatched bars are upper bounds.";
-        legend.hidden = false;
-      }
+      // the guarantee in words, not only implied by the intervals (#405)
+      legend.textContent = chartLegend(bound);
+      legend.hidden = false;
     }
     mass.replaceChildren(data.iterate ? loopMass(source.snap, data.iterate) : marginalMass(gap ? null : table, name, total, residual));
   };
@@ -764,7 +763,8 @@ function ownsArrows(target) {
  * The analysis card for `result`. options: { analysisState: {} (kept across re-renders: lens,
  * position, variable, view, joint window, ...), onPosition({step, label} | null), loadJoint(payload,
  * signal), maxJointAxis, onRecord(), onAddWatch(text), onRemoveWatch(text), onSelectLine(line),
- * strategyTitles, breakpoints: [line] }.
+ * strategyTitles, breakpoints: [line], fromCharts: {variable: chartState} of the charts streamed while
+ * the analysis ran (#405), where the final chart starts its transition }.
  * Returns {element, go(index), key(event) -> handled, model} or null if there is nothing to show.
  */
 export function analysisCard(result, options = {}) {
@@ -824,7 +824,7 @@ export function analysisCard(result, options = {}) {
     joint: (variables, onGrid) => {
       if (!joint) {
         joint = jointView({ variables, view, maxAxis: options.maxJointAxis, scale: loadScale, onGrid: (grid) => joint?.onGrid(grid),
-          load: (payload, signal) => options.loadJoint({ ...payload, ...(distributionSource(ctx)?.joint || {}) }, signal) });
+          load: (payload, signal, onPartial) => options.loadJoint({ ...payload, ...(distributionSource(ctx)?.joint || {}) }, signal, onPartial) });
         jointPosition = view.position;
       }
       joint.onGrid = onGrid;
@@ -883,10 +883,10 @@ export function analysisCard(result, options = {}) {
     }
   }
 
-  function renderBody({ focusLens = false, animate = false, reset = false } = {}) {
+  function renderBody({ focusLens = false, animate = false, reset = false, from = null } = {}) {
     for (const motion of motions) motion?.cancel();
     motions = [];
-    const before = animate && !reducedMotion() && view.lens === "distribution" ? chartState(body.querySelector(".marginal-chart")) : null;
+    const before = from || (animate && !reducedMotion() && view.lens === "distribution" ? chartState(body.querySelector(".marginal-chart")) : null);
     // keep the keyboard focus on the same control across the re-rendering
     const active = document.activeElement;
     const focusKey = active && controls.contains(active) ? active.closest?.("[data-key]")?.dataset.key : null;
@@ -932,7 +932,9 @@ export function analysisCard(result, options = {}) {
     return true;
   }
 
-  renderBody();
+  // right after an analysis, the chart continues from the chart streamed while it ran (#405)
+  const streamed = view.lens === "distribution" && view.position === model.final ? options.fromCharts?.[view.subject ?? Object.keys(result.distribution?.marginals || {})[0]] : null;
+  renderBody({ from: streamed || null });
   notify();
   return { element, go, key, model, stop: () => timeline?.stop() };
 }

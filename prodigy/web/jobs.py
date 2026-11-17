@@ -25,6 +25,8 @@ _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 _MAX_LOG = 2_000_000
 
 RUNNING_STATES = ("starting", "running")
+STREAM_KINDS = ("coefficients", "grid")
+"""Progress events with streamed coefficients (:mod:`prodigy.analysis.streaming`)."""
 
 
 class BusyError(Exception):
@@ -57,6 +59,10 @@ class _Sender:
             self.flush()
 
     def progress(self, event: Dict[str, Any]) -> None:
+        if event.get("kind") in STREAM_KINDS:
+            # batches of streamed coefficients (prodigy.analysis.streaming): each one counts, none is dropped
+            self.send("progress", event)
+            return
         now = time.monotonic()
         self._pending_progress = event
         if now - self._last_progress > 0.15 or (event.get("total") and event.get("done") == event.get("total")):
@@ -123,6 +129,35 @@ def _worker(request: Dict[str, Any], conn: Any, memory_limit: Optional[int], kin
 # Server side
 # ---------------------------------------------------------------------------------------
 
+def merge_stream(stream: Dict[str, Any], event: Dict[str, Any]) -> None:
+    """Adds a batch of streamed coefficients (:mod:`prodigy.analysis.streaming`) to the state ``stream``
+    of a job: ``marginals`` (variable -> ``{"rows", "done", ...}``) with ``variables``, ``limit``, ``bound``
+    and ``residual_mass`` of an analysis, or the ``grid`` of a grid job with ``cells[r][c]`` (None while
+    pending)."""
+    if event.get("kind") == "coefficients":
+        if event.get("event") == "start":
+            stream.update({key: event.get(key) for key in ("variables", "limit", "bound", "residual_mass",
+                                                           "residual_mass_float")})
+            stream["marginals"] = {}
+            return
+        marginal = stream.setdefault("marginals", {}).setdefault(str(event.get("variable")),
+                                                                 {"rows": [], "done": False})
+        marginal["rows"].extend(event.get("rows") or [])
+        marginal.update({key: value for key, value in event.items()
+                         if key not in ("kind", "variable", "rows")})
+    elif event.get("kind") == "grid":
+        header = event.get("header")
+        if isinstance(header, dict):
+            stream["grid"] = {**header, "cells": [[None] * len(header.get("x_values") or [])
+                                                  for _ in header.get("y_values") or []]}
+        grid = stream.get("grid")
+        if grid is None:
+            return
+        for r, c, cell in event.get("cells") or []:
+            if 0 <= r < len(grid["cells"]) and 0 <= c < len(grid["cells"][r]):
+                grid["cells"][r][c] = cell
+
+
 @contextlib.contextmanager
 def _importable_main() -> Iterator[None]:
     """``spawn`` re-imports the parent's main module in the child. If the server was started
@@ -155,6 +190,8 @@ class Job:
     log: str = ""
     log_dropped: int = 0
     progress: Dict[str, Any] = field(default_factory=dict)
+    stream: Dict[str, Any] = field(default_factory=dict)
+    """The coefficients streamed so far (:func:`merge_stream`); while the job runs, the GUI draws them."""
     result: Optional[Dict[str, Any]] = None
 
     @property
@@ -176,6 +213,8 @@ class Job:
             "log": self.log[start:],
             "log_offset": self.log_dropped + len(self.log),
             "progress": list(self.progress.values()),
+            # the final result replaces the streamed coefficients
+            "stream": (self.stream or None) if self.running else None,
             "result": self.result,
             "summary": self.summary,
         }
@@ -264,6 +303,8 @@ class JobManager:
                 kind, payload = job.conn.recv()
                 if kind == "log":
                     self._append_log(job, payload)
+                elif kind == "progress" and payload.get("kind") in STREAM_KINDS:
+                    merge_stream(job.stream, payload)
                 elif kind == "progress":
                     key = f"{payload.get('loop')}:{payload.get('strategy')}"
                     job.progress[key] = payload

@@ -54,7 +54,7 @@ export function chartState(svg) {
   const width = Number(svg.dataset.width);
   const bars = new Map();
   for (const group of svg.querySelectorAll(":scope > .mc-bar[data-key]")) {
-    const rect = group.querySelector("rect");
+    const rect = group.querySelector("rect:not(.mc-ext)");
     bars.set(group.dataset.key, {
       p: Number(rect.dataset.currentP ?? rect.dataset.p),
       cx: Number(rect.dataset.currentCx ?? rect.dataset.cx) / width,
@@ -74,7 +74,7 @@ function applyChart(svg, from, e) {
   const max = lerp(from.max, Number(svg.dataset.max), e);
   svg.dataset.currentMax = String(max);
   for (const group of svg.querySelectorAll(":scope > .mc-bar[data-key]")) {
-    const rect = group.querySelector("rect");
+    const rect = group.querySelector("rect:not(.mc-ext)");
     const before = from.bars.get(group.dataset.key);
     const p1 = Number(rect.dataset.p);
     const cx1 = Number(rect.dataset.cx);
@@ -91,6 +91,15 @@ function applyChart(svg, from, e) {
     rect.dataset.currentCx = String(cx);
     rect.dataset.currentW = String(w);
     group.style.opacity = before ? "" : String(e);
+    // the hatched rest of a lower bound's interval stays on top of its bar, with its own width (#405)
+    const ext = group.querySelector("rect.mc-ext");
+    if (ext) {
+      const extHeight = Math.max(0, Math.min(plotH - height, plotH * ((Number(ext.dataset.up) - p1) / max)));
+      ext.setAttribute("x", String(cx - w / 2));
+      ext.setAttribute("width", String(w));
+      ext.setAttribute("y", String(top + plotH - height - extHeight));
+      ext.setAttribute("height", String(extHeight));
+    }
     const label = group.querySelector("text");
     if (label) label.setAttribute("x", String(cx));
   }
