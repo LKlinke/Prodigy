@@ -10,14 +10,17 @@ finitely many values, the distribution is split into the parts in which they hav
 variables take infinitely many values, the instruction is not computed (``NotImplementedError``);
 multiplying the generating function by ``p`` as if it were a constant would be wrong. The exception are choice
 probabilities ``α + β/(k + a)`` in one counter k, which act as operators on the generating function
-(:mod:`~prodigy.analysis.instructionhandler.counter_operators`, #323), and ``x = unif(0, n)`` with the
-operator ``1/(θ + 1)`` in n (#385).
+(:mod:`~prodigy.analysis.instructionhandler.counter_operators`, #323), the ratio ``x/n`` of two variables
+(#237), and ``x = unif(0, n)`` with the operator ``1/(θ + 1)`` in n (#385).
 """
 from __future__ import annotations
 
 import copy
+import itertools
 from fractions import Fraction
 from typing import Dict, Iterator, List, NamedTuple, Optional, Set, Tuple
+
+import sympy
 
 from prodigy.pgcl import Expr, NatLitExpr, VarExpr
 from prodigy.pgcl.ast.walk import Walk, walk_expr
@@ -25,6 +28,11 @@ from prodigy.pgcl.util.ref import Mut
 
 from prodigy.distribution import Distribution
 from prodigy.distribution.distribution import State, constant_value
+from prodigy.distribution.equality import sympify_symbolic_string
+from prodigy.util.order import default_monomial_iterator
+
+WITNESS_SEARCH = 100
+"""How many values of the free variables :func:`nonzero_state` tries before it gives up."""
 
 
 def expression_variables(expressions: List[Expr]) -> Set[str]:
@@ -62,7 +70,49 @@ class StatePart(NamedTuple):
             mass = self.distribution.get_probability_mass()
         except (ArithmeticError, ValueError, NotImplementedError):
             return f"the state {values}"
+        if not _is_finite_number(mass):
+            # e.g. the part of a generating function with infinite mass (the input of an equivalence check)
+            return f"the state {values}"
         return f"the state {values}, which has probability {mass}"
+
+
+def _is_finite_number(text: str) -> bool:
+    """Whether the engine string ``text`` is a finite number (no symbols, limits or infinities)."""
+    try:
+        Fraction(text.strip())
+        return True
+    except ValueError:
+        pass
+    try:
+        value = sympify_symbolic_string(text)
+    except (SyntaxError, TypeError, ValueError, sympy.SympifyError):
+        return False
+    return bool(value.is_number) and value.is_finite is True and not value.has(sympy.Limit)
+
+
+def nonzero_state(distribution: Distribution, fixed: Optional[State] = None,
+                  limit: int = WITNESS_SEARCH) -> Optional[State]:
+    """
+    A state of all variables that extends ``fixed`` and whose coefficient in ``distribution`` is a non-zero
+    number, i.e. a state that is provably in the support; None if there is none among the first ``limit`` values
+    of the other variables (by total degree).
+
+    The coefficient of a state of *all* variables is a number on every engine, also for generating functions
+    with infinite mass (the formal power series of an equivalence check), so a non-zero coefficient proves that
+    the series is not identically zero; masses are never compared. Coefficients with parameters do not count.
+    """
+    given = dict(fixed.valuations) if fixed is not None else {}
+    free = sorted(distribution.get_variables() - given.keys())
+    candidates = itertools.islice(default_monomial_iterator(len(free)), limit) if free else iter([[]])
+    for values in candidates:
+        state = State({**given, **dict(zip(free, values))})
+        try:
+            coefficient = distribution.filter_state(state).get_probability_mass()
+        except (ArithmeticError, ValueError, NotImplementedError):
+            continue
+        if _is_finite_number(coefficient) and sympify_symbolic_string(coefficient).is_zero is False:
+            return state
+    return None
 
 
 def _is_zero(probability: str) -> bool:

@@ -471,13 +471,15 @@ class GeneratingFunction(Distribution):
             Generates terms of multivariate generating function in `grlex` order.
         """
         i = 1
+        # sorted by name: the order of the set of variables depends on the hash seed of the process, and with it
+        # which states a search such as get_state visits first (and how long it takes)
+        variables = sorted(self._variables, key=str)
         while True:
             # The easiest method is to create all monomials of until total degree `i` and sort them.
             logger.debug("Generating and sorting of new monomials")
             new_monomials = sorted(
-                sympy.polys.monomials.itermonomials(self._variables, i),
-                key=sympy.polys.orderings.monomial_key("grlex",
-                                                       list(self._variables)))
+                sympy.polys.monomials.itermonomials(variables, i),
+                key=sympy.polys.orderings.monomial_key("grlex", variables))
             # instead of repeating all the monomials for higher total degrees, just cut-off the already created ones.
             if i > 1:
                 new_monomials = new_monomials[

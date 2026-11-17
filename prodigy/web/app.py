@@ -47,9 +47,9 @@ from flask import Flask, abort, jsonify, render_template, request
 
 from prodigy.web.examples import ConversionError, ExampleLibrary, convert, default_examples_dir
 from prodigy.web.jobs import BusyError, JobManager
-from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, check_input_distribution_bounded, joint_request,
-                                  loop_program, request_syntax, validate_equivalence, validate_request,
-                                  validate_suggestion)
+from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, check_input_distribution_bounded,
+                                  compared_result, joint_request, loop_program, request_syntax, validate_equivalence,
+                                  validate_request, validate_suggestion)
 
 # Longest initial distribution that /api/check examines (longer ones are checked by the analysis).
 MAX_INPUT_DISTRIBUTION = 500
@@ -274,12 +274,13 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         """Starts a job for the coefficient grid of two variables of a finished analysis; the
         distribution comes from the result the server keeps, never from the client."""
         job = jobs.get(job_id)
-        if job is None or job.summary.get("kind") != "analysis":
+        if job is None or job.summary.get("kind") not in ("analysis", "equivalence"):
             abort(404, description="Unknown analysis; analyze the program again.")
         if job.running or job.result is None:
             return jsonify({"error": "The analysis has not finished yet."}), 409
+        payload = request.get_json(silent=True) or {}
         try:
-            grid_request = joint_request(job.result, request.get_json(silent=True) or {})
+            grid_request = joint_request(compared_result(job.result, payload), payload)
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
         try:

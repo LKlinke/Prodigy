@@ -12,7 +12,8 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.analysis.instructionhandler.counter_operators import counter_probability, uniform_up_to
+from prodigy.analysis.instructionhandler.counter_operators import (counter_probability, ratio_probability,
+                                                                   uniform_up_to)
 from prodigy.analysis.instructionhandler.state_dependent import (expression_variables, instantiate,
                                                                  split_states, state_variables)
 from prodigy.distribution import Distribution, MarginalType
@@ -215,10 +216,13 @@ def _sample_state_dependent(
     if instruction.rhs.function == "bernoulli":
         probability = instruction.rhs.params[0][0]
         operator = counter_probability(probability, variables)
-        if operator is not None and not distribution.is_zero_dist() \
-                and distribution.finite_support(operator.variable) is None:
+        infinite = not distribution.is_zero_dist() and (
+            operator is not None and distribution.finite_support(operator.variable) is None
+            or ratio_probability(probability, variables) is not None
+            and distribution.finite_support(*sorted(variables)) is None)
+        if infinite:
             # x = bernoulli(p) is {x = 1} [p] {x = 0}; p is evaluated before the assignment, as in the choice, so
-            # the choice applies p as an operator in the counter (#323)
+            # the choice applies p as an operator in the counter (#323) or in the two variables of x/n (#237)
             choice = ChoiceInstr(probability, [AsgnInstr(instruction.lhs, NatLitExpr(1))],
                                  [AsgnInstr(instruction.lhs, NatLitExpr(0))])
             return analyzer(choice, prog_info, distribution, error_prob, config)

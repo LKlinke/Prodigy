@@ -47,3 +47,27 @@
 .eq-continue { display: grid; gap: 6px; justify-items: start; padding-top: 8px; border-top: 1px solid var(--rv-separator); }
 .eq-continue .button { display: inline-flex; align-items: center; gap: 6px; }
 .eq-continue .rv-note, .eq-continue-note { margin: 0; line-height: 1.45; }
+
+/* The output distributions of both programs (compare-plots.js): side by side, one above the other when narrow */
+.eq-figure { gap: 10px; }
+.eq-plots { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 16px; }
+.eq-plots[hidden], .eq-plots-wide[hidden] { display: none; }
+.eq-plot { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.eq-plot-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.eq-plot-head .rv-block-title { margin: 0; }
+.eq-plot-status { margin: 0; min-height: 1em; }
+.eq-plot-status:empty { display: none; }
+.eq-plot-body { min-width: 0; }
+.eq-plots-legend { margin: 0; }
+.eq-plots-legend:empty { display: none; }
+.eq-table-wrap { max-height: 420px; overflow: auto; }
+.eq-table-wrap:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-control, 6px); }
+.eq-table-wrap thead th { position: sticky; top: 0; background: var(--rv-surface); }
+/* program B's joint view follows program A's pair and window: its own switches are not offered */
+.eq-joint-follower .jv-controls { display: none; }
+/* a value whose probability differs between the programs: "≠" above its bar and an outline (not colour alone) */
+.marginal-chart .mc-differs > rect:first-of-type { stroke: var(--rv-text); stroke-width: 1.5; }
+.marginal-chart .mc-differs-mark {
+  fill: var(--rv-text); font-size: 12px; font-weight: 700; font-family: var(--font-ui, sans-serif);
+  paint-order: stroke; stroke: var(--rv-surface); stroke-width: 3px; stroke-linejoin: round;
+}

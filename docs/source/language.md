@@ -236,8 +236,8 @@ The arguments may depend on program variables, e.g. `x = bernoulli(1/k);`, and s
 probability of a choice. Prodigy computes this exactly by a case split over the values of the
 variables if they take finitely many values (for example in every iteration of an unrolled loop);
 for infinitely many it answers "not implemented", except for choice probabilities rational in one
-variable such as `1/(k + 1)` and for `x = unif(0, n)`, which act as operators on the generating
-function. A value that is not admissible (a probability
+variable such as `1/(k + 1)`, the ratio `x/n` of two variables, and `x = unif(0, n)`, which act as
+operators on the generating function. A value that is not admissible (a probability
 outside of `[0, 1]`, `geometric(p)` with `p = 0`, `unif(a, b)` with `a > b`, a division by zero) in a
 reachable state is an error. Details: {doc}`language-design`.
 

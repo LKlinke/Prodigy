@@ -1,0 +1,13 @@
+# skip
+x: nat;
+n: nat;
+
+if (n > 0 and x < n) {
+    {
+        x = n;
+    } [x / n] {
+        x = 0;
+    }
+} else {
+    skip;
+}
