@@ -49,6 +49,7 @@ export function icon(name, extraClass = "") {
     copy: "M5.5 5.5h7v7h-7z M3.5 10.5v-7h7",
     download: "M8 2.5v8 M4.8 7.5L8 10.7l3.2-3.2 M3 13.5h10",
     loop: "M12.5 6.5A4.5 4.5 0 1 0 12 10 M12.8 3.5v3h-3",
+    compare: "M2 3.5h5v9H2z M9 3.5h5v9H9z",
   };
   return s("svg", { class: `icon ${extraClass}`.trim(), viewBox: "0 0 16 16", "aria-hidden": "true" },
     s("path", { d: paths[name] || "" }));

@@ -535,6 +535,33 @@ function useEvtCandidate(loopId, candidate) {
   focusLoopCard($("panel-setup"), loopId, { field: true });
 }
 
+/** "Open in Compare" of a parametric invariant (#154): the loop becomes program A (the program itself if
+ * the loop is all it does) with the invariant as the strategy of that loop, the invariant becomes program B. */
+function openInCompare(details) {
+  if (!details?.invariant || !setMode("compare")) return;
+  const syntax = editor.getSyntax();
+  const decision = { strategy: "invariant", params: { invariant: details.invariant } };
+  if (details.program && details.program !== editor.getSource()) {
+    // undoable (⌘Z); the decisions belong to the loops of the new program
+    editor.setSource(details.program, syntax);
+    state.setup.decisions = {};
+    state.outline = null;
+    state.graveyard = {};
+  }
+  state.setup.decisions[String(details.program_loop ?? details.loop ?? 0)] = decision;
+  save("setup", state.setup);
+  otherEditor.setSource(details.invariant, syntax);
+  state.compare.decisions = {};
+  state.compare.outline = null;
+  showColumn("first");
+  renderSetupPanel();
+  refreshStale();
+  updateAnnotations();
+  scheduleCheck(0);
+  scheduleOtherCheck(0);
+  notify("Loop and invariant opened in Compare as programs A and B. Press Check (⌘↩) to find the parameter values.");
+}
+
 // ---- annotations in the editor ------------------------------------------------------------------
 
 function shortStrategy(decision) {
@@ -700,6 +727,7 @@ function renderResultPanel() {
     strategyTitles: state.titles,
     onSelectLoop: showLoop,
     onUseCandidate: useEvtCandidate,
+    onOpenInCompare: openInCompare,
     explorationState: explorationMemory(state.result),
     onSelectLine: (line) => editor.revealLine(line),
     elapsed: state.result.__elapsed,
@@ -958,7 +986,9 @@ function finish(result, elapsed) {
   renderResultPanel();
   updateAnnotations();
   const message = result.status === "ok" ? null : (result.error?.message || result.status);
-  if (message) showRunMessage(message, result.status === "cancelled" ? "info" : "error");
+  // parameter synthesis in Analyze is no failure but a pointer to Compare (#154)
+  const neutral = result.status === "cancelled" || result.error?.details?.type === "parameter_synthesis";
+  if (message) showRunMessage(message, neutral ? "info" : "error");
 }
 
 async function stop() {

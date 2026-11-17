@@ -290,7 +290,9 @@ def check_equality(ctx: click.Context, program_file: IO, other_program_file: IO,
 
     start = time.perf_counter()
     # invariant files asked for on the terminal are read in the syntax of the program
-    with AnalysisSession.detached(program_syntax).activate():
+    session = AnalysisSession.detached(program_syntax)
+    session.parameter_synthesis = "allow"
+    with session.activate():
         equiv, result = check_equivalence(prog, other_prog, ctx.obj['CONFIG'], compute_semantics)
     stop = time.perf_counter()
     if equiv is True:

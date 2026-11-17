@@ -288,6 +288,8 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
         coefficient_limit=int(request.get("coefficients", 30)),
         trace_limits=TraceLimits(iterates=int(request.get("step_iterations") or 40)),
         watches=watches,
+        # Analyze mode: parameter synthesis is a comparison (Compare mode, #154)
+        parameter_synthesis="refuse",
     )
     return session.run().to_json()
 
@@ -355,7 +357,8 @@ def run_equivalence(request: Dict[str, Any], *, output: Optional[Callable[[str],
         return AnalysisSession(prog, source=part["source"], syntax=request_syntax(part), config=make_config(part),
                                decisions=part.get("decisions") or {}, input_distribution=input_distribution,
                                allow_files=False, capture_output=True, output_callback=output,
-                               progress_callback=report, coefficient_limit=int(part.get("coefficients", 30)))
+                               progress_callback=report, coefficient_limit=int(part.get("coefficients", 30)),
+                               parameter_synthesis="allow")
 
     variables_differ = equivalence.different_variables(program, other)
     check = equivalence.CheckOutcome("failed", error={"type": "variables", "message": variables_differ or ""})

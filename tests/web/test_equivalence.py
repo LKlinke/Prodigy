@@ -310,3 +310,82 @@ def test_page_has_the_second_editor(client):
     assert 'id="mode-analyze"' in toolbar and 'id="mode-compare"' in toolbar and "aria-keyshortcuts" in toolbar
     assert 'id="btn-compare"' not in page
     assert "equivalence-view.css" in page
+
+
+# ---- parameter synthesis belongs to Compare (#154) ---------------------------------------------
+
+SYNTHESIS = EXAMPLES / "template_parameter_synthesis"
+
+
+def _synthesis_pair(name="geometric_parameter"):
+    source = (SYNTHESIS / f"{name}.ppy").read_text(encoding="utf-8")
+    invariant = (SYNTHESIS / f"invariants/{name}_invariant.ppy").read_text(encoding="utf-8")
+    return source, invariant, {"0": {"strategy": "invariant", "params": {"invariant": invariant}}}
+
+
+def test_analyze_refuses_an_invariant_with_template_parameters():
+    from prodigy.web.requests import run_analysis
+    source, invariant, decisions = _synthesis_pair()
+    result = run_analysis({"source": source, "syntax": "ppy", "decisions": decisions})
+    assert result["status"] == "error" and result["error"]["type"] == "ParameterSynthesisRequired"
+    assert "parameter synthesis" in result["error"]["message"] and "Compare" in result["error"]["message"]
+    details = result["error"]["details"]
+    assert details["type"] == "parameter_synthesis" and details["parameters"] == ["p"]
+    # the program is only the loop: it is opened as it is, with the invariant on loop 0
+    assert details["program"] == source and details["program_loop"] == 0 and details["invariant"] == invariant
+
+
+def test_analyze_refuses_a_check_that_fixes_parameters():
+    """No template parameter, but the check fixes the program's parameter p = 1/2: also synthesis."""
+    from prodigy.web.requests import run_analysis
+    source = "x: nat;\nc: nat;\nparam p: real;\nx = 1;\nwhile (x == 1) {\n    { x = 0; } [p] { c = c + 1; }\n}\n"
+    invariant = ("x: nat;\nc: nat;\nparam p: real;\nif (x == 1) {\n    c = c + geometric(1/2);\n    x = 0;\n}"
+                 " else {\n    skip;\n}\n")
+    result = run_analysis({"source": source, "syntax": "ppy",
+                           "decisions": {"0": {"strategy": "invariant", "params": {"invariant": invariant}}}})
+    assert result["error"]["type"] == "ParameterSynthesisRequired"
+    details = result["error"]["details"]
+    assert details["constraints"] == [{"p": "1/2"}] and details["parameters"] == ["p"]
+    # the program does more than the loop: program A is its declarations and the loop
+    assert "x = 1" not in details["program"] and "while (x == 1)" in details["program"]
+    assert "param p: real" in details["program"] and details["program_loop"] == 0
+
+
+def test_a_concrete_invariant_stays_an_analysis_step():
+    from prodigy.web.requests import run_analysis
+    source = (EXAMPLES / "equivalence/loopy/geometric.ppy").read_text(encoding="utf-8")
+    invariant = (EXAMPLES / "equivalence/loopy/invariants/geometric_invariant.ppy").read_text(encoding="utf-8")
+    result = run_analysis({"source": source, "syntax": "ppy", "input_distribution": "x",
+                           "decisions": {"0": {"strategy": "invariant", "params": {"invariant": invariant}}}})
+    assert result["status"] == "ok" and result["bounds"]["kind"] == "upper"
+
+
+def test_the_command_line_hints_at_check_equality():
+    """The command line keeps going with a parametric invariant, but says that it is parameter synthesis."""
+    from prodigy.analysis.session import AnalysisSession
+    from prodigy.pgcl import parse_pgcl
+    source, _, decisions = _synthesis_pair()
+    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", decisions=decisions,
+                              capture_output=True)
+    result = session.run().to_json()
+    assert result["status"] == "ok"
+    assert "check_equality" in result["log"]
+    assert any("check_equality" in m for loop in result["loops"] for m in loop.get("messages", []))
+
+
+def test_parameter_synthesis_examples_open_in_compare(client):
+    loaded = client.get("/api/examples/template_parameter_synthesis/geometric_parameter.ppy", headers=HOST).get_json()
+    assert loaded["other"]["id"] == "template_parameter_synthesis/invariants/geometric_parameter_invariant.ppy"
+    examples = client.get("/api/examples", headers=HOST).get_json()["examples"]
+    # every one opens in Compare, except telephone_operator, a known issue without invariant file
+    synthesis = [e for e in examples if e["category"][:1] == ["template_parameter_synthesis"] and not e["known_issue"]]
+    assert len(synthesis) >= 10 and all(e["command"] == "check_equality" for e in synthesis)
+
+
+def test_the_result_view_offers_to_open_in_compare():
+    view = (COMPONENTS / "result-view.js").read_text(encoding="utf-8")
+    assert 'error.details?.type === "parameter_synthesis"' in view and "Open in Compare" in view
+    main = (COMPONENTS.parent / "main.js").read_text(encoding="utf-8")
+    assert "function openInCompare(details)" in main and "onOpenInCompare: openInCompare" in main
+    library = (COMPONENTS.parent / "main.js").read_text(encoding="utf-8")
+    assert 'setMode("compare")' in library and 'setMode("analyze")' in library

@@ -123,7 +123,8 @@ The check runs as a job like an analysis (own process, time limit, Stop). It has
 1. **The check for every input.** Both programs run on one generating function that stands for
    every input at once (the second-order check of `prodigy check_equality`), and the solver
    compares the results; for programs with parameters it looks for parameter values that make
-   them equal (parameter synthesis).
+   them equal (parameter synthesis, see [Check invariant and parameter synthesis](#choosing-a-loop-strategy));
+   the verdict card lists the values found.
 2. **Both programs on one input**: the initial distribution of the Setup, or, without one, the
    input on which the solver found the programs to differ, or the default input. These are the
    two results shown below the verdict.
@@ -281,6 +282,19 @@ corner names the outcome. *How to choose a strategy* (above the loop cards) list
 | Exact result | Check invariant, Check EVT invariant, Synthesise EVT invariant, EVT invariant from a language model | exact, or an upper bound if a side condition fails (finite mass, almost-sure termination); no result without a proof |
 | Bounds | Unroll N iterations, Iterate until mass captured, Check EVT sub-invariant, EVT sandwich | lower bounds (every query an interval) without a termination assumption; the sandwich also upper bounds |
 | Explore | Expected visiting times H_N (`evt_iterate`) | the iterates of the expected visiting times, to guess an EVT invariant; the result is only a lower bound |
+
+**Check invariant and parameter synthesis.** *Check invariant* (`invariant`) checks a concrete
+loop-free program I (I ≡ if (guard) { body; I } for all inputs) and continues with it: an analysis
+step, "I know the closed form". Finding parameter values instead (an I with parameters the program
+does not have, as in `pgfexamples/template_parameter_synthesis/`, or a check that fixes the
+program's parameters to values) is a comparison of the loop with I, so it belongs to Compare mode
+(#154). In Analyze mode such an invariant ends with *Parameter synthesis is a comparison* and the
+button **Open in Compare**: the loop becomes program A (the program itself if the loop is all it
+does, else its declarations and the loop; undo restores yours), with I as the strategy of that loop,
+and I becomes program B; **Check** then reports the parameter values on the verdict card. In
+Compare mode the strategy accepts such invariants for the loops of either program. On the command
+line `--loop invariant` keeps working with a parametric I and prints a hint to use
+`prodigy check_equality`. All other strategies are analysis steps and are the same in both modes.
 
 Parameters that must be given (an invariant, a sub-invariant) are shown right away; those with a
 default sit behind the disclosure **Parameters**, whose summary shows their values

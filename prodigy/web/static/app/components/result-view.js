@@ -122,12 +122,19 @@ function errorView(result, options) {
   const error = result.error || {};
   const status = result.status === "error" && error.type === "crash" ? "crashed" : result.status;
   const verdict = status === "error" ? error.verdict : undefined;
-  const title = VERDICT_TITLES[verdict] || STATUS_TITLES[status] || "The analysis failed";
+  const synthesis = error.details?.type === "parameter_synthesis";
+  const title = synthesis ? "Parameter synthesis is a comparison"
+    : VERDICT_TITLES[verdict] || STATUS_TITLES[status] || "The analysis failed";
   const children = [h("h3", { class: "rv-error-title" }, title),
     h("p", { class: "rv-error-message" }, error.message || "")];
   if (status === "needs_decision" && error.loop && options.onSelectLoop) {
     children.push(h("p", {}, h("button", { type: "button", class: "button", onclick: () => options.onSelectLoop(error.loop.id) },
       `Choose a strategy for loop ${error.loop.id}`)));
+  }
+  if (synthesis && options.onOpenInCompare) {
+    // the loop and its invariant become programs A and B of Compare mode (#154)
+    children.push(h("p", {}, h("button", { type: "button", class: "button", onclick: () => options.onOpenInCompare(error.details) },
+      icon("compare"), h("span", {}, "Open in Compare"))));
   }
   if (status === "timeout") {
     children.push(h("p", { class: "rv-muted" }, "Try fewer iterations, the GiNaC engine, or a strategy that certifies a closed form."));
@@ -146,7 +153,8 @@ function errorView(result, options) {
     children.push(h("details", { class: "disclosure rv-trace" }, h("summary", {}, "Technical details"),
       h("pre", { class: "rv-pre" }, error.traceback)));
   }
-  const kind = status === "cancelled" ? "neutral" : status === "timeout" || verdict === "unknown" ? "warning" : "error";
+  const kind = status === "cancelled" || synthesis ? "neutral"
+    : status === "timeout" || verdict === "unknown" ? "warning" : "error";
   return h("div", { class: "rv-error", "data-tone": kind, role: status === "cancelled" ? null : "alert" }, ...children);
 }
 
@@ -304,7 +312,8 @@ export function cleanLog(text) {
  *            change: "program" | "setup" | "both" (what changed since, see staleness.js), onRun(), elapsed,
  *            loadJoint(payload, signal) -> Promise<grid>, analysisState: {}, maxJointAxis,
  *            onPosition(step | null), onRecord(), onAddWatch(text), onRemoveWatch(text), breakpoints,
- *            onUseCandidate(loopId, candidate), explorationState: {} }
+ *            onUseCandidate(loopId, candidate), explorationState: {},
+ *            onOpenInCompare(details): open a loop and its parametric invariant in Compare mode }
  */
 export function renderResult(container, result, options = {}) {
   const children = [];
