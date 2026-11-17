@@ -4,7 +4,8 @@ The example library of the web GUI: the programs in ``pgfexamples/``.
 The first line of every example says how it is meant to be run (see
 ``pgfexamples/README.md``), e.g. ``# check_equality prog.ppy invariants/prog_invariant.ppy``.
 From that line the library derives a suggested setup for the GUI: an invariant for the loop,
-invariant synthesis, or plain analysis.
+invariant synthesis, or plain analysis. For ``check_equality`` it also loads the second program
+(``other``), which the GUI compares with the first.
 
 The examples are ``.ppy`` files. A folder given with ``prodigy web --examples`` may also hold
 ``.pgcl`` files; :meth:`ExampleLibrary.load` with ``syntax="ppy"`` converts such an example and
@@ -133,15 +134,32 @@ class ExampleLibrary:
         data: Dict[str, Any] = {"id": example_id, "syntax": file_syntax, "source": source,
                                 "example": example.to_json() if example else None, "suggestion": suggestion,
                                 "file_name": path.name}
+        other = self._other_program(example)
+        if other is not None:
+            data["other"] = other
         if syntax == "ppy" and file_syntax == "pgcl":
             data.update(syntax="ppy", **convert(source))
             data["file_name"] = f"{path.stem}.ppy"
             for decision in suggestion["decisions"].values():
                 if decision["strategy"] == "invariant" and "invariant" in decision["params"]:
                     decision["params"]["invariant"] = convert(decision["params"]["invariant"])["source"]
+            if other is not None and other["syntax"] == "pgcl":
+                other.update(syntax="ppy", source=convert(other["source"])["source"],
+                             file_name=f"{Path(other['file_name']).stem}.ppy")
         if data["syntax"] == "ppy" and suggestion["input_distribution"]:
             suggestion["input_distribution"] = _to_ppy_expression(suggestion["input_distribution"])
         return data
+
+    def _other_program(self, example: Optional[Example]) -> Optional[Dict[str, Any]]:
+        """The second program of an equivalence example (``# check_equality prog other``): the GUI
+        loads it into its second editor and compares the two."""
+        if example is None or example.command != "check_equality" or not example.args or self.root is None:
+            return None
+        other = self._resolve_arg(example.args[0])
+        if other is None or other.suffix not in EXTENSIONS:
+            return None
+        return {"id": other.relative_to(self.root).as_posix(), "source": other.read_text(encoding="utf-8"),
+                "syntax": select_syntax(path=other.name), "file_name": other.name}
 
     def _resolve_arg(self, arg: str) -> Optional[Path]:
         """Paths in the first line are relative to the repository root (``pgfexamples/...``)."""
@@ -175,22 +193,23 @@ class ExampleLibrary:
             suggestion["decisions"] = {
                 str(i): {"strategy": "invariant", "params": {"invariant": inv.read_text(encoding="utf-8")}}
                 for i, inv in enumerate(numbered)}
-            suggestion["note"] = (f"Invariants from {', '.join(inv.name for inv in numbered)} (one per loop, "
-                                  "in textual order). With the default input every variable is 0, so the loops "
-                                  "may not run: set an initial distribution under Input.")
+            suggestion["note"] = (f"Equivalence example: both programs are loaded, and Compare checks them for every "
+                                  f"input. The loops use the invariants {', '.join(inv.name for inv in numbered)} "
+                                  "(one per loop, in textual order).")
         elif example.command == "check_equality" and example.args and self.root is not None:
             other = self._resolve_arg(example.args[0])
             if other is not None:
                 other_source = other.read_text(encoding="utf-8")
+                name = other.relative_to(self.root).as_posix()
                 if loops == 1:
                     suggestion["decisions"] = {"0": {"strategy": "invariant",
                                                      "params": {"invariant": other_source}}}
-                    suggestion["note"] = (f"Invariant from {other.relative_to(self.root).as_posix()}; it is checked "
-                                          "for all inputs. With the default input every variable is 0, so the "
-                                          "loop may not run: set an initial distribution under Input.")
+                    suggestion["note"] = (f"Equivalence example: both programs are loaded ({name} is the second), "
+                                          "and Compare checks them for every input. The loop uses the second "
+                                          "program as its invariant.")
                 elif loops == 0:
-                    suggestion["note"] = ("Equivalence example: the GUI analyses the first program; "
-                                          f"the second one is {other.relative_to(self.root).as_posix()}.")
+                    suggestion["note"] = (f"Equivalence example: both programs are loaded ({name} is the second), "
+                                          "and Compare checks them for every input.")
         elif example.command == "invariant_synthesis":
             suggestion["decisions"] = {"*": {"strategy": "evt_synthesis", "params": {}}}
             suggestion["note"] = "Expected-visiting-time invariant synthesis."

@@ -376,16 +376,18 @@ function loopCard(loop, ctx) {
   const { strategies, setup, onChange, source } = ctx;
   const byName = Object.fromEntries(strategies.map((s) => [s.name, s]));
   const key = String(loop.id);
+  // the loops of program B in Compare mode have ids of their own: their cards are "loop-card-b-0", …
+  const domId = `${ctx.idPrefix || ""}${loop.id}`;
   if (!setup.decisions[key] || !byName[setup.decisions[key].strategy]) {
     setup.decisions[key] = defaultDecision(strategies);
   }
-  const card = h("article", { class: "card", id: `loop-card-${loop.id}`, "aria-labelledby": `loop-title-${loop.id}` });
+  const card = h("article", { class: "card", id: `loop-card-${domId}`, "aria-labelledby": `loop-title-${domId}` });
 
   const render = () => {
     const decision = setup.decisions[key];
     const strategy = byName[decision.strategy];
     const { required, more } = splitParams(strategy);
-    const summaryId = `loop-summary-${loop.id}`;
+    const summaryId = `loop-summary-${domId}`;
     const warnings = [];
     if (strategy.requires_unconditioned && observeBefore(source, loop.line)) {
       warnings.push(h("p", { class: "notice warning" }, icon("warning"),
@@ -393,7 +395,7 @@ function loopCard(loop, ctx) {
     }
     card.replaceChildren(...[
       h("div", { class: "loop-head" },
-        h("h4", { id: `loop-title-${loop.id}`, class: "loop-name" }, `Loop ${loop.id} `,
+        h("h4", { id: `loop-title-${domId}`, class: "loop-name" }, `${ctx.loopLabel || "Loop"} ${loop.id} `,
           h("span", { class: "loop-line" }, loop.line ? `· line ${loop.line}` : "")),
         outcomeChip(strategy)),
       h("div", { class: "loop-code", title: `while (${loop.cond})` }, `while (${loop.cond})`),
@@ -426,7 +428,7 @@ function loopCard(loop, ctx) {
       update();
       const details = h("details", { class: "disclosure loop-params" },
         h("summary", {}, "Parameters ", note), h("div", { class: "disclosure-body params" }, ...more.map((p) => field(p, update))));
-      const openKey = `${key}:${strategy.name}`;
+      const openKey = `${domId}:${strategy.name}`;
       details.open = openParams.has(openKey) || more.some((p) => validateParam(p, decision.params[p.name]));
       details.addEventListener("toggle", () => {
         if (details.open) openParams.add(openKey);
@@ -488,7 +490,8 @@ export function applyInputProblem(input, message, error = input.parentElement?.q
 }
 
 /** Renders the setup panel. ctx: {outline, setup, strategies, meta, source, onChange, focusLoop,
- * suggest(loopId, form, {signal, onProgress}), currentSource()} */
+ * suggest(loopId, form, {signal, onProgress}), currentSource(), second}; `second` ({outline, setup: {decisions},
+ * source, syntax, outlineStale}) adds the loops of program B in Compare mode (their cards are "loop-card-b-<id>"). */
 export function renderSetup(container, ctx) {
   const { outline, setup, meta, onChange } = ctx;
   placeholders = PLACEHOLDERS[ctx.syntax] || PLACEHOLDERS.pgcl;
@@ -539,14 +542,17 @@ export function renderSetup(container, ctx) {
   optionsDisclosure.open = Boolean(ctx.optionsOpen);
   optionsDisclosure.addEventListener("toggle", () => ctx.onOptionsToggle?.(optionsDisclosure.open));
 
-  const loopsSection = h("section", { class: "section", "aria-labelledby": "loops-title" },
-    h("div", { class: "section-header" }, h("h3", { class: "section-title", id: "loops-title" }, "Loops"),
-      h("span", { class: "section-note" }, loops.length ? `${loops.length}` : "")),
-    ctx.outlineStale ? h("p", { class: "notice warning" }, icon("warning"),
-      h("span", {}, "The program does not parse right now; the loops are those of the last version that did.")) : null,
-    loops.length ? strategyGuide(ctx.strategies) : null,
-    loops.length ? loopCards : h("p", { class: "help" },
-      outline ? "This program has no while loops; its semantics is computed exactly." : "Loops appear here once the program parses."));
+  const loopsSection = loopSection(ctx, { outline, loopCards, title: ctx.second ? "Loops of program A" : "Loops",
+    titleId: "loops-title", outlineStale: ctx.outlineStale });
+  // Compare mode: program B has loops and decisions of its own
+  const second = ctx.second ? (() => {
+    const bCtx = { ...ctx, ...ctx.second, suggest: null, idPrefix: "b-", loopLabel: "Loop" };
+    const bLoops = ctx.second.outline?.loops || [];
+    const cards = bLoops.map((loop) => loopCard(loop, bCtx));
+    pruneDecisions(ctx.second.setup.decisions, ctx.second.outline);
+    return loopSection(bCtx, { outline: ctx.second.outline, loopCards: cards, title: "Loops of program B",
+      titleId: "loops-b-title", outlineStale: ctx.second.outlineStale, guide: false });
+  })() : null;
 
   container.replaceChildren(
     h("section", { class: "section", "aria-labelledby": "input-title" },
@@ -555,9 +561,21 @@ export function renderSetup(container, ctx) {
         h("p", { class: "help", id: `${inputId}-help` }, ctx.syntax === "ppy"
           ? "A generating function over the program variables, e.g. x**3 for x = 3, or (x + x**2)/2."
           : "A generating function over the program variables, e.g. x^3 for x = 3, or (x + x^2)/2."))),
-    loopsSection,
+    ...[loopsSection, second].filter(Boolean),
     h("section", { class: "section" }, optionsDisclosure),
   );
+}
+
+function loopSection(ctx, { outline, loopCards, title, titleId, outlineStale, guide = true }) {
+  const loops = outline?.loops || [];
+  return h("section", { class: "section", "aria-labelledby": titleId },
+    h("div", { class: "section-header" }, h("h3", { class: "section-title", id: titleId }, title),
+      h("span", { class: "section-note" }, loops.length ? `${loops.length}` : "")),
+    outlineStale ? h("p", { class: "notice warning" }, icon("warning"),
+      h("span", {}, "The program does not parse right now; the loops are those of the last version that did.")) : null,
+    loops.length && guide ? strategyGuide(ctx.strategies) : null,
+    loops.length ? loopCards : h("p", { class: "help" },
+      outline ? "This program has no while loops; its semantics is computed exactly." : "Loops appear here once the program parses."));
 }
 
 /** Scrolls to the card of a loop and focuses its strategy pop-up, or with `field` its first text field. */

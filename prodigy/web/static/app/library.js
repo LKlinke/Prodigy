@@ -5,7 +5,7 @@ import { h, icon } from "./components/dom.js";
 import { clearRecent, recentEntries } from "./recent.js";
 
 const COMMAND_LABELS = {
-  check_equality: "invariant",
+  check_equality: "compare",
   invariant_synthesis: "synthesis",
   independent_vars: "independence",
   main: "",

@@ -632,7 +632,8 @@ class AnalysisSession:
                  coefficient_limit: int = 30,
                  trace_limits: Optional["TraceLimits"] = None,
                  watches: Sequence[str] = (),
-                 on_step: Optional[Callable[[Dict[str, Any]], None]] = None):
+                 on_step: Optional[Callable[[Dict[str, Any]], None]] = None,
+                 parameter_synthesis: str = "hint"):
         # pylint: disable=import-outside-toplevel
         from prodigy.analysis.config import ForwardAnalysisConfig
         from prodigy.analysis.trace import Tracer, parse_watch
@@ -653,6 +654,11 @@ class AnalysisSession:
         self.progress_callback = progress_callback
         self.record_steps = record_steps
         self.coefficient_limit = coefficient_limit
+        self.parameter_synthesis = parameter_synthesis
+        """What the strategy ``invariant`` does with an invariant that synthesises parameters (template
+        parameters, or a check that fixes parameters to values, #154): ``allow`` (comparing two programs,
+        ``prodigy check_equality``), ``refuse`` (the GUI's Analyze mode: it is a comparison) or ``hint``
+        (the command line: go on as before, but point to ``check_equality``)."""
 
         self.loops = LoopRegistry(program, source, syntax)
         self.query_positions = query_positions(source, syntax) if source is not None else []

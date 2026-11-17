@@ -11,6 +11,9 @@ A small Flask application: one page (``templates/app.html`` with the ES modules 
                                   distribution is accepted
 ``POST /api/convert``             a pGCL program in the ``.ppy`` syntax, with the renamed names
 ``POST /api/analyze``             starts an analysis in its own process, returns a job id
+``GET /``, ``/analyze``, …        the page; ``/compare`` opens it in Compare mode (#154)
+``POST /api/equivalence``         starts a job that compares two programs (``other_source``, see
+                                  :func:`prodigy.web.requests.run_equivalence`), returns a job id
 ``GET  /api/jobs/<id>``           state, new console output, progress, result when done
 ``DELETE /api/jobs/<id>``         cancels the analysis
 ``POST /api/jobs/<id>/joint``     starts a job for the exact coefficient grid of two variables of a
@@ -43,7 +46,7 @@ from flask import Flask, abort, jsonify, render_template, request
 from prodigy.web.examples import ConversionError, ExampleLibrary, convert, default_examples_dir
 from prodigy.web.jobs import BusyError, JobManager
 from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, check_input_distribution_bounded, joint_request,
-                                  request_syntax, validate_request, validate_suggestion)
+                                  request_syntax, validate_equivalence, validate_request, validate_suggestion)
 
 # Longest initial distribution that /api/check examines (longer ones are checked by the analysis).
 MAX_INPUT_DISTRIBUTION = 500
@@ -127,7 +130,10 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         return error
 
     @app.get("/")
+    @app.get("/analyze")
+    @app.get("/compare")
     def index() -> Any:
+        """The page; the path selects the mode (Analyze or Compare), which the page keeps in the URL."""
         return render_template("app.html", version=version)
 
     @app.get("/api/meta")
@@ -187,6 +193,24 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
             "template_heuristic", "positivity_heuristic", "solver") if key in payload}
         try:
             job = jobs.submit(analysis_request, time_limit=payload.get("time_limit"))
+        except BusyError as exc:
+            return jsonify({"error": f"{exc}. Wait for one to finish or cancel it."}), 429
+        return jsonify({"job": job.id, "time_limit": job.time_limit}), 202
+
+    @app.post("/api/equivalence")
+    def equivalence() -> Any:
+        """Starts a job that compares two programs: the analysis request of the first program plus
+        ``other_source``, ``other_syntax`` and ``other_decisions`` for the second."""
+        payload: Dict[str, Any] = request.get_json(silent=True) or {}
+        problems = validate_equivalence(payload)
+        if problems:
+            return jsonify({"error": " ".join(problems), "problems": problems}), 400
+        equivalence_request: Dict[str, Any] = {key: payload.get(key) for key in (
+            "source", "syntax", "file_name", "input_distribution", "engine", "normalize", "simplification",
+            "decisions", "coefficients", "synthesis_strategy", "template_heuristic", "positivity_heuristic", "solver",
+            "other_source", "other_syntax", "other_decisions") if key in payload}
+        try:
+            job = jobs.submit(equivalence_request, time_limit=payload.get("time_limit"), kind="equivalence")
         except BusyError as exc:
             return jsonify({"error": f"{exc}. Wait for one to finish or cancel it."}), 429
         return jsonify({"job": job.id, "time_limit": job.time_limit}), 202

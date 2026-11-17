@@ -15,6 +15,7 @@ import logging
 from fractions import Fraction
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
+import attr
 import sympy
 from lark.exceptions import LarkError
 
@@ -32,8 +33,8 @@ from prodigy.analysis.evtinvariants.exp_polynomial import (entire_exp_polynomial
                                                            exp_polynomial_value_at_one, independent_factors)
 from prodigy.analysis.evtinvariants.log_polynomial import log_form_mass, log_form_nonneg
 from prodigy.analysis.evtinvariants.series_identity import converges_on_unit_polydisc, formal_loop
-from prodigy.analysis.exceptions import (ForwardAnalysisError, HeuristicsError, SolveError,
-                                              VerificationError)
+from prodigy.analysis.exceptions import (ForwardAnalysisError, HeuristicsError, ParameterSynthesisRequired,
+                                              SolveError, VerificationError)
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.distribution.equality import sympify_distribution, sympify_engine_string
@@ -253,6 +254,10 @@ def _strategy_invariant(task: LoopTask) -> LoopOutcome:
                    parameters=prog_info.parameters,
                    instructions=[instruction],
                    functions=prog_info.functions)
+    # template parameters: parameters of the invariant that the program does not have
+    template = sorted(str(p) for p in set(inv_prog.parameters) - set(prog_info.parameters))
+    if template and task.session.parameter_synthesis == "refuse":
+        raise _synthesis_required(task, inv_src, template, [])
     print(f"{Style.YELLOW}Verifying invariant...{Style.RESET}")
 
     # First we create the modified input program in order to fit the premise of Park's Lemma
@@ -281,6 +286,15 @@ def _strategy_invariant(task: LoopTask) -> LoopOutcome:
             )
             messages.append(f"The invariant holds under the constraints {constraints}; "
                             "the result still contains the parameters.")
+        if template or any(constraints):
+            # parameter synthesis: a comparison of the loop with the invariant program (#154)
+            if task.session.parameter_synthesis == "refuse":
+                raise _synthesis_required(task, inv_src, template, constraints)
+            if task.session.parameter_synthesis == "hint":
+                hint = ("This is parameter synthesis, a comparison of the loop with the invariant program: "
+                        "`prodigy check_equality PROGRAM INVARIANT` reports the parameter values with a verdict.")
+                print(f"{Style.YELLOW}Hint:{Style.RESET} {hint}")
+                messages.append(hint)
         if config.show_intermediate_steps:
             print(Style.YELLOW +
                   "Compute the result using the invariant" +
@@ -319,6 +333,46 @@ def _strategy_invariant(task: LoopTask) -> LoopOutcome:
     certificate["verdict"] = "unknown"
     certificate["difference"] = str(result)
     raise InvariantRefutedError("Could not determine whether invariant is valid.", details=certificate)
+
+
+def _synthesis_required(task: LoopTask, inv_src: str, template: List[str],
+                        constraints: List[Dict[str, str]]) -> ParameterSynthesisRequired:
+    """The error of the strategy ``invariant`` for parameter synthesis in an analysis (#154), with what a
+    front end needs to open the loop and the invariant as two programs to compare."""
+    names = template or sorted({name for constraint in constraints for name in constraint})
+    what = (f"The invariant has the parameter{'s' if len(names) > 1 else ''} {', '.join(names)}"
+            if template else f"The check of the invariant fixes {', '.join(names)}")
+    where = task.loop.describe() if task.loop is not None else "the loop"
+    return ParameterSynthesisRequired(
+        f"{what}: finding parameter values is parameter synthesis, a comparison of {where} with the invariant "
+        "program, not an analysis step. Open the pair in Compare, or use an invariant without parameters.",
+        details={"type": "parameter_synthesis", "loop": task.loop.id if task.loop is not None else None,
+                 "parameters": names, "constraints": constraints, "invariant": inv_src,
+                 **_loop_program(task)})
+
+
+def _loop_program(task: LoopTask) -> Dict[str, Any]:
+    """The program to compare with the invariant: the program itself if the loop is all it does, else its
+    declarations and the loop (``program``, in the program's syntax), and the id of the loop in it."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.session import LoopRegistry
+    from prodigy.pgcl.ppy_printer import PpyPrintError, program_to_ppy
+    session = task.session
+    program = session.program
+    if program is None:
+        return {"program": None, "program_loop": None}
+    rest = [instr for instr in program.instructions if instr is not task.instruction
+            and type(instr).__name__ not in ("ExpectationInstr", "VarianceInstr", "CovarianceInstr",
+                                             "ProbabilityQueryInstr", "PrintInstr", "PlotInstr")]
+    if not rest and session.source is not None and any(instr is task.instruction for instr in program.instructions):
+        return {"program": session.source, "program_loop": task.loop.id if task.loop is not None else 0}
+    loop_program = attr.evolve(program, instructions=[task.instruction])
+    try:
+        text = program_to_ppy(loop_program) if session.syntax == "ppy" else str(loop_program)
+    except PpyPrintError:
+        return {"program": None, "program_loop": None}
+    info = LoopRegistry(loop_program).lookup(task.instruction)
+    return {"program": text, "program_loop": info.id if info is not None else 0}
 
 
 def _strategy_unroll(task: LoopTask) -> LoopOutcome:
@@ -574,8 +628,9 @@ def _strategy_evt_synthesis(task: LoopTask) -> LoopOutcome:
 _INVARIANT_PARAMS = (
     ParamSpec("invariant", "pgcl", "Invariant (loop-free pGCL program)",
               prompt="Invariant file:\t",
-              help="A loop-free program I with the loop's variables; checked against one unrolling "
-                   "of the loop (Park's lemma)."),
+              help="A loop-free program I with the loop's variables and no parameters to find; checked "
+                   "against one unrolling of the loop (Park's lemma). Finding parameter values is a "
+                   "comparison: Compare mode, or prodigy check_equality."),
     ParamSpec("invariant_file", "file", "Invariant file", prompt="Invariant file:\t",
               alias_of="invariant", help="Path of a file containing the invariant (CLI only)."),
 )
@@ -591,7 +646,9 @@ register_loop_strategy(LoopStrategy(
     soundness=Bound.UPPER,
     description="Checks that a loop-free program I satisfies I ≡ if (guard) { body; I } on all "
                 "inputs and continues with I. By Park's lemma the result over-approximates the "
-                "loop; it is exact if the loop terminates almost surely.",
+                "loop; it is exact if the loop terminates almost surely. I is concrete: an invariant "
+                "with parameters to be found (parameter synthesis) is a comparison of the loop with I, "
+                "done in the GUI's Compare mode or with `prodigy check_equality`.",
     params=_INVARIANT_PARAMS,
     run=_strategy_invariant,
 ))

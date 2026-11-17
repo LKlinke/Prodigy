@@ -287,20 +287,22 @@ function completions(context) {
 
 // ---- public API ---------------------------------------------------------------------------
 
-function languageFor(syntax) {
+function languageFor(syntax, label = null) {
   const spec = SYNTAXES[syntax];
   return [
     spec.language,
-    placeholder(`Write a ${spec.label} program, or choose Open… or Examples.`),
-    EditorView.contentAttributes.of({ "aria-label": `${spec.label} program` }),
+    placeholder(label ? `Write the ${label.toLowerCase()} in ${spec.label}.` : `Write a ${spec.label} program, or choose Open… or Examples.`),
+    EditorView.contentAttributes.of({ "aria-label": label ? `${label} (${spec.label})` : `${spec.label} program` }),
   ];
 }
 
 /** onSyntaxChange(syntax) is called whenever the syntax changes, also by undo and redo;
+ * `label` names an editor other than the main one (e.g. "Second program"), `breakpoints: false` turns
+ * the breakpoints off;
  * onCompanion({before, after}) whenever a change made with setSource(…, {companion}) is applied,
  * undone (before and after swapped) or redone. */
 export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSyntaxChange, onCompanion, onRun, onStop,
-  onBreakpointsChange, stepKeys = {} } = {}) {
+  onBreakpointsChange, stepKeys = {}, breakpoints = true, label = null } = {}) {
   const toggleAt = (view, position) => {
     view.dispatch({ effects: toggleBreakpointEffect.of(view.state.doc.lineAt(position).from) });
     return true;
@@ -308,7 +310,7 @@ export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSy
   const shortcuts = keymap.of([
     { key: "Mod-Enter", run: () => { onRun?.(); return true; } },
     { key: "Mod-.", run: () => { onStop?.(); return true; } },
-    { key: "F9", run: (view) => toggleAt(view, view.state.selection.main.head) },
+    ...(breakpoints ? [{ key: "F9", run: (view) => toggleAt(view, view.state.selection.main.head) }] : []),
     ...Object.entries(stepKeys).map(([key, run]) => ({ key, run: () => run() !== false })),
   ]);
   const appearance = new Compartment();
@@ -317,12 +319,12 @@ export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSy
     shortcuts,
     appTheme,
     appearance.of(EditorView.darkTheme.of(Boolean(darkScheme?.matches))),
-    lineNumbers({
+    lineNumbers(breakpoints ? {
       domEventHandlers: {
         // a click on a line number sets or clears a breakpoint on that line (F9 at the cursor does the same)
         mousedown: (view, line) => toggleAt(view, line.from),
       },
-    }),
+    } : {}),
     highlightActiveLineGutter(),
     history(),
     drawSelection(),
@@ -352,7 +354,7 @@ export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSy
       const after = update.state.field(syntaxField);
       if (before !== after) {
         // the language follows the syntax (also on undo); reconfiguring needs its own transaction
-        queueMicrotask(() => view.dispatch({ effects: language.reconfigure(languageFor(view.state.field(syntaxField))) }));
+        queueMicrotask(() => view.dispatch({ effects: language.reconfigure(languageFor(view.state.field(syntaxField), label)) }));
         onSyntaxChange?.(after);
       }
       if (update.docChanged) onChange?.(update.state.doc.toString());
@@ -364,7 +366,7 @@ export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSy
   ];
   const createState = (text, initialSyntax) => EditorState.create({
     doc: text,
-    extensions: [extensions, syntaxField.init(() => initialSyntax), language.of(languageFor(initialSyntax))],
+    extensions: [extensions, syntaxField.init(() => initialSyntax), language.of(languageFor(initialSyntax, label))],
   });
   const view = new EditorView({ state: createState(doc, syntax), parent });
   darkScheme?.addEventListener?.("change", (event) => {

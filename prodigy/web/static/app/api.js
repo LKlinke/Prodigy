@@ -39,6 +39,7 @@ export const api = {
   check: (source, syntax, signal, input = {}) => request("POST", "api/check", { source, syntax, ...input }, { signal }),
   convert: (source) => request("POST", "api/convert", { source }),
   analyze: (payload) => request("POST", "api/analyze", payload),
+  equivalence: (payload) => request("POST", "api/equivalence", payload),
   suggest: (payload) => request("POST", "api/suggest", payload),
   job: (id, logOffset = 0) => request("GET", `api/jobs/${encodeURIComponent(id)}?log_offset=${logOffset}`),
   joint: (id, payload) => request("POST", `api/jobs/${encodeURIComponent(id)}/joint`, payload),
