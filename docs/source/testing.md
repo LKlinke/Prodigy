@@ -97,6 +97,13 @@ cache survives from one case to the next) with a time limit of 60 s and takes th
 the JSON result, without the start of Python. It prints a table (program × engine, seconds) and, with
 `--summary FILE`, appends it as Markdown to `FILE`; `--output FILE` writes the results as JSON.
 
+Most cases run with `--coefficients 0`, so the extraction of coefficients is not measured. A case
+with the key `"coefficients": N` in `suite.json` runs with `--coefficients N`; the cases named
+`*_coeffs` do this with N = 100 (a loop result, a loop-free multivariate result and an unrolled nested
+loop with conditioning), which adds a few seconds to the whole run. They are ordinary cases, so
+`make bench`, the baseline, the CI job and `benchmarks/compare.py` cover them without further options.
+When the merge base has no such case yet, the comparison lists it as `new`.
+
 The times are compared with `benchmarks/baseline.json`. Machines differ in speed, so the baseline
 also stores the time of a fixed calibration workload (SymPy and plain Python), and the baseline times
 are scaled by the ratio of the calibration times of this run and of the baseline. A case is a

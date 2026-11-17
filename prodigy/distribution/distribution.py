@@ -312,6 +312,19 @@ def _spelled(expression: Expr) -> str:
     return current_session().spell(expression) if has_current_session() else str(expression)
 
 
+def _in_programs_terms(error: Exception, names: Dict[str, str]) -> Exception:
+    """
+    A copy of `error` with the temporary variables of an operator update (`_0`, `sym_1`, `x_2`: engine
+    internals) replaced by the operands as the program wrote them (#349). `names` maps temporary to
+    program text; an unknown or unchanged message returns `error` itself.
+    """
+    pattern = re.compile(r"\b(" + "|".join(re.escape(name) for name in names) + r")\b")
+    message = pattern.sub(lambda match: names[match.group(1)], str(error))
+    if message == str(error):
+        return error
+    return type(error)(message)
+
+
 class Distribution(ABC):
     """ Abstract class that models different representations of probability distributions. """
 
@@ -898,9 +911,14 @@ class Distribution(ABC):
                 if expression.operator == Binop.PLUS:
                     f = f._update_sum(temp_var, t_1, t_2)
                 elif expression.operator == Binop.TIMES:
-                    f = f._split_on_finite_support(
-                        lambda part, left, right: part._update_product(temp_var, left, right, approximate),
-                        t_1, t_2)
+                    try:
+                        f = f._split_on_finite_support(
+                            lambda part, left, right: part._update_product(temp_var, left, right, approximate),
+                            t_1, t_2)
+                    except (ValueError, NotImplementedError, NonFiniteMarginalError) as error:
+                        raise _in_programs_terms(
+                            error, {str(t_1): _spelled(expression.lhs), str(t_2): _spelled(expression.rhs)}
+                        ) from error
                 elif expression.operator == Binop.MINUS:
                     try:
                         f = f._update_monus(temp_var, t_1, t_2)
@@ -912,9 +930,14 @@ class Distribution(ABC):
                 elif expression.operator in (Binop.MODULO, Binop.DIVIDE):
                     f = f._divisor_update(expression, temp_var, t_1, t_2, approximate)
                 elif expression.operator == Binop.POWER:
-                    f = f._split_on_finite_support(
-                        lambda part, left, right: part._update_power(temp_var, left, right, approximate),
-                        t_1, t_2)
+                    try:
+                        f = f._split_on_finite_support(
+                            lambda part, left, right: part._update_power(temp_var, left, right, approximate),
+                            t_1, t_2)
+                    except (ValueError, NotImplementedError, NonFiniteMarginalError) as error:
+                        raise _in_programs_terms(
+                            error, {str(t_1): _spelled(expression.lhs), str(t_2): _spelled(expression.rhs)}
+                        ) from error
                 elif expression.operator == Binop.FLOOR_DIVIDE:
                     f = f._update_floor_division(temp_var, t_1, t_2, approximate, _spelled(expression))
                 else:

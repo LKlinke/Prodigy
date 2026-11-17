@@ -605,10 +605,13 @@ class FPS(Distribution):
             except ValueError as error:
                 if not _is_division_by_zero(error):
                     raise
-                # a pole at var = 1: the marginal has infinite (or undefined) mass (#242)
+                # division by zero at var = 1: a pole (infinite or undefined mass, #242) or a removable singularity
+                # whose limit GiNaC cannot take; the message does not claim a pole (#349)
+                kept = ", ".join(sorted(self._variables - remove_vars[method])) or "no variable"
                 raise NonFiniteMarginalError(
-                    f"Cannot marginalise {var} out of {self._dist}: the generating function has a pole at "
-                    f"{var} = 1, so the marginal is not a finite measure.") from error
+                    f"The marginal of {kept} is not a finite measure, or this engine cannot evaluate it: "
+                    f"division by zero (a pole at {var} = 1, or a singularity whose limit it cannot take) "
+                    f"in {self._dist}") from error
         return FPS.from_dist(result, self._variables - remove_vars[method],
                              self._parameters)
 
