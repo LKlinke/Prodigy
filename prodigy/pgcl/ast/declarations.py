@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any, Dict, List, Set, Tuple, Union
+from typing import Dict, List, Set, Tuple, Union
 
 import attr
 
@@ -138,7 +138,7 @@ class Function(Node):
         return res
 
     def __str__(self) -> str:
-        instrs: List[Any] = list(self.declarations)
+        instrs: List[object] = list(self.declarations)
         instrs.extend(self.instructions)
         res = "\n\t".join(map(str, instrs))
         return f"{{\n\t{res}\n\treturn {str(self.returns)};\n}}"

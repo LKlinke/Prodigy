@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import copy
-from typing import Any, Dict, List, Set
+from typing import Dict, List, Set
 
 import attr
 
@@ -146,6 +146,6 @@ class Program:
             nat y;
             while (x < 2) { }
         """
-        instrs: List[Any] = list(self.declarations)
+        instrs: List[object] = list(self.declarations)
         instrs.extend(self.instructions)
         return "\n".join(map(str, instrs))

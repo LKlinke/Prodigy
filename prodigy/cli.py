@@ -13,7 +13,7 @@ import logging
 import sys
 import time
 from itertools import combinations
-from typing import IO, Any, Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
+from typing import IO, Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar, TYPE_CHECKING, Union
 
 import click
 from lark.exceptions import UnexpectedInput
@@ -39,7 +39,7 @@ from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.analysis.independence.independence import independent_vars as get_independent_vars_of
 from prodigy.analysis.loop_strategies import loop_strategies, strategy_groups
 from prodigy.analysis.session import AnalysisSession, DEFAULT_KEY, parse_decisions, validate_decisions, LoopRegistry
-from prodigy.distribution.distribution import State
+from prodigy.distribution.distribution import Distribution, State
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
@@ -52,7 +52,7 @@ logger = log_setup("CLI", logging.DEBUG)
 class _CliGroup(click.Group):
     """Reports programs the analysis cannot handle as a plain error instead of a traceback."""
 
-    def invoke(self, ctx: click.Context) -> Any:
+    def invoke(self, ctx: click.Context) -> Any:  # click leaves the return value of a command untyped
         try:
             return super().invoke(ctx)
         except (UnsupportedFeatureError, UndefinedDistributionError, InputDistributionError, HeuristicsError,
@@ -128,7 +128,10 @@ _SYNTAX_HELP = ("Syntax of the program files, pgcl or ppy (default: by file exte
                 "everything else pgcl). Invariants given as program text use the program's syntax.")
 
 
-def _syntax_option(command: Callable[..., Any]) -> Callable[..., Any]:
+_Command = TypeVar("_Command", bound=Callable[..., Any])  # a click command function
+
+
+def _syntax_option(command: _Command) -> _Command:
     return click.option('--syntax', type=click.Choice(SYNTAXES), default=None, help=_SYNTAX_HELP)(command)
 
 
@@ -178,8 +181,13 @@ _LOOP_OPTION_HELP = ("Strategy for a loop, as ID=STRATEGY[:NAME=VALUE,...], e.g.
                      "automatic, exact result, bounds, explore.")
 
 
-def _collect_decisions(loop_specs: Tuple[str, ...], decisions_file: Optional[IO]) -> Dict[Any, Any]:
-    decisions: Dict[Any, Any] = {}
+_RawDecisions = Dict[str, Any]
+"""Loop decisions as read from ``--loop`` and ``--decisions``: keys are loop ids or ``*``, values are strategy
+names or JSON objects (``Any`` is correct here; :func:`~prodigy.analysis.session.parse_decisions` checks them)."""
+
+
+def _collect_decisions(loop_specs: Tuple[str, ...], decisions_file: Optional[IO]) -> _RawDecisions:
+    decisions: _RawDecisions = {}
     if decisions_file is not None:
         loaded = json.load(decisions_file)
         decisions.update(loaded.get("decisions", loaded) if isinstance(loaded, dict) else {})
@@ -193,7 +201,7 @@ def _collect_decisions(loop_specs: Tuple[str, ...], decisions_file: Optional[IO]
     return decisions
 
 
-def _checked_decisions(decisions: Dict[Any, Any], program: Program, source: str, syntax: str) -> Dict[Any, Any]:
+def _checked_decisions(decisions: _RawDecisions, program: Program, source: str, syntax: str) -> _RawDecisions:
     """``decisions`` (from ``--loop``/``--decisions``) after checking them, in particular their generating
     functions, before any engine sees them; exits with the problems otherwise."""
     try:
@@ -278,7 +286,7 @@ def main(ctx: click.Context, program_file: IO, input_dist: str,  # pylint: disab
 @click.argument('other_program_file', type=click.File('r'))
 @_syntax_option
 def check_equality(ctx: click.Context, program_file: IO, other_program_file: IO, syntax: Optional[str]
-                   ) -> Tuple[Optional[bool], Any]:
+                   ) -> Tuple[Optional[bool], Union[List[Dict[str, str]], State, Distribution]]:
     """
     Checks whether a certain loop-free program is an invariant of a specified while loop.
     Each file is read in the syntax of its extension, unless --syntax is given.
@@ -570,7 +578,7 @@ def _format_value(exact: Optional[str], number: Optional[float]) -> str:
     return exact if exact is not None else "?"
 
 
-def _print_summary(result: Dict[str, Any]) -> None:
+def _print_summary(result: Dict[str, Any]) -> None:  # the JSON result, see prodigy.analysis.result
     status = result["status"]
     if status != "ok":
         error = result.get("error") or {}
