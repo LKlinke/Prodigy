@@ -15,11 +15,19 @@ without x are handled as in `prodigy.distribution.multisection`.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+import itertools
+import numbers
+from typing import Dict, Iterator, List, Optional, Union
 
 import sympy
+from sympy.polys.domains.domain import Domain
+from sympy.polys.domains.domainelement import DomainElement
 
 from prodigy.distribution.multisection import _to_rational
+
+GroundElement = Union[DomainElement, numbers.Rational]
+"""An element of the ground domain of the recursion: a rational number of QQ (mpq, fmpq) or a FracElement of
+QQ(other symbols)."""
 
 
 def rational_taylor_coefficients(function: sympy.Expr, variable: sympy.Symbol,
@@ -32,6 +40,18 @@ def rational_taylor_coefficients(function: sympy.Expr, variable: sympy.Symbol,
     """
     if count <= 0:
         return []
+    stream = rational_taylor_stream(function, variable)
+    return None if stream is None else list(itertools.islice(stream, count))
+
+
+def rational_taylor_stream(function: sympy.Expr, variable: sympy.Symbol) -> Optional[Iterator[sympy.Expr]]:
+    """
+    The coefficients of x^0, x^1, ... of the power series of `function` in x = `variable` around 0, one at a
+    time (each from the previous ones by the recursion above; Prodigy#405 streams them to the GUI), or None
+    if `function` is not a rational function in `variable` or has a pole at 0. The iterator ends after the
+    last non-zero coefficient of a polynomial; otherwise it does not end. The coefficients are those of
+    :func:`rational_taylor_coefficients`.
+    """
     replacements: Dict[sympy.Expr, sympy.Dummy] = {}
     rational = _to_rational(sympy.sympify(function), variable, replacements)
     if rational is None:
@@ -47,19 +67,25 @@ def rational_taylor_coefficients(function: sympy.Expr, variable: sympy.Symbol,
         return None
     if not q[0]:
         return None  # pole at 0: not a power series
+    back = {dummy: original for original, dummy in replacements.items()}
+    return _recurrence(p, q, domain, others, back)
 
-    if len(q) == 1:
-        count = min(count, len(p))
-    coefficients: List = []
-    for n in range(count):
+
+def _recurrence(p: List[GroundElement], q: List[GroundElement], domain: Domain, others: List[sympy.Symbol],
+                back: Dict[sympy.Dummy, sympy.Expr]) -> Iterator[sympy.Expr]:
+    """s_n = (p_n - sum_{k=1}^{n} q_k s_{n-k}) / q_0 for n = 0, 1, ... (elements of `domain`), as sympy."""
+    count = len(p) if len(q) == 1 else None
+    coefficients: List[GroundElement] = []
+    n = 0
+    while count is None or n < count:
         value = p[n] if n < len(p) else domain.zero
         for k in range(1, min(n, len(q) - 1) + 1):
             value -= q[k] * coefficients[n - k]
-        coefficients.append(domain.quo(value, q[0]))
-
-    back = {dummy: original for original, dummy in replacements.items()}
-    result = [_normalized(domain.to_sympy(c), others) for c in coefficients]
-    return [c.xreplace(back) for c in result] if back else result
+        coefficient = domain.quo(value, q[0])
+        coefficients.append(coefficient)
+        result = _normalized(domain.to_sympy(coefficient), others)
+        yield result.xreplace(back) if back else result
+        n += 1
 
 
 def _normalized(coefficient: sympy.Expr, symbols: List[sympy.Symbol]) -> sympy.Expr:

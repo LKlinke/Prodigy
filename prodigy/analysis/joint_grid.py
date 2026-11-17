@@ -7,10 +7,12 @@ Coefficient grids of joint distributions
 ``i in [x_from, x_to]``, ``j in [y_from, y_to]``; the other variables are marginalised by the
 engine. The GUI draws them as a heatmap and a 3D view (``POST /api/jobs/<id>/joint``).
 
-The coefficients are Taylor coefficients of the marginal generating function: for a rational
-function they come from the exact recursion of :mod:`prodigy.distribution.rational_series`, first
-in x (the coefficients are rational functions in y) and then in y; other functions (e.g. ``exp``
-of a Poisson distribution) are expanded with SymPy's ``series``. No value is approximated.
+The coefficients are Taylor coefficients of the marginal generating function
+(:func:`prodigy.distribution.coefficient_stream.taylor_stream`): for a rational function they come
+from the exact recursion of :mod:`prodigy.distribution.rational_series`, first in x (the
+coefficients are rational functions in y) and then in y; other functions (e.g. ``exp`` of a Poisson
+distribution) are expanded with SymPy's ``series``. No value is approximated. They are computed by
+growing total degree, so that a streamed grid grows from its corner (#405).
 
 The result carries the guarantee of the analysis it comes from (``bound``): for a lower bound,
 every cell is a lower bound and at most ``residual_mass`` is not accounted for (the "?" mass,
@@ -19,13 +21,15 @@ mass of the computed distribution outside the window.
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
+import itertools
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
 import sympy
 
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import exact_and_float, sym, tidy, to_sympy
-from prodigy.distribution.rational_series import rational_taylor_coefficients
+from prodigy.analysis.streaming import Batcher, Sink
+from prodigy.distribution.coefficient_stream import Waiting, taylor_stream
 
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.distribution import Distribution
@@ -77,13 +81,32 @@ def _default_window(support: Optional[Sequence[int]]) -> Tuple[int, int]:
     return low, min(high, low + MAX_AXIS - 1)
 
 
-def _taylor(expr: sympy.Expr, symbol: sympy.Symbol, count: int) -> List[sympy.Expr]:
-    """The coefficients of symbol^0, ..., symbol^(count-1) of the power series of ``expr``."""
-    coefficients = rational_taylor_coefficients(expr, symbol, count)
-    if coefficients is None:
-        series = sympy.expand(sympy.series(expr, symbol, 0, count).removeO())
-        coefficients = [series.coeff(symbol, n) for n in range(count)]
-    return list(coefficients) + [sympy.Integer(0)] * (count - len(coefficients))
+def _cells_by_total_degree(expr: sympy.Expr, x: sympy.Symbol, y: sympy.Symbol, x_window: Tuple[int, int],
+                           y_window: Tuple[int, int], *, incremental: bool,
+                           on_wait: Waiting = None) -> Iterator[Tuple[int, int, sympy.Expr]]:
+    """
+    The coefficients of x^i y^j of ``expr`` in the windows as ``(r, c, coefficient)`` with ``i = x_low + c``
+    and ``j = y_low + r``, by growing total degree ``r + c`` (the heatmap grows from its corner, #405): the
+    coefficients of x^i are expanded once, lazily (:func:`taylor_stream`, rational functions in y), and each of
+    them is expanded in y as far as the diagonal needs it.
+    """
+    (x_low, x_high), (y_low, y_high) = x_window, y_window
+    cols, rows = x_high - x_low + 1, y_high - y_low + 1
+    in_x = itertools.islice(taylor_stream(expr, x, x_high + 1, incremental=incremental, on_wait=on_wait), x_low, None)
+    in_y: List[Iterator[sympy.Expr]] = []
+    for degree in range(rows + cols - 1):
+        if degree < cols:
+            in_y.append(itertools.islice(taylor_stream(_next(in_x), y, y_high + 1, incremental=incremental,
+                                                       on_wait=on_wait), y_low, None))
+        for c in range(max(0, degree - rows + 1), min(cols - 1, degree) + 1):
+            yield degree - c, c, _next(in_y[c])
+
+
+def _next(stream: Iterator[sympy.Expr]) -> sympy.Expr:
+    """The next coefficient of a stream of :func:`taylor_stream`, which yields as many as asked for."""
+    for value in stream:
+        return value
+    raise AssertionError("the Taylor stream ended early")  # pragma: no cover - taylor_stream yields `limit` values
 
 
 def _cell(prob: sympy.Expr, kind: str, residual: sympy.Expr) -> Dict[str, Any]:
@@ -97,11 +120,12 @@ def _cell(prob: sympy.Expr, kind: str, residual: sympy.Expr) -> Dict[str, Any]:
 
 def joint_grid(dist: "Distribution", x: str, y: str, *, x_window: Optional[Tuple[int, int]] = None,
                y_window: Optional[Tuple[int, int]] = None, kind: str = Bound.EXACT,
-               residual: Any = 0) -> Dict[str, Any]:
+               residual: Any = 0, stream: Optional[Sink] = None) -> Dict[str, Any]:
     """
     The exact coefficients Pr[x = i, y = j] of ``dist`` for the windows (default: the support of a
     finite distribution, else the first :data:`DEFAULT_AXIS` values), as JSON. ``cells[r][c]`` is
-    the cell of ``y = y_values[r]`` and ``x = x_values[c]``.
+    the cell of ``y = y_values[r]`` and ``x = x_values[c]``. With ``stream``, the cells also go there in
+    batches by growing total degree while they are computed (:mod:`prodigy.analysis.streaming`).
     """
     # pylint: disable=too-many-locals
     variables = sorted(dist.get_variables())
@@ -124,13 +148,26 @@ def joint_grid(dist: "Distribution", x: str, y: str, *, x_window: Optional[Tuple
     check_window([y_low, y_high], y)
 
     residual_expr = sym(residual) if residual is not None else sympy.Integer(0)
-    columns = _taylor(expr, sx, x_high + 1)[x_low:]
-    rows: List[List[Optional[Dict[str, Any]]]] = [[None] * len(columns) for _ in range(y_high - y_low + 1)]
+    x_values, y_values = list(range(x_low, x_high + 1)), list(range(y_low, y_high + 1))
+    batcher = None
+    if stream is not None:
+        residual_exact, residual_float = exact_and_float(tidy(residual_expr) if kind == Bound.LOWER else None)
+        batcher = Batcher(stream, "cells", {"kind": "grid"})
+        stream({"kind": "grid", "cells": [], "header": {
+            "x": x, "y": y, "variables": variables, "x_values": x_values, "y_values": y_values,
+            "finite_support": finite, "support": support, "bound": kind, "residual_mass": residual_exact,
+            "residual_mass_float": residual_float}})
+    rows: List[List[Optional[Dict[str, Any]]]] = [[None] * len(x_values) for _ in y_values]
     shown = sympy.Integer(0)
-    for c, column in enumerate(columns):
-        for r, prob in enumerate(_taylor(column, sy, y_high + 1)[y_low:]):
-            shown += prob
-            rows[r][c] = _cell(prob, kind, residual_expr)
+    for r, c, prob in _cells_by_total_degree(expr, sx, sy, (x_low, x_high), (y_low, y_high),
+                                             incremental=stream is not None,
+                                             on_wait=None if batcher is None else batcher.flush):
+        shown += prob
+        rows[r][c] = _cell(prob, kind, residual_expr)
+        if batcher is not None:
+            batcher.add([r, c, rows[r][c]])
+    if batcher is not None:
+        batcher.flush()
 
     mass = sym(marginal.get_probability_mass())
     mass_exact, mass_float = exact_and_float(tidy(mass))
@@ -141,8 +178,8 @@ def joint_grid(dist: "Distribution", x: str, y: str, *, x_window: Optional[Tuple
         "x": x,
         "y": y,
         "variables": variables,
-        "x_values": list(range(x_low, x_high + 1)),
-        "y_values": list(range(y_low, y_high + 1)),
+        "x_values": x_values,
+        "y_values": y_values,
         "cells": rows,
         "finite_support": finite,
         "support": support,

@@ -9,7 +9,7 @@ import { changeSince } from "./staleness.js";
 import { load, save } from "./store.js";
 import { h, icon } from "./components/dom.js";
 import { BOUND_TEXT, formatSeconds, formatValue, qualify } from "./components/format.js";
-import { renderResult, renderRunning } from "./components/result-view.js";
+import { liveChartStates, renderResult, renderRunning } from "./components/result-view.js";
 import { renderEquivalence } from "./components/equivalence-view.js";
 import { continueDecision, continueOffer } from "./components/equivalence-model.js";
 
@@ -910,7 +910,11 @@ function renderResultPanel() {
     setBadge(state.resultStale ? null : verdict === "equivalent" || verdict === "not_equivalent" ? verdict : "undecided");
     return;
   }
+  // the final result takes over from the streamed charts: its bars start where those were (#405)
+  const fromCharts = state.liveCharts;
+  state.liveCharts = null;
   const { analysis } = renderResult(panel, state.result, {
+    fromCharts,
     stale: state.resultStale,
     change: state.resultChange,
     onRun: run,
@@ -930,7 +934,7 @@ function renderResultPanel() {
     },
     onRemoveWatch: (text) => changeWatches(state.analysis.watches.filter((w) => w !== text)),
     ...(state.result.__job ? {
-      loadJoint: (payload, signal) => loadJoint(state.result.__job, payload, signal),
+      loadJoint: (payload, signal, onPartial) => loadJoint(state.result.__job, payload, signal, onPartial),
       maxJointAxis: state.meta?.limits?.max_joint_axis,
     } : {}),
   });
@@ -962,8 +966,9 @@ function analysisState(result) {
   return state.analysisView;
 }
 
-/** Runs a grid job for two variables of the result of analysis `jobId` and resolves to the grid. */
-async function loadJoint(jobId, payload, signal) {
+/** Runs a grid job for two variables of the result of analysis `jobId` and resolves to the grid;
+ * `onPartial(stream)` gets the cells computed so far on each poll (#405). */
+async function loadJoint(jobId, payload, signal, onPartial = null) {
   const key = `${jobId} ${JSON.stringify(payload)}`;
   if (jointCache.has(key)) return jointCache.get(key);
   const response = await api.joint(jobId, payload);
@@ -973,6 +978,7 @@ async function loadJoint(jobId, payload, signal) {
       throw new DOMException("cancelled", "AbortError");
     }
     const status = await api.job(response.job);
+    if (signal.aborted) continue;
     if (status.state !== "starting" && status.state !== "running") {
       if (status.result?.status !== "ok") throw new Error(status.result?.error?.message || status.state);
       const grid = status.result.joint;
@@ -984,6 +990,7 @@ async function loadJoint(jobId, payload, signal) {
       jointCache.set(`${jobId} ${JSON.stringify(window)}`, grid);
       return grid;
     }
+    if (status.stream?.grid) onPartial?.(status.stream.grid);
     await new Promise((resolve) => setTimeout(resolve, status.elapsed < 2 ? 150 : 400));
   }
 }
@@ -1148,7 +1155,8 @@ async function poll() {
   $("run-status").replaceChildren(h("span", { class: "spinner", "aria-hidden": "true" }),
     h("span", {}, `${formatSeconds(status.elapsed)}`));
   if (status.state === "starting" || status.state === "running") {
-    showRunning({ elapsed: status.elapsed, timeLimit: status.time_limit, progress: status.progress, log: job.log });
+    showRunning({ elapsed: status.elapsed, timeLimit: status.time_limit, progress: status.progress, log: job.log,
+      stream: status.stream });
     pollTimer = setTimeout(poll, status.elapsed < 2 ? 150 : 400);
     return;
   }
@@ -1173,6 +1181,7 @@ function finish(result, elapsed) {
   state.result = { ...result, __elapsed: elapsed, __request: request };
   state.resultChange = changeSince(request, buildRequest());
   state.resultStale = Boolean(state.resultChange);
+  state.liveCharts = result.status === "ok" ? liveChartStates($("panel-result")) : null;
   renderResultPanel();
   updateAnnotations();
   const message = result.status === "ok" ? null : (result.error?.message || result.status);

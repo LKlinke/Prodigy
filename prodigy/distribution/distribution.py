@@ -377,6 +377,16 @@ class Distribution(ABC):
     def copy(self, deep: bool = True) -> Distribution:
         """ Returns a full copy of itself."""
 
+    def native_coefficients(self, variable: str) -> Optional[Iterator[str]]:
+        """
+        Engine hook of :func:`prodigy.distribution.coefficient_stream.marginal_stream` (#405): the
+        coefficients Pr[variable = 0], Pr[variable = 1], ... of this univariate distribution with infinite
+        support, computed by the engine itself one at a time, or None (the default), in which case the shared
+        logic expands the generating function as a SymPy expression.
+        """
+        # pylint: disable=unused-argument
+        return None
+
     def get_probability_of(self, condition: Union[Expr, str]) -> str:
         """
         Returns the probability of a given `condition` or variable.

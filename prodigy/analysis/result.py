@@ -122,6 +122,8 @@ from prodigy.pgcl import (Binop, BinopExpr, BoolType, Expr, NatLitExpr, NatType,
                            Program, UnopExpr, VarExpr)
 
 from prodigy.analysis.loop_strategies import Bound
+from prodigy.analysis.streaming import Batcher, Sink
+from prodigy.distribution.coefficient_stream import marginal_stream
 from prodigy.distribution.equality import sympy_text
 from prodigy.util.integers import unlimited_int_digits
 
@@ -342,11 +344,13 @@ def _row(value: int, prob: Any, residual: Any = None, kind: str = Bound.EXACT) -
 
 def univariate_table(dist: "Distribution", variable: str, limit: int, *,
                      kind: str = Bound.EXACT, residual: Any = 0,
-                     max_finite_terms: int = 2000) -> Dict[str, Any]:
+                     max_finite_terms: int = 2000, stream: Optional[Batcher] = None) -> Dict[str, Any]:
     """The first ``limit`` coefficients of the marginal of ``variable``.
 
     Finite marginals are listed completely (up to ``max_finite_terms`` states);
-    infinite ones by series expansion around 0."""
+    infinite ones by series expansion around 0 (:func:`~prodigy.distribution.coefficient_stream.marginal_stream`).
+    With ``stream``, each row also goes to the batcher as soon as it is computed (#405); the rows are the
+    same."""
     marginal = dist.marginal(variable)
     total, total_float = exact_and_float(_safe(marginal.get_probability_mass))
     rows: List[Dict[str, Any]] = []
@@ -360,10 +364,17 @@ def univariate_table(dist: "Distribution", variable: str, limit: int, *,
         for value, prob in pairs:
             if sym(prob) != 0:
                 rows.append(_row(value, prob, residual, kind))
+        if stream is not None:
+            for row in rows:
+                stream.add(row)
     else:
-        coefficients = _series_coefficients(marginal, variable, limit)
+        coefficients = marginal_stream(marginal, variable, limit, incremental=stream is not None,
+                                       on_wait=None if stream is None else stream.flush)
         for value, prob in enumerate(coefficients):
-            rows.append(_row(value, prob, residual, kind))
+            row = _row(value, tidy(prob), residual, kind)
+            rows.append(row)
+            if stream is not None:
+                stream.add(row)
         truncated = True
     shown = sum((sym(r["prob"]) for r in rows), sympy.Integer(0)) if rows else sympy.Integer(0)
     tail = None
@@ -386,21 +397,6 @@ def univariate_table(dist: "Distribution", variable: str, limit: int, *,
         "tail_mass": tail_exact,
         "tail_mass_float": tail_float,
     }
-
-
-def _series_coefficients(marginal: "Distribution", variable: str, limit: int) -> List[Any]:
-    # GiNaC-backed distributions (FPS) expand quickly on their own; for sympy-based ones a
-    # single series expansion is much faster than iterating term by term.
-    expr = None if type(marginal).__name__ == "FPS" else to_sympy(marginal)
-    if expr is not None:
-        symbol = next((s for s in expr.free_symbols if s.name == variable), None)
-        if symbol is None:
-            return [expr] + [0] * (limit - 1)
-        series = sympy.series(expr, symbol, 0, limit).removeO()
-        series = sympy.expand(series)
-        return [tidy(series.coeff(symbol, n)) for n in range(limit)]
-    terms = list(itertools.islice(iter(marginal), limit))
-    return [prob for prob, _ in terms]
 
 
 def joint_table(dist: "Distribution", limit: int) -> Optional[Dict[str, Any]]:
@@ -581,7 +577,10 @@ def finish_query(session: "AnalysisSession", query: QueryResult, *, monotone: bo
 # ---------------------------------------------------------------------------------------
 
 def describe_distribution(dist: "Distribution", *, limit: int, kind: str = Bound.EXACT,
-                          residual: Any = 0, expectations: bool = True) -> Dict[str, Any]:
+                          residual: Any = 0, expectations: bool = True,
+                          stream: Optional[Sink] = None) -> Dict[str, Any]:
+    """The JSON summary of an output distribution; with ``stream``, the coefficients of the marginals also
+    go to ``stream`` in batches while they are computed (:mod:`prodigy.analysis.streaming`)."""
     variables = sorted(dist.get_variables())
     parameters = sorted(dist.get_parameters())
     mass, mass_float = exact_and_float(_safe(dist.get_probability_mass))
@@ -599,12 +598,22 @@ def describe_distribution(dist: "Distribution", *, limit: int, kind: str = Bound
         "joint": None,
     }
     if limit > 0:
+        if stream is not None:
+            residual_exact, residual_float = exact_and_float(residual if kind == Bound.LOWER else None)
+            stream({"kind": "coefficients", "event": "start", "variables": list(variables), "limit": limit,
+                    "bound": kind, "residual_mass": residual_exact, "residual_mass_float": residual_float})
         for variable in variables:
+            batcher = None if stream is None else Batcher(stream, "rows", {"kind": "coefficients",
+                                                                             "variable": variable})
             try:
-                summary["marginals"][variable] = univariate_table(dist, variable, limit, kind=kind,
-                                                                  residual=residual)
+                table = univariate_table(dist, variable, limit, kind=kind, residual=residual, stream=batcher)
+                summary["marginals"][variable] = table
+                if batcher is not None:
+                    batcher.flush(done=True, finite_support=table["finite_support"])
             except Exception as exc:  # pylint: disable=broad-except
                 summary["marginals"][variable] = {"variable": variable, "error": str(exc), "rows": []}
+                if batcher is not None:
+                    batcher.flush(done=True, error=str(exc))
         summary["joint"] = _safe(lambda: joint_table(dist, limit * 4))
     if expectations:
         for variable in variables:
@@ -826,9 +835,10 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
                 "explanation": bounds_explanation(session.bound_kind, residual),
             }
             summary_start = time.perf_counter()
+            stream = session.progress_callback if session.stream_coefficients else None
             result.distribution = describe_distribution(final, limit=session.coefficient_limit,
                                                         kind=session.bound_kind,
-                                                        residual=session.residual)
+                                                        residual=session.residual, stream=stream)
             if session.dist_values:
                 # pylint: disable=import-outside-toplevel
                 from prodigy.analysis.nested_inference import dist_values_json

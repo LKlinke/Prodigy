@@ -55,6 +55,16 @@ Prodigy is tested with Python 3.11 and 3.14.
   version, and its result arrives marked as outdated. Changing everything back (e.g. with undo)
   makes the result current again.
 
+  While the coefficients of the output distribution are computed, the progress view draws them as
+  they arrive (#405): one chart per variable under *Distribution so far*, with the guarantee badge.
+  The values done are bars; the values still being computed are hatched and labelled
+  *computing…*, and the line above each chart says *computing… 33 of 200*, *waiting* or *done*. A
+  rational generating function gives its coefficients one at a time (the recursion of its
+  denominator); other closed forms (`exp`, `log`, algebraic) are expanded with doubling orders
+  4, 8, 16, …, each a complete prefix. The coefficients come in batches about every 100 ms and are
+  exactly those of the result; when the result arrives, its chart starts from the streamed one.
+  Stopping the analysis stops the streaming.
+
   The charts have a **Linear / Log** switch; the browser remembers the choice for the probability
   axis (the heatmap and the 3D view share it). On the log scale the axis is labelled in decades
   (`1`, `10⁻³`, …) and marked *log*, it spans at most 12 decades (smaller probabilities get the
@@ -202,7 +212,9 @@ the other variables are marginalised. The coefficients are exact: the server com
 the distribution of the finished analysis it keeps (`POST /api/jobs/<id>/joint`, a short job of
 its own, see `prodigy/analysis/joint_grid.py`), the browser only draws them. At a position of the
 timeline other than the final result, the grid is that of the recorded step or iterate (the
-request names `step` and `iterate`; a closed form the trace kept only in part has no grid).
+request names `step` and `iterate`; a closed form the trace kept only in part has no grid). The
+grid grows from its corner by total degree while it is computed; the cells not computed yet are
+hatched, and the status line says *Computing… n of m cells*.
 
 * **Pair**: the variables on the horizontal and the vertical axis (⇄ swaps them).
 * **Window**: the values *from*–*to* of each axis, at most 50 per axis and up to 1000; *Show
@@ -623,7 +635,7 @@ in the GUI's strategy pop-up in the section of its `group` (`automatic`, `exact`
 | `POST /api/check` `{source, syntax}` | diagnostics `{severity, message, line, column, end_line, end_column}` and outline (variables, loops with ids and lines, queries); with `input_distribution` (and `engine`) also `input_distribution: {status: ok | refused | skipped | timeout, message}`, shown at the Setup field (the check runs in a process that is killed after 8 s) |
 | `POST /api/convert` `{source}` | the pGCL program in `.ppy`: `{source, renamings: [{from, to}], messages}`; 422 with `line`/`column` if it is not valid pGCL |
 | `POST /api/analyze` | starts an analysis (`source, syntax, input_distribution, engine, normalize, simplification, decisions, coefficients, record_steps, watches, step_iterations, synthesis_strategy, template_heuristic, positivity_heuristic, solver, time_limit`; the two heuristics only apply to `synthesis_strategy` `from_heuristics`; `record_steps` records the step trace, `watches` (at most 8 queries such as `Pr[x == 3]`, in the program's syntax) are evaluated after every top-level step, `step_iterations` (1–200, default 40) bounds the iterates kept per loop) and returns a job id |
-| `GET /api/jobs/<id>?log_offset=n` | state (`running`, `done`, `timeout`, `cancelled`, `crashed`), new console output, progress per loop, result |
+| `GET /api/jobs/<id>?log_offset=n` | state (`running`, `done`, `timeout`, `cancelled`, `crashed`), new console output, progress per loop, result; while it runs, `stream`: the coefficients computed so far (`variables`, `limit`, `bound`, `residual_mass`, `marginals: {x: {rows, done}}`, or for a grid job `grid` with `cells[r][c]` null while pending; `prodigy/web/jobs.py: merge_stream`) |
 | `DELETE /api/jobs/<id>` | cancels the analysis |
 | `POST /api/jobs/<id>/joint` `{x, y, x_window, y_window}` | starts a job for the exact coefficient grid of two variables of the finished analysis `<id>`; the windows `[from, to]` are optional (default: the support of a finite distribution, else 0–15) with at most 50 values per axis (`limits.max_joint_axis` in `GET /api/meta`) and values up to 1000. The distribution, the engine and the guarantee come from the result the server keeps, never from the request. The job's result is `{status: "ok", joint: {x, y, x_values, y_values, cells, bound, mass, shown_mass, outside_mass, residual_mass, finite_support, support}}`: `cells[r][c]` is `{prob, p}` (exact and float; for a lower bound also `upper`, `upper_p`) for `y = y_values[r]`, `x = x_values[c]`. 400 for an unknown variable, the same variable twice or a window beyond the limits, 404 for an unknown or pruned analysis (analyze again), 409 while it runs |
 | `POST /api/equivalence` | compares program A with program B: an analysis request for program A (without `record_steps` and `watches`) plus `other_source`, `other_syntax` (default: `syntax`) and `other_decisions` (the strategies of B's loops, keyed by loop id) for program B; returns a job id. The job's result is the analysis result of program A on the shown input with the key `equivalence`: `{verdict: equivalent \| not_equivalent \| unknown, reason, relation: null \| first_below_second \| second_below_first, constraints: [{param: value}], witness: null \| {state, input, first, second}, check: {answer: equal \| different \| undecided \| failed, first, second, constraints, counterexample, difference, error, time}, input: {distribution, source: request \| counterexample \| default}, other}`. `first`/`second` of the witness are `{lower, lower_float, upper, upper_float, kind}`; `check.first`/`check.second` are the guarantees (`exact`, `lower`, `upper`, `unknown`) of the two analyses inside the check; `other` is the analysis result of program B. The rules are in `prodigy/analysis/equivalence/verdict.py`. |
@@ -681,7 +693,8 @@ formatting) depends only on the result JSON, the CSS variables of `result-view.c
 variables to `--vscode-*` theme colours. The analysis card reaches the editor only through callbacks
 (`onPosition` with the step to highlight, `onSelectLine`, `onRecord`, …); `prodigy analyze --steps
 --json` gives an extension the same trace. The joint view appears when `renderResult` gets a
-`loadJoint(payload, signal)` callback that returns a grid.
+`loadJoint(payload, signal, onPartial)` callback that returns a grid (and passes the cells computed so
+far to `onPartial`).
 
 ## Updating the vendored libraries
 

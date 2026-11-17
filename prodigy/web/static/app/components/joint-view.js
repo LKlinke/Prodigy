@@ -75,6 +75,7 @@ const BOUND_WORDS = { lower: "at least ", upper: "at most " };
 export function cellParts(grid, r, c) {
   const cell = grid.cells[r][c];
   const where = `${grid.x} = ${grid.x_values[c]}, ${grid.y} = ${grid.y_values[r]}`;
+  if (cell.pending) return { where, value: "computing…" };
   const value = cell.p === null ? cell.prob : formatValue(cell.prob, cell.p, 6);
   const qualifier = cell.prob === "0" && grid.bound !== "upper" ? "" : (BOUND_WORDS[grid.bound] || "");
   const exact = cell.p !== null && cell.prob && cell.prob.length < 40 && cell.prob !== String(cell.p) ? ` (${cell.prob})` : "";
@@ -130,9 +131,10 @@ function heatmap(grid, colours, view, readout, width) {
     for (let c = 0; c < cols; c++) {
       const cell = grid.cells[r][c];
       const t = colours.t(cell.p);
-      const kind = cell.p === null ? "symbolic" : t === null ? "zero" : "value";
+      const kind = cell.pending ? "pending" : cell.p === null ? "symbolic" : t === null ? "zero" : "value";
+      const fill = { value: viridis(t), symbolic: `url(#${hatch})`, pending: `url(#${hatch}-pending)` }[kind] ?? null;
       cells.push(s("rect", { class: `jv-cell jv-${kind}`, x: left + c * cw, y: cy(r), width: cw, height: ch,
-        fill: kind === "value" ? viridis(t) : kind === "symbolic" ? `url(#${hatch})` : null, "data-r": r, "data-c": c }));
+        fill, "data-r": r, "data-c": c }));
       const number = kind === "value" && cw >= 30 && ch >= 16 ? cellNumber(cell.p) : null;
       if (number) {
         cells.push(s("text", { class: "jv-cell-text", x: left + c * cw + cw / 2, y: cy(r) + ch / 2 + 4, fill: onColour(t),
@@ -142,7 +144,7 @@ function heatmap(grid, colours, view, readout, width) {
   }
   const marker = s("rect", { class: "jv-active", width: cw, height: ch, rx: 2 });
   const svg = s("svg", { class: "jv-heatmap", viewBox: `0 0 ${svgW} ${svgH}`, width: svgW, height: svgH, "aria-hidden": "true" },
-    s("defs", {}, hatchPattern(hatch)),
+    s("defs", {}, hatchPattern(hatch), hatchPattern(`${hatch}-pending`, "pending")),
     ...cells,
     ...xLabels.map((label, c) => (label === null ? null
       : s("text", { class: "jv-tick", x: left + c * cw + cw / 2, y: top + rows * ch + 13, "text-anchor": "middle" }, label))),
@@ -472,8 +474,9 @@ function gridTable(grid) {
     ...grid.x_values.map((v) => h("th", { scope: "col", class: "num" }, String(v))));
   const body = [...grid.y_values.keys()].reverse().map((r) => h("tr", {},
     h("th", { scope: "row", class: "num" }, String(grid.y_values[r])),
-    ...grid.cells[r].map((cell) => h("td", { class: "num", title: cell.prob + (cell.upper ? ` (at most ${cell.upper})` : "") },
-      cell.p === null ? cell.prob : formatValue(cell.prob, cell.p, 4)))));
+    ...grid.cells[r].map((cell) => (cell.pending ? h("td", { class: "num rv-muted" }, "computing…")
+      : h("td", { class: "num", title: cell.prob + (cell.upper ? ` (at most ${cell.upper})` : "") },
+        cell.p === null ? cell.prob : formatValue(cell.prob, cell.p, 4))))));
   return h("div", { class: "table-wrap jv-table" }, h("table", { class: "rv-table" },
     h("caption", { class: "rv-note" }, `Pr[${grid.x} = column, ${grid.y} = row]; hover a value for its exact form.`),
     h("thead", {}, head), h("tbody", {}, body)));
@@ -509,6 +512,13 @@ function legend(colours) {
 }
 
 // ---- the section ----------------------------------------------------------------------------------
+
+const PENDING = Object.freeze({ pending: true, prob: null, p: null });
+
+/** A grid of the cells streamed so far (prodigy/web/jobs.py: merge_stream): the missing ones pending. */
+export function pendingGrid(stream) {
+  return { ...stream, cells: stream.cells.map((row) => row.map((cell) => cell || PENDING)) };
+}
 
 const VIEWS = { heatmap: "Heatmap", bars: "3D", table: "Table" };
 
@@ -569,7 +579,7 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, onGrid =
     view.peak.max = Math.max(view.peak.max, ...values.filter((p) => Number.isFinite(p)));
     const colours = colourScale(values, scale(), view.peak.max);
     const width = body.clientWidth || 560;
-    const symbolic = grid.cells.some((row) => row.some((cell) => cell.p === null));
+    const symbolic = grid.cells.some((row) => row.some((cell) => cell.p === null && !cell.pending));
     // the guarantee is stated once, in the answer card; the readout says "at least" or "at most"
     const notes = [];
     if (symbolic) notes.push("Hatched cells depend on parameters; the table lists them.");
@@ -614,8 +624,19 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, onGrid =
     }
     status.replaceChildren(h("span", { class: "spinner", "aria-hidden": "true" }), " Computing the exact coefficients…");
     body.setAttribute("aria-busy", "true");
+    // the cells computed so far (#405): the grid grows from its corner, the others are hatched
+    const partial = (stream) => {
+      if (signal.aborted) return;
+      grid = pendingGrid(stream);
+      body.dataset.streaming = "true";
+      const total = grid.x_values.length * grid.y_values.length;
+      const done = grid.cells.flat().filter((cell) => !cell.pending).length;
+      status.replaceChildren(h("span", { class: "spinner", "aria-hidden": "true" }),
+        ` Computing… ${done} of ${total} cells; hatched cells are still being computed.`);
+      draw();
+    };
     try {
-      const result = await load(payload, signal);
+      const result = await load(payload, signal, partial);
       if (signal.aborted) return;
       grid = result;
       view.xWindow = [grid.x_values[0], grid.x_values[grid.x_values.length - 1]];
@@ -633,7 +654,10 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, onGrid =
       body.replaceChildren();
       onGrid(null);
     } finally {
-      if (!signal.aborted) body.removeAttribute("aria-busy");
+      if (!signal.aborted) {
+        body.removeAttribute("aria-busy");
+        delete body.dataset.streaming;
+      }
     }
   };
 
