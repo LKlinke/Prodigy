@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Any
 
 from prodigy.analysis.evtinvariants.heuristics.positivity.individual_sum_terms import SumPositivity
 from prodigy.analysis.evtinvariants.heuristics.positivity.iterate_terms import IterateTermsHeuristic
@@ -21,5 +22,5 @@ class PositivityHeuristics(Enum):
     DEFAULT = RationalFunctionDenomSign
 
     @staticmethod
-    def create(heuristic_type: 'PositivityHeuristics', *args, **kwargs) -> PositivityHeuristic:
+    def create(heuristic_type: 'PositivityHeuristics', *args: Any, **kwargs: Any) -> PositivityHeuristic:
         return heuristic_type.value(*args, **kwargs)

@@ -387,7 +387,7 @@ def loop_strategies() -> List[LoopStrategy]:
     """All registered strategies; the six historic ones first, in menu order."""
     _ensure_builtins()
 
-    def key(strategy: LoopStrategy):
+    def key(strategy: LoopStrategy) -> Tuple[int, int, str]:
         if strategy.legacy_key is not None:
             return (0, int(strategy.legacy_key), "")
         return (1, 0, strategy.name)

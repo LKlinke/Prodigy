@@ -36,7 +36,7 @@ def _written_vars(instrs: AsgnInstr | List[Instr]) -> List[Var]:
 
 
 def _ancestors_every_node(graph: Iterable[Tuple[Var, Var]],
-                          variables: Iterable[Var]):
+                          variables: Iterable[Var]) -> Dict[Var, Set[Var]]:
     """Finds ancestors of every node."""
     ancestors: Dict[Var, Set[Var]] = {var: {var} for var in variables}
 

@@ -4,7 +4,7 @@ import contextlib
 import functools
 import logging
 import time
-from typing import Callable, Iterable, Iterator, Optional, Union, Sequence, cast, get_args
+from typing import Any, Callable, Dict, Iterable, Iterator, Optional, Union, Sequence, cast, get_args
 
 import sympy
 
@@ -126,7 +126,7 @@ def _printed_steps(config: ForwardAnalysisConfig) -> Iterator[None]:
         yield
         return
 
-    def on_step(step):
+    def on_step(step: Dict[str, Any]) -> None:
         print_step(step)
         if config.step_wise:
             session.provider.next_step()
@@ -191,7 +191,7 @@ def compute_semantics(
         prog_info: ProgramInfo,
         distribution: Distribution,
         error_prob: Distribution,
-        config=ForwardAnalysisConfig()
+        config: ForwardAnalysisConfig = ForwardAnalysisConfig()
 ) -> tuple[Distribution, Distribution]:
     """The semantics of ``instruction`` (or a list of instructions) applied to ``distribution``.
     Every single instruction passes the session (:meth:`AnalysisSession.on_instruction`) and its

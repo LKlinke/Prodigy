@@ -51,7 +51,10 @@ from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, 
 from prodigy.util.logger import log_setup, print_progress_bar
 
 if TYPE_CHECKING:  # pragma: no cover
+    from prodigy.analysis.config import ForwardAnalysisConfig
+    from prodigy.analysis.result import AnalysisResult, QueryResult
     from prodigy.analysis.trace import TraceLimits
+    from prodigy.distribution import Distribution
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
@@ -410,7 +413,8 @@ class InteractiveDecisions(DecisionProvider):
 
     interactive = True
 
-    def loop_decision(self, session, loop, instruction):
+    def loop_decision(self, session: AnalysisSession, loop: Optional[LoopInfo],
+                      instruction: WhileInstr) -> LoopDecision:
         preset = self.preset(loop)
         if preset is not None:
             return preset
@@ -436,7 +440,7 @@ class InteractiveDecisions(DecisionProvider):
                 sys.exit()
             print(f"Invalid input: {user_choice}")
 
-    def ask_param(self, session, task, spec):
+    def ask_param(self, session: AnalysisSession, task: LoopTask, spec: ParamSpec) -> Any:
         alias = next((p for p in task.strategy.params if p.alias_of == spec.name), None)
         while True:
             if alias is not None and alias.kind == "file":
@@ -461,14 +465,15 @@ class FixedDecisions(DecisionProvider):
 
     interactive = False
 
-    def loop_decision(self, session, loop, instruction):
+    def loop_decision(self, session: AnalysisSession, loop: Optional[LoopInfo],
+                      instruction: WhileInstr) -> LoopDecision:
         preset = self.preset(loop)
         if preset is not None:
             return preset
         what = loop.describe() if loop is not None else f"while ({session.spell(instruction.cond)})"
         raise DecisionRequired(f"No strategy chosen for {what}", loop=loop)
 
-    def ask_param(self, session, task, spec):
+    def ask_param(self, session: AnalysisSession, task: LoopTask, spec: ParamSpec) -> Any:
         if spec.default is not None:
             return spec.parse(spec.default, session.syntax)
         where = task.loop.describe() if task.loop is not None else "a loop"
@@ -615,7 +620,7 @@ class AnalysisSession:
                  *,
                  source: Optional[str] = None,
                  syntax: str = "pgcl",
-                 config=None,
+                 config: Optional[ForwardAnalysisConfig] = None,
                  provider: Optional[DecisionProvider] = None,
                  decisions: Optional[Mapping[Any, Any]] = None,
                  input_distribution: Any = None,
@@ -686,8 +691,9 @@ class AnalysisSession:
         return session
 
     @classmethod
-    def interactive(cls, program: Program, *, source: Optional[str] = None, config=None,
-                    decisions: Optional[Mapping[Any, Any]] = None, **kwargs) -> "AnalysisSession":
+    def interactive(cls, program: Program, *, source: Optional[str] = None,
+                    config: Optional[ForwardAnalysisConfig] = None,
+                    decisions: Optional[Mapping[Any, Any]] = None, **kwargs: Any) -> "AnalysisSession":
         return cls(program, source=source, config=config,
                    provider=InteractiveDecisions(parse_decisions(decisions)), **kwargs)
 
@@ -769,7 +775,7 @@ class AnalysisSession:
         finally:
             self.loops.unalias(copy)
 
-    def on_normalize(self, error_prob) -> None:
+    def on_normalize(self, error_prob: Distribution) -> None:
         """Called right before the distribution is conditioned on the observations."""
         if self.silent:
             return
@@ -936,7 +942,7 @@ class AnalysisSession:
             return self.query_positions[self._query_index]
         return None, None
 
-    def record_query(self, query) -> None:
+    def record_query(self, query: QueryResult) -> None:
         """Books a :class:`~prodigy.analysis.result.QueryResult` (ignored in sub-analyses)."""
         if self.silent:
             return
@@ -965,7 +971,7 @@ class AnalysisSession:
         with _native_stdout_captured(writer.write), contextlib.redirect_stdout(writer):
             yield
 
-    def run(self):
+    def run(self) -> AnalysisResult:
         """Runs the analysis; never raises for analysis errors (they end up in the result)."""
         from prodigy.analysis.result import build_result  # pylint: disable=import-outside-toplevel
         return build_result(self)

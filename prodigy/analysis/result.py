@@ -103,7 +103,7 @@ import re
 import time
 import traceback
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
 import sympy
 from prodigy.pgcl import (Binop, BinopExpr, BoolType, Expr, NatLitExpr, NatType, RealLitExpr,
@@ -114,8 +114,11 @@ from prodigy.distribution.equality import sympy_text
 from prodigy.util.integers import unlimited_int_digits
 
 if TYPE_CHECKING:  # pragma: no cover
+    from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.analysis.session import AnalysisSession
     from prodigy.distribution import Distribution
+
+T = TypeVar("T")
 
 SCHEMA = "prodigy/analysis-result@1"
 
@@ -454,7 +457,7 @@ class QueryResult:
         }
 
 
-def is_monotone_nonnegative(expr: Expr, program=None) -> bool:
+def is_monotone_nonnegative(expr: Expr, program: Optional[Program] = None) -> bool:
     """True if E[expr] can only grow when probability mass is added, i.e. ``expr`` is
     built from natural/boolean variables and non-negative literals with ``+``, ``*``, ``/`` (by a
     positive literal) and ``^`` (by a natural literal)."""
@@ -634,7 +637,7 @@ def failure_bounds(status: str) -> Dict[str, Any]:
 # Program outline
 # ---------------------------------------------------------------------------------------
 
-def outline_program(program, source: Optional[str] = None, syntax: str = "pgcl") -> Dict[str, Any]:
+def outline_program(program: Program, source: Optional[str] = None, syntax: str = "pgcl") -> Dict[str, Any]:
     """Variables, parameters, loops and queries of ``program`` (for editors and forms)."""
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.session import LoopRegistry, query_instructions, query_positions
@@ -655,12 +658,12 @@ def outline_program(program, source: Optional[str] = None, syntax: str = "pgcl")
     }
 
 
-def _query_text(instr, syntax: str) -> str:
+def _query_text(instr: Any, syntax: str) -> str:
     from prodigy.analysis.session import spell  # pylint: disable=import-outside-toplevel
     return spell(instr, syntax)
 
 
-def type_name(typ, syntax: str = "pgcl") -> str:
+def type_name(typ: Any, syntax: str = "pgcl") -> str:
     """Spelling of a declared type in ``syntax`` (``nat``, ``nat [0, 5]`` or ``nat[0, 5]`` in
     ``.ppy``, ``bool``, ``real``, ...)."""
     name = type(typ).__name__
@@ -672,7 +675,7 @@ def type_name(typ, syntax: str = "pgcl") -> str:
     return {"BoolType": "bool", "RealType": "real", "DistributionType": "dist"}.get(name, str(typ))
 
 
-def _query_kind(instr) -> str:
+def _query_kind(instr: Any) -> str:
     name = type(instr).__name__
     if name == "ExpectationInstr":
         return "expectation"
@@ -745,7 +748,7 @@ class AnalysisResult:
         }
 
 
-def _engine_name(config) -> str:
+def _engine_name(config: ForwardAnalysisConfig) -> str:
     return config.engine.name.lower()
 
 
@@ -881,7 +884,7 @@ def _language_warnings(session: Any) -> List[str]:
     return [f"line {d['line']}, column {d['column']}: {d['message']}" for d in found]
 
 
-def _safe(function):
+def _safe(function: Callable[[], T]) -> Optional[T]:
     try:
         return function()
     except Exception:  # pylint: disable=broad-except
