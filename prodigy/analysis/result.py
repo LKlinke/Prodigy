@@ -333,11 +333,23 @@ def to_latex(dist: "Distribution") -> Optional[str]:
 # Coefficient tables
 # ---------------------------------------------------------------------------------------
 
+def upper_end(prob: Any, residual: Any) -> sympy.Expr:
+    """The upper end of the interval of a coefficient of a lower bound: ``min(1, prob + residual)``; the cap
+    applies where both are numbers (with parameters the sum is kept)."""
+    upper = sym(prob) + sym(residual)
+    try:
+        if upper.is_number and bool(upper > 1):
+            return sympy.Integer(1)
+    except TypeError:  # not comparable (e.g. a complex number): keep the sum
+        pass
+    return upper
+
+
 def _row(value: int, prob: Any, residual: Any = None, kind: str = Bound.EXACT) -> Dict[str, Any]:
     exact, number = exact_and_float(prob)
     row: Dict[str, Any] = {"value": value, "prob": exact, "p": number}
     if kind == Bound.LOWER and residual is not None:
-        upper, upper_float = exact_and_float(sym(prob) + sym(residual))
+        upper, upper_float = exact_and_float(upper_end(prob, residual))
         row.update({"upper": upper, "upper_p": upper_float})
     return row
 

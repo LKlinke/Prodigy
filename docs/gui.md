@@ -224,9 +224,9 @@ hatched, and the status line says *Computing… n of m cells*.
   readable with colour-vision deficiencies) by probability; probability 0 is an empty grey cell,
   a value that depends on parameters is hatched. *Linear / Log* switches the colour scale (the same
   setting as the bar charts; the log scale spans at most 12 decades and labels both ends). Values never depend on colour
-  alone: the line below the heatmap names the selected cell (`x = 1, y = 2: at least 0.0277778
-  (1/36); at most 0.031684` for a lower bound), large cells print their value, and the table lists
-  all of them. Keyboard: Tab focuses the heatmap, the arrow keys move between cells (↑ is the next
+  alone: the line below the heatmap names the selected cell with its probability as an interval
+  (`x = 1, y = 2: [1/36, 13/360] ([0.0277777, 0.0361112])` for a lower bound, see *Probabilities as
+  intervals* below), large cells print their value, and the table lists all of them. Keyboard: Tab focuses the heatmap, the arrow keys move between cells (↑ is the next
   larger y), Home/End go to the first/last column, Page Up/Page Down to the top/bottom row; the
   pointer selects the cell under it.
 * **3D**: a bar per cell (plain canvas, no library), height and colour by probability; the view fits the bars, so low bars leave no empty space. Pointing at
@@ -243,9 +243,24 @@ hatched, and the status line says *Computing… n of m cells*.
   0, or logarithmic; the heading names the range). The card's *Mass* line, set apart by a rule,
   adds up the cells: the total mass, the mass in the window, the mass outside it, and for a lower
   bound the hatched "?" mass not yet accounted for, which may still end up in any cell, outside the
-  window, or never terminate. For a lower bound every cell is a lower bound and gets *at most* =
-  value + residual mass (the line below the view and the tooltip say *at least* and *at most*); for
-  an upper bound every cell is an upper bound.
+  window, or never terminate. For a lower bound every cell is the lower end of an interval whose
+  upper end adds the residual mass (at most 1); for an upper bound every cell is the upper end of
+  [0, value]. The colour shows the computed value (the lower or upper end; the key says which), and
+  a note below the view states the guarantee in words.
+
+**Probabilities as intervals** (#405). Bar charts, their tooltips and tables, the heatmap's line,
+the 3D view's tooltip and the grid table show each probability by its guarantee:
+
+* exact: the value, `1/4 (0.25)`;
+* lower bound with residual mass r: `[p, min(1, p + r)]`, e.g. `[1/4, 3/8] ([0.25, 0.375])`;
+* upper bound: `[0, p]`;
+* no guarantee: `unknown (computed 0.25, no guarantee)`.
+
+Exact rationals are shown with their decimals; the decimals of an interval are rounded outward (the
+lower end down, the upper end up, 6 significant digits), so the printed interval still contains the
+true value. A bar of a lower bound is solid up to the lower end and hatched up to the upper end; a
+bar of an upper bound is hatched. The guarantee is also stated in words below each chart and table
+(*Exact probabilities.*, *Bounds: …*), and in the streamed charts while the analysis runs.
 
 Moving along the timeline or playing it redraws the joint view for each position (#289): the pair,
 the view and a window chosen with *Show window* stay (without one, each position gets its default

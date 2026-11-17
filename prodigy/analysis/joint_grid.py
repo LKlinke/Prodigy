@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence,
 import sympy
 
 from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.result import exact_and_float, sym, tidy, to_sympy
+from prodigy.analysis.result import exact_and_float, sym, tidy, to_sympy, upper_end
 from prodigy.analysis.streaming import Batcher, Sink
 from prodigy.distribution.coefficient_stream import Waiting, taylor_stream
 
@@ -113,7 +113,7 @@ def _cell(prob: sympy.Expr, kind: str, residual: sympy.Expr) -> Dict[str, Any]:
     exact, number = exact_and_float(tidy(prob))
     cell: Dict[str, Any] = {"prob": exact, "p": number}
     if kind == Bound.LOWER and residual != 0:
-        upper, upper_float = exact_and_float(tidy(prob + residual))
+        upper, upper_float = exact_and_float(tidy(upper_end(prob, residual)))
         cell.update({"upper": upper, "upper_p": upper_float})
     return cell
 

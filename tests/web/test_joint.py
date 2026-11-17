@@ -225,7 +225,7 @@ def test_heatmap_colour_scale(tmp_path):
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
 def test_cell_text_of_heatmap_and_3d_view(tmp_path):
     """The heatmap's readout and the 3D view's tooltip (#287) name the values of both variables
-    and the probability, with its exact form and, for a lower bound, the upper end."""
+    and the probability as an interval (#405), with its exact form."""
     module = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components" / "joint-view.js"
     script = tmp_path / "check.mjs"
     grid = {
@@ -239,7 +239,8 @@ def test_cell_text_of_heatmap_and_3d_view(tmp_path):
         "console.log(JSON.stringify([j.cellParts(grid, 0, 0), j.cellParts(grid, 0, 1)]));\n",
         encoding="utf-8")
     output = subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60, check=True).stdout
+    # intervals (#405): exact ends with their decimals rounded outward; a lower bound without an upper end is [p, 1]
     assert json.loads(output) == [
-        {"where": "x = 0, y = 2", "value": "at least 0.0277778 (1/36); at most 0.031684"},
-        {"where": "x = 1, y = 2", "value": "0"},
+        {"where": "x = 0, y = 2", "value": "[1/36, 0.031684] ([0.0277777, 0.031684])"},
+        {"where": "x = 1, y = 2", "value": "[0, 1]"},
     ]

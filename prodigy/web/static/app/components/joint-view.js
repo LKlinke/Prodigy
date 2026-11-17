@@ -6,8 +6,8 @@
 // Colours: viridis (perceptually uniform, readable with colour-vision deficiencies). Values are
 // never shown by colour alone: the readout below the heatmap, the tooltips and the table give them.
 import { h, s } from "./dom.js";
-import { hatchPattern } from "./charts.js";
-import { formatNumber, formatValue } from "./format.js";
+import { exactInterval, hatchPattern } from "./charts.js";
+import { PROBABILITY_GUARANTEE, formatNumber, formatValue, probabilityText } from "./format.js";
 
 // ---- colour scale ---------------------------------------------------------------------------
 
@@ -66,21 +66,16 @@ export function colourScale(values, scale = "linear", atLeast = 0) {
 // ---- helpers ----------------------------------------------------------------------------------
 
 let idCounter = 0;
-const BOUND_WORDS = { lower: "at least ", upper: "at most " };
-
 /**
- * The values of a cell and its probability, formatted alike in the heatmap's readout and the 3D
- * view's tooltip: {where: "x = 1, y = 2", value: "at least 0.0277778 (1/36); at most 0.031684"}.
+ * The values of a cell and its probability as an interval (#405, format.js: probabilityText),
+ * alike in the heatmap's readout and the 3D view's tooltip:
+ * {where: "x = 1, y = 2", value: "[1/36, 0.0316840] ([0.0277777, 0.031684])"}.
  */
 export function cellParts(grid, r, c) {
   const cell = grid.cells[r][c];
   const where = `${grid.x} = ${grid.x_values[c]}, ${grid.y} = ${grid.y_values[r]}`;
   if (cell.pending) return { where, value: "computing…" };
-  const value = cell.p === null ? cell.prob : formatValue(cell.prob, cell.p, 6);
-  const qualifier = cell.prob === "0" && grid.bound !== "upper" ? "" : (BOUND_WORDS[grid.bound] || "");
-  const exact = cell.p !== null && cell.prob && cell.prob.length < 40 && cell.prob !== String(cell.p) ? ` (${cell.prob})` : "";
-  const upper = cell.upper ? `; at most ${formatValue(cell.upper, cell.upper_p, 6)}` : "";
-  return { where, value: `${qualifier}${value}${exact}${upper}` };
+  return { where, value: probabilityText(grid.bound, cell) };
 }
 
 function cellText(grid, r, c) {
@@ -475,10 +470,12 @@ function gridTable(grid) {
   const body = [...grid.y_values.keys()].reverse().map((r) => h("tr", {},
     h("th", { scope: "row", class: "num" }, String(grid.y_values[r])),
     ...grid.cells[r].map((cell) => (cell.pending ? h("td", { class: "num rv-muted" }, "computing…")
-      : h("td", { class: "num", title: cell.prob + (cell.upper ? ` (at most ${cell.upper})` : "") },
-        cell.p === null ? cell.prob : formatValue(cell.prob, cell.p, 4))))));
+      : h("td", { class: "num", title: exactInterval(grid.bound, cell) },
+        grid.bound === "exact" || cell.p === null ? (cell.p === null ? cell.prob : formatValue(cell.prob, cell.p, 4))
+          : probabilityText(grid.bound, { ...cell, prob: null, upper: null }, 4))))));
   return h("div", { class: "table-wrap jv-table" }, h("table", { class: "rv-table" },
-    h("caption", { class: "rv-note" }, `Pr[${grid.x} = column, ${grid.y} = row]; hover a value for its exact form.`),
+    h("caption", { class: "rv-note" }, `Pr[${grid.x} = column, ${grid.y} = row]; hover a value for its exact form. `
+      + (PROBABILITY_GUARANTEE[grid.bound] || PROBABILITY_GUARANTEE.unknown)),
     h("thead", {}, head), h("tbody", {}, body)));
 }
 
@@ -491,7 +488,9 @@ function keyHeading(id, title, detail) {
   return h("h4", { class: "jv-key-title", id }, title, h("span", { class: "jv-key-detail" }, detail));
 }
 
-function legend(colours) {
+const COLOUR_END = { lower: " (the lower end of its interval)", upper: " (the upper end of its interval)" };
+
+function legend(colours, bound) {
   const stops = Array.from({ length: 11 }, (_, i) => `${viridis(i / 10)} ${i * 10}%`).join(", ");
   const position = (value) => {
     if (colours.scale === "log") return colours.max === colours.min ? 100 : ((Math.log10(value) - Math.log10(colours.min)) / (Math.log10(colours.max) - Math.log10(colours.min))) * 100;
@@ -502,7 +501,7 @@ function legend(colours) {
     ? ` — logarithmic, from ${formatNumber(colours.min, 2)} to ${formatNumber(colours.max, 2)}`
     : ` — linear, from 0 to ${formatNumber(colours.max, 2)}`;
   return h("section", { class: "jv-key-block jv-legend", "aria-labelledby": id },
-    keyHeading(id, "Colour: probability of one cell", detail),
+    keyHeading(id, `Colour: probability of one cell${COLOUR_END[bound] || ""}`, detail),
     h("div", { class: "jv-legend-row" },
       h("span", { class: "jv-legend-zero" }, h("span", { class: "jv-swatch jv-zero", "aria-hidden": "true" }), "0"),
       h("div", { class: "jv-gradient-wrap" },
@@ -580,14 +579,16 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, onGrid =
     const colours = colourScale(values, scale(), view.peak.max);
     const width = body.clientWidth || 560;
     const symbolic = grid.cells.some((row) => row.some((cell) => cell.p === null && !cell.pending));
-    // the guarantee is stated once, in the answer card; the readout says "at least" or "at most"
+    // the readout gives the interval of the active cell
     const notes = [];
     if (symbolic) notes.push("Hatched cells depend on parameters; the table lists them.");
     const parts = [];
     if (view.mode === "heatmap") parts.push(heatmap(grid, colours, view, readout, width), readout);
     else if (view.mode === "bars") parts.push(bars3d(grid, colours, view, readout, width), readout);
     else parts.push(gridTable(grid));
-    if (view.mode !== "table") parts.push(legend(colours));
+    if (view.mode !== "table") parts.push(legend(colours, grid.bound));
+    // the guarantee in words (#405); the readout gives each cell's interval
+    if (view.mode !== "table") notes.push(PROBABILITY_GUARANTEE[grid.bound] || PROBABILITY_GUARANTEE.unknown);
     if (notes.length) parts.push(h("p", { class: "rv-note" }, notes.join(" ")));
     body.replaceChildren(...parts);
   };

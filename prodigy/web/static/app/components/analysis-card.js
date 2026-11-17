@@ -10,7 +10,7 @@
 // through callbacks (onPosition, loadJoint, onRecord, ...).
 import { h } from "./dom.js";
 import { marginalChart, marginalTable, massSummary, positionChart } from "./charts.js";
-import { BOUND_TEXT, formatNumber, formatSeconds, formatValue, qualify } from "./format.js";
+import { BOUND_TEXT, chartLegend, formatNumber, formatSeconds, formatValue, qualify } from "./format.js";
 import { formulaBox } from "./formula-box.js";
 import { JOINT_VIEWS, jointView } from "./joint-view.js";
 import { chartState, reducedMotion, tweenChart } from "./motion.js";
@@ -192,10 +192,9 @@ function distributionLens(ctx) {
       figure.replaceChildren(mode() === "chart"
         ? marginalChart(table, { residual: residual?.p, residualExact: residual?.exact, variable: name, bound, width: drawnWidth, scale: loadScale() })
         : marginalTable(table, { variable: name, bound }));
-      if (bound === "upper" && mode() === "chart") {
-        legend.textContent = "Hatched bars are upper bounds.";
-        legend.hidden = false;
-      }
+      // the guarantee in words, not only implied by the intervals (#405)
+      legend.textContent = chartLegend(bound);
+      legend.hidden = false;
     }
     mass.replaceChildren(data.iterate ? loopMass(source.snap, data.iterate) : marginalMass(gap ? null : table, name, total, residual));
   };

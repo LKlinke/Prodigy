@@ -7,7 +7,7 @@
 import { explorationCard, explorations } from "./evt-exploration.js";
 import { h, icon } from "./dom.js";
 import { intervalBar, marginalChart } from "./charts.js";
-import { BOUND_TEXT, exactIsInformative, formatNumber, formatSeconds, formatValue, qualify, shortExact } from "./format.js";
+import { BOUND_TEXT, chartLegend, exactIsInformative, formatNumber, formatSeconds, formatValue, qualify, shortExact } from "./format.js";
 import { analysisCard, verdictText } from "./analysis-card.js";
 import { chartState, tweenChart } from "./motion.js";
 import { distributionFigure, expressionBox, guaranteeBadge, loadScale } from "./parts.js";
@@ -345,12 +345,6 @@ export function renderResult(container, result, options = {}) {
 const LIVE_TWEEN_MS = 180;
 let liveMotions = [];
 
-const LIVE_BOUND_NOTE = {
-  lower: "Lower bounds: each value is at most the true probability.",
-  upper: "Upper bounds: each value is at least the true probability.",
-  unknown: "No guarantee for these values.",
-};
-
 /** The state of the streamed charts in `container` (chartState per variable), for a transition. */
 export function liveChartStates(container) {
   const states = {};
@@ -385,7 +379,7 @@ function liveCharts(stream, width, key) {
   });
   return h("section", { class: "rv-live", "data-key": key, "aria-label": "Coefficients computed so far" },
     h("div", { class: "rv-live-head" }, h("h3", { class: "rv-block-title" }, "Distribution so far"), guaranteeBadge(bound),
-      LIVE_BOUND_NOTE[bound] ? h("span", { class: "rv-note" }, LIVE_BOUND_NOTE[bound]) : null),
+      h("span", { class: "rv-note" }, chartLegend(bound))),
     ...items);
 }
 

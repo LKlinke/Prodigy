@@ -197,6 +197,8 @@
 .marginal-chart .mc-upper rect { stroke: var(--rv-bound); stroke-width: 1; }
 .marginal-chart .mc-unknown rect { fill: var(--rv-data); opacity: 0.45; stroke: var(--rv-unknown); stroke-dasharray: 3 2; }
 .marginal-chart .mc-residual rect { stroke: var(--rv-bound); stroke-width: 1; }
+/* the rest of the interval of a lower bound (#405): hatched, outlined in the bound colour */
+.marginal-chart .mc-bar rect.mc-ext { stroke: var(--rv-bound); stroke-width: 1; opacity: 1; }
 .marginal-chart .mc-bar:hover rect { opacity: 0.8; }
 .marginal-chart .mc-scale { font-style: italic; }
 .marginal-chart .mc-pending .mc-pending-text {
@@ -345,6 +347,7 @@
 
 .jv-table table { width: auto; }
 .jv-table caption { text-align: left; caption-side: top; padding-bottom: 4px; }
+.rv-table caption { text-align: left; caption-side: top; padding-bottom: 4px; }
 .jv-table th[scope="row"] { border-right: 1px solid var(--rv-separator); }
 
 /* a failed query: the icon and the words carry the state, the colour only supports them */

@@ -183,3 +183,15 @@ def test_stream_events_are_never_dropped():
         sender.progress({"kind": "coefficients", "variable": "x", "rows": [n]})
         sender.progress({"loop": 0, "strategy": "unroll", "done": n, "total": 10})
     assert [payload["rows"] for kind, payload in sent if payload.get("kind")] == [[n] for n in range(5)]
+
+
+def test_upper_ends_of_lower_bounds_are_capped_at_one():
+    # the interval of a coefficient of a lower bound is [p, min(1, p + r)] (#405)
+    table = univariate_table(SympyPGF.from_expr("1/(2 - x)", "x"), "x", 3, kind=Bound.LOWER, residual="3/4")
+    assert [(row["prob"], row["upper"]) for row in table["rows"]] == [("1/2", "1"), ("1/4", "1"), ("1/8", "7/8")]
+    grid = joint_grid(SympyPGF.from_expr("1/((2 - x)*(2 - y))", "x", "y"), "x", "y", x_window=(0, 1),
+                      y_window=(0, 0), kind=Bound.LOWER, residual="3/4")
+    assert [cell["upper"] for cell in grid["cells"][0]] == ["1", "7/8"]
+    # with a parameter, the sum stays
+    symbolic = univariate_table(SympyPGF.from_expr("(1 - p)/(1 - p*x)", "x"), "x", 1, kind=Bound.LOWER, residual="1/2")
+    assert sym(symbolic["rows"][0]["upper"]) == sym("3/2 - p")

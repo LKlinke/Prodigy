@@ -53,6 +53,134 @@ export function formatInterval(lower, lowerFloat, upper, upperFloat) {
   return [a, b];
 }
 
+// ---- probabilities as intervals (#405) ---------------------------------------------------------
+
+const TEN = 10n;
+
+// an exact rational: an integer, a fraction or a terminating decimal ("3/7", "1", "0.031684")
+const RATIONAL = /^(-?)(?:(\d+)(?:\/(\d+))?|(\d*)\.(\d+))$/;
+
+/** [negative, numerator, denominator] of an exact rational text, or null. */
+function parseRational(text) {
+  const match = typeof text === "string" ? RATIONAL.exec(text.trim()) : null;
+  if (!match) return null;
+  if (match[2] !== undefined) return [match[1] === "-", BigInt(match[2]), BigInt(match[3] ?? "1")];
+  return [match[1] === "-", BigInt(`${match[4] || "0"}${match[5]}`), TEN ** BigInt(match[5].length)];
+}
+
+/** The decimal text of mantissa × 10^exponent (mantissa: digits as a string), plain or scientific. */
+function decimalText(negative, mantissa, exponent) {
+  const digits = mantissa.replace(/^0+(?=\d)/, "");
+  if (/^0+$/.test(digits)) return "0";
+  const magnitude = digits.length - 1 + exponent;
+  let text;
+  if (magnitude < -4 || magnitude >= 7) {
+    const head = trimZeros(`${digits[0]}.${digits.slice(1)}`);
+    const exp = String(magnitude).split("").map((c) => SUPERSCRIPT[c] || c).join("");
+    text = `${head} × 10${exp}`;
+  } else if (exponent >= 0) {
+    text = digits + "0".repeat(exponent);
+  } else {
+    const padded = digits.padStart(-exponent + 1, "0");
+    text = trimZeros(`${padded.slice(0, padded.length + exponent)}.${padded.slice(padded.length + exponent)}`);
+  }
+  return negative ? `−${text}` : text;
+}
+
+/**
+ * An endpoint of an interval as a decimal with `digits` significant digits, rounded outward:
+ * `direction` "down" for a lower end, "up" for an upper end, so that the printed interval still
+ * contains the true value. An exact rational ("3/7", "1") is rounded exactly (BigInt); any other
+ * value is rounded from its float, and the last digit moves outward unless the decimal lies strictly
+ * on the safe side of the float (the float is within half a unit in the last place of the value).
+ */
+export function outwardDecimal(exact, number, direction, digits = 6) {
+  const rational = parseRational(exact);
+  if (rational) {
+    const [negative, numerator, denominator] = rational;
+    if (numerator === 0n) return "0";
+    // a negative value is rounded the other way in magnitude
+    const down = (direction === "down") !== negative;
+    // e = floor(log10(n / d))
+    let e = numerator.toString().length - denominator.toString().length;
+    const atLeast = (k) => (k >= 0 ? numerator >= denominator * TEN ** BigInt(k) : numerator * TEN ** BigInt(-k) >= denominator);
+    if (!atLeast(e)) e -= 1;
+    const shift = digits - 1 - e;
+    const top = shift >= 0 ? numerator * TEN ** BigInt(shift) : numerator;
+    const bottom = shift >= 0 ? denominator : denominator * TEN ** BigInt(-shift);
+    let q = top / bottom;
+    if (!down && q * bottom !== top) q += 1n;
+    return decimalText(negative, q.toString(), -shift);
+  }
+  if (number === null || number === undefined || !Number.isFinite(number)) return formatNumber(number);
+  if (number === 0) return "0";
+  const [mantissaText, exponentText] = Math.abs(number).toExponential(digits - 1).split("e");
+  let mantissa = BigInt(mantissaText.replace(".", ""));
+  let exponent = Number(exponentText) - (digits - 1);
+  const nearest = Number(`${mantissaText}e${exponentText}`);
+  const magnitudeDown = (direction === "down") === (number > 0);
+  if (magnitudeDown && nearest >= Math.abs(number)) mantissa -= 1n;
+  if (!magnitudeDown && nearest <= Math.abs(number)) mantissa += 1n;
+  if (mantissa === 0n) return "0";
+  return decimalText(number < 0, mantissa.toString(), exponent);
+}
+
+/** Whether an exact value is worth showing next to its decimal (short and not the same text). */
+function shortExactText(exact, number) {
+  return typeof exact === "string" && exact.length <= 24 && exactIsInformative(exact, number) ? exact : null;
+}
+
+/**
+ * The interval of a coefficient of a result with guarantee `bound` (prodigy/analysis/result.py:
+ * rows of univariate_table, cells of joint_grid):
+ *   exact    a single value: "1/4 (0.25)"
+ *   lower    [p, min(1, p + r)] from the row's `upper` (the residual mass r included, capped at 1)
+ *   upper    [0, p], or [lower, p] if the row has a `lower` end (sandwich)
+ *   unknown  no interval: "unknown (computed 0.25, no guarantee)"
+ * Exact rationals are shown with the decimals of the interval, rounded outward. Values with
+ * parameters (no float) are shown as their expressions.
+ */
+export function probabilityText(bound, { prob = null, p = null, upper = null, upper_p = null, lower = null, lower_p = null } = {}, digits = 6) {
+  if (bound === "unknown") {
+    return `unknown (computed ${p === null ? prob ?? "—" : formatNumber(p, digits)}, no guarantee)`;
+  }
+  if (bound !== "lower" && bound !== "upper") {
+    if (p === null) return prob ?? "—";
+    const exact = shortExactText(prob, p);
+    const decimal = formatNumber(p, digits);
+    return exact ? `${exact} (${decimal})` : decimal;
+  }
+  const ends = bound === "lower"
+    ? [{ exact: prob, p }, upper !== null || upper_p !== null ? { exact: upper, p: upper_p } : { exact: "1", p: 1 }]
+    : [lower !== null || lower_p !== null ? { exact: lower, p: lower_p } : { exact: "0", p: 0 }, { exact: prob, p }];
+  if (ends.some((end) => end.p === null || end.p === undefined)) {
+    return `[${ends.map((end) => end.exact ?? "—").join(", ")}]`;
+  }
+  const decimals = `[${outwardDecimal(ends[0].exact, ends[0].p, "down", digits)}, ${outwardDecimal(ends[1].exact, ends[1].p, "up", digits)}]`;
+  const exacts = ends.map((end) => (typeof end.exact === "string" && end.exact.length <= 24 && parseRational(end.exact) ? end.exact : null));
+  const exactText = exacts.every(Boolean) ? `[${exacts.join(", ")}]` : null;
+  return exactText && exactText !== decimals ? `${exactText} (${decimals})` : decimals;
+}
+
+/** The guarantee of the coefficients in words (the interval notation is not left to imply it). */
+export const PROBABILITY_GUARANTEE = {
+  exact: "Exact probabilities.",
+  lower: "Bounds: each probability lies in [lower end, upper end]; the upper end adds the mass not yet accounted for (at most 1).",
+  upper: "Bounds: each probability lies in [0, upper end].",
+  unknown: "No guarantee: computed values that are neither exact nor bounds.",
+};
+
+/** How a bar chart draws the intervals (charts.js: marginalChart). */
+export const BAR_LEGEND = {
+  lower: "Bars are solid up to the lower end and hatched up to the upper end.",
+  upper: "Hatched bars reach up to the upper end.",
+};
+
+/** The guarantee and, for bounds, how the bars draw it. */
+export function chartLegend(bound) {
+  return [PROBABILITY_GUARANTEE[bound] || PROBABILITY_GUARANTEE.unknown, BAR_LEGEND[bound]].filter(Boolean).join(" ");
+}
+
 /**
  * How a query value is qualified: glyph (or null) and text, e.g. {glyph: "✓", text: "exact"}
  * or {glyph: null, text: "∈ [0.5, 0.5 + 3 × 10⁻⁸]"}. The interval notation carries its own

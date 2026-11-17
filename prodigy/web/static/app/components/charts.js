@@ -1,7 +1,7 @@
 // Charts of the result view: the interval bar of a query and the bar chart of a marginal.
 // Plain SVG; colours come from CSS custom properties, so light/dark/high contrast follow.
 import { h, s } from "./dom.js";
-import { formatNumber, formatValue } from "./format.js";
+import { PROBABILITY_GUARANTEE, formatNumber, formatValue, probabilityText } from "./format.js";
 
 let patternCounter = 0;
 
@@ -85,6 +85,8 @@ export function logAxis(values) {
  * univariate_table). Extra bars: the mass beyond the shown values ("tail") and, for lower
  * bounds, the mass not yet accounted for (hatched). While the coefficients are streamed (#405),
  * `pending` more values are still being computed: their slots are hatched and labelled "computing…".
+ * Each value is an interval (#405, format.js: probabilityText): for a lower bound the bar is solid up
+ * to the lower end and hatched up to the upper end; for an upper bound it is hatched up to the upper end.
  */
 export function marginalChart(table, { residual = null, residualExact = null, variable = "x", bound = "exact", width: pixelWidth = 560, scale = "linear", pending = 0 } = {}) {
   const rows = (table.rows || []).filter((row) => row.p !== null);
@@ -102,8 +104,11 @@ export function marginalChart(table, { residual = null, residualExact = null, va
     return h("p", { class: "rv-muted" }, table.rows?.length ? "The probabilities depend on parameters; see the table." : "No values.");
   }
   const bars = [...rows.map((row) => ({ kind: "value", label: String(row.value), p: row.p, exact: row.prob,
-    title: `${variable} = ${row.value}: ${formatValue(row.prob, row.p)}${row.prob && row.prob.length < 30 ? ` (${row.prob})` : ""}` })),
+    // the upper end of the interval of a lower bound (capped at 1 by the server)
+    up: bound === "lower" && Number.isFinite(row.upper_p) && row.upper_p > row.p ? row.upper_p : null,
+    title: `${variable} = ${row.value}: ${probabilityText(bound, row)}` })),
   ...extras];
+  const tops = bars.map((b) => Math.max(b.p, b.up ?? 0));
 
   const width = Math.max(260, Math.round(pixelWidth));
   const height = 168;
@@ -115,8 +120,8 @@ export function marginalChart(table, { residual = null, residualExact = null, va
   const plotH = height - top - bottom;
   const id = `hatch-${++patternCounter}`;
   const labelEvery = Math.max(1, Math.ceil((bars.length + pending) / Math.max(1, Math.floor(plotW / 26))));
-  const axis = scale === "log" ? logAxis(bars.map((b) => b.p)) : null;
-  const max = axis ? 10 ** axis.hi : niceMax(Math.max(0, ...bars.map((b) => b.p)));
+  const axis = scale === "log" ? logAxis([...bars.map((b) => b.p), ...tops]) : null;
+  const max = axis ? 10 ** axis.hi : niceMax(Math.max(0, ...tops));
   // the fraction of the plot height that a probability fills (log: decades above 10^lo)
   const fraction = axis
     ? (p) => (p > 0 ? Math.max(0, Math.min(1, (Math.log10(p) - axis.lo) / (axis.hi - axis.lo))) : 0)
@@ -150,6 +155,9 @@ export function marginalChart(table, { residual = null, residualExact = null, va
       s("title", {}, bar.title),
       s("rect", { x: cx - barW / 2, y: top + plotH - barHeight, width: barW, height: barHeight, rx: Math.min(3, barW / 4),
         fill: hatched ? `url(#${id})` : null, "data-p": bar.p, "data-cx": cx, "data-w": barW }),
+      // the rest of the interval of a lower bound: hatched from the lower to the upper end
+      bar.up !== null && bar.up !== undefined ? s("rect", { class: "mc-ext", x: cx - barW / 2, y: y(bar.up), width: barW,
+        height: Math.max(1, top + plotH - barHeight - y(bar.up)), style: `fill: url(#${id})`, "data-up": bar.up }) : null,
       // log scale: probability 0 has no bar height at all; an outline on the axis marks it as empty
       axis && bar.p === 0 ? s("rect", { class: "mc-zero", x: cx - barW / 2, y: top + plotH - 3, width: barW, height: 3 }) : null,
       showLabel ? s("text", { x: cx, y: height - 6, class: "mc-label" }, bar.label) : null);
@@ -182,22 +190,29 @@ export function marginalChart(table, { residual = null, residualExact = null, va
     s("line", { class: "mc-axis", x1: left, x2: left + plotW, y1: top + plotH, y2: top + plotH }));
 }
 
-/** The same data as a table with exact values (and upper bounds for lower-bound results). */
+/** The exact form of a coefficient's interval: the value, [p, upper] or [lower or 0, p]. */
+export function exactInterval(bound, row) {
+  if (bound === "lower") return `[${row.prob ?? "—"}, ${row.upper ?? "1"}]`;
+  if (bound === "upper") return `[${row.lower ?? "0"}, ${row.prob ?? "—"}]`;
+  return row.prob ?? "";
+}
+
+/** The same data as a table: each probability as its interval (format.js: probabilityText) and in exact form. */
 export function marginalTable(table, { variable = "x", bound = "exact" } = {}) {
-  const withUpper = bound === "lower" && (table.rows || []).some((row) => row.upper);
   const head = h("tr", {}, h("th", { scope: "col" }, variable), h("th", { scope: "col" }, "Probability"),
-    h("th", { scope: "col" }, "Exact"), withUpper ? h("th", { scope: "col" }, "At most") : null);
+    h("th", { scope: "col" }, "Exact"));
   const body = (table.rows || []).map((row) => h("tr", {},
     h("td", { class: "num" }, String(row.value)),
-    h("td", { class: "num" }, formatValue(row.prob, row.p, 6)),
-    h("td", { class: "mono exact-cell", title: row.prob || "" }, row.prob || ""),
-    withUpper ? h("td", { class: "num" }, formatValue(row.upper, row.upper_p, 6)) : null));
+    h("td", { class: "num" }, bound === "exact" ? formatValue(row.prob, row.p, 6) : probabilityText(bound, row)),
+    h("td", { class: "mono exact-cell", title: exactInterval(bound, row) }, exactInterval(bound, row))));
   const rows = [...body];
   if (table.truncated && table.tail_mass) {
     rows.push(h("tr", { class: "tail-row" }, h("td", {}, "rest"), h("td", { class: "num" }, formatValue(table.tail_mass, table.tail_mass_float, 6)),
-      h("td", { class: "mono exact-cell", title: table.tail_mass }, table.tail_mass), withUpper ? h("td", {}) : null));
+      h("td", { class: "mono exact-cell", title: table.tail_mass }, table.tail_mass)));
   }
-  return h("div", { class: "table-wrap" }, h("table", { class: "rv-table" }, h("thead", {}, head), h("tbody", {}, rows)));
+  return h("div", { class: "table-wrap" }, h("table", { class: "rv-table" },
+    h("caption", { class: "rv-note" }, PROBABILITY_GUARANTEE[bound] || PROBABILITY_GUARANTEE.unknown),
+    h("thead", {}, head), h("tbody", {}, rows)));
 }
 
 /**
