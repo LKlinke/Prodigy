@@ -315,13 +315,26 @@ def _strategy_invariant(task: LoopTask) -> LoopOutcome:
 
     if answer is False:
         assert isinstance(result, State)
-        print(
-            f'{Style.OKRED}Invariant could not be verified.{Style.RESET} Counterexample: {result.valuations}'
-        )
-        certificate["verdict"] = "refuted"
-        certificate["counterexample"] = {str(k): v for k, v in result.valuations.items()}
+        counterexample = {str(k): int(v) for k, v in result.valuations.items()}
+        certificate["counterexample"] = counterexample
+        # the raw "different" of the check is no refutation (loops in the body may have been approximated);
+        # the invariant is refuted only by a witness, a state whose probabilities provably differ (#403)
+        # pylint: disable=import-outside-toplevel
+        from prodigy.analysis.equivalence.verdict import search_witness
+        witness = search_witness(inv_prog, phi_inv, task.session, counterexample)
+        if witness is not None:
+            print(f'{Style.OKRED}Invariant refuted.{Style.RESET} Counterexample: {counterexample}')
+            certificate["verdict"] = "refuted"
+            certificate["witness"] = witness
+            raise InvariantRefutedError(
+                f"Invariant refuted: on the input {counterexample}, the output state {witness['state']} has "
+                "provably different probabilities under the loop's characteristic function applied to the "
+                "invariant and under the invariant itself.", details=certificate)
+        print(f'{Style.OKRED}Invariant could not be verified.{Style.RESET} Counterexample: {counterexample}')
+        certificate["verdict"] = "unknown"
         raise InvariantRefutedError(
-            f"Invariant could not be determined as such. Counterexample: {result.valuations}",
+            f"Invariant not proven: the check found a difference (candidate input {counterexample}), but no "
+            "output state with provably different probabilities, so the invariant is not refuted either.",
             details=certificate)
 
     assert answer is None

@@ -153,7 +153,7 @@ class SymengineDist(Distribution):
 
         prob_fun = self.get_prob_by_diff  # TODO which probability function should we use
         if not self.is_finite():
-            v = list(self.get_variables())
+            v = sorted(self.get_variables())
             if len(v) == 1:
                 var = v[0]
                 i = 0
@@ -175,7 +175,7 @@ class SymengineDist(Distribution):
         """
         prob_fun = self.get_prob_by_diff  # TODO which function here
         if not self.is_finite():
-            v = list(self.get_variables())
+            v = sorted(self.get_variables())
             for tup in monomial_iterator:
                 yield str(prob_fun(State(dict(zip(v, tup))))), State(dict(zip(v, tup)))
         else:

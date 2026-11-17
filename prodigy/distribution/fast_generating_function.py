@@ -166,7 +166,7 @@ class FPS(Distribution):
                     i += 1
             else:
                 # TODO this is just a placeholder until we have proper multivariate iteration
-                variables = list(self.get_variables())
+                variables = sorted(self.get_variables())
                 for vals in default_monomial_iterator(len(variables)):
                     s = f'{variables[0]}={vals[0]}'
                     for i in range(1, len(variables)):

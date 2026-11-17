@@ -1,30 +1,26 @@
+from itertools import count
 from typing import Iterator, List
+
+
+def _compositions(total: int, parts: int) -> Iterator[List[int]]:
+    """All ways to write ``total`` as an ordered sum of ``parts`` natural numbers."""
+    if parts == 1:
+        yield [total]
+        return
+    for first in range(total, -1, -1):
+        for rest in _compositions(total - first, parts - 1):
+            yield [first] + rest
 
 
 def default_monomial_iterator(n: int) -> Iterator[List[int]]:
     """
-    Generates all `n`-tuples of the natural numbers, i.e. iterates over all possible pairs of natural
-    numbers in n dimensions.
+    Generates all `n`-tuples of the natural numbers in graded order: first by their sum, so that states with
+    small values come first in every dimension, then by the position of the largest entries in the first
+    components. Every tuple appears exactly once.
     :param n: Length of tuple
-    :return: Iterator of all possible pairs of natural numbers in n dimensions
+    :return: Iterator of all possible tuples of natural numbers in n dimensions
     """
     if n < 1:
         raise ValueError("n is too small")
-    if n == 1:
-        num = 0
-        while True:
-            yield [num]
-            num += 1
-    else:
-        index = 0
-        gen = default_monomial_iterator(n - 1)
-        vals: list[list[int]] = []
-        while True:
-            # This is absolutely unreadable, so just another reason to delete this asap
-            while len(vals) < index + 1:
-                # pylint: disable=stop-iteration-return
-                vals.append(next(gen))
-                # pylint: enable=stop-iteration-return
-            for i in range(index, -1, -1):
-                yield [i] + vals[index - i]
-            index += 1
+    for total in count():
+        yield from _compositions(total, n)

@@ -8,6 +8,8 @@ Filters and case-split updates need only the values of the unfolded variables, n
 these take finitely many values, their finite support is unfolded instead and the result is exact
 (#249). GiNaC raises the same error as the other engines (#250).
 """
+import re
+
 import pytest
 import sympy
 
@@ -249,3 +251,20 @@ def test_filter_keeps_values_whose_mass_cancels_in_the_marginal(engine, simplifi
         dist = config.factory.from_expr("a*(w - b^2) + a^2*b^3/(2 - b)", "a", "b", "w")
         result = dist.filter(A_LESS_B)
     assert sympy.simplify(_sympy(result) - (A ** 2 * B ** 3 / (2 - B) - A * B ** 2)) == 0
+
+
+@pytest.mark.parametrize("engine", ALL_ENGINES)
+@pytest.mark.parametrize("simplification", SIMPLIFICATION)
+@pytest.mark.parametrize("assignment, copies", [("x = b*a", {"a", "b"}), ("x = a ^ b", {"a", "b"}),
+                                                ("x = a % b", {"a", "b"}), ("x = b*(a + 1)", {"b"})])
+def test_error_names_the_program_variables_not_the_engines_temporaries(engine, simplification, assignment, copies):
+    # #349: the operands of an update are copied into temporary variables (`_1`, `x_1`, `sym_1`); the
+    # message describes them as copies of the program's variables, the same on every engine
+    config = _config(engine, simplification)
+    with config.activate():
+        dist = config.factory.from_expr(BOTH_INFINITE, "a", "b", "w", "x")
+        with pytest.raises(NonFiniteMarginalError) as info:
+            dist.update(parse_expr(assignment))
+    message = str(info.value)
+    assert not re.search(r"(?<![\w.])(_|x_|sym_)\d+(?!\w)", message), message
+    assert all(f"<copy of {name}>" in message for name in copies), message
