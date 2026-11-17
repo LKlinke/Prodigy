@@ -10,6 +10,8 @@ A small Flask application: one page (``templates/app.html`` with the ES modules 
                                   with ``input_distribution`` also whether that initial
                                   distribution is accepted
 ``POST /api/convert``             a pGCL program in the ``.ppy`` syntax, with the renamed names
+``POST /api/loop-program``        a loop of a program as a program of its own (``loop``: its id), for
+                                  "Compare this loop" (:func:`prodigy.web.requests.loop_program`)
 ``POST /api/analyze``             starts an analysis in its own process, returns a job id
 ``GET /``, ``/analyze``, …        the page; ``/compare`` opens it in Compare mode (#154)
 ``POST /api/equivalence``         starts a job that compares two programs (``other_source``, see
@@ -46,7 +48,8 @@ from flask import Flask, abort, jsonify, render_template, request
 from prodigy.web.examples import ConversionError, ExampleLibrary, convert, default_examples_dir
 from prodigy.web.jobs import BusyError, JobManager
 from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, check_input_distribution_bounded, joint_request,
-                                  request_syntax, validate_equivalence, validate_request, validate_suggestion)
+                                  loop_program, request_syntax, validate_equivalence, validate_request,
+                                  validate_suggestion)
 
 # Longest initial distribution that /api/check examines (longer ones are checked by the analysis).
 MAX_INPUT_DISTRIBUTION = 500
@@ -180,6 +183,18 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
             return jsonify({**convert(source), "syntax": "ppy"})
         except ConversionError as exc:
             return jsonify({"error": str(exc), "line": exc.line, "column": exc.column}), 422
+
+    @app.post("/api/loop-program")
+    def isolate() -> Any:
+        """A loop as a program of its own, for Compare mode (#399)."""
+        payload = request.get_json(silent=True) or {}
+        source, loop = payload.get("source"), payload.get("loop")
+        if not isinstance(source, str) or not isinstance(loop, int) or isinstance(loop, bool):
+            abort(400, description="'source' and the loop id 'loop' are needed.")
+        try:
+            return jsonify(loop_program(source, request_syntax(payload), loop))
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 422
 
     @app.post("/api/analyze")
     def analyze() -> Any:

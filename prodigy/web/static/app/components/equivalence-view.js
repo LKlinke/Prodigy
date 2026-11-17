@@ -6,14 +6,14 @@ import { formatSeconds, formatValue } from "./format.js";
 import { card, expressionBox, guaranteeBadge, segmented, press } from "./parts.js";
 import { renderResult } from "./result-view.js";
 import {
-  cellText, checkLines, compareMarginals, comparedVariables, constraintTexts, inputText, inputWords, intervalText,
+  CONTINUE_GUARANTEE, cellText, checkLines, compareMarginals, comparedVariables, constraintTexts, inputText, inputWords, intervalText,
   relationText, stateText, verdictOf,
 } from "./equivalence-model.js";
 import { staleText } from "../staleness.js";
 
 const PROGRAMS = [["first", "Program A"], ["second", "Program B"]];
 
-function verdictCard(result, equivalence) {
+function verdictCard(result, equivalence, continueTo = null) {
   const verdict = verdictOf(equivalence);
   const check = equivalence.check || {};
   const children = [
@@ -37,9 +37,25 @@ function verdictCard(result, equivalence) {
       h("ul", {}, ...constraints.map((text) => h("li", { class: "mono" }, text)))));
   }
   if (equivalence.witness) children.push(witnessTable(equivalence.witness));
+  const next = continueAction(continueTo);
+  if (next) children.push(next);
   children.push(checkDetails(check));
   return h("section", { class: "rv-card eq-verdict", "data-verdict": verdict.key, "data-tone": verdict.tone,
     "aria-label": `Verdict: ${verdict.title}` }, ...children);
+}
+
+/** "Continue in Analyze with B as the loop's result" (#399), with the guarantee Analyze will have, or why a
+ * proven relation does not allow it. `continueTo`: {guarantee, target, onContinue} or {reason}. */
+function continueAction(continueTo) {
+  if (!continueTo) return null;
+  if (!continueTo.guarantee) return continueTo.reason ? h("p", { class: "rv-note eq-continue-note" }, continueTo.reason) : null;
+  const guarantee = CONTINUE_GUARANTEE[continueTo.guarantee];
+  const helpId = "eq-continue-help";
+  return h("div", { class: "eq-continue" },
+    h("button", { type: "button", class: "button", "aria-describedby": helpId, onclick: () => continueTo.onContinue() },
+      icon("forward"), h("span", {}, "Continue in Analyze with B as the loop's result")),
+    h("p", { class: "rv-note", id: helpId }, guaranteeBadge(continueTo.guarantee === "exact" ? "exact" : "upper"), " ",
+      guarantee.text, continueTo.target ? ` ${continueTo.target}` : ""));
 }
 
 function witnessTable(witness) {
@@ -113,7 +129,9 @@ function distributionsCard(result, equivalence) {
 /**
  * Renders a comparison result (an analysis result with an `equivalence` part) into `container`.
  * options: those of renderResult (for the result of program A) plus `programView` ({which}) to
- * remember the chosen program, `onSelectOtherLoop(id)` for the loops of program B, `stale`, `change`, `onRun`. Returns {analysis} of the shown result.
+ * remember the chosen program, `onSelectOtherLoop(id)` for the loops of program B, `stale`, `change`, `onRun`,
+ * and `continueTo` ({guarantee, target, onContinue} or {reason}, see continueOffer) for the continue flow (#399).
+ * Returns {analysis} of the shown result.
  */
 export function renderEquivalence(container, result, options = {}) {
   const equivalence = result.equivalence;
@@ -125,7 +143,8 @@ export function renderEquivalence(container, result, options = {}) {
       options.onRun ? h("button", { type: "button", class: "button small", onclick: () => options.onRun() },
         "Check Again") : null));
   }
-  children.push(verdictCard(result, equivalence), distributionsCard(result, equivalence));
+  children.push(verdictCard(result, equivalence, options.stale ? null : options.continueTo),
+    distributionsCard(result, equivalence));
   const holder = h("div", { class: "eq-program-result" });
   let analysis = null;
   const choose = (which) => {

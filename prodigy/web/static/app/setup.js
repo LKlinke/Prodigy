@@ -338,6 +338,12 @@ function suggestAction(ctx, loop, strategy, param, control) {
   return { button, status };
 }
 
+/** The strategies the menu offers: in Analyze mode not those of `hidden` (the strategy `invariant`, a comparison
+ * with a second program, belongs to Compare mode, #399). */
+export function offeredStrategies(strategies, hidden = null) {
+  return hidden ? strategies.filter((s) => !hidden.has(s.name)) : strategies;
+}
+
 /** A pop-up button with sections (one per group); the summary of the chosen strategy describes it. */
 function strategySelect(strategies, current, summaryId, onChange) {
   const id = nextId("strategy");
@@ -352,9 +358,11 @@ function strategySelect(strategies, current, summaryId, onChange) {
 }
 
 /** "How to choose": every group with its strategies and their one-sentence summaries. */
-function strategyGuide(strategies) {
+function strategyGuide(strategies, compareNote = false) {
   return h("details", { class: "disclosure strategy-guide" }, h("summary", {}, "How to choose a strategy"),
-    h("div", { class: "disclosure-body" }, ...groupStrategies(strategies).map((group) => h("section", { class: "guide-group" },
+    h("div", { class: "disclosure-body" }, compareNote ? h("p", { class: "help" }, "To check a loop against a loop-free "
+      + "program you write (Check invariant), use “Compare this loop” on its card: that is a comparison of two programs.") : null,
+    ...groupStrategies(strategies).map((group) => h("section", { class: "guide-group" },
       h("h5", { class: "guide-title" }, group.title),
       GROUP_HELP[group.key] ? h("p", { class: "help" }, GROUP_HELP[group.key]) : null,
       h("dl", { class: "guide-list" }, ...group.members.flatMap((s) => [
@@ -382,10 +390,28 @@ function loopCard(loop, ctx) {
     setup.decisions[key] = defaultDecision(strategies);
   }
   const card = h("article", { class: "card", id: `loop-card-${domId}`, "aria-labelledby": `loop-title-${domId}` });
+  const offered = offeredStrategies(strategies, ctx.hidden);
+  const comparable = Boolean(ctx.onCompareLoop) && !loop.function;
 
   const render = () => {
     const decision = setup.decisions[key];
     const strategy = byName[decision.strategy];
+    const head = h("div", { class: "loop-head" },
+      h("h4", { id: `loop-title-${domId}`, class: "loop-name" }, `${ctx.loopLabel || "Loop"} ${loop.id} `,
+        h("span", { class: "loop-line" }, loop.line ? `· line ${loop.line}` : "")),
+      outcomeChip(strategy));
+    const code = h("div", { class: "loop-code", title: `while (${loop.cond})` }, `while (${loop.cond})`);
+    if (ctx.hidden?.has(decision.strategy)) {
+      // a decision Analyze no longer offers (saved, from the library or from Compare): it stays and runs, and
+      // the card says what it is instead of silently changing it (#399)
+      card.replaceChildren(head, code, ...comparedLoop(loop, decision, ctx, () => {
+        setup.decisions[key] = defaultDecision(offered);
+        render();
+        onChange();
+        card.querySelector("select")?.focus();
+      }));
+      return;
+    }
     const { required, more } = splitParams(strategy);
     const summaryId = `loop-summary-${domId}`;
     const warnings = [];
@@ -394,12 +420,10 @@ function loopCard(loop, ctx) {
         h("span", {}, "This strategy does not support observe statements before the loop.")));
     }
     card.replaceChildren(...[
-      h("div", { class: "loop-head" },
-        h("h4", { id: `loop-title-${domId}`, class: "loop-name" }, `${ctx.loopLabel || "Loop"} ${loop.id} `,
-          h("span", { class: "loop-line" }, loop.line ? `· line ${loop.line}` : "")),
-        outcomeChip(strategy)),
-      h("div", { class: "loop-code", title: `while (${loop.cond})` }, `while (${loop.cond})`),
-      strategySelect(strategies, decision.strategy, summaryId, (name) => {
+      head,
+      code,
+      decision.compared ? comparedNote(decision.compared) : null,
+      strategySelect(offered, decision.strategy, summaryId, (name) => {
         setup.decisions[key] = { strategy: name, params: defaultParams(byName[name]) };
         render();
         onChange();
@@ -411,6 +435,7 @@ function loopCard(loop, ctx) {
       more.length ? moreParams() : null,
       strategy.summary && strategy.description ? h("details", { class: "disclosure strategy-about" },
         h("summary", {}, "About this strategy"), h("div", { class: "disclosure-body" }, h("p", { class: "help" }, strategy.description))) : null,
+      comparable ? compareButton(loop, ctx, "Compare this loop", "Check this loop against a loop-free program in Compare mode") : null,
     ].filter(Boolean));
 
     function field(param, onValue = null) {
@@ -418,7 +443,8 @@ function loopCard(loop, ctx) {
         decision.params[param.name] = value;
         onValue?.();
         onChange();
-      }, canSuggest(ctx, strategy, param) ? (control) => suggestAction(ctx, loop, strategy, param, control) : null);
+      }, canSuggest(ctx, strategy, param) ? (control) => suggestAction(ctx, loop, strategy, param, control)
+        : param.kind === "pgcl" && ctx.programB ? (control) => programBAction(ctx, control) : null);
     }
 
     // parameters with defaults: behind a disclosure whose summary shows their values (progressive disclosure)
@@ -439,6 +465,52 @@ function loopCard(loop, ctx) {
   };
   render();
   return card;
+}
+
+// ---- loops compared with a loop-free program (#399) ------------------------------------------------
+
+/** "Use program B" next to the invariant program of a loop of program A in Compare mode: the loop is checked
+ * against program B (Park's lemma), and the invariant then follows program B's edits. */
+function programBAction(ctx, control) {
+  const button = h("button", { type: "button", class: "button", title: "Check this loop against program B (Park's lemma)" },
+    "Use program B");
+  button.addEventListener("click", () => {
+    control.value = ctx.programB();
+    control.dispatchEvent(new Event("input"));
+    control.focus();
+  });
+  return { button, status: null };
+}
+
+function compareButton(loop, ctx, label, title) {
+  return h("div", { class: "loop-actions" }, h("button", { type: "button", class: "button small", title,
+    onclick: () => ctx.onCompareLoop(loop.id) }, icon("compare"), h("span", {}, label)));
+}
+
+/** The note on a loop whose decision came from "Continue in Analyze" of a comparison. */
+function comparedNote(compared) {
+  const text = compared.guarantee === "exact"
+    ? "From Compare: this loop equals program B for every input; the strategy below proved it there. The result shows what it proves here."
+    : "From Compare: program B is this loop's result, an upper bound (Program A ⪯ Program B).";
+  return h("p", { class: "notice compared-note" }, icon("compare"), h("span", {}, text));
+}
+
+/** The body of a loop card in Analyze mode whose loop continues with a loop-free program B (the strategy
+ * `invariant`): what that means, program B, and the ways on: Compare, or another strategy. */
+function comparedLoop(loop, decision, ctx, chooseOther) {
+  const program = decision.params?.invariant || "";
+  const text = decision.compared
+    ? "From Compare: program B is this loop's result, an upper bound (Program A ⪯ Program B). Analyze checks it again (Park's lemma)."
+    : "This loop continues with a loop-free program B (Check invariant): an upper bound by Park's lemma, exact if the "
+      + "loop terminates almost surely. Checking a loop against a program is a comparison; edit it in Compare.";
+  const programView = h("details", { class: "disclosure compared-program" }, h("summary", {}, "Program B"),
+    h("div", { class: "disclosure-body" }, h("pre", { class: "mono compared-source" }, program.trim() || "(empty)")));
+  const actions = h("div", { class: "loop-actions" },
+    ctx.onCompareLoop && !loop.function ? h("button", { type: "button", class: "button small",
+      title: "Open this loop as program A and program B in Compare mode", onclick: () => ctx.onCompareLoop(loop.id) },
+    icon("compare"), h("span", {}, "Open in Compare")) : null,
+    h("button", { type: "button", class: "button small", onclick: chooseOther }, "Choose a strategy"));
+  return [h("p", { class: "notice compared-note" }, icon("info"), h("span", {}, text)), programView, actions];
 }
 
 function toggleRow(label, help, checked, onToggle) {
@@ -490,7 +562,9 @@ export function applyInputProblem(input, message, error = input.parentElement?.q
 }
 
 /** Renders the setup panel. ctx: {outline, setup, strategies, meta, source, onChange, focusLoop,
- * suggest(loopId, form, {signal, onProgress}), currentSource(), second}; `second` ({outline, setup: {decisions},
+ * suggest(loopId, form, {signal, onProgress}), currentSource(), hidden, onCompareLoop(loopId), second}; `hidden`
+ * (a Set) names strategies the menu does not offer (Analyze mode: `invariant`, #399), and `onCompareLoop` adds
+ * "Compare this loop" to each loop card; `second` ({outline, setup: {decisions},
  * source, syntax, outlineStale}) adds the loops of program B in Compare mode (their cards are "loop-card-b-<id>"). */
 export function renderSetup(container, ctx) {
   const { outline, setup, meta, onChange } = ctx;
@@ -546,7 +620,7 @@ export function renderSetup(container, ctx) {
     titleId: "loops-title", outlineStale: ctx.outlineStale });
   // Compare mode: program B has loops and decisions of its own
   const second = ctx.second ? (() => {
-    const bCtx = { ...ctx, ...ctx.second, suggest: null, idPrefix: "b-", loopLabel: "Loop" };
+    const bCtx = { ...ctx, ...ctx.second, suggest: null, hidden: null, onCompareLoop: null, programB: null, idPrefix: "b-", loopLabel: "Loop" };
     const bLoops = ctx.second.outline?.loops || [];
     const cards = bLoops.map((loop) => loopCard(loop, bCtx));
     pruneDecisions(ctx.second.setup.decisions, ctx.second.outline);
@@ -573,7 +647,7 @@ function loopSection(ctx, { outline, loopCards, title, titleId, outlineStale, gu
       h("span", { class: "section-note" }, loops.length ? `${loops.length}` : "")),
     outlineStale ? h("p", { class: "notice warning" }, icon("warning"),
       h("span", {}, "The program does not parse right now; the loops are those of the last version that did.")) : null,
-    loops.length && guide ? strategyGuide(ctx.strategies) : null,
+    loops.length && guide ? strategyGuide(offeredStrategies(ctx.strategies, ctx.hidden), Boolean(ctx.hidden)) : null,
     loops.length ? loopCards : h("p", { class: "help" },
       outline ? "This program has no while loops; its semantics is computed exactly." : "Loops appear here once the program parses."));
 }
@@ -586,7 +660,7 @@ export function focusLoopCard(container, loopId, { field = false } = {}) {
   card.classList.add("focused");
   setTimeout(() => card.classList.remove("focused"), 1600);
   const target = field ? card.querySelector(".params input.field, .params textarea") : null;
-  (target || card.querySelector("select"))?.focus({ preventScroll: true });
+  (target || card.querySelector("select, .loop-actions button"))?.focus({ preventScroll: true });
 }
 
 /** Problems that prevent running (shown next to the Analyze button). */

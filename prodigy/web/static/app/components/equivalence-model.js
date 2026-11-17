@@ -141,3 +141,47 @@ export function comparedVariables(first, second) {
   for (const name of second?.distribution?.variables || []) if (!names.includes(name)) names.push(name);
   return names;
 }
+
+// ---- continuing in Analyze with program B as the loop's result (#399) ---------------------------------
+
+/** What Analyze gets for the loop when it continues with program B: the words of the guarantee. */
+export const CONTINUE_GUARANTEE = {
+  exact: { text: "The loop's result is program B's. The loop keeps the strategy that proved this; Analyze runs it again on your input, and its result shows what it proves there." },
+  upper: { text: "Program B over-approximates the loop (Park's lemma, checked again in Analyze); exact if the loop terminates almost surely." },
+};
+
+/**
+ * Whether a comparison lets Analyze continue after a loop with program B as the loop's result, and with which
+ * guarantee. `loopsOfA` / `loopsOfB` count the loops of the two programs: program A must be one loop and
+ * program B loop-free. Returns {guarantee: "exact" | "upper"}, {reason} when a proven relation still does not
+ * allow it (shown as a note), or null.
+ */
+export function continueOffer(equivalence, { loopsOfA = 0, loopsOfB = 0 } = {}) {
+  if (!equivalence) return null;
+  const guarantee = equivalence.verdict === "equivalent" ? "exact"
+    : equivalence.verdict === "unknown" && equivalence.relation === "first_below_second" ? "upper" : null;
+  if (equivalence.verdict === "unknown" && equivalence.relation === "second_below_first") {
+    return { reason: "Only Program B ⪯ Program A is proven, so program B is a lower bound of the loop; Analyze "
+      + "cannot continue with it. For lower bounds, unroll the loop." };
+  }
+  if (!guarantee || loopsOfA !== 1) return null;
+  if ((equivalence.constraints || []).length) {
+    return { reason: "Program B holds for the parameter values above; put them into program B to continue in Analyze." };
+  }
+  if (loopsOfB) return { reason: "Program B has loops; only a loop-free program B can be the loop's result in Analyze." };
+  return { guarantee };
+}
+
+/**
+ * The decision of the loop in Analyze when it continues with program B (`programB`, its text). For an upper
+ * bound it is the strategy `invariant` with B, which Analyze checks again (Park's lemma); for an exact result the
+ * loop keeps `checked`, the decision that proved it equal to B, since `invariant` alone only gives an upper
+ * bound. `compared` records where the decision came from (the Setup shows it; it is not sent).
+ */
+export function continueDecision(guarantee, programB, checked) {
+  if (guarantee === "exact" && checked?.strategy && checked.strategy !== "invariant") {
+    return { strategy: checked.strategy, params: structuredClone(checked.params || {}),
+      compared: { guarantee, program: programB } };
+  }
+  return { strategy: "invariant", params: { invariant: programB }, compared: { guarantee: "upper", program: programB } };
+}

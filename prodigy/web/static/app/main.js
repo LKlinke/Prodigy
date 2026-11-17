@@ -3,13 +3,15 @@ import { api } from "./api.js";
 import { canWriteFiles, createDocument } from "./document.js";
 import { createEditor, SYNTAXES } from "./editor.js";
 import { createLibrary } from "./library.js";
-import { applyInputProblem, defaultDecision, focusLoopCard, renderSetup, rekeyDecisions, setupProblems, swapInvariants } from "./setup.js";
+import { applyInputProblem, defaultDecision, focusLoopCard, offeredStrategies, renderSetup, rekeyDecisions, setupProblems,
+  swapInvariants } from "./setup.js";
 import { changeSince } from "./staleness.js";
 import { load, save } from "./store.js";
 import { h, icon } from "./components/dom.js";
 import { BOUND_TEXT, formatSeconds, formatValue, qualify } from "./components/format.js";
 import { renderResult, renderRunning } from "./components/result-view.js";
 import { renderEquivalence } from "./components/equivalence-view.js";
+import { continueDecision, continueOffer } from "./components/equivalence-model.js";
 
 const WELCOME = `# A fair coin is flipped until it shows heads; c counts the tails.
 # Press Analyze (⌘↩). How the loop is analysed is set in Setup.
@@ -52,8 +54,16 @@ const state = {
   // program B of Compare mode: diagnostics, outline and loop decisions of its own, which column a narrow
   // editor pane shows, and which program's result the comparison shows
   compare: { diagnostics: [], outline: null, outlineStale: false, decisions: {}, graveyard: {}, active: "first",
-    programView: { which: "first" } },
+    programView: { which: "first" },
+    // "Compare this loop" (#399): the program the loop was taken from ({source, syntax, decisions, input, loop,
+    // program, programLoop, whole}), restored when going back to Analyze; kept across reloads
+    origin: null,
+    // program B as it was before its last edit: invariants of program A's loops that equal it follow its edits
+    lastOther: "" },
 };
+
+/** Strategies Analyze mode does not offer: checking a loop against a program is a comparison (#399). */
+const COMPARE_ONLY = new Set(["invariant"]);
 
 const TABS = ["setup", "result"];
 
@@ -140,6 +150,7 @@ function renderTitle({ name, category, edited, fileName }) {
 
 /** New or Open replaced the program: its loops and results no longer apply. */
 async function programReplaced() {
+  forgetOrigin();
   state.setup.decisions = {};
   state.setup.input = "";
   state.pendingDefault = null;
@@ -278,14 +289,16 @@ function modeFromUrl() {
  * Switches the window to `mode`. Program A (the first editor, its setup) stays; each mode keeps its own
  * result. `history` is "push" (a choice of the person), "replace" or null (the URL already says it).
  * While a job runs the mode stays (its result belongs to the mode it was started in); returns whether it
- * switched.
+ * switched. Going back to Analyze from a loop opened with "Compare this loop" brings back the program it came
+ * from (see restoreOrigin), with `continueWith` as the decision of that loop if given.
  */
-function setMode(mode, { focus = false, history: how = "push" } = {}) {
+function setMode(mode, { focus = false, history: how = "push", continueWith = null } = {}) {
   if (!MODES.includes(mode)) mode = "analyze";
   if (state.job && mode !== state.mode) {
     notify(`Stop the running ${state.job.comparing ? "check" : "analysis"} before switching to ${mode === "compare" ? "Compare" : "Analyze"}.`);
     return false;
   }
+  const leavingCompare = state.mode === "compare" && mode === "analyze";
   if (mode !== state.mode) {
     state.results[state.mode] = { result: state.result };
     state.result = state.results[mode]?.result || null;
@@ -295,6 +308,7 @@ function setMode(mode, { focus = false, history: how = "push" } = {}) {
     editor.showStep(null);
   }
   state.mode = mode;
+  if (leavingCompare) restoreOrigin(continueWith);
   const compare = mode === "compare";
   $("editor-pane").dataset.compare = String(compare);
   $("column-second").hidden = !compare;
@@ -476,7 +490,8 @@ function renderSetupPanel() {
     },
     suggest: requestSuggestion,
     currentSource: () => editor.getSource(),
-    ...(state.mode === "compare" ? { second: {
+    ...(state.mode === "analyze" ? { hidden: COMPARE_ONLY, onCompareLoop: compareLoop } : {}),
+    ...(state.mode === "compare" ? { programB: () => otherEditor.getSource(), second: {
       outline: state.compare.outline,
       outlineStale: Boolean(state.compare.outlineStale && state.compare.outline),
       setup: { decisions: state.compare.decisions },
@@ -538,8 +553,15 @@ function useEvtCandidate(loopId, candidate) {
 /** "Open in Compare" of a parametric invariant (#154): the loop becomes program A (the program itself if
  * the loop is all it does) with the invariant as the strategy of that loop, the invariant becomes program B. */
 function openInCompare(details) {
-  if (!details?.invariant || !setMode("compare")) return;
+  if (!details?.invariant || state.job) return;
   const syntax = editor.getSyntax();
+  const source = editor.getSource();
+  const loop = details.loop ?? details.program_loop ?? 0;
+  if (details.program && state.mode === "analyze") {
+    rememberOrigin({ source, syntax, loop, program: details.program, programLoop: details.program_loop ?? loop,
+      whole: details.program === source });
+  }
+  if (!setMode("compare")) return;
   const decision = { strategy: "invariant", params: { invariant: details.invariant } };
   if (details.program && details.program !== editor.getSource()) {
     // undoable (⌘Z); the decisions belong to the loops of the new program
@@ -550,7 +572,7 @@ function openInCompare(details) {
   }
   state.setup.decisions[String(details.program_loop ?? details.loop ?? 0)] = decision;
   save("setup", state.setup);
-  otherEditor.setSource(details.invariant, syntax);
+  setOtherSource(details.invariant, syntax);
   state.compare.decisions = {};
   state.compare.outline = null;
   showColumn("first");
@@ -560,6 +582,173 @@ function openInCompare(details) {
   scheduleCheck(0);
   scheduleOtherCheck(0);
   notify("Loop and invariant opened in Compare as programs A and B. Press Check (⌘↩) to find the parameter values.");
+}
+
+// ---- a loop against a loop-free program: Compare this loop, Continue in Analyze (#399) ---------------------
+
+/** Program B gets `source`; invariants of program A's loops that were program B do not follow this. */
+function setOtherSource(source, syntax) {
+  state.compare.lastOther = source;
+  otherEditor.setSource(source, syntax);
+  state.compare.lastOther = otherEditor.getSource();
+}
+
+/** Remembers the program a loop was taken from (the current program A, its decisions and input). */
+function rememberOrigin({ source, syntax, loop, program, programLoop, whole }) {
+  state.compare.origin = { source, syntax, decisions: structuredClone(state.setup.decisions), input: state.setup.input || "",
+    loop, program, programLoop, whole };
+  save("compareOrigin", state.compare.origin);
+}
+
+function forgetOrigin() {
+  state.compare.origin = null;
+  save("compareOrigin", null);
+}
+
+/** Whether program A is still the loop that "Compare this loop" took out of a program. */
+function originActive() {
+  const origin = state.compare.origin;
+  return Boolean(origin) && editor.getSource() === origin.program && editor.getSyntax() === origin.syntax;
+}
+
+/**
+ * Back in Analyze after "Compare this loop": if program A is still that loop, the program it came from comes back
+ * (undoable with ⌘Z), with its decisions and initial distribution, and `decision` for the loop if given (the
+ * continue flow). If program A was edited into something else, it stays as it is.
+ */
+function restoreOrigin(decision) {
+  const origin = state.compare.origin;
+  if (!originActive()) return;
+  forgetOrigin();
+  if (!origin.whole) {
+    editor.setSource(origin.source, origin.syntax);
+    state.outline = null;
+    state.graveyard = {};
+  }
+  state.setup.decisions = origin.decisions || {};
+  if (decision) state.setup.decisions[String(origin.loop)] = decision;
+  state.setup.input = origin.input || "";
+  save("setup", state.setup);
+  scheduleCheck(0);
+}
+
+/**
+ * "Compare this loop" of a loop card in Analyze: the loop becomes program A of Compare mode, on its own (with the
+ * declarations; the code before it is left out because a comparison holds for every input, see
+ * prodigy.analysis.session.isolate_loop), and program B is the loop-free program it continues with, or the
+ * declarations to write one. The program comes back when going back to Analyze.
+ */
+async function compareLoop(loopId) {
+  if (state.job) { notify(`Stop the running ${state.job.comparing ? "check" : "analysis"} first.`); return; }
+  const source = editor.getSource();
+  const syntax = editor.getSyntax();
+  let isolated;
+  try {
+    isolated = await api.loopProgram(source, syntax, loopId);
+  } catch (error) {
+    showRunMessage(error.message);
+    return;
+  }
+  if (source !== editor.getSource() || syntax !== editor.getSyntax() || state.mode !== "analyze") return;
+  const { compared: _compared, ...current } = state.setup.decisions[String(loopId)]
+    || defaultDecision(offeredStrategies(state.strategies, COMPARE_ONLY));
+  const invariant = current.strategy === "invariant" ? current.params?.invariant || "" : "";
+  rememberOrigin({ source, syntax, loop: loopId, program: isolated.program, programLoop: isolated.loop,
+    whole: isolated.whole });
+  // program B before the switch (an empty one would become a copy of program A)
+  setOtherSource(invariant || isolated.declarations
+    || (syntax === "ppy" ? "# Program B: a loop-free program\n" : "// Program B: a loop-free program\n"), syntax);
+  state.compare.decisions = {};
+  state.compare.outline = null;
+  state.compare.graveyard = {};
+  if (!setMode("compare")) { forgetOrigin(); return; }
+  if (!isolated.whole) {
+    editor.setSource(isolated.program, syntax);
+    state.setup.decisions = {};
+    state.outline = null;
+    state.graveyard = {};
+  }
+  state.setup.decisions[String(isolated.loop)] = structuredClone(current);
+  // the initial distribution belongs to the whole program
+  state.setup.input = "";
+  save("setup", state.setup);
+  state.result = null;
+  state.resultStale = false;
+  state.resultChange = null;
+  renderResultPanel();
+  renderSetupPanel();
+  updateAnnotations();
+  scheduleCheck(0);
+  scheduleOtherCheck(0);
+  selectTab("setup");
+  const what = isolated.whole ? `Loop ${loopId} is program A` : `Loop ${loopId} is program A, on its own`;
+  if (invariant) {
+    showColumn("first");
+    $("btn-run").focus();
+    notify(`${what}; its loop-free program is program B. Press Check (⌘↩). Analyze brings your program back.`);
+  } else {
+    showColumn("second");
+    // the cursor after the declarations, where program B's instructions go
+    otherEditor.revealLine(otherEditor.getSource().split("\n").length);
+    notify(`${what}. Write the loop-free program B and press Check (⌘↩). Analyze brings your program back.`);
+  }
+}
+
+/** What the verdict card offers for continuing in Analyze (see continueOffer), or null. */
+function continueTarget() {
+  const result = state.result;
+  if (state.mode !== "compare" || !result?.equivalence || state.resultStale) return null;
+  const loops = state.outline?.loops || [];
+  const offer = continueOffer(result.equivalence, { loopsOfA: loops.length, loopsOfB: (state.compare.outline?.loops || []).length });
+  if (!offer?.guarantee) return offer;
+  const origin = originActive() ? state.compare.origin : null;
+  const loopInA = loops[0].id;
+  const target = origin && !origin.whole ? `It replaces loop ${origin.loop} of your program; the code before the loop runs as before.`
+    : "Program A runs with it in Analyze.";
+  return { guarantee: offer.guarantee, target, onContinue: () => continueInAnalyze(offer.guarantee, loopInA) };
+}
+
+/** "Continue in Analyze with B as the loop's result": the loop's decision follows the verdict (see
+ * continueDecision), the program the loop came from comes back, and Analyze runs. */
+function continueInAnalyze(guarantee, loopInA) {
+  const checked = state.result?.__request?.decisions?.[String(loopInA)] || state.setup.decisions[String(loopInA)];
+  const decision = continueDecision(guarantee, otherEditor.getSource(), checked);
+  const fromOrigin = originActive();
+  if (!setMode("analyze", { continueWith: fromOrigin ? decision : null })) return;
+  if (!fromOrigin) {
+    state.setup.decisions[String(loopInA)] = decision;
+    save("setup", state.setup);
+  }
+  renderSetupPanel();
+  updateAnnotations();
+  run();
+}
+
+/** In Compare mode, a loop of program A whose invariant is program B (as "Compare this loop" and the library set
+ * it up) keeps checking program B while it is edited. */
+function followProgramB(source) {
+  const before = state.compare.lastOther;
+  state.compare.lastOther = source;
+  if (state.mode !== "compare" || before === source) return;
+  let changed = false;
+  for (const decision of Object.values(state.setup.decisions)) {
+    if (decision?.strategy === "invariant" && decision.params?.invariant === before) {
+      decision.params.invariant = source;
+      changed = true;
+    }
+  }
+  if (changed) {
+    save("setup", state.setup);
+    const field = [...$("panel-setup").querySelectorAll("textarea")].find((t) => t.value === before);
+    if (field) field.value = source;
+  }
+}
+
+/** Why saving is not possible right now: program A is a loop taken out of the program, so saving would write only
+ * the loop into the file (null if saving is fine). */
+function saveBlocked() {
+  if (state.mode !== "compare" || !originActive() || state.compare.origin.whole) return null;
+  return "Program A is one loop of your program. Switch to Analyze (⌥⌘1) to get your program back, then save.";
 }
 
 // ---- annotations in the editor ------------------------------------------------------------------
@@ -714,6 +903,7 @@ function renderResultPanel() {
       elapsed: state.result.__elapsed,
       programView: state.compare.programView,
       onSelectOtherLoop: (id) => showLoop(`b-${id}`),
+      continueTo: continueTarget(),
     });
     state.analysis.card = null;
     const verdict = state.result.equivalence.verdict;
@@ -1013,10 +1203,11 @@ async function loadExample(example, syntax = "ppy") {
     showRunMessage(error.message);
     return;
   }
+  forgetOrigin();
   editor.setSource(data.source, data.syntax || "ppy");
   if (data.other) {
     // an equivalence example: the second program goes into the second editor (#154)
-    otherEditor.setSource(data.other.source, data.other.syntax || "ppy");
+    setOtherSource(data.other.source, data.other.syntax || "ppy");
     state.compare.decisions = {};
     state.compare.outline = null;
     state.compare.graveyard = {};
@@ -1180,6 +1371,7 @@ async function boot() {
     onSyntaxChange: (syntax) => { save("otherSyntax", syntax); renderOtherSyntax(); scheduleOtherCheck(0); refreshStale(); },
     onChange: (source) => {
       save("otherSource", source);
+      followProgramB(source);
       refreshStale();
       scheduleOtherCheck();
     },
@@ -1190,10 +1382,12 @@ async function boot() {
   initCompareTabs();
   initModeSwitch();
   state.compare.decisions = load("otherDecisions", {}) || {};
+  state.compare.origin = load("compareOrigin", null);
+  state.compare.lastOther = otherEditor.getSource();
   state.analysis.watches = (load("watches", []) || []).filter((w) => typeof w === "string").slice(0, 8);
   save("syntax", editor.getSyntax());
   documents = createDocument({ editor, initialText: editor.getSource(), onReplace: programReplaced, notify,
-    onChange: renderTitle });
+    onChange: renderTitle, saveBlocked });
   documents.changed();
 
   const library = createLibrary($("library"), { api, onLoad: loadExample, onLoadFile: (entry) => documents.openRecentFile(entry) });
