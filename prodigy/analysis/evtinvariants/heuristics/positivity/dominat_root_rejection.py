@@ -5,7 +5,7 @@ import sympy
 
 from prodigy.analysis.evtinvariants.heuristics.positivity.coefficients import series_form
 from prodigy.analysis.evtinvariants.heuristics.positivity.polynomial_positivity import FinitePolynomialPositivity
-from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic
+from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic, PositivityInput
 from prodigy.analysis.exceptions import VerificationError
 from prodigy.util.logger import log_setup
 
@@ -36,14 +36,14 @@ class DominantRootHeuristic(PositivityHeuristic):
     PRECISION = 50
     TIE = sympy.Float("1e-40")
 
-    def _is_positive(self, f) -> Optional[bool]:
+    def _is_positive(self, f: PositivityInput) -> Optional[bool]:
         try:
             return self._refute(f)
         except (VerificationError, sympy.PolynomialError, NotImplementedError, TypeError, IndexError,
                 ValueError, ZeroDivisionError, sympy.polys.polyerrors.BasePolynomialError):
             return None
 
-    def _refute(self, f) -> Optional[bool]:
+    def _refute(self, f: PositivityInput) -> Optional[bool]:
         s_f, gens = series_form(f, self.variables)
         if len(s_f.free_symbols) > 1 or set(s_f.free_symbols) - set(gens):
             raise VerificationError(f"Currently only univariate rational functions without parameters are "

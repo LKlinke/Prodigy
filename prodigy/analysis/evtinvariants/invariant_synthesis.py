@@ -105,7 +105,7 @@ def _time_limit(seconds: Optional[float],
         return
     armed = [True]
 
-    def on_alarm(_signum, _frame):
+    def on_alarm(_signum: int, _frame: Any) -> None:
         if armed[0]:
             raise exception()
 

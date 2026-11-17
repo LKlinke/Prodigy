@@ -30,6 +30,12 @@ near 0 and therefore on the whole open unit polydisk, where the filtered series 
 (it is a part of the series of F), so substituting values of modulus at most 1 (marginals,
 probabilities, expected values) gives the values of the series. Everything else (parameters,
 kernels of higher degree, other square roots) raises :class:`ComparisonNotImplemented`.
+
+Infinite mass (Prodigy#366): the identity above needs F only near 0 (F(0, 0, r) defined), not at 1,
+so the result equals the filtered series as a formal power series for measures with infinite mass
+too (e.g. second-order distributions); R(0) = 1 makes the principal square root the formal one.
+The branch proof is required there as well, since the result is later evaluated at points of
+modulus 1; where the filtered series converges, the values agree as above.
 """
 from __future__ import annotations
 

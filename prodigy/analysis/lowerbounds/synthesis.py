@@ -24,7 +24,7 @@ import math
 import time
 from dataclasses import dataclass, field
 from fractions import Fraction
-from typing import Any, Callable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -44,7 +44,7 @@ class Certificate:
     margin: Optional[float]
     time_build: float
     time_lp: float
-    exit_mass: Any = None
+    exit_mass: Any = None  # a Value once the certificate is verified; None before (see to_json)
     total_mass: Any = None
     extra: dict = field(default_factory=dict)
 
@@ -64,7 +64,7 @@ class Certificate:
 
 
 def scaled_expansion(calc: GFCalculus, polys: Sequence[Num],
-                     box: Sequence[int]) -> Tuple[np.ndarray, np.ndarray, List[Any]]:
+                     box: Sequence[int]) -> Tuple[np.ndarray, np.ndarray, List[int]]:
     """Coefficients of ``P_j / D`` on the box ``prod_i [0, box_i]`` for all ``P_j`` at once, as an exact integer
     array ``M[n, j] = S(n) * coeff_n(P_j / D)`` with positive row scales ``S(n) = L * prod_i b_i^floor(n_i / p_i)``
     (``r_i = a_i / b_i``, ``L`` a common denominator of the coefficients), and as a floating-point array of the
@@ -94,14 +94,14 @@ def scaled_expansion(calc: GFCalculus, polys: Sequence[Num],
         axis_scales.append(scales)
         for v in range(n_i):
             if scales[v] != 1:
-                idx: List[Any] = [slice(None)] * (d + 1)
+                idx: List[Union[slice, int]] = [slice(None)] * (d + 1)
                 idx[i] = v
                 arr[tuple(idx)] *= scales[v]
         rf = float(r)
         for v in range(p, n_i):
-            iv: List[Any] = [slice(None)] * (d + 1)
+            iv: List[Union[slice, int]] = [slice(None)] * (d + 1)
             iv[i] = v
-            iw: List[Any] = [slice(None)] * (d + 1)
+            iw: List[Union[slice, int]] = [slice(None)] * (d + 1)
             iw[i] = v - p
             arr[tuple(iv)] += a * arr[tuple(iw)]
             farr[tuple(iv)] += rf * farr[tuple(iw)]

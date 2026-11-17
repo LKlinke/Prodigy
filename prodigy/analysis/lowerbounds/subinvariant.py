@@ -32,6 +32,9 @@ from prodigy.distribution.distribution import Distribution
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
+Details = Dict[str, Any]
+"""A JSON-like record for the result (heterogeneous values: ``Any`` is correct here)."""
+
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
@@ -90,7 +93,7 @@ def nonneg_by_construction(expr_str: Union[str, sympy.Expr], variables: Sequence
 
 
 def decide_nonneg(expr_str: str, variables: Sequence[str], config: ForwardAnalysisConfig,
-                  negative: Optional[Dict[str, Any]] = None) -> Tuple[Optional[bool], str]:
+                  negative: Optional[Details] = None) -> Tuple[Optional[bool], str]:
     """Coefficient-wise nonnegativity: exact for product denominators, then a sufficient criterion for rational
     functions, otherwise Prodigy's heuristics.
 
@@ -153,7 +156,7 @@ def evt_subinvariant_verification(loop: WhileInstr, prog_info: ProgramInfo, dist
                                   analyzer: Callable[[Union[Instr, Sequence[Instr]], ProgramInfo, Distribution,
                                                       Distribution, ForwardAnalysisConfig],
                                                      Tuple[Distribution, Distribution]],
-                                  details: Optional[Dict[str, Any]] = None) -> Distribution:
+                                  details: Optional[Details] = None) -> Distribution:
     """Verify an EVT sub-invariant ``nu`` of finite mass and return the lower bound ``<nu>_{not G}`` on the output
     distribution of the loop (raises :class:`VerificationError` if the conditions cannot be established).
 
@@ -171,7 +174,7 @@ def evt_subinvariant_verification(loop: WhileInstr, prog_info: ProgramInfo, dist
     phi = distribution + body_out
     residual = phi - invariant
     logger.debug("Phi(nu) - nu = %s", residual)
-    negative: Dict[str, Any] = {}
+    negative: Details = {}
     nonneg_nu, how1 = decide_nonneg(str(invariant), variables, config, negative)
     if nonneg_nu is not True:
         raise VerificationError(f"Could not establish nu >= 0 ({how1}).",

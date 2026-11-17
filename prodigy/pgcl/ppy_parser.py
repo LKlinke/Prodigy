@@ -41,7 +41,8 @@ import functools
 import re
 from decimal import Decimal
 from fractions import Fraction
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import (Any, Callable, Dict, List, Optional, Sequence, Set, Tuple,
+                    TypeVar, Union, cast)
 
 import attr
 from lark import Lark, Token, Transformer, v_args
@@ -238,6 +239,13 @@ class _VarDeclStatement:
     meta: Meta = attr.ib()
 
 
+_Children = List[Any]
+"""The children Lark hands to a callback: tokens, AST nodes, tuples and lists, depending on the
+rule (``Any`` is correct here)."""
+
+_F = TypeVar("_F", bound=Callable[..., Any])  # any rule callback
+
+
 @attr.s
 class _TopDecl:
     """Parser-internal: a declaration only allowed at the top level."""
@@ -252,15 +260,19 @@ class _Query:
     meta: Meta = attr.ib()
 
 
-def _spanned(method: Callable[..., Any]) -> Callable[..., Any]:
+_Item = Union[Instr, _TopDecl, _VarDeclStatement, None]
+"""A statement of a program or function body as the parser sees it before hoisting."""
+
+
+def _spanned(method: _F) -> _F:
     """Attaches the source span of the statement to the instruction (or query) it returns
     (see :mod:`prodigy.pgcl.positions`)."""
     @functools.wraps(method)
-    def wrapper(self: Any, meta: Meta, children: List[Any]) -> Any:
+    def wrapper(self: object, meta: Meta, children: _Children) -> object:
         result = method(self, meta, children)
         set_span(result.instr if isinstance(result, _Query) else result, span_from_meta(meta))
         return result
-    return wrapper
+    return cast(_F, wrapper)
 
 
 _MONADIC = (CategoricalExpr, InferExpr, SampleExpr)
@@ -330,83 +342,83 @@ class _ToAst(Transformer):
 
     # --- expressions ------------------------------------------------------
 
-    def nat_lit(self, meta: Meta, children: List[Any]) -> Any:
+    def nat_lit(self, meta: Meta, children: _Children) -> NatLitExpr:
         return NatLitExpr(int(children[0]))
 
-    def real_lit(self, meta: Meta, children: List[Any]) -> Any:
+    def real_lit(self, meta: Meta, children: _Children) -> RealLitExpr:
         return RealLitExpr(Decimal(str(children[0])))
 
-    def infinity(self, meta: Meta, children: List[Any]) -> Any:
+    def infinity(self, meta: Meta, children: _Children) -> RealLitExpr:
         return RealLitExpr.infinity()
 
-    def true(self, meta: Meta, children: List[Any]) -> Any:
+    def true(self, meta: Meta, children: _Children) -> BoolLitExpr:
         return BoolLitExpr(True)
 
-    def false(self, meta: Meta, children: List[Any]) -> Any:
+    def false(self, meta: Meta, children: _Children) -> BoolLitExpr:
         return BoolLitExpr(False)
 
-    def parens(self, meta: Meta, children: List[Any]) -> Any:
+    def parens(self, meta: Meta, children: _Children) -> Expr:
         return mark_parenthesized(children[0])
 
-    def var(self, meta: Meta, children: List[Any]) -> Any:
+    def var(self, meta: Meta, children: _Children) -> VarExpr:
         return VarExpr(self._name(children[0]))
 
-    def _binop(self, operator: Binop, meta: Meta, children: List[Any]) -> Expr:
+    def _binop(self, operator: Binop, meta: Meta, children: _Children) -> Expr:
         lhs, rhs = (self._plain(child, meta) for child in children)
         return BinopExpr(operator, lhs, rhs)
 
-    def or_(self, meta: Meta, children: List[Any]) -> Any:
+    def or_(self, meta: Meta, children: _Children) -> Expr:
         return self._binop(Binop.OR, meta, children)
 
-    def and_(self, meta: Meta, children: List[Any]) -> Any:
+    def and_(self, meta: Meta, children: _Children) -> Expr:
         return self._binop(Binop.AND, meta, children)
 
-    def not_(self, meta: Meta, children: List[Any]) -> Any:
+    def not_(self, meta: Meta, children: _Children) -> UnopExpr:
         return UnopExpr(Unop.NEG, self._plain(children[0], meta))
 
-    def leq(self, meta: Meta, children: List[Any]) -> Any:
+    def leq(self, meta: Meta, children: _Children) -> Expr:
         return self._binop(Binop.LEQ, meta, children)
 
-    def lt(self, meta: Meta, children: List[Any]) -> Any:
+    def lt(self, meta: Meta, children: _Children) -> Expr:
         return self._binop(Binop.LT, meta, children)
 
-    def gt(self, meta: Meta, children: List[Any]) -> Any:
+    def gt(self, meta: Meta, children: _Children) -> Expr:
         return self._binop(Binop.GT, meta, children)
 
-    def geq(self, meta: Meta, children: List[Any]) -> Any:
+    def geq(self, meta: Meta, children: _Children) -> Expr:
         return self._binop(Binop.GEQ, meta, children)
 
-    def eq(self, meta: Meta, children: List[Any]) -> Any:
+    def eq(self, meta: Meta, children: _Children) -> Expr:
         return self._binop(Binop.EQ, meta, children)
 
-    def plus(self, meta: Meta, children: List[Any]) -> Any:
+    def plus(self, meta: Meta, children: _Children) -> Expr:
         return self._binop(Binop.PLUS, meta, children)
 
-    def minus(self, meta: Meta, children: List[Any]) -> Any:
+    def minus(self, meta: Meta, children: _Children) -> Expr:
         return self._binop(Binop.MINUS, meta, children)
 
-    def times(self, meta: Meta, children: List[Any]) -> Any:
+    def times(self, meta: Meta, children: _Children) -> Expr:
         return self._binop(Binop.TIMES, meta, children)
 
-    def divide(self, meta: Meta, children: List[Any]) -> Any:
+    def divide(self, meta: Meta, children: _Children) -> Expr:
         lhs, rhs = (self._plain(child, meta) for child in children)
         return _fraction(lhs, rhs, meta)
 
-    def floor_divide(self, meta: Meta, children: List[Any]) -> Any:
+    def floor_divide(self, meta: Meta, children: _Children) -> Expr:
         return self._binop(Binop.FLOOR_DIVIDE, meta, children)
 
-    def mod(self, meta: Meta, children: List[Any]) -> Any:
+    def mod(self, meta: Meta, children: _Children) -> Expr:
         return self._binop(Binop.MODULO, meta, children)
 
-    def power(self, meta: Meta, children: List[Any]) -> Any:
+    def power(self, meta: Meta, children: _Children) -> Expr:
         return self._binop(Binop.POWER, meta, children)
 
-    def uminus(self, meta: Meta, children: List[Any]) -> Any:
+    def uminus(self, meta: Meta, children: _Children) -> BinopExpr:
         # the same representation as the old parser: -e is (-1) * e
         return BinopExpr(Binop.TIMES, RealLitExpr(Fraction(-1)),
                          self._plain(children[0], meta))
 
-    def arguments(self, meta: Meta, children: List[Any]) -> Any:
+    def arguments(self, meta: Meta, children: _Children) -> Tuple[List[Expr], Dict[str, Expr]]:
         positional: List[Expr] = []
         named: Dict[str, Expr] = {}
         for child in children:
@@ -421,27 +433,27 @@ class _ToAst(Transformer):
                 positional.append(child)
         return positional, named
 
-    def named_argument(self, meta: Meta, children: List[Any]) -> Any:
+    def named_argument(self, meta: Meta, children: _Children) -> Tuple[str, Expr]:
         return self._name(children[0]), children[1]
 
-    def call(self, meta: Meta, children: List[Any]) -> Any:
+    def call(self, meta: Meta, children: _Children) -> FunctionCallExpr:
         name = self._name(children[0])
         params = children[1] if children[1] is not None else ([], {})
         expr = FunctionCallExpr(name, params)
         self.calls.append((expr, meta))
         return expr
 
-    def infer(self, meta: Meta, children: List[Any]) -> Any:
+    def infer(self, meta: Meta, children: _Children) -> InferExpr:
         name = self._name(children[0])
         params = children[1] if len(children) > 1 else ([], {})
         call = FunctionCallExpr(name, params)
         self.calls.append((call, meta))
         return InferExpr(call)
 
-    def sample(self, meta: Meta, children: List[Any]) -> Any:
+    def sample(self, meta: Meta, children: _Children) -> SampleExpr:
         return SampleExpr(self._name(children[0]))
 
-    def dist_query(self, meta: Meta, children: List[Any]) -> Any:
+    def dist_query(self, meta: Meta, children: _Children) -> Expr:
         kind = str(children[0])
         inner = self._plain(children[1], meta)
         if kind == "Pr":
@@ -451,18 +463,18 @@ class _ToAst(Transformer):
         raise _error(children[0], f"Unknown expression '{kind}[…]': use 'Pr[d == k]' or 'Ex[d]' "
                      "for a variable d of type dist.")
 
-    def category(self, meta: Meta, children: List[Any]) -> Any:
+    def category(self, meta: Meta, children: _Children) -> Tuple[Expr, RealLitExpr]:
         value, prob = children
         return self._plain(value, meta), _probability(self._plain(prob, meta), meta)
 
-    def category_dict(self, meta: Meta, children: List[Any]) -> Any:
+    def category_dict(self, meta: Meta, children: _Children) -> List[Tuple[Expr, RealLitExpr]]:
         return list(children)
 
-    def category_list(self, meta: Meta, children: List[Any]) -> Any:
+    def category_list(self, meta: Meta, children: _Children) -> List[Tuple[Expr, RealLitExpr]]:
         return [(NatLitExpr(index), _probability(self._plain(prob, meta), meta))
                 for index, prob in enumerate(children)]
 
-    def categorical(self, meta: Meta, children: List[Any]) -> Any:
+    def categorical(self, meta: Meta, children: _Children) -> CategoricalExpr:
         categories = children[0]
         total = sum(prob.to_fraction() for _, prob in categories)
         if total != 1:
@@ -472,25 +484,25 @@ class _ToAst(Transformer):
 
     # --- types and declarations -------------------------------------------
 
-    def bounds(self, meta: Meta, children: List[Any]) -> Any:
+    def bounds(self, meta: Meta, children: _Children) -> Bounds:
         return Bounds(self._plain(children[0], meta), self._plain(children[1], meta))
 
-    def nat_type(self, meta: Meta, children: List[Any]) -> Any:
+    def nat_type(self, meta: Meta, children: _Children) -> NatType:
         return NatType(children[0] if children else None)
 
-    def real_type(self, meta: Meta, children: List[Any]) -> Any:
+    def real_type(self, meta: Meta, children: _Children) -> RealType:
         return RealType()
 
-    def bool_type(self, meta: Meta, children: List[Any]) -> Any:
+    def bool_type(self, meta: Meta, children: _Children) -> BoolType:
         return BoolType()
 
-    def dist_type(self, meta: Meta, children: List[Any]) -> Any:
+    def dist_type(self, meta: Meta, children: _Children) -> DistributionType:
         return DistributionType()
 
-    def names(self, meta: Meta, children: List[Any]) -> Any:
+    def names(self, meta: Meta, children: _Children) -> List[str]:
         return [self._name(child) for child in children]
 
-    def var_decl(self, meta: Meta, children: List[Any]) -> Any:
+    def var_decl(self, meta: Meta, children: _Children) -> _VarDeclStatement:
         names, typ = children[0], children[1]
         value = children[2] if len(children) > 2 else None
         if len(set(names)) != len(names):
@@ -500,7 +512,7 @@ class _ToAst(Transformer):
         return _VarDeclStatement([VarDecl(name, copy.deepcopy(typ)) for name in names],
                                  value, meta)
 
-    def const_decl(self, meta: Meta, children: List[Any]) -> Any:
+    def const_decl(self, meta: Meta, children: _Children) -> _TopDecl:
         name = self._name(children[0])
         typ: Optional[Type] = children[1] if len(children) == 3 else None
         value = self._plain(children[-1], meta)
@@ -524,7 +536,7 @@ class _ToAst(Transformer):
         if literal and not isinstance(value, fits):
             raise _error(meta, f"The value '{value}' of the constant '{name}' does not have the declared type.")
 
-    def param_decl(self, meta: Meta, children: List[Any]) -> Any:
+    def param_decl(self, meta: Meta, children: _Children) -> _TopDecl:
         name = self._name(children[0])
         typ = children[1]
         if isinstance(typ, NatType):
@@ -534,13 +546,13 @@ class _ToAst(Transformer):
             raise _error(meta, f"The parameter '{name}' must be of type real or nat.")
         return _TopDecl(ParameterDecl(name, typ), meta)
 
-    def def_param(self, meta: Meta, children: List[Any]) -> Any:
+    def def_param(self, meta: Meta, children: _Children) -> VarDecl:
         return VarDecl(self._name(children[0]), children[1])
 
-    def def_params(self, meta: Meta, children: List[Any]) -> Any:
+    def def_params(self, meta: Meta, children: _Children) -> List[VarDecl]:
         return list(children)
 
-    def def_decl(self, meta: Meta, children: List[Any]) -> Any:
+    def def_decl(self, meta: Meta, children: _Children) -> _TopDecl:
         name = self._name(children[0])
         if name in _ILLEGAL_FUNCTION_NAMES:
             raise _error(meta, f"'{name}' is a built-in distribution and cannot be redefined.")
@@ -567,25 +579,25 @@ class _ToAst(Transformer):
     # --- statements -------------------------------------------------------
 
     @_spanned
-    def skip(self, meta: Meta, children: List[Any]) -> Any:
+    def skip(self, meta: Meta, children: _Children) -> SkipInstr:
         return SkipInstr()
 
     @_spanned
-    def abort(self, meta: Meta, children: List[Any]) -> Any:
+    def abort(self, meta: Meta, children: _Children) -> AbortInstr:
         return AbortInstr()
 
-    def empty(self, meta: Meta, children: List[Any]) -> Any:
+    def empty(self, meta: Meta, children: _Children) -> None:
         return None
 
     @_spanned
-    def assign(self, meta: Meta, children: List[Any]) -> Any:
+    def assign(self, meta: Meta, children: _Children) -> AsgnInstr:
         return AsgnInstr(self._name(children[0]), children[1])
 
     @_spanned
-    def observe(self, meta: Meta, children: List[Any]) -> Any:
+    def observe(self, meta: Meta, children: _Children) -> ObserveInstr:
         return ObserveInstr(self._plain(children[0], meta))
 
-    def block(self, meta: Meta, children: List[Any]) -> Any:
+    def block(self, meta: Meta, children: _Children) -> List[Instr]:
         instrs: List[Instr] = []
         for child in children:
             if child is None:
@@ -600,11 +612,11 @@ class _ToAst(Transformer):
         return instrs
 
     @_spanned
-    def while_(self, meta: Meta, children: List[Any]) -> Any:
+    def while_(self, meta: Meta, children: _Children) -> WhileInstr:
         return WhileInstr(self._plain(children[0], meta), children[1])
 
     @_spanned
-    def if_statement(self, meta: Meta, children: List[Any]) -> Any:
+    def if_statement(self, meta: Meta, children: _Children) -> IfInstr:
         cond = self._plain(children[0], meta)
         if len(children) < 3:
             return IfInstr(cond, children[1], [])
@@ -612,11 +624,11 @@ class _ToAst(Transformer):
         return IfInstr(cond, children[1], other if isinstance(other, list) else [other])
 
     @_spanned
-    def choice(self, meta: Meta, children: List[Any]) -> Any:
+    def choice(self, meta: Meta, children: _Children) -> ChoiceInstr:
         return ChoiceInstr(self._plain(children[1], meta), children[0], children[2])
 
     @_spanned
-    def loop(self, meta: Meta, children: List[Any]) -> Any:
+    def loop(self, meta: Meta, children: _Children) -> LoopInstr:
         count, body = children
         if count.type == "INT":
             return LoopInstr(NatLitExpr(int(count)), body)
@@ -624,15 +636,15 @@ class _ToAst(Transformer):
         self.pending_loops.append((instr, self._name(count), meta))
         return instr
 
-    def case(self, meta: Meta, children: List[Any]) -> Any:
+    def case(self, meta: Meta, children: _Children) -> Tuple[List[Expr], List[Instr]]:
         values = [self._plain(value, meta) for value in children[:-1]]
         return values, children[-1]
 
-    def default(self, meta: Meta, children: List[Any]) -> Any:
+    def default(self, meta: Meta, children: _Children) -> List[Instr]:
         return children[0]
 
     @_spanned
-    def switch(self, meta: Meta, children: List[Any]) -> Any:
+    def switch(self, meta: Meta, children: _Children) -> Instr:
         var = self._name(children[0])
         rest = children[1:]
         otherwise: List[Instr] = []
@@ -646,13 +658,13 @@ class _ToAst(Transformer):
         return otherwise[0]
 
     @_spanned
-    def query_block(self, meta: Meta, children: List[Any]) -> Any:
+    def query_block(self, meta: Meta, children: _Children) -> QueryInstr:
         return QueryInstr(children[0])
 
     # --- queries ----------------------------------------------------------
 
     @_spanned
-    def query(self, meta: Meta, children: List[Any]) -> Any:
+    def query(self, meta: Meta, children: _Children) -> _Query:
         kind = str(children[0])
         expr = self._plain(children[1], meta)
         if kind == "Cov":
@@ -671,11 +683,11 @@ class _ToAst(Transformer):
                      "'query Var[…]' or 'query Cov[…, …]'.")
 
     @_spanned
-    def print_query(self, meta: Meta, children: List[Any]) -> Any:
+    def print_query(self, meta: Meta, children: _Children) -> _Query:
         return _Query(PrintInstr(), meta)
 
     @_spanned
-    def plot(self, meta: Meta, children: List[Any]) -> Any:
+    def plot(self, meta: Meta, children: _Children) -> _Query:
         variables = [VarExpr(self._name(child)) for child in children if isinstance(child, Token)]
         literals = [child for child in children if not isinstance(child, Token)]
         kwargs: Dict[str, Any] = {}
@@ -690,7 +702,7 @@ class _ToAst(Transformer):
         return _Query(PlotInstr(variables[0], **kwargs), meta)
 
     @_spanned
-    def optimize(self, meta: Meta, children: List[Any]) -> Any:
+    def optimize(self, meta: Meta, children: _Children) -> _Query:
         expr = self._plain(children[0], meta)
         parameter = self._name(children[1])
         mode = str(children[2])
@@ -701,11 +713,11 @@ class _ToAst(Transformer):
 
     # --- program ----------------------------------------------------------
 
-    def start(self, meta: Meta, children: List[Any]) -> Any:
+    def start(self, meta: Meta, children: _Children) -> Program:
         declarations: List[Decl] = []
         instructions: List[Instr] = []
         queries: List[Instr] = []
-        statements: List[Any] = []
+        statements: List[_Item] = []
         first_query: Optional[_Query] = None
         for child in children:
             if child is None:
@@ -758,7 +770,7 @@ class _ToAst(Transformer):
                     raise _error(meta, f"The argument '{name}' of '{call.function}' is given twice.")
 
 
-def _hoist(items: List[Any], declarations: List[Decl], *, zero_init_all: bool) -> List[Instr]:
+def _hoist(items: Sequence[_Item], declarations: List[Decl], *, zero_init_all: bool) -> List[Instr]:
     """
     Move the declarations of a program or function body into ``declarations``
     and return the instructions. An initial value becomes an assignment at the
@@ -899,7 +911,7 @@ def _end_position(source: str) -> Tuple[int, int]:
     return len(lines), len(lines[-1]) + 1
 
 
-def _transform(source: str, start: str) -> Any:
+def _transform(source: str, start: str) -> object:  # a Program or an Expr, by rule
     try:
         tree = _PARSER.parse(source, start=start)
     except UnexpectedInput as exc:
@@ -942,4 +954,4 @@ def parse_ppy_expr(code: str) -> Expr:
         BinopExpr(operator=Binop.OR, lhs=UnopExpr(operator=Unop.NEG, expr=VarExpr('z')), rhs=VarExpr('x'))
     """
     expr = _transform(code, "expression")
-    return _ToAst._plain(expr, None)  # pylint: disable=protected-access
+    return _ToAst._plain(cast(Expr, expr), None)  # pylint: disable=protected-access

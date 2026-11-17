@@ -62,7 +62,8 @@ Prodigy is tested with Python 3.11 and 3.14.
   outline on the axis. Log charts are not animated. The lens, the choice of variable and view are
   kept when the program is analysed again; the timeline starts at the final result.
 * **Examples**: the programs in `pgfexamples/` (in `.ppy`), with a suggested setup derived from
-  their first line (e.g. `check_equality` examples come with their invariant). A `.pgcl` example
+  their first line (e.g. `check_equality` examples come with their invariant and open in Compare
+  mode with both programs, see [Comparing two programs](#comparing-two-programs)). A `.pgcl` example
   in a folder given with `prodigy web --examples` is converted to `.ppy` on the fly (with its
   invariants). The sheet lists the eight most recently opened programs (examples and local files)
   first, reachable with ↑ ↓ and Return; "Clear recent" empties the list. It is kept in the browser's
@@ -83,7 +84,7 @@ Prodigy is tested with Python 3.11 and 3.14.
   default is the server's `--engine`. In a narrow window the label is dropped (the pop-up keeps
   the name "Engine" for assistive technology) and the toolbar wraps.
 
-Keyboard: ⌘/Ctrl + Return analyses, ⌘/Ctrl + . (or Esc) stops, ⌘/Ctrl + O opens,
+Keyboard: ⌘/Ctrl + Return analyses (checks, in Compare mode), ⌥⌘1 / ⌥⌘2 choose the mode, ⌘/Ctrl + . (or Esc) stops, ⌘/Ctrl + O opens,
 ⌘/Ctrl + S saves; F10 / ⇧F10 move the analysis card's timeline to the next / previous position,
 F5 / ⇧F5 to the next / previous breakpoint, and F9 in the editor sets a breakpoint. Every analysis runs in its own process with a time limit and can be stopped
 at any time.
@@ -91,6 +92,66 @@ at any time.
 The GUI follows the system appearance (light or dark, macOS: System Settings → Appearance);
 following Apple's guidelines it has no switch of its own. Firefox can override the appearance
 for websites (Settings → General → Website appearance).
+
+## Comparing two programs
+
+The window has two modes, chosen with the segmented control **Analyze | Compare** in the toolbar
+(#154; ⌥⌘1 / ⌥⌘2, Ctrl+Alt+1 / 2 elsewhere; ← → inside the control). The mode is part of the URL:
+`/` (or `/analyze`) is Analyze, `/compare` is Compare, so a reload, a bookmark and the browser's
+back button keep it. While a job runs the mode stays; stop it first.
+
+* **Analyze** is the single-program GUI described above.
+* **Compare** checks whether two programs, **A** and **B**, are equivalent: whether they have the
+  same output distribution for every input. It has its own layout:
+  * two editors, side by side in a wide editor pane, and in a narrow one with tabs *Program A |
+    Program B* above them (← → move between the tabs); each has its syntax chip, diagnostics,
+    warnings and the strategy pills above its loops;
+  * its own Setup: the initial distribution, **Loops of program A** and **Loops of program B** (each
+    loop of either program has its own strategy), and the analysis options;
+  * its own run button, **Check** (⌘↩), and its own result (below).
+
+Switching modes keeps program A (the first editor and the strategies of its loops); program B
+and its strategies are kept as well (also across reloads, in the browser). Each mode keeps its own
+last result. Opening a program (Open…, New) replaces program A in either mode. In the example
+library, the examples marked *compare* (`check_equality` in `pgfexamples/equivalence/` and
+`template_parameter_synthesis/`) open in Compare mode with both programs, and a loop of program
+A then uses program B as its invariant, as `prodigy check_equality` does; every other example
+opens in Analyze mode.
+
+The check runs as a job like an analysis (own process, time limit, Stop). It has two parts:
+
+1. **The check for every input.** Both programs run on one generating function that stands for
+   every input at once (the second-order check of `prodigy check_equality`), and the solver
+   compares the results; for programs with parameters it looks for parameter values that make
+   them equal (parameter synthesis, see [Check invariant and parameter synthesis](#choosing-a-loop-strategy));
+   the verdict card lists the values found.
+2. **Both programs on one input**: the initial distribution of the Setup, or, without one, the
+   input on which the solver found the programs to differ, or the default input. These are the
+   two results shown below the verdict.
+
+The **verdict** at the top has a glyph and a word:
+
+| Verdict | When |
+| --- | --- |
+| `=` **Equivalent** | the check proved equality, and both programs were analysed exactly (with parameters: for the parameter values shown) |
+| `≠` **Not equivalent** | only with a **witness**: an output state whose probabilities provably differ on the input shown, i.e. the sound intervals of the two programs (exact value, lower bound plus residual mass, or Park upper bound) do not overlap. The witness table shows both values with their guarantees. |
+| `?` **Not decided** | everything else, with the reason: the check could not decide, it is *not implemented* for these programs (shown as such, never as "not equivalent"), the programs declare different variables, or only one direction is proven |
+
+*One direction is proven* happens when a loop was handled by an invariant: Park's lemma gives an
+upper bound, so equality of the computed distributions proves only *Program A ⪯ Program B*
+(coefficient-wise, for every input); they are equal if the loop terminates almost surely, which
+Prodigy does not check. Likewise an unrolled loop (a lower bound) gives the other direction. A
+raw "the generating functions differ" of the solver is not a verdict either: it may come from an
+approximation, so without a witness the result stays *Not decided*. *How it was checked* lists
+what the check found (and the difference of the generating functions if it could not decide).
+
+**Output distributions** puts the marginals of the two programs side by side; when both results
+are exact, rows whose values differ are marked *≠ differs* (a hint where to look; the witness is
+the proof). **Result of** switches between the full results of programs A and B (the cards of an
+ordinary analysis).
+
+The result is the analysis result of program A with the key `equivalence`
+(see [HTTP API](#http-api-used-by-the-gui)).
 
 ## Joint distribution of two variables
 
@@ -221,6 +282,19 @@ corner names the outcome. *How to choose a strategy* (above the loop cards) list
 | Exact result | Check invariant, Check EVT invariant, Synthesise EVT invariant, EVT invariant from a language model | exact, or an upper bound if a side condition fails (finite mass, almost-sure termination); no result without a proof |
 | Bounds | Unroll N iterations, Iterate until mass captured, Check EVT sub-invariant, EVT sandwich | lower bounds (every query an interval) without a termination assumption; the sandwich also upper bounds |
 | Explore | Expected visiting times H_N (`evt_iterate`) | the iterates of the expected visiting times, to guess an EVT invariant; the result is only a lower bound |
+
+**Check invariant and parameter synthesis.** *Check invariant* (`invariant`) checks a concrete
+loop-free program I (I ≡ if (guard) { body; I } for all inputs) and continues with it: an analysis
+step, "I know the closed form". Finding parameter values instead (an I with parameters the program
+does not have, as in `pgfexamples/template_parameter_synthesis/`, or a check that fixes the
+program's parameters to values) is a comparison of the loop with I, so it belongs to Compare mode
+(#154). In Analyze mode such an invariant ends with *Parameter synthesis is a comparison* and the
+button **Open in Compare**: the loop becomes program A (the program itself if the loop is all it
+does, else its declarations and the loop; undo restores yours), with I as the strategy of that loop,
+and I becomes program B; **Check** then reports the parameter values on the verdict card. In
+Compare mode the strategy accepts such invariants for the loops of either program. On the command
+line `--loop invariant` keeps working with a parametric I and prints a hint to use
+`prodigy check_equality`. All other strategies are analysis steps and are the same in both modes.
 
 Parameters that must be given (an invariant, a sub-invariant) are shown right away; those with a
 default sit behind the disclosure **Parameters**, whose summary shows their values
@@ -501,6 +575,7 @@ in the GUI's strategy pop-up in the section of its `group` (`automatic`, `exact`
 
 | Endpoint | |
 | --- | --- |
+| `GET /`, `GET /analyze`, `GET /compare` | the page; the path selects the mode (Analyze or Compare), which the page keeps in the URL |
 | `GET /api/meta` | version, engines (`name, label, available, reason, default`; `reason` says why an unavailable engine cannot be used), loop strategies with parameter specs, synthesis strategies and heuristics, limits |
 | `POST /api/check` `{source, syntax}` | diagnostics `{severity, message, line, column, end_line, end_column}` and outline (variables, loops with ids and lines, queries); with `input_distribution` (and `engine`) also `input_distribution: {status: ok | refused | skipped | timeout, message}`, shown at the Setup field (the check runs in a process that is killed after 8 s) |
 | `POST /api/convert` `{source}` | the pGCL program in `.ppy`: `{source, renamings: [{from, to}], messages}`; 422 with `line`/`column` if it is not valid pGCL |
@@ -508,8 +583,9 @@ in the GUI's strategy pop-up in the section of its `group` (`automatic`, `exact`
 | `GET /api/jobs/<id>?log_offset=n` | state (`running`, `done`, `timeout`, `cancelled`, `crashed`), new console output, progress per loop, result |
 | `DELETE /api/jobs/<id>` | cancels the analysis |
 | `POST /api/jobs/<id>/joint` `{x, y, x_window, y_window}` | starts a job for the exact coefficient grid of two variables of the finished analysis `<id>`; the windows `[from, to]` are optional (default: the support of a finite distribution, else 0–15) with at most 50 values per axis (`limits.max_joint_axis` in `GET /api/meta`) and values up to 1000. The distribution, the engine and the guarantee come from the result the server keeps, never from the request. The job's result is `{status: "ok", joint: {x, y, x_values, y_values, cells, bound, mass, shown_mass, outside_mass, residual_mass, finite_support, support}}`: `cells[r][c]` is `{prob, p}` (exact and float; for a lower bound also `upper`, `upper_p`) for `y = y_values[r]`, `x = x_values[c]`. 400 for an unknown variable, the same variable twice or a window beyond the limits, 404 for an unknown or pruned analysis (analyze again), 409 while it runs |
+| `POST /api/equivalence` | compares program A with program B: an analysis request for program A (without `record_steps` and `watches`) plus `other_source`, `other_syntax` (default: `syntax`) and `other_decisions` (the strategies of B's loops, keyed by loop id) for program B; returns a job id. The job's result is the analysis result of program A on the shown input with the key `equivalence`: `{verdict: equivalent \| not_equivalent \| unknown, reason, relation: null \| first_below_second \| second_below_first, constraints: [{param: value}], witness: null \| {state, input, first, second}, check: {answer: equal \| different \| undecided \| failed, first, second, constraints, counterexample, difference, error, time}, input: {distribution, source: request \| counterexample \| default}, other}`. `first`/`second` of the witness are `{lower, lower_float, upper, upper_float, kind}`; `check.first`/`check.second` are the guarantees (`exact`, `lower`, `upper`, `unknown`) of the two analyses inside the check; `other` is the analysis result of program B. The rules are in `prodigy/analysis/equivalence/verdict.py`. |
 | `POST /api/suggest` | asks the language model for one candidate for a loop: an analysis request without `coefficients` and `record_steps`, plus `loop` (id) and `form` (`evt_invariant` or `evt_subinvariant`), `time_limit` optional (default: the server's); returns a job id. The job's result is `{status: "ok", suggestion: {candidate, param, answer, model, provider, entering, loop, form}}` or an error (the model's answer in `error.suggestion` if it held no admissible candidate). `GET /api/meta` says under `ai` whether a model is configured. |
-| `GET /api/examples`, `GET /api/examples/<path>?syntax=ppy` | example library; source in the syntax of the example file (`syntax`; a `.pgcl` example is converted to `.ppy` with `syntax=ppy`, with `renamings`), `file_name` and suggested setup |
+| `GET /api/examples`, `GET /api/examples/<path>?syntax=ppy` | example library; source in the syntax of the example file (`syntax`; a `.pgcl` example is converted to `.ppy` with `syntax=ppy`, with `renamings`), `file_name` and suggested setup; a `check_equality` example also has `other: {id, source, syntax, file_name}`, its second program |
 
 Every request with a program takes `syntax` (`pgcl` or `ppy`) or `file_name` (its extension
 decides); without either the program is pGCL.

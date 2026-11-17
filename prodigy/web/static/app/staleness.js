@@ -11,10 +11,11 @@ function canonical(value) {
   return JSON.stringify(value ?? null);
 }
 
-/** The program part (source, syntax) and the setup part (everything else) of a request. */
+/** The program part (source, syntax, and those of a second program to compare with) and the setup
+ * part (everything else) of a request. */
 function split(request) {
-  const { source, syntax, ...setup } = request || {};
-  return { program: canonical({ source, syntax }), setup: canonical(setup) };
+  const { source, syntax, other_source: otherSource, other_syntax: otherSyntax, ...setup } = request || {};
+  return { program: canonical({ source, syntax, otherSource, otherSyntax }), setup: canonical(setup) };
 }
 
 /**

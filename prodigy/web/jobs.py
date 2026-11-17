@@ -89,14 +89,15 @@ def _limit_memory(megabytes: Optional[int]) -> None:
 def _worker(request: Dict[str, Any], conn: Any, memory_limit: Optional[int], kind: str = "analysis") -> None:
     """Entry point of the analysis process; ``kind`` "suggest" asks a language model for a
     candidate instead (:func:`prodigy.web.requests.run_suggestion`), ``kind`` "joint" computes the
-    coefficient grid of two variables of a finished analysis (:func:`prodigy.web.requests.run_joint`)."""
+    coefficient grid of two variables of a finished analysis (:func:`prodigy.web.requests.run_joint`), ``kind``
+    "equivalence" compares two programs (:func:`prodigy.web.requests.run_equivalence`)."""
     _limit_memory(memory_limit)
     sender = _Sender(conn)
     try:
         sender.send("state", "running")
         # pylint: disable=import-outside-toplevel
-        from prodigy.web.requests import run_analysis, run_joint, run_suggestion
-        run = {"suggest": run_suggestion, "joint": run_joint}.get(kind, run_analysis)
+        from prodigy.web.requests import run_analysis, run_equivalence, run_joint, run_suggestion
+        run = {"suggest": run_suggestion, "joint": run_joint, "equivalence": run_equivalence}.get(kind, run_analysis)
         result = run(request, output=sender.log, progress=sender.progress)
         sender.flush()
         sender.send("result", result)
@@ -308,7 +309,8 @@ class JobManager:
             job.process.kill()
             job.process.join(timeout=1)
         job.state = state
-        what = {"suggest": "The request to the language model", "joint": "The computation of the grid"}.get(
+        what = {"suggest": "The request to the language model", "joint": "The computation of the grid",
+                "equivalence": "The check"}.get(
             str(job.summary.get("kind")), "The analysis")
         message = (f"{what} was stopped after the time limit of {job.time_limit:g} s." if state == "timeout"
                    else f"{what} was cancelled.")

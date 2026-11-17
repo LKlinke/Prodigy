@@ -26,7 +26,7 @@ from __future__ import annotations
 import math
 from fractions import Fraction
 
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 
@@ -96,7 +96,7 @@ def padd(*polys: Num) -> Num:
     return {e: c for e, c in out.items() if c != 0}
 
 
-def pscale(poly: Num, a: Any) -> Num:
+def pscale(poly: Num, a: Union[int, Fraction]) -> Num:
     if a == 0:
         return {}
     return {e: c * a for e, c in poly.items() if c != 0}
@@ -131,7 +131,7 @@ def degrees(poly: Num, d: int) -> List[int]:
     return deg
 
 
-def monomial(d: int, e: Iterable[int], c: Any = ONE) -> Num:  # pylint: disable=unused-argument
+def monomial(d: int, e: Iterable[int], c: Union[int, Fraction] = ONE) -> Num:  # pylint: disable=unused-argument
     return {tuple(e): Fraction(c)} if c != 0 else {}
 
 
@@ -507,9 +507,9 @@ class GFCalculus:
             if r == 0:
                 continue
             for v in range(p, shape[i]):
-                sl_v: List[Any] = [slice(None)] * self.d
+                sl_v: List[Union[slice, int]] = [slice(None)] * self.d
                 sl_v[i] = v
-                sl_w: List[Any] = [slice(None)] * self.d
+                sl_w: List[Union[slice, int]] = [slice(None)] * self.d
                 sl_w[i] = v - p
                 arr[tuple(sl_v)] = arr[tuple(sl_v)] + r * arr[tuple(sl_w)]
         return arr
@@ -621,7 +621,7 @@ class GFCalculus:
         return f"({num}) / ({'*'.join(dens)})"
 
 
-def directed_decimal(q: Any, upward: bool, digits: int = 10) -> str:
+def directed_decimal(q: Union[int, float, Fraction], upward: bool, digits: int = 10) -> str:
     """Decimal string with ``digits`` significant digits rounded towards ``+inf`` (``upward``) or ``-inf``."""
     if q == math.inf:
         return "inf"

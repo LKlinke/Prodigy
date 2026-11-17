@@ -547,12 +547,15 @@ class Distribution(ABC):
         # exhaustive search again. If this is not possible, we raise an NotComputableException
         try:
             expression = self._explicit_state_unfolding(condition)
-        except NotImplementedError as error:
-            # two variables with infinite support: exact if they are independent (#243)
+        except (NotImplementedError, NonFiniteMarginalError) as error:
+            # two variables with infinite support: exact if they are independent (#243). The filter is
+            # an identity of formal power series, so it also applies to measures with infinite mass,
+            # where the case split over values fails (#366)
             return self._filter_difference(condition, error)
         return self.filter(expression)
 
-    def _filter_difference(self, condition: Expr, error: NotImplementedError) -> Distribution:
+    def _filter_difference(self, condition: Expr,
+                           error: NotImplementedError | NonFiniteMarginalError) -> Distribution:
         """
         Filters a comparison of two variables such as `x < y + c` exactly if the generating
         function is a product of a rational function in x and a rational function in y (given the
@@ -564,7 +567,8 @@ class Distribution(ABC):
         if isinstance(comparison, BoolLitExpr):
             return self.filter(comparison)
         if comparison is None:
-            if isinstance(condition, BinopExpr) and len(_variables_of(condition) & self.get_variables()) >= 2:
+            if isinstance(error, NotImplementedError) and isinstance(condition, BinopExpr) \
+                    and len(_variables_of(condition) & self.get_variables()) >= 2:
                 raise ComparisonNotImplemented(str(condition), NOT_A_DIFFERENCE) from error
             raise error
         function = self._sympy_expression()

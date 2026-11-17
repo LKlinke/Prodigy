@@ -62,5 +62,5 @@ class SympySolver(Solver):
 
         raise RuntimeError("This should not be reachable")
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "SympySolver"

@@ -19,6 +19,17 @@ class UndefinedDistributionError(ForwardAnalysisError):
     ``dist`` variable that is read before it was assigned."""
 
 
+class ParameterSynthesisRequired(ForwardAnalysisError):
+    """The invariant chosen for a loop has template parameters, or the check of it fixes parameters to
+    values: that is parameter synthesis, a comparison of the loop with the invariant program, not an
+    analysis step (#154). ``details`` holds the loop, the invariant, the parameters and a program with
+    just the loop, so that a front end can open the pair for comparison."""
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message)
+        self.details: Dict[str, Any] = details or {}
+
+
 class DistributionParameterError(ForwardAnalysisError):
     """The Parameter of a Distribution does not typematch"""
 

@@ -24,7 +24,9 @@ step happened.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, TypeVar
+from typing import Dict, Optional, TypeVar
+
+from lark.tree import Meta
 
 _ATTRIBUTE = "_prodigy_source_span"
 _PARENS = "_prodigy_parenthesized"
@@ -46,7 +48,7 @@ class SourceSpan:
                 "end_column": self.end_column}
 
 
-def span_from_meta(meta: Any) -> Optional[SourceSpan]:
+def span_from_meta(meta: Optional[Meta]) -> Optional[SourceSpan]:
     """The span of a Lark node's ``meta`` (``None`` if Lark recorded no position)."""
     if meta is None or getattr(meta, "empty", True):
         return None
@@ -66,13 +68,13 @@ def set_span(node: T, span: Optional[SourceSpan]) -> T:
     return node
 
 
-def span_of(node: Any) -> Optional[SourceSpan]:
+def span_of(node: object) -> Optional[SourceSpan]:
     """The span the parser attached to ``node``, if any."""
     span = getattr(node, _ATTRIBUTE, None)
     return span if isinstance(span, SourceSpan) else None
 
 
-def copy_span(source: Any, target: T) -> T:
+def copy_span(source: object, target: T) -> T:
     """Gives ``target`` the span of ``source`` unless it has one already; returns ``target``."""
     if span_of(target) is None:
         set_span(target, span_of(source))
@@ -89,7 +91,7 @@ def mark_parenthesized(expr: T) -> T:
     return expr
 
 
-def is_parenthesized(expr: Any) -> bool:
+def is_parenthesized(expr: object) -> bool:
     """Whether the parser read ``expr`` in explicit parentheses; language warnings use it as the user's way
     to state that the grouping is intended (:mod:`prodigy.pgcl.language_warnings`)."""
     return getattr(expr, _PARENS, False) is True

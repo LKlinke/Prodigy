@@ -103,6 +103,18 @@ in the current state. By induction on `b`, this is `max(a - b, 0)`: for `b = 0` 
   functions, with a result that may be algebraic (a square root) and has no guarantee of staying
   rational. The other cases end with "not implemented" with the reason ("Guards" in
   {ref}`pgcl_grammar`).
+- Infinite mass (#366): both methods are identities of formal power series, so they also apply to
+  generating functions with infinite mass, e.g. the second-order distribution of the equivalence
+  check or an uninitialised `n` in a guard `x < n`. The product method works over the field of
+  rational functions in the other variables and never evaluates at 1. The residue method needs the
+  generating function to be analytic near 0 only (its denominator is not 0 at 0): for small `x`
+  and `y`, `F(x/s, y s)` is a Laurent series on an annulus around `|s| = 1`, and the roots of the
+  kernel are classified at `x = y = 0`; with `R(0) = 1`, the principal square root is the formal
+  square root of `R`. The branch proof on the closed unit polydisk is kept for infinite mass as
+  well: results are later evaluated at points of modulus 1 (marginals, probabilities, expected
+  values), and there the principal branch has to be the continuation of the series. A case split
+  over the values of a variable still needs a finite marginal; other guards on generating
+  functions with infinite mass keep the error "not a finite measure".
 - Before, an assignment `x = a - b` was rejected unless the difference was provably never
   negative, and queries were evaluated differently on each engine (issue #220).
 

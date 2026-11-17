@@ -37,11 +37,17 @@ The proofs, all exact:
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 import sympy
 
 from prodigy.analysis.exceptions import ForwardAnalysisError
+
+if TYPE_CHECKING:  # pragma: no cover
+    from prodigy.analysis.config import ForwardAnalysisConfig
+    from prodigy.distribution import Distribution
+    from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+    from prodigy.pgcl import Program
 
 
 class InputDistributionError(ForwardAnalysisError):
@@ -65,7 +71,8 @@ REQUIREMENT = ("Prodigy accepts an input distribution only when it can prove tha
                "in the program variables with non-negative coefficients and finite mass.")
 
 
-def input_distribution_from_text(config, text: str, program, syntax: str = "pgcl"):
+def input_distribution_from_text(config: ForwardAnalysisConfig, text: str, program: Program,
+                                 syntax: str = "pgcl") -> Distribution:
     """The distribution of the closed form ``text`` for ``program``, after checking that ``text``
     is a generating function that is safe to give to the engines (SymPy evaluates Python code)
     and that it is a distribution (:func:`validate_input_distribution`)."""
@@ -83,7 +90,7 @@ def input_distribution_from_text(config, text: str, program, syntax: str = "pgcl
     return dist
 
 
-def validate_input_distribution(dist, program) -> None:
+def validate_input_distribution(dist: Distribution, program: Union[Program, ProgramInfo]) -> None:
     """Raises :class:`InputDistributionError` unless ``dist`` is proven to be a power series at 0
     in its variables (the program's and its own) with non-negative coefficients and finite mass.
     Every symbol that is not a variable is a parameter; ``program`` gives their types."""
@@ -102,7 +109,7 @@ def validate_input_distribution(dist, program) -> None:
                                                    "reason": reason})
 
 
-def _plain_text(dist) -> str:
+def _plain_text(dist: Distribution) -> str:
     """The closed form of ``dist`` as plain text (the SymPy engine prints LaTeX under ``use_latex``)."""
     function = getattr(dist, "_function", None)
     return str(function) if isinstance(function, sympy.Basic) else str(dist)
