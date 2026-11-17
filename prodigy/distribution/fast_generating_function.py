@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import itertools
 import re
 
-from typing import (Any, Callable, Dict, FrozenSet, Generator, Iterator, List, Set, Tuple, Type,
+from typing import (Any, Callable, Dict, FrozenSet, Generator, Iterator, List, Optional, Set, Tuple, Type,
                     Union)
 
 import prodigy_ginac  # type: ignore
@@ -177,6 +178,13 @@ class FPS(Distribution):
             terms: List[Tuple[str, Dict[str, int]]] = self._dist.get_terms(self._variables)
             for prob, vals in terms:        # type: ignore
                 yield prob, State(vals)     # type: ignore
+
+    def native_coefficients(self, variable: str) -> Optional[Iterator[str]]:
+        # the bindings expand the series themselves, one coefficient at a time (as `__iter__` does)
+        if self._finite or self._variables != {variable}:
+            return None
+        iterator = self._dist.coefficient_iterator(variable)
+        return (str(iterator.next()) for _ in itertools.count())
 
     def copy(self, deep: bool = True) -> Distribution:
         return FPS.from_dist(self._dist, self._variables, self._parameters,

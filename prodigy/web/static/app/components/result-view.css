@@ -110,6 +110,9 @@
 .interval-bar .ib-marker { fill: var(--rv-unknown); }
 .hatch-bg { fill: var(--bound-fill, rgba(122, 63, 168, 0.11)); }
 .hatch-line { stroke: var(--rv-bound); stroke-width: 2.2; }
+/* values still being computed (#405): a neutral hatching, labelled "computing…" */
+.hatch-bg.hatch-pending { fill: var(--rv-surface); }
+.hatch-line.hatch-pending { stroke: var(--rv-text-2); stroke-opacity: 0.3; stroke-width: 2; }
 
 /* ---- distribution -------------------------------------------------------------------- */
 /*
@@ -194,8 +197,15 @@
 .marginal-chart .mc-upper rect { stroke: var(--rv-bound); stroke-width: 1; }
 .marginal-chart .mc-unknown rect { fill: var(--rv-data); opacity: 0.45; stroke: var(--rv-unknown); stroke-dasharray: 3 2; }
 .marginal-chart .mc-residual rect { stroke: var(--rv-bound); stroke-width: 1; }
+/* the rest of the interval of a lower bound (#405): hatched, outlined in the bound colour */
+.marginal-chart .mc-bar rect.mc-ext { stroke: var(--rv-bound); stroke-width: 1; opacity: 1; }
 .marginal-chart .mc-bar:hover rect { opacity: 0.8; }
 .marginal-chart .mc-scale { font-style: italic; }
+.marginal-chart .mc-pending .mc-pending-text {
+  fill: var(--rv-text-2); font-size: 11px; font-family: var(--font-ui, sans-serif);
+  /* a halo of the surface keeps the text readable on the hatching */
+  paint-order: stroke; stroke: var(--rv-surface); stroke-width: 4px; stroke-linejoin: round;
+}
 .marginal-chart .mc-bar rect.mc-zero { fill: none; stroke: var(--rv-data); stroke-width: 1; stroke-dasharray: 2 2; opacity: 1; }
 
 .table-wrap { overflow-x: auto; }
@@ -260,6 +270,12 @@
    keeps at least four lines, beyond that the view has to grow */
 .rv-running { --bars: 0; }
 .rv-running .rv-running-log { height: max(calc(12 * 1.45em + 16px - 38px * var(--bars)), calc(4 * 1.45em + 16px)); }
+/* the coefficients computed so far (#405): the log gives them the room */
+.rv-running[data-live="true"] .rv-running-log { height: calc(4 * 1.45em + 16px); }
+.rv-live { display: grid; gap: 10px; }
+.rv-live-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rv-live-item { display: grid; gap: 4px; min-width: 0; }
+.rv-live-title { margin: 0; display: flex; align-items: baseline; gap: 8px; font-size: var(--text-body, 13px); font-weight: 600; }
 .rv-running-log:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .rv-progress progress { width: 100%; height: 6px; accent-color: var(--accent, #0066CC); }
 
@@ -279,13 +295,15 @@
 .jv-field input { width: 5.2em; font-variant-numeric: tabular-nums; }
 .jv-status { min-height: 1.4em; display: flex; align-items: center; gap: 6px; }
 .jv-body { display: grid; gap: 10px; min-width: 0; }
-.jv-body[aria-busy="true"] { opacity: 0.6; }
+.jv-body[aria-busy="true"]:not([data-streaming="true"]) { opacity: 0.6; }
 .jv-plot { overflow-x: auto; border-radius: 6px; outline: none; max-width: 100%; }
 .jv-plot:focus-visible { box-shadow: var(--focus-ring, 0 0 0 3px rgba(0, 102, 204, 0.35)); }
 .jv-heatmap { display: block; touch-action: manipulation; }
 .jv-heatmap .jv-cell { stroke: var(--rv-surface); stroke-width: 1; }
 /* probability 0: an empty cell; values that depend on parameters: hatched */
 .jv-heatmap .jv-zero { fill: var(--rv-fill); }
+/* cells still being computed (#405): neutral hatching; the status line and the readout say "computing…" */
+.jv-heatmap .jv-pending { stroke: var(--rv-separator); }
 .jv-heatmap .jv-tick { fill: var(--rv-text-2); font-size: 11px; font-family: var(--font-ui, sans-serif); font-variant-numeric: tabular-nums; }
 .jv-heatmap .jv-axis-title { fill: var(--rv-text-2); font-size: 12px; font-style: italic; font-family: var(--font-ui, sans-serif); }
 .jv-heatmap .jv-cell-text { font-size: 10px; text-anchor: middle; font-family: var(--font-ui, sans-serif); font-variant-numeric: tabular-nums; pointer-events: none; }
@@ -329,6 +347,7 @@
 
 .jv-table table { width: auto; }
 .jv-table caption { text-align: left; caption-side: top; padding-bottom: 4px; }
+.rv-table caption { text-align: left; caption-side: top; padding-bottom: 4px; }
 .jv-table th[scope="row"] { border-right: 1px solid var(--rv-separator); }
 
 /* a failed query: the icon and the words carry the state, the colour only supports them */

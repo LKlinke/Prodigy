@@ -708,7 +708,8 @@ class AnalysisSession:
                  trace_limits: Optional["TraceLimits"] = None,
                  watches: Sequence[str] = (),
                  on_step: Optional[Callable[[Dict[str, Any]], None]] = None,
-                 parameter_synthesis: str = "hint"):
+                 parameter_synthesis: str = "hint",
+                 stream_coefficients: bool = False):
         # pylint: disable=import-outside-toplevel
         from prodigy.analysis.config import ForwardAnalysisConfig
         from prodigy.analysis.trace import Tracer, parse_watch
@@ -729,6 +730,9 @@ class AnalysisSession:
         self.progress_callback = progress_callback
         self.record_steps = record_steps
         self.coefficient_limit = coefficient_limit
+        self.stream_coefficients = stream_coefficients
+        """Whether the coefficients of the output distribution also go to ``progress_callback`` while they
+        are computed (the GUI's live plots, :mod:`prodigy.analysis.streaming`)."""
         self.parameter_synthesis = parameter_synthesis
         """What the strategy ``invariant`` does with an invariant that synthesises parameters (template
         parameters, or a check that fixes parameters to values, #154): ``allow`` (comparing two programs,
