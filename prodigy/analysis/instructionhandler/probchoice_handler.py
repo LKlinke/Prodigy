@@ -9,7 +9,8 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.analysis.instructionhandler.counter_operators import apply_operator, counter_probability
+from prodigy.analysis.instructionhandler.counter_operators import (apply_operator, apply_ratio, counter_probability,
+                                                                   ratio_probability)
 from prodigy.analysis.instructionhandler.state_dependent import (checked_probability, instantiate,
                                                                  split_states, state_variables)
 from prodigy.distribution import Distribution
@@ -51,11 +52,17 @@ class PChoiceHandler(InstructionHandler):
                 instruction.prob) + rhs_block * f"1-({instruction.prob})", new_prob
 
         operator = counter_probability(instruction.prob, variables)
+        ratio = ratio_probability(instruction.prob, variables)
         if operator is not None and not distribution.is_zero_dist() \
                 and distribution.finite_support(operator.variable) is None:
             # infinitely many values of the counter: the probability acts as an operator (#323)
             logger.info("Applying the probability %s as an operator in %s", instruction.prob, operator.variable)
             left, right = apply_operator(operator, distribution, construct)
+        elif ratio is not None and not distribution.is_zero_dist() \
+                and distribution.finite_support(*sorted(variables)) is None:
+            # x/n with infinitely many values of x and n: θ_x followed by 1/θ_n (#237)
+            logger.info("Applying the probability %s as an operator in %s", instruction.prob, ratio.denominator)
+            left, right = apply_ratio(ratio, distribution, construct)
         else:
             logger.info("Splitting the states for the probability %s", instruction.prob)
             left = distribution * "0"

@@ -1,0 +1,20 @@
+# A choice with the probability x/n of two program variables (#237): n - 1 is geometric, Pr[n = k] = 2^-k for
+# k ≥ 1, x is binomial(n, 1/2), and y = 1 with probability x/n. By symmetry Ex[x/n] = 1/2.
+#
+# Both variables take infinitely many values, so the probability cannot be computed by a case split over them.
+# Weighting the coefficient of x^a n^b with a/b is the operator θ_x followed by 1/θ_n (θ_x = x·∂/∂x): the
+# branch gets ∫_0^n (θ_x G)(t)/t dt. It is well defined because n > 0 and x ≤ n hold in every state, which
+# Prodigy proves by filtering G; the integral is proposed and certified by its derivative and its value at 0.
+
+n: nat = geometric(1/2);
+n = n + 1;  # the bound, at least 1
+x: nat = iid(bernoulli(1/2), n);  # binomial(n, 1/2), at most n
+y: nat = 0;
+{
+    y = 1;
+} [x / n] {
+    y = 0;
+}
+query Pr[y == 1];  # expected: 1/2
+query Pr[n == 2 and x == 1 and y == 1];  # expected: 1/4 · 1/2 · 1/2 = 1/16
+query Pr[n == 1 and y == 0];  # expected: 1/2 · 1/2 (x = 0) = 1/4

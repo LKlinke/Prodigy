@@ -27,6 +27,7 @@ SymPy form of the distribution and gives the result back to the distribution's e
 engines. Anything else (another shape of p, e.g. a polynomial or a double pole, or an integral that is not certified) is
 not implemented. ``x = bernoulli(p)`` with such a p is the choice ``{x = 1} [p] {x = 0}`` and uses the same operator.
 ``x = unif(0, n)`` uses the operator ``1/(θ + 1)`` in n after a substitution (:func:`uniform_up_to`, #385).
+The probability ``x/n`` of two program variables is ``θ_x`` followed by ``1/θ_n`` (:func:`apply_ratio`, #237).
 
 **Removable singularities.** The closed form of ``H_a`` is ``F/k^a`` with ``F = ∫_0^k t^(a-1) G``, whose series
 starts at ``k^a``; so the closed form has a removable singularity at ``k = 0``, while its series is an ordinary power
@@ -181,15 +182,16 @@ def apply_operator(probability: CounterProbability, distribution: Distribution,
                 f"a formula and other integrands without parameters with SymPy; this one is not implemented.")
         left += _rational(beta) * integral / k ** shift
     right = function - left
+    return _back(left, distribution), _back(right, distribution)
 
-    def back(expr: sympy.Expr) -> Distribution:
-        # exp factors merged again (exp(k - 1), not exp(-1)*exp(k)); Euler's number as exp(1), never "E"
-        text = sympy_text(sympy.powsimp(sympy.together(sympy.expand(expr)), combine="exp")).replace("**", "^")
-        result = distribution.factory().from_expr(text, *sorted(names))
-        parameters = distribution.get_parameters()
-        return result.set_parameters(*parameters) if parameters else result
 
-    return back(left), back(right)
+def _back(expr: sympy.Expr, distribution: Distribution) -> Distribution:
+    """The SymPy expression ``expr`` over the variables of ``distribution`` as a distribution of its engine."""
+    # exp factors merged again (exp(k - 1), not exp(-1)*exp(k)); Euler's number as exp(1), never "E"
+    text = sympy_text(sympy.powsimp(sympy.together(sympy.expand(expr)), combine="exp")).replace("**", "^")
+    result = distribution.factory().from_expr(text, *sorted(distribution.get_variables()))
+    parameters = distribution.get_parameters()
+    return result.set_parameters(*parameters) if parameters else result
 
 
 def uniform_up_to(distribution: Distribution, variable: str, bound: str, construct: str) -> Distribution:
@@ -242,3 +244,74 @@ def uniform_up_to(distribution: Distribution, variable: str, bound: str, constru
     result = distribution.factory().from_expr(text, *sorted(names))
     parameters = distribution.get_parameters()
     return result.set_parameters(*parameters) if parameters else result
+
+
+class RatioProbability(NamedTuple):
+    """The probability ``x/n`` of two program variables x (``numerator``) and n (``denominator``), #237."""
+    numerator: str
+    denominator: str
+
+    def __str__(self) -> str:
+        return f"{self.numerator}/{self.denominator}"
+
+
+def ratio_probability(probability: Expr, variables: Set[str]) -> Optional[RatioProbability]:
+    """The probability as ``x/n`` with two different program variables x and n (``variables``), or None."""
+    if not (isinstance(probability, BinopExpr) and probability.operator == Binop.DIVIDE):
+        return None
+    lhs, rhs = probability.lhs, probability.rhs
+    if isinstance(lhs, VarExpr) and isinstance(rhs, VarExpr) and lhs.var != rhs.var \
+            and {lhs.var, rhs.var} == variables:
+        return RatioProbability(lhs.var, rhs.var)
+    return None
+
+
+def _proven_empty(distribution: Distribution, condition: Expr, construct: str, requirement: str) -> None:
+    """Raises ``NotImplementedError`` (naming ``construct`` and the ``requirement``) unless no state of
+    ``distribution`` satisfies ``condition``, as proven by the engine's filter and equality."""
+    try:
+        empty = distribution.filter(condition).is_provably_zero()
+        reason = f"the part where {condition} is not provably zero"
+    except NotImplementedError as error:
+        empty, reason = False, f"filtering {condition} is not implemented here: {error}"
+    if not empty:
+        raise NotImplementedError(
+            f"{construct} acts as an operator on the generating function only if {requirement} in every state "
+            f"that reaches it; Prodigy could not prove this ({reason}). This is not implemented.")
+
+
+def apply_ratio(probability: RatioProbability, distribution: Distribution,
+                construct: str) -> tuple[Distribution, Distribution]:
+    """
+    The two parts of ``distribution`` G for the probability ``x/n`` (#237): the part weighted with ``x/n`` and the
+    rest. Raises ``NotImplementedError`` (naming ``construct``) unless ``n > 0`` and ``x ≤ n`` are proven for
+    every state of G and the integral below is computed and certified.
+
+    Weighting the coefficient of ``x^a n^b`` with ``a/b`` is the Euler operator ``θ_x`` followed by ``1/θ_n``
+    (module docstring): ``L = ∫_0^n (θ_x G)(t)/t dt``. It is defined when G has no terms ``n^0``; then
+    ``(θ_x G)/n`` is a power series. ``x ≤ n`` makes ``x/n`` a probability. Both are proven by filtering G
+    (``n = 0`` and ``x > n`` must give the zero measure, e.g. after the guard ``n > 0 and x < n``). The integral
+    is proposed and certified by :func:`~prodigy.analysis.evtinvariants.exp_polynomial.integral_from_zero`
+    (``∂L/∂n = (θ_x G)/n``, ``L(n = 0) = 0``, L analytic at the origin); as ``θ_n`` is injective on the power
+    series without ``n^0`` terms, L is the weighted series. The other part is ``G - L``. The computation works on
+    the SymPy form, as :func:`apply_operator` does, so it is the same on all engines.
+    """
+    x, n = probability.numerator, probability.denominator
+    _proven_empty(distribution, BinopExpr(Binop.EQ, VarExpr(n), NatLitExpr(0)), construct, f"{n} > 0")
+    _proven_empty(distribution, BinopExpr(Binop.GT, VarExpr(x), VarExpr(n)), construct, f"{x} <= {n}")
+    function = sympify_distribution(distribution)
+    symbols = [sympy.Symbol(v) for v in distribution.get_variables()]
+    x_symbol, n_symbol = sympy.Symbol(x), sympy.Symbol(n)
+    integrand = sympy.cancel(sympy.together(x_symbol * sympy.diff(function, x_symbol) / n_symbol))
+    integral = integral_from_zero(integrand, n_symbol, symbols)
+    if integral is None:
+        text = str(integrand)
+        text = text if len(text) <= 200 else text[:200] + " …"
+        raise NotImplementedError(
+            f"{construct} depends on the program variables {x} and {n}, which can take infinitely many values "
+            f"here. Prodigy applies the probability {probability} as the operator ∫_0^{n} {x}·∂/∂{x} G(t)/t dt on "
+            f"the generating function G, which needs the integral from 0 of {text} in {n}. No antiderivative was "
+            f"found that passes the check (derivative, value 0 at {n} = 0, analytic at 0): Prodigy integrates sums "
+            f"of terms {n}^k·exp(c·{n}), rational functions whose denominators split into linear factors in {n}, "
+            f"and other integrands without parameters with SymPy; this one is not implemented.")
+    return _back(integral, distribution), _back(function - integral, distribution)

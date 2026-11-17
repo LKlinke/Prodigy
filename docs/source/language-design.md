@@ -293,6 +293,26 @@ wrong number). Other bounds that take infinitely many values (`unif(a, n)` with 
 `unif(0, n + 1)`, `n = unif(0, n)`) and integrals that are not certified (e.g. with parameters)
 are "not implemented".
 
+#### The ratio of two variables
+
+A choice `{A} [x/n] {B}` with two program variables `x` and `n` that take infinitely many values
+(issue #237) weights the coefficient of `x^a n^b` with `a/b`. With `θ_x = x·∂/∂x` this is `θ_x`
+followed by `1/θ_n`: the branch `A` gets `L = ∫_0^n (θ_x G)(t)/t dt`, the branch `B` gets `G − L`.
+
+- `L` is defined only if `G` has no terms `n^0` (no division by zero), and `x/n` is a probability
+  only if `x ≤ n`. Both are proven by filtering `G`: `n = 0` and `x > n` must give the zero measure,
+  e.g. after the guard `n > 0 and x < n`. Otherwise the choice is "not implemented" with the
+  condition that was not proven.
+- `L` is proposed and certified as above: `∂L/∂n = (θ_x G)/n`, `L(0) = 0` and `L` analytic at the
+  origin. Besides SymPy's `integrate`, a rational integrand is integrated by its partial fractions
+  in `n` (also with parameters, as in the second-order generating functions of an equivalence
+  check); a logarithm `log(1 + z)/z` with a monomial `z` counts as analytic.
+
+The gambler's ruin loop `while (x > 0 and x < n) { {x = x − 1} [1/2] {x = x + 1} }` is proven
+equal to `if (n > 0 and x < n) { {x = n} [x/n] {x = 0} }` for every input
+(`pgfexamples/equivalence/loopy/gamblers_ruin.ppy`); with the branches swapped the check finds the
+counterexample `x = 0, n = 1`. `[a·x/n]` and `[(x + c)/(n + d)]` are "not implemented".
+
 - Parameters in `p` stay symbolic, as in a constant choice; the range of a probability with
   parameters is not checked.
 

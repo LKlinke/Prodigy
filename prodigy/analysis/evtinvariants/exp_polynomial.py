@@ -124,9 +124,22 @@ def analytic_at_zero(expr: sympy.Expr, variables: Collection[sympy.Symbol]) -> b
     """Sufficient criterion: ``expr`` is analytic at the origin of ``variables`` *by construction*, for every
     value of the other symbols (parameters). Built from symbols and numbers with ``+``, ``·``, powers with natural
     exponents, powers with negative integer exponents of a base that is provably non-zero at the origin, ``exp``,
-    and ``log`` of an argument that is a positive number at the origin. A removable singularity (``(exp(k) - 1)/k``)
-    is not recognised."""
+    and ``log`` of an argument that is a positive number at the origin. One kind of removable singularity is
+    recognised: a product ``log(A)/M`` with a monomial M of variables, ``A = 1`` at the origin and ``(A - 1)/M``
+    analytic, as ``log(1 + z)/z`` is analytic at ``z = 0`` (from the integrals of rational functions, #237).
+    Others (``(exp(k) - 1)/k``) are not."""
     origin = {v: 0 for v in variables}
+    symbols = set(variables)
+
+    def log_over_monomial(node: sympy.Mul) -> bool:
+        """``node`` is ``log(A)/M · R`` with the removable singularity above and an analytic rest R."""
+        poles = [a for a in node.args if a.is_Pow and a.base in symbols and a.exp.is_Integer and a.exp < 0]
+        logs = [a for a in node.args if isinstance(a, sympy.log)]
+        if not poles or len(logs) != 1 or sympy.simplify(logs[0].args[0].subs(origin)) != 1:
+            return False
+        monomial = sympy.Mul(*(pole.base ** -pole.exp for pole in poles))
+        rest = [a for a in node.args if a not in poles and a is not logs[0]]
+        return check(sympy.cancel((logs[0].args[0] - 1) / monomial)) and all(check(a) for a in rest)
 
     def at_origin_nonzero(base: sympy.Expr) -> bool:
         value = sympy.simplify(base.subs(origin))
@@ -136,7 +149,8 @@ def analytic_at_zero(expr: sympy.Expr, variables: Collection[sympy.Symbol]) -> b
         if node.is_Symbol or node.is_Number or node.is_NumberSymbol:
             return node.is_finite is not False
         if isinstance(node, (sympy.Add, sympy.Mul)):
-            return all(check(arg) for arg in node.args)
+            return all(check(arg) for arg in node.args) \
+                or (isinstance(node, sympy.Mul) and log_over_monomial(node))
         if isinstance(node, sympy.Pow):
             if not node.exp.is_Integer:
                 return node.base.is_number and node.exp.is_number and node.is_finite is True
@@ -176,6 +190,49 @@ def _cas_antiderivative(integrand: sympy.Expr, k: sympy.Symbol,
     return result.replace(sympy.log, flipped)
 
 
+def _rational_antiderivative(integrand: sympy.Expr, k: sympy.Symbol,
+                             variables: Collection[sympy.Symbol]) -> Optional[sympy.Expr]:
+    """An antiderivative of a rational ``integrand`` in k whose coefficients may contain other symbols (parameters
+    and the other variables), or None. The partial fractions in k (over the rational functions in the other
+    symbols) must have denominators that are powers of linear polynomials in k; each term is integrated by its
+    formula (``c/(a + b·k)^m`` and polynomials). A proposal only: :func:`integral_from_zero` certifies it. A
+    logarithm is written ``log(P/P(0))`` (value 1 at the origin), the rational part has value 0 at ``k = 0``."""
+    numerator, denominator = sympy.fraction(sympy.cancel(sympy.together(integrand)))
+    if not (numerator.is_polynomial(k) and denominator.is_polynomial(k)) or sympy.degree(denominator, k) > 8:
+        return None
+    try:
+        parts = sympy.apart(numerator / denominator, k)
+    except (sympy.PolynomialError, NotImplementedError):
+        return None
+    result, logarithms = sympy.Integer(0), sympy.Integer(0)
+    for term in sympy.Add.make_args(parts):
+        top, bottom = sympy.fraction(sympy.factor_terms(term))
+        if not bottom.has(k):
+            if not top.is_polynomial(k):
+                return None
+            result += sympy.Poly(top, k).integrate().as_expr() / bottom
+            continue
+        if top.has(k):
+            return None
+        _, factors = sympy.factor_list(bottom, k)
+        with_k = [(factor, power) for factor, power in factors if factor.has(k)]
+        if len(with_k) != 1 or sympy.degree(with_k[0][0], k) != 1:
+            return None
+        base, power = with_k[0]
+        constant = term * base ** power  # free of k
+        slope = sympy.diff(base, k)
+        if power == 1:
+            # log(P/P(0)) differs from log(P) by a constant and is 1 at the origin (analytic_at_zero)
+            value = base.subs({v: 0 for v in variables})
+            if not (value.is_number and value.is_zero is False):
+                return None
+            logarithms += constant / slope * sympy.log(sympy.expand(base / value))
+        else:
+            result += constant / slope * base ** (1 - power) / (1 - power)
+    # the rational part with value 0 at k = 0, cancelled: its poles in the other variables cancel (#237)
+    return sympy.cancel(result - result.subs(k, 0)) + logarithms
+
+
 def integral_from_zero(integrand: sympy.Expr, k: sympy.Symbol,
                        variables: Collection[sympy.Symbol]) -> Optional[sympy.Expr]:
     """The power series ``∫_0^k J(t) dt`` of ``J = integrand`` as a closed form G, or None if no antiderivative is
@@ -183,15 +240,27 @@ def integral_from_zero(integrand: sympy.Expr, k: sympy.Symbol,
     ``variables``, which must contain k).
 
     The antiderivative g is proposed by the formula for exponential polynomials, otherwise by SymPy's ``integrate``
-    (e.g. a logarithm for a rational integrand). Its constant is fixed as in the module docstring: G = g - g(0)."""
+    (e.g. a logarithm for a rational integrand) and, if that is not certified, for a rational integrand by its
+    partial fractions (:func:`_rational_antiderivative`, also with parameters). Its constant is fixed as in the
+    module docstring: G = g - g(0)."""
     terms = exp_polynomial_terms(integrand, k)
     if terms is not None:
-        antiderivative: Optional[sympy.Expr] = sympy.Add(
-            *(coefficient * _integral_of_term(n, c, k) for (n, c), coefficient in terms.items()))
-    else:
-        antiderivative = _cas_antiderivative(integrand, k, variables)
-    if antiderivative is None:
-        return None
+        return _certified(sympy.Add(*(coefficient * _integral_of_term(n, c, k)
+                                      for (n, c), coefficient in terms.items())), integrand, k, variables)
+    proposal = _cas_antiderivative(integrand, k, variables)
+    certified = _certified(proposal, integrand, k, variables) if proposal is not None else None
+    if certified is None:
+        # e.g. a rational integrand of a second-order generating function, where SymPy's antiderivative has
+        # logarithms of algebraic expressions that cannot be certified (#237)
+        proposal = _rational_antiderivative(integrand, k, variables)
+        certified = _certified(proposal, integrand, k, variables) if proposal is not None else None
+    return certified
+
+
+def _certified(antiderivative: sympy.Expr, integrand: sympy.Expr, k: sympy.Symbol,
+               variables: Collection[sympy.Symbol]) -> Optional[sympy.Expr]:
+    """``antiderivative - antiderivative(k = 0)`` if it is certified as the integral from 0 of ``integrand``
+    (:func:`integral_from_zero`), otherwise None."""
     # the integration constant: the integral from 0 is the antiderivative with value 0 at k = 0
     at_zero = antiderivative.subs(k, 0)
     if at_zero.has(sympy.nan, sympy.zoo, sympy.oo, -sympy.oo):
