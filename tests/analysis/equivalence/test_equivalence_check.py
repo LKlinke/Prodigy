@@ -235,3 +235,44 @@ def test_equivalence_check_decrement_under_guard(engine):
     res, subs = check_equivalence(cav_phi(prog, inv), inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
     assert res
     assert subs == []
+
+
+GAMBLER = """
+    nat x; nat n;
+    while (x > 0 & x < n) { {x := x - 1} [1/2] {x := x + 1} }
+"""
+
+
+@pytest.mark.parametrize(
+    'engine',
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE])
+@pytest.mark.parametrize('loop, invariant, expected', [
+    # the guard x < n compares two variables of the second-order distribution, which has infinite mass
+    pytest.param("nat x; nat n; while (x > 0 & x < n) { x := x - 1 }",
+                 "nat x; nat n; if (x > 0 & x < n) { x := 0 } else {skip}", True, id="decrement"),
+    pytest.param(GAMBLER, "nat x; nat n; if (n > 0 & x < n) { {x := 0} [1/2] {x := n} } else {skip}",
+                 False, id="gambler-wrong-invariant"),
+])
+def test_equivalence_check_compares_two_variables_formally(engine, loop, invariant, expected):
+    # Issue #366: x < n on the second-order generating function is filtered as a formal power series
+    if engine == ForwardAnalysisConfig.Engine.GINAC:
+        pytest.importorskip("prodigy_ginac")
+    prog, inv = compile_pgcl(loop), compile_pgcl(invariant)
+    assert isinstance(prog, Program) and isinstance(inv, Program)
+    res, _ = check_equivalence(cav_phi(prog, inv), inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
+    assert res is expected
+
+
+@pytest.mark.parametrize(
+    'engine',
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE])
+def test_equivalence_check_gambler_needs_the_probability_x_over_n(engine):
+    # Issue #366: the guard x < n works now; the probability x/n of the invariant (#237) is the
+    # remaining piece and ends with "not implemented"
+    if engine == ForwardAnalysisConfig.Engine.GINAC:
+        pytest.importorskip("prodigy_ginac")
+    prog = compile_pgcl(GAMBLER)
+    inv = compile_pgcl("nat x; nat n; if (x > 0 & x < n) { {x := 0} [x/n] {x := n} } else {skip}")
+    assert isinstance(prog, Program) and isinstance(inv, Program)
+    with pytest.raises(NotImplementedError, match="x / n"):
+        check_equivalence(cav_phi(prog, inv), inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
