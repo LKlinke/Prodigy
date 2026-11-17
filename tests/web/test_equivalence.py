@@ -99,7 +99,7 @@ def test_witness_needs_disjoint_intervals():
 def test_different_variables_are_not_compared():
     from prodigy.pgcl import parse_pgcl
     reason = eq.different_variables(parse_pgcl("x: nat;\n", "ppy"), parse_pgcl("y: nat;\n", "ppy"))
-    assert "only the first program declares x" in reason and "only the second program declares y" in reason
+    assert "only program A declares x" in reason and "only program B declares y" in reason
     result = compare("x: nat;\nx = 1;\n", "y: nat;\ny = 1;\n")
     assert result["equivalence"]["verdict"] == eq.UNKNOWN
     assert "different variables" in result["equivalence"]["reason"]
@@ -174,12 +174,12 @@ def test_gamblers_ruin_on_one_input_has_a_witness():
 
 
 def test_request_problems():
-    assert validate_equivalence({"source": BERNOULLI, "syntax": "ppy"}) == ["The second program is empty."]
+    assert validate_equivalence({"source": BERNOULLI, "syntax": "ppy"}) == ["Program B is empty."]
     problems = validate_equivalence({"source": BERNOULLI, "syntax": "ppy", "other_source": FAIR_COIN,
                                      "other_decisions": {"0": {"strategy": "no_such"}}})
-    assert problems and problems[0].startswith("Second program:")
+    assert problems and problems[0].startswith("Program B:")
     syntax_error = compare(BERNOULLI, "x: nat;\nx = ;\n")
-    assert syntax_error["status"] == "error" and syntax_error["error"]["message"].startswith("The second program")
+    assert syntax_error["status"] == "error" and syntax_error["error"]["message"].startswith("Program B:")
 
 
 # ---- endpoint ----------------------------------------------------------------------------------
@@ -203,7 +203,7 @@ def test_endpoint_runs_a_job(client):
 
 def test_endpoint_rejects_a_missing_second_program(client):
     response = client.post("/api/equivalence", json={"source": BERNOULLI, "syntax": "ppy"}, headers=HOST)
-    assert response.status_code == 400 and "second program" in response.get_json()["error"]
+    assert response.status_code == 400 and "Program B" in response.get_json()["error"]
 
 
 def test_endpoint_can_be_cancelled(client):
@@ -215,7 +215,7 @@ def test_endpoint_can_be_cancelled(client):
     job = response.get_json()["job"]
     cancelled = client.delete(f"/api/jobs/{job}", headers=HOST).get_json()
     assert cancelled["state"] == "cancelled"
-    assert cancelled["result"]["error"]["message"] == "The comparison was cancelled."
+    assert cancelled["result"]["error"]["message"] == "The check was cancelled."
 
 
 def test_equivalence_examples_load_both_programs(client):
@@ -282,7 +282,7 @@ def test_frontend_model(tmp_path):
     assert output["notImplemented"]["glyph"] == "?" and not output["notImplemented"]["proven"]
     assert output["forged"] == "unknown"
     assert output["proven"]["glyph"] == "≠" and output["proven"]["subtitle"] == "Proven by a witness."
-    assert output["relation"].startswith("Program ⪯ Second program")
+    assert output["relation"].startswith("Program A ⪯ Program B")
     assert output["constraints"] == ["p = 1/3", "p = 1/2, q = 1"]
     assert output["interval"] == ["1/3", "[1/3, 0.125]"]
     assert output["input"][0] == "Both programs on the input where every variable is 0 (the solver's counterexample)."
@@ -291,8 +291,22 @@ def test_frontend_model(tmp_path):
     assert output["check"] == ["The check did not finish.", "Not implemented: boom"]
 
 
+def test_compare_mode_has_its_own_url(client):
+    """/compare and /analyze serve the page; the page takes the mode from the URL."""
+    for path in ("/", "/analyze", "/compare"):
+        response = client.get(path, headers=HOST)
+        assert response.status_code == 200 and b'id="mode-switch"' in response.data
+    main = (COMPONENTS.parent / "main.js").read_text(encoding="utf-8")
+    assert "function modeFromUrl()" in main and "pushState" in main and 'addEventListener("popstate"' in main
+
+
 def test_page_has_the_second_editor(client):
     page = client.get("/", headers=HOST).get_data(as_text=True)
-    assert 'id="editor-other"' in page and 'id="btn-compare"' in page and 'aria-pressed="false"' in page
-    assert 'role="tablist" aria-label="Program to edit"' in page
+    assert 'id="editor-other"' in page and 'role="tablist" aria-label="Program to edit"' in page
+    # the mode switch in the toolbar (#154): Analyze | Compare, keyboard shortcuts, no Compare button in the
+    # header of the program
+    toolbar = page[page.index('<header class="toolbar"'):page.index("</header>")]
+    assert 'role="radiogroup" aria-label="Mode"' in toolbar
+    assert 'id="mode-analyze"' in toolbar and 'id="mode-compare"' in toolbar and "aria-keyshortcuts" in toolbar
+    assert 'id="btn-compare"' not in page
     assert "equivalence-view.css" in page

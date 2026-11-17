@@ -46,9 +46,13 @@ const state = {
   // the analysis card of the result: its controller, the step its timeline shows (for the editor),
   // breakpoint lines and watches (queries after every step)
   analysis: { card: null, step: null, breakpoints: [], watches: [] },
-  // the second program to compare with (#154): whether its editor is open, its diagnostics, which
-  // column a narrow editor pane shows, and which program's result the comparison shows
-  compare: { open: false, diagnostics: [], active: "first", programView: { which: "first" } },
+  // the mode of the window (#154): "analyze" one program or "compare" two; each mode keeps its own result
+  mode: "analyze",
+  results: { analyze: null, compare: null },
+  // program B of Compare mode: diagnostics, outline and loop decisions of its own, which column a narrow
+  // editor pane shows, and which program's result the comparison shows
+  compare: { diagnostics: [], outline: null, outlineStale: false, decisions: {}, graveyard: {}, active: "first",
+    programView: { which: "first" } },
 };
 
 const TABS = ["setup", "result"];
@@ -261,35 +265,103 @@ function renderProblemsButton(button, diagnostics, target, failure = null) {
   };
 }
 
-// ---- the second program (Compare, #154) -------------------------------------------------------------
+// ---- modes: Analyze one program, Compare two (#154) ----------------------------------------------------
 
-/** Opens or closes the second editor; while it is open, Run compares the two programs. */
-function setCompare(open, { focus = false } = {}) {
-  state.compare.open = open;
-  save("compare", open);
-  const pane = $("editor-pane");
-  pane.dataset.compare = String(open);
-  $("column-second").hidden = !open;
-  $("compare-tabs").hidden = !open;
-  $("btn-compare").setAttribute("aria-pressed", String(open));
-  $("btn-compare").title = open ? "Close the second program and analyze the first one alone"
-    : "Compare the program with a second program (equivalence check)";
-  if (open && !otherEditor.getSource().trim()) {
-    // a copy of the program is the usual start: change it and compare
+const MODES = ["analyze", "compare"];
+
+/** The mode the URL asks for: `…/compare` is Compare, everything else (`/`, `/analyze`) Analyze. */
+function modeFromUrl() {
+  return /\/compare\/?$/.test(window.location.pathname) ? "compare" : "analyze";
+}
+
+/**
+ * Switches the window to `mode`. Program A (the first editor, its setup) stays; each mode keeps its own
+ * result. `history` is "push" (a choice of the person), "replace" or null (the URL already says it).
+ * While a job runs the mode stays (its result belongs to the mode it was started in); returns whether it
+ * switched.
+ */
+function setMode(mode, { focus = false, history: how = "push" } = {}) {
+  if (!MODES.includes(mode)) mode = "analyze";
+  if (state.job && mode !== state.mode) {
+    notify(`Stop the running ${state.job.comparing ? "check" : "analysis"} before switching to ${mode === "compare" ? "Compare" : "Analyze"}.`);
+    return false;
+  }
+  if (mode !== state.mode) {
+    state.results[state.mode] = { result: state.result };
+    state.result = state.results[mode]?.result || null;
+    state.analysis.card?.stop();
+    state.analysis.card = null;
+    state.analysis.step = null;
+    editor.showStep(null);
+  }
+  state.mode = mode;
+  const compare = mode === "compare";
+  $("editor-pane").dataset.compare = String(compare);
+  $("column-second").hidden = !compare;
+  $("compare-tabs").hidden = !compare;
+  $("program-heading").textContent = compare ? "Program A" : "Program";
+  for (const key of MODES) {
+    const button = $(`mode-${key}`);
+    button.setAttribute("aria-checked", String(key === mode));
+    button.tabIndex = key === mode ? 0 : -1;
+  }
+  if (compare && !otherEditor.getSource().trim()) {
+    // a copy of program A is the usual start: change it and check
     otherEditor.setSource(editor.getSource(), editor.getSyntax());
   }
-  if (!open) showColumn("first");
+  if (!compare) showColumn("first");
+  if (how) {
+    const url = new URL(compare ? "compare" : "./", document.baseURI);
+    url.search = window.location.search;
+    url.hash = window.location.hash;
+    if (url.href !== window.location.href) window.history[how === "push" ? "pushState" : "replaceState"]({ mode }, "", url);
+  }
   renderRunButton();
-  refreshStale();
-  if (!state.result && !state.job) renderResultPanel();
-  if (open) scheduleOtherCheck(0);
-  if (focus) (open ? (showColumn("second"), otherEditor) : editor).focus();
+  state.resultChange = state.result ? changeSince(state.result.__request, buildRequest()) : null;
+  state.resultStale = Boolean(state.resultChange);
+  renderSetupPanel();
+  renderResultPanel();
+  updateAnnotations();
+  if (compare) scheduleOtherCheck(0);
+  if (focus) $(`mode-${mode}`).focus();
+  return true;
+}
+
+function initModeSwitch() {
+  for (const mode of MODES) {
+    const button = $(`mode-${mode}`);
+    button.addEventListener("click", () => setMode(mode));
+    button.addEventListener("keydown", (event) => {
+      if (!["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+      event.preventDefault();
+      // a radio group: the arrow keys move the choice
+      setMode(mode === "analyze" ? "compare" : "analyze", { focus: true });
+    });
+  }
+  window.addEventListener("popstate", () => {
+    const wanted = modeFromUrl();
+    if (wanted !== state.mode && !setMode(wanted, { history: null })) {
+      // a job runs: the URL goes back to the mode that is shown
+      window.history.pushState({ mode: state.mode }, "", new URL(state.mode === "compare" ? "compare" : "./", document.baseURI));
+    }
+  });
+}
+
+/** ⌥⌘1 / ⌥⌘2 (Ctrl+Alt+1 / 2 elsewhere) choose the mode; returns whether the key was one of them. */
+function modeKey(event) {
+  if (!event.altKey || !(event.metaKey || event.ctrlKey) || event.shiftKey) return false;
+  const mode = { Digit1: "analyze", Digit2: "compare" }[event.code];
+  if (!mode) return false;
+  event.preventDefault();
+  setMode(mode, { focus: true });
+  return true;
 }
 
 function renderRunButton() {
-  const open = state.compare.open;
-  $("btn-run").querySelector("span").textContent = open ? "Compare" : "Analyze";
-  $("btn-run").title = open ? "Check whether the two programs are equivalent (⌘↩)" : "Analyze the program (⌘↩)";
+  const compare = state.mode === "compare";
+  $("btn-run").querySelector("span").textContent = compare ? "Check" : "Analyze";
+  $("btn-run").title = compare ? "Check whether programs A and B are equivalent (⌘↩)" : "Analyze the program (⌘↩)";
+  $("btn-stop").title = compare ? "Stop the check (⌘.)" : "Stop the analysis (⌘.)";
 }
 
 /** Which program a narrow editor pane shows (the tabs above the editors). */
@@ -328,9 +400,9 @@ function scheduleOtherCheck(delay = 350) {
   otherCheckTimer = setTimeout(runOtherCheck, delay);
 }
 
-/** Diagnostics of the second program, as for the first (syntax and type errors, language warnings). */
+/** Diagnostics and outline of program B, as for program A (syntax and type errors, language warnings, loops). */
 async function runOtherCheck() {
-  if (!state.compare.open) return;
+  if (state.mode !== "compare") return;
   const source = otherEditor.getSource();
   const syntax = otherEditor.getSyntax();
   otherCheckController?.abort();
@@ -341,6 +413,21 @@ async function runOtherCheck() {
     state.compare.diagnostics = result.diagnostics;
     otherEditor.setDiagnostics(result.diagnostics);
     renderProblemsButton($("other-problems"), result.diagnostics, otherEditor);
+    const compare = state.compare;
+    const wasStale = compare.outlineStale;
+    compare.outlineStale = !result.outline;
+    if (result.outline) {
+      if (rekeyDecisions(compare.decisions, compare.outline, result.outline, compare.graveyard)) {
+        save("otherDecisions", compare.decisions);
+      }
+      const changed = JSON.stringify(compare.outline?.loops || null) !== JSON.stringify(result.outline.loops);
+      compare.outline = result.outline;
+      if (changed) renderSetupPanel();
+      refreshStale();
+    } else if (wasStale !== compare.outlineStale) {
+      renderSetupPanel();
+    }
+    updateAnnotations();
   } catch (error) {
     if (error.name === "AbortError") return;
     state.compare.diagnostics = [];
@@ -351,7 +438,7 @@ async function runOtherCheck() {
 function renderOtherSyntax() {
   const syntax = otherEditor.getSyntax();
   $("other-syntax-label").textContent = SYNTAXES[syntax].label;
-  $("other-syntax-label").setAttribute("aria-label", `Syntax of the second program: ${SYNTAXES[syntax].label}`);
+  $("other-syntax-label").setAttribute("aria-label", `Syntax of program B: ${SYNTAXES[syntax].label}`);
 }
 
 // ---- setup ------------------------------------------------------------------------------------
@@ -389,7 +476,20 @@ function renderSetupPanel() {
     },
     suggest: requestSuggestion,
     currentSource: () => editor.getSource(),
+    ...(state.mode === "compare" ? { second: {
+      outline: state.compare.outline,
+      outlineStale: Boolean(state.compare.outlineStale && state.compare.outline),
+      setup: { decisions: state.compare.decisions },
+      source: otherEditor.getSource(),
+      syntax: otherEditor.getSyntax(),
+      onChange: () => {
+        save("otherDecisions", state.compare.decisions);
+        refreshStale();
+        updateAnnotations();
+      },
+    } } : {}),
   });
+  if (state.mode === "compare") save("otherDecisions", state.compare.decisions);
   save("setup", state.setup);
 }
 
@@ -473,6 +573,18 @@ function updateAnnotations() {
     }
   }
   editor.setAnnotations({ loops, queries });
+  // program B in Compare mode: the strategy above each loop, and after a check what it certified
+  const other = state.mode === "compare" && !state.resultStale ? state.result?.equivalence?.other : null;
+  otherEditor?.setAnnotations({ loops: state.mode !== "compare" ? [] : (state.compare.outline?.loops || []).map((loop) => {
+    const decision = state.compare.decisions[String(loop.id)] || defaultDecision(state.strategies);
+    const spec = { id: loop.id, line: loop.line, strategy: shortStrategy(decision), onClick: (id) => showLoop(`b-${id}`) };
+    const record = (other?.loops || []).find((l) => l.id === loop.id);
+    if (record) {
+      spec.kind = record.failed ? "error" : record.kind;
+      spec.outcome = record.failed ? "failed" : (BOUND_TEXT[record.kind] || BOUND_TEXT.unknown).label.toLowerCase();
+    }
+    return spec;
+  }), queries: [] });
 }
 
 // ---- results ----------------------------------------------------------------------------------------
@@ -557,8 +669,8 @@ function renderResultPanel() {
     state.analysis.step = null;
     showAnalysisStep();
     panel.replaceChildren(h("div", { class: "result-view" }, h("p", { class: "help" },
-      state.compare.open
-        ? "No result yet. Press Compare (⌘↩) to check whether the two programs are equivalent."
+      state.mode === "compare"
+        ? "No result yet. Press Check (⌘↩) to check whether programs A and B are equivalent."
         : "No result yet. Press Analyze (⌘↩) to compute the output distribution and the answers to the queries.")));
     setBadge(null);
     return;
@@ -574,6 +686,7 @@ function renderResultPanel() {
       onSelectLine: (line) => { showColumn("first"); editor.revealLine(line); },
       elapsed: state.result.__elapsed,
       programView: state.compare.programView,
+      onSelectOtherLoop: (id) => showLoop(`b-${id}`),
     });
     state.analysis.card = null;
     const verdict = state.result.equivalence.verdict;
@@ -705,10 +818,19 @@ function buildRequest() {
       ? { template_heuristic: options.templateHeuristic, positivity_heuristic: options.positivityHeuristic } : {}),
     solver: options.solver,
     time_limit: options.timeLimit,
-    // the loops of the second program get the default strategy (its own setup is not editable yet)
-    ...(state.compare.open ? { other_source: otherEditor.getSource(), other_syntax: otherEditor.getSyntax(),
-      other_decisions: { "*": defaultDecision(state.strategies) }, record_steps: false } : {}),
+    ...(state.mode === "compare" ? { other_source: otherEditor.getSource(), other_syntax: otherEditor.getSyntax(),
+      other_decisions: otherDecisions(), record_steps: false } : {}),
   };
+}
+
+/** The decisions of program B's loops (Compare mode), as sent with the request. */
+function otherDecisions() {
+  const decisions = {};
+  for (const loop of state.compare.outline?.loops || []) {
+    const decision = state.compare.decisions[String(loop.id)];
+    if (decision) decisions[String(loop.id)] = { strategy: decision.strategy, params: decision.params };
+  }
+  return decisions;
 }
 
 /** Asks the server's language model for a candidate for one loop (a job like an analysis, with
@@ -747,21 +869,27 @@ async function run() {
     showLoop(problems[0].loop);
     return;
   }
-  const comparing = state.compare.open;
+  const comparing = state.mode === "compare";
   if (comparing) {
     clearTimeout(otherCheckTimer);
     await runOtherCheck();
     const otherErrors = state.compare.diagnostics.filter((d) => d.severity === "error");
     if (!otherEditor.getSource().trim()) {
-      showRunMessage("The second program is empty.");
+      showRunMessage("Program B is empty.");
       showColumn("second");
       otherEditor.focus();
       return;
     }
     if (otherErrors.length) {
-      showRunMessage(`Fix line ${otherErrors[0].line} of the second program first.`);
+      showRunMessage(`Fix line ${otherErrors[0].line} of program B first.`);
       showColumn("second");
       otherEditor.revealLine(otherErrors[0].line);
+      return;
+    }
+    const otherProblems = setupProblems(state.compare.outline, { decisions: state.compare.decisions }, state.strategies);
+    if (otherProblems.length) {
+      showRunMessage(`Program B: ${otherProblems[0].message}`);
+      showLoop(`b-${otherProblems[0].loop}`);
       return;
     }
   }
@@ -814,7 +942,7 @@ async function poll() {
 function showRunning(progress) {
   const change = state.job ? changeSince(state.job.request, buildRequest()) : null;
   renderRunning($("panel-result"), progress, { strategyTitles: state.titles, change,
-    label: state.job?.comparing ? "Comparing" : "Analyzing" });
+    label: state.job?.comparing ? "Checking" : "Analyzing" });
 }
 
 function finish(result, elapsed) {
@@ -859,8 +987,13 @@ async function loadExample(example, syntax = "ppy") {
   if (data.other) {
     // an equivalence example: the second program goes into the second editor (#154)
     otherEditor.setSource(data.other.source, data.other.syntax || "ppy");
-    if (!state.compare.open) setCompare(true);
+    state.compare.decisions = {};
+    state.compare.outline = null;
+    state.compare.graveyard = {};
+    setMode("compare");
     showColumn("first");
+  } else {
+    setMode("analyze");
   }
   const suggestion = data.suggestion || {};
   state.setup.decisions = {};
@@ -1025,10 +1158,8 @@ async function boot() {
   });
   renderOtherSyntax();
   initCompareTabs();
-  $("btn-compare").addEventListener("click", () => setCompare(!state.compare.open, { focus: true }));
-  $("btn-compare-close").addEventListener("click", () => setCompare(false, { focus: true }));
-  if (load("compare", false) === true) setCompare(true);
-  renderRunButton();
+  initModeSwitch();
+  state.compare.decisions = load("otherDecisions", {}) || {};
   state.analysis.watches = (load("watches", []) || []).filter((w) => typeof w === "string").slice(0, 8);
   save("syntax", editor.getSyntax());
   documents = createDocument({ editor, initialText: editor.getSource(), onReplace: programReplaced, notify,
@@ -1047,7 +1178,7 @@ async function boot() {
   $("btn-run").addEventListener("click", run);
   $("btn-stop").addEventListener("click", stop);
   document.addEventListener("keydown", (event) => {
-    if (analysisKey(event)) return;
+    if (analysisKey(event) || modeKey(event)) return;
     const mod = event.metaKey || event.ctrlKey;
     const key = event.key.toLowerCase();
     const modal = document.querySelector("dialog[open]");
@@ -1064,8 +1195,7 @@ async function boot() {
   });
 
   renderProblems();
-  renderSetupPanel();
-  renderResultPanel();
+  setMode(modeFromUrl(), { history: null });
   await runCheck();
   editor.focus();
 }

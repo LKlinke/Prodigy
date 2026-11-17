@@ -310,7 +310,7 @@ class JobManager:
             job.process.join(timeout=1)
         job.state = state
         what = {"suggest": "The request to the language model", "joint": "The computation of the grid",
-                "equivalence": "The comparison"}.get(
+                "equivalence": "The check"}.get(
             str(job.summary.get("kind")), "The analysis")
         message = (f"{what} was stopped after the time limit of {job.time_limit:g} s." if state == "timeout"
                    else f"{what} was cancelled.")

@@ -314,12 +314,12 @@ def validate_equivalence(request: Dict[str, Any]) -> List[str]:
     first = {key: value for key, value in request.items() if not key.startswith("other_")}
     problems = validate_request(first)
     if not isinstance(request.get("other_source"), str) or not request["other_source"].strip():
-        return problems + ["The second program is empty."]
+        return problems + ["Program B is empty."]
     try:
         other = other_program_request(request)
     except ValueError as exc:
         return problems + [str(exc)]
-    return problems + [f"Second program: {problem}" for problem in validate_request(other)
+    return problems + [f"Program B: {problem}" for problem in validate_request(other)
                        if problem not in problems]
 
 
@@ -343,12 +343,12 @@ def run_equivalence(request: Dict[str, Any], *, output: Optional[Callable[[str],
     first_request = prepare_request({key: value for key, value in request.items() if not key.startswith("other_")})
     second_request = prepare_request(other_program_request(request))
     programs: Dict[str, Any] = {}
-    for which, part in (("first", first_request), ("second", second_request)):
+    for which, part in (("A", first_request), ("B", second_request)):
         try:
             programs[which] = parse_pgcl(part["source"], request_syntax(part))
         except Exception as exc:  # pylint: disable=broad-except
-            return _error("syntax", f"The {which} program: {str(exc).split(chr(10), maxsplit=1)[0]}")
-    program, other = programs["first"], programs["second"]
+            return _error("syntax", f"Program {which}: {str(exc).split(chr(10), maxsplit=1)[0]}")
+    program, other = programs["A"], programs["B"]
 
     def session_for(part: Dict[str, Any], prog: Any, *, input_distribution: Any = None,
                     report: Optional[Callable[[Dict[str, Any]], None]] = None) -> AnalysisSession:

@@ -11,6 +11,7 @@ A small Flask application: one page (``templates/app.html`` with the ES modules 
                                   distribution is accepted
 ``POST /api/convert``             a pGCL program in the ``.ppy`` syntax, with the renamed names
 ``POST /api/analyze``             starts an analysis in its own process, returns a job id
+``GET /``, ``/analyze``, …        the page; ``/compare`` opens it in Compare mode (#154)
 ``POST /api/equivalence``         starts a job that compares two programs (``other_source``, see
                                   :func:`prodigy.web.requests.run_equivalence`), returns a job id
 ``GET  /api/jobs/<id>``           state, new console output, progress, result when done
@@ -129,7 +130,10 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         return error
 
     @app.get("/")
+    @app.get("/analyze")
+    @app.get("/compare")
     def index() -> Any:
+        """The page; the path selects the mode (Analyze or Compare), which the page keeps in the URL."""
         return render_template("app.html", version=version)
 
     @app.get("/api/meta")

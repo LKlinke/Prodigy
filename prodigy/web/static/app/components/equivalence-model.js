@@ -38,8 +38,8 @@ export function verdictOf(equivalence) {
 
 /** One sentence for the relation that was proven when only one side is exact. */
 export function relationText(relation) {
-  if (relation === "first_below_second") return "Program ⪯ Second program (coefficient-wise, for every input)";
-  if (relation === "second_below_first") return "Second program ⪯ Program (coefficient-wise, for every input)";
+  if (relation === "first_below_second") return "Program A ⪯ Program B (coefficient-wise, for every input)";
+  if (relation === "second_below_first") return "Program B ⪯ Program A (coefficient-wise, for every input)";
   return null;
 }
 
@@ -68,7 +68,7 @@ export function checkLines(check) {
   if (!check) return [];
   const lines = [CHECK_ANSWERS[check.answer] || check.answer];
   if (check.answer !== "failed") {
-    lines.push(`Program analysed ${boundWord(check.first)}; second program analysed ${boundWord(check.second)}.`);
+    lines.push(`Program A analysed ${boundWord(check.first)}; program B analysed ${boundWord(check.second)}.`);
   }
   if (check.counterexample) lines.push(`Counterexample of the solver: input ${stateText(check.counterexample)}.`);
   if (check.error?.message) {

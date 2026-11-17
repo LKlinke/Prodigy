@@ -91,9 +91,9 @@ def different_variables(program: "Program", other: "Program") -> Optional[str]:
         return None
     parts = []
     if first - second:
-        parts.append(f"only the first program declares {', '.join(sorted(first - second))}")
+        parts.append(f"only program A declares {', '.join(sorted(first - second))}")
     if second - first:
-        parts.append(f"only the second program declares {', '.join(sorted(second - first))}")
+        parts.append(f"only program B declares {', '.join(sorted(second - first))}")
     return ("The programs declare different variables (" + "; ".join(parts) + "). The comparison needs the "
             "same variables in both programs; declare the missing ones (they keep the value 0).")
 
@@ -273,16 +273,14 @@ def _failure_reason(error: Dict[str, Any]) -> str:
 
 
 def _proven_relation_reason(check: CheckOutcome, relation: str) -> str:
-    lower, upper = ("first", "second") if relation == FIRST_BELOW_SECOND else ("second", "first")
-    bounded = "first" if check.first != Bound.EXACT else "second"
-    kind = check.first if bounded == "first" else check.second
-    tail = ("They are equal if the loops of the first program terminate almost surely, which Prodigy does not "
-            "check." if kind == Bound.UPPER and bounded == "first" else
-            "They are equal if the loops of the second program terminate almost surely, which Prodigy does not "
+    lower, upper = ("A", "B") if relation == FIRST_BELOW_SECOND else ("B", "A")
+    bounded = "A" if check.first != Bound.EXACT else "B"
+    kind = check.first if bounded == "A" else check.second
+    tail = (f"They are equal if the loops of program {bounded} terminate almost surely, which Prodigy does not "
             "check." if kind == Bound.UPPER else
             "Equality is not proven: the unrolled loops may still contribute more mass.")
-    return (f"Proven for every input: the output distribution of the {lower} program is coefficient-wise at most "
-            f"that of the {upper} program, because the analysis of the {bounded} program is "
+    return (f"Proven for every input: the output distribution of program {lower} is coefficient-wise at most "
+            f"that of program {upper}, because the analysis of program {bounded} is "
             f"{_KIND_WORDS[kind]}. {tail}")
 
 

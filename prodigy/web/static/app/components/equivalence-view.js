@@ -11,7 +11,7 @@ import {
 } from "./equivalence-model.js";
 import { staleText } from "../staleness.js";
 
-const PROGRAMS = [["first", "Program"], ["second", "Second program"]];
+const PROGRAMS = [["first", "Program A"], ["second", "Program B"]];
 
 function verdictCard(result, equivalence) {
   const verdict = verdictOf(equivalence);
@@ -55,7 +55,7 @@ function witnessTable(witness) {
     h("div", { class: "table-wrap" }, h("table", { class: "rv-table eq-witness-table" },
       h("thead", {}, h("tr", {}, h("th", { scope: "col" }, ""), h("th", { scope: "col" }, "Probability"),
         h("th", { scope: "col" }, "Guarantee"))),
-      h("tbody", {}, row("Program", witness.first), row("Second program", witness.second)))));
+      h("tbody", {}, row("Program A", witness.first), row("Program B", witness.second)))));
 }
 
 function checkDetails(check) {
@@ -98,9 +98,9 @@ function distributionsCard(result, equivalence) {
     children.push(h("div", { class: "eq-marginal" },
       h("h4", { class: "rv-block-title" }, `Pr[${variable} = k]`,
         anyDiffers ? h("span", { class: "eq-marginal-flag" }, " · values differ") : null),
-      h("div", { class: "table-wrap" }, h("table", { class: "rv-table eq-table", "aria-label": `Distribution of ${variable} in both programs` },
-        h("thead", {}, h("tr", {}, h("th", { scope: "col" }, "k"), h("th", { scope: "col" }, "Program"),
-          h("th", { scope: "col" }, "Second program"), h("th", { scope: "col" }, h("span", { class: "visually-hidden" }, "Comparison")))),
+      h("div", { class: "table-wrap" }, h("table", { class: "rv-table eq-table", "aria-label": `Distribution of ${variable} in programs A and B` },
+        h("thead", {}, h("tr", {}, h("th", { scope: "col" }, "k"), h("th", { scope: "col" }, "A"),
+          h("th", { scope: "col" }, "B"), h("th", { scope: "col" }, h("span", { class: "visually-hidden" }, "Comparison")))),
         h("tbody", {}, ...body)))));
   }
   if (result.bounds?.kind !== "exact" || other.bounds?.kind !== "exact") {
@@ -112,8 +112,8 @@ function distributionsCard(result, equivalence) {
 
 /**
  * Renders a comparison result (an analysis result with an `equivalence` part) into `container`.
- * options: those of renderResult (for the result of each program) plus `programView` ({which}) to
- * remember the chosen program, `stale`, `change`, `onRun`. Returns {analysis} of the shown result.
+ * options: those of renderResult (for the result of program A) plus `programView` ({which}) to
+ * remember the chosen program, `onSelectOtherLoop(id)` for the loops of program B, `stale`, `change`, `onRun`. Returns {analysis} of the shown result.
  */
 export function renderEquivalence(container, result, options = {}) {
   const equivalence = result.equivalence;
@@ -123,7 +123,7 @@ export function renderEquivalence(container, result, options = {}) {
     children.push(h("div", { class: "notice rv-stale", role: "status" }, icon("info"),
       h("span", {}, staleText(options.change)),
       options.onRun ? h("button", { type: "button", class: "button small", onclick: () => options.onRun() },
-        "Compare Again") : null));
+        "Check Again") : null));
   }
   children.push(verdictCard(result, equivalence), distributionsCard(result, equivalence));
   const holder = h("div", { class: "eq-program-result" });
@@ -134,7 +134,8 @@ export function renderEquivalence(container, result, options = {}) {
     analysis?.stop?.();
     const shown = which === "second" ? equivalence.other || {} : result;
     // the editor callbacks (lines, loops) belong to the first program's editor
-    const own = which === "first" ? options : { strategyTitles: options.strategyTitles };
+    const own = which === "first" ? options
+      : { strategyTitles: options.strategyTitles, onSelectLoop: options.onSelectOtherLoop };
     ({ analysis } = renderResult(holder, shown, { ...own, stale: false, loadJoint: undefined }));
   };
   const switcher = segmented("Result of", PROGRAMS, choose);
