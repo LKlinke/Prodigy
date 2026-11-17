@@ -124,7 +124,7 @@ function ask(dialog) {
  *   file     the full name of the linked file (origin "file")
  * The syntax is the editor's (editor.getSyntax()).
  */
-export function createDocument({ editor, initialText, onReplace, notify, onChange }) {
+export function createDocument({ editor, initialText, onReplace, notify, onChange, saveBlocked = () => null }) {
   let handle = null;
   let meta = load("document", null);
   if (!meta || typeof meta !== "object") {
@@ -272,6 +272,12 @@ export function createDocument({ editor, initialText, onReplace, notify, onChang
   }
 
   async function saveDocument({ as = false } = {}) {
+    // e.g. while the editor shows only one loop of the program (Compare this loop, #399)
+    const blocked = saveBlocked();
+    if (blocked) {
+      notify(blocked, "info");
+      return false;
+    }
     const text = editor.getSource();
     if (canWriteFiles) {
       let target = !as && linkedFile() ? handle : null;

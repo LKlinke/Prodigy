@@ -42,6 +42,8 @@ from dataclasses import dataclass, field
 from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, Union,
                     cast, get_args)
 
+import attr
+
 from prodigy.pgcl import (ChoiceInstr, CovarianceInstr, ExpectationInstr, VarianceInstr,
                           Expr, IfInstr, Instr, LoopInstr, OptimizationQuery, PlotInstr,
                           PrintInstr, ProbabilityQueryInstr, Program, QueryInstr, WhileInstr)
@@ -204,6 +206,7 @@ class LoopRegistry:
         self.loops: List[LoopInfo] = []
         self._by_identity: Dict[int, LoopInfo] = {}
         self._by_text: Dict[str, List[LoopInfo]] = {}
+        self._instructions: List[WhileInstr] = []
         if program is None:
             return
         found: List[Tuple[WhileInstr, int, Optional[str]]] = []
@@ -223,6 +226,7 @@ class LoopRegistry:
             info = LoopInfo(id=index, cond=spell(instr.cond, syntax), depth=depth, function=function_name,
                             line=line, column=column)
             self.loops.append(info)
+            self._instructions.append(instr)
             self._by_identity[id(instr)] = info
             self._by_text.setdefault(str(instr), []).append(info)
 
@@ -232,6 +236,10 @@ class LoopRegistry:
             return info
         candidates = self._by_text.get(str(instr), [])
         return candidates[0] if len(candidates) == 1 else None
+
+    def instruction(self, loop_id: int) -> Optional[WhileInstr]:
+        """The loop with id ``loop_id`` (``None`` if there is none)."""
+        return self._instructions[loop_id] if 0 <= loop_id < len(self._instructions) else None
 
     def alias(self, copy: WhileInstr, original: WhileInstr) -> None:
         """Looks up ``copy`` as ``original`` (see :meth:`AnalysisSession.loop_alias`)."""
@@ -251,6 +259,48 @@ class LoopRegistry:
 
 QUERY_INSTRUCTIONS = ("ExpectationInstr", "VarianceInstr", "CovarianceInstr", "ProbabilityQueryInstr",
                       "PrintInstr", "PlotInstr", "OptimizationQuery")
+
+
+@dataclass
+class IsolatedLoop:
+    """A loop of a program as a program of its own (:func:`isolate_loop`)."""
+
+    program: str
+    """The program text, in the syntax of the program."""
+    loop: int
+    """The id of the loop in :attr:`program`."""
+    declarations: str
+    """The declarations alone (a loop-free program to start from)."""
+    whole: bool
+    """Whether :attr:`program` is the original source (the loop is all the program does)."""
+
+
+def isolate_loop(program: Program, instruction: WhileInstr, syntax: str,
+                 source: Optional[str] = None) -> Optional[IsolatedLoop]:
+    """The loop ``instruction`` of ``program`` as a program to compare with a loop-free program (#154,
+    #399): the program itself (``source``) if the loop is all it does apart from queries, else its
+    declarations and the loop. The code before the loop is left out on purpose: a comparison holds for
+    every input, so it covers whatever that code produces. ``None`` if the program cannot be printed in
+    ``syntax``."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.pgcl.ppy_printer import PpyPrintError, program_to_ppy
+
+    def text(instructions: List[Instr]) -> str:
+        part = attr.evolve(program, instructions=instructions)
+        return program_to_ppy(part) if syntax == "ppy" else str(part)
+
+    rest = [instr for instr in program.instructions
+            if instr is not instruction and type(instr).__name__ not in QUERY_INSTRUCTIONS]
+    try:
+        declarations = text([])
+        if not rest and source is not None and any(instr is instruction for instr in program.instructions):
+            info = LoopRegistry(program).lookup(instruction)
+            return IsolatedLoop(source, info.id if info is not None else 0, declarations, True)
+        loop_program = attr.evolve(program, instructions=[instruction])
+        info = LoopRegistry(loop_program).lookup(instruction)
+        return IsolatedLoop(text([instruction]), info.id if info is not None else 0, declarations, False)
+    except PpyPrintError:
+        return None
 
 
 def query_instructions(program: Program) -> List[Instr]:

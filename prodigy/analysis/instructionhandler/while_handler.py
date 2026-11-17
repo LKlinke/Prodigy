@@ -15,7 +15,6 @@ import logging
 from fractions import Fraction
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
-import attr
 import sympy
 from lark.exceptions import LarkError
 
@@ -355,24 +354,14 @@ def _loop_program(task: LoopTask) -> Dict[str, Any]:
     """The program to compare with the invariant: the program itself if the loop is all it does, else its
     declarations and the loop (``program``, in the program's syntax), and the id of the loop in it."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.session import LoopRegistry
-    from prodigy.pgcl.ppy_printer import PpyPrintError, program_to_ppy
+    from prodigy.analysis.session import isolate_loop
     session = task.session
-    program = session.program
-    if program is None:
+    if session.program is None:
         return {"program": None, "program_loop": None}
-    rest = [instr for instr in program.instructions if instr is not task.instruction
-            and type(instr).__name__ not in ("ExpectationInstr", "VarianceInstr", "CovarianceInstr",
-                                             "ProbabilityQueryInstr", "PrintInstr", "PlotInstr")]
-    if not rest and session.source is not None and any(instr is task.instruction for instr in program.instructions):
-        return {"program": session.source, "program_loop": task.loop.id if task.loop is not None else 0}
-    loop_program = attr.evolve(program, instructions=[task.instruction])
-    try:
-        text = program_to_ppy(loop_program) if session.syntax == "ppy" else str(loop_program)
-    except PpyPrintError:
+    isolated = isolate_loop(session.program, task.instruction, session.syntax, session.source)
+    if isolated is None:
         return {"program": None, "program_loop": None}
-    info = LoopRegistry(loop_program).lookup(task.instruction)
-    return {"program": text, "program_loop": info.id if info is not None else 0}
+    return {"program": isolated.program, "program_loop": isolated.loop}
 
 
 def _strategy_unroll(task: LoopTask) -> LoopOutcome:

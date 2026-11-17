@@ -416,9 +416,20 @@ select { appearance: auto; padding: 2px 6px; }
 }
 .params { display: grid; gap: 10px; }
 
+/* loops and loop-free programs (#399): "Compare this loop", and a loop that continues with program B */
+.loop-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.loop-actions .button .icon { width: 14px; height: 14px; }
+.compared-note { margin: 0; }
+.compared-note .icon { color: var(--text-2); }
+.compared-source {
+  margin: 0; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+  font-size: 12px; background: var(--surface-sunken); border-radius: 6px; padding: 6px 8px;
+}
+
 /* the Suggest button next to an invariant field and its status */
 .field-with-action { display: flex; gap: 8px; align-items: center; }
-.field-with-action > .field { flex: 1; min-width: 0; }
+.field-with-action > .field, .field-with-action > textarea { flex: 1; min-width: 0; }
+.field-with-action:has(> textarea) { align-items: flex-start; }
 .suggest-status:empty { display: none; }
 .suggest-status p { margin: 0; }
 .suggest-progress { display: flex; gap: 8px; align-items: center; font-size: var(--text-callout); color: var(--text-2); }

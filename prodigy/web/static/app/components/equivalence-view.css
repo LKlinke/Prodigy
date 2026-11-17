@@ -42,3 +42,8 @@
 
 .eq-program-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: -8px; }
 .eq-program-result > .result-view { gap: 20px; }
+
+/* "Continue in Analyze with B as the loop's result" (#399) */
+.eq-continue { display: grid; gap: 6px; justify-items: start; padding-top: 8px; border-top: 1px solid var(--rv-separator); }
+.eq-continue .button { display: inline-flex; align-items: center; gap: 6px; }
+.eq-continue .rv-note, .eq-continue-note { margin: 0; line-height: 1.45; }

@@ -38,6 +38,7 @@ export const api = {
   meta: () => request("GET", "api/meta"),
   check: (source, syntax, signal, input = {}) => request("POST", "api/check", { source, syntax, ...input }, { signal }),
   convert: (source) => request("POST", "api/convert", { source }),
+  loopProgram: (source, syntax, loop) => request("POST", "api/loop-program", { source, syntax, loop }),
   analyze: (payload) => request("POST", "api/analyze", payload),
   equivalence: (payload) => request("POST", "api/equivalence", payload),
   suggest: (payload) => request("POST", "api/suggest", payload),

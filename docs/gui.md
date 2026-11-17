@@ -116,7 +116,48 @@ last result. Opening a program (Open…, New) replaces program A in either mode.
 library, the examples marked *compare* (`check_equality` in `pgfexamples/equivalence/` and
 `template_parameter_synthesis/`) open in Compare mode with both programs, and a loop of program
 A then uses program B as its invariant, as `prodigy check_equality` does; every other example
-opens in Analyze mode.
+opens in Analyze mode. A loop of program A whose invariant is program B follows program B while
+you edit it; **Use program B** next to an invariant field of program A fills it in.
+
+### A loop against a loop-free program
+
+Checking a loop against a loop-free program you write (*Check invariant*, the strategy
+`invariant`: I ≡ if (guard) { body; I }, Park's lemma) is a comparison of two programs, so it lives
+in Compare mode (#399); Analyze does not offer it in its strategy menu.
+
+* **Compare this loop** (a button on each loop card of Analyze's Setup) opens Compare with the
+  loop as program A and the loop-free program as program B: B is the loop's invariant program if it
+  has one, otherwise B starts with the declarations, and the cursor waits where its instructions go.
+  The loop keeps its strategy as the strategy of program A's loop; choose *Check invariant* and
+  **Use program B** for the old Park check.
+* **Which program A.** If the loop is all the program does (apart from queries), program A is the
+  program itself. Otherwise program A is the program's declarations and the loop alone: the code
+  before the loop (initialisations, enclosing `if`s) is left out, because a comparison holds for
+  every input and so covers whatever that code produces; the code after the loop does not concern
+  the loop. Loops inside functions cannot be compared. The initial distribution of the Setup
+  belongs to the whole program and is cleared for the comparison.
+* **Back to Analyze** (the mode switch, or the continue flow below) brings back the program the
+  loop came from, with its strategies and initial distribution, as long as program A is still that
+  loop (⌘Z in the editor undoes it). While program A is one loop of the program, Save is refused
+  so that the file never gets only the loop.
+* **Continue in Analyze with B as the loop's result.** When the verdict is *Equivalent* or *One
+  direction is proven* with Program A ⪯ Program B, the verdict card offers this button. It goes
+  back to Analyze, sets the loop's strategy and analyses the program, which continues after the loop
+  with B's result:
+
+  | Verdict | Strategy of the loop in Analyze | Guarantee |
+  | --- | --- | --- |
+  | Equivalent | the strategy that proved program A exact in the comparison (the strategy `invariant` alone gives only an upper bound) | exact, if that strategy proves it again on the program's input; the result says so |
+  | Program A ⪯ Program B | Check invariant with program B, checked again (Park's lemma) | upper bound, exact if the loop terminates almost surely |
+
+  Analyze always proves the loop's result itself; the verdict is not taken on trust. The button is
+  not offered when program A is not exactly one loop, program B has loops, the verdict holds only
+  for parameter values (put them into B first), or only Program B ⪯ Program A is proven (B is then
+  a lower bound of the loop, which this strategy cannot give; unroll the loop for lower bounds).
+* **Saved setups and the library.** A loop whose strategy is still `invariant` (saved in the
+  browser, an example marked *compare*, or the continue flow) keeps it and runs in Analyze: its card
+  says what it is, shows program B, and offers **Open in Compare** and **Choose a strategy** instead
+  of the strategy menu. On the command line `--loop invariant` is unchanged.
 
 The check runs as a job like an analysis (own process, time limit, Stop). It has two parts:
 
@@ -279,13 +320,15 @@ corner names the outcome. *How to choose a strategy* (above the loop cards) list
 | Group | Strategies | What you get |
 | --- | --- | --- |
 | Automatic | Automatic (`auto`, the default) | exact if Prodigy finds an EVT invariant within a few seconds, otherwise a lower bound from unrolling N iterations |
-| Exact result | Check invariant, Check EVT invariant, Synthesise EVT invariant, EVT invariant from a language model | exact, or an upper bound if a side condition fails (finite mass, almost-sure termination); no result without a proof |
+| Exact result | Check EVT invariant, Synthesise EVT invariant, EVT invariant from a language model (and Check invariant, in Compare mode) | exact, or an upper bound if a side condition fails (finite mass, almost-sure termination); no result without a proof |
 | Bounds | Unroll N iterations, Iterate until mass captured, Check EVT sub-invariant, EVT sandwich | lower bounds (every query an interval) without a termination assumption; the sandwich also upper bounds |
 | Explore | Expected visiting times H_N (`evt_iterate`) | the iterates of the expected visiting times, to guess an EVT invariant; the result is only a lower bound |
 
 **Check invariant and parameter synthesis.** *Check invariant* (`invariant`) checks a concrete
-loop-free program I (I ≡ if (guard) { body; I } for all inputs) and continues with it: an analysis
-step, "I know the closed form". Finding parameter values instead (an I with parameters the program
+loop-free program I (I ≡ if (guard) { body; I } for all inputs) and continues with it. Since it
+needs a second program, the GUI offers it in Compare mode only (see
+[A loop against a loop-free program](#a-loop-against-a-loop-free-program)); Analyze runs it for
+loops that already have it. Finding parameter values instead (an I with parameters the program
 does not have, as in `pgfexamples/template_parameter_synthesis/`, or a check that fixes the
 program's parameters to values) is a comparison of the loop with I, so it belongs to Compare mode
 (#154). In Analyze mode such an invariant ends with *Parameter synthesis is a comparison* and the

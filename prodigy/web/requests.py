@@ -298,6 +298,35 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
 # Comparing two programs (POST /api/equivalence)
 # ---------------------------------------------------------------------------------------
 
+def loop_program(source: str, syntax: str, loop_id: int) -> Dict[str, Any]:
+    """A loop of a program as a program of its own, for "Compare this loop" (#399): ``program`` (the
+    program itself if the loop is all it does, else its declarations and the loop, see
+    :func:`prodigy.analysis.session.isolate_loop`), ``loop`` (its id there), ``declarations`` (to start
+    program B from) and ``whole``. Raises ``ValueError`` with a message for the person otherwise."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.session import LoopRegistry, isolate_loop
+    from prodigy.pgcl import parse_pgcl
+
+    try:
+        program = parse_pgcl(source, syntax)
+    except Exception as exc:  # pylint: disable=broad-except
+        raise ValueError(f"The program does not parse: {str(exc).split(chr(10), maxsplit=1)[0]}") from exc
+    registry = LoopRegistry(program)
+    info = next((loop for loop in registry if loop.id == loop_id), None)
+    if info is None:
+        raise ValueError(f"The program has no loop {loop_id}.")
+    if info.function is not None:
+        raise ValueError(f"Loop {loop_id} is inside the function {info.function}; only loops of the program "
+                         "itself can be compared.")
+    instruction = registry.instruction(loop_id)
+    assert instruction is not None
+    isolated = isolate_loop(program, instruction, syntax, source)
+    if isolated is None:
+        raise ValueError(f"Loop {loop_id} cannot be written as a program of its own in this syntax.")
+    return {"program": isolated.program, "loop": isolated.loop, "declarations": isolated.declarations,
+            "whole": isolated.whole}
+
+
 def other_program_request(request: Dict[str, Any]) -> Dict[str, Any]:
     """The analysis request of the second program of an equivalence request: ``other_source`` in
     ``other_syntax`` (default: the syntax of the first program) with ``other_decisions``, and the
