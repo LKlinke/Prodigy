@@ -57,12 +57,25 @@ def test_marginal_of_infinite_measure_is_rejected(engine, simplification):
 @pytest.mark.parametrize("engine", ALL_ENGINES)
 @pytest.mark.parametrize("simplification", SIMPLIFICATION)
 def test_filter_on_infinite_measure_raises_instead_of_a_wrong_result(engine, simplification):
-    # both sides take infinitely many values: there is nothing finite to unfold
+    # both sides take infinitely many values: there is nothing finite to unfold, and a < 2*b is no
+    # comparison of the form a < b + c, which is filtered as a formal power series (#366)
     config = _config(engine, simplification)
     with config.activate():
         dist = config.factory.from_expr(BOTH_INFINITE, "a", "b", "w")
         with pytest.raises(NonFiniteMarginalError):
-            dist.filter(A_LESS_B)
+            dist.filter(parse_expr("a < 2*b"))
+
+
+@pytest.mark.parametrize("engine", ALL_ENGINES)
+@pytest.mark.parametrize("simplification", SIMPLIFICATION)
+def test_difference_filter_on_infinite_measure_is_formal(engine, simplification):
+    # #366: a < b is linear on the coefficients, so it needs no finite mass: the sum over i < j of
+    # a^i b^j / 2^(i+j+2), times 1/(1 - w)
+    config = _config(engine, simplification)
+    with config.activate():
+        dist = config.factory.from_expr(BOTH_INFINITE, "a", "b", "w")
+        result = dist.filter(A_LESS_B)
+    assert sympy.simplify(_sympy(result) - B / ((1 - W) * (2 - B) * (4 - A * B))) == 0
 
 
 @pytest.mark.parametrize("engine", ALL_ENGINES)
@@ -223,7 +236,7 @@ def test_ginac_marginal_division_by_zero_is_a_non_finite_marginal():
         # GiNaC's marginal divides by zero (or, once the bindings handle it, returns a non-finite
         # value); either way the filter must not return a result
         with pytest.raises(NonFiniteMarginalError):
-            dist.filter(A_LESS_B)
+            dist.filter(parse_expr("a < 2*b"))
 
 
 @pytest.mark.parametrize("engine", ALL_ENGINES)
