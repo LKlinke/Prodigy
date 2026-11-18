@@ -312,19 +312,17 @@ def _spelled(expression: Expr) -> str:
     return current_session().spell(expression) if has_current_session() else str(expression)
 
 
-def _in_program_terms(error: NonFiniteMarginalError, temporaries: Dict[str, Expr]) -> NonFiniteMarginalError:
+def _in_programs_terms(error: Exception, names: Dict[str, str]) -> Exception:
     """
-    The same error with the engines' temporary variables named by what they hold: the operand of an
-    operator is first copied or computed into a fresh variable (`_1`, `sym_1`, `x_1`, depending on the
-    engine), and the message would name it. A copy of a program variable `y` reads `<copy of y>`, any
-    other value `<value of expression>`.
+    A copy of `error` with the temporary variables of an operator update (`_0`, `sym_1`, `x_2`: engine
+    internals) replaced by the operands as the program wrote them (#349). `names` maps temporary to
+    program text; an unknown or unchanged message returns `error` itself.
     """
-    message = str(error)
-    for name, operand in temporaries.items():
-        what = f"copy of {operand.var}" if isinstance(operand, VarExpr) else f"value of {_spelled(operand)}"
-        # a name is replaced as a whole (`_1` is not part of `x_1`)
-        message = re.sub(rf"(?<![\w.]){re.escape(name)}(?!\w)", f"<{what}>", message)
-    return NonFiniteMarginalError(message)
+    pattern = re.compile(r"\b(" + "|".join(re.escape(name) for name in names) + r")\b")
+    message = pattern.sub(lambda match: names[match.group(1)], str(error))
+    if message == str(error):
+        return error
+    return type(error)(message)
 
 
 class Distribution(ABC):
@@ -910,37 +908,41 @@ class Distribution(ABC):
 
                 # With the two resulting temporary variables, execute the effect of the binary operator
                 # by calling the corresponding update method within the concrete distribution class
-                try:
-                    if expression.operator == Binop.PLUS:
-                        f = f._update_sum(temp_var, t_1, t_2)
-                    elif expression.operator == Binop.TIMES:
+                if expression.operator == Binop.PLUS:
+                    f = f._update_sum(temp_var, t_1, t_2)
+                elif expression.operator == Binop.TIMES:
+                    try:
                         f = f._split_on_finite_support(
                             lambda part, left, right: part._update_product(temp_var, left, right, approximate),
                             t_1, t_2)
-                    elif expression.operator == Binop.MINUS:
-                        try:
-                            f = f._update_monus(temp_var, t_1, t_2)
-                        except NotImplementedError as error:
-                            raise NotImplementedError(
-                                f"Cannot compute {expression} exactly: subtraction on natural numbers is truncated "
-                                f"at 0, which needs the states with {expression.lhs} < {expression.rhs}, and these "
-                                f"cannot be filtered here (not implemented). Details: {error}") from error
-                    elif expression.operator in (Binop.MODULO, Binop.DIVIDE):
-                        f = f._divisor_update(expression, temp_var, t_1, t_2, approximate)
-                    elif expression.operator == Binop.POWER:
+                    except (ValueError, NotImplementedError, NonFiniteMarginalError) as error:
+                        raise _in_programs_terms(
+                            error, {str(t_1): _spelled(expression.lhs), str(t_2): _spelled(expression.rhs)}
+                        ) from error
+                elif expression.operator == Binop.MINUS:
+                    try:
+                        f = f._update_monus(temp_var, t_1, t_2)
+                    except NotImplementedError as error:
+                        raise NotImplementedError(
+                            f"Cannot compute {expression} exactly: subtraction on natural numbers is truncated "
+                            f"at 0, which needs the states with {expression.lhs} < {expression.rhs}, and these "
+                            f"cannot be filtered here (not implemented). Details: {error}") from error
+                elif expression.operator in (Binop.MODULO, Binop.DIVIDE):
+                    f = f._divisor_update(expression, temp_var, t_1, t_2, approximate)
+                elif expression.operator == Binop.POWER:
+                    try:
                         f = f._split_on_finite_support(
                             lambda part, left, right: part._update_power(temp_var, left, right, approximate),
                             t_1, t_2)
-                    elif expression.operator == Binop.FLOOR_DIVIDE:
-                        f = f._update_floor_division(temp_var, t_1, t_2, approximate, _spelled(expression))
-                    else:
-                        raise ValueError(
-                            f"Unsupported binary operator: {expression.operator}")
-                except NonFiniteMarginalError as error:
-                    # the operands were copied or computed into the temporary variables t_1 and t_2
-                    temporaries = {t: operand for t, operand in ((t_1, expression.lhs), (t_2, expression.rhs))
-                                   if t in (xl, xr)}  # a constant operand needs no temporary
-                    raise _in_program_terms(error, temporaries) from error
+                    except (ValueError, NotImplementedError, NonFiniteMarginalError) as error:
+                        raise _in_programs_terms(
+                            error, {str(t_1): _spelled(expression.lhs), str(t_2): _spelled(expression.rhs)}
+                        ) from error
+                elif expression.operator == Binop.FLOOR_DIVIDE:
+                    f = f._update_floor_division(temp_var, t_1, t_2, approximate, _spelled(expression))
+                else:
+                    raise ValueError(
+                        f"Unsupported binary operator: {expression.operator}")
 
                 # Marginalize the introduced variables as they are only present to prevent clashes
                 f = f.marginal(xl, xr, method=MarginalType.EXCLUDE)

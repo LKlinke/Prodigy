@@ -1,5 +1,5 @@
-// The comparison of two programs (issue #154) as plain data: verdict texts, what the check found,
-// and the marginals of the two output distributions side by side. No DOM, so that Node can test it;
+// The comparison of two programs (issue #154) as plain data: verdict texts, what the check found and
+// the witness. No DOM, so that Node can test it;
 // equivalence-view.js draws it. The input is the `equivalence` part of a result (see
 // prodigy/analysis/equivalence/verdict.py and docs/gui.md).
 
@@ -70,7 +70,7 @@ export function checkLines(check) {
   if (check.answer !== "failed") {
     lines.push(`Program A analysed ${boundWord(check.first)}; program B analysed ${boundWord(check.second)}.`);
   }
-  if (check.counterexample) lines.push(`Counterexample of the solver: input ${stateText(check.counterexample)}.`);
+  if (check.counterexample) lines.push(`Counterexample of the solver: input ${inputText(check.counterexample)}.`);
   if (check.error?.message) {
     const prefix = check.error.type === "NotImplementedError" ? "Not implemented: " : "";
     lines.push(prefix + check.error.message);
@@ -83,88 +83,15 @@ function boundWord(kind) {
     unknown: "without guarantee" }[kind] || kind;
 }
 
-/** An input distribution in words: "1" is the point where every variable is 0. */
-export function inputWords(distribution) {
-  if (!distribution || String(distribution).trim() === "1") return "the input where every variable is 0";
-  return `the input ${distribution}`;
-}
-
-/** Where the input of the shown distributions comes from. */
-export function inputText(equivalence) {
-  const input = equivalence?.input || {};
-  if (input.source === "counterexample") return `Both programs on ${inputWords(input.distribution)} (the solver's counterexample).`;
-  if (input.distribution) return `Both programs on the initial distribution ${input.distribution}.`;
-  return "Both programs on the default input (every variable 0).";
+/** The input of a witness (a state, every variable listed) in words: "x = 1, n = 3", or "every variable 0". */
+export function inputText(input) {
+  const set = Object.entries(input || {}).filter(([, value]) => value);
+  return set.length ? set.map(([name, value]) => `${name} = ${value}`).join(", ") : "every variable 0";
 }
 
 /** A probability for a table cell: a short exact value as it is, else the decimal. */
 export function cellText(exact, decimal) {
   return exact && exact.length <= 10 && !/[a-zA-Z]/.test(exact) ? exact : decimal;
-}
-
-/**
- * The interval in which the probability of one value of a marginal lies (floats), given the guarantee of the
- * result: exact [p, p], lower bound [p, upper end], upper bound [0, p]; null without a guarantee. A value without
- * a row has probability 0 (a lower bound: at most the residual mass).
- */
-export function rowInterval(result, row) {
-  const kind = result?.bounds?.kind;
-  const p = row ? row.p : 0;
-  if (p === null || p === undefined || !Number.isFinite(p)) return null;
-  if (kind === "exact") return [p, p];
-  if (kind === "upper") return [0, p];
-  if (kind === "lower") {
-    const residual = result?.bounds?.residual_mass_float;
-    const upper = row ? row.upper_p : (Number.isFinite(residual) ? residual : 1);
-    return [p, Math.min(1, Number.isFinite(upper) ? upper : 1)];
-  }
-  return null;
-}
-
-/**
- * The marginal of `variable` in both results, row by row: [{value, first, second, differs}], where
- * first/second are table rows ({prob, p}) or null. `differs` is a hint where to look, not a proof (the witness is
- * the proof): true if both results are exact and the probabilities differ, or if the intervals of the two
- * probabilities (rowInterval) do not overlap; false if both are exact and agree; null if no comparison is possible.
- */
-export function compareMarginals(first, second, variable) {
-  const table = (result) => result?.status === "ok" ? result.distribution?.marginals?.[variable] : null;
-  const one = table(first);
-  const two = table(second);
-  const exact = first?.bounds?.kind === "exact" && second?.bounds?.kind === "exact";
-  const values = new Map();
-  for (const [index, rows] of [[0, one?.rows], [1, two?.rows]]) {
-    for (const row of rows || []) {
-      const entry = values.get(row.value) || [null, null];
-      entry[index] = row;
-      values.set(row.value, entry);
-    }
-  }
-  const complete = (t, value) => t && !t.error && (!t.truncated || value <= (t.rows?.at(-1)?.value ?? -1));
-  const close = (a, b) => Math.abs(a - b) <= 1e-12 * Math.max(1, Math.abs(a), Math.abs(b));
-  return [...values.entries()].sort((a, b) => a[0] - b[0]).map(([value, [a, b]]) => {
-    let differs = null;
-    if (complete(one, value) && complete(two, value)) {
-      if (exact) {
-        const pa = a ? a.p : 0;
-        const pb = b ? b.p : 0;
-        const same = (a?.prob ?? "0") === (b?.prob ?? "0") || (pa !== null && pb !== null && close(pa, pb));
-        differs = !same;
-      } else {
-        const ia = rowInterval(first, a);
-        const ib = rowInterval(second, b);
-        if (ia && ib && ((ia[1] < ib[0] && !close(ia[1], ib[0])) || (ib[1] < ia[0] && !close(ib[1], ia[0])))) differs = true;
-      }
-    }
-    return { value, first: a, second: b, differs };
-  });
-}
-
-/** The variables of the two results (the first's order, then any only the second has). */
-export function comparedVariables(first, second) {
-  const names = [...(first?.distribution?.variables || [])];
-  for (const name of second?.distribution?.variables || []) if (!names.includes(name)) names.push(name);
-  return names;
 }
 
 // ---- continuing in Analyze with program B as the loop's result (#399) ---------------------------------

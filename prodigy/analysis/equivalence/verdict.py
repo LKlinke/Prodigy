@@ -22,8 +22,8 @@ first program lies coefficient-wise below that of the second (equal if its loops
 surely).
 
 :func:`compare` runs the whole comparison (check, witness search, verdict); the command line uses
-it, the GUI combines :func:`run_check`, :func:`find_witness` and :func:`decide` with its own analyses
-of the two programs on the input it shows.
+it, the GUI combines :func:`run_check`, :func:`analyse_on_input`, :func:`find_witness` and :func:`decide`
+with a time limit for the witness search (:func:`prodigy.web.requests.run_equivalence`).
 
 The case analysis lives here and uses only the :class:`~prodigy.distribution.Distribution`
 interface and exact SymPy arithmetic on the coefficients the engines print, so it is the same for
@@ -283,7 +283,7 @@ def decide(check: CheckOutcome, witness: Optional[Dict[str, Any]], *,
            variables_differ: Optional[str] = None, input_tips: bool = True) -> Dict[str, Any]:
     """The verdict (``verdict``, ``reason``, ``relation``, ``constraints``) from the check and an
     optional witness; see the module documentation for the rules. ``input_tips`` adds what to try if no
-    witness was found (for the GUI, whose input can be chosen and is conditioned on observations)."""
+    witness was found (for a caller whose input can be chosen and is conditioned on observations)."""
     if witness is not None:
         state = ", ".join(f"{k} = {v}" for k, v in witness["state"].items()) or "the empty state"
         reason = f"The programs give provably different probabilities to the output state {state} (witness below)."

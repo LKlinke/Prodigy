@@ -1,14 +1,18 @@
 // The setups of the two modes of the window (#154). Analyze and Compare share only the programs (program A is the
-// first editor in both); each mode keeps its own setup: the input, the strategy of each loop and the options. So
-// nothing set up for an analysis (e.g. the strategy "auto") reaches a comparison, and back. Program B and the
-// strategies of its loops belong to Compare. Plain data, no DOM, so that Node can test it.
+// first editor in both); each mode keeps its own setup: the strategy of each loop and the options, and in Analyze
+// the initial distribution. Compare checks every input at once, so it has no input, and its options are only the
+// engine and the time limit. So nothing set up for an analysis (e.g. the strategy "auto") reaches a comparison, and
+// back. Program B and the strategies of its loops belong to Compare. Plain data, no DOM, so that Node can test it.
 
 /** Where each mode keeps its setup in the browser (store.js). */
 export const SETUP_KEYS = { analyze: "setup", compare: "compareSetup" };
 
-/** The options a setup has; Compare has no step trace (a comparison records no steps). */
+/** The options a setup of Analyze has. */
 const OPTION_KEYS = ["engine", "normalize", "simplification", "coefficients", "timeLimit", "synthesis", "solver",
   "templateHeuristic", "positivityHeuristic", "recordSteps"];
+
+/** The options of Compare: the check runs on every input at once and shows no distributions. */
+export const COMPARE_OPTION_KEYS = ["engine", "timeLimit"];
 
 /** The engine the server uses by default (the first available one otherwise). */
 function defaultEngine(meta) {
@@ -24,8 +28,8 @@ export function defaultSetup(meta, mode = "analyze") {
     templateHeuristic: "default", positivityHeuristic: "default",
   };
   if (mode === "compare") {
-    // the check covers every input at once; `input` is the one input the plots show when `inputKind` is "given"
-    return { input: "", inputKind: "default", decisions: {}, options };
+    // the check covers every input at once: no input
+    return { decisions: {}, options: Object.fromEntries(COMPARE_OPTION_KEYS.map((key) => [key, options[key]])) };
   }
   return { input: "", decisions: {}, options: { ...options, recordSteps: false } };
 }
@@ -34,8 +38,7 @@ export function defaultSetup(meta, mode = "analyze") {
 export function restoreSetup(saved, meta, mode = "analyze") {
   const setup = defaultSetup(meta, mode);
   if (!saved || typeof saved !== "object") return setup;
-  setup.input = typeof saved.input === "string" ? saved.input : "";
-  if (mode === "compare") setup.inputKind = saved.inputKind === "given" ? "given" : "default";
+  if (mode !== "compare") setup.input = typeof saved.input === "string" ? saved.input : "";
   if (saved.decisions && typeof saved.decisions === "object") setup.decisions = saved.decisions;
   for (const key of OPTION_KEYS) {
     if (Object.hasOwn(setup.options, key) && saved.options && Object.hasOwn(saved.options, key)) {
@@ -50,9 +53,9 @@ export function restoreSetup(saved, meta, mode = "analyze") {
   return setup;
 }
 
-/** The initial distribution a setup runs on (null: the default input). */
+/** The initial distribution a setup runs on (null: the default input; Compare never has one). */
 export function setupInput(setup, mode = "analyze") {
-  if (mode === "compare" && setup?.inputKind !== "given") return null;
+  if (mode === "compare") return null;
   return (setup?.input || "").trim() || null;
 }
 

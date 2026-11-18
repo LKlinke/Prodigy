@@ -18,7 +18,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, U
 import sympy
 from lark.exceptions import LarkError
 
-from prodigy.pgcl import Instr, parse_pgcl, Program, WhileInstr
+from prodigy.pgcl import Expr, Instr, parse_pgcl, Program, WhileInstr
 
 from prodigy.analysis import evt_exploration
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -80,7 +80,11 @@ def _mass(dist: Distribution) -> sympy.Expr:
     return sym(dist.get_probability_mass())
 
 
-def _exit_part(dist: Distribution, cond) -> Distribution:
+# What may stand for an invariant or generating function: its text, a SymPy expression or a distribution.
+InvariantLike = Union[str, sympy.Expr, Distribution]
+
+
+def _exit_part(dist: Distribution, cond: Expr) -> Distribution:
     """The part of ``dist`` that leaves a loop with guard ``cond``."""
     return dist - dist.filter(cond)
 
@@ -92,7 +96,7 @@ def _require_unconditioned(task: LoopTask) -> None:
             f"'{task.strategy.title}' cannot be used after an observe statement.")
 
 
-def _names_as_symbols(invariant: Any, variables) -> sympy.Expr:
+def _names_as_symbols(invariant: InvariantLike, variables: Sequence[str]) -> sympy.Expr:
     """``invariant`` as a SymPy expression in which the variables are symbols, also when they are named like a
     function (``sum``, #321)."""
     if isinstance(invariant, sympy.Basic):
@@ -103,7 +107,7 @@ def _names_as_symbols(invariant: Any, variables) -> sympy.Expr:
     return sympify_engine_string(str(invariant), names)
 
 
-def finite_mass(invariant: Any, variables: Sequence[str]) -> Tuple[Optional[bool], Optional[sympy.Expr]]:
+def finite_mass(invariant: InvariantLike, variables: Sequence[str]) -> Tuple[Optional[bool], Optional[sympy.Expr]]:
     """Decides ``|I| < ∞`` for a generating function I with non-negative coefficients.
 
     Substitutes t for every variable; f(t) = I(t, …, t) has the same mass. For a rational f
@@ -149,7 +153,7 @@ def finite_mass(invariant: Any, variables: Sequence[str]) -> Tuple[Optional[bool
         return None, None
 
 
-def _exp_polynomial_positivity(variables, invariant: Any) -> Optional[bool]:
+def _exp_polynomial_positivity(variables: Sequence[str], invariant: InvariantLike) -> Optional[bool]:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import sym
     try:
@@ -160,7 +164,7 @@ def _exp_polynomial_positivity(variables, invariant: Any) -> Optional[bool]:
         return None
 
 
-def _positivity(config: ForwardAnalysisConfig, variables, invariant: Any) -> Optional[bool]:
+def _positivity(config: ForwardAnalysisConfig, variables: Sequence[str], invariant: InvariantLike) -> Optional[bool]:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.lowerbounds.subinvariant import nonneg_by_construction
     # Sound criterion first: it covers polynomials and P / prod (c - R), for which the heuristic fails on
@@ -538,7 +542,8 @@ def _exit_part_converges(result: Distribution, variables: Sequence[str]) -> bool
         or converges_on_unit_polydisc(str(result), variables) is True
 
 
-def _evt_certificate(kind_name: str, invariant: Distribution, variables, config, scope_kind: str,
+def _evt_certificate(kind_name: str, invariant: Distribution, variables: Sequence[str],
+                     config: ForwardAnalysisConfig, scope_kind: str,
                      loop: WhileInstr, loop_cond: str,
                      result: Distribution) -> Tuple[str, Dict[str, Any], List[str]]:
     positive = _positivity(config, variables, invariant)
@@ -612,7 +617,7 @@ def _strategy_evt_synthesis(task: LoopTask) -> LoopOutcome:
             time_limit=task.param("time_limit"), template_time_limit=task.param("template_time_limit"),
             progress=lambda tried: task.progress(tried, None, f"{tried} template(s) tried"))
 
-    def _sorting_key(elem):
+    def _sorting_key(elem: Tuple[Distribution, Optional[bool]]) -> int:
         return 1 if elem[1] else 0
 
     # certified candidates first, so that the default candidate 0 is a certified one (#337)
@@ -854,7 +859,7 @@ def _strategy_evt_sandwich(task: LoopTask) -> LoopOutcome:
         if cert is not None:
             summary = cert.to_json()
             summary.pop("numerator", None)  # the generating function says the same
-            summary["exit_mass_rounded"] = directed_decimal(cert.exit_mass, name == "upper")
+            summary["exit_mass_rounded"] = directed_decimal(cert.verified_exit_mass(), name == "upper")
             summary["check"] = cert.extra.get("check")
         certificate[name] = summary
     query_bounds = {(bound.query.kind, bound.query.text): (_exact(bound.lower), _exact(bound.upper))
@@ -1197,31 +1202,43 @@ class WhileHandler(InstructionHandler):
     # The historic entry points, kept for callers that use them directly.
 
     @staticmethod
-    def _analyze_with_invariant(instruction, prog_info, distribution, error_prob, config, analyzer):
+    def _analyze_with_invariant(instruction: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,
+                                error_prob: Distribution, config: ForwardAnalysisConfig,
+                                analyzer: Analyzer) -> Tuple[Distribution, Distribution]:
         return WhileHandler._run("invariant", instruction, prog_info, distribution, error_prob, config,
                                  analyzer)
 
     @staticmethod
-    def _compute_iterations(instruction, prog_info, distribution, error_prob, config, analyzer):
+    def _compute_iterations(instruction: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,
+                            error_prob: Distribution, config: ForwardAnalysisConfig,
+                            analyzer: Analyzer) -> Tuple[Distribution, Distribution]:
         return WhileHandler._run("unroll", instruction, prog_info, distribution, error_prob, config, analyzer)
 
     @staticmethod
-    def _compute_until_threshold(instruction, prog_info, distribution, error_prob, config, analyzer):
+    def _compute_until_threshold(instruction: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,
+                                 error_prob: Distribution, config: ForwardAnalysisConfig,
+                                 analyzer: Analyzer) -> Tuple[Distribution, Distribution]:
         return WhileHandler._run("mass_threshold", instruction, prog_info, distribution, error_prob, config,
                                  analyzer)
 
     @staticmethod
-    def _approx_expected_visiting_times(instruction, prog_info, distribution, error_prob, config, analyzer):
+    def _approx_expected_visiting_times(instruction: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,
+                                        error_prob: Distribution, config: ForwardAnalysisConfig,
+                                        analyzer: Analyzer) -> Tuple[Distribution, Distribution]:
         return WhileHandler._run("evt_iterate", instruction, prog_info, distribution, error_prob, config,
                                  analyzer)
 
     @staticmethod
-    def _evt_invariant(instruction, prog_info, distribution, error_prob, config, analyzer):
+    def _evt_invariant(instruction: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,
+                       error_prob: Distribution, config: ForwardAnalysisConfig,
+                       analyzer: Analyzer) -> Tuple[Distribution, Distribution]:
         return WhileHandler._run("evt_invariant", instruction, prog_info, distribution, error_prob, config,
                                  analyzer)
 
     @staticmethod
-    def _evt_invariant_synthesis(instruction, prog_info, distribution, error_prob, config, analyzer):
+    def _evt_invariant_synthesis(instruction: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,
+                                 error_prob: Distribution, config: ForwardAnalysisConfig,
+                                 analyzer: Analyzer) -> Tuple[Distribution, Distribution]:
         return WhileHandler._run("evt_synthesis", instruction, prog_info, distribution, error_prob, config,
                                  analyzer)
 

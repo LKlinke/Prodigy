@@ -1,19 +1,15 @@
-// The result of comparing two programs (issue #154): the verdict, why, a witness if there is one,
-// the two output distributions side by side, and below the full result of either program (the
-// result view of result-view.js). Like result-view.js it needs only the result JSON.
+// The result of comparing two programs (issue #154): whether they are equivalent for every input. The verdict,
+// why, the parameter values of a synthesis, and for "not equivalent" the witness that proves it. Compare runs no
+// program on an input of its own, so there are no output distributions here. Needs only the result JSON.
 import { h, icon } from "./dom.js";
 import { formatSeconds, formatValue } from "./format.js";
-import { card, expressionBox, guaranteeBadge, segmented, press } from "./parts.js";
-import { renderResult } from "./result-view.js";
+import { expressionBox, guaranteeBadge } from "./parts.js";
 import {
-  CONTINUE_GUARANTEE, checkLines, constraintTexts, inputText, inputWords, intervalText, relationText, stateText, verdictOf,
+  CONTINUE_GUARANTEE, checkLines, constraintTexts, inputText, intervalText, relationText, stateText, verdictOf,
 } from "./equivalence-model.js";
-import { comparePlots } from "./compare-plots.js";
 import { staleText } from "../staleness.js";
 
-const PROGRAMS = [["first", "Program A"], ["second", "Program B"]];
-
-function verdictCard(result, equivalence, continueTo = null) {
+function verdictCard(equivalence, continueTo = null) {
   const verdict = verdictOf(equivalence);
   const check = equivalence.check || {};
   const children = [
@@ -58,20 +54,26 @@ function continueAction(continueTo) {
       guarantee.text, continueTo.target ? ` ${continueTo.target}` : ""));
 }
 
+/** The witness: on one input, one output state whose probabilities in A and B provably differ. */
 function witnessTable(witness) {
+  // an interval whose ends round to the same decimals gets more digits, so that it never reads as one value
+  const digits = (side) => [6, 9, 12].find((d) => side.lower === side.upper
+    || formatValue(side.lower, side.lower_float, d) !== formatValue(side.upper, side.upper_float, d)) ?? 12;
   const row = (label, side) => h("tr", {}, h("th", { scope: "row" }, label),
     h("td", { class: "num", title: side.lower === side.upper ? side.lower : `[${side.lower}, ${side.upper}]` },
-      intervalText(side, (exact, number) => formatValue(exact, number, 6))),
+      intervalText(side, (exact, number) => formatValue(exact, number, digits(side)))),
     h("td", {}, guaranteeBadge(side.kind)));
   return h("div", { class: "eq-witness" },
     h("h4", { class: "rv-block-title" }, "Witness"),
-    h("p", { class: "rv-note" }, `Probability of the output state ${stateText(witness.state)}`,
-      ` on ${inputWords(witness.input)}`,
-      ". The intervals do not overlap, so the programs differ."),
+    h("dl", { class: "eq-witness-facts" },
+      h("dt", {}, "Input"), h("dd", { class: "mono" }, inputText(witness.input)),
+      h("dt", {}, "Output state"), h("dd", { class: "mono" }, stateText(witness.state))),
     h("div", { class: "table-wrap" }, h("table", { class: "rv-table eq-witness-table" },
+      h("caption", { class: "visually-hidden" }, `Probability of the output state ${stateText(witness.state)}`),
       h("thead", {}, h("tr", {}, h("th", { scope: "col" }, ""), h("th", { scope: "col" }, "Probability"),
         h("th", { scope: "col" }, "Guarantee"))),
-      h("tbody", {}, row("Program A", witness.first), row("Program B", witness.second)))));
+      h("tbody", {}, row("Program A", witness.first), row("Program B", witness.second)))),
+    h("p", { class: "rv-note" }, "The two values (or intervals) do not overlap, so the programs differ on this input."));
 }
 
 function checkDetails(check) {
@@ -81,31 +83,17 @@ function checkDetails(check) {
     h("summary", {}, "How it was checked"),
     h("div", { class: "disclosure-body" },
       h("p", { class: "rv-muted" }, "Prodigy runs both programs on one generating function that stands for every "
-        + "input at once (second-order check), then both on the input shown below to look for a witness."),
+        + "input at once (second-order check). Unless that proves them equal, it runs both on one input to look for a "
+        + "witness: the solver's counterexample, the input on which an invariant was refuted, or every variable 0."),
       ...body));
 }
 
-/** The output distributions of both programs, plotted side by side (compare-plots.js). */
-function distributionsCard(result, equivalence, options) {
-  return card("eq-distributions", "Output distributions",
-    h("p", { class: "rv-note" }, inputText(equivalence)),
-    comparePlots(result, equivalence.other || {}, options.plots || {}, { loadJoint: options.loadJoint, maxJointAxis: options.maxJointAxis }));
-}
-
 /**
- * Renders a comparison result (an analysis result with an `equivalence` part) into `container`.
- * options: those of renderResult (for the result of program A) plus `programView` ({which}) to
- * remember the chosen program, `plots` (the choices of the distribution plots, kept across re-renders),
- * `loadJoint(payload, signal, onPartial)` for the grids of either program (the payload names it: `program` is
- * "first" or "second"), `onSelectOtherLoop(id)` for the loops of program B, `stale`, `change`, `onRun`,
- * and `continueTo` ({guarantee, target, onContinue} or {reason}, see continueOffer) for the continue flow (#399).
- * Returns {analysis} of the shown result.
+ * Renders a comparison result (with an `equivalence` part) into `container`. options: `stale`, `change`, `onRun`
+ * (Check Again), and `continueTo` ({guarantee, target, onContinue} or {reason}, see continueOffer) for the continue
+ * flow (#399).
  */
 export function renderEquivalence(container, result, options = {}) {
-  const equivalence = result.equivalence;
-  const view = options.programView || { which: "first" };
-  // the choices of each program's analysis card (lens, variable, view), kept while switching between them
-  const views = view.cards?.result === result ? view.cards : (view.cards = { result, first: { result }, second: { result: equivalence.other } });
   const children = [];
   if (options.stale) {
     children.push(h("div", { class: "notice rv-stale", role: "status" }, icon("info"),
@@ -113,26 +101,7 @@ export function renderEquivalence(container, result, options = {}) {
       options.onRun ? h("button", { type: "button", class: "button small", onclick: () => options.onRun() },
         "Check Again") : null));
   }
-  children.push(verdictCard(result, equivalence, options.stale ? null : options.continueTo),
-    distributionsCard(result, equivalence, options));
-  const holder = h("div", { class: "eq-program-result" });
-  let analysis = null;
-  const choose = (which) => {
-    view.which = which;
-    press(switcher, which);
-    analysis?.stop?.();
-    const shown = which === "second" ? equivalence.other || {} : result;
-    // the editor callbacks (lines, loops) belong to the first program's editor
-    const own = which === "first" ? options
-      : { strategyTitles: options.strategyTitles, onSelectLoop: options.onSelectOtherLoop, maxJointAxis: options.maxJointAxis };
-    const loadJoint = options.loadJoint
-      ? (payload, signal, onPartial) => options.loadJoint({ ...payload, program: which }, signal, onPartial) : undefined;
-    ({ analysis } = renderResult(holder, shown, { ...own, stale: false, loadJoint, analysisState: views[which] }));
-  };
-  const switcher = segmented("Result of", PROGRAMS, choose);
-  children.push(h("div", { class: "eq-program-head" }, h("h3", { class: "rv-card-title" }, "Result of"), switcher), holder);
+  children.push(verdictCard(result.equivalence, options.stale ? null : options.continueTo));
   container.replaceChildren(h("div", { class: "result-view eq-view", "data-stale": options.stale ? "true" : "false" },
     ...children));
-  choose(view.which === "second" ? "second" : "first");
-  return { get analysis() { return analysis; } };
 }
