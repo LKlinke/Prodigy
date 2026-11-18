@@ -148,7 +148,22 @@ def test_refuted_invariant_reports_counterexample():
     result = analyse(GEOMETRIC, {"0": {"strategy": "invariant", "params": {"invariant": invariant}}})
     assert result["status"] == "error"
     assert result["error"]["details"]["verdict"] == "refuted"
+    assert result["error"]["details"]["witness"]["state"]
+    assert "refuted" in result["error"]["message"]
     assert result["loops"][0]["failed"]
+
+
+def test_invariant_without_a_witness_is_not_proven_instead_of_refuted(monkeypatch):
+    # Issue #403: the raw "different" of the check may come from approximated loops in the body; the
+    # invariant is refuted only with a witness
+    monkeypatch.setattr("prodigy.analysis.equivalence.verdict.search_witness", lambda *args, **kwargs: None)
+    invariant = "nat x; nat c;\nx := 0\n"
+    result = analyse(GEOMETRIC, {"0": {"strategy": "invariant", "params": {"invariant": invariant}}})
+    assert result["status"] == "error"
+    assert result["error"]["details"]["verdict"] == "unknown"
+    assert result["error"]["details"]["counterexample"]
+    assert "not proven" in result["error"]["message"] and "refuted" not in result["error"]["message"].replace(
+        "not refuted", "")
 
 
 def test_interactive_session_keeps_historic_prompts(monkeypatch):
