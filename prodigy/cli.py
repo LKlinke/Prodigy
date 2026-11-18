@@ -25,7 +25,7 @@ from prodigy.analysis.analyzer import compute_discrete_distribution, compute_sem
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import (HeuristicsError, UndefinedDistributionError, UnsupportedFeatureError,
                                         VerificationError)
-from prodigy.analysis.equivalence.verdict import Comparison, compare
+from prodigy.analysis.equivalence.verdict import Comparison, compare, show_valuation
 from prodigy.analysis.input_distribution import InputDistributionError, input_distribution_from_text
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from prodigy.analysis.evtinvariants.heuristics.strategies import (DEFAULT_MAX_DEGREE, SELECTABLE_POSITIVITY_HEURISTICS,
@@ -358,7 +358,7 @@ def _print_comparison(comparison: Comparison, first: str, second: str) -> None:
             for constraint in verdict["constraints"]))
     if witness is not None:
         shown_input = ", ".join(f"{k} = {v}" for k, v in sorted(comparison.input.items()) if v) or "every variable 0"
-        state = ", ".join(f"{k} = {v}" for k, v in witness["state"].items()) or "the empty state"
+        state = show_valuation(witness["state"], "the empty state")
         print(f"Witness: on the input {shown_input}, the output state {state} has probability")
         for name, side in (("A", witness["first"]), ("B", witness["second"])):
             value = side["lower"] if side["lower"] == side["upper"] else f"in [{side['lower']}, {side['upper']}]"
