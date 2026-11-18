@@ -340,13 +340,13 @@ def _refutation(task: LoopTask, inv_prog: Program, phi_inv: Program, counterexam
     under I and Φ(I) provably differ on the input of the counterexample (as in
     :mod:`prodigy.analysis.equivalence.verdict`); otherwise the verdict is ``unknown``."""
     # pylint: disable=import-outside-toplevel  # verdict imports the analysis
-    from prodigy.analysis.equivalence.verdict import search_witness
+    from prodigy.analysis.equivalence.verdict import search_witness, show_valuation
     state = {str(k): int(v) for k, v in counterexample.valuations.items()}
-    shown = ", ".join(f"{k} = {v}" for k, v in state.items()) or "the input where every variable is 0"
+    shown = show_valuation(state)
     certificate["counterexample"] = state
     witness = search_witness(inv_prog, phi_inv, task.session, state)
     if witness is not None:
-        output = ", ".join(f"{k} = {v}" for k, v in witness["state"].items()) or "the empty state"
+        output = show_valuation(witness["state"], "the empty state")
         print(f"{Style.OKRED}Invariant refuted.{Style.RESET} On the input {shown}, I and Φ(I) give provably "
               f"different probabilities to the output state {output}.")
         certificate["verdict"] = "refuted"

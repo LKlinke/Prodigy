@@ -85,7 +85,7 @@ under which equality was proven, and the witness with the probability of its sta
    Program B: closed.ppy
    Check for every input: the computed distributions differ (analysis of A: lower, of B: exact)
    Verdict: A is not equivalent to B
-   Reason: The programs give provably different probabilities to the output state x = 0, c = 0 (witness below).
+   Reason: The programs give provably different probabilities to an output state (witness below).
    Witness: on the input every variable 0, the output state x = 0, c = 0 has probability
      in [1/2, 524289/1048576] in program A (lower)
      1/3 in program B (exact)

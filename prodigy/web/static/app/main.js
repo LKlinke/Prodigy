@@ -949,6 +949,7 @@ function renderResultPanel() {
   state.liveCharts = null;
   const { analysis } = renderResult(panel, state.result, {
     fromCharts,
+    compare: state.mode === "compare",
     stale: state.resultStale,
     change: state.resultChange,
     onRun: run,
