@@ -149,10 +149,12 @@ def test_parameter_values_of_a_synthesis():
     assert equivalence["verdict"] == "unknown" and equivalence["relation"] == "first_below_second"
 
 
-def test_gamblers_ruin_with_swapped_branches_is_refuted():
+def test_gamblers_ruin_with_swapped_branches_is_refuted(monkeypatch):
     """The pair of #366 with swapped branches: the probability x/n is computed (#237), and the invariant is
     refuted on x = 0, n = 1 (the loop keeps x = 0, the closed form sets x = 1). The witness search on that input
     proves the programs different."""
+    # the search takes 8-12 s here; on a loaded CI runner the default limit of 20 s ended it with "unknown"
+    monkeypatch.setattr("prodigy.web.requests.WITNESS_SECONDS", 100.0)
     equivalence = compare(GAMBLER, GAMBLER_CLOSED, decisions={"0": {"strategy": "invariant",
                                                                     "params": {"invariant": GAMBLER_CLOSED}}}
                           )["equivalence"]

@@ -210,6 +210,8 @@ def _library_pairs():
     return pairs
 
 
+# random_walk_parameter takes 25 s on a laptop (Python 3.11); a loaded CI runner needed more than the default 120 s
+@pytest.mark.timeout(300)
 @pytest.mark.parametrize("path, counterpart, invariants, expected", _library_pairs())
 def test_library_verdicts(monkeypatch, path, counterpart, invariants, expected):
     with open(path, encoding="utf-8") as handle:
