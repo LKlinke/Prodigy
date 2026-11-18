@@ -37,6 +37,7 @@ def test_sandwich_bounds_the_queries_after_the_loop_from_both_sides():
     assert exact(total["upper"]) == Fraction(1, 2)
 
 
+@pytest.mark.slow
 def test_sandwich_gives_finite_upper_bounds_for_expectations():
     result = analyse((EXAMPLES / "sandwich" / "rw_counter_23.ppy").read_text(), "evt_sandwich")
     steps = query(result, "c")
@@ -44,6 +45,7 @@ def test_sandwich_gives_finite_upper_bounds_for_expectations():
     assert 2.999 < steps["lower_float"] < steps["upper_float"] < 3.01
 
 
+@pytest.mark.slow
 def test_query_bounds_of_the_loop_end_at_the_next_instruction():
     source = (EXAMPLES / "sandwich" / "rw_counter_23.ppy").read_text().replace("query Pr[c >= 20]", "skip;\nquery Pr[c >= 20]")
     steps = query(analyse(source, "evt_sandwich"), "c")

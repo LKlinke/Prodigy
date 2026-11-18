@@ -131,6 +131,7 @@ MULTI_VARIABLE = [
 ]
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("source, invariant", MULTI_VARIABLE)
 def test_multi_variable_loop_gets_its_exact_result(engine, source, invariant):

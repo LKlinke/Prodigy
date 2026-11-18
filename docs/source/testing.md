@@ -41,7 +41,7 @@ random programs: assignments, the built-in distributions, `if`, probabilistic ch
 rendered in `.ppy` and in `.pgcl`. For each program the tests check that
 
 - both syntaxes give the same program;
-- SymPy (with simplification on and off), GiNaC and SymEngine give equal results, decided with
+- SymPy (with the simplification of the shown result on and off), GiNaC and SymEngine give equal results, decided with
   {func}`prodigy.distribution.equality.decide_equal_strings`, and the same kind of guarantee;
 - no result with status `ok` contains `nan`, `zoo` or `oo`;
 - the results agree with the simulation.
@@ -52,6 +52,13 @@ test in `tests/fuzzing/test_found.py`. Classes of programs with known open bugs 
 `Features` (each switch names its issue), so the test suite stays green until they are fixed.
 
 ## Running the tests
+
+The tests that take more than about 10 s on a CI runner (mostly equivalence checks and loop strategies)
+carry the marker `slow`. `make test` runs them; `make test-fast` (`-m "not fuzz and not slow"`) leaves
+them out. The CI runs everything on Python 3.14 (with coverage) and `make test-fast` on Python 3.11,
+so a slow test runs once per push; `.github/workflows/fuzzing.yml` also runs them on 3.11 every week.
+A test that runs longer than 10 s on the CI gets the marker; the durations are in the artifact
+`testreport.xml` of the job.
 
 The fuzzing and the comparison of the examples with the simulation carry the pytest marker `fuzz`.
 `make test` leaves them out (`-m "not fuzz"`); the CI runs them in the job `fuzzing (smoke test)`,

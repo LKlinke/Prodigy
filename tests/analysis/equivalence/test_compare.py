@@ -194,6 +194,11 @@ LIBRARY_SKIPPED = {
 }
 
 
+# Pairs that take more than 10 s on the CI (marker `slow`, docs/source/testing.md)
+LIBRARY_SLOW = {"random_walk_parameter", "sequential_loops", "bit_flip_conditioning_generalized_parameter",
+                "nested_while", "gamblers_ruin", "bit_flip_conditioning", "bit_flip_conditioning_parameter"}
+
+
 def _library_pairs():
     pairs = [pytest.param(path, path.replace(".ppy", "2.ppy"), [], eq.EQUIVALENT, id=os.path.basename(path))
              for path in sorted(glob("pgfexamples/equivalence/loop_free/*.ppy")) if not path.endswith("2.ppy")]
@@ -206,7 +211,8 @@ def _library_pairs():
             counterpart, invariants = _loopy_invariants(path)
             # the loops are handled by Park's lemma: an upper bound, so one direction is proven
             expected = "failed" if name in LIBRARY_FAILING else eq.FIRST_BELOW_SECOND
-            pairs.append(pytest.param(path, counterpart, invariants, expected, id=name))
+            marks = [pytest.mark.slow] if name in LIBRARY_SLOW else []
+            pairs.append(pytest.param(path, counterpart, invariants, expected, id=name, marks=marks))
     return pairs
 
 

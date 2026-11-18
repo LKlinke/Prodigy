@@ -18,7 +18,11 @@ guarantee: exact, lower bound with residual mass, or upper bound. Maintainer: Lu
 - Unpublished research stays out of the repository: no paper titles, venues or unpublished results
   in code, docs, commit messages or PR texts. The repository and its issues are public.
 - Problems found but not fixed in a PR go into a section "Found, not fixed here" of the PR text;
-  each becomes an issue (with a priority label and a milestone) instead of getting lost.
+  each becomes an issue (with a priority label and its area/topic labels) instead of getting lost.
+  - Milestones are releases (`v0.5.0`, …), not themes: an issue gets the milestone of the release
+    it is planned for, otherwise none (the backlog). A release closes its milestone; what is still
+    open moves to the next release or back to the backlog. Themes are labels (`area: …`,
+    `topic: …`).
   - Each finding states whether it already exists on `main`. A problem that the PR itself
     introduces is a regression (label `regression`) and is fixed in that PR before it is merged.
   - Issues that belong to a topic get its label (e.g. `topic: loop strategies`) and are added to
@@ -32,13 +36,14 @@ make lint                            # pylint, must stay at 10.00/10
 make mypy                            # mypy, no errors
 make test                            # pytest in parallel (xdist) with coverage, about 2 minutes
 make test XDIST=                     # the same in one process
+make test-fast                       # without the tests marked `slow` (over ~10 s each); the CI runs them on 3.14 only
 make fuzz                            # fuzzing and simulator comparison (marker `fuzz`), about 30 s
 make docs                            # Sphinx docs into docs/build/html, warnings are errors
 uv run pytest tests/analysis/test_session.py -q   # a single file
 ```
-The CI (`.github/workflows/main.yml`) runs pylint, mypy, the tests on Python 3.11 and 3.14 and a
+The CI (`.github/workflows/main.yml`) runs pylint, mypy, the tests (all on 3.14, without the `slow` ones on 3.11) and a
 fuzzing smoke test (`make fuzz`), with the locked dependencies; a weekly workflow runs the thorough
-fuzzing (`docs/source/testing.md`).
+fuzzing and the slow tests on 3.11 (`docs/source/testing.md`).
 
 Testing during work: run `make lint`, `make mypy`, the test files that concern the change and
 `make fuzz` locally. Do not run the full `make test` locally; the CI runs it. A change counts as
