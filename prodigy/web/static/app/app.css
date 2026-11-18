@@ -170,7 +170,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 }
 
 .toolbar-group { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.toolbar-trailing { flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+.toolbar-trailing { flex-shrink: 0; max-width: 100%; min-width: 0; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
 /* a narrow window wraps the trailing group (engine, Analyze) under the file actions */
 .toolbar { flex-wrap: wrap; row-gap: 8px; }
 
@@ -310,6 +310,11 @@ a.button { text-decoration: none; }
 .run-status .icon, .chip .icon { width: 13px; height: 13px; }
 .run-status .outcome { display: inline-flex; align-items: center; gap: 4px; }
 .run-status { max-width: 46vw; }
+/* on a phone the status gets a line of its own, so the group wraps instead of widening the page (#413) */
+@media (max-width: 520px) {
+  .run-status { max-width: 100%; min-width: 0; flex: 1 0 100%; }
+  .run-status > .outcome { min-width: 0; white-space: normal; }
+}
 .run-status > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .icon .filled, .icon.filled { fill: currentColor; stroke: none; }
 

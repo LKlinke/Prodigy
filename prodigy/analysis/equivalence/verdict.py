@@ -92,6 +92,12 @@ class CheckOutcome:
         }
 
 
+def show_valuation(valuation: Mapping[str, Any], empty: str = "every variable 0") -> str:
+    """A state or input as text in the style of the programs, ``x = 1, n = 3`` (``empty`` if there is
+    no variable)."""
+    return ", ".join(f"{name} = {value}" for name, value in valuation.items()) or empty
+
+
 def _failure(exc: BaseException) -> Dict[str, Any]:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import error_type
@@ -285,8 +291,8 @@ def decide(check: CheckOutcome, witness: Optional[Dict[str, Any]], *,
     optional witness; see the module documentation for the rules. ``input_tips`` adds what to try if no
     witness was found (for a caller whose input can be chosen and is conditioned on observations)."""
     if witness is not None:
-        state = ", ".join(f"{k} = {v}" for k, v in witness["state"].items()) or "the empty state"
-        reason = f"The programs give provably different probabilities to the output state {state} (witness below)."
+        # the witness itself (input, output state, probabilities) is shown next to the verdict, not repeated here
+        reason = "The programs give provably different probabilities to an output state (witness below)."
         if check.answer == "failed" and check.error is not None:
             reason += f" The check for all inputs did not finish: {_failure_reason(check.error)}"
         return {"verdict": NOT_EQUIVALENT, "reason": reason, "relation": None, "constraints": []}
