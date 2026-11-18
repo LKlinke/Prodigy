@@ -41,7 +41,7 @@ random programs: assignments, the built-in distributions, `if`, probabilistic ch
 rendered in `.ppy` and in `.pgcl`. For each program the tests check that
 
 - both syntaxes give the same program;
-- SymPy (with simplification on and off), GiNaC and SymEngine give equal results, decided with
+- SymPy (with the simplification of the shown result on and off), GiNaC and SymEngine give equal results, decided with
   {func}`prodigy.distribution.equality.decide_equal_strings`, and the same kind of guarantee;
 - no result with status `ok` contains `nan`, `zoo` or `oo`;
 - the results agree with the simulation.

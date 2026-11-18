@@ -94,7 +94,7 @@ def test_marginal_with_removable_singularity(engine, simplification):
 @pytest.mark.timeout(60)
 def test_marginal_at_one_stays_small():
     z, w = sympy.symbols("z w", real=True)
-    with GeneratingFunction.configured(simplification=False, latex_output=False):
+    with GeneratingFunction.configured(latex_output=False):
         cases = {
             # removable singularity, the value is 0 (limit did not finish)
             (-z ** 2 / 2 - z / 2 + z * (z ** 2 - 1) / (2 * (z - 1))) / (2 - w): sympy.Integer(0),

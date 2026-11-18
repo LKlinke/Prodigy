@@ -234,7 +234,7 @@ function distributionLens(ctx) {
     figure: h("figure", { class: "rv-figure" }, figure, legend),
     facts: mass,
     details: source.final
-      ? [generatingFunction(result.distribution.latex, result.distribution.closed_form, false), distValuesBlock(result), finalFacts(result.distribution), watches]
+      ? [finalGeneratingFunction(result.distribution), distValuesBlock(result), finalFacts(result.distribution), watches]
       : [generatingFunction(source.snap.latex, source.snap.closed_form, source.snap.truncated, source.snap.size), snapshotDists(source.snap),
         snapshotFacts(source.snap), watches],
     open: (key) => (key === "watches" ? Boolean(view.watchesOpen) : false),
@@ -266,6 +266,37 @@ function generatingFunction(latex, text, truncated, size = null) {
       formulaBox({ latex: truncated ? null : latex, text: shown, label: "Generating function" }),
       truncated ? h("p", { class: "rv-note" }, `Only the first characters of ${size?.toLocaleString("en-US") ?? "many"} are recorded.`) : null,
       h("div", { class: "rv-actions" }, latex && !truncated ? copyButton("LaTeX", latex) : null, text ? copyButton("Text", text) : null)));
+}
+
+// The output distribution in the form that is shown (#404): with "Simplify the shown result", the result says
+// which form the bounded search chose; a simplified form can be switched back to the form as computed.
+function finalGeneratingFunction(dist) {
+  const display = dist.display;
+  if (!display?.simplified || !dist.computed_form) {
+    const block = generatingFunction(dist.latex, dist.closed_form, false);
+    if (display?.note) block.querySelector(".disclosure-body").prepend(h("p", { class: "rv-note" }, display.note));
+    return block;
+  }
+  const forms = {
+    shown: { latex: dist.latex, text: dist.closed_form },
+    computed: { latex: dist.computed_latex, text: dist.computed_form },
+  };
+  const holder = h("div", {});
+  const actions = h("div", { class: "rv-actions" });
+  const sizes = display.computed_ops != null && display.shown_ops != null
+    ? ` ${display.shown_ops} instead of ${display.computed_ops} operations.` : "";
+  const note = h("p", { class: "rv-note" });
+  const choose = (key) => {
+    const form = forms[key];
+    holder.replaceChildren(formulaBox({ latex: form.latex, text: form.text, label: "Generating function" }));
+    actions.replaceChildren(form.latex ? copyButton("LaTeX", form.latex) : null, form.text ? copyButton("Text", form.text) : null);
+    note.textContent = key === "shown" ? `${display.note}${sizes}` : "As computed by the analysis; the same generating function.";
+    press(toggle, key);
+  };
+  const toggle = segmented("Form of the generating function", [["shown", "Simplified"], ["computed", "As computed"]], choose);
+  choose("shown");
+  return h("details", { class: "disclosure rv-gf" }, h("summary", {}, "Generating function"),
+    h("div", { class: "disclosure-body" }, h("div", {}, toggle), note, holder, actions));
 }
 
 // the dist variables are not part of the distribution; their values are listed apart (#217: with KaTeX)
