@@ -106,7 +106,7 @@ def test_cav_phi_shares_no_nodes():
     assert str(inv) == inv_before
 
 
-def test_cav_phi_takes_context_from_invariant():
+def test_cav_phi_takes_variables_from_invariant_and_parameters_from_both():
     prog = _compile("""
         nat x;
         nat unused;
@@ -125,11 +125,11 @@ def test_cav_phi_takes_context_from_invariant():
 
     assert result.declarations is inv.declarations
     assert result.variables is inv.variables
-    assert result.constants is inv.constants
-    assert result.parameters is inv.parameters
-    assert result.functions is inv.functions
+    assert result.constants == inv.constants
+    assert result.functions == inv.functions
     assert set(result.variables) == {"x"}
-    assert set(result.parameters) == {"p"}
+    # the body of the loop may use parameters the invariant does not mention (parameter synthesis, #403)
+    assert set(result.parameters) == {"p", "q"}
 
 
 def test_cav_phi_keeps_nested_instructions_in_order():
