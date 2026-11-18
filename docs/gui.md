@@ -28,8 +28,7 @@ Prodigy is tested with Python 3.11 and 3.14.
   analysis options (conditioning, simplification of the shown result, number of coefficients, time
   limit, EVT synthesis strategy, solver, recording of intermediate distributions).
   *Simplify the shown result* (on by default; CLI: on unless `--no-simplification`) does not change
-  the analysis (it always keeps closed forms factored and leaves polynomials as the operations produce
-  them). Only the output distribution that is shown is rewritten: a bounded search tries cheap exact rewrites in the order of their cost
+  the analysis (it always uses the same normal form: factored closed forms, expanded polynomials). Only the output distribution that is shown is rewritten: a bounded search tries cheap exact rewrites in the order of their cost
   (`together`, `cancel`, `factor`; GCD-based ones only below a size and degree threshold, never
   `simplify`), checks each to be equal to the computed form, stops after 2 s and shows the
   shortest form (by `count_ops`), or the computed one with the reason (“already short”, “too large”,

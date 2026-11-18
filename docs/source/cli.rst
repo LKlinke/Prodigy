@@ -33,9 +33,9 @@ for constructs of the old syntax, e.g.:
 Simplification of the shown result
 ----------------------------------
 
-The option does not change the analysis: it always keeps closed forms with factored numerator and
-denominator (the analysis of loops relies on it) and leaves polynomials as the operations produce them
-(expanding them costs time and often makes them longer). Only the result that is printed (``main``,
+The option does not change the analysis, which always uses the same normal form (closed forms with
+factored numerator and denominator, expanded polynomials): it is fast to compute with, but often not
+the shortest form to read. Only the result that is printed (``main``,
 ``analyze``; in the JSON result ``distribution.closed_form`` and ``distribution.latex``) is rewritten,
 with bounded effort: the shortest of the exact rewrites ``together``, ``cancel`` and ``factor`` (tried in
 this order, the GCD-based ones only below a size and degree threshold), each checked to be equal to the

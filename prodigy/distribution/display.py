@@ -1,8 +1,8 @@
 """
 The shown form of a result: a bounded search for a shorter form of the same generating function (#404).
 
-The analysis keeps closed forms factored and leaves polynomials as the operations produce them, whatever
-the settings (``GeneratingFunction._arithmetic``); that is
+The analysis uses one normal form whatever the settings (factored closed forms, expanded polynomials,
+``GeneratingFunction._arithmetic``); that is
 fast to compute with, but often not the shortest form to read. Only the form that is shown is simplified,
 and only with bounded effort:
 
