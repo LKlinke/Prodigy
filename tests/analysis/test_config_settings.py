@@ -1,5 +1,5 @@
 """
-The engine settings of a ForwardAnalysisConfig (simplification, LaTeX output) hold for its own
+The engine settings of a ForwardAnalysisConfig (LaTeX output) hold for its own
 analysis only, not for the rest of the process.
 """
 import threading
@@ -35,8 +35,9 @@ def test_two_analyses_in_one_process_do_not_influence_each_other():
     first = [analyse(simplifying), analyse(plain)]
     second = [analyse(plain), analyse(simplifying)]
     assert first == second[::-1]
-    # the settings matter for this program, and none of them outlives its analysis
-    assert first[0][0] != first[1][0]
+    # simplification only concerns the shown result (#404): the computed distribution is the same, and
+    # no setting outlives its analysis
+    assert first[0][0] == first[1][0]
     assert all(settings == DEFAULTS for _, settings in first + second)
 
 
@@ -73,10 +74,14 @@ def test_cli_prints_latex_and_leaves_the_defaults(tmp_path):
     program = tmp_path / "program.pgcl"
     program.write_text("nat x; {x := 1} [1/2] {x := 2}")
     runner = CliRunner()
-    latex = runner.invoke(cli, ["--use-latex", "main", str(program)])
+    latex = runner.invoke(cli, ["--use-latex", "--no-simplification", "main", str(program)])
     assert latex.exit_code == 0, latex.output
     assert r"\frac{x^{2}}{2} + \frac{x}{2}" in latex.output
-    plain = runner.invoke(cli, ["main", str(program)])
+    plain = runner.invoke(cli, ["--no-simplification", "main", str(program)])
     assert plain.exit_code == 0, plain.output
     assert "x**2/2 + x/2" in plain.output
+    # by default only the shown result is simplified (#404)
+    shown = runner.invoke(cli, ["main", str(program)])
+    assert shown.exit_code == 0, shown.output
+    assert "x*(x + 1)/2" in shown.output
     assert GeneratingFunction.settings() == DEFAULTS

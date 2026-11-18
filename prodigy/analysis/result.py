@@ -12,7 +12,7 @@ the web GUI, a language server). Its top-level keys::
     program      variables, parameters, constants, functions, loops, queries
     input        distribution, engine, normalize, decisions
     distribution closed_form, latex, variables, parameters, finite_support, mass,
-                 error_probability, expectations, marginals
+                 error_probability, expectations, marginals, display, computed_form, computed_latex
     bounds       kind, residual_mass, explanation
     distributions variable, depends_on_state, values (probability, infer, function, arguments,
                  closed, closed_form, latex, normalizing_constant, mean, finite_support, table)
@@ -38,6 +38,18 @@ Exact values are strings in Prodigy's notation; every exact value that is a numb
 comes as ``..._float``. Expressions taken from the program (query expressions, loop guards,
 the instructions of ``steps``) are written in the program's syntax, which ``syntax`` states
 (``ppy`` or ``pgcl``): ``x == 1 and y ** 2 < 3`` for ``.ppy``, ``(x = 1) & (y^2 < 3)`` for ``.pgcl``.
+
+The shown form
+--------------
+The option ``use_simplification`` does not change the analysis. With it (the GUI's
+"Simplify the shown result", on unless ``prodigy --no-simplification``), ``distribution.closed_form`` and
+``distribution.latex`` are the shortest form that a bounded search finds
+(:mod:`prodigy.distribution.display`): the same generating function, checked to be equal, perhaps
+cancelled or factored. ``distribution.display`` says which form is shown (``form``: ``computed``,
+``together``, ``cancel`` or ``factor``; ``simplified``; ``note``, e.g. why the computed form was kept;
+``computed_ops`` and ``shown_ops``, the sizes by ``count_ops``; ``seconds``). If the shown form differs,
+``computed_form`` and ``computed_latex`` are the form as computed. Without the option there is no
+``display``, and ``closed_form`` is the computed form. Coefficients, mass and expectations never depend on it.
 
 Sound intervals
 ---------------
@@ -124,6 +136,7 @@ from prodigy.pgcl import (Binop, BinopExpr, BoolType, Expr, NatLitExpr, NatType,
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.streaming import Batcher, Sink
 from prodigy.distribution.coefficient_stream import marginal_stream
+from prodigy.distribution.display import display_form
 from prodigy.distribution.equality import sympy_text
 from prodigy.util.integers import unlimited_int_digits
 
@@ -590,16 +603,21 @@ def finish_query(session: "AnalysisSession", query: QueryResult, *, monotone: bo
 
 def describe_distribution(dist: "Distribution", *, limit: int, kind: str = Bound.EXACT,
                           residual: Any = 0, expectations: bool = True,
-                          stream: Optional[Sink] = None) -> Dict[str, Any]:
+                          stream: Optional[Sink] = None, simplify: bool = False) -> Dict[str, Any]:
     """The JSON summary of an output distribution; with ``stream``, the coefficients of the marginals also
-    go to ``stream`` in batches while they are computed (:mod:`prodigy.analysis.streaming`)."""
+    go to ``stream`` in batches while they are computed (:mod:`prodigy.analysis.streaming`).
+
+    With ``simplify``, ``closed_form`` and ``latex`` show the form that the bounded search of
+    :func:`~prodigy.distribution.display.display_form` finds, ``display`` says which, and ``computed_form``
+    and ``computed_latex`` keep the computed form if it differs. Everything else is computed from ``dist``."""
     variables = sorted(dist.get_variables())
     parameters = sorted(dist.get_parameters())
     mass, mass_float = exact_and_float(_safe(dist.get_probability_mass))
     finite = bool(_safe(dist.is_finite))
+    shown = display_form(dist) if simplify else None
     summary: Dict[str, Any] = {
-        "closed_form": str(dist),
-        "latex": to_latex(dist),
+        "closed_form": str(dist if shown is None else shown.distribution),
+        "latex": to_latex(dist if shown is None else shown.distribution),
         "variables": variables,
         "parameters": parameters,
         "finite_support": finite,
@@ -609,6 +627,11 @@ def describe_distribution(dist: "Distribution", *, limit: int, kind: str = Bound
         "expectations": {},
         "joint": None,
     }
+    if shown is not None:
+        summary["display"] = shown.to_json()
+        if shown.simplified:
+            summary["computed_form"] = str(dist)
+            summary["computed_latex"] = to_latex(dist)
     if limit > 0:
         if stream is not None:
             residual_exact, residual_float = exact_and_float(residual if kind == Bound.LOWER else None)
@@ -850,7 +873,8 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
             stream = session.progress_callback if session.stream_coefficients else None
             result.distribution = describe_distribution(final, limit=session.coefficient_limit,
                                                         kind=session.bound_kind,
-                                                        residual=session.residual, stream=stream)
+                                                        residual=session.residual, stream=stream,
+                                                        simplify=config.use_simplification)
             if session.dist_values:
                 # pylint: disable=import-outside-toplevel
                 from prodigy.analysis.nested_inference import dist_values_json

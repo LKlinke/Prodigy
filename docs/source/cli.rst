@@ -30,6 +30,20 @@ for constructs of the old syntax, e.g.:
        x := 3;
           ^
 
+Simplification of the shown result
+----------------------------------
+
+The option does not change the analysis: it always keeps closed forms with factored numerator and
+denominator (the analysis of loops relies on it) and leaves polynomials as the operations produce them
+(expanding them costs time and often makes them longer). Only the result that is printed (``main``,
+``analyze``; in the JSON result ``distribution.closed_form`` and ``distribution.latex``) is rewritten,
+with bounded effort: the shortest of the exact rewrites ``together``, ``cancel`` and ``factor`` (tried in
+this order, the GCD-based ones only below a size and degree threshold), each checked to be equal to the
+computed form, within a time limit of 2 seconds (:mod:`prodigy.distribution.display`).
+``distribution.display`` says which form is shown and why, and ``distribution.computed_form`` keeps the
+computed form if it differs. ``prodigy --no-simplification ...`` prints the computed form. The option
+changes no value, only its form.
+
 Loop strategies
 ---------------
 

@@ -605,7 +605,7 @@ export function renderSetup(container, ctx) {
   const optionsBody = h("div", { class: "disclosure-body options-grid" },
     toggleRow("Condition on observations", "Divide by the probability that all observe statements hold.", options.normalize,
       (v) => { options.normalize = v; onChange(); }),
-    toggleRow("Simplify expressions", "Slower, but gives shorter closed forms.", options.simplification,
+    toggleRow("Simplify the shown result", "Looks for a shorter form of the output distribution, with bounded effort; the analysis itself is not affected.", options.simplification,
       (v) => { options.simplification = v; onChange(); }),
     toggleRow("Record each step", "Record the trace for the timeline of the analysis card: the distribution at each instruction, loop iterates and certificate checks.", options.recordSteps,
       (v) => { options.recordSteps = v; onChange(); }),

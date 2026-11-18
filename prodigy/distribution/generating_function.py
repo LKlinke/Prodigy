@@ -15,7 +15,7 @@ import sympy
 # TODO Implement these checks in prodigy.pgcl
 from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
-from prodigy.distribution.equality import decide_equal, sympy_text
+from prodigy.distribution.equality import decide_equal, is_rational_over_q, sympy_text
 from prodigy.distribution.exact_division import divide_exponents
 from prodigy.distribution.rational_series import rational_taylor_coefficients
 from prodigy.distribution.negative_values import can_be_negative
@@ -33,10 +33,11 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 @dataclass(frozen=True)
 class GeneratingFunctionSettings:
-    """How the SymPy engine simplifies and prints; set per analysis, see :meth:`GeneratingFunction.configured`."""
+    """How the SymPy engine prints; set per analysis, see :meth:`GeneratingFunction.configured`.
 
-    simplification: bool = False
-    """Factor numerator and denominator after each arithmetic operation."""
+    No setting changes the computation: closed forms always keep their numerator and denominator factored,
+    polynomials stay as the operations produce them (see ``_arithmetic``). Simplifying
+    the shown result is a matter of display (:mod:`prodigy.distribution.display`, #404)."""
 
     latex_output: bool = False
     """``str()`` gives LaTeX instead of a SymPy expression."""
@@ -328,12 +329,12 @@ class GeneratingFunction(Distribution):
 
     @staticmethod
     @contextlib.contextmanager
-    def configured(*, simplification: bool, latex_output: bool) -> Iterator[GeneratingFunctionSettings]:
+    def configured(*, latex_output: bool) -> Iterator[GeneratingFunctionSettings]:
         """
         Applies the settings within the ``with`` block of the current thread or task only and restores
         the previous ones afterwards, so analyses with different settings do not influence each other.
         """
-        settings = GeneratingFunctionSettings(simplification=simplification, latex_output=latex_output)
+        settings = GeneratingFunctionSettings(latex_output=latex_output)
         token = _SETTINGS.set(settings)
         try:
             yield settings
@@ -1284,16 +1285,18 @@ class GeneratingFunction(Distribution):
             # do the actual operation
             function = op(self._function, other._function)
 
-            # simplify the result if demanded.
-            # A polynomial is only expanded: factoring it first (and expanding it again) costs a
-            # factorisation over finite fields, which explodes for sparse polynomials of high degree
-            # such as the x**(2**k) of a doubled variable (#224).
-            if GeneratingFunction.settings().simplification:
-                if is_closed_form:
-                    nominator, denominator = sympy.fraction(function)
-                    function = nominator.factor() / denominator.factor()
-                else:
-                    function = function.expand()
+            # A closed form keeps its numerator and denominator factored: the analysis of loops relies on it
+            # (limits at 1, substitutions and the equality checks of invariants work on the factors) and is
+            # 2-6 times slower without it (measured on the benchmark set, #404). A polynomial is left as the
+            # operation produced it: expanding it costs time and often makes it longer, e.g.
+            # (x/2 + 1/2)**10 into eleven terms, and factoring it costs a factorisation over finite fields,
+            # which explodes for sparse polynomials of high degree such as the x**(2**k) of a doubled
+            # variable (#224). This normal form does not depend on the settings; the shown result is
+            # simplified on its own (prodigy.distribution.display). Only rational functions are factored:
+            # factoring an algebraic function (square roots after a subtraction, #243) does not finish.
+            if is_closed_form and is_rational_over_q(function):
+                numerator, denominator = sympy.fraction(function)
+                function = numerator.factor() / denominator.factor()
 
             # update the occuring variables and parameters
             variables = self._variables.union(other._variables)
@@ -1474,8 +1477,7 @@ class GeneratingFunction(Distribution):
 
     def coefficient_sum(self) -> sympy.Expr:
         logger.debug("coefficient_sum() call")
-        coefficient_sum = self._function.simplify(
-        ) if GeneratingFunction.settings().simplification else self._function
+        coefficient_sum = self._function
         for var in self._variables:
             coefficient_sum = _substitute_one(
                 coefficient_sum, var) if self._is_closed_form else coefficient_sum.subs(

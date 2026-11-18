@@ -43,7 +43,8 @@ class ForwardAnalysisConfig:
     """Enables step-by-step computation"""
 
     use_simplification: bool = attr.ib(default=False)
-    """Enables simplification heuristics for expressions (SymPy engine; see :meth:`activate`)."""
+    """Simplifies the shown output distribution, bounded in size and time (:mod:`prodigy.distribution.display`).
+    It changes neither the computation nor the result's value, only the form in which it is shown (#404)."""
 
     use_latex: bool = attr.ib(default=False)
     """Toggle to print LaTeX-Code instead of ASCII expressions (SymPy engine; see :meth:`activate`)."""
@@ -98,13 +99,12 @@ class ForwardAnalysisConfig:
     @contextmanager
     def activate(self) -> Iterator[GeneratingFunctionSettings]:
         """
-        Applies ``use_simplification`` and ``use_latex`` within a ``with`` block only, and lifts
+        Applies ``use_latex`` within a ``with`` block only, and lifts
         Python's limit on the digits of integer strings (exact coefficients can be longer, #235).
 
         :func:`~prodigy.analysis.analyzer.compute_discrete_distribution` and
         :meth:`~prodigy.analysis.session.AnalysisSession.run` do this themselves; code that works
         with the distributions outside of them (e.g. printing a result) enters it as well.
         """
-        with unlimited_int_digits(), GeneratingFunction.configured(
-                simplification=self.use_simplification, latex_output=self.use_latex) as settings:
+        with unlimited_int_digits(), GeneratingFunction.configured(latex_output=self.use_latex) as settings:
             yield settings
