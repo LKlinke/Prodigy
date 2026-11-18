@@ -40,6 +40,7 @@ from prodigy.analysis.independence.independence import independent_vars as get_i
 from prodigy.analysis.loop_strategies import loop_strategies, strategy_groups
 from prodigy.analysis.session import (AnalysisSession, DEFAULT_KEY, InteractiveDecisions, LoopRegistry, parse_decisions,
                                       validate_decisions)
+from prodigy.distribution.display import display_form
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
@@ -87,7 +88,10 @@ _QUERY_LABELS = {"probability": "Pr", "expectation": "E", "variance": "Var", "co
                    "'prodigy analyze --steps' records the same steps, with --json as JSON.")
 @click.option("--stepwise", is_flag=True, required=False, default=False,
               help="Like --intermediate-results, and wait for Enter after each step.")
-@click.option('--no-simplification', is_flag=True, required=False, default=False)
+@click.option('--no-simplification', is_flag=True, required=False, default=False,
+              help="Show the result as computed. By default the shown result (not the computation) is simplified "
+                   "with bounded effort: the shortest of cheap exact rewrites (together, cancel, factor) that is "
+                   "checked to be equal, within a time limit of a few seconds.")
 @click.option('--use-latex', is_flag=True, required=False, default=False)
 @click.option("--no-normalize", is_flag=True, required=False, default=False)
 @click.option("--show-all-invs", is_flag=True, required=False, default=False)
@@ -275,7 +279,8 @@ def main(ctx: click.Context, program_file: IO, input_dist: str,  # pylint: disab
             program, dist, config)
     stop = time.perf_counter()
 
-    print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + "(" + str(dist) +
+    shown = display_form(dist).distribution if config.use_simplification else dist
+    print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + "(" + str(shown) +
           ", " + str(error_prob) + ")" + Style.RESET)
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
 

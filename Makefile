@@ -1,8 +1,8 @@
-.PHONY: help install lint mypy test fuzz bench bench-compare docs clean docker-build docker-run docker-artifact
+.PHONY: help install lint mypy test test-fast fuzz bench bench-compare docs clean docker-build docker-run docker-artifact
 
 .DEFAULT: help
 help:
-	@echo "Available targets: install, lint, mypy, test, fuzz, bench, bench-compare, docs, clean, format, docker-build, docker-run, docker-artifact"
+	@echo "Available targets: install, lint, mypy, test, test-fast, fuzz, bench, bench-compare, docs, clean, format, docker-build, docker-run, docker-artifact"
 
 install:
 	uv sync
@@ -21,6 +21,10 @@ XDIST = -n auto --dist worksteal
 # The fuzzing and the comparison of the examples with the simulator (marker `fuzz`) run in `make fuzz`
 test:
 	uv run pytest ${XDIST} ${COV} -m "not fuzz" --junitxml=testreport.xml ${ARGS}
+
+# Without the tests of the marker `slow` (over about 10 s each); the CI job on Python 3.11 runs this, the one on 3.14 runs `make test`
+test-fast:
+	uv run pytest ${XDIST} ${COV} -m "not fuzz and not slow" --junitxml=testreport.xml ${ARGS}
 
 # Fuzzing and simulation tests (docs/source/testing.md); `PRODIGY_FUZZ=nightly make fuzz` runs many programs
 fuzz:

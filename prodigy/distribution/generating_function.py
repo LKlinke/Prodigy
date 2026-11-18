@@ -33,10 +33,11 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 @dataclass(frozen=True)
 class GeneratingFunctionSettings:
-    """How the SymPy engine simplifies and prints; set per analysis, see :meth:`GeneratingFunction.configured`."""
+    """How the SymPy engine prints; set per analysis, see :meth:`GeneratingFunction.configured`.
 
-    simplification: bool = False
-    """Factor numerator and denominator after each arithmetic operation."""
+    No setting changes the computation: closed forms get their numerator and denominator factored, polynomials
+    are expanded (see ``_arithmetic``). Simplifying
+    the shown result is a matter of display (:mod:`prodigy.distribution.display`, #404)."""
 
     latex_output: bool = False
     """``str()`` gives LaTeX instead of a SymPy expression."""
@@ -44,6 +45,17 @@ class GeneratingFunctionSettings:
 
 _SETTINGS: ContextVar[GeneratingFunctionSettings] = ContextVar(
     "generating_function_settings", default=GeneratingFunctionSettings())
+
+
+MAX_FACTORED_PARAMETERS = 3
+"""A closed form is factored after an arithmetic operation only if it has at most this many symbols besides the
+variables (parameters, the unknown coefficients of a template, see :meth:`GeneratingFunction._arithmetic`)."""
+
+
+def _has_radical(function: sympy.Expr) -> bool:
+    """Whether ``function`` has a power with a non-integer exponent, e.g. a square root, or an exponential
+    (``exp(7*x - 7)`` of a Poisson distribution)."""
+    return any(not power.exp.is_Integer for power in function.atoms(sympy.Pow)) or function.has(sympy.exp)
 
 
 @functools.lru_cache(maxsize=1024)
@@ -328,12 +340,12 @@ class GeneratingFunction(Distribution):
 
     @staticmethod
     @contextlib.contextmanager
-    def configured(*, simplification: bool, latex_output: bool) -> Iterator[GeneratingFunctionSettings]:
+    def configured(*, latex_output: bool) -> Iterator[GeneratingFunctionSettings]:
         """
         Applies the settings within the ``with`` block of the current thread or task only and restores
         the previous ones afterwards, so analyses with different settings do not influence each other.
         """
-        settings = GeneratingFunctionSettings(simplification=simplification, latex_output=latex_output)
+        settings = GeneratingFunctionSettings(latex_output=latex_output)
         token = _SETTINGS.set(settings)
         try:
             yield settings
@@ -1283,20 +1295,26 @@ class GeneratingFunction(Distribution):
 
             # do the actual operation
             function = op(self._function, other._function)
-
-            # simplify the result if demanded.
-            # A polynomial is only expanded: factoring it first (and expanding it again) costs a
-            # factorisation over finite fields, which explodes for sparse polynomials of high degree
-            # such as the x**(2**k) of a doubled variable (#224).
-            if GeneratingFunction.settings().simplification:
-                if is_closed_form:
-                    nominator, denominator = sympy.fraction(function)
-                    function = nominator.factor() / denominator.factor()
-                else:
-                    function = function.expand()
-
-            # update the occuring variables and parameters
             variables = self._variables.union(other._variables)
+
+            # The normal form of the computation, independent of the settings (#404): a closed form gets its
+            # numerator and denominator factored, a polynomial is expanded. Both are measured to pay off: the
+            # analysis of loops is 2-6 times slower without the factors (limits at 1, substitutions and the
+            # equality checks of invariants work on them), and programs with many variables and finite support
+            # twice as slow without expanded polynomials. Expanding never factors, so sparse polynomials of high
+            # degree such as the x**(2**k) of a doubled variable stay cheap (#224). Closed forms are not
+            # factored if they contain radicals or exponentials (factoring an algebraic function after a
+            # subtraction does not finish, #243; factored Poisson products make the coefficients slow) or more
+            # than MAX_FACTORED_PARAMETERS symbols besides the variables (the many unknown coefficients of the
+            # templates of evt_synthesis: +40 % in test_template_solver). The shown result is simplified on its
+            # own (prodigy.distribution.display).
+            if is_closed_form and len(function.free_symbols - variables) <= MAX_FACTORED_PARAMETERS \
+                    and not _has_radical(function):
+                numerator, denominator = sympy.fraction(function)
+                function = numerator.factor() / denominator.factor()
+            elif not is_closed_form and function.free_symbols <= variables:
+                function = function.expand()
+
             parameters = self._parameters.union(other._parameters)
             result = GeneratingFunction(function,
                                         *variables,
@@ -1474,8 +1492,7 @@ class GeneratingFunction(Distribution):
 
     def coefficient_sum(self) -> sympy.Expr:
         logger.debug("coefficient_sum() call")
-        coefficient_sum = self._function.simplify(
-        ) if GeneratingFunction.settings().simplification else self._function
+        coefficient_sum = self._function
         for var in self._variables:
             coefficient_sum = _substitute_one(
                 coefficient_sum, var) if self._is_closed_form else coefficient_sum.subs(

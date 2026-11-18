@@ -167,6 +167,7 @@ def test_two_dependent_infinite_variables(engine):
     assert _queries(source, engine) == [Fraction(2, 3), Fraction(2, 3)]
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("engine", ENGINES)
 def test_algebraic_result(engine):
     # the counterexample of #243: the joint distribution after z := x - y is algebraic, not rational

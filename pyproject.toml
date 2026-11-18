@@ -86,7 +86,11 @@ faulthandler_timeout = 600
 # blocking the run (the weekly fuzzing raises it, see .github/workflows/fuzzing.yml)
 timeout = 120
 # tests/fuzzing and tests/simulation/test_examples.py (`-m "not fuzz"` leaves them out)
-markers = ["fuzz: property-based fuzzing and differential tests against the simulator"]
+# `slow`: tests over about 10 s on the CI; the job on Python 3.11 leaves them out (`make test-fast`)
+markers = [
+    "fuzz: property-based fuzzing and differential tests against the simulator",
+    "slow: takes more than about 10 s on a CI runner; `make test-fast` and the CI job on Python 3.11 leave it out",
+]
 
 [build-system]
 requires = ["hatchling>=1.26", "hatch-vcs>=0.4"]

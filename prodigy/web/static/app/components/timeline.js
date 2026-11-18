@@ -83,7 +83,8 @@ export function marginalGap(snap, variable) {
 export function sizeSeries(result, model) {
   return model.positions.map((position) => {
     if (position.kind === "final") {
-      const closed = result?.distribution?.closed_form;
+      // the computed form, as in the snapshots of the steps (the shown one may be simplified, #404)
+      const closed = result?.distribution?.computed_form ?? result?.distribution?.closed_form;
       return typeof closed === "string" ? closed.length : null;
     }
     const size = positionData(result, position).snapshot?.size;

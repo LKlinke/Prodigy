@@ -149,6 +149,7 @@ def _loopy_invariants(file_path: str) -> tuple[str, list[str]]:
     return counterpart, numbered or [counterpart]
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "engine",
     [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY,
@@ -263,6 +264,7 @@ def test_equivalence_check_compares_two_variables_formally(engine, loop, invaria
     assert res is expected
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     'engine',
     [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE])

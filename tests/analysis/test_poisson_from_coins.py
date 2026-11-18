@@ -7,6 +7,8 @@ import math
 from fractions import Fraction
 from pathlib import Path
 
+import pytest
+
 from prodigy.analysis.session import AnalysisSession
 from prodigy.pgcl import parse_pgcl
 
@@ -14,6 +16,7 @@ EXAMPLE = Path(__file__).parents[2] / "pgfexamples" / "inference" / "loopy" / "c
     "poisson_from_coins.ppy"
 
 
+@pytest.mark.slow
 def test_unrolled_intervals_contain_poisson():
     source = EXAMPLE.read_text()
     session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", capture_output=True,

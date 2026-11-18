@@ -77,6 +77,7 @@ def test_state_dependent_urn_is_sound(engine):
     assert queries[3]["upper"] is None  # Ex = ∞: no upper bound
 
 
+@pytest.mark.slow
 def test_polya_urn_contains_logarithms():
     """The Pólya urn chooses with probability red/(red + black) (#213): Pr[red == 1] = ln 2."""
     queries = _queries("d_finite/polya_urn.ppy", {0: "unroll:iterations=10"})

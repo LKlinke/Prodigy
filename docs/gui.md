@@ -25,8 +25,15 @@ Prodigy is tested with Python 3.11 and 3.14.
 * **Setup** (right): initial distribution (refused with a message unless it is proven to be a
   distribution, see the language reference), one strategy per loop with its parameters (see
   [Choosing a loop strategy](#choosing-a-loop-strategy)),
-  analysis options (conditioning, simplification, number of coefficients, time
-  limit, EVT synthesis strategy, solver, recording of intermediate distributions). The
+  analysis options (conditioning, simplification of the shown result, number of coefficients, time
+  limit, EVT synthesis strategy, solver, recording of intermediate distributions).
+  *Simplify the shown result* (on by default; CLI: on unless `--no-simplification`) does not change
+  the analysis (it always uses the same normal form: factored closed forms, expanded polynomials). Only the output distribution that is shown is rewritten: a bounded search tries cheap exact rewrites in the order of their cost
+  (`together`, `cancel`, `factor`; GCD-based ones only below a size and degree threshold, never
+  `simplify`), checks each to be equal to the computed form, stops after 2 s and shows the
+  shortest form (by `count_ops`), or the computed one with the reason (“already short”, “too large”,
+  “time limit reached”). The *Generating function* disclosure then switches between *Simplified* and
+  *As computed*; coefficients, mass and expectations always come from the computed form (#404). The
   synthesis strategy *from heuristics* combines a template heuristic and a positivity
   heuristic chosen below it (on the command line: `--strategy from_heuristics
   --template-heuristic … --pos-heuristic …`).
