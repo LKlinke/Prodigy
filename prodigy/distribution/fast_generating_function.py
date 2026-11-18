@@ -32,6 +32,46 @@ def _is_singular_at_one(error: ValueError) -> bool:
     return _is_division_by_zero(error) or "log(0)" in str(error)
 
 
+class _PrefixCoefficients:
+    """The coefficients of a multivariate generating function, expanded one variable at a time: the
+    coefficient of ``v0^a`` is a generating function in the other variables, and so on. The coefficients of
+    every prefix ``(a, b, ...)`` are kept, and a prefix with coefficient 0 cuts off all states that extend
+    it. Filtering every state on its own made the graded order (many states per level, mostly with
+    probability 0) far too slow for the witness search of a comparison (#403)."""
+
+    def __init__(self, dist: prodigy_ginac.Dist, variables: List[str], parameters: List[str]):
+        self._variables = variables
+        self._parameters = parameters
+        # prefix -> (iterator over the coefficients in the next variable, the coefficients seen so far)
+        self._expansions: Dict[Tuple[int, ...], Tuple[Any, List[Optional[prodigy_ginac.Dist]]]] = {}
+        self._root = dist
+
+    def _coefficient(self, prefix: Tuple[int, ...]) -> Optional[prodigy_ginac.Dist]:
+        """The coefficient of the monomial of ``prefix`` in its variables, None if it is 0."""
+        if not prefix:
+            return self._root
+        parent = self._coefficient(prefix[:-1])
+        if parent is None:
+            return None
+        head = prefix[:-1]
+        variable = self._variables[len(head)]
+        if variable not in set(parent.get_symbols()):
+            # the bindings expand only in symbols that occur: the coefficients are the parent, then 0
+            return parent if prefix[-1] == 0 else None
+        if head not in self._expansions:
+            self._expansions[head] = (parent.coefficient_iterator(variable), [])
+        iterator, seen = self._expansions[head]
+        while len(seen) <= prefix[-1]:
+            coefficient = prodigy_ginac.Dist(str(iterator.next()), self._parameters)
+            seen.append(None if coefficient.is_zero() == prodigy_ginac.troolean.true else coefficient)
+        return seen[prefix[-1]]
+
+    def of(self, state: Tuple[int, ...]) -> Optional[str]:
+        """The probability of ``state`` (one value per variable), None if it is 0."""
+        coefficient = self._coefficient(state)
+        return None if coefficient is None else str(coefficient)
+
+
 class FPS(Distribution):
     """
     This class models a probability distribution in terms of a formal power series.
@@ -165,16 +205,11 @@ class FPS(Distribution):
                     yield str(it.next()), State({variable: i})
                     i += 1
             else:
-                # TODO this is just a placeholder until we have proper multivariate iteration
                 variables = sorted(self.get_variables())  # deterministic, independent of the hash seed
+                coefficients = _PrefixCoefficients(self._dist, variables, sorted(self._parameters))
                 for vals in default_monomial_iterator(len(variables)):
-                    # filter with the bindings directly: parsing a condition per state made the graded order
-                    # (many states per level) too slow for the witness search (#403)
-                    point = self._dist
-                    for variable, value in zip(variables, vals):
-                        point = point.filterEq(variable, str(value))
-                    mass = FPS.from_dist(point, self._variables, self._parameters).get_probability_mass()
-                    if mass != '0':
+                    mass = coefficients.of(tuple(vals))
+                    if mass is not None:
                         yield mass, State(dict(zip(variables, vals)))
         else:
             terms: List[Tuple[str, Dict[str, int]]] = self._dist.get_terms(self._variables)

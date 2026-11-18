@@ -112,3 +112,26 @@ def test_ginac_mass_at_a_pole_is_no_value_error():
     dist = ForwardAnalysisConfig(engine=Engine.GINAC).factory.from_expr("1/(1-x)", "x")
     with pytest.raises(NonFiniteMarginalError, match="division by zero"):
         dist.get_probability_mass()
+
+
+@pytest.mark.parametrize("expression, variables", [
+    ("(1/2)*c/(1-(1/2)*c)", ("c", "x", "temp")),  # variables that do not occur
+    ("6/((2-x)*(3-y))", ("x", "y")),
+    ("p*x/(1-(1-p)*x*y)", ("x", "y", "z")),  # a parameter
+])
+def test_ginac_multivariate_iteration_matches_the_filtered_probabilities(expression, variables):
+    """The iteration expands one variable at a time (the witness search took minutes when every state was
+    filtered on its own); it lists the same states, in the graded order, with the same probabilities."""
+    pytest.importorskip("prodigy_ginac")
+    import itertools  # pylint: disable=import-outside-toplevel
+    import sympy  # pylint: disable=import-outside-toplevel
+    dist = ForwardAnalysisConfig(engine=Engine.GINAC).factory.from_expr(expression, *variables)
+    terms = list(itertools.islice(iter(dist), 10))
+    assert len(terms) == 10
+    totals = [sum(state.valuations.values()) for _, state in terms]
+    assert totals == sorted(totals)
+    for probability, state in terms:
+        condition = " & ".join(f"{k}={v}" for k, v in state.valuations.items())
+        expected = dist.get_probability_of(condition)
+        assert sympy.simplify(sympy.sympify(probability.replace("^", "**"))
+                              - sympy.sympify(str(expected).replace("^", "**"))) == 0
