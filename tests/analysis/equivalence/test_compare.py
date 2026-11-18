@@ -3,7 +3,7 @@ equivalence only if both analyses are exact, "not equivalent" only with a witnes
 import builtins
 import os
 from glob import glob
-from typing import List
+from typing import Dict, List
 
 import pytest
 from click.testing import CliRunner
@@ -174,10 +174,7 @@ def test_a_non_finite_marginal_is_a_limitation_of_the_check(monkeypatch):
 # ---- the example library keeps its verdicts or becomes more precise --------------------------
 
 # Pairs whose check ends without a result (on main as an error of `check_equality`), with the reason
-LIBRARY_FAILING = {
-    "geometric_observe_parameter": "the check of the invariant program for the loop is refuted",
-    "random_walk_parameter": "the check of the invariant program for the loop is refuted",
-}
+LIBRARY_FAILING: Dict[str, str] = {}  # #403 fixed the last two (the check lost the parameters of the loop)
 # Pairs left out here, with the reason
 LIBRARY_SKIPPED = {
     "brp_obs_parameter": "the check takes minutes (conditioning on the second-order generating function)",

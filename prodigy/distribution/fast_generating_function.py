@@ -168,10 +168,12 @@ class FPS(Distribution):
                 # TODO this is just a placeholder until we have proper multivariate iteration
                 variables = sorted(self.get_variables())  # deterministic, independent of the hash seed
                 for vals in default_monomial_iterator(len(variables)):
-                    s = f'{variables[0]}={vals[0]}'
-                    for i in range(1, len(variables)):
-                        s += f' & {variables[i]}={vals[i]}'
-                    mass = str(self.get_probability_of(s))
+                    # filter with the bindings directly: parsing a condition per state made the graded order
+                    # (many states per level) too slow for the witness search (#403)
+                    point = self._dist
+                    for variable, value in zip(variables, vals):
+                        point = point.filterEq(variable, str(value))
+                    mass = FPS.from_dist(point, self._variables, self._parameters).get_probability_mass()
                     if mass != '0':
                         yield mass, State(dict(zip(variables, vals)))
         else:
@@ -191,7 +193,16 @@ class FPS(Distribution):
                              self._finite)
 
     def get_probability_mass(self) -> str:
-        return self._dist.mass(self._variables & set(self._dist.get_symbols()))
+        try:
+            return self._dist.mass(self._variables & set(self._dist.get_symbols()))
+        except ValueError as error:
+            if not _is_division_by_zero(error):
+                raise
+            # a pole at 1 (infinite or undefined mass, e.g. the test distribution of the second-order check,
+            # #403) or a removable singularity whose limit GiNaC cannot take; as for marginals (#349)
+            raise NonFiniteMarginalError(
+                "The mass is not finite, or this engine cannot evaluate it: division by zero (a pole at 1, or a "
+                f"singularity whose limit it cannot take) in {self._dist}") from error
 
     def _expected_value_of(self, expression: Union[Expr, str]) -> str:
         # Symbols that are neither variables nor parameters have no value: reject them, as the SymPy engine

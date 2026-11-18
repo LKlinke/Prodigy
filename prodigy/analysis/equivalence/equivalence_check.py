@@ -138,6 +138,10 @@ def _check_equivalence(
 ) -> EquivalenceAnswer:
     # Now we have to generate an infinite state parametrized distribution for every program variable.
     test_dist, new_vars = generate_equivalence_test_distribution(program, config)
+    # The parameters of both programs are unknown constants of the test distribution: an engine that
+    # takes the symbols of a distribution for its variables (GiNaC) needs them, e.g. for `iid` (#403).
+    params = program.parameters.keys() | other_program.parameters.keys()
+    test_dist = test_dist.set_parameters(*sorted(params))
 
     # Compute the resulting distributions for both programs
     logger.debug("Compute the other programs posterior...")
@@ -165,7 +169,6 @@ def _check_equivalence(
     diff = program_posterior - other_program_posterior
 
     # Compare them and check whether they are equal.
-    params = program.parameters.keys() | other_program.parameters.keys()
     solver = SolverType.make(config.solver_type)
     dist_is_solution, dist_candidates = solver.solve(program_posterior.set_parameters(*params),
                                                      other_program_posterior.set_parameters(*params))

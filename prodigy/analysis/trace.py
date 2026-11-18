@@ -156,6 +156,10 @@ def parse_watch(text: str, syntax: str, names: Optional[Sequence[str]] = None) -
 # Certificate checks in words
 # ---------------------------------------------------------------------------------------
 
+def _valuation(state: Dict[str, Any]) -> str:
+    return ", ".join(f"{k} = {v}" for k, v in state.items()) or "where every variable is 0"
+
+
 def _check(label: str, status: str, text: str) -> Dict[str, str]:
     """``status``: ``passed`` (proven by Prodigy), ``failed``, ``unknown`` (not established) or ``info``."""
     return {"label": label, "status": status, "text": text}
@@ -242,15 +246,22 @@ def certificate_checks(certificate: Optional[Mapping[str, Any]], failed: Optiona
                                  "surely, which is not checked."))
         elif verdict == "refuted" and failed is None:
             checks.append(_check("Fixed point", "failed",
-                                 f"Φ(I) ≠ I: counterexample {cert.get('counterexample')}."))
+                                 f"Φ(I) ≠ I: witness {cert.get('witness')}."))
         elif verdict == "unknown" and failed is None:
             checks.append(_check("Fixed point", "unknown",
                                  f"Fixed point not proven: Φ(I) − I = {cert.get('difference')} could not be shown "
                                  "to vanish."))
-        elif verdict == "refuted" and cert.get("counterexample") is not None:
-            checks.append(_check("Counterexample", "failed",
-                                 "I and one unrolling of the loop differ on the input "
-                                 + ", ".join(f"{k} = {v}" for k, v in cert["counterexample"].items()) + "."))
+        elif verdict == "refuted" and cert.get("witness") is not None:
+            witness = cert["witness"]
+            checks.append(_check("Witness", "failed",
+                                 "I and one unrolling of the loop give provably different probabilities to the "
+                                 "output state " + _valuation(witness.get("state") or {}) + " on the input "
+                                 + _valuation(cert.get("counterexample") or {}) + "."))
+        elif verdict == "unknown" and cert.get("counterexample") is not None:
+            # a raw "different" of the check without a witness is no refutation (#403)
+            checks.append(_check("Counterexample", "unknown",
+                                 "Candidate only: the check found I and one unrolling of the loop to differ on the "
+                                 "input " + _valuation(cert["counterexample"]) + ", but no witness was confirmed."))
     elif kind in ("evt_invariant", "evt_synthesis"):
         if verdict not in ("refuted", "unknown"):
             checks.append(_check("Fixed point", "passed",
