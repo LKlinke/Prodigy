@@ -81,6 +81,7 @@ def test_filter_coefficients(engine, function, variables, guard, holds):
     assert _terms(_sympy(filtered), variables) == expected
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("function, variables", FUNCTIONS)
 def test_monus_coefficients(engine, function, variables):

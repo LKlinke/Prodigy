@@ -160,6 +160,7 @@ query Pr[((x % 3) == 0)];
 """
 
 
+@pytest.mark.slow
 @pytest.mark.timeout(100)  # 1-4 s locally (it was minutes); the bound leaves room for a slow runner
 @pytest.mark.parametrize("engine", ENGINES)
 def test_observed_residue_class_of_a_poisson_draw_is_fast(engine):
@@ -167,5 +168,6 @@ def test_observed_residue_class_of_a_poisson_draw_is_fast(engine):
     assert result["status"] == "ok", result["error"]
 
 
+@pytest.mark.slow
 def test_observed_residue_class_of_a_poisson_draw_agrees_on_all_engines():
     assert not isolated(check_program, OBSERVE_RESIDUE_OF_POISSON, "ppy", {}, seconds=100, seed=0)

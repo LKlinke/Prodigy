@@ -4,6 +4,7 @@ the messages of all of them (#229).
 """
 from pathlib import Path
 
+import pytest
 import sympy
 
 from prodigy.analysis.loop_strategies import Bound
@@ -46,6 +47,7 @@ def test_differing_messages_of_several_executions_become_one_summary():
     ]
 
 
+@pytest.mark.slow
 def test_inner_loop_of_yule_simon_reports_one_summary():
     source = YULE_SIMON.read_text(encoding="utf-8")
     session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", capture_output=True,

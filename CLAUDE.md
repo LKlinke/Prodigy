@@ -32,13 +32,14 @@ make lint                            # pylint, must stay at 10.00/10
 make mypy                            # mypy, no errors
 make test                            # pytest in parallel (xdist) with coverage, about 2 minutes
 make test XDIST=                     # the same in one process
+make test-fast                       # without the tests marked `slow` (over ~10 s each); the CI runs them on 3.14 only
 make fuzz                            # fuzzing and simulator comparison (marker `fuzz`), about 30 s
 make docs                            # Sphinx docs into docs/build/html, warnings are errors
 uv run pytest tests/analysis/test_session.py -q   # a single file
 ```
-The CI (`.github/workflows/main.yml`) runs pylint, mypy, the tests on Python 3.11 and 3.14 and a
+The CI (`.github/workflows/main.yml`) runs pylint, mypy, the tests (all on 3.14, without the `slow` ones on 3.11) and a
 fuzzing smoke test (`make fuzz`), with the locked dependencies; a weekly workflow runs the thorough
-fuzzing (`docs/source/testing.md`).
+fuzzing and the slow tests on 3.11 (`docs/source/testing.md`).
 
 Testing during work: run `make lint`, `make mypy`, the test files that concern the change and
 `make fuzz` locally. Do not run the full `make test` locally; the CI runs it. A change counts as

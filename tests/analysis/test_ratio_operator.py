@@ -71,6 +71,7 @@ def test_finite_values_agree_with_the_case_split(engine, prefix):
     assert decide_equal(sympify_distribution(operator), sympify_distribution(split)) is True
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("generating_function", [
     # the second-order PGF of x and n (the uninitialised input of an equivalence check), with n > 0 and x <= n
@@ -151,12 +152,14 @@ def _check_on_every_input(guard: str, engine):
     return check_equivalence(program, program, ForwardAnalysisConfig(engine=engine), compute_semantics)
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("engine", ENGINES)
 def test_guarded_ratio_on_every_input_is_well_formed(engine):
     # on the second-order generating function (infinite mass) the guard makes the part n = 0 or x > n the zero series
     assert _check_on_every_input("n > 0 & x <= n", engine) == (True, [])
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("guard, message", [
     pytest.param("true", "is undefined in the state n = 0, x = 0: 0 / 0 has no value", id="unguarded"),

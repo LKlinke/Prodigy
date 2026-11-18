@@ -65,7 +65,8 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           python-version: ${{ matrix.python }}
-      - run: make test ${{ !matrix.coverage && 'COV=' || '' }}
+      # Slow tests (marker `slow`, docs/source/testing.md) run once, on 3.14; 3.11 runs the rest
+      - run: make ${{ matrix.coverage && 'test' || 'test-fast COV=' }}
       - name: Coverage summary
         if: ${{ !cancelled() && matrix.coverage }}
         run: uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
