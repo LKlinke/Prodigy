@@ -117,6 +117,14 @@ const STATUS_TITLES = {
   crashed: "The analysis process stopped",
 };
 
+// Compare mode checks two programs; its failures are named accordingly (#413)
+const COMPARE_STATUS_TITLES = {
+  ...STATUS_TITLES,
+  error: "The check failed",
+  cancelled: "Check cancelled",
+  crashed: "The check process stopped",
+};
+
 const VERDICT_TITLES = { refuted: "Invariant refuted", unknown: "Invariant not proven" };
 
 function errorView(result, options) {
@@ -125,7 +133,8 @@ function errorView(result, options) {
   const verdict = status === "error" ? error.verdict : undefined;
   const synthesis = error.details?.type === "parameter_synthesis";
   const title = synthesis ? "Parameter synthesis is a comparison"
-    : VERDICT_TITLES[verdict] || STATUS_TITLES[status] || "The analysis failed";
+    : VERDICT_TITLES[verdict] || (options.compare ? COMPARE_STATUS_TITLES : STATUS_TITLES)[status]
+      || (options.compare ? "The check failed" : "The analysis failed");
   const children = [h("h3", { class: "rv-error-title" }, title),
     h("p", { class: "rv-error-message" }, error.message || "")];
   if (status === "needs_decision" && error.loop && options.onSelectLoop) {
@@ -314,6 +323,7 @@ export function cleanLog(text) {
  *            loadJoint(payload, signal) -> Promise<grid>, analysisState: {}, maxJointAxis,
  *            onPosition(step | null), onRecord(), onAddWatch(text), onRemoveWatch(text), breakpoints,
  *            onUseCandidate(loopId, candidate), explorationState: {},
+ *            compare: bool (an error of Compare mode says "check" where Analyze says "analysis"),
  *            onOpenInCompare(details): open a loop and its parametric invariant in Compare mode }
  */
 export function renderResult(container, result, options = {}) {
@@ -322,7 +332,7 @@ export function renderResult(container, result, options = {}) {
     children.push(h("div", { class: "notice rv-stale", role: "status" }, icon("info"),
       h("span", {}, staleText(options.change)),
       options.onRun ? h("button", { type: "button", class: "button small", onclick: () => options.onRun() },
-        "Analyze Again") : null));
+        options.compare ? "Check Again" : "Analyze Again") : null));
   }
   const details = detailsLine(result);
   children.push(warningNotice(result, details));
