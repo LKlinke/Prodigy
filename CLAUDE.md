@@ -18,7 +18,11 @@ guarantee: exact, lower bound with residual mass, or upper bound. Maintainer: Lu
 - Unpublished research stays out of the repository: no paper titles, venues or unpublished results
   in code, docs, commit messages or PR texts. The repository and its issues are public.
 - Problems found but not fixed in a PR go into a section "Found, not fixed here" of the PR text;
-  each becomes an issue (with a priority label and a milestone) instead of getting lost.
+  each becomes an issue (with a priority label and its area/topic labels) instead of getting lost.
+  - Milestones are releases (`v0.5.0`, …), not themes: an issue gets the milestone of the release
+    it is planned for, otherwise none (the backlog). A release closes its milestone; what is still
+    open moves to the next release or back to the backlog. Themes are labels (`area: …`,
+    `topic: …`).
   - Each finding states whether it already exists on `main`. A problem that the PR itself
     introduces is a regression (label `regression`) and is fixed in that PR before it is merged.
   - Issues that belong to a topic get its label (e.g. `topic: loop strategies`) and are added to
