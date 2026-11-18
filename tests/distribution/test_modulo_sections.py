@@ -7,6 +7,7 @@ import pytest
 import sympy
 from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
+from prodigy.distribution import known_convergent_series
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.distribution.multisection import rational_sections
 from prodigy.distribution.symengine_distribution import SymengineDist
@@ -87,9 +88,11 @@ def test_modulo_assignment_is_rational(engine, expression, variables):
     function = _sympy(result)
     assert not function.has(sympy.I) and not function.has(sympy.pi)
     for remainder in range(3):
-        probability = result.filter(parse_expr(f"z = {remainder}")).get_probability_mass()
         section = engine(expression, *variables).filter(parse_expr(f"x % 3 = {remainder}"))
-        _assert_equal(_sympy(probability), _sympy(section.get_probability_mass()))
+        # with a parameter, the poles are not located outside analyses (#398)
+        with known_convergent_series(True):
+            probability = result.filter(parse_expr(f"z = {remainder}")).get_probability_mass()
+            _assert_equal(_sympy(probability), _sympy(section.get_probability_mass()))
 
 
 @pytest.mark.parametrize("engine", ENGINES)

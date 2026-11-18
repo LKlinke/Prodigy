@@ -625,8 +625,10 @@ def run_joint(request: Dict[str, Any], *, output: Optional[Callable[[str], None]
     # pylint: disable=import-outside-toplevel,unused-argument
     from prodigy.analysis.joint_grid import GridError, joint_grid
     from prodigy.util.integers import unlimited_int_digits
+    from prodigy.distribution import known_convergent_series
     config = make_config({"engine": request["engine"]})
-    with config.activate(), unlimited_int_digits():
+    # the closed form is that of the server's result of a program analysis, a finite measure (#398)
+    with config.activate(), unlimited_int_digits(), known_convergent_series(True):
         try:
             dist = config.factory.from_expr(request["closed_form"], *request["variables"])
             grid = joint_grid(dist, request["x"], request["y"], x_window=request.get("x_window"),

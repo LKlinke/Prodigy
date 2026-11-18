@@ -190,7 +190,7 @@ class FPS(Distribution):
         return FPS.from_dist(self._dist, self._variables, self._parameters,
                              self._finite)
 
-    def get_probability_mass(self) -> str:
+    def _probability_mass(self) -> str:
         return self._dist.mass(self._variables & set(self._dist.get_symbols()))
 
     def _expected_value_of(self, expression: Union[Expr, str]) -> str:
@@ -588,7 +588,7 @@ class FPS(Distribution):
 
         raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
 
-    def marginal(self,
+    def _marginal(self,
                  *variables: Union[str, VarExpr],
                  method: MarginalType = MarginalType.INCLUDE) -> FPS:
         result = self._dist

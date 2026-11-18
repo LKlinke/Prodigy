@@ -12,7 +12,7 @@ import pytest
 import sympy
 
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.distribution import Distribution, NonFiniteMarginalError
+from prodigy.distribution import Distribution, NonFiniteMarginalError, known_convergent_series
 from prodigy.pgcl import Binop, BinopExpr, VarExpr
 from prodigy.pgcl.parser import parse_expr
 
@@ -214,8 +214,12 @@ def test_non_finite_values_are_detected(engine):
         assert not finite.has_non_finite_value()
         assert not Distribution.has_non_finite_value(finite)
         for variable in ("a", "b"):
-            # the engine's check and the default (string) check
-            marginal = dist.marginal(variable)
+            # the public marginal refuses to sum out w outside analyses (#398)
+            with pytest.raises(NonFiniteMarginalError, match="not proven"):
+                dist.marginal(variable)
+            # the engine's check and the default (string) check, as in a candidate check
+            with known_convergent_series(False):
+                marginal = dist.marginal(variable)
             assert marginal.has_non_finite_value(), variable
             assert Distribution.has_non_finite_value(marginal), variable
 

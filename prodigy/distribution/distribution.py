@@ -8,7 +8,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from fractions import Fraction
-from typing import (Any, Callable, Dict, FrozenSet, Generator, Iterable, Iterator, List, Optional,
+from typing import (Any, Callable, ContextManager, Dict, FrozenSet, Generator, Iterable, Iterator, List, Optional,
                     Sequence, Set, Tuple, Type, Union)
 
 from lark.exceptions import LarkError
@@ -187,8 +187,8 @@ class NonFiniteMarginalError(ArithmeticError):
 
 
 # Whether every generating function in the current context is a measure whose marginals are the sums of
-# their series (see `known_convergent_series`)
-_KNOWN_CONVERGENT: ContextVar[bool] = ContextVar("prodigy_known_convergent_series", default=False)
+# their series (see `known_convergent_series`); None outside analyses (the Python API, #398)
+_KNOWN_CONVERGENT: ContextVar[Optional[bool]] = ContextVar("prodigy_known_convergent_series", default=None)
 
 
 @contextlib.contextmanager
@@ -201,7 +201,13 @@ def known_convergent_series(known: bool) -> Iterator[None]:
     parameters, also those that a proof would have to bound (e.g. `geometric(p)` with a parameter p),
     and the outcomes of loop strategies keep this or are not guaranteed at all. It does not hold for
     candidate measures (invariants, second-order generating functions, signed differences in checks):
-    the sub-analyses that compute with them set it to False. The default is False.
+    the sub-analyses that compute with them set it to False.
+
+    Outside such a declaration (the Python API, #398), every evaluation at 1 of a public entry point
+    (:meth:`Distribution.marginal`, :meth:`Distribution.get_probability_mass`, and through them `Pr` and
+    `Ex`) is proven to be the sum of the series, or raises `NonFiniteMarginalError`. With False, only
+    :meth:`Distribution.checked_marginal` proves it; the candidate checks guard their other evaluations
+    themselves (#276, finite mass of sub-invariants).
     """
     token = _KNOWN_CONVERGENT.set(known)
     try:
@@ -328,6 +334,25 @@ def _in_programs_terms(error: Exception, names: Dict[str, str]) -> Exception:
 class Distribution(ABC):
     """ Abstract class that models different representations of probability distributions. """
 
+    # declared to be a non-negative measure with finite mass (:meth:`declare_finite_measure`, #398)
+    _declared_finite_measure: bool = False
+
+    def declare_finite_measure(self) -> Distribution:
+        """
+        Declares that this object is a power series with non-negative coefficients and finite mass, e.g. an
+        output of :func:`~prodigy.analysis.analyzer.compute_discrete_distribution` (from a validated input), and
+        returns it. Its evaluations at 1 (:meth:`marginal`, :meth:`get_probability_mass`,
+        :meth:`get_probability_of`, :meth:`get_expected_value_of`) then skip the convergence proof, as inside an
+        analysis (:func:`known_convergent_series`). The declaration belongs to this object only: distributions
+        computed from it are not declared.
+        """
+        self._declared_finite_measure = True
+        return self
+
+    def _declared_context(self) -> ContextManager[None]:
+        """The context of an evaluation of this object: :func:`known_convergent_series` if it is declared."""
+        return known_convergent_series(True) if self._declared_finite_measure else contextlib.nullcontext()
+
     @staticmethod
     @abstractmethod
     def factory() -> Type[CommonDistributionsFactory]:
@@ -412,11 +437,14 @@ class Distribution(ABC):
         expr = condition
         if isinstance(expr, str):
             expr = parse_expr(expr)
-        try:
-            return self.filter(expr).get_probability_mass()
-        except NotImplementedError as error:
-            marginal = self.query_marginal(expr, error)
-            return marginal.filter(expr).get_probability_mass()
+        with self._declared_context():
+            try:
+                filtered = self.filter(expr)
+            except NotImplementedError as error:
+                filtered = self.query_marginal(expr, error).filter(expr)
+            # the mass of the filtered measure, proven outside analyses (#398)
+            filtered._require_convergent_evaluation(set(), f"Pr[{expr}]")  # pylint: disable=protected-access
+            return filtered._probability_mass()  # pylint: disable=protected-access
 
     def query_marginal(self, expression: Expr, error: NotImplementedError) -> Distribution:
         """
@@ -434,9 +462,18 @@ class Distribution(ABC):
         except NonFiniteMarginalError:
             raise error from None
 
-    @abstractmethod
     def get_probability_mass(self) -> str:
-        """ Returns the probability mass of the distribution. """
+        """
+        Returns the probability mass of the distribution, the closed form at 1. Outside an analysis
+        (:func:`known_convergent_series`), raises `NonFiniteMarginalError` if it is not proven that this
+        value is the sum of the series (#398).
+        """
+        self._require_convergent_evaluation(set(), "The probability mass")
+        return self._probability_mass()
+
+    @abstractmethod
+    def _probability_mass(self) -> str:
+        """Engine hook of :meth:`get_probability_mass`: the closed form at 1, without a convergence proof."""
 
     def get_expected_value_of(self, expression: Union[Expr, str]) -> str:
         """
@@ -444,21 +481,35 @@ class Distribution(ABC):
         (truncated at 0) are computed into fresh variables first, exactly as an assignment of them
         (:meth:`without_computed_terms`), so every engine gives the same value and no engine
         simplifies `n - 7 + 7` to `n` before the subtraction is truncated.
+
+        The moments are derivatives of the closed form at 1. Outside an analysis
+        (:func:`known_convergent_series`), raises `NonFiniteMarginalError` if it is not proven that the
+        series converges there (#398); then the derivatives of the closed form are those of the series.
         """
+        with self._declared_context():
+            return self._expected_value(expression)
+
+    def _expected_value(self, expression: Union[Expr, str]) -> str:
+        """:meth:`get_expected_value_of` in the context of this object."""
         parsed: Union[Expr, str] = expression
         if isinstance(expression, str):
             try:
                 parsed = parse_expr(expression)
             except LarkError:
                 # not in pGCL syntax (e.g. `x**2`): the engine reads it itself
-                return self._expected_value_of(expression)
+                return self._checked_expected_value_of(expression)
         assert not isinstance(parsed, str)
         try:
             extended, replaced, _ = self.without_computed_terms(parsed)
         except NotImplementedError as error:
             marginal = self.query_marginal(parsed, error)
             extended, replaced, _ = marginal.without_computed_terms(parsed)
-        return extended._expected_value_of(replaced)  # pylint: disable=protected-access
+        return extended._checked_expected_value_of(replaced)  # pylint: disable=protected-access
+
+    def _checked_expected_value_of(self, expression: Union[Expr, str]) -> str:
+        """:meth:`_expected_value_of` after the convergence proof of :meth:`get_expected_value_of`."""
+        self._require_convergent_evaluation(set(), f"The expected value of {expression}")
+        return self._expected_value_of(expression)
 
     @abstractmethod
     def _expected_value_of(self, expression: Union[Expr, str]) -> str:
@@ -530,7 +581,7 @@ class Distribution(ABC):
         if _computed_term(condition, self.get_variables()) is not None:
             extended, replaced, fresh = self.without_computed_terms(condition)
             filtered = extended.filter(replaced)
-            return filtered.marginal(*fresh, method=MarginalType.EXCLUDE) if fresh else filtered
+            return filtered._marginal(*fresh, method=MarginalType.EXCLUDE) if fresh else filtered  # pylint: disable=protected-access
 
         # Linear comparisons are evaluated exactly, e.g. 1/2*x < 2 becomes x < 4
         normalized = normalize_guard(condition, self.get_variables())
@@ -813,9 +864,9 @@ class Distribution(ABC):
 
         if new_var is None:
             new_var = self.get_fresh_variable()
-        return self.set_variables(*self.get_variables(), new_var).update(
-            BinopExpr(Binop.EQ, VarExpr(new_var),
-                      expression)).marginal(new_var)
+        extended = self.set_variables(*self.get_variables(), new_var).update(
+            BinopExpr(Binop.EQ, VarExpr(new_var), expression))
+        return extended._marginal(new_var)  # pylint: disable=protected-access
 
     @abstractmethod
     def is_zero_dist(self) -> bool:
@@ -945,7 +996,7 @@ class Distribution(ABC):
                         f"Unsupported binary operator: {expression.operator}")
 
                 # Marginalize the introduced variables as they are only present to prevent clashes
-                f = f.marginal(xl, xr, method=MarginalType.EXCLUDE)
+                f = f._marginal(xl, xr, method=MarginalType.EXCLUDE)
                 #print(f"marginal: {f}")
                 #print(f.get_variables())
                 return f, temp_var
@@ -1352,7 +1403,7 @@ class Distribution(ABC):
                 raise ValueError(
                     f"Cannot compute the floor division by {q} exactly: it is implemented for a dividend with "
                     f"finite support or with a generating function that is rational in it ({exc}).") from exc
-            part = part.marginal(shifted, method=MarginalType.EXCLUDE)
+            part = part._marginal(shifted, method=MarginalType.EXCLUDE)
             result = part if result is None else result + part
         # pylint: enable=protected-access
         if result is None:
@@ -1373,13 +1424,15 @@ class Distribution(ABC):
                    variable: Union[str, VarExpr]) -> 'Distribution':
         """ Updates the distribution by the the iid-sampling rules. """
 
-    @abstractmethod
     def marginal(self,
                  *variables: Union[str, VarExpr],
                  method: MarginalType = MarginalType.INCLUDE) -> Distribution:
         """
         Computes the marginal distribution for the given variables (MarginalType.Include),
         or for all but the given variables (MarginalType.Exclude).
+
+        Outside an analysis (:func:`known_convergent_series`), raises `NonFiniteMarginalError` if it is
+        not proven that the closed form at 1 in the summed-out variables is the sum of the series (#398).
 
         :param variables: A list of variables for which the marginal distribution should be computed. If this list is
             empty or contains symbols that are not known variables of this distribution, this function will raise an
@@ -1389,6 +1442,17 @@ class Distribution(ABC):
 
         :return: The marginal distribution.
         """
+        marginal = self._marginal(*variables, method=method)
+        named = {str(var) for var in variables}
+        kept = named if method == MarginalType.INCLUDE else self.get_variables() - named
+        self._require_convergent_evaluation(kept, f"The marginal of {', '.join(sorted(kept)) or 'no variable'}")
+        return marginal
+
+    @abstractmethod
+    def _marginal(self, *variables: Union[str, VarExpr],
+                  method: MarginalType = MarginalType.INCLUDE) -> Distribution:
+        """Engine hook of :meth:`marginal`: the closed form at 1 in the summed-out variables, without a
+        convergence proof."""
 
     def checked_marginal(self, *variables: Union[str, VarExpr], proof: bool = True) -> Distribution:
         """
@@ -1403,7 +1467,7 @@ class Distribution(ABC):
         """
         names = ", ".join(str(var) for var in variables)
         try:
-            marginal = self.marginal(*variables)
+            marginal = self._marginal(*variables)
         except ZeroDivisionError as exc:
             raise NonFiniteMarginalError(
                 f"The marginal of {names} is undefined (division by zero) in {self}") from exc
@@ -1435,17 +1499,62 @@ class Distribution(ABC):
         (a polynomial) sums finitely many terms and needs no check, and neither do the distributions of
         a program analysis (:func:`known_convergent_series`).
         """
-        kept = {str(var) for var in variables}
-        summed = self.get_variables() - kept
-        if _KNOWN_CONVERGENT.get() or not summed or self.is_finite():
+        if _KNOWN_CONVERGENT.get():
             return
-        obstacle = marginal_obstacle(self._sympy_expression(), summed, kept)
+        kept = {str(var) for var in variables}
+        obstacle = self._convergence_obstacle(kept)
         if obstacle is not None:
             names = ", ".join(str(var) for var in variables)
+            summed = ", ".join(sorted(self.get_variables() - kept))
             raise NonFiniteMarginalError(
                 f"The marginal of {names} is not proven to be a finite measure: summing out "
-                f"{', '.join(sorted(summed))} may diverge, as {obstacle}; its closed form {marginal} "
+                f"{summed} may diverge, as {obstacle}; its closed form {marginal} "
                 f"need not be the sum of the series of {self}.")
+
+    def _require_convergent_evaluation(self, kept: Set[str], what: str) -> None:
+        """
+        The convergence proof of the public entry points that evaluate this generating function at 1 in
+        the variables other than `kept` (#398): outside an analysis (:func:`known_convergent_series` not
+        declared), raises `NonFiniteMarginalError` naming `what` if :func:`marginal_obstacle` does not
+        prove that the closed form there is the sum of the series. Inside analyses this is a context
+        lookup only.
+        """
+        if _KNOWN_CONVERGENT.get() is not None or self._declared_finite_measure:
+            return
+        obstacle = self._convergence_obstacle(kept)
+        if obstacle is not None:
+            summed = ", ".join(sorted(self.get_variables() - kept))
+            raise NonFiniteMarginalError(
+                f"{what} is not proven to converge: it sets {summed} to 1 in {self}, and the series "
+                f"need not converge there, as {obstacle}. Prodigy does not report the value of the "
+                "closed form, which need not be the sum of the series.")
+
+    def _convergence_obstacle(self, kept: Set[str]) -> Optional[str]:
+        """
+        Why it is not proven that summing out every variable except `kept` gives the sum of the series, or
+        None if it is: a finite support or nothing summed out, :func:`marginal_obstacle`, or (#398) the proof
+        that the analysis requires of its inputs (#296): non-negative coefficients and finite mass. Then the
+        series converges absolutely on the closed unit polydisc, and its sums are the values of the closed form
+        there (Abel), also where the closed form is not analytic at 1, as for ``(1 - sqrt(1 - x^2))/x``.
+        """
+        summed = self.get_variables() - kept
+        if not summed or self.is_finite():
+            return None
+        obstacle = marginal_obstacle(self._sympy_expression(), summed, kept & self.get_variables())
+        if obstacle is not None and self._is_proven_finite_measure():
+            return None
+        return obstacle
+
+    def _is_proven_finite_measure(self) -> bool:
+        """Whether this is proven to be a power series with non-negative coefficients and finite mass, by the
+        check of input distributions (:func:`~prodigy.analysis.input_distribution.check_input_expression`)."""
+        # pylint: disable=import-outside-toplevel
+        # Layering exception, see #423: the check of input distributions is part of the analysis package,
+        # which imports this one
+        from prodigy.analysis.input_distribution import check_input_expression
+        text = str(self._sympy_expression()).replace("**", "^")
+        verdict, _ = check_input_expression(text, sorted(self.get_variables()))
+        return verdict is True
 
     def has_non_finite_value(self) -> bool:
         """
@@ -1510,7 +1619,7 @@ class Distribution(ABC):
 
         res = self
         for var in self.get_variables():
-            if not res.marginal(var).is_finite():
+            if not res._marginal(var).is_finite():  # pylint: disable=protected-access
                 res = res.approximate_unilaterally(var, probability_mass)
         return res
 

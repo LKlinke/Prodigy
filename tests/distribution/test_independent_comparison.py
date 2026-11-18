@@ -7,6 +7,7 @@ import pytest
 import sympy
 
 from prodigy.analysis.config import ForwardAnalysisConfig
+from prodigy.distribution import NonFiniteMarginalError, known_convergent_series
 from prodigy.distribution.algebraic_comparison import filter_difference_algebraic
 from prodigy.distribution.independent_comparison import ComparisonNotImplemented, filter_difference
 from prodigy.pgcl.parser import parse_expr
@@ -182,11 +183,16 @@ def test_engines_counterexample(engine):
     dist = factory.from_expr("(1/2)/(1 - x/4 - y/4)", "x", "y")
     below = dist.filter(parse_expr("x < y"))
     assert not below.is_finite()
-    value = sympy.sympify(str(below.get_probability_mass()).replace("^", "**"))
+    # the algebraic closed form of the filter is not proven to converge at 1 outside analyses (#398)
+    with pytest.raises(NonFiniteMarginalError, match="not proven"):
+        below.get_probability_mass()
+    with known_convergent_series(True):
+        value = sympy.sympify(str(below.get_probability_mass()).replace("^", "**"))
     assert sympy.simplify(value - (1 - 1 / sympy.sqrt(3)) / 2) == 0
     monus = dist.set_variables("x", "y", "z").update(parse_expr("z = x - y"))
     # Ex[z] = sum_k>=1 k (2 - sqrt(3))^k / sqrt(3) = 1 / (2 sqrt(3))
-    value = sympy.sympify(str(monus.get_expected_value_of("z")).replace("^", "**"))
+    with known_convergent_series(True):
+        value = sympy.sympify(str(monus.get_expected_value_of("z")).replace("^", "**"))
     assert abs(float(value) - 1 / (2 * 3 ** 0.5)) < 1e-12
     assert sympy.simplify(sympy.nsimplify(value, [sympy.sqrt(3)]) - 1 / (2 * sympy.sqrt(3))) == 0
     # the algebraic part is not rational: comparing two variables on it is not implemented
