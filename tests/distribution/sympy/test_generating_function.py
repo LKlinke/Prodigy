@@ -5,7 +5,7 @@ import sympy
 from prodigy.pgcl import Binop, BinopExpr, NatLitExpr, VarExpr
 from prodigy.pgcl.parser import parse_expr
 
-from prodigy.distribution.distribution import MarginalType, State
+from prodigy.distribution.distribution import MarginalType, NonFiniteMarginalError, State, known_convergent_series
 from prodigy.distribution.generating_function import (GeneratingFunction,
                                                       SympyPGF, _is_finite_function,
                                                       _parse_to_sympy)
@@ -129,7 +129,11 @@ class TestDistributionInterface:
 
     def test_get_probability_mass(self):
         gf = GeneratingFunction("(1-sqrt(1-x**2))/x")
-        assert gf.get_probability_mass() == "1"
+        # the walk's series has radius 1, which the API does not prove (#398); an analysis vouches for it
+        with pytest.raises(NonFiniteMarginalError, match="not proven"):
+            gf.get_probability_mass()
+        with known_convergent_series(True):
+            assert gf.get_probability_mass() == "1"
 
         gf = SympyPGF.zero("x")
         assert gf.get_probability_mass() == "0"
@@ -139,7 +143,10 @@ class TestDistributionInterface:
 
     def test_expected_value_of(self):
         gf: GeneratingFunction = GeneratingFunction("(1-sqrt(1-x**2))/x")
-        assert gf.get_expected_value_of("x") == "Infinity"
+        with pytest.raises(NonFiniteMarginalError, match="not proven"):
+            gf.get_expected_value_of("x")
+        with known_convergent_series(True):
+            assert gf.get_expected_value_of("x") == "Infinity"
 
         gf = SympyPGF.zero("x")
         assert gf.get_expected_value_of("x") == "0"

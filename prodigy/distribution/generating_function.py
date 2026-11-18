@@ -1135,7 +1135,7 @@ class GeneratingFunction(Distribution):
         subst_var = count.var if isinstance(count, VarExpr) else None
 
         def subs(dist_gf, subst_var, variable):
-            result = self.marginal(
+            result = self._marginal(
                 variable,
                 method=MarginalType.EXCLUDE) if subst_var != variable else self
             result = result.set_variables(*self.get_variables(), str(variable))
@@ -1210,7 +1210,7 @@ class GeneratingFunction(Distribution):
                 f"Cannot compute expected value of {expression} because it contains unknown symbols"
             )
 
-        marginal = self.marginal(*(expr.free_symbols & self._variables),
+        marginal = self._marginal(*(expr.free_symbols & self._variables),
                                  method=MarginalType.INCLUDE)._function
         gen_func = GeneratingFunction(expr,
                                       *(expr.free_symbols & self._variables))
@@ -1482,7 +1482,7 @@ class GeneratingFunction(Distribution):
                 var, 1)
         return coefficient_sum
 
-    def get_probability_mass(self):
+    def _probability_mass(self) -> str:
         return sympy_text(self.coefficient_sum())
 
     def get_parameters(self) -> Set[str]:
@@ -1533,7 +1533,7 @@ class GeneratingFunction(Distribution):
         logger.debug("evaluate_condition() call")
         return super().evaluate_condition(condition, state)
 
-    def marginal(
+    def _marginal(
             self,
             *variables: Union[str, VarExpr],
             method: MarginalType = MarginalType.INCLUDE) -> GeneratingFunction:

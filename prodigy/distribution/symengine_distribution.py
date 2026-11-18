@@ -244,7 +244,7 @@ class SymengineDist(Distribution):
         res._parameters = self._parameters.copy()
         return res
 
-    def get_probability_mass(self) -> str:
+    def _probability_mass(self) -> str:
         fast_result: se.Expr = self.safe_subs(*zip(self._variables, [1] * len(self._variables)))
         if fast_result in [se.nan, se.zoo]:
             raise ValueError(
@@ -270,7 +270,7 @@ class SymengineDist(Distribution):
                 f"Cannot compute expected value of {expression} because it contains unknown symbols"
             )
 
-        marginal = self.marginal(*(self._find_symbols(expr) & self.get_variables()),
+        marginal = self._marginal(*(self._find_symbols(expr) & self.get_variables()),
                                  method=MarginalType.INCLUDE)._s_func
         gen_func = SymengineDist(expr,
                                  *(self._find_symbols(expr) & self.get_variables()))
@@ -292,7 +292,7 @@ class SymengineDist(Distribution):
             return _text(expected_value)
 
     def normalize(self) -> SymengineDist:
-        mass = _parse_to_symengine(self.get_probability_mass())
+        mass = _parse_to_symengine(self._probability_mass())
         if mass == 0:
             raise ZeroDivisionError
         return SymengineDist(self._s_func / mass, *self._variables)
@@ -836,7 +836,7 @@ class SymengineDist(Distribution):
         subst_var = count.var if isinstance(count, VarExpr) else None
 
         def subs(dist_gf, subst_var, variable) -> SymengineDist:
-            result = self.marginal(
+            result = self._marginal(
                 variable,
                 method=MarginalType.EXCLUDE) if subst_var != variable else self
             if subst_var is None:
@@ -895,7 +895,7 @@ class SymengineDist(Distribution):
 
         raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
 
-    def marginal(self, *variables: Union[str, VarExpr], method: MarginalType = MarginalType.INCLUDE) -> SymengineDist:
+    def _marginal(self, *variables: Union[str, VarExpr], method: MarginalType = MarginalType.INCLUDE) -> SymengineDist:
         if len(variables) == 0:
             raise ValueError("No variables were provided")
         if not {se.Symbol(str(x))

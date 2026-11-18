@@ -9,7 +9,7 @@ import pytest
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
-from prodigy.distribution.distribution import MarginalType, NonFiniteMarginalError
+from prodigy.distribution.distribution import MarginalType, NonFiniteMarginalError, known_convergent_series
 from prodigy.distribution.generating_function import SympyPGF
 from prodigy.distribution.symengine_distribution import SymenginePGF
 from prodigy.pgcl import parse_pgcl
@@ -63,7 +63,10 @@ def test_copy_of_a_variable(factory, function, assignment, expected):
 ])
 def test_expected_value_at_a_pole(factory, function, expression, expected):
     dist = factory().from_expr(function, "c", "x")
-    assert dist.get_expected_value_of(expression) == expected
+    # the engines' values at a pole or branch point of a measure that an analysis vouches for: the API does not
+    # prove these radius-1 series (#398)
+    with known_convergent_series(True):
+        assert dist.get_expected_value_of(expression) == expected
 
 
 @pytest.mark.parametrize("variables", [("a",), ("a", "b")])

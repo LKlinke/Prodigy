@@ -13,6 +13,7 @@ from prodigy.analysis.joint_grid import joint_grid
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import describe_distribution, sym, tidy, univariate_table
 from prodigy.analysis.streaming import Batcher
+from prodigy.distribution import known_convergent_series
 from prodigy.distribution.coefficient_stream import doubling, marginal_stream, taylor_stream
 from prodigy.distribution.generating_function import SympyPGF
 from prodigy.distribution.rational_series import rational_taylor_coefficients, rational_taylor_stream
@@ -118,8 +119,10 @@ def test_rows_arrive_in_batches_in_order():
 def test_streamed_grid_equals_the_grid_and_grows_by_total_degree(factory, closed_form):
     dist = factory().from_expr(closed_form, "x", "y")
     events = []
-    grid = joint_grid(dist, "x", "y", x_window=(1, 4), y_window=(0, 3), kind=Bound.LOWER, residual="1/10",
-                      stream=events.append)
+    # as for the GUI's grid of an analysis result (run_joint): the algebraic closed form has radius 1 (#398)
+    with known_convergent_series(True):
+        grid = joint_grid(dist, "x", "y", x_window=(1, 4), y_window=(0, 3), kind=Bound.LOWER, residual="1/10",
+                          stream=events.append)
     state = {}
     for event in events:
         merge_stream(state, event)

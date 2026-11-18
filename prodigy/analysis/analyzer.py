@@ -85,6 +85,10 @@ def compute_discrete_distribution(
     mass; otherwise :class:`~prodigy.analysis.input_distribution.InputDistributionError` is raised
     (:func:`~prodigy.analysis.input_distribution.validate_input_distribution`).
 
+    The two returned distributions are declared finite measures
+    (:meth:`~prodigy.distribution.distribution.Distribution.declare_finite_measure`): their marginals, ``Pr`` and
+    ``Ex`` are evaluated at 1 without a convergence proof, as inside the analysis (#398).
+
     :param step_callback: if given, called with (instruction, distribution, error_prob) after each
         top-level instruction.
 
@@ -102,7 +106,9 @@ def compute_discrete_distribution(
     # inside it clear this again (AnalysisSession.sub_analysis, #393)
     with config.activate(), _active_session(), nested_inference.analysis_registry(), _printed_steps(config), \
             known_convergent_series(True):
-        return _compute_discrete_distribution(program, dist, config, step_callback)
+        result, error_prob = _compute_discrete_distribution(program, dist, config, step_callback)
+    # so that the Python API evaluates them at 1 without a convergence proof, as the analysis does (#398)
+    return result.declare_finite_measure(), error_prob.declare_finite_measure()
 
 
 @contextlib.contextmanager

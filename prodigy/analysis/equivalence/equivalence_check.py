@@ -11,7 +11,7 @@ from prodigy.pgcl import (BoolType, Program, VarExpr,
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
-from prodigy.distribution.distribution import Distribution, NonFiniteMarginalError, State
+from prodigy.distribution.distribution import Distribution, NonFiniteMarginalError, State, known_convergent_series
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
@@ -123,7 +123,10 @@ def check_equivalence(
                     program.variables.keys(), other_program.variables.keys())
         raise DifferentVariablesError(differ)
     try:
-        return _check_equivalence(program, other_program, config, analyzer)
+        # the second-order generating functions are candidate measures: only the case splits prove convergence,
+        # as in every candidate check (#393, #398)
+        with known_convergent_series(False):
+            return _check_equivalence(program, other_program, config, analyzer)
     except NonFiniteMarginalError as exc:
         raise CheckNotImplemented(
             "a step of the check for every input needs a finite measure, but the check works on a generating "
