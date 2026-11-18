@@ -324,20 +324,22 @@ def _strategy_invariant(task: LoopTask) -> LoopOutcome:
         # the raw "different" of the check is no refutation (loops in the body may have been approximated);
         # the invariant is refuted only by a witness, a state whose probabilities provably differ (#403)
         # pylint: disable=import-outside-toplevel
-        from prodigy.analysis.equivalence.verdict import search_witness
+        from prodigy.analysis.equivalence.verdict import search_witness, show_valuation
         witness = search_witness(inv_prog, phi_inv, task.session, counterexample)
+        shown = show_valuation(counterexample)
         if witness is not None:
-            print(f'{Style.OKRED}Invariant refuted.{Style.RESET} Counterexample: {counterexample}')
+            print(f'{Style.OKRED}Invariant refuted.{Style.RESET} Counterexample: {shown}')
             certificate["verdict"] = "refuted"
             certificate["witness"] = witness
+            output = show_valuation(witness["state"], "the empty state")
             raise InvariantRefutedError(
-                f"Invariant refuted: on the input {counterexample}, the output state {witness['state']} has "
-                "provably different probabilities under the loop's characteristic function applied to the "
+                f"Invariant refuted: on the input {shown}, the output state {output} "
+                "has provably different probabilities under the loop's characteristic function applied to the "
                 "invariant and under the invariant itself.", details=certificate)
-        print(f'{Style.OKRED}Invariant could not be verified.{Style.RESET} Counterexample: {counterexample}')
+        print(f'{Style.OKRED}Invariant could not be verified.{Style.RESET} Counterexample: {shown}')
         certificate["verdict"] = "unknown"
         raise InvariantRefutedError(
-            f"Invariant not proven: the check found a difference (candidate input {counterexample}), but no "
+            f"Invariant not proven: the check found a difference (candidate input {shown}), but no "
             "output state with provably different probabilities, so the invariant is not refuted either.",
             details=certificate)
 

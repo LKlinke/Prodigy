@@ -115,6 +115,16 @@ def test_a_witness_proves_programs_different(tmp_path):
     assert "A is not equivalent to B" in result.output
     assert "Witness: on the input every variable 0, the output state x = 1 has probability" in result.output
     assert "1/3 in program A (exact)" in result.output and "1/2 in program B (exact)" in result.output
+    # the reason does not repeat the witness (#413)
+    assert "Reason: The programs give provably different probabilities to an output state (witness below)." \
+        in result.output
+    assert result.output.count("x = 1") == 1
+
+
+def test_valuations_are_written_like_the_program_not_as_a_dict():
+    assert eq.show_valuation({"x": 1, "n": 3}) == "x = 1, n = 3"
+    assert eq.show_valuation({}) == "every variable 0"
+    assert eq.show_valuation({}, "the empty state") == "the empty state"
 
 
 def test_a_witness_from_a_lower_bound_asks_for_the_loop_once(tmp_path):
