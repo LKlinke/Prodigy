@@ -1549,7 +1549,8 @@ class Distribution(ABC):
         """Whether this is proven to be a power series with non-negative coefficients and finite mass, by the
         check of input distributions (:func:`~prodigy.analysis.input_distribution.check_input_expression`)."""
         # pylint: disable=import-outside-toplevel
-        # the check of input distributions is part of the analysis package, which imports this one
+        # Layering exception, see #423: the check of input distributions is part of the analysis package,
+        # which imports this one
         from prodigy.analysis.input_distribution import check_input_expression
         text = str(self._sympy_expression()).replace("**", "^")
         verdict, _ = check_input_expression(text, sorted(self.get_variables()))
