@@ -35,6 +35,7 @@ def node(script: str, tmp_path: Path) -> dict:
 
 # ---- each program's loops take their own decisions -------------------------------------------------
 
+@pytest.mark.slow
 def test_the_loops_of_program_b_take_their_own_decisions_in_the_check():
     """Program B has the same loop as program A. Its loop is unrolled (a lower bound), A's is checked with an
     invariant (an upper bound). Before, the check found B's loop among A's loops by its text and checked it with

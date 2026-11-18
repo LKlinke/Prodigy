@@ -57,6 +57,7 @@ def test_doubling_is_fast_on_every_engine(engine):
     assert result["bounds"]["kind"] == Bound.LOWER
 
 
+@pytest.mark.slow
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize("engine", ENGINES)
 def test_geometric_inside_a_loop_is_fast_on_every_engine(engine):
@@ -66,6 +67,7 @@ def test_geometric_inside_a_loop_is_fast_on_every_engine(engine):
     assert _values(result)[:3] == [sympy.Rational(1, 2), sympy.Rational(1, 8), sympy.Rational(1, 16)]
 
 
+@pytest.mark.slow
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize("engine", ENGINES)
 def test_nested_loops_are_fast_on_every_engine(engine):

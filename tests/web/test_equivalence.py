@@ -149,6 +149,7 @@ def test_parameter_values_of_a_synthesis():
     assert equivalence["verdict"] == "unknown" and equivalence["relation"] == "first_below_second"
 
 
+@pytest.mark.slow
 def test_gamblers_ruin_with_swapped_branches_is_refuted(monkeypatch):
     """The pair of #366 with swapped branches: the probability x/n is computed (#237), and the invariant is
     refuted on x = 0, n = 1 (the loop keeps x = 0, the closed form sets x = 1). The witness search on that input
@@ -166,6 +167,7 @@ def test_gamblers_ruin_with_swapped_branches_is_refuted(monkeypatch):
     assert (witness["first"]["lower"], witness["second"]["lower"]) == ("1", "0")
 
 
+@pytest.mark.slow
 def test_gamblers_ruin_is_proven_for_every_input():
     """The corrected pair of #366: the loop is below its closed form for every input (Park's lemma); equal if
     the loop terminates almost surely."""
