@@ -137,6 +137,7 @@ from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.streaming import Batcher, Sink
 from prodigy.distribution.coefficient_stream import marginal_stream
 from prodigy.distribution.display import display_form
+from prodigy.distribution.distribution import known_convergent_series
 from prodigy.distribution.equality import sympy_text
 from prodigy.util.integers import unlimited_int_digits
 
@@ -848,7 +849,10 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
 
     analysis_time = 0.0
     final: Optional["Distribution"] = None
-    with session.activate(), config.activate(), session._output():  # pylint: disable=protected-access
+    # the output of the program's analysis is a finite measure (validated input, #300), also when the summary
+    # evaluates it at 1 after the analysis (#398)
+    output = session._output()  # pylint: disable=protected-access
+    with session.activate(), config.activate(), known_convergent_series(True), output:
         try:
             program = session.program
             assert program is not None

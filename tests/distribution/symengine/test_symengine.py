@@ -10,6 +10,8 @@ from prodigy.pgcl import NatLitExpr, BoolLitExpr
 
 import re
 
+from prodigy.distribution.distribution import NonFiniteMarginalError, known_convergent_series
+
 # TODO
 #   At workarounds with sympy.equals(), add checks for variables / parameters (once symengine supports .equals())
 
@@ -312,7 +314,11 @@ class TestDistributionInterface:
 
     def test_get_probability_mass(self):
         gf = SymengineDist("(1-sqrt(1-x**2))/x")
-        assert gf.get_probability_mass() == "1"
+        # the walk's series has radius 1, which the API does not prove (#398); an analysis vouches for it
+        with pytest.raises(NonFiniteMarginalError, match="not proven"):
+            gf.get_probability_mass()
+        with known_convergent_series(True):
+            assert gf.get_probability_mass() == "1"
 
         gf = SymenginePGF.zero("x")
         assert gf.get_probability_mass() == "0"
@@ -322,7 +328,10 @@ class TestDistributionInterface:
 
     def test_expected_value_of(self):
         gf = SymengineDist("(1-sqrt(1-x**2))/x")
-        assert gf.get_expected_value_of("x") == "Infinity"
+        with pytest.raises(NonFiniteMarginalError, match="not proven"):
+            gf.get_expected_value_of("x")
+        with known_convergent_series(True):
+            assert gf.get_expected_value_of("x") == "Infinity"
 
         gf = SymenginePGF.zero("x")
         assert gf.get_expected_value_of("x") == "0"

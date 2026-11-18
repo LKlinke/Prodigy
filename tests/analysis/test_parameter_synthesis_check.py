@@ -10,7 +10,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence import verdict as eq
 from prodigy.analysis.instructionhandler.while_handler import InvariantRefutedError
 from prodigy.analysis.session import AnalysisSession, InteractiveDecisions
-from prodigy.distribution.distribution import NonFiniteMarginalError
+from prodigy.distribution.distribution import NonFiniteMarginalError, known_convergent_series
 from prodigy.pgcl import parse_pgcl
 from prodigy.pgcl.pgcl_operations import cav_phi
 
@@ -110,7 +110,9 @@ def test_unrolling_in_the_check_is_undecided(engine, answers, monkeypatch):
 def test_ginac_mass_at_a_pole_is_no_value_error():
     pytest.importorskip("prodigy_ginac")
     dist = ForwardAnalysisConfig(engine=Engine.GINAC).factory.from_expr("1/(1-x)", "x")
-    with pytest.raises(NonFiniteMarginalError, match="division by zero"):
+    # inside an analysis (as in the second-order check) the convergence guard of #398 does not apply, and the
+    # engine itself must not fail with a ValueError
+    with known_convergent_series(True), pytest.raises(NonFiniteMarginalError, match="division by zero"):
         dist.get_probability_mass()
 
 
