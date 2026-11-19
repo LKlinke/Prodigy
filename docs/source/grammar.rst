@@ -14,7 +14,7 @@ not end in ``.ppy``).
    writes the ``.ppy`` program (the GUI offers *Convert to .ppy*); v0.6.0 removes the converter as
    well. There are no new ``.pgcl`` features.
 
- Programs are written in ``.ppy`` now (see :doc:`language`);
+Programs are written in ``.ppy`` now (see :doc:`language`);
 ``prodigy convert`` translates a ``.pgcl`` program into it. The notes on division, guards, modulo,
 floor division, block-scoped declarations and sampling below describe the semantics and hold for
 both syntaxes.
