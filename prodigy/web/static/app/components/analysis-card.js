@@ -603,7 +603,8 @@ function certificateView(cert) {
       add("Rule", "Park's lemma: Φ(I) = I for all inputs");
       add("Verdict", verdictText(cert.verdict));
       if (cert.constraints?.length) add("Constraints", h("code", {}, JSON.stringify(cert.constraints)));
-      if (cert.counterexample) add("Counterexample", h("code", {}, JSON.stringify(cert.counterexample)));
+      if (cert.counterexample) add(cert.witness ? "Input of the witness" : "Candidate counterexample", h("code", {}, JSON.stringify(cert.counterexample)));
+      if (cert.witness) add("Witness", h("code", {}, JSON.stringify(cert.witness.state)));
       rows.push(h("div", { class: "rv-cert-block" }, h("dt", {}, "Invariant I"), h("dd", {}, expressionBox((cert.invariant || "").trim(), "Invariant I"))));
       break;
     case "evt_invariant":

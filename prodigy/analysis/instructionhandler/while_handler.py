@@ -42,6 +42,7 @@ from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, 
                                               get_loop_strategy, register_loop_strategy)
 from prodigy.analysis.session import LoopDecision, current_session
 from prodigy.distribution import Distribution, State, known_convergent_series
+from prodigy.distribution.distribution import NonFiniteMarginalError
 from prodigy.distribution.generating_function import SympyPGF
 from prodigy.pgcl.pgcl_operations import cav_phi
 from prodigy.util.color import Style
@@ -319,29 +320,7 @@ def _strategy_invariant(task: LoopTask) -> LoopOutcome:
 
     if answer is False:
         assert isinstance(result, State)
-        counterexample = {str(k): int(v) for k, v in result.valuations.items()}
-        certificate["counterexample"] = counterexample
-        # the raw "different" of the check is no refutation (loops in the body may have been approximated);
-        # the invariant is refuted only by a witness, a state whose probabilities provably differ (#403)
-        # pylint: disable=import-outside-toplevel
-        from prodigy.analysis.equivalence.verdict import search_witness, show_valuation
-        witness = search_witness(inv_prog, phi_inv, task.session, counterexample)
-        shown = show_valuation(counterexample)
-        if witness is not None:
-            print(f'{Style.OKRED}Invariant refuted.{Style.RESET} Counterexample: {shown}')
-            certificate["verdict"] = "refuted"
-            certificate["witness"] = witness
-            output = show_valuation(witness["state"], "the empty state")
-            raise InvariantRefutedError(
-                f"Invariant refuted: on the input {shown}, the output state {output} "
-                "has provably different probabilities under the loop's characteristic function applied to the "
-                "invariant and under the invariant itself.", details=certificate)
-        print(f'{Style.OKRED}Invariant could not be verified.{Style.RESET} Counterexample: {shown}')
-        certificate["verdict"] = "unknown"
-        raise InvariantRefutedError(
-            f"Invariant not proven: the check found a difference (candidate input {shown}), but no "
-            "output state with provably different probabilities, so the invariant is not refuted either.",
-            details=certificate)
+        raise _refutation(task, inv_prog, phi_inv, result, scope.kind, certificate)
 
     assert answer is None
     assert isinstance(result, Distribution)
@@ -351,6 +330,45 @@ def _strategy_invariant(task: LoopTask) -> LoopOutcome:
     certificate["verdict"] = "unknown"
     certificate["difference"] = str(result)
     raise InvariantRefutedError("Could not determine whether invariant is valid.", details=certificate)
+
+
+def _refutation(task: LoopTask, inv_prog: Program, phi_inv: Program, counterexample: State, kind: str,
+                certificate: Dict[str, Any]) -> InvariantRefutedError:
+    """The error for a raw "different" of the check Φ(I) = I. The raw answer is no proof: the solver may
+    fail to find parameter values, and loops inside the body may have been approximated during the check
+    (#403). So the invariant counts as ``refuted`` only with a witness, an output state whose probabilities
+    under I and Φ(I) provably differ on the input of the counterexample (as in
+    :mod:`prodigy.analysis.equivalence.verdict`); otherwise the verdict is ``unknown``."""
+    # pylint: disable=import-outside-toplevel  # verdict imports the analysis
+    from prodigy.analysis.equivalence.verdict import search_witness, show_valuation
+    state = {str(k): int(v) for k, v in counterexample.valuations.items()}
+    shown = show_valuation(state)
+    certificate["counterexample"] = state
+    witness = search_witness(inv_prog, phi_inv, task.session, state)
+    if witness is not None:
+        output = show_valuation(witness["state"], "the empty state")
+        print(f"{Style.OKRED}Invariant refuted.{Style.RESET} On the input {shown}, I and Φ(I) give provably "
+              f"different probabilities to the output state {output}.")
+        certificate["verdict"] = "refuted"
+        certificate["witness"] = witness
+        return InvariantRefutedError(
+            f"The invariant is refuted: on the input {shown}, the invariant program I and one unrolling of the "
+            f"loop followed by I, Φ(I), give provably different probabilities to the output state {output} "
+            f"(I: {witness['first']['lower']} to {witness['first']['upper']}, Φ(I): {witness['second']['lower']} "
+            f"to {witness['second']['upper']}).", details=certificate)
+    reasons = []
+    if kind != Bound.EXACT:
+        reasons.append(f"loops inside the body were approximated during the check ({kind})")
+    if task.prog_info.parameters or inv_prog.parameters:
+        reasons.append("the programs have parameters, and the solver found no parameter values that make them "
+                       "equal, which is no proof that there are none")
+    why = "; ".join(reasons) or "no output state on that input has provably different probabilities"
+    print(f"{Style.OKRED}Invariant not proven.{Style.RESET} The check found I and Φ(I) to differ (candidate "
+          f"counterexample: the input {shown}), but no witness was confirmed: {why}.")
+    certificate["verdict"] = "unknown"
+    return InvariantRefutedError(
+        f"The invariant is not proven (and not refuted): the check found I and Φ(I) to differ, with the input "
+        f"{shown} as candidate counterexample, but no witness was confirmed: {why}.", details=certificate)
 
 
 def _synthesis_required(task: LoopTask, inv_src: str, template: List[str],
@@ -409,7 +427,12 @@ def _strategy_unroll(task: LoopTask) -> LoopOutcome:
         sat_part = iterated_sat
         task.iterate(i + 1, non_sat_part, inside=sat_part)
 
-    remaining = _mass(sat_part)
+    try:
+        remaining = _mass(sat_part)
+    except NonFiniteMarginalError:
+        # e.g. the test distribution of the second-order check, which has infinite mass by design (#403);
+        # SymPy computes oo there. An unbounded residual keeps the lower bound sound.
+        remaining = sympy.oo
     certificate: Dict[str, Any] = {"type": "unrolling", "iterations": max_iter,
                                    "iterations_done": fixpoint_after or max_iter,
                                    "remaining_mass": str(remaining)}

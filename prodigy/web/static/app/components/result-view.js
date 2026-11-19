@@ -151,9 +151,18 @@ function errorView(result, options) {
   }
   const details = error.details;
   if (verdict) children.push(h("p", {}, `Verdict: ${verdictText(verdict)}.`));
+  const valuation = (state) => Object.entries(state).map(([k, v]) => `${k} = ${v}`).join(", ") || "—";
   if (details?.counterexample) {
-    children.push(h("p", {}, "Counterexample (a state on which the invariant and one unrolling of the loop differ): ",
-      h("code", {}, Object.entries(details.counterexample).map(([k, v]) => `${k} = ${v}`).join(", ") || "—")));
+    // a counterexample of the solver is only a candidate; "refuted" comes with a witness (#403)
+    const label = details.witness
+      ? "Input on which the invariant and one unrolling of the loop provably differ: "
+      : "Candidate counterexample of the solver (no witness confirmed): ";
+    children.push(h("p", {}, label, h("code", {}, valuation(details.counterexample))));
+  }
+  if (details?.witness) {
+    const w = details.witness;
+    children.push(h("p", {}, "Witness: the output state ", h("code", {}, valuation(w.state)),
+      ` has probability ${w.first.lower}…${w.first.upper} under I and ${w.second.lower}…${w.second.upper} under Φ(I).`));
   }
   if (details?.difference) {
     const label = verdict === "refuted" ? "Φ(I) − I does not vanish: " : "Φ(I) − I could not be shown to vanish: ";

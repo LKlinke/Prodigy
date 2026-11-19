@@ -71,7 +71,7 @@ def cav_phi(program: Program, invariant: Program) -> Program:
 
     return Program(declarations=invariant.declarations,
                    variables=invariant.variables,
-                   constants=invariant.constants,
-                   parameters=invariant.parameters,
+                   constants={**program.constants, **invariant.constants},
+                   parameters={**program.parameters, **invariant.parameters},
                    instructions=[guarded_instr],
-                   functions=invariant.functions)
+                   functions={**program.functions, **invariant.functions})
