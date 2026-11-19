@@ -185,6 +185,11 @@ def test_a_non_finite_marginal_is_a_limitation_of_the_check(monkeypatch):
 
 # Pairs whose check ends without a result (on main as an error of `check_equality`), with the reason
 LIBRARY_FAILING: Dict[str, str] = {}  # #403 fixed the last two (the check lost the parameters of the loop)
+# Pairs whose invariant programs sample generating functions that are probability generating functions, but
+# Prodigy cannot prove it (#424, missing proof rules: #431): (1 - sqrt(1 - c^2))/c and rational functions with irrational poles. Their
+# analysis has no guarantee, so no relation is proven.
+LIBRARY_UNPROVEN = {"random_walk", "random_walk_parameter", "sequential_loops", "bit_flip_conditioning",
+                    "bit_flip_conditioning_parameter"}
 # Pairs left out here, with the reason
 LIBRARY_SKIPPED = {
     "brp_obs_parameter": "the check takes minutes (conditioning on the second-order generating function)",
@@ -207,7 +212,8 @@ def _library_pairs():
                     continue
             counterpart, invariants = _loopy_invariants(path)
             # the loops are handled by Park's lemma: an upper bound, so one direction is proven
-            expected = "failed" if name in LIBRARY_FAILING else eq.FIRST_BELOW_SECOND
+            expected = "failed" if name in LIBRARY_FAILING else "unproven" if name in LIBRARY_UNPROVEN \
+                else eq.FIRST_BELOW_SECOND
             marks = [pytest.mark.slow] if name in LIBRARY_SLOW else []
             pairs.append(pytest.param(path, counterpart, invariants, expected, id=name, marks=marks))
     return pairs
@@ -228,6 +234,10 @@ def test_library_verdicts(monkeypatch, path, counterpart, invariants, expected):
         assert comparison.verdict["verdict"] == eq.UNKNOWN and "refuted" in comparison.verdict["reason"]
         return
     assert comparison.check.answer == "equal", comparison.check.error
+    if expected == "unproven":
+        assert comparison.verdict["verdict"] == eq.UNKNOWN and comparison.verdict["relation"] is None
+        assert "could not prove that" in comparison.verdict["reason"]
+        return
     if expected == eq.EQUIVALENT:
         assert comparison.verdict["verdict"] == eq.EQUIVALENT
     else:

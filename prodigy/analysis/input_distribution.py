@@ -36,6 +36,7 @@ The proofs, all exact:
 """
 from __future__ import annotations
 
+import functools
 import math
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
@@ -116,10 +117,12 @@ def _plain_text(dist: Distribution) -> str:
 
 
 def check_input_expression(text: str, variables: Sequence[str],
-                           parameter_types: Optional[Mapping[str, Any]] = None) -> _Verdict:
+                           parameter_types: Optional[Mapping[str, Any]] = None, *,
+                           probability: bool = False) -> _Verdict:
     """Whether the closed form ``text`` (an engine's printout) is a power series at 0 in
     ``variables`` with non-negative coefficients and finite mass: ``(True, "")`` if proven,
-    ``(False, reason)`` if refuted, ``(None, reason)`` if this could not be proven."""
+    ``(False, reason)`` if refuted, ``(None, reason)`` if this could not be proven. With
+    ``probability``, the mass must also be 1 (see :func:`check_probability_generating_function`)."""
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.ai_candidates import MATH_FUNCTIONS, CandidateError, admissible_expression
     parameter_types = dict(parameter_types or {})
@@ -137,7 +140,65 @@ def check_input_expression(text: str, variables: Sequence[str],
     except Exception as exc:  # pylint: disable=broad-except
         return None, f"it could not be read back for the check ({exc})"
     syms = [local[name] for name in variables]
-    return _check(sympy.sympify(expr), syms)
+    expr = sympy.sympify(expr)
+    verdict = _check(expr, syms)
+    if not probability:
+        return verdict
+    return _check_probability_mass(expr, syms, verdict)
+
+
+@functools.lru_cache(maxsize=512)
+def check_probability_generating_function(text: str, variables: Tuple[str, ...],
+                                          natural_parameters: Tuple[str, ...] = ()) -> _Verdict:
+    """Whether the closed form ``text`` is a probability generating function in ``variables``: a power
+    series at 0 with non-negative coefficients (as for :func:`check_input_expression`) and mass exactly 1.
+    This is the condition on the distribution argument ``G`` of ``sample_pgf(G, x)`` and ``iid(G, n)``
+    (#424). A mass different from 1 refutes it even if the non-negativity is not proven: the value at 1
+    of a probability generating function is 1 (Abel's theorem). Every other symbol is a parameter;
+    ``natural_parameters`` are those of type ``nat``. Cached, since a sampling instruction may be executed
+    many times (e.g. in an unrolled loop)."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.pgcl.ast.types import NatType
+    types = {name: NatType(None) for name in natural_parameters}
+    return check_input_expression(text, variables, types, probability=True)
+
+
+def _check_probability_mass(expr: sympy.Expr, syms: List[sympy.Symbol], verdict: _Verdict) -> _Verdict:
+    """``verdict`` on the coefficients of ``expr``, combined with the condition that its mass (its value at 1,
+    the limit from below on the diagonal) is 1."""
+    if verdict[0] is False:
+        return verdict
+    mass = _mass(expr, syms)
+    if mass is None:
+        return None, verdict[1] or "its mass (its value at 1) could not be determined"
+    if mass.is_number and not mass.is_finite:
+        return False, "its mass (its value at 1) is infinite, not 1"
+    try:
+        difference = sympy.simplify(mass - 1)
+    except Exception:  # pylint: disable=broad-except
+        difference = None
+    if difference is not None and difference.is_zero:
+        return verdict
+    if mass.is_number and difference is not None and difference.is_zero is False:
+        return False, f"its mass (its value at 1) is {_text(mass)}, not 1"
+    if verdict[1]:
+        return None, f"{verdict[1]}; its mass (its value at 1) is {_text(mass)}, which is not proven to be 1"
+    return None, f"its mass (its value at 1) is {_text(mass)}, which is not proven to be 1{_parameter_hint(mass, syms)}"
+
+
+def _mass(expr: sympy.Expr, syms: List[sympy.Symbol]) -> Optional[sympy.Expr]:
+    """The value of ``expr`` at 1 in ``syms``, as the limit from below on the diagonal if the value itself is
+    not defined (e.g. a removable singularity); ``None`` if it cannot be computed."""
+    if not syms:
+        return expr
+    value = expr.subs({s: 1 for s in syms})
+    if not value.has(sympy.nan, sympy.zoo, sympy.oo, -sympy.oo):
+        return value
+    t = sympy.Dummy("t")
+    try:
+        return sympy.limit(expr.subs({s: t for s in syms}), t, 1, "-")
+    except Exception:  # pylint: disable=broad-except
+        return None
 
 
 def _identifiers(text: str) -> List[str]:
