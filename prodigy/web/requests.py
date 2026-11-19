@@ -24,7 +24,7 @@ A request looks like::
 
 Generating functions (``input_distribution`` and the ``expression`` parameters of the loop
 strategies) are untrusted text for SymPy's parser: :func:`validate_request` admits only
-expressions in the program's syntax (:func:`prodigy.analysis.ai_candidates.admissible_expression`),
+expressions in the program's syntax (:func:`prodigy.pgcl.expression_allowlist.admissible_expression`),
 and :func:`prepare_request` turns them into the engines' spelling (``x**2`` -> ``x^2``).
 """
 from __future__ import annotations
@@ -102,7 +102,7 @@ def validate_request(request: Dict[str, Any]) -> List[str]:
     from prodigy.analysis.evtinvariants.heuristics.strategies import SELECTABLE_POSITIVITY_HEURISTICS
     from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
     from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
-    from prodigy.analysis.ai_candidates import MATH_FUNCTIONS, CandidateError, admissible_expression
+    from prodigy.pgcl.expression_allowlist import MATH_FUNCTIONS, InadmissibleExpression, admissible_expression
     from prodigy.analysis.session import parse_decisions, validate_decisions
     from prodigy.analysis.solver.solver_type import SolverType
 
@@ -119,7 +119,7 @@ def validate_request(request: Dict[str, Any]) -> List[str]:
             continue  # the generating functions of the decisions are checked by validate_decisions
         try:
             admissible_expression(container[key], syntax=syntax, functions=MATH_FUNCTIONS)
-        except CandidateError as exc:
+        except InadmissibleExpression as exc:
             problems.append(f"{label}: {exc}")
     if request.get("engine", "sympy") not in ENGINES:
         problems.append(f"Unknown engine {request.get('engine')!r}.")

@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from fractions import Fraction
-from typing import List, Tuple
+from typing import List, Tuple, Union, cast, get_args
 
 from prodigy.pgcl.ast import (AbortInstr, AsgnInstr, Binop, BinopExpr,
                               BoolLitExpr, BoolType, CategoricalExpr,
@@ -327,3 +327,16 @@ def decl_to_ppy(decl: Decl) -> str:
 def program_to_ppy(program: Program) -> str:
     """Print a program in the ``.ppy`` syntax, declarations first."""
     return _PRINTER.program(program)
+
+
+def spell(node: Union[Expr, Instr], syntax: str) -> str:
+    """An expression or instruction as text in ``syntax`` (``pgcl`` or ``ppy``), for output to
+    the user. Falls back to the pGCL spelling if ``node`` has no ``.ppy`` form."""
+    if syntax == "ppy":
+        try:
+            if isinstance(node, get_args(Expr)):
+                return expr_to_ppy(cast(Expr, node))
+            return instr_to_ppy(cast(Instr, node))
+        except PpyPrintError:
+            pass
+    return str(node)

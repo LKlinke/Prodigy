@@ -21,6 +21,18 @@ Convergence of Marginals
 .. automodule:: prodigy.distribution.convergence
    :members:
 
+Proof Rules on Generating Functions
+###################################
+
+.. automodule:: prodigy.distribution.finite_measure
+   :members:
+
+.. automodule:: prodigy.distribution.product_form
+   :members: ProductFormSeries, Denominator, to_product_form, rational_mass
+
+.. automodule:: prodigy.distribution.coefficient_signs
+   :members:
+
 Exact Division
 ##############
 
@@ -30,4 +42,4 @@ Exact Division
 
 from .distribution import (CommonDistributionsFactory, Distribution,
                            DistributionParam, MarginalType, NonFiniteMarginalError, ZeroDivisorError,
-                           State, known_convergent_series)
+                           State, known_convergent_series, output_syntax)

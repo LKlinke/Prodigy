@@ -108,9 +108,9 @@ def _parse_expression(raw: Any, syntax: str = "pgcl") -> str:
     sees it: SymPy's parser evaluates Python code. Returns it in the engines' spelling (powers as
     ``^``, which GiNaC needs); raises ``ValueError`` (a
     :class:`~prodigy.analysis.ai_candidates.CandidateError`) for anything else
-    (:func:`~prodigy.analysis.ai_candidates.admissible_expression`)."""
+    (:func:`~prodigy.pgcl.expression_allowlist.admissible_expression`)."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.ai_candidates import MATH_FUNCTIONS, admissible_expression
+    from prodigy.pgcl.expression_allowlist import MATH_FUNCTIONS, admissible_expression
     return admissible_expression(_parse_text(raw).strip(), syntax=syntax, functions=MATH_FUNCTIONS)
 
 

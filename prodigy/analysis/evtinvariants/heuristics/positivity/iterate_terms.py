@@ -1,6 +1,6 @@
 from typing import Collection, Optional
 
-from prodigy.analysis.evtinvariants.heuristics.positivity.coefficients import series_form, sign
+from prodigy.distribution.coefficient_signs import series_form, sign
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic, PositivityInput
 from prodigy.distribution import CommonDistributionsFactory
 

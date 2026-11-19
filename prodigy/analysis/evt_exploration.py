@@ -172,7 +172,7 @@ def exploration(iterates: Sequence[Tuple[int, "Distribution"]], variables: Seque
     iterate, and a candidate EVT invariant (a rational fit, or None). ``last`` are the last three consecutive
     iterates, for extrapolating the coefficients to N → ∞."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.ai_candidates import to_syntax
+    from prodigy.pgcl.expression_allowlist import to_syntax
     variables = [str(v) for v in variables]
     tables = []
     truncated_terms = False

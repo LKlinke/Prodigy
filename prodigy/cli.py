@@ -241,13 +241,13 @@ def _expression_option(text: str, option: str, program: Program, syntax: str) ->
     """The generating function ``text`` of the command-line option ``option``, checked before any engine
     sees it (SymPy's parser evaluates Python code): an expression of ``syntax`` over numbers, the
     program's variables and parameters and the functions of
-    :data:`~prodigy.analysis.ai_candidates.MATH_FUNCTIONS`. Returned in the engines' spelling."""
+    :data:`~prodigy.pgcl.expression_allowlist.MATH_FUNCTIONS`. Returned in the engines' spelling."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.ai_candidates import MATH_FUNCTIONS, CandidateError, admissible_expression
+    from prodigy.pgcl.expression_allowlist import MATH_FUNCTIONS, InadmissibleExpression, admissible_expression
     names = [str(v) for v in program.variables] + [str(p) for p in program.parameters]
     try:
         return admissible_expression(text.strip(), names=names, syntax=syntax, functions=MATH_FUNCTIONS)
-    except CandidateError as exc:
+    except InadmissibleExpression as exc:
         raise click.BadParameter(str(exc), param_hint=f"'{option}'") from exc
 
 

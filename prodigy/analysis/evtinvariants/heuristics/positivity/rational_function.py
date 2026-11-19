@@ -3,7 +3,7 @@ from typing import Collection, Optional
 
 import sympy
 
-from prodigy.analysis.evtinvariants.heuristics.positivity.coefficients import nonneg_by_construction, \
+from prodigy.distribution.coefficient_signs import nonneg_by_construction, \
     nonneg_quotient, series_form
 from prodigy.analysis.evtinvariants.heuristics.positivity.polynomial_positivity import FinitePolynomialPositivity
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic, PositivityInput

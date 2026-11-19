@@ -20,15 +20,16 @@ import math
 from fractions import Fraction
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
 
-import sympy
 from prodigy.distribution.equality import sympify_symbolic_string
 from prodigy.pgcl import Instr, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.analysis.lowerbounds.egcalc import Denominator, GFCalculus, Num, directed_decimal
+from prodigy.analysis.lowerbounds.egcalc import GFCalculus, directed_decimal
+from prodigy.distribution.coefficient_signs import nonneg_by_construction
 from prodigy.distribution.distribution import Distribution
+from prodigy.distribution.product_form import rational_mass, to_product_form
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
@@ -36,60 +37,6 @@ Details = Dict[str, Any]
 """A JSON-like record for the result (heterogeneous values: ``Any`` is correct here)."""
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
-
-
-def to_product_form(expr: Union[str, sympy.Expr], variables: Sequence[str]) -> Optional[Tuple[Num, Denominator]]:
-    """Write a rational generating function as ``P / prod_i (1 - r_i X_i^{p_i})`` (at most one factor per variable,
-    ``r_i >= 0``), or return None if this is not possible."""
-    syms = [sympy.Symbol(v) for v in variables]
-    e = sympify_symbolic_string(expr) if isinstance(expr, str) else expr
-    e = sympy.together(sympy.expand(e))
-    num, den = sympy.fraction(e)
-    if any(s not in syms for s in e.free_symbols):
-        return None
-    const, factors = sympy.factor_list(sympy.expand(den), *syms)
-    const = sympy.Rational(const)
-    rates = [Fraction(0)] * len(syms)
-    periods = [1] * len(syms)
-    scale = const
-    for fac, mult in factors:
-        if mult != 1:
-            return None
-        free = fac.free_symbols
-        if len(free) != 1:
-            return None
-        x = free.pop()
-        i = syms.index(x)
-        poly = sympy.Poly(fac, x)
-        terms = poly.terms()
-        if len(terms) != 2:
-            return None
-        (deg_a, a), (deg_b, b) = sorted(((t[0][0], t[1]) for t in terms))
-        if deg_a != 0 or a == 0:
-            return None
-        r = -sympy.Rational(b) / sympy.Rational(a)
-        if r < 0 or rates[i] != 0:
-            return None
-        rates[i], periods[i] = Fraction(int(r.p), int(r.q)), int(deg_b)
-        scale *= a
-    poly_num = sympy.Poly(sympy.expand(num / scale), *syms)
-    numer: Num = {}
-    for monom, c in poly_num.terms():
-        c = sympy.Rational(c)
-        numer[tuple(int(m) for m in monom)] = Fraction(int(c.p), int(c.q))
-    return numer, Denominator(rates, periods)
-
-
-def nonneg_by_construction(expr_str: Union[str, sympy.Expr], variables: Sequence[str]) -> bool:
-    """Sufficient criterion for non-negative coefficients in ``variables``: sums and products of terms
-    ``P / prod_i Q_i^k_i`` where ``P`` has non-negative coefficients (or is ``Q * prod_i Q_i^k_i + r`` with
-    non-negative ``Q`` and ``r``) and every ``Q_i = c_i - R_i`` has a constant ``c_i > 0`` and ``R_i`` non-negative
-    coefficients, as ``1/(c - R) = sum_n R^n / c^(n+1)``. Covers denominators that are not products of univariate
-    factors, e.g. ``x*y/(1 - 9/50*(x + y))``. Other symbols are parameters: real coefficients, never series
-    variables (#295); a sign counts only if it holds for every value their assumptions allow. Implemented in
-    :mod:`prodigy.analysis.evtinvariants.heuristics.positivity.coefficients`."""
-    from prodigy.analysis.evtinvariants.heuristics.positivity.coefficients import nonneg_by_construction as nonneg
-    return nonneg(expr_str, variables)
 
 
 def decide_nonneg(expr_str: str, variables: Sequence[str], config: ForwardAnalysisConfig,
@@ -128,27 +75,6 @@ def exact_mass(expr_str: str, variables: Sequence[str]) -> Optional[Union[Fracti
         return None
     numer, den = form
     return GFCalculus(list(variables), den).mass(numer)
-
-
-def rational_mass(expr_str: str, variables: Sequence[str]) -> Optional[Union[Fraction, float]]:
-    """Total mass of a rational generating function with NONNEGATIVE coefficients, or ``None`` if the closed form is
-    not rational.  Let ``f(t) = F(t, ..., t)`` in lowest terms.  By Pringsheim's theorem, the radius of convergence of
-    ``f`` is its smallest pole on the positive real axis; hence the mass ``sum of coefficients = lim_{t -> 1-} f(t)`` is
-    infinite iff ``f`` has a pole in ``(0, 1]``, and equals ``f(1)`` otherwise.  Evaluating the closed form at ``1``
-    directly is unsound: ``(1 + X)/(1 - 2X) = 1 + 3X + 6X^2 + ...`` evaluates to ``-2``."""
-    t = sympy.Symbol("_t", positive=True)
-    expr = sympify_symbolic_string(expr_str).subs({sympy.Symbol(v): t for v in variables}, simultaneous=True)
-    f = sympy.cancel(sympy.together(expr))
-    numer, den = sympy.fraction(f)
-    if not (numer.is_polynomial(t) and den.is_polynomial(t)):
-        return None
-    den_poly = sympy.Poly(den, t)
-    if den_poly.eval(0) == 0:
-        return None  # not a power series at the origin
-    if den_poly.degree() > 0 and den_poly.count_roots(0, 1) > 0:  # exact (Sturm sequences); no root at 0
-        return math.inf
-    value = f.subs(t, 1)
-    return Fraction(str(sympy.nsimplify(value))) if value.is_rational else float(value)
 
 
 def evt_subinvariant_verification(loop: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,

@@ -39,8 +39,8 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
-from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, Union,
-                    cast, get_args)
+from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple,
+                    Union)
 
 import attr
 
@@ -50,7 +50,8 @@ from prodigy.pgcl import (ChoiceInstr, CovarianceInstr, ExpectationInstr, Varian
 
 from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
                                               get_loop_strategy, loop_strategies)
-from prodigy.distribution import known_convergent_series
+from prodigy.distribution import known_convergent_series, output_syntax
+from prodigy.pgcl.ppy_printer import spell
 from prodigy.util.logger import log_setup, print_progress_bar
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -184,19 +185,6 @@ def _collect_loops(instrs: List[Instr], depth: int, function: Optional[str],
                 _collect_loops(block, depth, function, out)
 
 
-def spell(node: Union[Expr, Instr], syntax: str) -> str:
-    """An expression or instruction as text in ``syntax`` (``pgcl`` or ``ppy``), for output to
-    the user. Falls back to the pGCL spelling if ``node`` has no ``.ppy`` form."""
-    if syntax == "ppy":
-        # pylint: disable=import-outside-toplevel
-        from prodigy.pgcl.ppy_printer import PpyPrintError, expr_to_ppy, instr_to_ppy
-        try:
-            if isinstance(node, get_args(Expr)):
-                return expr_to_ppy(cast(Expr, node))
-            return instr_to_ppy(cast(Instr, node))
-        except PpyPrintError:
-            pass
-    return str(node)
 
 
 class LoopRegistry:
@@ -790,7 +778,8 @@ class AnalysisSession:
         """Makes this the current session (see :func:`current_session`)."""
         token = _CURRENT.set(self)
         try:
-            yield self
+            with output_syntax(self.syntax):
+                yield self
         finally:
             _CURRENT.reset(token)
 

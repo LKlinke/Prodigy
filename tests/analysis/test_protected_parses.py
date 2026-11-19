@@ -3,7 +3,7 @@ symbols (#354), not as ``pow``, ``pi`` or ``I``."""
 import pytest
 import sympy
 
-from prodigy.analysis.evtinvariants.heuristics.positivity.coefficients import series_form
+from prodigy.distribution.coefficient_signs import series_form
 from prodigy.analysis.evtinvariants.heuristics.positivity.individual_sum_terms import SumPositivity
 from prodigy.analysis.evtinvariants.heuristics.positivity.logical import NotHeuristic
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic

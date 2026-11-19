@@ -79,6 +79,9 @@ on its own.
   - `positions.py`: source positions.
 - `prodigy/distribution`: the `Distribution` interface and its engines: SymPy
   (`generating_function.py`, default), GiNaC via prodigy_ginac (`fast_generating_function.py`), SymEngine.
+  The proof rules on closed forms (`finite_measure.py`, `product_form.py`, `coefficient_signs.py`) are here
+  as well; `prodigy/distribution` and `prodigy/pgcl` import nothing from `prodigy/analysis`
+  (`tests/test_layering.py`, #423).
 - `prodigy/analysis`: the forward analysis. `analyzer.py` dispatches instructions to
   `instructionhandler/`.
   - `session.py`: `AnalysisSession` holds one decision per loop.
