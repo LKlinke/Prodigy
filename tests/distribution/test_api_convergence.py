@@ -1,7 +1,8 @@
 """
 The public entry points of the Python API that evaluate a generating function at 1 (`marginal`,
-`get_probability_mass`, `get_probability_of`, `get_expected_value_of`) prove that the series converges there, or
-raise `NonFiniteMarginalError` (#398). Before, they evaluated the closed form, which need not be the sum of the
+`get_probability_mass`, `get_probability_of`, `get_expected_value_of`; #427: `normalize`, `update`, `update_iid`,
+`filter` through fresh variables, `coefficient_sum`) prove that the series converges there, or raise
+`NonFiniteMarginalError` (#398). Before, they evaluated the closed form, which need not be the sum of the
 series: `Pr[y < w]` of the issue's example was -1/3. Inside program analyses (`known_convergent_series`), the
 distributions are finite measures and the proof is skipped.
 """
@@ -12,7 +13,8 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution import NonFiniteMarginalError, known_convergent_series
 from prodigy.distribution.distribution import MarginalType
-from prodigy.pgcl import parse_pgcl
+from prodigy.pgcl import Binop, BinopExpr, VarExpr, parse_pgcl
+from prodigy.pgcl.parser import parse_expr
 
 Engine = ForwardAnalysisConfig.Engine
 ENGINES = [Engine.SYMPY, Engine.SYMENGINE, Engine.GINAC]
@@ -141,3 +143,105 @@ def test_analysis_outputs_are_declared_finite_measures(engine):
     # the declaration belongs to the object: a distribution computed from it is proven again
     with pytest.raises(NonFiniteMarginalError, match="parameters p"):
         result.copy().get_expected_value_of("x")
+
+
+# The other public operations that evaluate at 1 (#427): normalize, iid sampling, assignments that overwrite a
+# variable, filters through fresh variables and the engines' coefficient_sum. Their closed forms are proven like
+# the queries above, or they raise NonFiniteMarginalError naming the operation.
+PROVEN = "1/((2 - x)*(2 - y))"
+# the series diverges at x = 1, the closed form gives the mass -1 there
+DIVERGENT = "1/((1 - 2*x)*(2 - y))"
+
+
+def _iid(text):
+    call = parse_expr(text)
+    sampled, count = call.params[0]
+    return sampled, count
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_normalize_is_proven(engine):
+    factory = _factory(engine)
+    with pytest.raises(NonFiniteMarginalError, match="The normalization is not proven to converge"):
+        factory.from_expr(ISSUE, "x", "y", "w").normalize()
+    with pytest.raises(NonFiniteMarginalError, match="The normalization is not proven"):
+        factory.from_expr(DIVERGENT_EXIT, "x", "y").normalize()
+    x, y = sympy.symbols("x y")
+    normalized = factory.from_expr(f"3*{PROVEN}", "x", "y").normalize()
+    assert sympy.simplify(_sympy(normalized) - 1 / ((2 - x) * (2 - y))) == 0
+    # declared or inside an analysis: no proof, as before
+    with pytest.raises(NonFiniteMarginalError, match="The normalization is not proven"):
+        factory.from_expr(DIVERGENT, "x", "y").normalize()
+    declared = factory.from_expr(DIVERGENT, "x", "y").declare_finite_measure()
+    assert sympy.simplify(_sympy(declared.normalize()) + _sympy(DIVERGENT)) == 0
+    with known_convergent_series(True):
+        assert sympy.simplify(_sympy(factory.from_expr(DIVERGENT, "x", "y").normalize()) + _sympy(DIVERGENT)) == 0
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_update_iid_is_proven(engine):
+    factory = _factory(engine)
+    sampled, count = _iid("iid(bernoulli(1/2), x)")
+    # y := iid(bernoulli(1/2), x) sums out y, whose series diverges at 1 (pole 1/(1 - 2y))
+    with pytest.raises(NonFiniteMarginalError, match=r"y := iid\(bernoulli\(1/2\), x\) is not proven"):
+        factory.from_expr(DIVERGENT_EXIT, "x", "y").update_iid(sampled, count, "y")
+    x, y = sympy.symbols("x y")
+    result = factory.from_expr(PROVEN, "x", "y").update_iid(sampled, count, "y")
+    assert sympy.simplify(_sympy(result) - 1 / (2 - x * (1 + y) / 2)) == 0
+    # x := iid(bernoulli(1/2), x) composes the series in x with a PGF: proven like summing out x
+    sampled, count = _iid("iid(bernoulli(1/2), y)")
+    with pytest.raises(NonFiniteMarginalError, match="not proven"):
+        factory.from_expr(DIVERGENT_EXIT, "x", "y").update_iid(sampled, count, "y")
+    with known_convergent_series(True):
+        factory.from_expr(DIVERGENT_EXIT, "x", "y").update_iid(sampled, count, "y")
+
+
+def _assignment(variable, rhs):
+    return BinopExpr(Binop.EQ, VarExpr(variable), parse_expr(rhs))
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_overwriting_update_is_proven(engine):
+    factory = _factory(engine)
+    # x := 0 sums out the old value of x, whose series diverges at 1 (pole 1/(1 - x)^2)
+    with pytest.raises(NonFiniteMarginalError, match="The update x := 0 is not proven"):
+        factory.from_expr(DIVERGENT_EXIT, "x", "y").update(_assignment("x", "0"))
+    with pytest.raises(NonFiniteMarginalError, match="The update x := y is not proven"):
+        factory.from_expr(ISSUE, "x", "y", "w").update(_assignment("x", "y"))
+    x, y = sympy.symbols("x y")
+    result = factory.from_expr(PROVEN, "x", "y").update(_assignment("x", "y"))
+    assert sympy.simplify(_sympy(result) - 1 / (2 - x * y)) == 0
+    # an update that reads the old value (x := x + 1) substitutes and needs no proof
+    shifted = factory.from_expr(DIVERGENT_EXIT, "x", "y").update(_assignment("x", "x + 1"))
+    assert sympy.simplify(_sympy(shifted) - x * _sympy(DIVERGENT_EXIT)) == 0
+    with known_convergent_series(True):
+        y_only = factory.from_expr(DIVERGENT, "x", "y").update(_assignment("x", "0"))
+        assert sympy.simplify(_sympy(y_only) + 1 / (2 - y)) == 0
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_filter_with_fresh_variables_is_proven(engine, monkeypatch):
+    factory = _factory(engine)
+    x, y = sympy.symbols("x y")
+    # x - 1 < 2 introduces t := x - 1 (monus) and sums out t: proven for a rational closed form
+    filtered = factory.from_expr(PROVEN, "x", "y").filter(parse_expr("x - 1 < 2"))
+    assert sympy.simplify(_sympy(filtered) - (sympy.Rational(1, 2) + x / 4 + x ** 2 / 8) / (2 - y)) == 0
+    # the sum over the fresh variable goes through the same proof (here an obstacle is forced wherever a summed
+    # variable occurs in the closed form)
+    def forced(function, summed, _kept):
+        present = {str(symbol) for symbol in sympy.sympify(function).free_symbols}
+        return "a forced obstacle" if set(summed) & present else None
+
+    monkeypatch.setattr("prodigy.distribution.distribution.marginal_obstacle", forced)
+    with pytest.raises(NonFiniteMarginalError, match=r"The filter of \(x - 1\) < 2 is not proven .*forced obstacle"):
+        factory.from_expr("1/((2 - x)*(2 - y)) + sqrt(4 - x)", "x", "y").filter(parse_expr("x - 1 < 2"))
+
+
+@pytest.mark.parametrize("engine", [Engine.SYMPY, Engine.SYMENGINE])
+def test_coefficient_sum_is_proven(engine):
+    factory = _factory(engine)
+    with pytest.raises(NonFiniteMarginalError, match="The coefficient sum is not proven"):
+        factory.from_expr(ISSUE, "x", "y", "w").coefficient_sum()
+    assert _sympy(factory.from_expr(PROVEN, "x", "y").coefficient_sum()) == 1
+    with known_convergent_series(True):
+        assert _sympy(factory.from_expr(DIVERGENT, "x", "y").coefficient_sum()) == -1

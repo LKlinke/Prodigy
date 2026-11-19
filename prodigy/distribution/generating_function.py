@@ -720,7 +720,7 @@ class GeneratingFunction(Distribution):
                                       *self._variables,
                                       closed=True,
                                       finite=True)
-        elif mass > self.coefficient_sum():
+        elif mass > self._coefficient_sum():
             raise ValueError("Given probability mass is too large")
         elif mass < 0:
             raise ValueError("Given probability mass must be non-negative")
@@ -1141,8 +1141,8 @@ class GeneratingFunction(Distribution):
             finite=self._is_finite,
             closed=self._is_closed_form).set_parameters(*self.get_parameters())
 
-    def update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
-                   variable: Union[str, VarExpr]) -> Distribution:
+    def _update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
+                    variable: Union[str, VarExpr]) -> Distribution:
 
         subst_var = count.var if isinstance(count, VarExpr) else None
 
@@ -1473,9 +1473,9 @@ class GeneratingFunction(Distribution):
 
         elif isinstance(threshold, str):
             s_threshold = _parse_to_sympy(threshold)
-            assert s_threshold < self.coefficient_sum(), \
+            assert s_threshold < self._coefficient_sum(), \
                 f"Threshold cannot be larger than total coefficient sum! Threshold:" \
-                f" {s_threshold}, CSum {self.coefficient_sum()}"
+                f" {s_threshold}, CSum {self._coefficient_sum()}"
             for s_prob, state in self._iter_expr_expr():
                 if precision >= _parse_to_sympy(threshold):
                     break
@@ -1491,6 +1491,16 @@ class GeneratingFunction(Distribution):
                 f" not {type(threshold)}.")
 
     def coefficient_sum(self) -> sympy.Expr:
+        """
+        The closed form at 1. Outside an analysis
+        (:func:`~prodigy.distribution.distribution.known_convergent_series`), raises
+        `NonFiniteMarginalError` if it is not proven to be the sum of the series (#427).
+        """
+        self._require_convergent_evaluation(set(), "The coefficient sum")
+        return self._coefficient_sum()
+
+    def _coefficient_sum(self) -> sympy.Expr:
+        """:meth:`coefficient_sum` without a convergence proof."""
         logger.debug("coefficient_sum() call")
         coefficient_sum = self._function
         for var in self._variables:
@@ -1500,7 +1510,7 @@ class GeneratingFunction(Distribution):
         return coefficient_sum
 
     def _probability_mass(self) -> str:
-        return sympy_text(self.coefficient_sum())
+        return sympy_text(self._coefficient_sum())
 
     def get_parameters(self) -> Set[str]:
         return set(map(str, self._parameters))
@@ -1511,9 +1521,9 @@ class GeneratingFunction(Distribution):
     def is_zero_dist(self) -> bool:
         return self._function == 0
 
-    def normalize(self) -> GeneratingFunction:
+    def _normalize(self) -> GeneratingFunction:
         logger.debug("normalized() call")
-        mass = self.coefficient_sum()
+        mass = self._coefficient_sum()
         if mass == 0:
             raise ZeroDivisionError
         return GeneratingFunction(self._function / mass,
