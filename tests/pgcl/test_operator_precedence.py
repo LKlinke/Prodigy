@@ -1,10 +1,13 @@
 from decimal import Decimal
 from fractions import Fraction
 
-from pytest import raises
+from pytest import mark, raises
 
+from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.pgcl.ast import *
-from prodigy.pgcl.parser import parse_pgcl
+from prodigy.pgcl.converter import convert_pgcl
+from prodigy.pgcl.parser import parse_expr, parse_pgcl
+from prodigy.pgcl.ppy_parser import parse_ppy, parse_ppy_expr
 
 
 def test_all_operators():
@@ -53,3 +56,69 @@ def test_likely_minus_error():
             x := 1 : 0.5 - 2 : 0.5
         """)
     assert "Illegal place for a probability annotation" in str(e)
+
+
+# --- unary minus (#430) ---------------------------------------------------------------------------
+# The unary minus binds tighter than `*`, `/`, `+` and `-` but weaker than the power, in both syntaxes.
+
+_ENV = {"x": Fraction(3), "a": Fraction(5), "b": Fraction(7)}
+
+
+def _value(expr: Expr) -> Fraction:
+    """The value of an arithmetic expression over the variables in ``_ENV``."""
+    if isinstance(expr, (NatLitExpr, RealLitExpr)):
+        return Fraction(expr.value)
+    if isinstance(expr, VarExpr):
+        return _ENV[expr.var]
+    assert isinstance(expr, BinopExpr), expr
+    lhs, rhs = _value(expr.lhs), _value(expr.rhs)
+    operations = {Binop.PLUS: lambda: lhs + rhs, Binop.MINUS: lambda: lhs - rhs,
+                  Binop.TIMES: lambda: lhs * rhs, Binop.DIVIDE: lambda: lhs / rhs,
+                  Binop.POWER: lambda: lhs ** rhs}
+    return operations[expr.operator]()
+
+
+_UMINUS_CASES = [
+    # (.pgcl, value with x = 3, a = 5, b = 7)
+    ("-1 + 3", 2),
+    ("-(1) + 3", 2),
+    ("-x + 2*x", 3),
+    ("-x^2", -9),
+    ("-x^2 + 1", -8),
+    ("2 * -x", -6),
+    ("-x * 2", -6),
+    ("-x / 2", Fraction(-3, 2)),
+    ("a - -b", 12),
+    ("1 - -1 + 2", 4),
+    ("--x", 3),
+    ("2^-x", Fraction(1, 8)),
+    ("2^-x^2", Fraction(1, 512)),
+    ("a * -b + x", -32),
+]
+
+
+@mark.parametrize("pgcl,value", _UMINUS_CASES)
+def test_unary_minus_precedence_is_the_same_in_both_syntaxes(pgcl, value):
+    parsed = parse_expr(pgcl)
+    assert parsed == parse_ppy_expr(pgcl.replace("^", "**"))
+    assert _value(parsed) == value
+
+
+def test_unary_minus_in_a_program_and_its_conversion():
+    """A leading minus of a sum is not the minus of the whole sum, and ``prodigy convert`` keeps
+    the meaning (#430)."""
+    source = "nat x; nat y; x := 3; y := -x + 2*x + (-1 + 3) * 2"
+    program = parse_pgcl(source)
+    assert _value(program.instructions[1].rhs) == 7
+    conversion = convert_pgcl(source)
+    assert "y = -x + 2 * x + (-1 + 3) * 2;" in conversion.text
+    converted = parse_ppy(conversion.text)
+    assert converted == program
+    assert _value(converted.instructions[1].rhs) == 7
+
+
+def test_unary_minus_in_a_query_string():
+    """Strings given to the distribution API are read with the .pgcl expression parser."""
+    dirac = GeneratingFunction("x^3", "x")
+    assert dirac.get_expected_value_of("-x + 3") == "0"
+    assert dirac.get_probability_of("-x + 2*x = 3") == "1"
