@@ -384,3 +384,13 @@ def test_intermediate_results_and_stepwise_print_the_trace(tmp_path):
     out = CliRunner().invoke(cli, ["--stepwise", "main", path, "--loop", "0=unroll:iterations=3"], input="\n" * 20)
     assert out.exit_code == 0, out.output
     assert out.output.count("Next step [Enter]") >= 8
+
+
+def test_long_closed_forms_have_latex_too():
+    """The formula box bounds what is shown, so the LaTeX is not limited to 600 characters (#322)."""
+    terms = " + ".join(f"({k + 1}/{k + 20}) * x^{k}*y^{k % 3}" for k in range(60))
+    source = "x: nat;\ny: nat;\ny = y + 1;\n"
+    result = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", record_steps=True,
+                             input_distribution=f"({terms}) / 60", capture_output=True).run().to_json()
+    after = result["steps"][0]["after"]
+    assert after["size"] > 600 and after["latex"]

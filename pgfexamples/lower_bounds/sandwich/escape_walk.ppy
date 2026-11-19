@@ -1,3 +1,4 @@
+# evt_sandwich pgfexamples/lower_bounds/sandwich/escape_walk.ppy
 # Upward-drifting random walk WITHOUT counter: terminates with probability 1/2.
 # Phi_g has rational PHANTOM fixpoints, e.g. (1 + X)/(1 - 2X), whose exit part (= 1) wrongly suggests
 # almost-sure termination; the least fixpoint 1/2 + (3/2) X/(1 - X) has infinite mass as well.

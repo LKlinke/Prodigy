@@ -19,6 +19,11 @@ class UndefinedDistributionError(ForwardAnalysisError):
     ``dist`` variable that is read before it was assigned."""
 
 
+class InvalidProbabilityError(ForwardAnalysisError, ValueError):
+    """The probability of a probabilistic choice or of a counter operator is undefined or outside of
+    [0, 1] in a reachable state (e.g. ``{x := 1} [5/k] {x := 2}`` with ``k = 3``)."""
+
+
 class ParameterSynthesisRequired(ForwardAnalysisError):
     """The invariant chosen for a loop has template parameters, or the check of it fixes parameters to
     values: that is parameter synthesis, a comparison of the loop with the invariant program, not an

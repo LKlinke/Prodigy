@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 ENGINES = {
     "sympy": "SymPy",
     "ginac": "GiNaC",
-    "symengine": "SymEngine",
+    "symengine": "SymEngine (deprecated)",
 }
 
 MAX_COEFFICIENTS = 200

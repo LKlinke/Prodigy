@@ -23,6 +23,8 @@ pip install prodigy-ppl
 ```
 
 This needs Python 3.11 or newer and contains the SymPy, SymEngine and the faster GiNaC engine (`--engine ginac`).
+The SymEngine engine and the `.pgcl` syntax are deprecated in v0.5.0 and removed in v0.6.0 (programs are written in `.ppy`;
+`prodigy convert program.pgcl` translates old ones while v0.5.x is installed).
 The GiNaC engine comes from [`prodigy-ppl-ginac`](https://pypi.org/project/prodigy-ppl-ginac/), whose wheels bundle
 GiNaC; pip installs it on Linux (x86_64, aarch64, glibc) and macOS with Python 3.11–3.14. Elsewhere, the extra `ginac`
 builds it from source, which needs a C++17 compiler, CMake and [GiNaC](https://www.ginac.de/Download.html):

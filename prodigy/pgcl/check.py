@@ -6,8 +6,10 @@ Type Checking
 """
 from __future__ import annotations
 
+import contextlib
+import contextvars
 from fractions import Fraction
-from typing import Dict, Iterable, List, Mapping, Optional, Set, TypeVar, Union
+from typing import Callable, Dict, Iterator, Iterable, List, Mapping, Optional, Set, TypeVar, Union
 
 import attr
 # mypy complains here, but this isn't actually wrong
@@ -34,6 +36,25 @@ from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
 from .ast.walk import Walk, walk_expr, walk_instrs
 
 _T = TypeVar('_T')
+
+Spelling = Callable[[Node], str]
+"""How an expression or instruction is written in a message (see :func:`check_program`)."""
+
+_SPELLING: contextvars.ContextVar[Spelling] = contextvars.ContextVar("check_spelling", default=str)
+
+
+def _sp(node: Node) -> str:
+    """``node`` as text in a message, in the syntax chosen by :func:`check_program`."""
+    return _SPELLING.get()(node)
+
+
+@contextlib.contextmanager
+def _spelling(spell: Optional[Spelling]) -> Iterator[None]:
+    token = _SPELLING.set(spell or str)
+    try:
+        yield
+    finally:
+        _SPELLING.reset(token)
 
 
 @attr.s
@@ -119,11 +140,11 @@ def _check_sample_count(program: Program,
         if isinstance(arg, (NatLitExpr, FunctionCallExpr, CategoricalExpr, SampleExpr)):
             return None
         return CheckFail(
-            arg, f"The number of samples in {expr} must be a program variable "
-            f"or a natural number, got {arg}.")
+            arg, f"The number of samples in {_sp(expr)} must be a program variable "
+            f"or a natural number, got {_sp(arg)}.")
     return CheckFail(
-        arg, f"The second argument of {expr} must be the program variable "
-        f"of the generating function, got {arg}.")
+        arg, f"The second argument of {_sp(expr)} must be the program variable "
+        f"of the generating function, got {_sp(arg)}.")
 
 
 def _literal_value(expr: Expr) -> Optional[Fraction]:
@@ -165,11 +186,11 @@ def _check_negative_binomial(expr: FunctionCallExpr) -> Optional[CheckFail]:
     r, p = expr.params[0]
     if not isinstance(r, NatLitExpr):
         return CheckFail(
-            r, f"The number of successes in {expr} must be a natural number, got {r}.")
+            r, f"The number of successes in {_sp(expr)} must be a natural number, got {_sp(r)}.")
     value = _literal_value(p)
     if value is not None and not 0 < value <= 1:
         return CheckFail(
-            p, f"The success probability in {expr} must be in (0, 1], got {p}.")
+            p, f"The success probability in {_sp(expr)} must be in (0, 1], got {_sp(p)}.")
     return None
 
 
@@ -204,8 +225,8 @@ def _check_generating_function(program: Program, expr: FunctionCallExpr) -> Opti
         return None  # the analysis checks it again and reports what goes wrong
     if verdict is False:
         return CheckFail(generating_function,
-                         f"{expr} needs a probability generating function (non-negative coefficients, mass 1), "
-                         f"but {generating_function} is not one: {reason}.")
+                         f"{_sp(expr)} needs a probability generating function (non-negative coefficients, mass 1), "
+                         f"but {_sp(generating_function)} is not one: {reason}.")
     return None
 
 
@@ -484,15 +505,15 @@ def _check_dist_probability(
     variable ``d`` and a natural number ``k`` is a real number."""
     cond = expr.cond
     if not mentions_dist(program, cond):
-        return CheckFail(expr, f"{expr} is not about a value of type dist. {_INFER_HINT}")
+        return CheckFail(expr, f"{_sp(expr)} is not about a value of type dist. {_INFER_HINT}")
     if not (isinstance(cond, BinopExpr) and cond.operator in _DIST_COMPARISONS
             and (_is_dist_variable(program, cond.lhs) or _is_dist_variable(program, cond.rhs))):
         return CheckFail(
-            expr, f"Inside {expr}, compare a variable d of type dist with a natural number, "
+            expr, f"Inside {_sp(expr)}, compare a variable d of type dist with a natural number, "
             "e.g. Pr[d == 3] or Pr[d < 3].")
     value = cond.rhs if _is_dist_variable(program, cond.lhs) else cond.lhs
     if mentions_dist(program, value):
-        return CheckFail(expr, f"Inside {expr}, the value compared with the dist variable must be "
+        return CheckFail(expr, f"Inside {_sp(expr)}, the value compared with the dist variable must be "
                          "a natural number.")
     typ = get_type(program, value, True, predefined_functions)
     if isinstance(typ, CheckFail):
@@ -507,9 +528,9 @@ def _check_dist_expectation(program: Program, expr: ExpectationExpr) -> Union[Ty
     if _is_dist_variable(program, expr.expr):
         return RealType()
     if mentions_dist(program, expr.expr):
-        return CheckFail(expr, f"{expr}: Ex[…] inside a program takes a single variable of type "
+        return CheckFail(expr, f"{_sp(expr)}: Ex[…] inside a program takes a single variable of type "
                          "dist, e.g. Ex[d].")
-    return CheckFail(expr, f"{expr} is not about a value of type dist. {_INFER_HINT}")
+    return CheckFail(expr, f"{_sp(expr)} is not about a value of type dist. {_INFER_HINT}")
 
 
 def _check_query_without_dist(program: Program, instr: Instr, exprs: List[Expr]) -> Optional[CheckFail]:
@@ -517,7 +538,7 @@ def _check_query_without_dist(program: Program, instr: Instr, exprs: List[Expr])
     for expr in exprs:
         if expr is not None and mentions_dist(program, expr):
             return CheckFail(
-                instr, f"The query {instr} uses a value of type dist; queries are about the "
+                instr, f"The query {_sp(instr)} uses a value of type dist; queries are about the "
                 "program state. Draw from the distribution and query the draw, e.g. "
                 "y = sample(d) and then a query of Pr[y == 3] or Ex[y].")
     return None
@@ -801,8 +822,8 @@ def check_instr(
                 and instr.rhs.function not in program.functions \
                 and instr.rhs.params[0][1] != VarExpr(instr.lhs):
             return CheckFail(
-                instr, f"{instr.rhs} samples a generating function in "
-                f"{instr.rhs.params[0][1]}, but only sampling in the assigned variable "
+                instr, f"{_sp(instr.rhs)} samples a generating function in "
+                f"{_sp(instr.rhs.params[0][1])}, but only sampling in the assigned variable "
                 f"{instr.lhs} is supported.")
         if is_compatible(lhs_type, rhs_type):
             return None
@@ -969,9 +990,17 @@ def check_instr(
 def check_program(
     program: Program,
     predefined_functions: Mapping[Var,
-                               List[VarDecl]] = sample_predefined_functions
+                               List[VarDecl]] = sample_predefined_functions,
+    spell: Optional[Spelling] = None
 ) -> Optional[CheckFail]:
-    """Check a program for type-safety."""
+    """Check a program for type-safety. Messages write expressions with ``spell`` (default: the
+    pGCL spelling); pass the spelling of the program's syntax, e.g. ``session.spell`` (#425)."""
+    with _spelling(spell):
+        return _check_program(program, predefined_functions)
+
+
+def _check_program(program: Program,
+                   predefined_functions: Mapping[Var, List[VarDecl]]) -> Optional[CheckFail]:
     check_result = _check_constant_declarations(program)
     if check_result is not None:
         return check_result

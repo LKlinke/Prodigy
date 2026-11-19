@@ -180,3 +180,15 @@ def test_constant_coefficient_is_the_series_value_at_0(text):
 def test_really_negative_coefficients_of_fractional_powers_are_refused(text, reason):
     verdict, message = check_input_expression(text, ["x"])
     assert verdict is False and reason in message, message
+
+
+@pytest.mark.parametrize("text", ["(-2+y)^(-1)*(-1+sqrt(1-x))", "(1 - sqrt(1 - x))/(2 - y)"])
+def test_the_sign_order_of_factors_does_not_matter(text):
+    """GiNaC prints ``(1 - sqrt(1 - x))/(2 - y)`` with negated factors (#428)."""
+    assert check_input_expression(text, ("x", "y"))[0] is True
+
+
+def test_negated_factors_do_not_prove_a_negative_series():
+    # 1/(y - 2) alone has negative coefficients, and so has (1 - sqrt(1 - x)) / (y - 2)
+    assert check_input_expression("(-2+y)^(-1)", ("x", "y"))[0] is False
+    assert check_input_expression("(1 - sqrt(1 - x))/(y - 2)", ("x", "y"))[0] is not True

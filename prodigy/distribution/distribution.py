@@ -516,9 +516,18 @@ class Distribution(ABC):
         """The expected value of `expression`, computed by the engine (see :meth:`get_expected_value_of`)."""
 
 
-    @abstractmethod
     def normalize(self) -> Distribution:
-        """ Normalizes the probability mass of the distribution."""
+        """
+        Normalizes the probability mass of the distribution: divides by the closed form at 1. Outside an
+        analysis (:func:`known_convergent_series`), raises `NonFiniteMarginalError` if it is not proven that
+        this value is the sum of the series (#427).
+        """
+        self._require_convergent_evaluation(set(), "The normalization")
+        return self._normalize()
+
+    @abstractmethod
+    def _normalize(self) -> Distribution:
+        """Engine hook of :meth:`normalize`: divides by the closed form at 1, without a convergence proof."""
 
     @abstractmethod
     def get_variables(self) -> Set[str]:
@@ -581,7 +590,12 @@ class Distribution(ABC):
         if _computed_term(condition, self.get_variables()) is not None:
             extended, replaced, fresh = self.without_computed_terms(condition)
             filtered = extended.filter(replaced)
-            return filtered._marginal(*fresh, method=MarginalType.EXCLUDE) if fresh else filtered  # pylint: disable=protected-access
+            if not fresh:
+                return filtered
+            # summing out the fresh variables evaluates at 1 (#427)
+            filtered._require_convergent_evaluation(  # pylint: disable=protected-access
+                filtered.get_variables() - set(fresh), f"The filter of {condition}")
+            return filtered._marginal(*fresh, method=MarginalType.EXCLUDE)  # pylint: disable=protected-access
 
         # Linear comparisons are evaluated exactly, e.g. 1/2*x < 2 becomes x < 4
         normalized = normalize_guard(condition, self.get_variables())
@@ -920,6 +934,10 @@ class Distribution(ABC):
             raise ValueError(
                 f"Cannot assign {expression.rhs} to variable {variable} because {variable} does not exist"
             )
+        if variable not in _variables_of(expression.rhs):
+            # the old value is summed out, i.e. set to 1 (#427); an update that reads it substitutes instead
+            self._require_convergent_evaluation(self.get_variables() - {variable},
+                                                f"The update {variable} := {expression.rhs}")
 
         # pylint: disable=protected-access
         def evaluate(function: Distribution, expression: Expr,
@@ -1419,10 +1437,25 @@ class Distribution(ABC):
         All variables occuring in the expression must have a finite marginal if approximation is disabled.
         """
 
-    @abstractmethod
     def update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
-                   variable: Union[str, VarExpr]) -> 'Distribution':
-        """ Updates the distribution by the the iid-sampling rules. """
+                   variable: Union[str, VarExpr]) -> Distribution:
+        """
+        Updates the distribution by the iid-sampling rules: `variable := iid(sampling_dist, count)`.
+
+        The old value of `variable` is summed out (set to 1), or, if `count` is `variable`, composed with the
+        generating function of `sampling_dist`, which converges where the series in `variable` converges
+        absolutely at 1. Outside an analysis (:func:`known_convergent_series`), raises `NonFiniteMarginalError`
+        if this is not proven (#427).
+        """
+        name = str(variable)
+        self._require_convergent_evaluation(self.get_variables() - {name},
+                                            f"The sampling {name} := iid({sampling_dist}, {count})")
+        return self._update_iid(sampling_dist, count, variable)
+
+    @abstractmethod
+    def _update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
+                    variable: Union[str, VarExpr]) -> Distribution:
+        """Engine hook of :meth:`update_iid`, without a convergence proof."""
 
     def marginal(self,
                  *variables: Union[str, VarExpr],

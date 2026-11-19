@@ -386,3 +386,13 @@ def test_the_result_view_offers_to_open_in_compare():
     assert "function openInCompare(details)" in main and "onOpenInCompare: openInCompare" in main
     library = (COMPONENTS.parent / "main.js").read_text(encoding="utf-8")
     assert 'setMode("compare")' in library and 'setMode("analyze")' in library
+
+
+def test_sandwich_examples_suggest_the_sandwich_strategy(client):
+    """#322: they are not unrolled but get the strategy the examples are written for."""
+    examples = client.get("/api/examples", headers=HOST).get_json()["examples"]
+    sandwich = [e["id"] for e in examples if e["id"].startswith("lower_bounds/sandwich/")]
+    assert len(sandwich) >= 10
+    for example_id in sandwich:
+        loaded = client.get(f"/api/examples/{example_id}", headers=HOST).get_json()
+        assert loaded["suggestion"]["decisions"] == {"*": {"strategy": "evt_sandwich", "params": {}}}, example_id

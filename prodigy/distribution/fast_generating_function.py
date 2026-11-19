@@ -265,7 +265,7 @@ class FPS(Distribution):
         sympy_engine = GeneratingFunction(str(self._dist), *self._variables)
         return sympy_engine._expected_value_of(text)  # pylint: disable=protected-access
 
-    def normalize(self) -> FPS:
+    def _normalize(self) -> FPS:
         return FPS.from_dist(self._dist.normalize(), self._variables, self._parameters)
 
     def get_variables(self) -> Set[str]:
@@ -566,8 +566,8 @@ class FPS(Distribution):
             self._case_split(lambda: self._dist.update_power(temp_var, base, exp, approximate), base, exp),
             self._variables, self._parameters)
 
-    def update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
-                   variable: Union[str, VarExpr]) -> FPS:
+    def _update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
+                    variable: Union[str, VarExpr]) -> FPS:
         if not isinstance(sampling_dist, FunctionCallExpr):
             result = FPS.from_dist(
                 self._dist.updateIid(str(variable),

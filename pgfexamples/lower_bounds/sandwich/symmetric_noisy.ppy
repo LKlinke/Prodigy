@@ -1,3 +1,4 @@
+# evt_sandwich pgfexamples/lower_bounds/sandwich/symmetric_noisy.ppy
 # ADVERSARIAL: symmetric random walk (null-recurrent: AST but not PAST) with a noisy counter y.
 # The distribution of y has a heavy tail, Pr(y >= k) ~ c/sqrt(k), so no finite-mass certificate is exact
 # (Theorem "exact completeness") and geometric templates converge slowly.

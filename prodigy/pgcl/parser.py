@@ -141,13 +141,17 @@ _OPERATOR_TABLE = [[infixl("or", "||")], [infixl("and", "&")],
                        infixl("ge", ">"),
                        infixl("geq", ">="),
                        infixl("eq", "=")
-                   ], [prefix("uminus" ,"-")], [infixl("plus", "+"),
+                   ], [infixl("plus", "+"),
                        infixl("minus", "-")], [infixl("likely", ":")],
                    [
                        infixl("times", "*"),
                        infixl("divide", "/"),
                        infixl("mod", "%")
-                   ], [infixr("power", "^")],
+                   ],
+                   # Unary minus and power share a level, as `factor` in the .ppy grammar: the minus
+                   # binds tighter than `*` and `+` but weaker than `^` (`-x^2` is `-(x^2)`), and
+                   # an exponent may be negated (`2^-x`).
+                   [prefix("uminus", "-"), infixr("power", "^")],
                    [
                        prefix("neg", "not "),
                        atom("parens", '"(" expression ")"'),
