@@ -1,3 +1,4 @@
+# evt_sandwich pgfexamples/lower_bounds/sandwich/escape_counter.ppy
 # Upward-drifting random walk with step counter: terminates with probability 1/2 only.
 # Sandwich of the (sub-probability) output distribution and of the termination probability.
 x: nat;

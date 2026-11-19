@@ -19,6 +19,7 @@ from prodigy.pgcl.check import CheckFail, check_program
 from prodigy.pgcl.language_warnings import LanguageWarning, language_warnings
 from prodigy.pgcl.positions import span_of
 
+from prodigy.analysis.deprecations import PGCL_DEPRECATION
 from prodigy.analysis.result import outline_program
 
 _CACHE: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
@@ -230,7 +231,7 @@ def type_error(program: Any, source: str, syntax: str = "pgcl") -> Optional[Dict
     """The GUI's diagnostic for the first type error of ``program`` (None if it type checks); also used by the CLI."""
     checked_program = copy.deepcopy(program)
     substitute.substitute_constants(checked_program)
-    failure = check_program(checked_program)
+    failure = check_program(checked_program, spell=lambda node: _spelling(node, syntax))
     return _check_failure(source, failure, syntax) if isinstance(failure, CheckFail) else None
 
 
@@ -299,7 +300,7 @@ def _check(source: str, syntax: str) -> Dict[str, Any]:
         # same as prodigy.pgcl.compiler.compile_pgcl, without parsing a second time
         checked_program = copy.deepcopy(program)
         substitute.substitute_constants(checked_program)
-        checked = check_program(checked_program)
+        checked = check_program(checked_program, spell=lambda node: _spelling(node, syntax))
         if isinstance(checked, CheckFail):
             diagnostics.append(_check_failure(source, checked, syntax))
     except Exception as exc:  # pylint: disable=broad-except
@@ -307,6 +308,9 @@ def _check(source: str, syntax: str) -> Dict[str, Any]:
                                        hint="Reported by the pGCL type checker; Prodigy may still be "
                                             "able to analyse the program."))
     diagnostics.extend(language_warning_diagnostics(program, source, syntax))
+    if syntax == "pgcl":
+        diagnostics.append(_diagnostic("warning", PGCL_DEPRECATION, None, source,
+                                       hint="Use Convert to .ppy in the toolbar."))
     diagnostics.extend(_nested_inference_limits(program, source))
     if outline is not None and not outline["queries"]:
         line, _ = _end_of_source(source)

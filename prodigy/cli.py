@@ -23,8 +23,9 @@ from prodigy.pgcl.syntax_errors import ProgramSyntaxError
 
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.exceptions import (HeuristicsError, UndefinedDistributionError, UnsupportedFeatureError,
-                                        VerificationError)
+from prodigy.analysis.deprecations import deprecation_warnings
+from prodigy.analysis.exceptions import (HeuristicsError, InvalidProbabilityError, UndefinedDistributionError,
+                                         UnsupportedFeatureError, VerificationError)
 from prodigy.analysis.equivalence.verdict import Comparison, compare, show_valuation
 from prodigy.analysis.input_distribution import InputDistributionError, input_distribution_from_text
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
@@ -57,7 +58,7 @@ class _CliGroup(click.Group):
         try:
             return super().invoke(ctx)
         except (UnsupportedFeatureError, UndefinedDistributionError, InputDistributionError, HeuristicsError,
-                VerificationError) as exc:
+                VerificationError, InvalidProbabilityError) as exc:
             # e.g. a refuted sub-invariant (#321) or the undecided candidates of a synthesis
             raise click.ClickException("\n".join([str(exc), *getattr(exc, "messages", ())])) from exc
 
@@ -165,8 +166,10 @@ def _read_program(program_file: IO, syntax: Optional[str]) -> Tuple[str, Program
     return source, program, chosen
 
 
-def _require_type_correct(program_file: IO, program: Program, source: str, syntax: str) -> None:
-    """Ends with the GUI's message if the type checker rejects the program (#334); prints its warnings on stderr."""
+def _require_type_correct(program_file: IO, program: Program, source: str, syntax: str,
+                          deprecations: bool = True) -> None:
+    """Ends with the GUI's message if the type checker rejects the program (#334); prints its warnings on stderr,
+    and the deprecation warnings (#432, #416) unless ``deprecations`` is False."""
     # pylint: disable=import-outside-toplevel
     from prodigy.web.diagnostics import language_warning_diagnostics, type_error
     diagnostic = type_error(program, source, syntax)
@@ -174,10 +177,24 @@ def _require_type_correct(program_file: IO, program: Program, source: str, synta
     if diagnostic is not None:
         raise click.ClickException(_with_source_line(f"{name}: type error: {diagnostic['message']}", source,
                                                      diagnostic["line"], diagnostic["column"]))
+    if deprecations:
+        _warn_deprecated(syntax)
     # warnings go to stderr, so that --json stays clean (#377, #335)
     for warning in language_warning_diagnostics(program, source, syntax):
         print(f"{name}:{warning['line']}:{warning['column']}: {Style.YELLOW}warning:{Style.RESET} "
               f"{warning['message']}", file=sys.stderr)
+
+
+def _warn_deprecated(syntax: str) -> None:
+    """Prints the deprecation warnings (``.pgcl``, SymEngine) on stderr, once per run, so that ``--json`` stays
+    clean (#432, #416). ``prodigy analyze`` reports them in the ``warnings`` of its result instead."""
+    ctx = click.get_current_context()
+    config: ForwardAnalysisConfig = ctx.obj['CONFIG']
+    shown: Set[str] = ctx.meta.setdefault("prodigy.deprecations_shown", set())
+    for warning in deprecation_warnings(syntax, config.engine.name):
+        if warning not in shown:
+            shown.add(warning)
+            print(f"{Style.YELLOW}Deprecated:{Style.RESET} {warning}", file=sys.stderr)
 
 
 _LOOP_OPTION_HELP = ("Strategy for a loop, as ID=STRATEGY[:NAME=VALUE,...], e.g. 0=unroll:iterations=100 or "
@@ -705,7 +722,7 @@ def analyze(  # pylint: disable=too-many-arguments
     --decisions). Queries are answered with sound intervals.
     """
     program_source, program, syntax = _read_program(program_file, syntax)
-    _require_type_correct(program_file, program, program_source, syntax)
+    _require_type_correct(program_file, program, program_source, syntax, deprecations=False)
     config: ForwardAnalysisConfig = ctx.obj['CONFIG']
     decisions = parse_decisions(_checked_decisions(_collect_decisions(loop_specs, decisions_file), program,
                                                    program_source, syntax))
@@ -752,7 +769,7 @@ def outline(program_file: IO, as_json: bool, syntax: Optional[str]) -> None:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import outline_program
     source, program, syntax = _read_program(program_file, syntax)
-    _require_type_correct(program_file, program, source, syntax)
+    _require_type_correct(program_file, program, source, syntax, deprecations=False)
     info = outline_program(program, source, syntax)
     if as_json:
         print(json.dumps(info, indent=2))
@@ -793,7 +810,7 @@ def convert(program_file: IO, output: Optional[IO]) -> None:
         raise _pgcl_syntax_error(name, source, exc) from exc
     except PpyPrintError as exc:
         raise click.ClickException(f"{name}: {exc}") from exc
-    _require_type_correct(program_file, compiler.parse_pgcl(source, "pgcl"), source, "pgcl")
+    _require_type_correct(program_file, compiler.parse_pgcl(source, "pgcl"), source, "pgcl", deprecations=False)
     for message in result.messages():
         click.echo(f"{name}: {message}", err=True)
     if output is None:

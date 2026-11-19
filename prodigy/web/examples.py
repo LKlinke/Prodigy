@@ -216,6 +216,9 @@ class ExampleLibrary:
             if example.args:
                 suggestion["input_distribution"] = example.args[-1] if not example.args[-1].startswith("-") \
                     else None
+        elif example.command == "evt_sandwich":
+            suggestion["decisions"] = {"*": {"strategy": "evt_sandwich", "params": {}}}
+            suggestion["note"] = "Sandwich: a lower and an upper bound from EVT sub- and super-invariants."
         elif example.command == "main" and example.args:
             suggestion["input_distribution"] = example.args[0]
         if loops and not suggestion["decisions"]:
@@ -226,7 +229,7 @@ class ExampleLibrary:
         return suggestion
 
 
-_COMMANDS = {"main", "skip", "check_equality", "invariant_synthesis", "independent_vars"}
+_COMMANDS = {"main", "skip", "check_equality", "invariant_synthesis", "independent_vars", "evt_sandwich"}
 
 
 def _command_words(first_line: str) -> List[str]:

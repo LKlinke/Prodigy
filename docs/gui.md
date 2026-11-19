@@ -93,7 +93,8 @@ Prodigy is tested with Python 3.11 and 3.14.
   Safari and Firefox cannot write to a folder: Open reads the chosen file, Save downloads the
   program. The program is also kept in the browser, together with the setup (the strategy of each
   loop), so a reload never loses either; replacing a program with unsaved changes (New, Open…, an example) asks first.
-* **Engine** (toolbar, pop-up button before Analyze, #308): SymPy, GiNaC or SymEngine for the next
+* **Engine** (toolbar, pop-up button before Analyze, #308): SymPy, GiNaC or SymEngine (deprecated in v0.5.0, removed in v0.6.0; choosing it says so, and
+  every result of it carries the warning) for the next
   run; GiNaC is usually much faster, SymPy is the reference implementation. An engine the server
   cannot use (GiNaC without `prodigy-ppl-ginac`) is listed as *not installed* and cannot be chosen;
   the tooltip says how to install it. The choice is part of the setup kept in the browser, stays
@@ -105,6 +106,9 @@ Keyboard: ⌘/Ctrl + Return analyses (checks, in Compare mode), ⌥⌘1 / ⌥⌘
 ⌘/Ctrl + S saves; F10 / ⇧F10 move the analysis card's timeline to the next / previous position,
 F5 / ⇧F5 to the next / previous breakpoint, and F9 in the editor sets a breakpoint. Every analysis runs in its own process with a time limit and can be stopped
 at any time.
+A message in the toolbar (an error, a notice) that does not fit is cut off with an ellipsis; a *Show full
+message* button next to it opens the whole text (Esc closes it), so it is reachable by keyboard and
+screen reader, and on a phone the message wraps.
 
 The GUI follows the system appearance (light or dark, macOS: System Settings → Appearance);
 following Apple's guidelines it has no switch of its own. Firefox can override the appearance
@@ -457,7 +461,8 @@ The GUI reads and writes both syntaxes: the Python-like `.ppy` and the original 
 (Return chooses `.ppy`, the syntax for new programs); examples open as `.ppy`. Highlighting, comments (`#` and `/* … */` in `.ppy`;
 `#` and `//` in pGCL), completion, diagnostics and the loop pills follow the syntax.
 
-**Convert to .ppy** (next to the syntax chip of a pGCL program) converts the program with the
+**Convert to .ppy** (next to the syntax chip of a pGCL program; `.pgcl` is deprecated in v0.5.0 and removed in v0.6.0, so
+the editor shows a deprecation warning for every pGCL program, and so does its result) converts the program with the
 same converter as `prodigy convert`. Names that are keywords in `.ppy` are renamed (`switch`
 becomes `switch_`); the notice lists the renamings. Invariant programs in the setup are
 converted as well. The conversion is one undoable change: ⌘Z restores the pGCL program, its

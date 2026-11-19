@@ -305,6 +305,8 @@ def _check_structure(expr: sympy.Expr, syms: List[sympy.Symbol]) -> _Verdict:
     power_verdict = _check_fractional_power(expr, syms)
     if power_verdict is not None:
         return power_verdict
+    if isinstance(expr, sympy.Mul):
+        expr = _normalise_factor_signs(expr, syms)
     if isinstance(expr, (sympy.Add, sympy.Mul)):
         rational = [a for a in expr.args if a.is_rational_function(*syms)]
         others = [a for a in expr.args if not a.is_rational_function(*syms)]
@@ -330,6 +332,34 @@ def _check_structure(expr: sympy.Expr, syms: List[sympy.Symbol]) -> _Verdict:
         return _PROVEN
     return None, (f"{_text(expr)} is not proven to be a power series at 0 with non-negative coefficients "
                   "(Prodigy certifies polynomials, rational functions, exp, and their sums and products)")
+
+
+def _normalise_factor_signs(expr: sympy.Mul, syms: List[sympy.Symbol]) -> sympy.Expr:
+    """
+    ``expr``, a product, with the signs of its factors normalised (an equal expression). An engine may print
+    ``(1 - sqrt(1 - x)) / (2 - y)`` as ``(-2 + y)^(-1) * (-1 + sqrt(1 - x))``: the factors are checked one by
+    one, and ``1 / (y - 2)`` has negative coefficients, although two negated factors give the same product
+    (#428). A rational factor whose value at 0 is negative is negated, and the sign is paired with a negation
+    of the first factor that is not rational; if no such factor exists, ``expr`` stays as it is.
+    """
+    origin = {s: 0 for s in syms}
+    sign = 1
+    factors: List[sympy.Expr] = []
+    for factor in expr.args:
+        base, exponent = factor.as_base_exp()
+        value = base.subs(origin) if base.is_rational_function(*syms) else None
+        if value is not None and value.is_number and value.is_negative and exponent.is_Integer:
+            base = sympy.expand(-base)
+            sign *= (-1) ** int(exponent)
+            factor = base ** exponent
+        factors.append(factor)
+    if sign == 1:
+        return sympy.Mul(*factors)
+    for index, factor in enumerate(factors):
+        if not factor.is_rational_function(*syms):
+            factors[index] = sympy.expand(-factor)
+            return sympy.Mul(*factors)
+    return expr
 
 
 def _check_fractional_power(expr: sympy.Expr, syms: List[sympy.Symbol]) -> Optional[_Verdict]:

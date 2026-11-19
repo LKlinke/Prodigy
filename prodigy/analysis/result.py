@@ -133,6 +133,7 @@ import sympy
 from prodigy.pgcl import (Binop, BinopExpr, BoolType, Expr, NatLitExpr, NatType, RealLitExpr,
                            Program, UnopExpr, VarExpr)
 
+from prodigy.analysis.deprecations import deprecation_warnings
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.streaming import Batcher, Sink
 from prodigy.distribution.coefficient_stream import marginal_stream
@@ -926,13 +927,20 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
     result.loops.sort(key=lambda r: (r["id"] is None, r["id"] if r["id"] is not None else 0))
     result.steps = session.steps
     result.trace = session.tracer.to_json() if session.tracer is not None else None
-    result.warnings = _language_warnings(session) + list(session.warnings) + [
+    result.warnings = _deprecation_warnings(session) + _language_warnings(session) + list(session.warnings) + [
         f"Undefined value (nan or ∞) in {part}; it has no guarantee. The distribution and the other queries "
         "are not affected." for part in undefined_queries]
     result.log = _ANSI.sub("", session.log.getvalue())
     result.timing["analysis"] = round(analysis_time, 6)
     result.timing["total"] = round(time.perf_counter() - started, 6)
     return result
+
+
+def _deprecation_warnings(session: Any) -> List[str]:
+    """The deprecations of a ``.pgcl`` program and of the SymEngine engine (:mod:`prodigy.analysis.deprecations`)."""
+    if session.program is None or session.silent:
+        return []
+    return deprecation_warnings(session.syntax, session.config.engine.name)
 
 
 def _language_warnings(session: Any) -> List[str]:

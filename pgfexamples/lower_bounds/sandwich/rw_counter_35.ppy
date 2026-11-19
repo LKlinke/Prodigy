@@ -1,3 +1,4 @@
+# evt_sandwich pgfexamples/lower_bounds/sandwich/rw_counter_35.ppy
 # As rw_counter_23 but with weaker drift (step down w.p. 3/5): heavier tail of c.
 x: nat;
 c: nat;

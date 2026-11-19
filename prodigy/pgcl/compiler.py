@@ -12,15 +12,27 @@ Variable/constant substituion is implemented in :mod:`prodigy.pgcl.substitute`.
 """
 
 import os
-from typing import List, Mapping, Optional, Union
+from typing import List, Mapping, Optional, Union, cast
 
 from prodigy.pgcl import substitute
 from prodigy.pgcl.util.ref import Mut
 
-from .ast import Expr, Program, Var, VarDecl
+from .ast import Expr, Instr, Node, Program, Var, VarDecl
 from .check import (CheckFail, check_expectation, check_expression,
                     check_program, sample_predefined_functions)
-from .parser import parse_expectation, parse_expr, parse_pgcl
+from .parser import parse_expectation, parse_expr, parse_pgcl, select_syntax
+
+
+def _ppy_spelling(node: Node) -> str:
+    """``node`` in ``.ppy`` syntax (the pGCL spelling if it has no ``.ppy`` form), for messages."""
+    # pylint: disable=import-outside-toplevel
+    from .ppy_printer import PpyPrintError, expr_to_ppy, instr_to_ppy
+    try:
+        if type(node).__name__.endswith("Expr"):
+            return expr_to_ppy(cast(Expr, node))
+        return instr_to_ppy(cast(Instr, node))
+    except PpyPrintError:
+        return str(node)
 
 
 def compile_pgcl(
@@ -53,7 +65,9 @@ def compile_pgcl(
     program = parse_pgcl(code, syntax, path=path)
     if substitute_constants:
         substitute.substitute_constants(program)
-    check_result = check_program(program, predefined_functions)
+    chosen = select_syntax(syntax, path)
+    check_result = check_program(program, predefined_functions,
+                                 spell=_ppy_spelling if chosen == "ppy" else None)
     if check_result is not None:
         return check_result
     return program

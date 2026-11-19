@@ -1,3 +1,4 @@
+# evt_sandwich pgfexamples/lower_bounds/sandwich/quadrant_timeout.ppy
 # Two-dimensional random walk in the quadrant with steps SW, W, S, N, E (uniform) and a timeout:
 # each round the walk is aborted w.p. 1/10 (z := 1).
 x: nat;
