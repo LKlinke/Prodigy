@@ -752,6 +752,7 @@ class AnalysisSession:
             self.tracer = Tracer(self, trace_limits,
                                  [parse_watch(text, syntax, names) for text in watches], on_step=on_step)
         self.warnings: List[str] = []
+        self.unproven_conditions: List[str] = []
         # bounds of a loop strategy for the queries right after its loop (LoopOutcome.query_bounds)
         self._loop_query_bounds: Dict[Tuple[str, str], Tuple[Any, Any]] = {}
         # exact query values on the distribution the loop returned (LoopOutcome.query_values)
@@ -1022,6 +1023,17 @@ class AnalysisSession:
     def warn(self, message: str) -> None:
         if not self.silent and message not in self.warnings:
             self.warnings.append(message)
+
+    def unproven(self, message: str) -> None:
+        """A side condition of the analysis step that is running could not be proven (e.g. that the argument of
+        ``sample_pgf`` is a probability generating function, #424): its result, and with it the result of the
+        current scope, has no guarantee. ``message`` says which condition and why; it is a warning of the program's
+        analysis, and kept in :attr:`unproven_conditions` also inside sub-analyses (e.g. for the reason of a
+        comparison's verdict)."""
+        self.scope.kind = Bound.combine(self.scope.kind, Bound.UNKNOWN)
+        if message not in self.unproven_conditions:
+            self.unproven_conditions.append(message)
+        self.warn(message)
 
     def progress(self, task: LoopTask, done: int, total: Optional[int], message: str = "") -> None:
         record = task.record

@@ -282,6 +282,9 @@ def main(ctx: click.Context, program_file: IO, input_dist: str,  # pylint: disab
     shown = display_form(dist).distribution if config.use_simplification else dist
     print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + "(" + str(shown) +
           ", " + str(error_prob) + ")" + Style.RESET)
+    # e.g. a side condition that could not be proven (#424)
+    for warning in session.warnings:
+        print(f"{Style.YELLOW}Warning:{Style.RESET} {warning}")
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
 
 

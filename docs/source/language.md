@@ -228,8 +228,8 @@ and required.
 | `binomial(n, p)` | binomial with `n` trials |
 | `negative_binomial(r, p)` | the number of failures before the `r`-th success: `k` with probability `C(k + r − 1, k) (1 − p)^k p^r`, `k ≥ 0`; the same as `iid(geometric(p), r)`. `r` is a natural number, `p` lies in `(0, 1]` |
 | `unif(a, b)` | uniform on `a, …, b` (also `unif_d`) |
-| `iid(D, n)` | the sum of `n` independent samples of `D`; `n` is a variable, a natural number or a draw such as `geometric(1/2)` |
-| `sample_pgf(G, x)` | `x` drawn from the generating function `G` in `x` (the second argument is the assigned variable) |
+| `iid(D, n)` | the sum of `n` independent samples of `D` (a distribution or a probability generating function); `n` is a variable, a natural number or a draw such as `geometric(1/2)` |
+| `sample_pgf(G, x)` | `x` drawn from the probability generating function `G` in `x` (the second argument is the assigned variable) |
 | `categorical({v1: p1, v2: p2, …})` | `v1` with probability `p1`, …; the values may be expressions over the variables; `categorical(p0, p1, …, pn)` for the values `0, …, n` |
 
 The arguments may depend on program variables, e.g. `x = bernoulli(1/k);`, and so may the
@@ -240,6 +240,18 @@ variable such as `1/(k + 1)`, the ratio `x/n` of two variables, and `x = unif(0,
 operators on the generating function. A value that is not admissible (a probability
 outside of `[0, 1]`, `geometric(p)` with `p = 0`, `unif(a, b)` with `a > b`, a division by zero) in a
 reachable state is an error. Details: {doc}`language-design`.
+
+The generating function `G` of `sample_pgf(G, x)` and `iid(G, n)` must be a *probability*
+generating function: a power series at 0 with non-negative coefficients and mass `G(1) = 1`.
+Sub-distributions (mass below 1) are not allowed; a program that may lose mass says so with a loop
+or an `observe`. Prodigy checks `G` with the rules of input distributions (see above) and the
+value at 1. If it is refuted (`sample_pgf(2*x, x)` has mass 2, `sample_pgf(1 - x + x^2, x)` a
+negative coefficient), the program is rejected: by the type checker when it can tell, otherwise
+by the analysis when it reaches the sampling. If it cannot be proven, the analysis goes on with a
+warning; without parameters, the result then has no guarantee (`unknown`). With parameters, the
+result holds for the parameter values for which `G` is a probability generating function, as for
+`geometric(p)` and the other distributions with parametric arguments (parameters have no declared
+range yet, so a `real` parameter's sign is unknown).
 
 The probabilities of `categorical` are literals and must sum to 1; this is checked when the
 program is read. `categorical`, `infer` and `sample` stand only as a whole right-hand side (of an

@@ -173,6 +173,42 @@ def _check_negative_binomial(expr: FunctionCallExpr) -> Optional[CheckFail]:
     return None
 
 
+def _check_generating_function(program: Program, expr: FunctionCallExpr) -> Optional[CheckFail]:
+    """
+    Check that the generating function ``G`` of ``sample_pgf(G, x)`` or ``iid(G, n)`` is not refuted to be a
+    probability generating function (non-negative coefficients, mass 1, #424), e.g. ``sample_pgf(2*x, x)``.
+    Only refutations are reported here; ``G`` with names that are neither program variables nor parameters (e.g.
+    variables of a function) and ``G`` that are not proven are left to the analysis, which checks every sampling
+    it executes (``prodigy.analysis.instructionhandler.sample_handler``).
+    """
+    if expr.function not in ('iid', 'sample_pgf') or len(expr.params[0]) < 2:
+        return None
+    generating_function, variable = expr.params[0][:2]
+    if isinstance(generating_function, (FunctionCallExpr, CategoricalExpr, SampleExpr)):
+        return None  # a distribution expression; its arguments are checked on their own
+    names = {ref.val.var for ref in walk_expr(Walk.DOWN, Mut.alloc(generating_function))
+             if isinstance(ref.val, VarExpr)}
+    if expr.function == 'sample_pgf' and isinstance(variable, VarExpr):
+        names.add(variable.var)
+    parameters = {str(name): typ for name, typ in program.parameters.items()}
+    if not names <= set(program.variables) | set(parameters):
+        return None
+    # pylint: disable=import-outside-toplevel
+    # Layering exception, see #423: the proof rules for generating functions are part of the analysis package
+    from prodigy.analysis.input_distribution import check_probability_generating_function
+    natural = tuple(sorted(name for name, typ in parameters.items() if isinstance(typ, NatType)))
+    try:
+        verdict, reason = check_probability_generating_function(
+            str(generating_function), tuple(sorted(names - set(parameters))), natural)
+    except Exception:  # pylint: disable=broad-except
+        return None  # the analysis checks it again and reports what goes wrong
+    if verdict is False:
+        return CheckFail(generating_function,
+                         f"{expr} needs a probability generating function (non-negative coefficients, mass 1), "
+                         f"but {generating_function} is not one: {reason}.")
+    return None
+
+
 def _check_function_call(
         program: Program, expr: FunctionCallExpr,
         predefined_functions: Mapping[Var, List[VarDecl]]) -> Optional[CheckFail]:
@@ -221,6 +257,8 @@ def _check_function_call(
                                                typ)
         covered_names.add(var)
 
+    if expr.function not in program.functions:
+        return _check_generating_function(program, expr)
     return None
 
 

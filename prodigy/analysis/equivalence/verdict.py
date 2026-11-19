@@ -397,8 +397,13 @@ def compare(program: "Program", other: "Program", session: "AnalysisSession") ->
     if differ is not None:
         check = CheckOutcome("failed", error={"type": "variables", "message": differ})
         return Comparison(check, None, decide(check, None, variables_differ=differ))
+    unproven = len(session.unproven_conditions)
     check = run_check(program, other, session)
     state = dict(check.counterexample or {})
     witness = None if check.answer == "equal" else search_witness(program, other, session, state)
     # the witness search takes the counterexample's input and compares before conditioning already
-    return Comparison(check, witness, decide(check, witness, input_tips=False), state)
+    verdict = decide(check, witness, input_tips=False)
+    if verdict["verdict"] == UNKNOWN and session.unproven_conditions[unproven:]:
+        # e.g. a generating function of sample_pgf that is not proven to be one (#424)
+        verdict["reason"] += " " + " ".join(session.unproven_conditions[unproven:])
+    return Comparison(check, witness, verdict, state)

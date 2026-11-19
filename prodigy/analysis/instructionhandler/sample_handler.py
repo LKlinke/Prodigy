@@ -5,6 +5,7 @@ from abc import abstractmethod
 from fractions import Fraction
 from typing import Callable, Dict, List, Sequence, Set, Tuple, Union
 
+from prodigy.pgcl.ast.types import NatType
 from prodigy.pgcl import (Instr, AsgnInstr, ChoiceInstr, Expr, FunctionCallExpr, NatLitExpr, Var, VarExpr,
                           sample_predefined_functions as distr_functions)
 
@@ -46,6 +47,7 @@ class SampleHandler(InstructionHandler):
                                            error_prob, config, analyzer)
 
         _check_arguments(instruction.rhs)
+        _check_generating_functions(instruction.rhs, instruction.lhs, prog_info)
         logger.info("Computing distribution sampling update.\n%s", instruction)
         variable: Var = instruction.lhs
         marginal = distribution.marginal(variable, method=MarginalType.EXCLUDE)
@@ -149,6 +151,59 @@ def _check_arguments(call: FunctionCallExpr) -> None:
     if call.function in ("unif", "unif_d") and len(values) == 2 and values[0] > values[1]:
         raise ValueError(f"The bounds of {call} are {values[0]} > {values[1]}; the lower bound must "
                          f"not exceed the upper bound.")
+
+
+def _generating_functions(call: FunctionCallExpr, assigned: Var) -> List[Tuple[FunctionCallExpr, Expr, Var]]:
+    """The generating functions given to ``sample_pgf`` and ``iid`` in ``call``, each with the call it is an
+    argument of and its variable: ``sample_pgf(G, x)`` reads ``G`` in ``x``, ``iid(G, n)`` in the assigned
+    variable (other program variables in ``G`` are variables of the generating function as well)."""
+    if call.function == "sample_pgf":
+        generating_function, variable = call.params[0][:2]
+        return [(call, generating_function, variable.var if isinstance(variable, VarExpr) else assigned)]
+    if call.function == "iid":
+        dist = call.params[0][0]
+        if isinstance(dist, FunctionCallExpr):
+            return _generating_functions(dist, assigned) if dist.function in distr_functions else []
+        return [(call, dist, assigned)]
+    return []
+
+
+def _check_generating_functions(call: FunctionCallExpr, assigned: Var, prog_info: ProgramInfo) -> None:
+    """
+    Checks that the generating functions given to ``sample_pgf`` and ``iid`` are probability generating
+    functions: power series at 0 with non-negative coefficients and mass 1 (#424), with the rules of input
+    distributions (:func:`~prodigy.analysis.input_distribution.check_probability_generating_function`).
+
+    Refuted: ``ValueError`` naming the generating function. Not proven: if the generating function depends on
+    parameters, the result is a formula in them that holds for the parameter values for which it is a
+    probability generating function, as for parametric arguments of the other distributions (e.g.
+    ``geometric(p)``), and a warning says so; otherwise the result has no guarantee
+    (:meth:`~prodigy.analysis.session.AnalysisSession.unproven`).
+    """
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.input_distribution import check_probability_generating_function
+    from prodigy.analysis.session import current_session
+    session = current_session()
+    parameters = {str(name): typ for name, typ in prog_info.parameters.items()}
+    natural = tuple(sorted(name for name, typ in parameters.items() if isinstance(typ, NatType)))
+    for sampling, generating_function, variable in _generating_functions(call, assigned):
+        names = expression_variables([generating_function])
+        variables = tuple(sorted((names - set(parameters)) | {str(variable)}))
+        verdict, reason = check_probability_generating_function(str(generating_function), variables, natural)
+        if verdict is True:
+            continue
+        text, construct = session.spell(generating_function), session.spell(sampling)
+        if verdict is False:
+            raise ValueError(f"{construct} needs a probability generating function (non-negative coefficients, "
+                             f"mass 1), but {text} is not one: {reason}.")
+        used = sorted(names & set(parameters))
+        if used:
+            session.warn(f"Prodigy could not prove that {text} in {construct} is a probability generating function "
+                         f"({reason}). The result holds for the values of the parameter"
+                         f"{'s' if len(used) > 1 else ''} {', '.join(used)} for which it is one.")
+        else:
+            session.unproven(f"Prodigy could not prove that {text} in {construct} is a probability generating "
+                             f"function ({reason}), so the result has no guarantee.")
 
 
 def _arguments(call: FunctionCallExpr) -> List[Expr]:
