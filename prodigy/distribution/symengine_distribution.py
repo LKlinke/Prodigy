@@ -137,6 +137,16 @@ class SymengineDist(Distribution):
         )
 
     def coefficient_sum(self) -> se.Expr:
+        """
+        The closed form at 1. Outside an analysis
+        (:func:`~prodigy.distribution.distribution.known_convergent_series`), raises
+        `NonFiniteMarginalError` if it is not proven to be the sum of the series (#427).
+        """
+        self._require_convergent_evaluation(set(), "The coefficient sum")
+        return self._coefficient_sum()
+
+    def _coefficient_sum(self) -> se.Expr:
+        """:meth:`coefficient_sum` without a convergence proof."""
         # TODO Limits seem to not be present in SE
         logger.info("Falling back to sympy")
         coefficient_sum: sp.Expr = sp.S(self._s_func).simplify()
@@ -291,7 +301,7 @@ class SymengineDist(Distribution):
         else:
             return _text(expected_value)
 
-    def normalize(self) -> SymengineDist:
+    def _normalize(self) -> SymengineDist:
         mass = _parse_to_symengine(self._probability_mass())
         if mass == 0:
             raise ZeroDivisionError
@@ -831,8 +841,8 @@ class SymengineDist(Distribution):
 
         return SymengineDist(res).set_variables_and_parameters(self.get_variables(), self.get_parameters())
 
-    def update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
-                   variable: Union[str, VarExpr]) -> SymengineDist:
+    def _update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
+                    variable: Union[str, VarExpr]) -> SymengineDist:
         subst_var = count.var if isinstance(count, VarExpr) else None
 
         def subs(dist_gf, subst_var, variable) -> SymengineDist:
@@ -968,9 +978,9 @@ class SymengineDist(Distribution):
                 yield SymengineDist(approx, *self._variables)
         elif isinstance(threshold, str):
             s_threshold = _parse_to_symengine(threshold)
-            assert s_threshold < self.coefficient_sum(), \
+            assert s_threshold < self._coefficient_sum(), \
                 f"Threshold cannot be larger than total coefficient sum! Threshold:" \
-                f" {s_threshold}, CSum {self.coefficient_sum()}"
+                f" {s_threshold}, CSum {self._coefficient_sum()}"
             for prob, state in self:
                 prob = _parse_to_symengine(prob)
                 state_expr: se.Basic = _parse_to_symengine(state.to_monomial())
@@ -1045,7 +1055,7 @@ class SymengineDist(Distribution):
         mass = _parse_to_symengine(probability_mass)
         if mass == 0:
             return SymengineDist('0', *self._variables)
-        elif mass > self.coefficient_sum():
+        elif mass > self._coefficient_sum():
             raise ValueError("Given probability mass is too large")
         elif mass < 0:
             raise ValueError("Given probability mass must be non-negative")
