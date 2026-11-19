@@ -832,7 +832,11 @@ def print_loop_strategies(as_json: bool) -> None:
 @click.option('--no-browser', is_flag=True, default=False, help="Do not open a browser window.")
 @click.option('--time-limit', default=120.0, show_default=True, type=float,
               help="Seconds an analysis may run before it is stopped.")
-@click.option('--max-jobs', default=2, show_default=True, type=int, help="Analyses running at the same time.")
+@click.option('--max-jobs', default=2, show_default=True, type=int,
+              help="Analyses and checks running at the same time.")
+@click.option('--max-background-jobs', default=2, show_default=True, type=int,
+              help="Background computations of the GUI (grids of the joint view, suggestions) running at the same "
+                   "time, in addition to --max-jobs; a new grid replaces the oldest one.")
 @click.option('--memory-limit', default=None, type=int, help="Memory limit per analysis in MB (Linux).")
 @click.option('--examples', 'examples_dir', default=None, type=click.Path(exists=True, file_okay=False),
               help="Folder with example programs (default: pgfexamples of this checkout or package).")
@@ -840,7 +844,8 @@ def print_loop_strategies(as_json: bool) -> None:
               help="Additional host name the server may be reached under (when not on localhost).")
 def web(  # pylint: disable=too-many-arguments
         ctx: click.Context, host: str, port: int, no_browser: bool, time_limit: float, max_jobs: int,
-        memory_limit: Optional[int], examples_dir: Optional[str], allowed_hosts: Tuple[str, ...]) -> None:
+        max_background_jobs: int, memory_limit: Optional[int], examples_dir: Optional[str],
+        allowed_hosts: Tuple[str, ...]) -> None:
     """
     Start the web GUI (a local web server) and open it in the browser.
     """
@@ -848,8 +853,8 @@ def web(  # pylint: disable=too-many-arguments
     from prodigy.web.app import serve
     config: ForwardAnalysisConfig = ctx.obj['CONFIG']
     serve(host=host, port=port, open_browser=not no_browser, time_limit=time_limit, max_jobs=max_jobs,
-          memory_limit=memory_limit, examples_dir=examples_dir, default_engine=config.engine.name.lower(),
-          allowed_hosts=allowed_hosts)
+          max_background_jobs=max_background_jobs, memory_limit=memory_limit, examples_dir=examples_dir,
+          default_engine=config.engine.name.lower(), allowed_hosts=allowed_hosts)
 
 
 if __name__ == "__main__":

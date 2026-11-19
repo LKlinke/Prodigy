@@ -106,6 +106,17 @@ Keyboard: ⌘/Ctrl + Return analyses (checks, in Compare mode), ⌥⌘1 / ⌥⌘
 F5 / ⇧F5 to the next / previous breakpoint, and F9 in the editor sets a breakpoint. Every analysis runs in its own process with a time limit and can be stopped
 at any time.
 
+What counts against the server's limits: analyses and checks, which you start, take one of the
+`--max-jobs` slots (default 2). The computations the GUI starts in the background, the grids of the
+joint view and the suggestions of a language model, have `--max-background-jobs` slots of their own
+(default 2) and never take a slot of an analysis. Moving the timeline or changing the pair of the joint view
+stops the grid that is no longer wanted, a new grid replaces the oldest running one, and a background job
+that no page asks about any more (closed or reloaded) is stopped after 20 s. Each job is still bound by the
+time limit and by `--memory-limit`. If an analysis is refused because the slots are taken (for example by
+another browser tab), the toolbar says what is running ("An analysis of a.ppy is running") and offers
+*Cancel it* / *Cancel them*; the button is focused so that Return cancels, and the message carries an icon
+and text, not just a colour.
+
 The GUI follows the system appearance (light or dark, macOS: System Settings → Appearance);
 following Apple's guidelines it has no switch of its own. Firefox can override the appearance
 for websites (Settings → General → Website appearance).
@@ -689,6 +700,7 @@ in the GUI's strategy pop-up in the section of its `group` (`automatic`, `exact`
 | `POST /api/check` `{source, syntax}` | diagnostics `{severity, message, line, column, end_line, end_column}` and outline (variables, loops with ids and lines, queries); with `input_distribution` (and `engine`) also `input_distribution: {status: ok | refused | skipped | timeout, message}`, shown at the Setup field (the check runs in a process that is killed after 8 s) |
 | `POST /api/convert` `{source}` | the pGCL program in `.ppy`: `{source, renamings: [{from, to}], messages}`; 422 with `line`/`column` if it is not valid pGCL |
 | `POST /api/analyze` | starts an analysis (`source, syntax, input_distribution, engine, normalize, simplification, decisions, coefficients, record_steps, watches, step_iterations, synthesis_strategy, template_heuristic, positivity_heuristic, solver, time_limit`; the two heuristics only apply to `synthesis_strategy` `from_heuristics`; `record_steps` records the step trace, `watches` (at most 8 queries such as `Pr[x == 3]`, in the program's syntax) are evaluated after every top-level step, `step_iterations` (1–200, default 40) bounds the iterates kept per loop) and returns a job id |
+| `GET /api/jobs` | the running jobs: `{jobs, background}`, each `{id, kind, description, elapsed, auxiliary}`; `jobs` are analyses and checks, `background` grids and suggestions |
 | `GET /api/jobs/<id>?log_offset=n` | state (`running`, `done`, `timeout`, `cancelled`, `crashed`), new console output, progress per loop, result; while it runs, `stream`: the coefficients computed so far (`variables`, `limit`, `bound`, `residual_mass`, `marginals: {x: {rows, done}}`, or for a grid job `grid` with `cells[r][c]` null while pending; `prodigy/web/jobs.py: merge_stream`) |
 | `DELETE /api/jobs/<id>` | cancels the analysis |
 | `POST /api/jobs/<id>/joint` `{x, y, x_window, y_window}` | starts a job for the exact coefficient grid of two variables of the finished analysis `<id>` (not of a comparison, which has no distributions); the windows `[from, to]` are optional (default: the support of a finite distribution, else 0–15) with at most 50 values per axis (`limits.max_joint_axis` in `GET /api/meta`) and values up to 1000. The distribution, the engine and the guarantee come from the result the server keeps, never from the request. The job's result is `{status: "ok", joint: {x, y, x_values, y_values, cells, bound, mass, shown_mass, outside_mass, residual_mass, finite_support, support}}`: `cells[r][c]` is `{prob, p}` (exact and float; for a lower bound also `upper`, `upper_p`) for `y = y_values[r]`, `x = x_values[c]`. 400 for an unknown variable, the same variable twice or a window beyond the limits, 404 for an unknown or pruned analysis (analyze again), 409 while it runs |
@@ -709,7 +721,7 @@ The server admits a generating function from the setup only if it consists of nu
 `+ - * / ^ **`, parentheses and the functions `sqrt exp log sin cos tan`, and parses as an
 expression of the program's syntax. Still, **do not expose the server to untrusted users without a sandbox** (container without
 network and file system access, resource limits). For a hosted teaching instance:
-`--host 0.0.0.0 --allowed-host prodigy.example.org --max-jobs 4 --time-limit 60
+`--host 0.0.0.0 --allowed-host prodigy.example.org --max-jobs 4 --max-background-jobs 4 --time-limit 60
 --memory-limit 2048` behind a reverse proxy, inside such a container.
 
 ## Design notes
