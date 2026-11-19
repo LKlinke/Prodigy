@@ -123,7 +123,7 @@ def test_proven_generating_function_has_no_warning(engine):
                       engine)
     assert result["status"] == "ok", result["error"]
     assert result["bounds"]["kind"] == "exact"
-    assert not result["warnings"]
+    assert not [w for w in result["warnings"] if "deprecated" not in w]  # SymEngine warns about itself
 
 
 def test_main_prints_the_warning(tmp_path):

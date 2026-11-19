@@ -19,6 +19,7 @@ from prodigy.pgcl.check import CheckFail, check_program
 from prodigy.pgcl.language_warnings import LanguageWarning, language_warnings
 from prodigy.pgcl.positions import span_of
 
+from prodigy.analysis.deprecations import PGCL_DEPRECATION
 from prodigy.analysis.result import outline_program
 
 _CACHE: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
@@ -307,6 +308,9 @@ def _check(source: str, syntax: str) -> Dict[str, Any]:
                                        hint="Reported by the pGCL type checker; Prodigy may still be "
                                             "able to analyse the program."))
     diagnostics.extend(language_warning_diagnostics(program, source, syntax))
+    if syntax == "pgcl":
+        diagnostics.append(_diagnostic("warning", PGCL_DEPRECATION, None, source,
+                                       hint="Use Convert to .ppy in the toolbar."))
     diagnostics.extend(_nested_inference_limits(program, source))
     if outline is not None and not outline["queries"]:
         line, _ = _end_of_source(source)

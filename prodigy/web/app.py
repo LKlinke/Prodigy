@@ -45,6 +45,7 @@ from urllib.parse import urlparse
 
 from flask import Flask, abort, jsonify, render_template, request
 
+from prodigy.analysis.deprecations import SYMENGINE_DEPRECATION
 from prodigy.web.examples import ConversionError, ExampleLibrary, convert, default_examples_dir
 from prodigy.web.jobs import BusyError, JobManager
 from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, check_input_distribution_bounded,
@@ -67,7 +68,8 @@ def _engine_info(default_engine: str) -> List[Dict[str, Any]]:
                 available = False
                 reason = "Not installed: install prodigy-ppl-ginac (the extra ginac) to use GiNaC."
         engines.append({"name": name, "label": label, "available": available, "reason": reason,
-                        "default": name == default_engine})
+                        "default": name == default_engine,
+                        "deprecation": SYMENGINE_DEPRECATION if name == "symengine" else None})
     return engines
 
 

@@ -67,7 +67,7 @@ def compile_pgcl(
         substitute.substitute_constants(program)
     chosen = select_syntax(syntax, path)
     check_result = check_program(program, predefined_functions,
-                                 spell=(lambda node: _ppy_spelling(node)) if chosen == "ppy" else None)
+                                 spell=_ppy_spelling if chosen == "ppy" else None)
     if check_result is not None:
         return check_result
     return program

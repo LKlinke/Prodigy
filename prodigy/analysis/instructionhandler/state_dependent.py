@@ -159,7 +159,8 @@ def checked_probability(probability: Expr, construct: str,
     """
     The value of ``probability`` if it is a constant (``None`` if it contains parameters). Raises
     ``InvalidProbabilityError`` (a ``ValueError``) if it is not a probability, i.e. undefined (e.g. a
-    division by zero) or outside of [0, 1]; ``part`` is the part of the distribution the value was computed in, for the message.
+    division by zero) or outside of [0, 1]; ``part`` is the part of the distribution the value was computed in, for the
+    message.
     """
     if expression_variables([probability]):
         # symbolic in the parameters, like a constant parametric probability

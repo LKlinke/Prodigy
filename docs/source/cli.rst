@@ -11,6 +11,15 @@ surface syntaxes. The file extension decides: ``.ppy`` is read in the Python-lik
 ``--syntax ppy`` overrides the extension, e.g. for files without one. ``check_equality`` reads each
 of its two files by its own extension, unless ``--syntax`` is given.
 
+.. note::
+
+   The ``.pgcl`` syntax and ``--engine symengine`` are **deprecated in v0.5.0 and removed in v0.6.0**
+   (including ``prodigy convert``). The commands that read a ``.pgcl`` program or run with
+   ``--engine symengine`` print a deprecation warning on stderr; ``prodigy analyze`` puts it into the
+   ``warnings`` of the result instead (so ``--json`` stays clean). Convert programs with
+   ``prodigy convert program.pgcl`` while v0.5.x is installed; use ``--engine sympy`` (the reference)
+   or ``--engine ginac`` (the fast one).
+
 An invariant given as program text, with ``--loop ID=invariant:invariant=...`` or
 ``invariant_file=...``, is read in the syntax of the program. Generating functions (``--invariant``
 of ``invariant_synthesis`` and ``evt_lower_bound``, the EVT strategies) are not program text and

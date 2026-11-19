@@ -4,7 +4,9 @@
 `.ppy` is Prodigy's program syntax: curly-brace blocks and semicolons, with Python's operators
 and declarations. Files with the extension `.ppy` are read in it; the examples in `pgfexamples/`
 are written in it. The original pGCL syntax (`.pgcl`) is still read everywhere (see
-{ref}`pgcl_grammar`), and `prodigy convert` translates it into `.ppy` (see {doc}`cli`). Both
+{ref}`pgcl_grammar`), and `prodigy convert` translates it into `.ppy` (see {doc}`cli`). **`.pgcl` is
+deprecated in v0.5.0 and removed in v0.6.0**, together with `prodigy convert`: convert your programs
+while v0.5.x is installed; reading a `.pgcl` program gives a deprecation warning. Both
 syntaxes produce the same program, so the analysis does not depend on the syntax. The reasons
 for the design are in {doc}`language-design`.
 
