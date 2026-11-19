@@ -17,7 +17,7 @@ A small Flask application: one page (``templates/app.html`` with the ES modules 
 ``POST /api/equivalence``         starts a job that compares two programs (``other_source``, see
                                   :func:`prodigy.web.requests.run_equivalence`), returns a job id
 ``GET  /api/jobs/<id>``           state, new console output, progress, result when done
-``GET  /api/jobs``               the running jobs (analyses and checks, background jobs)
+``GET  /api/jobs``                 the running jobs (analyses and checks, background jobs)
 ``DELETE /api/jobs/<id>``         cancels the analysis
 ``POST /api/jobs/<id>/joint``     starts a job for the exact coefficient grid of two variables of a
                                   finished analysis (``x``, ``y``, optional windows), see
