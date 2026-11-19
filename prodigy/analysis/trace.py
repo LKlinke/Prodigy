@@ -443,7 +443,7 @@ class Tracer:
         if dist_values:
             snap["dists"] = dist_values
         small = len(closed) <= limits.closed_form_chars
-        if small and len(closed) <= 600:
+        if small:  # the formula box bounds the size of what is shown (#322)
             snap["latex"] = _safe(lambda: to_latex(dist))
         variables = sorted(map(str, _safe(dist.get_variables) or ()))
         omitted = self._marginals_omitted(small)
