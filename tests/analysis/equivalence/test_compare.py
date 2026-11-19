@@ -186,7 +186,7 @@ def test_a_non_finite_marginal_is_a_limitation_of_the_check(monkeypatch):
 # Pairs whose check ends without a result (on main as an error of `check_equality`), with the reason
 LIBRARY_FAILING: Dict[str, str] = {}  # #403 fixed the last two (the check lost the parameters of the loop)
 # Pairs whose invariant programs sample generating functions that are probability generating functions, but
-# Prodigy cannot prove it (#424): (1 - sqrt(1 - c^2))/c and rational functions with irrational poles. Their
+# Prodigy cannot prove it (#424, missing proof rules: #431): (1 - sqrt(1 - c^2))/c and rational functions with irrational poles. Their
 # analysis has no guarantee, so no relation is proven.
 LIBRARY_UNPROVEN = {"random_walk", "random_walk_parameter", "sequential_loops", "bit_flip_conditioning",
                     "bit_flip_conditioning_parameter"}

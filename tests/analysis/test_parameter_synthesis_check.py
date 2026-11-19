@@ -41,21 +41,27 @@ def test_one_unrolling_keeps_the_parameters_of_the_loop():
 
 
 @pytest.mark.parametrize("engine", ENGINES)
-@pytest.mark.parametrize("name, constraints", [
+@pytest.mark.parametrize("name, constraints, relation", [
     # the invariants are those of p = 1/2; the check used to lose p and refute them
-    ("geometric_observe_parameter", [{"p": "1/2"}]),
-    ("random_walk_parameter", [{"p": "1/2"}]),
+    ("geometric_observe_parameter", [{"p": "1/2"}], eq.FIRST_BELOW_SECOND),
+    # its invariant samples iid((1 - sqrt(1 - c^2))/c, s), a probability generating function that Prodigy cannot
+    # prove to be one (#431), so the analysis of the invariant has no guarantee and no relation is proven (#424)
+    ("random_walk_parameter", [{"p": "1/2"}], None),
     # GiNaC took the parameter of the iid distribution for a variable ("must be univariate")
-    ("negative_binomial_parameter", []),
-    ("negative_binomial_reversed_parameter", [{"p": "1/2"}]),
+    ("negative_binomial_parameter", [], eq.FIRST_BELOW_SECOND),
+    ("negative_binomial_reversed_parameter", [{"p": "1/2"}], eq.FIRST_BELOW_SECOND),
 ])
-def test_synthesis_examples_find_their_parameter_values(engine, name, constraints, monkeypatch):
+def test_synthesis_examples_find_their_parameter_values(engine, name, constraints, relation, monkeypatch):
     invariant = SYNTHESIS / "invariants" / f"{name}_invariant.ppy"
     comparison = _compare((SYNTHESIS / f"{name}.ppy").read_text(encoding="utf-8"),
                           invariant.read_text(encoding="utf-8"), ["1", str(invariant)], engine, monkeypatch)
     assert comparison.check.answer == "equal", comparison.check.error
     assert comparison.check.constraints == constraints
-    assert comparison.verdict["relation"] == eq.FIRST_BELOW_SECOND
+    assert comparison.verdict["relation"] == relation
+    if relation is None:
+        assert comparison.verdict["verdict"] == eq.UNKNOWN
+        assert "could not prove that" in comparison.verdict["reason"]
+        assert "(1 - (1 - c * c) ** (1/2)) / c" in comparison.verdict["reason"]
 
 
 LOOP = "c: nat;\nx: nat;\n{param}while (c == 1) {{\n    {{ c = 0; }} [{prob}] {{ x = x + 1; }}\n}}\n"
