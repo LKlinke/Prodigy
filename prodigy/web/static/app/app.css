@@ -313,9 +313,27 @@ a.button { text-decoration: none; }
 /* on a phone the status gets a line of its own, so the group wraps instead of widening the page (#413) */
 @media (max-width: 520px) {
   .run-status { max-width: 100%; min-width: 0; flex: 1 0 100%; }
-  .run-status > .outcome { min-width: 0; white-space: normal; }
+  .run-status .outcome, .run-message > .outcome { min-width: 0; overflow: hidden; }
+.run-message-text { min-width: 0; white-space: normal; }
 }
 .run-status > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* a message that does not fit: the text is cut off, a button opens all of it (#426) */
+.run-status { position: relative; }
+.run-status > .run-message { display: inline-flex; align-items: center; gap: 4px; overflow: visible; max-width: 100%; }
+.run-message > .outcome { min-width: 0; overflow: hidden; }
+.run-message-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run-message-more { flex-shrink: 0; white-space: nowrap; font-size: var(--text-callout); }
+.run-message-popover {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; width: min(420px, calc(100vw - 32px));
+  max-height: 50vh; overflow: auto; padding: 10px 12px; white-space: pre-wrap; overflow-wrap: anywhere;
+  background: var(--surface); color: var(--text); border: 1px solid var(--separator-strong);
+  border-radius: var(--radius-control); box-shadow: var(--shadow-sheet); font-size: var(--text-callout);
+}
+.run-message-popover:focus-visible { outline: none; box-shadow: var(--shadow-sheet), var(--focus-ring); }
+@media (max-width: 520px) {
+  .run-status > .run-message { flex-wrap: wrap; }
+  .run-message-popover { left: 0; right: auto; }
+}
 .icon .filled, .icon.filled { fill: currentColor; stroke: none; }
 
 .link-button {

@@ -1038,11 +1038,48 @@ function setRunning(running) {
   if (!running) $("run-status").replaceChildren();
 }
 
+let runMessageCounter = 0;
+
 function showRunMessage(message, tone = "error") {
   const status = $("run-status");
-  // a long message is cut off in the toolbar: the whole text is its tooltip
-  status.replaceChildren(h("span", { class: tone === "error" ? "outcome" : "", "data-kind": tone === "error" ? "error" : null,
-    title: message }, icon(tone === "error" ? "error" : "info"), " ", message));
+  const text = h("span", { class: "run-message-text" }, message);
+  const outcome = h("span", { class: tone === "error" ? "outcome" : "", "data-kind": tone === "error" ? "error" : null },
+    icon(tone === "error" ? "error" : "info"), " ", text);
+  const wrap = h("span", { class: "run-message" }, outcome);
+  status.replaceChildren(wrap);
+  // a long message is cut off in the toolbar; the whole text opens in a popover that the keyboard reaches
+  // (a `title` tooltip does not, #426)
+  requestAnimationFrame(() => {
+    if (wrap.isConnected && text.scrollWidth > text.clientWidth) addMessageDisclosure(wrap, message);
+  });
+}
+
+function addMessageDisclosure(wrap, message) {
+  const id = `run-message-${++runMessageCounter}`;
+  const popover = h("div", { class: "run-message-popover", id, hidden: true, tabindex: "-1" }, message);
+  const button = h("button", { type: "button", class: "link-button run-message-more", "aria-expanded": "false",
+    "aria-controls": id }, "Show full message");
+  const close = (focus) => {
+    popover.hidden = true;
+    button.setAttribute("aria-expanded", "false");
+    button.textContent = "Show full message";
+    delete wrap.dataset.open;
+    document.removeEventListener("pointerdown", onOutside, true);
+    if (focus) button.focus();
+  };
+  const onOutside = (event) => { if (!wrap.contains(event.target)) close(false); };
+  button.addEventListener("click", () => {
+    if (!popover.hidden) { close(false); return; }
+    popover.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+    button.textContent = "Hide full message";
+    wrap.dataset.open = "";
+    document.addEventListener("pointerdown", onOutside, true);
+  });
+  wrap.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !popover.hidden) { event.stopPropagation(); close(true); }
+  });
+  wrap.append(" ", button, popover);
 }
 
 /** A short notice (opened, saved); information disappears after a few seconds. */
@@ -1051,7 +1088,9 @@ function notify(message, tone = "info") {
   const shown = $("run-status").firstChild;
   if (tone === "info") {
     setTimeout(() => {
-      if (!state.job && $("run-status").firstChild === shown) $("run-status").replaceChildren();
+      if (!state.job && $("run-status").firstChild === shown && !("open" in shown.dataset)) {
+        $("run-status").replaceChildren();
+      }
     }, 5000);
   }
 }

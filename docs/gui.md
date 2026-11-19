@@ -105,6 +105,9 @@ Keyboard: ⌘/Ctrl + Return analyses (checks, in Compare mode), ⌥⌘1 / ⌥⌘
 ⌘/Ctrl + S saves; F10 / ⇧F10 move the analysis card's timeline to the next / previous position,
 F5 / ⇧F5 to the next / previous breakpoint, and F9 in the editor sets a breakpoint. Every analysis runs in its own process with a time limit and can be stopped
 at any time.
+A message in the toolbar (an error, a notice) that does not fit is cut off with an ellipsis; a *Show full
+message* button next to it opens the whole text (Esc closes it), so it is reachable by keyboard and
+screen reader, and on a phone the message wraps.
 
 The GUI follows the system appearance (light or dark, macOS: System Settings → Appearance);
 following Apple's guidelines it has no switch of its own. Firefox can override the appearance
