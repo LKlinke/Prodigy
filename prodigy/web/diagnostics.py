@@ -230,7 +230,7 @@ def type_error(program: Any, source: str, syntax: str = "pgcl") -> Optional[Dict
     """The GUI's diagnostic for the first type error of ``program`` (None if it type checks); also used by the CLI."""
     checked_program = copy.deepcopy(program)
     substitute.substitute_constants(checked_program)
-    failure = check_program(checked_program)
+    failure = check_program(checked_program, spell=lambda node: _spelling(node, syntax))
     return _check_failure(source, failure, syntax) if isinstance(failure, CheckFail) else None
 
 
@@ -299,7 +299,7 @@ def _check(source: str, syntax: str) -> Dict[str, Any]:
         # same as prodigy.pgcl.compiler.compile_pgcl, without parsing a second time
         checked_program = copy.deepcopy(program)
         substitute.substitute_constants(checked_program)
-        checked = check_program(checked_program)
+        checked = check_program(checked_program, spell=lambda node: _spelling(node, syntax))
         if isinstance(checked, CheckFail):
             diagnostics.append(_check_failure(source, checked, syntax))
     except Exception as exc:  # pylint: disable=broad-except

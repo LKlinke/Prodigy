@@ -253,6 +253,16 @@ result holds for the parameter values for which `G` is a probability generating 
 `geometric(p)` and the other distributions with parametric arguments (parameters have no declared
 range yet, so a `real` parameter's sign is unknown).
 
+`iid(G, n)` and `sample_pgf(G, x)` read `G` as a generating function in the *assigned* variable
+`x := iid(G, n)`. If `G` mentions another program variable `y` (e.g. `x = iid(1/2 + y/2, n)`), `y` is
+not a value that is drawn: the analysis substitutes `G^n` for `x` in the generating function of the
+current distribution as it stands (a *raw substitution*), so `y` stays a formal variable of that
+generating function and is not sampled independently of the other variables. Loop invariants use this
+(`y` marks the values of `y` that the invariant counts), but for a program that means "`n`
+independent samples", draw the values into a variable first. The substitution is not checked against
+this reading: Prodigy does not reject such a `G` (the type checker only requires a program variable or
+a natural number as `n`, and the assigned variable as the second argument of `sample_pgf`).
+
 The probabilities of `categorical` are literals and must sum to 1; this is checked when the
 program is read. `categorical`, `infer` and `sample` stand only as a whole right-hand side (of an
 assignment, an initial value, a `return` or an argument).

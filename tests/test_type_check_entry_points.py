@@ -1,9 +1,11 @@
 """Every entry point type-checks the program, not only `prodigy analyze` (#351)."""
+import pytest
 from click.testing import CliRunner
 
 from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
 from prodigy.pgcl import parse_pgcl
+from prodigy.pgcl.compiler import compile_pgcl
 
 # `y` is no declared variable
 BAD = "nat x;\nx := y\n"
@@ -32,3 +34,27 @@ def test_session_reports_type_errors_in_the_result():
     result = AnalysisSession(parse_pgcl(BAD), source=BAD).run()
     assert result.status == "error"
     assert "Type error" in result.error["message"]
+
+
+# the probability 5/k is 5/3 for k = 3 (#425)
+BAD_PROBABILITY_PPY = "x: nat;\nk: nat;\nk = 3;\n{ x = 1; } [5 / k] { x = 2; }\n"
+
+
+@pytest.mark.parametrize("engine", ["sympy", "ginac"])
+@pytest.mark.parametrize("command", ["main", "analyze"])
+def test_invalid_choice_probability_is_a_message_not_a_traceback(tmp_path, engine, command):
+    if engine == "ginac":
+        pytest.importorskip("prodigy_ginac")
+    path = tmp_path / "bad.ppy"
+    path.write_text(BAD_PROBABILITY_PPY)
+    result = CliRunner().invoke(cli, ["--engine", engine, command, str(path)])
+    assert result.exit_code != 0
+    assert "not a probability" in result.output
+    assert not isinstance(result.exception, ValueError)  # no traceback
+
+
+def test_type_errors_spell_expressions_in_the_syntax_of_the_program():
+    ppy = "x: nat;\ny: nat;\nx = iid(1/2, y * 2);\n"
+    failure = compile_pgcl(ppy, syntax="ppy")
+    assert "y * 2" in failure.message and "iid(1/2, y * 2)" in failure.message
+    assert "(y) * (2)" not in failure.message

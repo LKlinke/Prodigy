@@ -26,6 +26,7 @@ from prodigy.pgcl import Expr, NatLitExpr, VarExpr
 from prodigy.pgcl.ast.walk import Walk, walk_expr
 from prodigy.pgcl.util.ref import Mut
 
+from prodigy.analysis.exceptions import InvalidProbabilityError
 from prodigy.distribution import Distribution
 from prodigy.distribution.distribution import State, constant_value
 from prodigy.distribution.equality import sympify_symbolic_string
@@ -157,8 +158,8 @@ def checked_probability(probability: Expr, construct: str,
                         part: Optional[StatePart] = None) -> Optional[Fraction]:
     """
     The value of ``probability`` if it is a constant (``None`` if it contains parameters). Raises
-    ``ValueError`` if it is not a probability, i.e. undefined (e.g. a division by zero) or outside
-    of [0, 1]; ``part`` is the part of the distribution the value was computed in, for the message.
+    ``InvalidProbabilityError`` (a ``ValueError``) if it is not a probability, i.e. undefined (e.g. a
+    division by zero) or outside of [0, 1]; ``part`` is the part of the distribution the value was computed in, for the message.
     """
     if expression_variables([probability]):
         # symbolic in the parameters, like a constant parametric probability
@@ -166,8 +167,8 @@ def checked_probability(probability: Expr, construct: str,
     where = f" in {part.describe()}" if part else ""
     value = constant_value(probability)
     if value is None:
-        raise ValueError(f"{construct} is undefined{where}: {probability} has no value.")
+        raise InvalidProbabilityError(f"{construct} is undefined{where}: {probability} has no value.")
     if not 0 <= value <= 1:
-        raise ValueError(f"{construct} is {value}{where}, which is not a probability "
-                         f"(it must be in [0, 1]).")
+        raise InvalidProbabilityError(f"{construct} is {value}{where}, which is not a probability "
+                                      f"(it must be in [0, 1]).")
     return value

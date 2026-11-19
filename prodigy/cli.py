@@ -23,8 +23,8 @@ from prodigy.pgcl.syntax_errors import ProgramSyntaxError
 
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.exceptions import (HeuristicsError, UndefinedDistributionError, UnsupportedFeatureError,
-                                        VerificationError)
+from prodigy.analysis.exceptions import (HeuristicsError, InvalidProbabilityError, UndefinedDistributionError,
+                                         UnsupportedFeatureError, VerificationError)
 from prodigy.analysis.equivalence.verdict import Comparison, compare, show_valuation
 from prodigy.analysis.input_distribution import InputDistributionError, input_distribution_from_text
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
@@ -57,7 +57,7 @@ class _CliGroup(click.Group):
         try:
             return super().invoke(ctx)
         except (UnsupportedFeatureError, UndefinedDistributionError, InputDistributionError, HeuristicsError,
-                VerificationError) as exc:
+                VerificationError, InvalidProbabilityError) as exc:
             # e.g. a refuted sub-invariant (#321) or the undecided candidates of a synthesis
             raise click.ClickException("\n".join([str(exc), *getattr(exc, "messages", ())])) from exc
 
