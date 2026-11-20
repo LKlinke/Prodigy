@@ -115,6 +115,10 @@ on its own.
 - Soundness first. A result may only be reported as exact, or as a lower or upper bound, if a
   check proves it; otherwise it is `unknown`. Candidates from heuristics or language models are
   only proposals, and Prodigy's exact checks decide.
+- Rules for classes, never for single programs: a proof rule, heuristic or special case covers a
+  class of problems with a stated mathematical justification (in its docstring). The class may be
+  small, but it must be well-founded; examples are only test cases. A PR names the class and its
+  justification and tests generic members of it, not only the example that triggered it.
 - Syntax and semantics are separate: every program with a well-defined semantics is accepted by the
   parser and the type checker. What the analysis cannot compute (yet) ends with a clear "not
   implemented" message naming the construct, never with a wrong or approximate result
