@@ -397,7 +397,7 @@
 .vo-stops { display: flex; justify-content: space-between; }
 .vo-stop {
   border: 0; background: none; font: inherit; font-size: var(--text-callout, 12px); color: var(--rv-text-2, var(--text-2));
-  min-height: 24px; min-width: 32px; padding: 0 6px; border-radius: 5px; cursor: default;
+  min-height: 28px; min-width: 32px; padding: 0 6px; border-radius: 5px; cursor: default;
 }
 .vo-stop:hover { background: var(--fill, rgba(118, 118, 128, 0.12)); }
 /* the stop in force: bold, underlined and in the text colour, not by colour alone */
@@ -406,7 +406,7 @@
 .vo-value { font-size: var(--text-callout, 12px); font-variant-numeric: tabular-nums; }
 .vo-choices { display: grid; gap: 2px; }
 .vo-row { grid-auto-flow: column; justify-content: start; gap: 18px; }
-.vo-choice { display: flex; align-items: center; gap: 8px; min-height: 26px; }
+.vo-choice { display: flex; align-items: center; gap: 8px; min-height: 28px; }
 .vo-choice input { margin: 0; accent-color: var(--accent, #0066CC); }
 .vo-ramp { width: 44px; height: 10px; border-radius: 3px; border: 1px solid var(--rv-separator, var(--separator)); flex-shrink: 0; }
 .vo-note { margin: 0; font-size: var(--text-caption, 11px); color: var(--rv-text-2, var(--text-2)); }

@@ -366,7 +366,8 @@ function bars3d(grid, colours, view, readout, width, options = DEFAULT_VIEW) {
       const [ar, ac] = view.active;
       const bar = bars.find((b) => b.r === ar && b.c === ac);
       ctx.setLineDash([]);
-      if (bar) for (const points of bar.polygons) polygon(points, null, strong, 2);
+      // a halo in the surface colour under the outline keeps it visible on dark bars (greyscale)
+      if (bar) for (const points of bar.polygons) { polygon(points, null, surface, 4); polygon(points, null, strong, 2); }
       else {
         ctx.setLineDash([3, 3]);
         polygon(floor[ar * cols + ac].points, null, strong, 2);

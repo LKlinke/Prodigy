@@ -140,7 +140,8 @@ export function marginalChart(table, { residual = null, residualExact = null, va
   const barW = Math.max(2, Math.min(36, slot * 0.72));
 
   const tickText = (tick) => (scale.lambda === 0 ? powerOfTen(Math.round(Math.log10(tick))) : formatNumber(tick, 2));
-  const grid = (linear ? [0, max / 2, max] : scale.ticks).map((tick) => s("g", { class: "mc-grid" },
+  // on a scale that is not linear the floor sits on the axis, where the scale's own label is
+  const grid = (linear ? [0, max / 2, max] : scale.ticks.filter((tick) => fraction(tick) > 0)).map((tick) => s("g", { class: "mc-grid" },
     s("line", { x1: left, x2: left + plotW, y1: y(tick), y2: y(tick) }),
     s("text", { x: left + plotW + 6, y: y(tick) + 4 }, tickText(tick))));
   if (!linear) {

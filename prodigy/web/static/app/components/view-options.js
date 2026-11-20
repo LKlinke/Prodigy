@@ -158,7 +158,9 @@ export function viewOptionsControl({ label = "View options of the plots" } = {})
         h("span", {}, "Show unaccounted mass (?)"))));
 
   const sync = (o) => {
-    slider.value = String(Math.round((1 - o.lambda) * 100));
+    // the slider keeps its own position while it is within the snapping distance of a stop, so that the
+    // arrow keys can move it off a stop (rewriting it to the stop would hold it there)
+    if (snapLambda(1 - Number(slider.value) / 100) !== o.lambda) slider.value = String(Math.round((1 - o.lambda) * 100));
     slider.setAttribute("aria-valuetext", scaleName(o.lambda));
     scaleValue.textContent = scaleName(o.lambda);
     for (const stop of stops.children) stop.setAttribute("aria-pressed", String(Number(stop.dataset.lambda) === o.lambda));

@@ -10,7 +10,7 @@ export const LOG_DECADES = 12;
 /** The positions the scale slider snaps to, from linear to logarithmic. */
 export const SCALE_STOPS = Object.freeze([
   Object.freeze({ lambda: 1, name: "Linear", short: "Linear" }),
-  Object.freeze({ lambda: 0.5, name: "Square root", short: "√" }),
+  Object.freeze({ lambda: 0.5, name: "Square root", short: "√ Root" }),
   Object.freeze({ lambda: 0, name: "Logarithmic", short: "Log" }),
 ]);
 

@@ -172,7 +172,7 @@ export const PROBABILITY_GUARANTEE = {
 
 /** How a bar chart draws the intervals (charts.js: marginalChart). */
 export const BAR_LEGEND = {
-  lower: "Bars are solid up to the lower end and hatched up to the upper end.",
+  lower: "Bars are solid up to the lower end; hover a bar for the dashed part up to its upper end. The hatched “?” bar is the mass not yet accounted for.",
   upper: "Hatched bars reach up to the upper end.",
 };
 
