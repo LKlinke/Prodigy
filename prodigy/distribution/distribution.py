@@ -361,6 +361,19 @@ def _in_programs_terms(error: Exception, names: Dict[str, str]) -> Exception:
     return type(error)(message)
 
 
+def _with_terms(text: str, terms: Dict[str, str]) -> str:
+    """
+    `text` with every temporary variable of `terms` (temporary variable to the term as the program wrote it,
+    #425) substituted by its term, in parentheses unless the term is a name or a number, so that the closed
+    form of a distribution reads in the terms of the program (#221).
+    """
+    if not terms:
+        return text
+    pattern = re.compile(r"\b(" + "|".join(re.escape(name) for name in terms) + r")\b")
+    return pattern.sub(lambda match: terms[match.group(1)] if re.fullmatch(r"\w+", terms[match.group(1)])
+                       else f"({terms[match.group(1)]})", text)
+
+
 class Distribution(ABC):
     """ Abstract class that models different representations of probability distributions. """
 
@@ -1683,12 +1696,10 @@ class Distribution(ABC):
             terms = terms or {}
             summed_variables = sorted(self.get_variables() - kept)
             summed = ", ".join(terms.get(name, name) for name in summed_variables)
-            where = "".join(f", where {name} stands for {terms[name]}" for name in summed_variables
-                            if name in terms)
-            raise NonFiniteMarginalError(
-                f"{what} is not proven to converge: it sets {summed} to 1 in {self}{where}, and the series "
+            raise NonFiniteMarginalError(_with_terms(
+                f"{what} is not proven to converge: it sets {summed} to 1 in {self}, and the series "
                 f"need not converge there, as {obstacle}. Prodigy does not report the value of the "
-                "closed form, which need not be the sum of the series.")
+                "closed form, which need not be the sum of the series.", terms))
 
     def _convergence_obstacle(self, kept: Set[str]) -> Optional[str]:
         """

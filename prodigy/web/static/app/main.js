@@ -3,7 +3,7 @@ import { api } from "./api.js";
 import { canWriteFiles, createDocument } from "./document.js";
 import { createEditor, SYNTAXES } from "./editor.js";
 import { createLibrary } from "./library.js";
-import { applyInputProblem, defaultDecision, focusLoopCard, renderSetup, rekeyDecisions, setupProblems,
+import { applyInputProblem, cancelSuggestions, defaultDecision, focusLoopCard, renderSetup, rekeyDecisions, setupProblems,
   swapInvariants } from "./setup.js";
 import { changeSince } from "./staleness.js";
 import { SETUP_KEYS, applyCompareDefaults, compareDefault, requestDecisions, restoreSetup, setupInput } from "./mode-setup.js";
@@ -1045,12 +1045,12 @@ function setRunning(running) {
 
 let runMessageCounter = 0;
 
-function showRunMessage(message, tone = "error") {
+function showRunMessage(message, tone = "error", actions = []) {
   const status = $("run-status");
   const text = h("span", { class: "run-message-text" }, message);
   const outcome = h("span", { class: tone === "error" ? "outcome" : "", "data-kind": tone === "error" ? "error" : null },
     icon(tone === "error" ? "error" : "info"), " ", text);
-  const wrap = h("span", { class: "run-message" }, outcome);
+  const wrap = h("span", { class: "run-message" }, outcome, ...actions);
   status.replaceChildren(wrap);
   // a long message is cut off in the toolbar; the whole text opens in a popover that the keyboard reaches
   // (a `title` tooltip does not, #426)
@@ -1084,7 +1084,7 @@ function addMessageDisclosure(wrap, message) {
   wrap.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !popover.hidden) { event.stopPropagation(); close(true); }
   });
-  wrap.append(" ", button, popover);
+  wrap.firstElementChild.after(" ", button, popover); // next to the text, before any action button
 }
 
 /** The server is busy (429): what is running, with a button that cancels it, so that the user can start again. */
@@ -1095,8 +1095,8 @@ function showBusy(message, running) {
       await Promise.allSettled(running.map((job) => api.cancel(job.id)));
       showRunMessage("Cancelled. Press Run to start again.", "info");
     } }, `Cancel ${running.length === 1 ? "it" : "them"}`);
-  const status = $("run-status");
-  status.replaceChildren(h("span", { class: "outcome", "data-kind": "error", title: message }, icon("error"), " ", message), cancel);
+  // like every run message: a long text is cut off in the toolbar and opens in full on request (#426)
+  showRunMessage(message, "error", [cancel]);
   cancel.focus();
 }
 
@@ -1449,6 +1449,7 @@ async function boot() {
     onCompanion: companionApplied,
     onChange: (source) => {
       save("source", source);
+      cancelSuggestions();
       documents?.changed();
       refreshStale();
       scheduleCheck();

@@ -7,6 +7,8 @@ import sympy
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
+from prodigy.distribution.distribution import NonFiniteMarginalError
+from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.distribution.symengine_distribution import SymengineDist
 from prodigy.pgcl import parse_pgcl
 
@@ -87,3 +89,16 @@ def test_iid_of_sample_pgf_in_another_variable_is_not_implemented():
     call = parse_expr("sample_pgf(1/2 + z/2, z)")
     with pytest.raises(NotImplementedError, match="only sampling in the assigned variable y"):
         GeneratingFunction("x^2", "x", "y").update_iid(call, parse_expr("x"), "y")
+
+
+@pytest.mark.timeout(60)
+def test_convergence_message_substitutes_the_term_for_the_temporary_variable():
+    """The convergence message names the closed form in the terms of the program, without the temporary
+    variable and its 'where' clause (#221)."""
+    dist = GeneratingFunction("1/((1 - 2*_0)*(1 - y))", "_0", "y")
+    with pytest.raises(NonFiniteMarginalError) as caught:
+        dist._require_convergent_evaluation({"y"}, "The filter", {"_0": "x - 1"})  # pylint: disable=protected-access
+    message = str(caught.value)
+    assert "sets x - 1 to 1 in" in message
+    assert "(x - 1)" in message
+    assert "_0" not in message and "stands for" not in message

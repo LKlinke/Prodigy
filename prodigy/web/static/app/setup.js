@@ -228,6 +228,17 @@ function paramField(param, value, onInput, suggest = null) {
 /** Requests in flight or finished, by loop and strategy; they outlive re-renders of the panel. */
 const suggestions = new Map();
 
+/** Stops the requests in flight: the program they were asked about has changed (#322). The server job is
+ * cancelled through the request's signal (:func:`requestSuggestion` in main.js). */
+export function cancelSuggestions() {
+  for (const [key, entry] of [...suggestions]) {
+    if (entry.state !== "running") continue;
+    suggestions.delete(key);
+    entry.controller.abort();
+    entry.view?.();
+  }
+}
+
 /** The Suggest button and its status line for the candidate field of an EVT strategy.
  * ctx.suggest(loopId, form, {signal, onProgress}) runs the request and resolves to its result. */
 function suggestAction(ctx, loop, strategy, param, control) {

@@ -1,5 +1,5 @@
 """
-The packages of Prodigy form layers (#423): ``prodigy.pgcl`` (the language) is below ``prodigy.distribution``
+The packages of Prodigy form layers (#423): ``prodigy.util`` and ``prodigy.pgcl`` (the language) are below ``prodigy.distribution``
 (generating functions and their proof rules), which is below ``prodigy.analysis``. A lower layer imports nothing
 from a higher one, also not lazily inside a function: the analysis may use the rules of the distributions, not
 the other way round.
@@ -33,6 +33,7 @@ def _imports(package: str) -> Iterator[Tuple[str, int, str]]:
 @pytest.mark.parametrize("package, forbidden", [
     ("distribution", ("prodigy.analysis",)),
     ("pgcl", ("prodigy.analysis",)),
+    ("util", ("prodigy.analysis", "prodigy.distribution")),
 ])
 def test_lower_layers_do_not_import_higher_ones(package, forbidden):
     violations = [f"{path}:{line} imports {module}" for path, line, module in _imports(package)
@@ -42,7 +43,7 @@ def test_lower_layers_do_not_import_higher_ones(package, forbidden):
 
 def test_relative_imports_are_not_used_to_cross_layers():
     """The check above reads absolute imports; a relative import that leaves its package would escape it."""
-    for package in ("distribution", "pgcl"):
+    for package in ("distribution", "pgcl", "util"):
         for path in sorted((ROOT / package).rglob("*.py")):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             depth = len(path.relative_to(ROOT / package).parts)  # level 1 is the own package, level k leaves k - 1
