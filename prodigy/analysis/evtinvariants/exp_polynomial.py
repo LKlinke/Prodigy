@@ -50,6 +50,15 @@ Terms = Dict[Tuple[int, sympy.Expr], sympy.Expr]
 """An exponential polynomial in one variable k: ``{(n, c): r}`` stands for ``Σ r · k^n · exp(c·k)``."""
 
 
+def fraction_of(value: sympy.Basic) -> Fraction:
+    """The exact :class:`~fractions.Fraction` of a SymPy rational number, built from its numerator and
+    denominator instead of a round trip through its string form (#373); ValueError for anything else."""
+    if not value.is_Rational:
+        raise ValueError(f"{value} is not a rational number")
+    rational = sympy.Rational(value)
+    return Fraction(int(rational.p), int(rational.q))
+
+
 def _affine_exponent(atom: sympy.Expr, k: sympy.Symbol) -> Optional[Tuple[sympy.Rational, sympy.Expr]]:
     """``(c, d)`` if ``atom`` is ``exp(c·k + d)`` with a rational c and d free of k, else None."""
     try:
@@ -60,7 +69,7 @@ def _affine_exponent(atom: sympy.Expr, k: sympy.Symbol) -> Optional[Tuple[sympy.
         return None
     coefficients = poly.all_coeffs()
     rate, offset = (coefficients[0], coefficients[1]) if len(coefficients) == 2 else (sympy.Integer(0), coefficients[0])
-    if not sympify_symbolic_string(rate).is_Rational:
+    if not rate.is_Rational:
         return None
     return sympy.Rational(rate), offset
 
@@ -312,10 +321,10 @@ def _polynomial_parts(expr: sympy.Expr, variables: Sequence[str]) \
             return None
         monomials = poly.terms() if poly is not None else [((), coefficient)]
         for monomial, value in monomials:
-            if not sympify_symbolic_string(value).is_Rational:
+            if not value.is_Rational:
                 return None
             target = exp_part if c != 0 else plain_part
-            target[monomial][n] = target[monomial].get(n, Fraction(0)) + Fraction(str(value))
+            target[monomial][n] = target[monomial].get(n, Fraction(0)) + fraction_of(value)
     return k, rate, exp_part, plain_part
 
 
@@ -355,7 +364,7 @@ def _series_nonneg(a: Dict[int, Fraction], b: Dict[int, Fraction], c: Fraction) 
     m_symbol = sympy.Symbol("m")
     r = sympy.Poly(sum(sympy.Rational(v.numerator, v.denominator) / sympy.Rational(c.numerator, c.denominator) ** j
                        * sympy.ff(m_symbol, j) for j, v in a.items()), m_symbol)
-    return eventually_nonneg([Fraction(str(x)) for x in r.all_coeffs()], head)
+    return eventually_nonneg([fraction_of(x) for x in r.all_coeffs()], head)
 
 
 def eventually_nonneg(coefficients: List[Fraction], head: int, strict: bool = False) -> Optional[bool]:
@@ -389,7 +398,7 @@ def exp_polynomial_nonneg(expr: sympy.Expr, variables: Sequence[str]) -> Optiona
     if parts is None:
         return None
     _, rate, exp_part, plain_part = parts
-    c = Fraction(str(rate))
+    c = fraction_of(rate)
     verdict: Optional[bool] = True
     for monomial in set(exp_part) | set(plain_part):
         result = _series_nonneg(exp_part.get(monomial, {}), plain_part.get(monomial, {}), c)

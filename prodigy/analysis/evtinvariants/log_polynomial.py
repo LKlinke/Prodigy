@@ -32,7 +32,7 @@ from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 import sympy
 
-from prodigy.analysis.evtinvariants.exp_polynomial import eventually_nonneg
+from prodigy.analysis.evtinvariants.exp_polynomial import eventually_nonneg, fraction_of
 from prodigy.distribution.equality import sympify_symbolic_string
 
 Laurent = Dict[int, Fraction]
@@ -65,7 +65,7 @@ def log_form(expr: sympy.Expr, variables: Sequence[str]) -> Optional[LogForm]:
     poly = sympy.Poly(argument, k)
     if poly.degree() != 1 or poly.all_coeffs()[1] != 1 or not poly.all_coeffs()[0].is_Rational:
         return None
-    rate = -Fraction(str(poly.all_coeffs()[0]))
+    rate = -fraction_of(poly.all_coeffs()[0])
     if not 0 < rate <= 1:
         return None
     ell = sympy.Dummy("l")
@@ -95,7 +95,7 @@ def log_form(expr: sympy.Expr, variables: Sequence[str]) -> Optional[LogForm]:
         target = logs if exponents[0] == 1 else plain
         power = exponents[1] - shift
         part = target[tuple(exponents[2:])]
-        part[power] = part.get(power, Fraction(0)) + Fraction(str(value / constant))
+        part[power] = part.get(power, Fraction(0)) + fraction_of(value / constant)
     form = LogForm(k.name, rate, dict(plain), dict(logs))
     for monomial in set(form.plain) | set(form.log):
         low = min(list(form.plain.get(monomial, {})) + [j + 1 for j in form.log.get(monomial, {})] + [0])
@@ -125,7 +125,7 @@ def _series_nonneg(p: Laurent, q: Laurent, c: Fraction) -> Optional[bool]:
                      / sympy.Rational(c.numerator, c.denominator) ** j
                      * sympy.Mul(*(m_symbol - i for i in q if i != j)) for j, q_j in q.items())
     poly = sympy.Poly(sympy.expand(numerator), m_symbol)
-    return eventually_nonneg([Fraction(str(x)) for x in poly.all_coeffs()], head)
+    return eventually_nonneg([fraction_of(x) for x in poly.all_coeffs()], head)
 
 
 def log_form_nonneg(expr: sympy.Expr, variables: Sequence[str]) -> Optional[bool]:
@@ -157,7 +157,8 @@ def log_form_mass(expr: sympy.Expr, variables: Sequence[str]) -> Optional[Tuple[
             for j, value in laurent.items():
                 target[j + sum(monomial)] += value  # the diagonal t = k = w
     if form.rate < 1:
-        value = sympify_symbolic_string(expr).subs({s: 1 for s in sympify_symbolic_string(expr).free_symbols})
+        parsed = sympify_symbolic_string(expr)
+        value = parsed.subs({s: 1 for s in parsed.free_symbols})
         return True, value
     if sum(log_total.values()) != 0:
         return False, None

@@ -102,6 +102,8 @@ def _names_as_symbols(invariant: InvariantLike, variables: Sequence[str]) -> sym
     function (``sum``, #321)."""
     if isinstance(invariant, sympy.Basic):
         return invariant
+    if isinstance(invariant, Distribution):
+        return sympify_distribution(invariant)
     names = {str(v) for v in variables}
     if hasattr(invariant, "get_parameters"):
         names |= set(invariant.get_parameters())

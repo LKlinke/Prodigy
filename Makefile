@@ -20,11 +20,11 @@ XDIST = -n auto --dist worksteal
 
 # The fuzzing and the comparison of the examples with the simulator (marker `fuzz`) run in `make fuzz`
 test:
-	uv run pytest ${XDIST} ${COV} -m "not fuzz" --junitxml=testreport.xml ${ARGS}
+	uv run pytest ${XDIST} ${COV} -m "not fuzz" --junitxml=testreport.xml --durations=20 ${ARGS}
 
 # Without the tests of the marker `slow` (over about 10 s each); the CI job on Python 3.11 runs this, the one on 3.14 runs `make test`
 test-fast:
-	uv run pytest ${XDIST} ${COV} -m "not fuzz and not slow" --junitxml=testreport.xml ${ARGS}
+	uv run pytest ${XDIST} ${COV} -m "not fuzz and not slow" --junitxml=testreport.xml --durations=20 ${ARGS}
 
 # Fuzzing and simulation tests (docs/source/testing.md); `PRODIGY_FUZZ=nightly make fuzz` runs many programs
 fuzz:
