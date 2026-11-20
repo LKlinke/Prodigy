@@ -40,9 +40,11 @@ or y), :class:`ComparisonNotImplemented` names the reason; there is no approxima
 """
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple, TypeAlias, Union
 
 import sympy
+from sympy.polys.domains.domain import Domain
+from sympy.polys.domains.domainelement import DomainElement
 from sympy.polys.matrices import DomainMatrix
 
 from prodigy.distribution.multisection import _to_rational
@@ -63,6 +65,14 @@ DEPENDENT = ("the compared variables both have infinite support and are not inde
              "other (with the other variables as coefficients)")
 NOT_A_DIFFERENCE = ("on infinite generating functions only comparisons of two variables of the form "
                     "x < y + c, x <= y + c, x = y + c, x > y + c and x >= y + c are implemented")
+
+Element: TypeAlias = DomainElement
+"""An element of a SymPy domain: a rational function of :attr:`_Factors.domain`, or a coefficient of
+:attr:`_Factors.coefficients` (a rational number or a rational function in the other symbols)."""
+Coefficients: TypeAlias = List[Element]
+"""The coefficients of a polynomial in one variable, lowest degree first."""
+Coordinate: TypeAlias = Union[int, sympy.Rational]
+"""A coordinate of a base point of the product test."""
 
 # base points (x0, y0) for the product test
 _BASE_POINTS = [(0, 0), (0, sympy.Rational(1, 2)), (sympy.Rational(1, 2), 0),
@@ -106,7 +116,7 @@ class _Factors:
             return
         raise ComparisonNotImplemented(condition, DEPENDENT)  # pragma: no cover - F vanishes at all base points
 
-    def _value_at(self, element, x0, y0):
+    def _value_at(self, element: Element, x0: Optional[Coordinate], y0: Optional[Coordinate]) -> Optional[Element]:
         """F(x0, y0) (None keeps the variable), or None if a denominator vanishes there."""
         numerator, denominator = self.domain.numer(element), self.domain.denom(element)
         substitution = {}
@@ -122,11 +132,12 @@ class _Factors:
         return self.domain.quo(self.domain.convert_from(value_numerator, ring),
                                self.domain.convert_from(value_denominator, ring))
 
-    def _polynomials(self, element, variable: sympy.Symbol, condition: str) -> Tuple[List, List]:
+    def _polynomials(self, element: Element, variable: sympy.Symbol,
+                     condition: str) -> Tuple[Coefficients, Coefficients]:
         """Coefficient lists (lowest degree first, in `self.coefficients`) of numerator and denominator in
         `variable`; the denominator is not 0 at 0."""
         ring = self.domain.get_ring()
-        pair: List[List] = []
+        pair: List[Coefficients] = []
         for part in (self.domain.numer(element), self.domain.denom(element)):
             expression = ring.to_sympy(part)
             if expression.has(self.x if variable == self.y else self.y):  # pragma: no cover - product checked
@@ -139,9 +150,9 @@ class _Factors:
         return numerator, denominator
 
 
-def _taylor(numerator: List, denominator: List, count: int, field) -> List:
+def _taylor(numerator: Coefficients, denominator: Coefficients, count: int, field: Domain) -> Coefficients:
     """The first `count` power-series coefficients of numerator / denominator."""
-    coefficients: List = []
+    coefficients: Coefficients = []
     for n in range(count):
         value = numerator[n] if n < len(numerator) else field.zero
         for k in range(1, min(n, len(denominator) - 1) + 1):
@@ -150,7 +161,7 @@ def _taylor(numerator: List, denominator: List, count: int, field) -> List:
     return coefficients
 
 
-def _divide(numerator: List, denominator: List, field) -> Tuple[List, List]:
+def _divide(numerator: Coefficients, denominator: Coefficients, field: Domain) -> Tuple[Coefficients, Coefficients]:
     """Polynomial division numerator = quotient * denominator + remainder (coefficient lists)."""
     remainder = list(numerator)
     degree = len(denominator) - 1
@@ -166,7 +177,7 @@ def _divide(numerator: List, denominator: List, field) -> Tuple[List, List]:
     return quotient, remainder[:degree]
 
 
-def _polynomial_of_matrix(coefficients: List, matrix: DomainMatrix) -> DomainMatrix:
+def _polynomial_of_matrix(coefficients: Coefficients, matrix: DomainMatrix) -> DomainMatrix:
     """sum_k coefficients[k] * matrix^k (Horner)."""
     size = matrix.shape[0]
     identity = DomainMatrix.eye(size, matrix.domain).to_dense()
@@ -176,7 +187,7 @@ def _polynomial_of_matrix(coefficients: List, matrix: DomainMatrix) -> DomainMat
     return result
 
 
-def _filtered(factors: _Factors, swap: bool, shift: int, diagonal: bool):
+def _filtered(factors: _Factors, swap: bool, shift: int, diagonal: bool) -> Element:
     """sum over j - i >= shift (or = shift) of a_i b_j x^i y^j, with x and y exchanged if `swap`."""
     # pylint: disable=too-many-locals
     domain, field = factors.domain, factors.coefficients
@@ -184,7 +195,7 @@ def _filtered(factors: _Factors, swap: bool, shift: int, diagonal: bool):
     x, y = (domain.from_sympy(factors.y), domain.from_sympy(factors.x)) if swap \
         else (domain.from_sympy(factors.x), domain.from_sympy(factors.y))
 
-    def lift(element):
+    def lift(element: Element) -> Element:
         return domain.convert_from(element, field)
 
     polynomial, remainder = _divide(b_num, b_den, field)

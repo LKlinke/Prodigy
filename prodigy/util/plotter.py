@@ -17,7 +17,7 @@ class Plotter:
 
     @staticmethod
     def _create_2d_hist(function: Distribution, var_1: str, var_2: str,
-                        threshold: Union[str, int]):
+                        threshold: Union[str, int]) -> None:
 
         x = sympy.S(var_1)
         y = sympy.S(var_2)
@@ -101,7 +101,7 @@ class Plotter:
                               str) and prob_sum > sympy.S(threshold):
                     break
                 data.append(float(sympy.S(prob)))
-                ind.append(float(state[var]))
+                ind.append(float(state[str(var)]))
                 prob_sum += sympy.S(prob)
                 terms += 1
             axis = plt.subplot()

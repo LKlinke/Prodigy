@@ -5,10 +5,15 @@ An engine's ``==`` must never claim equality without proof (#117), so for non-ra
 answers False when it merely cannot prove equality. Checks such as the EVT fixed-point equation need to
 tell "provably different" from "not proven" apart (#123); :func:`decide_equal` gives that answer.
 """
-from typing import Any, Iterable, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Iterable, Optional, Union
 
 import re
 import sympy
+
+if TYPE_CHECKING:  # pragma: no cover
+    from prodigy.distribution.distribution import Distribution
 
 
 def is_rational_over_q(expr: sympy.Expr) -> bool:
@@ -137,11 +142,11 @@ class _EngineStrPrinter(sympy.printing.str.StrPrinter):
     """SymPy's string form, but Euler's number as ``exp(1)``: Prodigy reads ``E`` back as a symbol (a variable or
     parameter may be called E), so ``E - 2`` would lose its value."""
 
-    def _print_Exp1(self, expr):  # pylint: disable=invalid-name,unused-argument
+    def _print_Exp1(self, expr: sympy.Basic) -> str:  # pylint: disable=invalid-name,unused-argument
         return "exp(1)"
 
 
-def sympy_text(expr: Any) -> str:
+def sympy_text(expr: sympy.Basic) -> str:
     """The string form of a SymPy expression as Prodigy reads it back (:class:`_EngineStrPrinter`)."""
     return _EngineStrPrinter().doprint(expr)
 
@@ -161,7 +166,7 @@ def sympify_engine_string(text: str, names: Iterable[str]) -> sympy.Expr:
 _IDENTIFIER = re.compile(r"\b[A-Za-z_]\w*\b(?!\s*\()")
 
 
-def sympify_symbolic_string(text: Any) -> sympy.Expr:
+def sympify_symbolic_string(text: Union[str, int, float, sympy.Basic]) -> sympy.Expr:
     """
     The SymPy expression of an expression string (anything else is sympified as it is) whose variable and
     parameter names are not known (``^`` or ``**`` for powers). Every identifier that is not a function call
@@ -175,7 +180,7 @@ def sympify_symbolic_string(text: Any) -> sympy.Expr:
     return sympify_engine_string(text, set(_IDENTIFIER.findall(text)))
 
 
-def sympify_distribution(dist: Any) -> sympy.Expr:
+def sympify_distribution(dist: Distribution) -> sympy.Expr:
     """The SymPy expression of a distribution of any engine, see :func:`sympify_engine_string`."""
     return sympify_engine_string(str(dist), dist.get_variables() | dist.get_parameters())
 

@@ -8,8 +8,10 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from fractions import Fraction
-from typing import (Any, Callable, ContextManager, Dict, FrozenSet, Generator, Iterable, Iterator, List, Optional,
-                    Sequence, Set, Tuple, Type, Union)
+from typing import (Callable, ContextManager, Dict, FrozenSet, Generator, ItemsView, Iterable, Iterator, List,
+                    Optional, Sequence, Set, Tuple, Type, Union)
+
+import sympy
 
 from lark.exceptions import LarkError
 
@@ -245,6 +247,14 @@ class MarginalType(Enum):
 
 DistributionParam = Union[str, Expr]
 
+Operand = Union["Distribution", str, int, float]
+"""The other operand of the arithmetic of distributions: a distribution, or a closed form (text or number) in the
+variables of the first one. Each engine accepts its own distributions and some of the others."""
+
+Value = Union[int, sympy.Expr]
+"""The value of an expression in a state (:meth:`Distribution.evaluate`): an engine's number or expression (SymPy's,
+or SymEngine's, which mypy cannot tell apart, since neither has type information)."""
+
 
 @dataclass
 class State:
@@ -253,30 +263,30 @@ class State:
     valuations: Dict[str, int] = field(default_factory=dict)
     """The variable assignment of this state"""
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return self.valuations.__iter__()
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str) -> int:
         return self.valuations.__getitem__(item)
 
-    def __setitem__(self, key, value):
-        return self.valuations.__setitem__(key, value)
+    def __setitem__(self, key: str, value: int) -> None:
+        self.valuations.__setitem__(key, value)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.valuations.__str__()
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         # Order-independent, consistent with __eq__. A state must not change while it is used as a key.
         return hash(frozenset(self.valuations.items()))
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, dict):
             return self.valuations == other
         if isinstance(other, State):
             return self.valuations == other.valuations
         return False
 
-    def items(self):
+    def items(self) -> ItemsView[str, int]:
         """Provides a view on all (variable, value) pairs"""
         return self.valuations.items()
 
@@ -295,10 +305,10 @@ class State:
             return result.join(addends)
         return ""
 
-    def copy(self):
+    def copy(self) -> State:
         return State(valuations=self.valuations.copy())
 
-    def extend(self, other: State):
+    def extend(self, other: State) -> State:
         res = self.copy()
         for var, val in other.items():
             if var not in res.valuations:
@@ -378,29 +388,29 @@ class Distribution(ABC):
         """Returns a factory for this subclass of distribution"""
 
     @abstractmethod
-    def __add__(self, other) -> Distribution:
+    def __add__(self, other: Operand) -> Distribution:
         """ The addition of two distributions. """
 
     @abstractmethod
-    def __sub__(self, other) -> Distribution:
+    def __sub__(self, other: Operand) -> Distribution:
         """ The subtraction of two distributions. """
 
     @abstractmethod
-    def __mul__(self, other) -> Distribution:
+    def __mul__(self, other: Operand) -> Distribution:
         """ The multiplication of two distributions. """
 
     @abstractmethod
-    def __truediv__(self, other) -> Distribution:
+    def __truediv__(self, other: Operand) -> Distribution:
         """ The division of two distributions. """
 
     @abstractmethod
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         """
         Checks whether two distributions are equal. True must be backed by a proof; False only means
         "not shown equal" (see :meth:`decide_equal`).
         """
 
-    def decide_equal(self, other) -> Optional[bool]:
+    def decide_equal(self, other: object) -> Optional[bool]:
         """
         Three-valued equality: True if ``self == other`` is proven, False if ``self != other`` is proven
         (e.g. the difference is a nonzero rational function with rational coefficients), None if neither.
@@ -416,10 +426,10 @@ class Distribution(ABC):
         return decide_equal_strings(str(self), str(other), names)
 
     @abstractmethod
-    def __le__(self, other) -> bool:
+    def __le__(self, other: Distribution) -> bool:
         """ Checks whether `self` is less or equal than `other`."""
 
-    def __lt__(self, other) -> bool:
+    def __lt__(self, other: Distribution) -> bool:
         return self <= other and not self == other
 
     @abstractmethod
@@ -695,11 +705,11 @@ class Distribution(ABC):
         return self - filtered if comparison.complement else filtered
 
     @abstractmethod
-    def _sympy_expression(self) -> Any:
+    def _sympy_expression(self) -> sympy.Expr:
         """This generating function as a SymPy expression (for exact computations in SymPy)."""
 
     @abstractmethod
-    def _from_sympy_expression(self, expression: Any) -> Distribution:
+    def _from_sympy_expression(self, expression: sympy.Expr) -> Distribution:
         """A distribution of this engine with the variables and parameters of `self` from a SymPy
         expression."""
 
@@ -853,7 +863,7 @@ class Distribution(ABC):
 
     @staticmethod
     @abstractmethod
-    def evaluate(expression: str, state: State):
+    def evaluate(expression: str, state: State) -> Value:
         """ Evaluates the expression in a given state. """
 
     @classmethod
@@ -874,8 +884,8 @@ class Distribution(ABC):
         if op in (Binop.EQ, Binop.LEQ, Binop.LT, Binop.GT, Binop.GEQ):
             # exactly, with truncated subtraction, if both sides are numbers in this state
             left, right = _state_value(condition.lhs, state), _state_value(condition.rhs, state)
-            lhs: Any
-            rhs: Any
+            lhs: Union[Fraction, Value]
+            rhs: Union[Fraction, Value]
             if left is not None and right is not None:
                 lhs, rhs = left, right
             else:
@@ -1661,12 +1671,6 @@ class Distribution(ABC):
         :return: The distribution with parameters `parameters`.
         """
 
-    # @abstractmethod
-    def set_variables_and_parameters(self, variables, parameters):
-        """
-        todo
-        """
-
     @abstractmethod
     def approximate(
             self,
@@ -1768,6 +1772,6 @@ class CommonDistributionsFactory(ABC):
 
     @staticmethod
     @abstractmethod
-    def from_expr(expression: Union[str, Expr], *variables,
-                  **kwargs) -> Distribution:
+    def from_expr(expression: Union[str, Expr], *variables: Union[str, VarExpr],
+                  **kwargs: Optional[bool]) -> Distribution:
         """ A distribution represented by the expression."""
