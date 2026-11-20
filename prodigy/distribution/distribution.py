@@ -502,7 +502,15 @@ class Distribution(ABC):
 
     @abstractmethod
     def __iter__(self) -> Iterator[Tuple[str, State]]:
-        """ Returns an iterator that iterates over the (probability, state) pairs of the distribution."""
+        """
+        Returns an iterator that iterates over the (probability, state) pairs of the distribution.
+
+        Contract (all engines, #444): each state occurs at most once, with its full coefficient (the sum of
+        all terms of the generating function with this monomial, also when the coefficient contains
+        parameters, e.g. `1-p` for x = 0 in `p*x + (1-p)`). A finite distribution yields no state whose
+        coefficient is zero; an infinite one may (it enumerates the monomials). Callers (case splits,
+        filters, the result tables) take the yielded probability as Pr[state] and may rely on this.
+        """
 
     @abstractmethod
     def copy(self, deep: bool = True) -> Distribution:
@@ -1254,9 +1262,9 @@ class Distribution(ABC):
     def _unique_states(values: Distribution) -> List[State]:
         """
         The states of `values` (a :meth:`finite_support` or a marginal) for a case split, each once.
-        An engine may list a state once per term: GiNaC lists the support `1/2 + 1/2*x` of `y` (with
-        the variable `x` as a parameter) as the state y = 0 twice, and a case split over both would
-        count its part twice.
+        The iteration lists each state once (the contract of :meth:`__iter__`; GiNaC listed a state
+        once per term before #444, and a case split counted its part twice); this guards a case split
+        against an engine that breaks the contract.
         """
         states: Dict[Tuple[Tuple[str, int], ...], State] = {}
         for _, state in values:

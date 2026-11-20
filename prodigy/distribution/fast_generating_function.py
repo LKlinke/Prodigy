@@ -209,6 +209,7 @@ class FPS(Distribution):
                     if mass is not None:
                         yield mass, State(dict(zip(variables, vals)))
         else:
+            # one item per state with its full coefficient since prodigy-ppl-ginac 0.0.7 (#444)
             terms: List[Tuple[str, Dict[str, int]]] = self._dist.get_terms(self._variables)
             for prob, vals in terms:        # type: ignore
                 yield prob, State(vals)     # type: ignore
@@ -285,7 +286,8 @@ class FPS(Distribution):
         res = prodigy_ginac.Dist('0')
         for prob, state in self:
             if self.evaluate_condition(condition, state):
-                res += prodigy_ginac.Dist(f"{prob} * {state.to_monomial()}", sorted(self._parameters))
+                # a coefficient with parameters is a sum: in parentheses (#444)
+                res += prodigy_ginac.Dist(f"({prob}) * {state.to_monomial()}", sorted(self._parameters))
         return FPS.from_dist(res,
                              self._variables,
                              self._parameters,
