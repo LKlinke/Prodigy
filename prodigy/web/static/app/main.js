@@ -1009,12 +1009,14 @@ function analysisState(result) {
 async function loadJoint(jobId, payload, signal, onPartial = null) {
   const key = `${jobId} ${JSON.stringify(payload)}`;
   if (jointCache.has(key)) return jointCache.get(key);
-  const response = await api.joint(jobId, payload);
+  // the grid is no longer wanted when the signal aborts: stop it at once, not at the next poll, so that the
+  // grid asked for next does not find the slot taken
+  let started = null;
+  signal.addEventListener("abort", () => started?.then((job) => api.cancel(job.job)).catch(() => {}), { once: true });
+  started = api.joint(jobId, payload);
+  const response = await started;
   for (;;) {
-    if (signal.aborted) {
-      api.cancel(response.job).catch(() => {});
-      throw new DOMException("cancelled", "AbortError");
-    }
+    if (signal.aborted) throw new DOMException("cancelled", "AbortError");
     const status = await api.job(response.job);
     if (signal.aborted) continue;
     if (status.state !== "starting" && status.state !== "running") {
@@ -1083,6 +1085,19 @@ function addMessageDisclosure(wrap, message) {
     if (event.key === "Escape" && !popover.hidden) { event.stopPropagation(); close(true); }
   });
   wrap.append(" ", button, popover);
+}
+
+/** The server is busy (429): what is running, with a button that cancels it, so that the user can start again. */
+function showBusy(message, running) {
+  const cancel = h("button", { type: "button", class: "button small", id: "btn-cancel-busy",
+    title: "Cancel what is running on the server", onclick: async () => {
+      cancel.disabled = true;
+      await Promise.allSettled(running.map((job) => api.cancel(job.id)));
+      showRunMessage("Cancelled. Press Run to start again.", "info");
+    } }, `Cancel ${running.length === 1 ? "it" : "them"}`);
+  const status = $("run-status");
+  status.replaceChildren(h("span", { class: "outcome", "data-kind": "error", title: message }, icon("error"), " ", message), cancel);
+  cancel.focus();
 }
 
 /** A short notice (opened, saved); information disappears after a few seconds. */
@@ -1200,7 +1215,8 @@ async function run() {
   try {
     response = await (comparing ? api.equivalence(request) : api.analyze(request));
   } catch (error) {
-    showRunMessage(error.message);
+    if (error.status === 429 && error.data?.running?.length) showBusy(error.message, error.data.running);
+    else showRunMessage(error.message);
     return;
   }
   state.job = { id: response.job, request, timeLimit: response.time_limit, logOffset: 0, log: "", started: performance.now(),

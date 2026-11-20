@@ -17,6 +17,7 @@ A small Flask application: one page (``templates/app.html`` with the ES modules 
 ``POST /api/equivalence``         starts a job that compares two programs (``other_source``, see
                                   :func:`prodigy.web.requests.run_equivalence`), returns a job id
 ``GET  /api/jobs/<id>``           state, new console output, progress, result when done
+``GET  /api/jobs``                 the running jobs (analyses and checks, background jobs)
 ``DELETE /api/jobs/<id>``         cancels the analysis
 ``POST /api/jobs/<id>/joint``     starts a job for the exact coefficient grid of two variables of a
                                   finished analysis (``x``, ``y``, optional windows), see
@@ -73,7 +74,8 @@ def _engine_info(default_engine: str) -> List[Dict[str, Any]]:
     return engines
 
 
-def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Optional[int] = None,
+def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_jobs: int = 2,
+               memory_limit: Optional[int] = None,
                examples_dir: Optional[str] = None, default_engine: str = "sympy",
                host: str = "127.0.0.1", allowed_hosts: Sequence[str] = ()) -> Flask:
     # pylint: disable=import-outside-toplevel
@@ -93,7 +95,8 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
     else:
         app.config["JSON_SORT_KEYS"] = False
 
-    jobs = JobManager(max_jobs=max_jobs, time_limit=time_limit, memory_limit=memory_limit)
+    jobs = JobManager(max_jobs=max_jobs, max_auxiliary=max_background_jobs, time_limit=time_limit,
+                      memory_limit=memory_limit)
     library = ExampleLibrary(examples_dir or default_examples_dir())
     app.extensions["prodigy_jobs"] = jobs
     app.extensions["prodigy_examples"] = library
@@ -152,6 +155,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
             "positivity_heuristics": list(SELECTABLE_POSITIVITY_HEURISTICS),
             "solvers": ["sympy", "z3"],
             "limits": {"time_limit": jobs.time_limit, "max_jobs": jobs.max_jobs,
+                       "max_background_jobs": jobs.max_auxiliary,
                        "max_coefficients": MAX_COEFFICIENTS, "max_joint_axis": MAX_AXIS},
             "examples": library.root is not None,
             "ai": ai_status(),
@@ -211,7 +215,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         try:
             job = jobs.submit(analysis_request, time_limit=payload.get("time_limit"))
         except BusyError as exc:
-            return jsonify({"error": f"{exc}. Wait for one to finish or cancel it."}), 429
+            return _busy(exc)
         return jsonify({"job": job.id, "time_limit": job.time_limit}), 202
 
     @app.post("/api/equivalence")
@@ -233,7 +237,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         try:
             job = jobs.submit(equivalence_request, time_limit=payload.get("time_limit"), kind="equivalence")
         except BusyError as exc:
-            return jsonify({"error": f"{exc}. Wait for one to finish or cancel it."}), 429
+            return _busy(exc)
         return jsonify({"job": job.id, "time_limit": job.time_limit}), 202
 
     @app.post("/api/suggest")
@@ -254,8 +258,17 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         try:
             job = jobs.submit(suggestion_request, time_limit=payload.get("time_limit"), kind="suggest")
         except BusyError as exc:
-            return jsonify({"error": f"{exc}. Wait for one to finish or cancel it."}), 429
+            return _busy(exc)
         return jsonify({"job": job.id, "time_limit": job.time_limit}), 202
+
+    def _busy(exc: BusyError) -> Any:
+        """429: what is running (``running``, to cancel with ``DELETE /api/jobs/<id>``)."""
+        return jsonify({"error": f"{exc}. Wait for one to finish or cancel it.", "running": exc.running}), 429
+
+    @app.get("/api/jobs")
+    def job_list() -> Any:
+        """The running jobs: ``jobs`` (analyses and checks) and ``background`` (grids, suggestions)."""
+        return jsonify({"jobs": jobs.running(auxiliary=False), "background": jobs.running(auxiliary=True)})
 
     @app.get("/api/jobs/<job_id>")
     def job_status(job_id: str) -> Any:
@@ -292,7 +305,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
         try:
             grid_job = jobs.submit(grid_request, kind="joint")
         except BusyError as exc:
-            return jsonify({"error": f"{exc}. Wait for one to finish or cancel it."}), 429
+            return _busy(exc)
         return jsonify({"job": grid_job.id, "time_limit": grid_job.time_limit}), 202
 
     @app.get("/api/examples")
@@ -315,11 +328,12 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, memory_limit: Op
 
 
 def serve(*, host: str = "127.0.0.1", port: int = 8080, open_browser: bool = True, time_limit: float = 120.0,
-          max_jobs: int = 2, memory_limit: Optional[int] = None, examples_dir: Optional[str] = None,
+          max_jobs: int = 2, max_background_jobs: int = 2, memory_limit: Optional[int] = None,
+          examples_dir: Optional[str] = None,
           default_engine: str = "sympy", allowed_hosts: Iterable[str] = ()) -> None:
     """Runs the GUI server until interrupted."""
-    app = create_app(time_limit=time_limit, max_jobs=max_jobs, memory_limit=memory_limit,
-                     examples_dir=examples_dir, default_engine=default_engine, host=host,
+    app = create_app(time_limit=time_limit, max_jobs=max_jobs, max_background_jobs=max_background_jobs,
+                     memory_limit=memory_limit, examples_dir=examples_dir, default_engine=default_engine, host=host,
                      allowed_hosts=tuple(allowed_hosts))
     shown_host = "localhost" if host in _LOOPBACK else host
     url = f"http://{shown_host}:{port}/"

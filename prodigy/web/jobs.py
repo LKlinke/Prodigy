@@ -29,8 +29,42 @@ STREAM_KINDS = ("coefficients", "grid")
 """Progress events with streamed coefficients (:mod:`prodigy.analysis.streaming`)."""
 
 
+AUXILIARY_KINDS = ("joint", "suggest")
+"""Jobs the GUI starts in the background (grids of the joint view, suggestions of a language model). They
+have a limit of their own (``max_auxiliary``) and never take a slot of the analyses and checks that the
+user starts (``max_jobs``)."""
+PREEMPTIBLE_KINDS = ("joint",)
+"""A new job of such a kind replaces the oldest running one when the limit of auxiliary jobs is reached: the
+joint view asks for a new grid when the user moves on, and the old one is no longer wanted."""
+STALE_SECONDS = 20.0
+"""An auxiliary job that nobody has asked about for this long is cancelled (the page was closed or reloaded)."""
+
+_KIND_NAMES = {"analysis": "analysis", "equivalence": "equivalence check", "joint": "joint grid",
+               "suggest": "suggestion of the language model"}
+
+
+def describe_job(summary: Dict[str, Any]) -> str:
+    """``"analysis of a.ppy"``, ``"joint grid"``, ... (for messages)."""
+    name = _KIND_NAMES.get(str(summary.get("kind")), "analysis")
+    file_name = summary.get("file_name")
+    return f"{name} of {file_name}" if file_name and summary.get("kind") in ("analysis", "equivalence") else name
+
+
+def describe_running(running: List[Dict[str, Any]]) -> str:
+    """"``An analysis of a.ppy and a joint grid are running`` for the listings of running jobs."""
+    parts = [job.get("description") or describe_job(job) for job in running]
+    parts = [("an " if part[0] in "aeiou" else "a ") + part for part in parts]
+    text = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+    return f"{text[0].upper()}{text[1:]} {'is' if len(parts) == 1 else 'are'} running"
+
+
 class BusyError(Exception):
-    """Too many analyses are running at the same time."""
+    """Too many jobs of one group are running at the same time; ``running`` lists them
+    (:meth:`Job.listing`)."""
+
+    def __init__(self, message: str, running: Optional[List[Dict[str, Any]]] = None):
+        super().__init__(message)
+        self.running = running or []
 
 
 # ---------------------------------------------------------------------------------------
@@ -193,6 +227,17 @@ class Job:
     stream: Dict[str, Any] = field(default_factory=dict)
     """The coefficients streamed so far (:func:`merge_stream`); while the job runs, the GUI draws them."""
     result: Optional[Dict[str, Any]] = None
+    touched: float = field(default_factory=time.monotonic)
+    """When a client last asked about the job."""
+
+    @property
+    def auxiliary(self) -> bool:
+        return self.summary.get("kind") in AUXILIARY_KINDS
+
+    def listing(self) -> Dict[str, Any]:
+        """What the GUI shows about a running job: id, kind, a description and the time so far."""
+        return {"id": self.id, "kind": self.summary.get("kind"), "description": describe_job(self.summary),
+                "elapsed": round(self.elapsed, 1), "auxiliary": self.auxiliary}
 
     @property
     def elapsed(self) -> float:
@@ -221,11 +266,13 @@ class Job:
 
 
 class JobManager:
-    """Starts, watches and stops analysis processes."""
+    """Starts, watches and stops analysis processes. Analyses and checks (started by the user) count against
+    ``max_jobs``; the background jobs of the GUI (:data:`AUXILIARY_KINDS`) against ``max_auxiliary``."""
 
     def __init__(self, *, max_jobs: int = 2, time_limit: float = 120.0, memory_limit: Optional[int] = None,
-                 keep_finished: int = 32):
+                 keep_finished: int = 32, max_auxiliary: int = 2):
         self.max_jobs = max_jobs
+        self.max_auxiliary = max_auxiliary
         self.time_limit = time_limit
         self.memory_limit = memory_limit
         self.keep_finished = keep_finished
@@ -241,8 +288,7 @@ class JobManager:
     def submit(self, request: Dict[str, Any], time_limit: Optional[float] = None, kind: str = "analysis") -> Job:
         limit = self.time_limit if time_limit is None else min(float(time_limit), self.time_limit)
         with self._lock:
-            if sum(1 for job in self._jobs.values() if job.running) >= self.max_jobs:
-                raise BusyError(f"{self.max_jobs} analyses are already running")
+            self._make_room(kind)
             receiver, sender = self._context.Pipe(duplex=False)
             process = self._context.Process(target=_worker, args=(request, sender, self.memory_limit, kind),
                                             name="prodigy-analysis", daemon=True)
@@ -250,7 +296,7 @@ class JobManager:
                 process.start()
             sender.close()
             job = Job(id=uuid.uuid4().hex[:12], process=process, conn=receiver, time_limit=limit,
-                      summary={"kind": kind, "engine": request.get("engine"),
+                      summary={"kind": kind, "engine": request.get("engine"), "file_name": request.get("file_name"),
                                "decisions": request.get("decisions")})
             self._jobs[job.id] = job
             self._prune()
@@ -260,6 +306,7 @@ class JobManager:
         with self._lock:
             job = self._jobs.get(job_id)
             if job is not None:
+                job.touched = time.monotonic()
                 self._drain(job)
             return job
 
@@ -283,7 +330,27 @@ class JobManager:
         with self._lock:
             return sum(1 for job in self._jobs.values() if job.running)
 
+    def running(self, auxiliary: Optional[bool] = None) -> List[Dict[str, Any]]:
+        """The running jobs (oldest first, :meth:`Job.listing`); ``auxiliary`` selects one group."""
+        with self._lock:
+            return [job.listing() for job in self._jobs.values()
+                    if job.running and (auxiliary is None or job.auxiliary == auxiliary)]
+
     # -- internals ---------------------------------------------------------------------
+
+    def _make_room(self, kind: str) -> None:
+        """Raises :class:`BusyError` unless a job of ``kind`` may start; a new job of a preemptible kind
+        replaces the oldest one that is running."""
+        auxiliary = kind in AUXILIARY_KINDS
+        group = [job for job in self._jobs.values() if job.running and job.auxiliary == auxiliary]
+        limit = self.max_auxiliary if auxiliary else self.max_jobs
+        while len(group) >= limit:
+            same = [job for job in group if job.summary.get("kind") == kind]
+            if kind not in PREEMPTIBLE_KINDS or not same:
+                listing = [job.listing() for job in group]
+                raise BusyError(f"{describe_running(listing)} (at most {limit} at a time)", listing)
+            self._stop_process(same[0], "cancelled")
+            group.remove(same[0])
 
     def _watch(self) -> None:
         while not self._stop.wait(0.2):
@@ -294,6 +361,8 @@ class JobManager:
                     self._drain(job)
                     if job.running and job.elapsed > job.time_limit:
                         self._stop_process(job, "timeout")
+                    elif job.running and job.auxiliary and time.monotonic() - job.touched > STALE_SECONDS:
+                        self._stop_process(job, "cancelled")  # nobody waits for it any more
 
     def _drain(self, job: Job) -> None:
         if job.conn is None:
