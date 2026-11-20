@@ -192,13 +192,19 @@
 }
 .marginal-chart .mc-label { text-anchor: middle; }
 .marginal-chart .mc-axis { stroke: var(--separator-strong, rgba(60, 60, 67, 0.29)); }
-.marginal-chart .mc-value rect { fill: var(--rv-data); }
-.marginal-chart .mc-tail rect { fill: var(--rv-data); opacity: 0.35; }
+.marginal-chart .mc-value rect { fill: var(--mc-bar); }
+.marginal-chart .mc-tail rect { fill: var(--mc-bar); opacity: 0.35; }
 .marginal-chart .mc-upper rect { stroke: var(--rv-bound); stroke-width: 1; }
-.marginal-chart .mc-unknown rect { fill: var(--rv-data); opacity: 0.45; stroke: var(--rv-unknown); stroke-dasharray: 3 2; }
+.marginal-chart .mc-unknown rect { fill: var(--mc-bar); opacity: 0.45; stroke: var(--rv-unknown); stroke-dasharray: 3 2; }
 .marginal-chart .mc-residual rect { stroke: var(--rv-bound); stroke-width: 1; }
-/* the rest of the interval of a lower bound (#405): hatched, outlined in the bound colour */
-.marginal-chart .mc-bar rect.mc-ext { stroke: var(--rv-bound); stroke-width: 1; opacity: 1; }
+/* the rest of the interval of a lower bound (#405, #452): glass (translucent, dashed edges in the bound
+   colour) or outline (the dashed edges alone); for values without an upper end of their own only on hover */
+.marginal-chart .mc-bar rect.mc-ext {
+  fill: var(--mc-bar); fill-opacity: 0.3; stroke: var(--rv-bound); stroke-width: 1.2; stroke-dasharray: 3 2; opacity: 1;
+}
+.marginal-chart[data-intervals="outline"] .mc-bar rect.mc-ext { fill: none; }
+.marginal-chart .mc-bar rect.mc-ext-hover { visibility: hidden; }
+.marginal-chart .mc-bar:hover rect.mc-ext-hover { visibility: visible; }
 .marginal-chart .mc-bar:hover rect { opacity: 0.8; }
 .marginal-chart .mc-scale { font-style: italic; }
 .marginal-chart .mc-pending .mc-pending-text {
@@ -206,7 +212,7 @@
   /* a halo of the surface keeps the text readable on the hatching */
   paint-order: stroke; stroke: var(--rv-surface); stroke-width: 4px; stroke-linejoin: round;
 }
-.marginal-chart .mc-bar rect.mc-zero { fill: none; stroke: var(--rv-data); stroke-width: 1; stroke-dasharray: 2 2; opacity: 1; }
+.marginal-chart .mc-bar rect.mc-zero { fill: none; stroke: var(--mc-bar); stroke-width: 1; stroke-dasharray: 2 2; opacity: 1; }
 
 .table-wrap { overflow-x: auto; }
 .rv-table { width: 100%; border-collapse: collapse; font-size: var(--text-callout, 12px); }
@@ -353,3 +359,88 @@
 /* a failed query: the icon and the words carry the state, the colour only supports them */
 .rv-q-failed { display: flex; gap: 6px; align-items: flex-start; color: var(--rv-error, var(--error)); overflow-wrap: anywhere; }
 .rv-q-failed strong { font-weight: 600; }
+
+/* ---- view options of the plots (#452, view-options.js) ---------------------------------------- */
+/* the colour of the marginal bars follows the colour map: a tone of it with at least 4.5:1 against the
+   surface (light: viridis #31688e 6.0:1, cividis #3b496c 8.9:1; dark: #35b779 6.1:1, #a69d75 5.7:1) */
+.marginal-chart { --mc-bar: var(--rv-data); }
+.marginal-chart[data-colours="viridis"] { --mc-bar: #31688E; }
+.marginal-chart[data-colours="cividis"] { --mc-bar: #3B496C; }
+.vo-panel { --vo-bar: #31688E; }
+@media (prefers-color-scheme: dark) {
+  .marginal-chart[data-colours="viridis"] { --mc-bar: #35B779; }
+  .marginal-chart[data-colours="cividis"] { --mc-bar: #A69D75; }
+  .vo-panel { --vo-bar: #35B779; }
+}
+/* greyscale: hatching and dashed edges carry every distinction, so an empty cell gets a dashed edge */
+.jv-heatmap[data-colours="greyscale"] .jv-zero { stroke: var(--rv-text-2); stroke-dasharray: 2 2; }
+.jv-swatch.jv-zero[data-colours="greyscale"] { border: 1px dashed var(--rv-text-2); }
+
+.vo-button[hidden] { display: none; }
+.vo-button { display: inline-flex; align-items: center; gap: 5px; }
+.vo-button .icon { width: 14px; height: 14px; }
+/* pressed while the inspector is open: a filled background and an accent ring, not colour alone */
+.vo-button[aria-expanded="true"] {
+  background: var(--fill-pressed, rgba(118, 118, 128, 0.28)); box-shadow: inset 0 0 0 1px var(--accent, #0066CC);
+}
+/* the inspector never covers the plot (#452): a column on the right in a wide container, else a
+   section between the toolbar and the plot that pushes the plot down */
+.vo-frame { container-type: inline-size; min-width: 0; }
+.vo-layout { display: grid; gap: 12px; min-width: 0; }
+.vo-plot { min-width: 0; }
+.vo-panel {
+  box-sizing: border-box; padding: 12px 14px; display: grid; gap: 14px; align-content: start; text-align: left;
+  background: var(--rv-surface, var(--surface, #FFFFFF)); color: var(--rv-text, var(--text, #1D1D1F));
+  border: 1px solid var(--rv-separator, var(--separator)); border-radius: 10px;
+  font-size: var(--text-body, 13px);
+}
+.vo-panel[hidden] { display: none; }
+/* the groups side by side as far as they fit, so the section above the plot stays short */
+.vo-panel { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); column-gap: 20px; }
+/* a wide container: the inspector is a column of 260 px to the right of the plot */
+@container (min-width: 1000px) {
+  .vo-layout:has(> .vo-panel:not([hidden])) { grid-template-columns: minmax(0, 1fr) 260px; }
+  .vo-panel { grid-column: 2; grid-row: 1; grid-template-columns: none; align-self: start; }
+  .vo-plot { grid-column: 1; grid-row: 1; }
+}
+.vo-group { display: grid; gap: 6px; }
+.vo-title { margin: 0; font-size: var(--text-callout, 12px); font-weight: 600; color: var(--rv-text-2, var(--text-2)); }
+.vo-slider { width: 100%; margin: 0; accent-color: var(--accent, #0066CC); }
+.vo-stops { display: flex; justify-content: space-between; }
+.vo-stop {
+  border: 0; background: none; font: inherit; font-size: var(--text-callout, 12px); color: var(--rv-text-2, var(--text-2));
+  min-height: 28px; min-width: 32px; padding: 0 6px; border-radius: 5px; cursor: default;
+}
+.vo-stop:hover { background: var(--fill, rgba(118, 118, 128, 0.12)); }
+/* the stop in force: bold, underlined and in the text colour, not by colour alone */
+.vo-stop[aria-pressed="true"] { color: var(--rv-text, var(--text)); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.vo-stop:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 3px rgba(0, 102, 204, 0.35)); }
+.vo-value { font-size: var(--text-callout, 12px); font-variant-numeric: tabular-nums; }
+.vo-choices { display: grid; gap: 2px; }
+.vo-row { display: flex; flex-wrap: wrap; column-gap: 18px; }
+.vo-choice { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+.vo-choice input { margin: 0; accent-color: var(--accent, #0066CC); }
+.vo-ramp { width: 44px; height: 10px; border-radius: 3px; border: 1px solid var(--rv-separator, var(--separator)); flex-shrink: 0; }
+.vo-note { margin: 0; font-size: var(--text-caption, 11px); color: var(--rv-text-2, var(--text-2)); }
+/* small glyphs of the interval styles and of the "?" mass, in the popover and in the 3D view's key */
+.vo-glyph { display: inline-block; flex-shrink: 0; width: 12px; height: 18px; border-radius: 2px; box-sizing: border-box; }
+.vo-glyph-glass, .vo-glyph-outline {
+  border: 1.2px dashed var(--rv-bound, var(--bound)); border-bottom-style: solid;
+  background: linear-gradient(to top, var(--vo-bar, #31688E) 45%, transparent 45%);
+}
+.vo-glyph-glass {
+  background: linear-gradient(to top, var(--vo-bar, #31688E) 45%, color-mix(in srgb, var(--vo-bar, #31688E) 30%, transparent) 45%);
+}
+.vo-glyph-residual {
+  width: 14px; text-align: center; font-size: 10px; font-weight: 700; line-height: 18px; color: var(--rv-text, var(--text));
+  border: 1px solid var(--rv-bound, var(--bound));
+  background: repeating-linear-gradient(45deg, var(--rv-surface, var(--surface)) 0 2px, var(--bound-fill, rgba(122, 63, 168, 0.3)) 2px 4px);
+}
+.jv-interval-key { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.jv-interval-key li { display: flex; align-items: flex-start; gap: 8px; }
+.jv-interval-key .vo-glyph { --vo-bar: var(--rv-data); }
+@media (max-width: 480px) {
+  /* narrow windows: the icon alone, the button keeps its name for screen readers */
+  .vo-button-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .vo-button { min-width: 28px; justify-content: center; }
+}
