@@ -599,3 +599,16 @@ def test_check_of_a_hard_input_distribution_is_bounded(client, monkeypatch):
                          headers=HOST).get_json()
     assert result["input_distribution"] == {"status": "timeout"}
     assert time.monotonic() - started < 10
+
+
+def test_editing_the_program_cancels_running_suggestions_and_the_busy_message_is_a_run_message():
+    """#322: an edit stops the suggestion in flight (its job is cancelled through the request's signal), and the
+    busy message of the toolbar opens in full like every run message instead of being cut off (#426)."""
+    app_dir = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app"
+    main = (app_dir / "main.js").read_text(encoding="utf-8")
+    setup = (app_dir / "setup.js").read_text(encoding="utf-8")
+    assert "export function cancelSuggestions()" in setup and "entry.controller.abort()" in setup
+    handler = main.split("onChange: (source) => {", 1)[1].split("},", 1)[0]
+    assert "cancelSuggestions();" in handler
+    busy = main.split("function showBusy(", 1)[1].split("\n}\n", 1)[0]
+    assert 'showRunMessage(message, "error", [cancel])' in busy
