@@ -38,6 +38,8 @@ the `.pgcl` syntax is removed (#433, #446).
   `instructionhandler/while_handler.py` and appear in the CLI menu, `prodigy analyze --loop` and
   the GUI automatically.
 - `result.py`: the JSON result `prodigy/analysis-result@1`.
+- `upper_track.py`: a loop's proven upper bound (the EVT sandwich's super-invariant), carried through
+  the rest of the program; it tightens the upper ends of coefficients and queries (#451).
 - `equivalence/`: the equivalence check of two programs and its three-valued verdict.
 - `evtinvariants/`: EVT invariants, their synthesis and the positivity heuristics.
 - `lowerbounds/`: occupation sub-invariants and the sandwich (`evt_subinvariant`, `evt_sandwich`).

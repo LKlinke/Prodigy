@@ -116,7 +116,12 @@ def test_session_answers_like_the_closed_form(monkeypatch, engine):
     old, unused = _session_queries(monkeypatch, engine, shortcut=False)
     assert used == [True] * 6 and unused == [False] * 6
     assert _comparable(new["queries"]) == _comparable(old["queries"])
+    # the proven upper bound of the loop (#451) is the same function; GiNaC need not print it the same way
+    new_upper, old_upper = new["bounds"].pop("upper"), old["bounds"].pop("upper")
     assert new["bounds"] == old["bounds"]
+    assert new_upper["origin"] == old_upper["origin"]
+    assert sympy.simplify(sympy.sympify(new_upper["closed_form"].replace("^", "**"))
+                          - sympy.sympify(old_upper["closed_form"].replace("^", "**"))) == 0
 
 
 def test_values_end_at_the_next_instruction(monkeypatch):

@@ -896,8 +896,16 @@ def _strategy_evt_sandwich(task: LoopTask) -> LoopOutcome:
     if problem.epilogue == ("seq", []):
         query_values = {(bound.query.kind, bound.query.text): _exact(bound.value)
                         for bound in result.bounds if bound.value is not None}
+    # Park: the output lies coefficient-wise below [not guard]·I. The certificate checked I >= 0, so this is a
+    # power series with non-negative coefficients; it is kept (LoopOutcome.upper) if its mass is finite.
+    upper = None
+    if result.upper is not None and result.upper.verified_exit_mass() != float("inf"):
+        upper = task.config.factory.from_expr(result.upper.calc.to_expr(result.upper.exit_numerator), *variables)
+        certificate["upper"]["per_state"] = True
+    elif result.upper is not None:
+        certificate["upper"]["per_state"] = False
     return LoopOutcome(lower, task.error_prob, kind=Bound.LOWER, residual=residual, certificate=certificate,
-                       query_bounds=query_bounds, query_values=query_values)
+                       query_bounds=query_bounds, query_values=query_values, upper=upper)
 
 
 register_loop_strategy(LoopStrategy(
@@ -931,7 +939,8 @@ register_loop_strategy(LoopStrategy(
     description="Synthesises a finite-mass EVT sub-invariant (lower bound) and an EVT super-invariant "
                 "(upper bound, Park) with eventually geometric templates by linear programming, checks "
                 "both exactly, and bounds the ?Pr and ?Ex queries right after the loop from both sides. "
-                "Needs a rational input distribution and no observe.",
+                "A super-invariant of finite mass also bounds every state from above, through the "
+                "loop-free code after the loop. Needs a rational input distribution and no observe.",
     run=_strategy_evt_sandwich,
     requires_unconditioned=True,
 ))
