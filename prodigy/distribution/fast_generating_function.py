@@ -209,32 +209,10 @@ class FPS(Distribution):
                     if mass is not None:
                         yield mass, State(dict(zip(variables, vals)))
         else:
-            yield from self._finite_terms()
-
-    def _finite_terms(self) -> Iterator[Tuple[str, State]]:
-        """
-        The (probability, state) pairs of this polynomial, one per state with its full coefficient
-        (the contract of :meth:`Distribution.__iter__`). The bindings' `get_terms` lists a state once per
-        term of the expanded polynomial in which the parameters are not collected: `p*x + (1-p)` gives
-        `-p` and `1` for x = 0 (#444); the terms of one state are summed here.
-        """
-        terms: List[Tuple[str, Dict[str, int]]] = self._dist.get_terms(self._variables)
-        if not self._parameters:
-            # numeric coefficients: the expanded polynomial has one term per monomial
-            for prob, vals in terms:
-                yield prob, State(vals)
-            return
-        collected: Dict[FrozenSet[Tuple[str, int]], Tuple[List[str], Dict[str, int]]] = {}
-        for prob, vals in terms:
-            collected.setdefault(frozenset(vals.items()), ([], vals))[0].append(prob)
-        parameters = sorted(self._parameters)
-        for probs, vals in collected.values():
-            if len(probs) == 1:
-                yield probs[0], State(vals)
-                continue
-            total = prodigy_ginac.Dist(" + ".join(f"({prob})" for prob in probs), parameters)
-            if total.is_zero() != prodigy_ginac.troolean.true:
-                yield str(total), State(vals)
+            # one item per state with its full coefficient since prodigy-ppl-ginac 0.0.7 (#444)
+            terms: List[Tuple[str, Dict[str, int]]] = self._dist.get_terms(self._variables)
+            for prob, vals in terms:        # type: ignore
+                yield prob, State(vals)     # type: ignore
 
     def native_coefficients(self, variable: str) -> Optional[Iterator[str]]:
         # the bindings expand the series themselves, one coefficient at a time (as `__iter__` does)
@@ -425,12 +403,6 @@ class FPS(Distribution):
         self.checked_marginal(variable)
         if approximate is None:
             raise ValueError(message)
-        if self._parameters:
-            # the bindings list the value 0 of an approximated marginal with parameters once per term and
-            # count its part several times (#444)
-            raise NotImplementedError(
-                f"Not implemented: {message[0].lower()}{message[1:]}; the approximation of a marginal is not "
-                f"implemented for programs with parameters ({', '.join(sorted(self._parameters))}).")
 
     def _split_operands(self, update: Callable[[Distribution, str, str], Distribution], left: str | int,
                         right: str | int, *names: str | int) -> FPS | None:
@@ -449,9 +421,8 @@ class FPS(Distribution):
                         second_factor: str,
                         approximate: str | float | None) -> FPS:
         variables = self._variables
-        # On a polynomial, the bindings multiply term by term; else they split over a marginal. Term by
-        # term, they garble a coefficient with parameters (a sum, #444): then the factors are fixed too.
-        if (self._parameters or not self._finite) and first_factor in variables and second_factor in variables:
+        # On a polynomial, the bindings multiply term by term; else they split over a marginal.
+        if not self._finite and first_factor in variables and second_factor in variables:
             for fixed in (first_factor, second_factor):
                 split = self._split_operands(
                     lambda part, left, right: part._update_product(  # pylint: disable=protected-access
@@ -486,17 +457,6 @@ class FPS(Distribution):
         # before the bindings, which report a non-finite marginal on a measure with infinite mass (#257)
         self._require_nonzero_divisor(right, "%")
         variables = self._variables
-        if str(left).isdigit() and str(right).isdigit():
-            # the bindings compute even this term by term on a polynomial (see below)
-            return self._update_var(temp_var, int(str(left)) % int(str(right)))
-        if self._finite and self._parameters:
-            # The bindings compute the remainder term by term on a polynomial, which garbles a coefficient
-            # with parameters (a sum, #444): the operands are fixed to their values instead.
-            split = self._split_operands(
-                lambda part, l, r: part._update_modulo(temp_var, l, r, approximate),  # pylint: disable=protected-access
-                left, right, left, right)
-            if split is not None:
-                return split
         # On a polynomial, the bindings compute the remainder term by term. Else they would split over
         # the marginal of an operand (#256): the operands with a finite support are fixed instead.
         if not self._finite and str(right) in variables:

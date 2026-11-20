@@ -82,14 +82,15 @@ def test_no_negative_mass_after_modulo(engine):
     assert decide_equal(dist.coeff(x, 2).subs(z, 0), (1 - p) * HALF) is True
 
 
-def test_approximated_case_split_with_parameters_is_not_implemented():
-    # the bindings would count the value 0 of the approximated marginal once per term (`1` and `-p`)
+def test_approximated_case_split_with_parameters_counts_each_value_once():
+    # the bindings before 0.0.7 counted the value 0 of the approximated marginal `1 - p` once per term (`1` and
+    # `-p`) and gave `2 - 2*p`
     pytest.importorskip("prodigy_ginac")
     # pylint: disable=import-outside-toplevel
     from prodigy.distribution.fast_generating_function import FPS
     geometric = FPS("(1-p)/(1-p*x)", "x")
-    with pytest.raises(NotImplementedError, match="parameters"):
-        geometric._update_product("y", "x", "x", "0.5")  # pylint: disable=protected-access
+    result = geometric._update_product("y", "x", "x", "0.5")  # pylint: disable=protected-access
+    assert decide_equal(_expr(str(result).replace("^", "**")), 1 - p) is True
 
 
 # --- a sweep of parametric programs: GiNaC agrees with SymPy -----------------------------------------------------
