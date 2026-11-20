@@ -8,7 +8,7 @@ from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.pgcl import parse_pgcl
 
-ENGINES = ["SYMPY", "GINAC", "SYMENGINE"]
+ENGINES = ["SYMPY", "GINAC"]
 
 
 def _run(source, syntax, engine):

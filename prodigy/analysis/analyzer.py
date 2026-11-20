@@ -96,10 +96,6 @@ def compute_discrete_distribution(
     (:mod:`prodigy.analysis.trace`) is printed when it is done, with its line (and the analysis
     waits for Enter after each step); a session that records steps itself is left alone.
     """
-    if config.engine == ForwardAnalysisConfig.Engine.SYMENGINE:
-        # pylint: disable=import-outside-toplevel
-        from prodigy.distribution.symengine_distribution import check_names
-        check_names([*program.variables, *program.parameters])
     # the input must be proven to be a distribution, else the guarantees of the result mean nothing (#296)
     validate_input_distribution(dist, program)
     # the input is a finite measure, so are all distributions of the program's analysis; candidate checks

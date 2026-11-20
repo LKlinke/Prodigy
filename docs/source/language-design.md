@@ -287,7 +287,7 @@ marginalised. A term `n^k` must become `n^k (1 + x + … + x^k)/(k + 1)`:
 
 For a geometric `n`, `G = 1/(2 − n)`, the result is `log((2 − n·x)/(2 − n)) / (n (1 − x))`
 (`pgfexamples/inference/loop_free/uniform_geometric_bound.ppy`). The closed form has removable
-singularities at `n = 0` and `x = 1`; SymPy and SymEngine take the value there, GiNaC cancels
+singularities at `n = 0` and `x = 1`; SymPy takes the value there, GiNaC cancels
 them only for rational functions and otherwise ends with a division by zero (an error, never a
 wrong number). Other bounds that take infinitely many values (`unif(a, n)` with `a ≠ 0`,
 `unif(0, n + 1)`, `n = unif(0, n)`) and integrals that are not certified (e.g. with parameters)

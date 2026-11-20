@@ -153,7 +153,7 @@ class Setup:
 
 
 SETUPS = (Setup("sympy", Engine.SYMPY), Setup("sympy+simplify", Engine.SYMPY, True),
-          Setup("ginac", Engine.GINAC), Setup("symengine", Engine.SYMENGINE))
+          Setup("ginac", Engine.GINAC))
 _NON_FINITE = ("nan", "zoo", "oo", "inf")
 
 

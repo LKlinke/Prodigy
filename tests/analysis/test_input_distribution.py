@@ -114,7 +114,7 @@ def test_session_reports_a_refused_input_as_error(config, text):
     assert result["queries"] == []
 
 
-@pytest.mark.parametrize("engine", ["sympy", "ginac", "symengine"])
+@pytest.mark.parametrize("engine", ["sympy", "ginac"])
 @pytest.mark.parametrize("command", ["main", "analyze"])
 def test_cli_refuses_invalid_inputs(tmp_path, engine, command):
     program = tmp_path / "program.pgcl"
@@ -155,7 +155,7 @@ def client():
     app.extensions["prodigy_jobs"].shutdown()
 
 
-@pytest.mark.parametrize("engine", ["sympy", "ginac", "symengine"])
+@pytest.mark.parametrize("engine", ["sympy", "ginac"])
 def test_web_refuses_invalid_inputs(client, engine):
     host = {"Host": "localhost:8080"}
     expected = {"1/(2 - x)": "ok", "1 - x": "error", "1/(1 - x)": "error", "1/(1 - 2*x)": "error"}

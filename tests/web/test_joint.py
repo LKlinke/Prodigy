@@ -34,7 +34,7 @@ y = binomial(3, 1/2);
 z = bernoulli(1/4);
 """
 
-ENGINES = ["sympy", "ginac", "symengine"]
+ENGINES = ["sympy", "ginac"]
 
 
 def _engine(engine):

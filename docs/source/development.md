@@ -24,7 +24,7 @@ the `.pgcl` syntax is removed (#433, #446).
 - `distribution.py`: the `Distribution` interface and the shared logic (case splits, filters,
   marginals, the iteration contract).
 - Engines: SymPy (`generating_function.py`, the default), GiNaC via the bindings
-  (`fast_generating_function.py`), SymEngine (deprecated, removed in v0.6.0, #416).
+  (`fast_generating_function.py`). SymEngine was removed in v0.6.0 (#416).
 - Proof rules on closed forms: `finite_measure.py`, `product_form.py`, `coefficient_signs.py`,
   `convergence.py` (convergence at 1), `ordering.py` (`<=` on distributions).
 - `prodigy/distribution` and `prodigy/pgcl` import nothing from `prodigy/analysis`

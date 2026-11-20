@@ -15,7 +15,7 @@ from prodigy.distribution.independent_comparison import ComparisonNotImplemented
 from prodigy.pgcl.parser import parse_expr
 
 Engine = ForwardAnalysisConfig.Engine
-ENGINES = [Engine.SYMPY, Engine.SYMENGINE, Engine.GINAC]
+ENGINES = [Engine.SYMPY, Engine.GINAC]
 
 x, n, a, b, w, z, t = sympy.symbols("x n a b w z t")
 ORDER = 6
@@ -81,7 +81,6 @@ def test_filter_coefficients(engine, function, variables, guard, holds):
     assert _terms(_sympy(filtered), variables) == expected
 
 
-@pytest.mark.slow
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("function, variables", FUNCTIONS)
 def test_monus_coefficients(engine, function, variables):

@@ -26,8 +26,7 @@ from prodigy.analysis.lowerbounds import subinvariant
 from prodigy.analysis.session import AnalysisSession
 from prodigy.pgcl import parse_pgcl
 
-ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE,
-           ForwardAnalysisConfig.Engine.GINAC]
+ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINAC]
 VARIABLES = ["x", "y", "t"]
 
 

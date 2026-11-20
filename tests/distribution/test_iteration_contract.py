@@ -11,7 +11,6 @@ import sympy
 
 from prodigy.distribution.equality import decide_equal
 from prodigy.distribution.generating_function import SympyPGF
-from prodigy.distribution.symengine_distribution import SymenginePGF
 from prodigy.pgcl.parser import parse_expr
 
 
@@ -25,7 +24,6 @@ def _ginac_factory():
 FACTORIES = [
     pytest.param(lambda: SympyPGF, id="sympy"),
     pytest.param(_ginac_factory, id="ginac"),
-    pytest.param(lambda: SymenginePGF, id="symengine"),
 ]
 
 # polynomials (the generating function, its variables) whose coefficients are sums with parameters
@@ -64,7 +62,7 @@ def test_one_item_per_state_with_its_full_coefficient(factory, function, variabl
 @pytest.mark.parametrize("factory", FACTORIES)
 def test_exhaustive_filter_keeps_sum_coefficients_together(factory):
     # the filter rebuilds the polynomial from (probability, state) pairs: a probability `1/2 - p/2` must stay a
-    # factor of its monomial (GiNaC and SymEngine wrote `1/2-1/2*p * x^2`)
+    # factor of its monomial (GiNaC wrote `1/2-1/2*p * x^2`)
     dist = factory().from_expr("p*x + (1-p)/2*x^2 + (1-p)/2", "x")
     filtered = dist._exhaustive_search(parse_expr("not (x = 1)"))  # pylint: disable=protected-access
     expected = sympy.sympify("(1-p)/2*x**2 + (1-p)/2")

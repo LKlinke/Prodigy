@@ -20,7 +20,7 @@ from prodigy.web.diagnostics import check_source
 from prodigy.web.requests import run_analysis
 
 Engine = ForwardAnalysisConfig.Engine
-ENGINES = [Engine.SYMPY, Engine.SYMENGINE, Engine.GINAC]
+ENGINES = [Engine.SYMPY, Engine.GINAC]
 
 
 def analyse(source, engine=Engine.SYMPY, syntax="ppy", decisions=None):

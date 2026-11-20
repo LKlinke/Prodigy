@@ -12,8 +12,7 @@ from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.session import AnalysisSession
 from prodigy.pgcl import parse_pgcl
 
-ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE,
-           ForwardAnalysisConfig.Engine.GINAC]
+ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINAC]
 
 # A random walk on x that stops with probability 1/5 per step; it stops at x = 0 or, from x > 0, sets
 # x := 5 (a marginal). By symmetry Pr[x = 5] = Pr[x = 0] = 1/2. The least fixed point is

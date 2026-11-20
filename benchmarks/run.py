@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional, Tuple
 ROOT = Path(__file__).resolve().parent.parent
 SUITE = ROOT / "benchmarks" / "suite.json"
 BASELINE = ROOT / "benchmarks" / "baseline.json"
-ENGINES = ("sympy", "ginac", "symengine")
+ENGINES = ("sympy", "ginac")
 RUNNER = "import sys; from prodigy.cli import cli; sys.exit(cli())"
 
 

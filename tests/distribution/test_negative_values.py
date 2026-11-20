@@ -7,7 +7,6 @@ from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.generating_function import SympyPGF
 from prodigy.distribution.negative_values import can_be_negative
-from prodigy.distribution.symengine_distribution import SymenginePGF
 from prodigy.pgcl.parser import parse_expr
 
 
@@ -21,13 +20,11 @@ def _ginac_factory():
 FACTORIES = [
     pytest.param(lambda: SympyPGF, id="sympy"),
     pytest.param(_ginac_factory, id="ginac"),
-    pytest.param(lambda: SymenginePGF, id="symengine"),
 ]
 
 ENGINES = [
     pytest.param(ForwardAnalysisConfig.Engine.SYMPY, lambda: SympyPGF, id="sympy"),
     pytest.param(ForwardAnalysisConfig.Engine.GINAC, _ginac_factory, id="ginac"),
-    pytest.param(ForwardAnalysisConfig.Engine.SYMENGINE, lambda: SymenginePGF, id="symengine"),
 ]
 
 X, Y, Z = sympy.symbols("x y z")

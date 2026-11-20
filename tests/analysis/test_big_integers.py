@@ -17,7 +17,7 @@ SOURCE = "x: nat;\n{x = 1;} [1/2 ** 15000] {x = 2;}\nquery Pr[x == 1];\n"
 
 
 @pytest.mark.parametrize("engine, simplification", [
-    (Engine.SYMPY, False), (Engine.SYMPY, True), (Engine.GINAC, False), (Engine.SYMENGINE, False)])
+    (Engine.SYMPY, False), (Engine.SYMPY, True), (Engine.GINAC, False)])
 def test_probability_with_more_than_4300_digits(engine, simplification):
     previous = sys.get_int_max_str_digits()
     config = ForwardAnalysisConfig(engine=engine, use_simplification=simplification)

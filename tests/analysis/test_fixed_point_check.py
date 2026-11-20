@@ -20,8 +20,7 @@ while (x = 1) { {x := 0} [1/2] {c := c + 1} }
 ?Ex[c]
 """
 
-ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE,
-           ForwardAnalysisConfig.Engine.GINAC]
+ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINAC]
 
 
 def analyse(decision, engine=ForwardAnalysisConfig.Engine.SYMPY):
@@ -71,11 +70,10 @@ def test_non_rational_difference_is_not_refuted(engine):
 
 @pytest.mark.parametrize("engine, status, verdict", [
     (ForwardAnalysisConfig.Engine.SYMPY, "ok", None),
-    (ForwardAnalysisConfig.Engine.SYMENGINE, "error", "unknown"),
     (ForwardAnalysisConfig.Engine.GINAC, "error", "unknown"),
 ])
 def test_correct_but_unproven_invariant_is_not_refuted(engine, status, verdict):
-    # sin(c)^2 + cos(c)^2 - 1 = 0: SymPy's simplify proves it, SymEngine and GiNaC cannot
+    # sin(c)^2 + cos(c)^2 - 1 = 0: SymPy's simplify proves it, GiNaC cannot
     result = analyse(evt_invariant("(x + 1/2)/(1 - c/2) + sin(c)^2 + cos(c)^2 - 1"), engine)
     assert result["status"] == status
     assert (result["error"] or {}).get("verdict") == verdict

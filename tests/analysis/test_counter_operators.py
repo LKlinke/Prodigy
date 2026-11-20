@@ -23,8 +23,7 @@ from prodigy.distribution.equality import decide_equal, sympy_text
 from prodigy.pgcl import parse_pgcl
 from prodigy.pgcl.parser import parse_expr
 
-ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE,
-           ForwardAnalysisConfig.Engine.GINAC]
+ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINAC]
 
 EXAMPLE = Path(__file__).parents[2] / "pgfexamples/inference/loopy/conditioning/poisson_from_coins_choice.ppy"
 INVARIANT = "ok*exp(k/2)*(1 + stop/2) + (k/2 - 1)*exp(k/2) + 1"

@@ -15,10 +15,9 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.fast_generating_function import FPS
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.distribution.linear_guards import normalize_guard
-from prodigy.distribution.symengine_distribution import SymengineDist
 from prodigy.pgcl.parser import parse_expr
 
-ENGINES = [GeneratingFunction, FPS, SymengineDist]
+ENGINES = [GeneratingFunction, FPS]
 X, Y = sympy.Symbol('x'), sympy.Symbol('y')
 DEGREE = 12
 

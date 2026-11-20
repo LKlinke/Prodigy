@@ -8,7 +8,7 @@ A request looks like::
       "syntax": "pgcl" | "ppy",              # optional, else from "file_name", else pgcl
       "file_name": "dice.ppy",               # optional, only its extension is used
       "input_distribution": "x^3",          # optional, default: all variables 0
-      "engine": "sympy" | "ginac" | "symengine",
+      "engine": "sympy" | "ginac",
       "normalize": true,                     # condition on observations
       "simplification": true,
       "decisions": {"0": {"strategy": "unroll", "params": {"iterations": 50}}, "*": ...},
@@ -34,6 +34,8 @@ import copy
 import time
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Tuple
 
+from prodigy.analysis.deprecations import REMOVED_ENGINES
+
 if TYPE_CHECKING:
     from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.analysis.equivalence.verdict import CheckOutcome
@@ -43,7 +45,6 @@ if TYPE_CHECKING:
 ENGINES = {
     "sympy": "SymPy",
     "ginac": "GiNaC",
-    "symengine": "SymEngine (deprecated)",
 }
 
 MAX_COEFFICIENTS = 200
@@ -121,8 +122,11 @@ def validate_request(request: Dict[str, Any]) -> List[str]:
             admissible_expression(container[key], syntax=syntax, functions=MATH_FUNCTIONS)
         except InadmissibleExpression as exc:
             problems.append(f"{label}: {exc}")
-    if request.get("engine", "sympy") not in ENGINES:
-        problems.append(f"Unknown engine {request.get('engine')!r}.")
+    engine = request.get("engine", "sympy")
+    if engine in REMOVED_ENGINES:
+        problems.append(REMOVED_ENGINES[engine])
+    elif engine not in ENGINES:
+        problems.append(f"Unknown engine {engine!r}.")
     try:
         coefficients = int(request.get("coefficients", 30))
         if not 0 <= coefficients <= MAX_COEFFICIENTS:
@@ -179,7 +183,7 @@ def make_config(request: Dict[str, Any]) -> ForwardAnalysisConfig:
     from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
     from prodigy.analysis.solver.solver_type import SolverType
     return ForwardAnalysisConfig(
-        engine=ForwardAnalysisConfig.Engine[str(request.get("engine", "sympy")).upper()],
+        engine=ForwardAnalysisConfig.Engine.from_name(str(request.get("engine", "sympy"))),
         use_simplification=bool(request.get("simplification", True)),
         normalize=bool(request.get("normalize", True)),
         strategy=SynthesisStrategies[str(request.get("synthesis_strategy", "default")).upper()],

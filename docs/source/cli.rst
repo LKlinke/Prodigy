@@ -13,12 +13,14 @@ of its two files by its own extension, unless ``--syntax`` is given.
 
 .. note::
 
-   The ``.pgcl`` syntax and ``--engine symengine`` are **deprecated in v0.5.0 and removed in v0.6.0**
-   (including ``prodigy convert``). The commands that read a ``.pgcl`` program or run with
-   ``--engine symengine`` print a deprecation warning on stderr; ``prodigy analyze`` puts it into the
-   ``warnings`` of the result instead (so ``--json`` stays clean). Convert programs with
-   ``prodigy convert program.pgcl`` while v0.5.x is installed; use ``--engine sympy`` (the reference)
-   or ``--engine ginac`` (the fast one).
+   The ``.pgcl`` syntax is **deprecated in v0.5.0 and removed in v0.6.0** (including
+   ``prodigy convert``). The commands that read a ``.pgcl`` program print a deprecation warning on
+   stderr; ``prodigy analyze`` puts it into the ``warnings`` of the result instead (so ``--json``
+   stays clean). Convert programs with ``prodigy convert program.pgcl`` while v0.5.x is installed.
+
+   The SymEngine engine was **removed in v0.6.0**: ``--engine symengine`` ends with the error
+   "the SymEngine engine was removed in v0.6.0; use sympy or ginac". Use ``--engine sympy`` (the
+   reference, the default) or ``--engine ginac`` (the fast one); any other name is an error as well.
 
 An invariant given as program text, with ``--loop ID=invariant:invariant=...`` or
 ``invariant_file=...``, is read in the syntax of the program. Generating functions (``--invariant``

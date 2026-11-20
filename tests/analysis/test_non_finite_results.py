@@ -26,7 +26,7 @@ def _engine(name):
     return getattr(ForwardAnalysisConfig.Engine, name)
 
 
-ENGINES = ["SYMPY", "GINAC", "SYMENGINE"]
+ENGINES = ["SYMPY", "GINAC"]
 SIMPLIFICATION = [pytest.param(True, id="simplified"), pytest.param(False, id="unsimplified")]
 
 

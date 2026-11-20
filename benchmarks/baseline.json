@@ -9,10 +9,6 @@
       "ginac": {
         "status": "ok",
         "seconds": 0.029
-      },
-      "symengine": {
-        "status": "ok",
-        "seconds": 0.069
       }
     },
     "galton_watson_critical": {
@@ -23,10 +19,6 @@
       "ginac": {
         "status": "ok",
         "seconds": 0.078
-      },
-      "symengine": {
-        "status": "ok",
-        "seconds": 0.309
       }
     },
     "polya_urn_coins": {
@@ -37,10 +29,6 @@
       "ginac": {
         "status": "ok",
         "seconds": 0.423
-      },
-      "symengine": {
-        "status": "ok",
-        "seconds": 1.216
       }
     },
     "log_series_coins": {
@@ -51,10 +39,6 @@
       "ginac": {
         "status": "ok",
         "seconds": 0.806
-      },
-      "symengine": {
-        "status": "ok",
-        "seconds": 1.791
       }
     },
     "dnd_handicap": {
@@ -65,10 +49,6 @@
       "ginac": {
         "status": "ok",
         "seconds": 0.019
-      },
-      "symengine": {
-        "status": "ok",
-        "seconds": 0.137
       }
     },
     "monty_hall": {
@@ -79,10 +59,6 @@
       "ginac": {
         "status": "ok",
         "seconds": 0.018
-      },
-      "symengine": {
-        "status": "ok",
-        "seconds": 0.16
       }
     },
     "piranha": {
@@ -91,10 +67,6 @@
         "seconds": 0.053
       },
       "ginac": {
-        "status": "ok",
-        "seconds": 0.008
-      },
-      "symengine": {
         "status": "ok",
         "seconds": 0.008
       }
@@ -107,10 +79,6 @@
       "ginac": {
         "status": "ok",
         "seconds": 0.115
-      },
-      "symengine": {
-        "status": "ok",
-        "seconds": 0.121
       }
     },
     "random_walk_invariant": {
@@ -121,10 +89,6 @@
       "ginac": {
         "status": "ok",
         "seconds": 0.023
-      },
-      "symengine": {
-        "status": "ok",
-        "seconds": 0.101
       }
     },
     "geometric_synthesis": {
@@ -133,10 +97,6 @@
         "seconds": 0.03
       },
       "ginac": {
-        "status": "ok",
-        "seconds": 0.023
-      },
-      "symengine": {
         "status": "ok",
         "seconds": 0.023
       }
@@ -149,10 +109,6 @@
       "ginac": {
         "status": "ok",
         "seconds": 0.069
-      },
-      "symengine": {
-        "status": "ok",
-        "seconds": 0.109
       }
     },
     "galton_watson_critical_coeffs": {
@@ -163,10 +119,6 @@
       "ginac": {
         "status": "ok",
         "seconds": 0.077
-      },
-      "symengine": {
-        "status": "ok",
-        "seconds": 0.388
       }
     },
     "dnd_handicap_coeffs": {
@@ -177,10 +129,6 @@
       "ginac": {
         "status": "ok",
         "seconds": 0.021
-      },
-      "symengine": {
-        "status": "ok",
-        "seconds": 0.189
       }
     },
     "poisson_from_coins_coeffs": {
@@ -191,10 +139,6 @@
       "ginac": {
         "status": "ok",
         "seconds": 0.05
-      },
-      "symengine": {
-        "status": "ok",
-        "seconds": 0.123
       }
     }
   }

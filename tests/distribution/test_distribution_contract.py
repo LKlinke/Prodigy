@@ -7,7 +7,6 @@ Written as one parametrised file over the engines so that it can move into the c
 import pytest
 
 from prodigy.distribution.generating_function import SympyPGF
-from prodigy.distribution.symengine_distribution import SymenginePGF
 
 
 def _ginac_factory():
@@ -20,7 +19,6 @@ def _ginac_factory():
 FACTORIES = [
     pytest.param(lambda: SympyPGF, id="sympy"),
     pytest.param(_ginac_factory, id="ginac"),
-    pytest.param(lambda: SymenginePGF, id="symengine"),
 ]
 
 

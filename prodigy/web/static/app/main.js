@@ -561,9 +561,6 @@ function renderEngine() {
 
 function engineChanged() {
   state.setup.options.engine = $("engine-select").value;
-  // a deprecated engine (SymEngine, #416): say so when it is chosen; every result of it carries the warning
-  const deprecation = state.meta.engines.find((e) => e.name === state.setup.options.engine)?.deprecation;
-  if (deprecation) notify(deprecation, "info");
   saveSetup();
   scheduleInputCheck();
   refreshStale();

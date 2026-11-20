@@ -93,9 +93,8 @@ Prodigy is tested with Python 3.11 and 3.14.
   Safari and Firefox cannot write to a folder: Open reads the chosen file, Save downloads the
   program. The program is also kept in the browser, together with the setup (the strategy of each
   loop), so a reload never loses either; replacing a program with unsaved changes (New, Open…, an example) asks first.
-* **Engine** (toolbar, pop-up button before Analyze, #308): SymPy, GiNaC or SymEngine (deprecated in v0.5.0, removed in v0.6.0; choosing it says so, and
-  every result of it carries the warning) for the next
-  run; GiNaC is usually much faster, SymPy is the reference implementation. An engine the server
+* **Engine** (toolbar, pop-up button before Analyze, #308): SymPy or GiNaC for the next run (SymEngine was removed in
+  v0.6.0, #416; a setup kept in the browser that names it falls back to the default engine); GiNaC is usually much faster, SymPy is the reference implementation. An engine the server
   cannot use (GiNaC without `prodigy-ppl-ginac`) is listed as *not installed* and cannot be chosen;
   the tooltip says how to install it. The choice is part of the setup kept in the browser, stays
   across New, Open… and reloads, and changing it marks the shown result as out of date. The
@@ -537,7 +536,7 @@ bound) and for products of such factors over disjoint variables. See
 An invariant that fails its check gets a verdict. *Refuted* means it is provably wrong: a
 counterexample, or Φ(I) − I is a nonzero rational function after exact cancellation.
 *Not proven* means the check could neither prove nor refute it, e.g. for non-rational
-closed forms such as `sin(c)^2 + cos(c)^2 - 1`, which SymPy simplifies to 0 but SymEngine and
+closed forms such as `sin(c)^2 + cos(c)^2 - 1`, which SymPy simplifies to 0 but
 GiNaC cannot, or for a template whose parameters the solver could not determine; such an
 invariant may still be correct. The result JSON carries the verdict as `error.verdict`.
 

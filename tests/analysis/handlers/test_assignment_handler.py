@@ -8,13 +8,11 @@ from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.fast_generating_function import ProdigyPGF
 from prodigy.distribution.generating_function import SympyPGF
-from prodigy.distribution.symengine_distribution import SymenginePGF
 
 
 @pytest.mark.parametrize('engine,factory',
                           [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
-                          (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF),
-                          (ForwardAnalysisConfig.Engine.SYMENGINE, SymenginePGF)])
+                          (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_subtraction_when_already_zero(engine, factory):
     # subtraction is truncated at 0 (monus, #220)
     result, error_prob = compute_discrete_distribution(
@@ -48,8 +46,7 @@ def test_subtraction_when_already_zero(engine, factory):
 
 @pytest.mark.parametrize('engine,factory',
                          [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
-                          (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF),
-                          (ForwardAnalysisConfig.Engine.SYMENGINE, SymenginePGF)])
+                          (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_addition_assignment(engine, factory):
     rand_inc = random.randint(0, 100)
     rand_init = random.randint(0, 100)
@@ -64,8 +61,7 @@ def test_addition_assignment(engine, factory):
 
 @pytest.mark.parametrize('engine,factory',
                          [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
-                          (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF),
-                          (ForwardAnalysisConfig.Engine.SYMENGINE, SymenginePGF)])
+                          (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_multiplication_assignment(engine, factory):
     rand_factor = random.randint(0, 100)
     rand_init = random.randint(0, 100)

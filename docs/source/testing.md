@@ -41,7 +41,7 @@ random programs: assignments, the built-in distributions, `if`, probabilistic ch
 rendered in `.ppy` and in `.pgcl`. For each program the tests check that
 
 - both syntaxes give the same program;
-- SymPy (with the simplification of the shown result on and off), GiNaC and SymEngine give equal results, decided with
+- SymPy (with the simplification of the shown result on and off) and GiNaC give equal results, decided with
   {func}`prodigy.distribution.equality.decide_equal_strings`, and the same kind of guarantee;
 - no result with status `ok` contains `nan`, `zoo` or `oo`;
 - the results agree with the simulation.
@@ -93,7 +93,7 @@ one engine than on the others (#224: doubling a variable, `geometric` inside a l
 gives the program and the strategies of its loops, and runs on every engine:
 
 ```sh
-make bench                                 # all cases on SymPy, GiNaC and SymEngine
+make bench                                 # all cases on SymPy and GiNaC
 make bench ARGS="--engines sympy"          # one engine
 make bench ARGS="--cases st_petersburg"    # one case
 make bench ARGS="--write-baseline"         # replace benchmarks/baseline.json by this run

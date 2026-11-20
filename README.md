@@ -22,9 +22,10 @@ Prodigy is on PyPI as `prodigy-ppl` (the command and the Python package are call
 pip install prodigy-ppl
 ```
 
-This needs Python 3.11 or newer and contains the SymPy, SymEngine and the faster GiNaC engine (`--engine ginac`).
-The SymEngine engine and the `.pgcl` syntax are deprecated in v0.5.0 and removed in v0.6.0 (programs are written in `.ppy`;
-`prodigy convert program.pgcl` translates old ones while v0.5.x is installed).
+This needs Python 3.11 or newer and contains the SymPy and the faster GiNaC engine (`--engine ginac`).
+The SymEngine engine was removed in v0.6.0 (use `--engine sympy` or `--engine ginac`). The `.pgcl` syntax is
+deprecated in v0.5.0 and removed in v0.6.0 (programs are written in `.ppy`; `prodigy convert program.pgcl` translates
+old ones while v0.5.x is installed).
 The GiNaC engine comes from [`prodigy-ppl-ginac`](https://pypi.org/project/prodigy-ppl-ginac/), whose wheels bundle
 GiNaC; pip installs it on Linux (x86_64, aarch64, glibc) and macOS with Python 3.11–3.14. Elsewhere, the extra `ginac`
 builds it from source, which needs a C++17 compiler, CMake and [GiNaC](https://www.ginac.de/Download.html):
@@ -35,7 +36,7 @@ pip install "prodigy-ppl[ginac]"
 
 ### With Docker
 
-The image contains the command line and the web GUI with the SymPy, GiNaC and SymEngine engines, for amd64 and arm64
+The image contains the command line and the web GUI with the SymPy and GiNaC engines, for amd64 and arm64
 (tags: version, e.g. `3.1.0`, minor version `3.1`, and `latest`). Without arguments it starts the web GUI on
 http://localhost:8080:
 
