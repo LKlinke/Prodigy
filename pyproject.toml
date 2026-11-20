@@ -28,7 +28,9 @@ dependencies = [
     # lower-bound modes (prodigy.analysis.lowerbounds): HiGHS LP solver (scipy), exact rational linear algebra (FLINT)
     "numpy>=1.26",
     "scipy>=1.11",
-    "python-flint>=0.6",
+    # also the rational kernel (prodigy.distribution.kernel, #417): fmpq_mpoly and fmpq_mpoly_ctx.get as in 0.9;
+    # abi3 wheels for CPython >= 3.10 on Linux, macOS and Windows
+    "python-flint>=0.9",
     # The GiNaC engine (--engine ginac). Its wheels bundle GiNaC; the marker leaves out the platforms and Python
     # versions without wheels, where pip would build the sdist (needs a C++17 compiler, CMake and GiNaC).
     # A marker cannot tell musllinux from glibc, so on Alpine pip still tries to build it.
