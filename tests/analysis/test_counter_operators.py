@@ -392,3 +392,13 @@ def test_counter_operators_do_not_parse_latex_output():
     assert result["status"] == "ok", result.get("error")
     assert result["queries"][0]["bound"] == Bound.EXACT
     assert _equal(result["queries"][0]["value"], 1 - sympy.exp(-1))
+
+
+def test_fraction_of_is_exact_and_rejects_irrationals():
+    # no round trip through a string (#373)
+    assert exp_polynomial.fraction_of(sympy.Rational(-3, 7)) == Fraction(-3, 7)
+    assert exp_polynomial.fraction_of(sympy.Integer(5)) == Fraction(5)
+    with pytest.raises(ValueError):
+        exp_polynomial.fraction_of(sympy.pi)
+    with pytest.raises(ValueError):
+        exp_polynomial.fraction_of(sympy.Symbol("p"))
