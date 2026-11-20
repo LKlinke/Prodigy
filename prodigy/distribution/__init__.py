@@ -33,6 +33,12 @@ Proof Rules on Generating Functions
 .. automodule:: prodigy.distribution.coefficient_signs
    :members:
 
+Order
+#####
+
+.. automodule:: prodigy.distribution.ordering
+   :members:
+
 Exact Division
 ##############
 
@@ -43,3 +49,4 @@ Exact Division
 from .distribution import (CommonDistributionsFactory, Distribution,
                            DistributionParam, MarginalType, NonFiniteMarginalError, ZeroDivisorError,
                            State, known_convergent_series, output_syntax)
+from .ordering import UndecidedComparisonError

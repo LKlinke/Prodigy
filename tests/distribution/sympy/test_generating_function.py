@@ -55,8 +55,8 @@ class TestDistributionInterface:
     def test_infinite_leq(self):
         gf1 = GeneratingFunction("(1-sqrt(1-x**2))/x")
         gf2 = GeneratingFunction("2/(2-x)-1")
-        with pytest.raises(RuntimeError):
-            assert gf1 <= gf2
+        # the coefficient of x^5 of gf2 - gf1 is 1/32 - 1/16 < 0 (#441)
+        assert not gf1 <= gf2
 
     def test_finite_le(self):
         gf1 = GeneratingFunction("x**2*y**3")
@@ -70,8 +70,7 @@ class TestDistributionInterface:
     def test_infinite_le(self):
         gf1 = GeneratingFunction("(1-sqrt(1-x**2))/x")
         gf2 = GeneratingFunction("2/(2-x) - 1")
-        with pytest.raises(RuntimeError):
-            assert gf1 < gf2
+        assert not gf1 < gf2  # a negative coefficient of gf2 - gf1 at x^5 (#441)
 
     def test_equality_param_fail(self):
         gf1 = GeneratingFunction("y*x", "x")
