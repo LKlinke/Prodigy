@@ -34,10 +34,12 @@ REFUTED = {
     "divergent": ("1/(1 - x)", "infinite"),
     "pole inside the unit disc": ("1/(1 - 2*x)", "infinite"),
     "pole at 0": ("1/x", "pole at 0"),
+    # a negative dominant pole: the signs alternate (#431 decides it; before, it was not proven)
+    "alternating": ("1/(1 + x)", "negative"),
 }
 
 UNPROVEN = {
-    "alternating": "1/(1 + x)",
+    "double irrational pole": "(7/13*(3*x^3 - 16*x)/(x^2 + 8*x - 16))^2",
     "exp with negative coefficients": "exp(-x)",
     "root": "sqrt(x)",
     "real parameter": "p*x + 1 - p",

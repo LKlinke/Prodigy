@@ -24,10 +24,10 @@ ENGINES = [
     pytest.param(Engine.SYMENGINE, id="SymEngine"),
 ]
 
-# the coefficients of 7/13 * (16*i - 3*i^3) / (16 - 8*i - i^2) are non-negative and its mass is 1, but the
-# denominator has irrational roots, so Prodigy cannot prove the non-negativity (it is from the invariant of
-# pgfexamples/equivalence/loopy/bit_flip_conditioning.ppy)
-UNPROVEN = "7/13 * (3 * i ** 3 - 16 * i) / (i ** 2 + 8 * i - 16)"
+# the square of 7/13 * (16*i - 3*i^3) / (16 - 8*i - i^2) (from the invariant of
+# pgfexamples/equivalence/loopy/bit_flip_conditioning.ppy, proven by its unique dominant simple pole, #431) has
+# non-negative coefficients and mass 1, but its dominant pole is double, so Prodigy cannot prove it
+UNPROVEN = "(7/13 * (3 * i ** 3 - 16 * i) / (i ** 2 + 8 * i - 16)) ** 2"
 
 
 def _analyse(source: str, engine: Engine):
@@ -51,7 +51,8 @@ def _analyse(source: str, engine: Engine):
     ("-y + 2*y^2", ("y",), False, "the coefficient of y is -1, which is negative"),
     ("1/(1 - x)", ("x",), False, "infinite"),
     # not proven to have non-negative coefficients, but the value at 1 already refutes it (Abel's theorem)
-    ("1/(1 + x)", ("x",), False, "its mass (its value at 1) is 1/2, not 1"),
+    ("1/(1 + x)", ("x",), False, "the coefficient of x is -1, which is negative"),
+    ("1/(3 - x)", ("x",), False, "its mass (its value at 1) is 1/2, not 1"),
     (UNPROVEN.replace("**", "^"), ("i",), None, "non-negativity of its coefficients could not be proven"),
     ("p*y + 1 - p", ("y",), None, "parameter p"),
 ])

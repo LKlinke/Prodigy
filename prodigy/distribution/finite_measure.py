@@ -14,10 +14,16 @@ if proven, ``(False, reason)`` if refuted and ``(None, reason)`` if not proven. 
   the construction ``P / prod (c - R)``
   (:func:`~prodigy.distribution.coefficient_signs.nonneg_by_construction`); the mass is finite
   iff the diagonal has no pole in ``(0, 1]`` (Pringsheim,
-  :func:`~prodigy.distribution.product_form.rational_mass`);
+  :func:`~prodigy.distribution.product_form.rational_mass`); a univariate rational function with rational
+  coefficients and a unique dominant simple pole is decided exactly
+  (:mod:`~prodigy.distribution.dominant_pole`, #431);
 * other closed forms are taken apart: sums, products and positive integer powers of certified
   series are certified, and so is ``exp(G)`` when ``G - G(0)`` is (``exp(G(0)) > 0``, and
-  ``exp(H) = sum H^n / n!``); e.g. the Poisson ``exp(3*(x - 1))``. Anything else is not proven.
+  ``exp(H) = sum H^n / n!``); e.g. the Poisson ``exp(3*(x - 1))``;
+* if none of these proves or refutes it, two changes that keep the coefficients are tried
+  (:mod:`~prodigy.distribution.series_transforms`, #431): ``f = G / x^k`` where the coefficients of ``G``
+  below degree ``k`` vanish, and ``f = G(x^m)`` for a variable that occurs only in powers ``x^(m*j)``;
+  ``f`` is then certified (or refuted) with ``G``. Anything else is not proven.
 
 The text of a closed form is checked with the allowlist of
 :func:`~prodigy.pgcl.expression_allowlist.admissible_expression` before SymPy reads it.
@@ -31,7 +37,9 @@ from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 import sympy
 
 from prodigy.distribution.coefficient_signs import nonneg_by_construction
+from prodigy.distribution.dominant_pole import dominant_pole_verdict
 from prodigy.distribution.product_form import ProductFormSeries, rational_mass, to_product_form
+from prodigy.distribution.series_transforms import low_coefficients_vanish, monomial_substitution, shift
 from prodigy.pgcl.ast.types import NatType, Type
 from prodigy.pgcl.expression_allowlist import IDENTIFIER, MATH_FUNCTIONS, InadmissibleExpression, admissible_expression
 
@@ -138,14 +146,71 @@ def _names(syms: Iterable[sympy.Symbol]) -> List[str]:
     return [s.name for s in syms]
 
 
+def check_series(expr: sympy.Expr, variables: Sequence[str]) -> Verdict:
+    """The verdict of :func:`check_input_expression` (non-negative coefficients and finite mass) for an
+    expression that is already a SymPy expression; its other symbols are parameters with the assumptions they
+    carry. Used by the order of :mod:`~prodigy.distribution.ordering`, which only uses ``True``."""
+    by_name = {s.name: s for s in sympy.S(expr).free_symbols}
+    syms = [by_name.get(name, sympy.Symbol(name)) for name in variables]
+    return _check(sympy.S(expr), syms)
+
+
 def _check(expr: sympy.Expr, syms: List[sympy.Symbol]) -> Verdict:
     if expr.has(sympy.nan, sympy.zoo, sympy.oo, -sympy.oo):
         return False, "it contains an infinite or undefined value"
     if not syms or expr.is_polynomial(*syms):
         return _check_polynomial(expr, syms)
     if expr.is_rational_function(*syms):
-        return _check_rational(expr, syms)
-    return _check_structure(expr, syms)
+        verdict = _check_rational(expr, syms)
+    else:
+        verdict = _check_structure(expr, syms)
+    if verdict[0] is not None:
+        return verdict
+    for rule in (_check_shift, _check_monomial_substitution):
+        transformed = rule(expr, syms)
+        if transformed is not None and transformed[0] is not None:
+            return transformed
+    return verdict
+
+
+def _check_shift(expr: sympy.Expr, syms: List[sympy.Symbol]) -> Optional[Verdict]:
+    """``expr = G / x^k`` whose ``G`` has no coefficients below degree ``k``: the verdict of ``G``
+    (:func:`~prodigy.distribution.series_transforms.shift`). None if the rule does not apply."""
+    for symbol in syms:
+        shifted = shift(expr, symbol)
+        if shifted is None:
+            continue
+        inner, k = shifted
+        if not low_coefficients_vanish(inner, symbol, k):
+            continue
+        verdict, reason = _check(inner, syms)
+        if verdict is True:
+            return _PROVEN
+        if verdict is False:
+            # the coefficients of expr are those of `inner` from degree k on, shifted down by k
+            return False, f"{reason} (for {_text(inner)}, which is {_text(expr)} times {symbol}^{k})"
+    return None
+
+
+def _check_monomial_substitution(expr: sympy.Expr, syms: List[sympy.Symbol]) -> Optional[Verdict]:
+    """``expr = G(x^m)``: the verdict of ``G``, whose coefficients are those of ``expr``
+    (:func:`~prodigy.distribution.series_transforms.monomial_substitution`). None if the rule does not
+    apply."""
+    inner = expr
+    substitutions = []
+    for symbol in syms:
+        substituted = monomial_substitution(inner, symbol)
+        if substituted is not None:
+            inner = substituted[0]
+            substitutions.append(f"{symbol} for {symbol}^{substituted[1]}")
+    if not substitutions:
+        return None
+    verdict, reason = _check(inner, syms)
+    if verdict is True:
+        return _PROVEN
+    if verdict is False:
+        return False, f"{reason} (in {_text(inner)}, which is {_text(expr)} with {', '.join(substitutions)})"
+    return None
 
 
 def _parameter_hint(value: sympy.Expr, syms: List[sympy.Symbol]) -> str:
@@ -198,11 +263,16 @@ def _check_rational(expr: sympy.Expr, syms: List[sympy.Symbol]) -> Verdict:
             state = ", ".join(f"{v} = {k}" for v, k in zip(variables, negative[0]))
             return False, f"the coefficient at {state} is {negative[1]}, which is negative"
     elif not nonneg_by_construction(reduced, variables):
-        hint = _parameter_hint(reduced, syms)
-        return None, ("the non-negativity of its coefficients could not be proven" + (hint or
-                      " (Prodigy proves it for P / ((c1 - R1) * ... * (ck - Rk)) with constants ci > 0 and "
-                      "polynomials P, Ri with non-negative coefficients, and exactly for denominators that are "
-                      "products of univariate factors (1 - r*x^p))"))
+        pole = _check_dominant_pole(reduced, syms)
+        if pole[0] is False:
+            return pole
+        if pole[0] is None:
+            hint = _parameter_hint(reduced, syms)
+            return None, ("the non-negativity of its coefficients could not be proven" + (hint or
+                          " (Prodigy proves it for P / ((c1 - R1) * ... * (ck - Rk)) with constants ci > 0 and "
+                          "polynomials P, Ri with non-negative coefficients, exactly for denominators that are "
+                          "products of univariate factors (1 - r*x^p), and exactly for univariate functions "
+                          "with a unique dominant simple pole)"))
     try:
         mass = rational_mass(str(reduced), variables)
     except Exception:  # pylint: disable=broad-except
@@ -213,6 +283,24 @@ def _check_rational(expr: sympy.Expr, syms: List[sympy.Symbol]) -> Verdict:
         return False, ("its mass (the sum of its coefficients) is infinite: the series diverges at 1, it has a pole "
                        "in (0, 1] on the diagonal")
     return _PROVEN
+
+
+def _check_dominant_pole(reduced: sympy.Expr, syms: List[sympy.Symbol]) -> Verdict:
+    """The decision of :mod:`~prodigy.distribution.dominant_pole` on the coefficients of a univariate rational
+    function with rational coefficients (its mass is checked separately); ``(None, reason)`` outside this
+    class."""
+    used = [s for s in syms if reduced.has(s)]
+    if len(used) != 1 or reduced.free_symbols != set(used):
+        return None, "it is not a rational function in one variable with rational coefficients"
+    verdict = dominant_pole_verdict(reduced, used[0])
+    if verdict.holds is True:
+        return _PROVEN
+    if verdict.holds is False and verdict.witness is not None:
+        index, value = verdict.witness
+        position = [0] * len(syms)
+        position[syms.index(used[0])] = index
+        return False, f"the coefficient of {_monomial_text(position, syms)} is {value}, which is negative"
+    return None, verdict.reason
 
 
 def _check_structure(expr: sympy.Expr, syms: List[sympy.Symbol]) -> Verdict:

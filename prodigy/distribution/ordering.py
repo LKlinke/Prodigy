@@ -5,7 +5,9 @@ The coefficient-wise order of generating functions, shared by all engines (#441)
 
 * ``True`` only if this is proven: the difference is finite and all its coefficients are proven non-negative,
   or the difference is non-negative by construction
-  (:func:`~prodigy.distribution.coefficient_signs.nonneg_by_construction`),
+  (:func:`~prodigy.distribution.coefficient_signs.nonneg_by_construction`) or by the proofs of finite measures
+  (:func:`~prodigy.distribution.finite_measure.check_series`: fractional powers, monomial substitutions,
+  shifts, univariate rational functions with a unique dominant simple pole, #431),
   or ``f`` is finite, ``g`` is proven non-negative and ``g`` dominates ``f`` on the finite support of ``f``;
 * ``False`` only with a witness: a state whose coefficient in ``g - f`` is proven negative, found among all
   coefficients of a finite difference or among the first :data:`SEARCH_COEFFICIENTS` coefficients of an
@@ -24,6 +26,7 @@ from typing import TYPE_CHECKING, Collection, Iterable, Optional, Tuple, Union
 import sympy
 
 from prodigy.distribution.coefficient_signs import nonneg_by_construction, series_form, sign
+from prodigy.distribution.finite_measure import check_series
 from prodigy.pgcl.pgcl_operations import state_to_equality_expression
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -77,6 +80,10 @@ def nonneg_verdict(dist: Distribution, expression: sympy.Expr) -> OrderVerdict:
     if dist.is_finite():
         return coefficient_verdict(dist, variables, complete=True)
     if nonneg_by_construction(expression, variables):
+        return OrderVerdict(True)
+    # a finite measure has non-negative coefficients; only a proof counts (a refutation there may concern the
+    # mass and has no witness state). Before the search: expanding e.g. a square root takes far longer.
+    if check_series(series_form(expression, variables)[0], sorted(variables))[0] is True:
         return OrderVerdict(True)
     try:
         return coefficient_verdict(itertools.islice(dist, SEARCH_COEFFICIENTS), variables, complete=False)
