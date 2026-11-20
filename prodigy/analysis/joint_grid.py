@@ -23,15 +23,14 @@ mass of the computed distribution outside the window. With a proven upper bound 
 """
 from __future__ import annotations
 
-import itertools
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence, Tuple, TypeVar
 
 import sympy
 
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import exact_and_float, sym, tidy, to_sympy, upper_with_source
 from prodigy.analysis.streaming import Batcher, Sink
-from prodigy.distribution.coefficient_stream import Waiting, taylor_stream
+from prodigy.distribution.coefficient_stream import Waiting, taylor_window
 
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.distribution import Distribution
@@ -89,26 +88,28 @@ def _cells_by_total_degree(expr: sympy.Expr, x: sympy.Symbol, y: sympy.Symbol, x
     """
     The coefficients of x^i y^j of ``expr`` in the windows as ``(r, c, coefficient)`` with ``i = x_low + c``
     and ``j = y_low + r``, by growing total degree ``r + c`` (the heatmap grows from its corner, #405): the
-    coefficients of x^i are expanded once, lazily (:func:`taylor_stream`, rational functions in y), and each of
-    them is expanded in y as far as the diagonal needs it.
+    coefficients of x^i are expanded once, lazily (:func:`taylor_window`), and each of them is expanded in y as
+    far as the diagonal needs it.
     """
     (x_low, x_high), (y_low, y_high) = x_window, y_window
     cols, rows = x_high - x_low + 1, y_high - y_low + 1
-    in_x = itertools.islice(taylor_stream(expr, x, x_high + 1, incremental=incremental, on_wait=on_wait), x_low, None)
+    in_x = taylor_window(expr, x, y, x_window, y_window, incremental=incremental, on_wait=on_wait)
     in_y: List[Iterator[sympy.Expr]] = []
     for degree in range(rows + cols - 1):
         if degree < cols:
-            in_y.append(itertools.islice(taylor_stream(_next(in_x), y, y_high + 1, incremental=incremental,
-                                                       on_wait=on_wait), y_low, None))
+            in_y.append(_next(in_x))
         for c in range(max(0, degree - rows + 1), min(cols - 1, degree) + 1):
             yield degree - c, c, _next(in_y[c])
 
 
-def _next(stream: Iterator[sympy.Expr]) -> sympy.Expr:
-    """The next coefficient of a stream of :func:`taylor_stream`, which yields as many as asked for."""
+Item = TypeVar("Item")
+
+
+def _next(stream: Iterator[Item]) -> Item:
+    """The next column or coefficient of :func:`taylor_window`, which yields as many as asked for."""
     for value in stream:
         return value
-    raise AssertionError("the Taylor stream ended early")  # pragma: no cover - taylor_stream yields `limit` values
+    raise AssertionError("the Taylor stream ended early")  # pragma: no cover - taylor_window yields the windows
 
 
 def _cell(prob: sympy.Expr, kind: str, residual: sympy.Expr, upper: Optional[sympy.Expr] = None) -> Dict[str, Any]:
