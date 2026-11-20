@@ -15,7 +15,7 @@ import sympy
 
 from lark.exceptions import LarkError
 
-from prodigy.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr,
+from prodigy.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, FunctionCallExpr, NatLitExpr,
                            RealLitExpr, Unop, UnopExpr, VarExpr)
 from prodigy.pgcl.ast.walk import Walk, walk_expr
 from prodigy.pgcl.parser import parse_expr
@@ -349,10 +349,14 @@ def _in_programs_terms(error: Exception, names: Dict[str, str]) -> Exception:
     internals) replaced by the operands as the program wrote them (#349). `names` maps temporary to
     program text; an unknown or unchanged message returns `error` itself.
     """
+    if not names:
+        return error
     pattern = re.compile(r"\b(" + "|".join(re.escape(name) for name in names) + r")\b")
     message = pattern.sub(lambda match: names[match.group(1)], str(error))
     if message == str(error):
         return error
+    if isinstance(error, ComparisonNotImplemented):
+        return ComparisonNotImplemented(pattern.sub(lambda match: names[match.group(1)], error.condition), error.reason)
     return type(error)(message)
 
 
@@ -613,13 +617,17 @@ class Distribution(ABC):
         # x // 2 < 3 becomes t < 3 for t := x // 2 (an exact update); t is a function of the state,
         # so it can be dropped again
         if _computed_term(condition, self.get_variables()) is not None:
-            extended, replaced, fresh = self.without_computed_terms(condition)
-            filtered = extended.filter(replaced)
+            extended, replaced, fresh, names = self._replace_computed_terms(condition)
+            try:
+                filtered = extended.filter(replaced)
+            except (NotImplementedError, NonFiniteMarginalError, ValueError) as error:
+                # the guard names the fresh variables; the program wrote the terms (#425)
+                raise _in_programs_terms(error, names) from error
             if not fresh:
                 return filtered
             # summing out the fresh variables evaluates at 1 (#427)
             filtered._require_convergent_evaluation(  # pylint: disable=protected-access
-                filtered.get_variables() - set(fresh), f"The filter of {condition}")
+                filtered.get_variables() - set(fresh), f"The filter of {_spelled(condition)}", names)
             return filtered._marginal(*fresh, method=MarginalType.EXCLUDE)  # pylint: disable=protected-access
 
         # Linear comparisons are evaluated exactly, e.g. 1/2*x < 2 becomes x < 4
@@ -715,8 +723,14 @@ class Distribution(ABC):
         truncated. Returns the extended distribution, the expression without these terms and the
         fresh variables (each a function of the state, so they can be marginalised out afterwards).
         """
+        dist, expression, fresh, _ = self._replace_computed_terms(expression)
+        return dist, expression, fresh
+
+    def _replace_computed_terms(self, expression: Expr) -> Tuple[Distribution, Expr, List[str], Dict[str, str]]:
+        """:meth:`without_computed_terms`, and the program text of each fresh variable's term (#425)."""
         dist: Distribution = self
         fresh: List[str] = []
+        names: Dict[str, str] = {}
         term = _computed_term(expression, self.get_variables())
         while term is not None:
             constant = constant_value(term)
@@ -727,10 +741,12 @@ class Distribution(ABC):
                 dist = dist.set_variables(*dist.get_variables(), name).update(
                     BinopExpr(Binop.EQ, VarExpr(name), term))
                 fresh.append(name)
+                # a term inside this one was replaced before: name it as written, too
+                names[name] = str(_in_programs_terms(ValueError(_spelled(term)), names))
                 replacement = VarExpr(name)
             expression = _replace_term(expression, term, replacement)
             term = _computed_term(expression, dist.get_variables())
-        return dist, expression, fresh
+        return dist, expression, fresh, names
 
     @abstractmethod
     def _exhaustive_search(self, condition: Expr) -> Distribution:
@@ -1473,6 +1489,15 @@ class Distribution(ABC):
         if this is not proven (#427).
         """
         name = str(variable)
+        if isinstance(sampling_dist, FunctionCallExpr) and sampling_dist.function == "sample_pgf":
+            # iid(sample_pgf(G, y), n): the summands have the generating function G in y; the engines
+            # handle G like the generating function given to iid directly
+            generating_function, pgf_variable = sampling_dist.params[0]
+            if pgf_variable != VarExpr(name):
+                raise NotImplementedError(
+                    f"The sampling {name} := iid({sampling_dist}, {count}) reads the generating function in "
+                    f"{pgf_variable}, but only sampling in the assigned variable {name} is supported.")
+            sampling_dist = generating_function
         self._require_convergent_evaluation(self.get_variables() - {name},
                                             f"The sampling {name} := iid({sampling_dist}, {count})")
         return self._update_iid(sampling_dist, count, variable)
@@ -1569,21 +1594,27 @@ class Distribution(ABC):
                 f"{summed} may diverge, as {obstacle}; its closed form {marginal} "
                 f"need not be the sum of the series of {self}.")
 
-    def _require_convergent_evaluation(self, kept: Set[str], what: str) -> None:
+    def _require_convergent_evaluation(self, kept: Set[str], what: str,
+                                       terms: Optional[Dict[str, str]] = None) -> None:
         """
         The convergence proof of the public entry points that evaluate this generating function at 1 in
         the variables other than `kept` (#398): outside an analysis (:func:`known_convergent_series` not
         declared), raises `NonFiniteMarginalError` naming `what` if :func:`marginal_obstacle` does not
         prove that the closed form there is the sum of the series. Inside analyses this is a context
-        lookup only.
+        lookup only. `terms` maps summed variables that the program did not write (the temporary variable of
+        a term like `x - 1`, #425) to the term as written; the message names the terms.
         """
         if _KNOWN_CONVERGENT.get() is not None or self._declared_finite_measure:
             return
         obstacle = self._convergence_obstacle(kept)
         if obstacle is not None:
-            summed = ", ".join(sorted(self.get_variables() - kept))
+            terms = terms or {}
+            summed_variables = sorted(self.get_variables() - kept)
+            summed = ", ".join(terms.get(name, name) for name in summed_variables)
+            where = "".join(f", where {name} stands for {terms[name]}" for name in summed_variables
+                            if name in terms)
             raise NonFiniteMarginalError(
-                f"{what} is not proven to converge: it sets {summed} to 1 in {self}, and the series "
+                f"{what} is not proven to converge: it sets {summed} to 1 in {self}{where}, and the series "
                 f"need not converge there, as {obstacle}. Prodigy does not report the value of the "
                 "closed form, which need not be the sum of the series.")
 
