@@ -4,14 +4,14 @@ The signs of the coefficients of a univariate rational function with a unique do
 Let ``f = P / Q`` be reduced, with rational coefficients and ``Q(0) != 0``, and let ``Q`` have a root ``rho``
 of multiplicity 1 whose modulus is strictly smaller than that of every other root. Then ``rho`` is real
 (``Q`` has real coefficients, so ``conj(rho)`` is a root of the same modulus and hence ``rho`` itself). Write
-``P / Q = E + R / Q`` with a polynomial ``E`` of degree ``e`` and ``deg R < deg Q``, and
+``P / Q = E + R / Q`` with a polynomial ``E`` of degree ``e`` and ``deg R < deg Q``, and ::
 
     R / Q = A / (1 - x/rho) + T / Q1,    Q = (1 - x/rho) * Q1,    A = R(rho) / Q1(rho) != 0,
 
 where ``Q1 = Q(0) * prod_beta (1 - x/beta)`` has the ``d = deg Q - 1`` other roots ``beta`` (with their
 multiplicities), all of modulus at least ``sigma > |rho|``, and ``T = (R - A*Q1) / (1 - x/rho)`` is a
 polynomial of degree ``< d``. The coefficients of ``prod_beta 1/(1 - x/beta)`` are bounded in modulus by those
-of ``1/(1 - x/sigma)^d``, i.e. by ``binom(n+d-1, d-1) sigma^-n``; hence for ``n > e``
+of ``1/(1 - x/sigma)^d``, i.e. by ``binom(n+d-1, d-1) sigma^-n``; hence for ``n > e`` ::
 
     a_n = A rho^-n + s_n,    |s_n| <= K binom(n+d-1, d-1) sigma^-n,    K = sum_k |t_k| sigma^k / |Q(0)|.
 
