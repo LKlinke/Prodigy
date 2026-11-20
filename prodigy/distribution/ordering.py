@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Collection, Dict, Iterable, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Collection, Iterable, Optional, Tuple, Union
 
 import sympy
 
@@ -34,9 +34,6 @@ SEARCH_COEFFICIENTS = 20
 
 Coefficient = Union[str, sympy.Expr]
 """A coefficient as an engine gives it: a string in the engine's syntax or a SymPy expression."""
-
-StateKey = Tuple[Tuple[str, int], ...]
-"""A hashable form of a state (its sorted valuations)."""
 
 
 class UndecidedComparisonError(RuntimeError):
@@ -54,33 +51,16 @@ class OrderVerdict:
     witness: Optional[State] = None
 
 
-def _key(state: State) -> StateKey:
-    return tuple(sorted(state.valuations.items()))
-
-
-def _summed(terms: Iterable[Tuple[Coefficient, State]], variables: Collection[str]) \
-        -> Dict[StateKey, Tuple[sympy.Expr, State]]:
-    """The coefficients of `terms` summed per state: an engine may yield one state several times (GiNaC gives
-    ``1 - p`` as the terms ``1`` and ``-p``), and only the sum is a coefficient."""
-    summed: Dict[StateKey, Tuple[sympy.Expr, State]] = {}
-    for coefficient, state in terms:
-        expr, _ = series_form(coefficient, variables)
-        key = _key(state)
-        previous = summed.get(key)
-        summed[key] = (expr if previous is None else previous[0] + expr, state)
-    return summed
-
-
 def coefficient_verdict(terms: Iterable[Tuple[Coefficient, State]], variables: Collection[str],
                         complete: bool) -> OrderVerdict:
     """
     Whether the coefficients `terms` are all non-negative. `complete` says that `terms` are all coefficients
     of the series (a finite series); otherwise only a negative coefficient decides (``False``), as the
-    remaining coefficients are unknown. An incomplete `terms` must not yield a state twice.
+    remaining coefficients are unknown. `terms` yields each state once (the iteration of a distribution,
+    :meth:`Distribution.__iter__`, #444).
     """
-    # an incomplete search is lazy: it stops at the first negative coefficient (expanding is costly)
-    coefficients = _summed(terms, variables).values() if complete \
-        else ((series_form(coefficient, variables)[0], state) for coefficient, state in terms)
+    # lazy: the search stops at the first negative coefficient (expanding is costly)
+    coefficients = ((series_form(coefficient, variables)[0], state) for coefficient, state in terms)
     verdict: Optional[bool] = True
     for coefficient, state in coefficients:
         result = sign(sympy.simplify(coefficient))
@@ -113,7 +93,8 @@ def dominates_finite(lower: Distribution, upper: Distribution) -> Optional[bool]
     cannot be computed or a sign is not proven; never False (the caller refutes on the difference).
     """
     variables = lower.get_variables()
-    for coefficient, state in _summed(lower, variables).values():
+    for probability, state in lower:
+        coefficient, _ = series_form(probability, variables)
         try:
             upper_coefficient = upper.get_probability_of(state_to_equality_expression(state.valuations))
         except (ArithmeticError, NotImplementedError, ValueError) as error:
