@@ -196,6 +196,20 @@
         "status": "ok",
         "seconds": 0.123
       }
+    },
+    "compound_poisson_binomial_coeffs": {
+      "sympy": {
+        "status": "ok",
+        "seconds": 0.152
+      },
+      "ginac": {
+        "status": "ok",
+        "seconds": 0.002
+      },
+      "symengine": {
+        "status": "ok",
+        "seconds": 0.002
+      }
     }
   }
 }

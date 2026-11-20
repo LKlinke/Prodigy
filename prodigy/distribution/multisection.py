@@ -20,18 +20,19 @@ falls back to the roots of unity.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 import sympy
 
 
-def _to_rational(expression: sympy.Expr, variable: sympy.Symbol,
+def _to_rational(expression: sympy.Expr, variable: Union[sympy.Symbol, Tuple[sympy.Symbol, ...]],
                  replacements: Dict[sympy.Expr, sympy.Dummy]) -> Optional[sympy.Expr]:
     """
     Rewrites `expression` as a rational function in `variable` and other symbols by replacing the maximal
     subexpressions without `variable` that are not built from symbols and rational numbers by `+`, `*`
     and integer powers with dummies (recorded in `replacements`). Returns None if `expression` is not a
-    rational function in `variable`.
+    rational function in `variable`. `variable` may also be a tuple of symbols: then the replaced
+    subexpressions contain none of them, and the result is rational in all of them.
     """
     if isinstance(expression, (sympy.Symbol, sympy.Rational)):
         return expression
@@ -43,7 +44,7 @@ def _to_rational(expression: sympy.Expr, variable: sympy.Symbol,
     if isinstance(expression, sympy.Pow) and isinstance(expression.exp, sympy.Integer):
         base = _to_rational(expression.base, variable, replacements)
         return None if base is None else base ** expression.exp
-    if expression.has(variable):
+    if expression.has(*(variable if isinstance(variable, tuple) else (variable,))):
         return None
     if expression not in replacements:
         replacements[expression] = sympy.Dummy("c")

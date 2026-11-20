@@ -2,8 +2,9 @@
 
 `prodigy.distribution.kernel` holds exact kernels below the `Distribution` logic (#417). A kernel is
 not an engine: it has no case analysis (guards, support splits, zero mass), only CAS operations that
-the shared `Distribution` logic or an engine may call as hooks. Nothing in the analysis uses it yet;
-this is step 1 of #417 (the kernel and a measurement).
+the shared `Distribution` logic or an engine may call as hooks. The analysis itself does not use it
+yet (step 1 of #417: the kernel and a measurement); the coefficients of the result tables and grids do
+for exponentials of polynomials (below).
 
 ## `RationalGF`
 
@@ -28,6 +29,18 @@ coefficient 1, so the representation is unique.
 The tests (`tests/distribution/test_rational_kernel.py`) check every operation and the round trip
 SymPy → kernel → SymPy against SymPy on random rational functions in two variables and a parameter
 (hypothesis).
+
+## Coefficients of exponentials of polynomials
+
+`prodigy.distribution.exponential_series` (#455) computes the Taylor coefficients of finite sums of
+`R·exp(g)`, with `R` rational and `g` a polynomial in the expanded variables, in the kernel: from
+`F' = g'·F`, each coefficient of `exp(g − g(0))` follows from the previous `deg g` ones, and the factor
+`R = P/Q` adds a finite convolution with `P` and the recursion of `Q`. Compound Poisson distributions
+(`x = poisson(λ); y = iid(D, x)`, generating function `exp(λ·(x·P(y) − 1))`) belong to this class, as do
+rational functions (`g = 0`). The class is closed under taking a coefficient, so a joint grid is expanded
+in x and then in y without leaving the kernel; only the cells shown are translated to SymPy. The shared
+`taylor_stream` (result tables) and `taylor_window` (grids) of `coefficient_stream.py` use it for both
+engines; functions outside the class keep the series expansion.
 
 ## Measurement
 

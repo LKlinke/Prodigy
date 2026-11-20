@@ -1,0 +1,9 @@
+# main pgfexamples/inference/loop_free/compound_poisson_binomial.ppy
+x: nat;
+y: nat;
+
+# a Poisson number of rounds; each round adds the successes of 10 fair coins
+x = poisson(2);
+y = iid(binomial(10,1/2), x);
+
+# Pr[x = i, y = j] = exp(-2) * 2^i / i! * binom(10 i, j) / 2^(10 i) (issue #455)

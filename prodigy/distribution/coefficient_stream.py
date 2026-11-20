@@ -7,6 +7,9 @@ them one at a time, in order, and each value is exactly the value a single expan
 * A rational function in x (the common case) has a power series whose coefficients satisfy the linear
   recursion of its denominator (:func:`prodigy.distribution.rational_series.rational_taylor_stream`): each
   coefficient comes from the previous ones, cheaper than a series expansion.
+* An exponential of a polynomial in x times a rational function (e.g. compound Poisson distributions), or a
+  finite sum of such terms, has coefficients that satisfy the linear recursion of ``F' = g'·F``
+  (:func:`prodigy.distribution.exponential_series.exp_polynomial_taylor_stream`, Prodigy#455).
 * Other closed forms (``exp``, ``log``, algebraic functions) are expanded with doubling orders 4, 8, 16, ...
   (:func:`doubling`): each step is a complete prefix of the series, and the coefficients it adds are yielded
   at once. Without a consumer that wants them early (``incremental=False``), the stream expands to the full
@@ -26,6 +29,7 @@ from typing import TYPE_CHECKING, Callable, Iterator, List, Optional, Sequence, 
 
 import sympy
 
+from prodigy.distribution.exponential_series import Window, exp_polynomial_columns, exp_polynomial_taylor_stream
 from prodigy.distribution.rational_series import rational_taylor_stream
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -92,7 +96,8 @@ def taylor_stream(expr: sympy.Expr, symbol: sympy.Symbol, limit: int, *,
     """
     Exactly ``limit`` coefficients of symbol^0, symbol^1, ... of the power series of ``expr`` (a SymPy
     expression; other symbols are constants): by the recursion of the denominator if ``expr`` is rational
-    in ``symbol``, else by :func:`doubling` of :func:`series_prefix` (``on_wait`` as there).
+    in ``symbol``, by the recursion of an exponential of a polynomial if it is one (times a rational function,
+    or a sum of such terms), else by :func:`doubling` of :func:`series_prefix` (``on_wait`` as there).
     """
     if limit <= 0:
         return
@@ -102,6 +107,10 @@ def taylor_stream(expr: sympy.Expr, symbol: sympy.Symbol, limit: int, *,
         return
     rational = rational_taylor_stream(expr, symbol)
     if rational is None:
+        exponential = exp_polynomial_taylor_stream(expr, symbol)
+        if exponential is not None:
+            yield from itertools.islice(exponential, limit)
+            return
         yield from doubling(lambda order: series_prefix(expr, symbol, order), limit, incremental=incremental,
                             on_wait=on_wait)
         return
@@ -111,6 +120,28 @@ def taylor_stream(expr: sympy.Expr, symbol: sympy.Symbol, limit: int, *,
         count += 1
     # a polynomial: the coefficients beyond its degree are 0
     yield from itertools.repeat(sympy.Integer(0), limit - count)
+
+
+def taylor_window(expr: sympy.Expr, first: sympy.Symbol, second: sympy.Symbol, first_window: Window,
+                  second_window: Window, *, incremental: bool = True,
+                  on_wait: Waiting = None) -> Iterator[Iterator[sympy.Expr]]:
+    """
+    The coefficients of ``first^i second^j`` of ``expr`` for ``i`` and ``j`` in the windows (inclusive ranges
+    ``(low, high)``) as columns, lazily: the column of ``i`` yields the coefficients of ``j = low, ..., high``.
+    A function of the class of :mod:`prodigy.distribution.exponential_series` (rational functions included) is
+    expanded in both variables without leaving the exact kernel, so no column is re-read by SymPy (Prodigy#455);
+    other functions by :func:`taylor_stream` in ``first`` and then in ``second`` (``incremental`` and
+    ``on_wait`` as there).
+    """
+    columns = exp_polynomial_columns(expr, first, second, first_window, second_window)
+    if columns is not None:
+        yield from columns
+        return
+    (first_low, first_high), (second_low, second_high) = first_window, second_window
+    outer = taylor_stream(expr, first, first_high + 1, incremental=incremental, on_wait=on_wait)
+    for coefficient in itertools.islice(outer, first_low, None):
+        yield itertools.islice(taylor_stream(coefficient, second, second_high + 1, incremental=incremental,
+                                             on_wait=on_wait), second_low, None)
 
 
 def sympy_form(dist: "Distribution") -> Optional[sympy.Expr]:

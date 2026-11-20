@@ -244,3 +244,31 @@ def test_cell_text_of_heatmap_and_3d_view(tmp_path):
         {"where": "x = 0, y = 2", "value": "[1/36, 0.031684] ([0.0277777, 0.031684])"},
         {"where": "x = 1, y = 2", "value": "[0, 1]"},
     ]
+
+
+COMPOUND_POISSON = """x: nat;
+y: nat;
+
+x = poisson(2);
+y = iid(binomial(10,1/2), x);
+"""
+
+
+@pytest.mark.parametrize("engine", ["sympy", "ginac"])
+def test_compound_poisson_coefficients_are_fast(engine):
+    """#455: the marginals and the default grid of a compound Poisson–Binomial distribution, which took longer
+    than the time limit (series expansion of exp of a polynomial), are exact and well within it."""
+    result = run_analysis({"source": COMPOUND_POISSON, "syntax": "ppy", "engine": _engine(engine),
+                           "coefficients": 30})
+    assert result["status"] == "ok"
+    distribution = result["distribution"]
+    rows = distribution["marginals"]["y"]["rows"]
+    assert len(rows) == 30
+    assert [r["prob"] for r in rows[:2]] == ["exp(-1023/512)", "5*exp(-1023/512)/256"]
+    grid = run_joint({**joint_request(result, {"x": "x", "y": "y"}), "engine": engine})
+    assert grid["status"] == "ok"
+    cells = grid["joint"]["cells"]
+    for i, j in [(0, 0), (1, 1), (2, 7), (3, 15)]:
+        expected = sympy.exp(-2) * sympy.Integer(2) ** i / sympy.factorial(i) * sympy.binomial(10 * i, j) \
+            / sympy.Integer(2) ** (10 * i)
+        assert sympy.simplify(sympy.sympify(cells[j][i]["prob"]) - expected) == 0, (i, j)
