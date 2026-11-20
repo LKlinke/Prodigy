@@ -21,7 +21,7 @@ from prodigy.analysis.session import AnalysisSession, current_session
 from prodigy.distribution import Distribution, MarginalType
 from prodigy.distribution.distribution import NonFiniteMarginalError
 from prodigy.util.logger import log_setup
-from prodigy.util.plotter import Plotter
+from prodigy.plotting.plotter import Plotter
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
