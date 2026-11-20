@@ -72,9 +72,14 @@ Prodigy is tested with Python 3.11 and 3.14.
   exactly those of the result; when the result arrives, its chart starts from the streamed one.
   Stopping the analysis stops the streaming.
 
-  Next to the view switch, **View options** (#452) opens a popover for all plots of a result (bar
-  charts, heatmap, 3D view); the browser remembers the choice per viewer, not per analysis. Escape
-  or a click outside closes it, and focus returns to the button. It has three groups:
+  Next to the view switch, the **View options** toggle (#452) shows or hides an inspector for all
+  plots of a result (bar charts, heatmap, 3D view). It never covers the plot, so every change shows
+  at once next to it: when the figure has at least 1000 px of width, the inspector is a 260 px
+  column to the right of the plot; in a narrower figure it is a section between the toolbar and the
+  plot, which it pushes down (its groups side by side as far as they fit). The button looks
+  pressed while the inspector is open; Escape inside the inspector closes it and returns focus to
+  the button. The browser remembers the choices and whether the inspector is open per viewer, not
+  per analysis. It has three groups:
 
   * *Scale*: a slider from linear to logarithmic. Every position is the Box-Cox scale
     t(p) = (p^λ − 1)/λ, normalised between a floor and the largest value: λ = 1 is linear (from 0),

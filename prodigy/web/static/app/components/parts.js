@@ -70,7 +70,7 @@ export function distributionFigure(table, result, variable, mode = "chart") {
       ? marginalChart(table, { residual, residualExact, variable, bound, width: drawnWidth, view: viewOptions() })
       : marginalTable(table, { variable, bound }));
     for (const button of toggle.children) button.setAttribute("aria-pressed", String(button.dataset.view === which));
-    optionsControl.hidden = which !== "chart";
+    optionsControl.setAvailable(which === "chart");
   };
   onViewOptionsChange(holder, () => { if (current === "chart") show("chart"); });
   if (typeof ResizeObserver !== "undefined") {
@@ -92,7 +92,7 @@ export function distributionFigure(table, result, variable, mode = "chart") {
   if (bound === "upper") caption.push("Hatched bars are upper bounds.");
   if (bound === "unknown") caption.push("Approximate values without a guarantee.");
   return h("figure", { class: "rv-figure" },
-    h("div", { class: "rv-figure-head" }, optionsControl, toggle),
-    holder,
+    h("div", { class: "rv-figure-head" }, optionsControl.button, toggle),
+    optionsControl.frame(holder),
     caption.length ? h("figcaption", { class: "rv-note" }, caption.join(" ")) : null);
 }

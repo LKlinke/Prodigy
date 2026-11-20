@@ -366,31 +366,43 @@
 .marginal-chart { --mc-bar: var(--rv-data); }
 .marginal-chart[data-colours="viridis"] { --mc-bar: #31688E; }
 .marginal-chart[data-colours="cividis"] { --mc-bar: #3B496C; }
-.vo-popover { --vo-bar: #31688E; }
+.vo-panel { --vo-bar: #31688E; }
 @media (prefers-color-scheme: dark) {
   .marginal-chart[data-colours="viridis"] { --mc-bar: #35B779; }
   .marginal-chart[data-colours="cividis"] { --mc-bar: #A69D75; }
-  .vo-popover { --vo-bar: #35B779; }
+  .vo-panel { --vo-bar: #35B779; }
 }
 /* greyscale: hatching and dashed edges carry every distinction, so an empty cell gets a dashed edge */
 .jv-heatmap[data-colours="greyscale"] .jv-zero { stroke: var(--rv-text-2); stroke-dasharray: 2 2; }
 .jv-swatch.jv-zero[data-colours="greyscale"] { border: 1px dashed var(--rv-text-2); }
 
-.vo { position: relative; display: inline-flex; }
-.vo[hidden] { display: none; }
+.vo-button[hidden] { display: none; }
 .vo-button { display: inline-flex; align-items: center; gap: 5px; }
 .vo-button .icon { width: 14px; height: 14px; }
-.vo-button[aria-expanded="true"] { background: var(--fill-pressed, rgba(118, 118, 128, 0.28)); }
-.vo-popover {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 30;
-  width: min(300px, calc(100vw - 32px)); box-sizing: border-box; padding: 12px 14px;
-  display: grid; gap: 14px; text-align: left;
+/* pressed while the inspector is open: a filled background and an accent ring, not colour alone */
+.vo-button[aria-expanded="true"] {
+  background: var(--fill-pressed, rgba(118, 118, 128, 0.28)); box-shadow: inset 0 0 0 1px var(--accent, #0066CC);
+}
+/* the inspector never covers the plot (#452): a column on the right in a wide container, else a
+   section between the toolbar and the plot that pushes the plot down */
+.vo-frame { container-type: inline-size; min-width: 0; }
+.vo-layout { display: grid; gap: 12px; min-width: 0; }
+.vo-plot { min-width: 0; }
+.vo-panel {
+  box-sizing: border-box; padding: 12px 14px; display: grid; gap: 14px; align-content: start; text-align: left;
   background: var(--rv-surface, var(--surface, #FFFFFF)); color: var(--rv-text, var(--text, #1D1D1F));
   border: 1px solid var(--rv-separator, var(--separator)); border-radius: 10px;
-  box-shadow: var(--shadow-popover, 0 10px 30px rgba(0, 0, 0, 0.2));
   font-size: var(--text-body, 13px);
 }
-.vo-popover[hidden] { display: none; }
+.vo-panel[hidden] { display: none; }
+/* the groups side by side as far as they fit, so the section above the plot stays short */
+.vo-panel { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); column-gap: 20px; }
+/* a wide container: the inspector is a column of 260 px to the right of the plot */
+@container (min-width: 1000px) {
+  .vo-layout:has(> .vo-panel:not([hidden])) { grid-template-columns: minmax(0, 1fr) 260px; }
+  .vo-panel { grid-column: 2; grid-row: 1; grid-template-columns: none; align-self: start; }
+  .vo-plot { grid-column: 1; grid-row: 1; }
+}
 .vo-group { display: grid; gap: 6px; }
 .vo-title { margin: 0; font-size: var(--text-callout, 12px); font-weight: 600; color: var(--rv-text-2, var(--text-2)); }
 .vo-slider { width: 100%; margin: 0; accent-color: var(--accent, #0066CC); }
@@ -405,7 +417,7 @@
 .vo-stop:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 3px rgba(0, 102, 204, 0.35)); }
 .vo-value { font-size: var(--text-callout, 12px); font-variant-numeric: tabular-nums; }
 .vo-choices { display: grid; gap: 2px; }
-.vo-row { grid-auto-flow: column; justify-content: start; gap: 18px; }
+.vo-row { display: flex; flex-wrap: wrap; column-gap: 18px; }
 .vo-choice { display: flex; align-items: center; gap: 8px; min-height: 28px; }
 .vo-choice input { margin: 0; accent-color: var(--accent, #0066CC); }
 .vo-ramp { width: 44px; height: 10px; border-radius: 3px; border: 1px solid var(--rv-separator, var(--separator)); flex-shrink: 0; }

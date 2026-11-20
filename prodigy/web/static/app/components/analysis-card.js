@@ -167,7 +167,7 @@ function distributionLens(ctx) {
       }));
     }
     press(viewHolder.firstChild, mode());
-    optionsControl.hidden = mode() === "table";
+    optionsControl.setAvailable(mode() !== "table");
     legend.hidden = true;
     if (isPair()) {
       if (source.jointBlocked) {
@@ -220,7 +220,7 @@ function distributionLens(ctx) {
     mass.replaceChildren(data.iterate ? loopMass(source.snap, data.iterate) : massSummary({ total, residual }));
   }
   const controls = variables.length
-    ? h("div", { class: "rv-controls" }, variables.length > 1 || withPair ? subjects : null, viewHolder, optionsControl)
+    ? h("div", { class: "rv-controls" }, variables.length > 1 || withPair ? subjects : null, viewHolder, optionsControl.button)
     : null;
 
   const lead = [];
@@ -232,7 +232,8 @@ function distributionLens(ctx) {
   return {
     lead,
     controls,
-    figure: h("figure", { class: "rv-figure" }, figure, legend),
+    // the inspector of the view options sits beside the plot (or above it in a narrow card), never over it
+    figure: h("figure", { class: "rv-figure" }, optionsControl.frame(h("div", { class: "ac-plot" }, figure, legend))),
     facts: mass,
     details: source.final
       ? [finalGeneratingFunction(result.distribution), distValuesBlock(result), finalFacts(result.distribution), watches]

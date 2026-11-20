@@ -125,8 +125,8 @@ const migrated = v.loadViewOptions();
 contrast = true;
 const outline = v.loadViewOptions();
 contrast = false;
-const bad = v.normaliseOptions({ lambda: "x", colours: "__proto__", intervals: "toString", unaccounted: "yes" });
-const saved = v.saveViewOptions({ lambda: 0.52, colours: "cividis" });
+const bad = v.normaliseOptions({ lambda: "x", colours: "__proto__", intervals: "toString", unaccounted: "yes", open: 1 });
+const saved = v.saveViewOptions({ lambda: 0.52, colours: "cividis", open: true });
 const reloaded = v.loadViewOptions();
 globalThis.localStorage = { getItem: () => { throw new Error("denied"); }, setItem: () => { throw new Error("denied"); } };
 const denied = v.normaliseOptions(null);
@@ -139,28 +139,33 @@ console.log(JSON.stringify({ fresh, migrated: migrated.lambda, outline: outline.
 @needs_node
 def test_view_options_are_validated_and_stored_per_viewer(tmp_path):
     """The options are stored per viewer in localStorage (#452): checked against their allowed
-    values, the old linear/log choice taken over, Outline the default with increased contrast, and
-    the page keeps working when storage throws."""
+    values, the old linear/log choice taken over, Outline the default with increased contrast,
+    whether the inspector is open remembered, and the page keeps working when storage throws."""
     out = node(OPTIONS_CHECK % {"module": (COMPONENTS / "view-options.js").as_uri()}, tmp_path)
-    assert out["fresh"] == {"lambda": 1, "colours": "viridis", "intervals": "glass", "unaccounted": True}
+    assert out["fresh"] == {"lambda": 1, "colours": "viridis", "intervals": "glass", "unaccounted": True, "open": False}
     assert out["migrated"] == 0 and out["outline"] == "outline"
-    assert out["bad"] == {"lambda": 1, "colours": "viridis", "intervals": "glass", "unaccounted": True}
-    assert out["saved"]["lambda"] == 0.5 and out["saved"]["colours"] == "cividis"
+    assert out["bad"] == {"lambda": 1, "colours": "viridis", "intervals": "glass", "unaccounted": True, "open": False}
+    assert out["saved"]["lambda"] == 0.5 and out["saved"]["colours"] == "cividis" and out["saved"]["open"] is True
     assert out["reloaded"] == out["saved"]
     assert out["denied"]["colours"] == "viridis" and out["kept"] == ["greyscale", "greyscale"]
 
 
 def test_view_options_replace_the_scale_switch():
-    """One "View options" button (#452) replaces the linear/log switch next to the view switch of the
-    analysis card and of a marginal figure; it opens a dialog popover, closes on Escape and outside
-    clicks and returns focus; the plots take scale and colours from it."""
+    """One "View options" toggle (#452) replaces the linear/log switch next to the view switch of the
+    analysis card and of a marginal figure. It shows an inline inspector, a labelled region beside or
+    above the plot that never covers it (no dialog, no overlay); Escape inside it closes it and
+    returns focus. The plots take scale and colours from it."""
     control = (COMPONENTS / "view-options.js").read_text(encoding="utf-8")
-    for needle in ('"aria-haspopup": "dialog"', '"aria-expanded"', 'role: "dialog"', '"Escape"', "button.focus()",
+    for needle in ('"aria-expanded"', '"aria-controls"', 'role: "region"', '"Escape"', "button.focus()",
                    "aria-valuetext", "prefers-reduced-transparency", "prefers-contrast: more", "try {"):
         assert needle in control, needle
+    assert 'role: "dialog"' not in control and "pointerdown" not in control
+    css = (COMPONENTS / "result-view.css").read_text(encoding="utf-8")
+    assert "container-type: inline-size" in css and "@container (min-width: 1000px)" in css
+    assert "vo-popover" not in css
     for name in ("analysis-card.js", "parts.js"):
         source = (COMPONENTS / name).read_text(encoding="utf-8")
-        assert "viewOptionsControl(" in source and "onViewOptionsChange(" in source, name
+        assert "viewOptionsControl(" in source and ".frame(" in source and "onViewOptionsChange(" in source, name
         assert "loadScale" not in source and '["log", "Log"]]' not in source.split("sizeScale")[0], name
     joint = (COMPONENTS / "joint-view.js").read_text(encoding="utf-8")
     assert "ownUpperEnds" in joint and '"tower"' in joint and "colours.colour(" in joint
