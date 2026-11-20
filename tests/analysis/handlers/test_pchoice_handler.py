@@ -7,13 +7,11 @@ from prodigy.analysis.instructionhandler.probchoice_handler import PChoiceHandle
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.distribution.fast_generating_function import ProdigyPGF
 from prodigy.distribution.generating_function import SympyPGF
-from prodigy.distribution.symengine_distribution import SymenginePGF
 
 
 @pytest.mark.parametrize('engine,factory',
                          [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
-                          (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF),
-                          (ForwardAnalysisConfig.Engine.SYMENGINE, SymenginePGF)])
+                          (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_probabilistic_choice(engine, factory):
     pgcl = """
     nat x;

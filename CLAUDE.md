@@ -46,8 +46,8 @@ uv run pytest tests/analysis/test_session.py -q   # one file
   parser and printer (`ppy_parser.py`, `ppy_printer.py`), type checker, AST.
 - `.pgcl` is deprecated and no longer maintained: no new features, only fixes of wrong results;
   it is removed in v0.6.0 (#433). New tests and examples use `.ppy`.
-- `prodigy/distribution`: the `Distribution` interface, the engines (SymPy default, GiNaC;
-  SymEngine is deprecated the same way, #416) and the proof rules on closed forms.
+- `prodigy/distribution`: the `Distribution` interface, the engines (SymPy default, GiNaC) and
+  the proof rules on closed forms.
   `prodigy/analysis`: the forward analysis. `prodigy/web`: the GUI (Flask, one process per job).
 - Layering: `prodigy/distribution` and `prodigy/pgcl` import nothing from `prodigy/analysis`
   (`tests/test_layering.py`).
@@ -87,8 +87,6 @@ uv run pytest tests/analysis/test_session.py -q   # one file
   it); code outside gets the defaults, and `tests/conftest.py` fails a test whose settings leak.
 - `AnalysisSession(capture_output=True)` also captures native writes to file descriptor 1, so
   that `prodigy analyze --json` stays clean.
-- SymEngine (deprecated) reads `e`, `E`, `I`, `pi`, `inf` as constants: parse with
-  `_parse_to_symengine`, never `se.S`.
 - Use `git --no-pager`; a pager hangs the shell.
 - Tests run in parallel workers (`-n auto --dist worksteal`): output is not in file order, tests
   must not depend on order or one process (fixed seeds for parameters drawn at collection, files

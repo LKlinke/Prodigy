@@ -14,11 +14,11 @@ from prodigy.analysis.optimization.gf_optimizer import GFOptimizer
 from prodigy.distribution.generating_function import (GeneratingFunction,
                                                       GeneratingFunctionSettings,
                                                       SympyPGF)
-from prodigy.distribution.symengine_distribution import SymenginePGF
 from prodigy.util.integers import unlimited_int_digits
 from .evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from .evtinvariants.heuristics.strategies import SynthesisStrategies
 from .evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
+from .deprecations import REMOVED_ENGINES
 from .exceptions import ConfigurationError
 from .solver.solver_type import SolverType
 from ..distribution.distribution import CommonDistributionsFactory
@@ -34,7 +34,18 @@ class ForwardAnalysisConfig:
         """
         SYMPY = auto()
         GINAC = auto()
-        SYMENGINE = auto()
+
+        @classmethod
+        def from_name(cls, name: str) -> "ForwardAnalysisConfig.Engine":
+            """The engine called ``name`` (case-insensitive; the empty name is the default, SymPy), as the CLI
+            option ``--engine`` and the GUI's requests give it. A removed engine and an unknown name raise a
+            :class:`ConfigurationError` that names the engines there are."""
+            key = name.strip().lower() or "sympy"
+            if key in REMOVED_ENGINES:
+                raise ConfigurationError(REMOVED_ENGINES[key])
+            if key.upper() not in cls.__members__:
+                raise ConfigurationError(f"Unknown engine {name!r}; use sympy or ginac.")
+            return cls[key.upper()]
 
     show_intermediate_steps: bool = attr.ib(default=False)
     """Enables the printing of results after each instruction."""
@@ -91,8 +102,6 @@ class ForwardAnalysisConfig:
                 raise ConfigurationError(
                     "The GiNaC engine needs prodigy-ppl-ginac: pip install prodigy-ppl-ginac") from error
             return ProdigyPGF
-        elif self.engine == self.Engine.SYMENGINE:
-            return SymenginePGF
         else:
             return CommonDistributionsFactory
 

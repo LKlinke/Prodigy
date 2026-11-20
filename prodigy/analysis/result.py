@@ -937,10 +937,10 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
 
 
 def _deprecation_warnings(session: Any) -> List[str]:
-    """The deprecations of a ``.pgcl`` program and of the SymEngine engine (:mod:`prodigy.analysis.deprecations`)."""
+    """The deprecation of a ``.pgcl`` program (:mod:`prodigy.analysis.deprecations`)."""
     if session.program is None or session.silent:
         return []
-    return deprecation_warnings(session.syntax, session.config.engine.name)
+    return deprecation_warnings(session.syntax)
 
 
 def _language_warnings(session: Any) -> List[str]:

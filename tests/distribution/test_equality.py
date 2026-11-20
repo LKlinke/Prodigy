@@ -10,9 +10,8 @@ from prodigy.distribution import CommonDistributionsFactory
 from prodigy.distribution.equality import decide_equal, decide_equal_strings, is_rational_over_q
 from prodigy.distribution.fast_generating_function import ProdigyPGF
 from prodigy.distribution.generating_function import GeneratingFunction, SympyPGF, provably_equal
-from prodigy.distribution.symengine_distribution import SymenginePGF
 
-ENGINES = [SympyPGF, SymenginePGF, ProdigyPGF]
+ENGINES = [SympyPGF, ProdigyPGF]
 
 # 1/2 + 10^-20
 NEARLY_HALF = "50000000000000000001/100000000000000000000"
@@ -48,7 +47,6 @@ def test_unequal_rational_functions_are_not_equal(factory, lhs, rhs):
 
 @pytest.mark.parametrize("factory", [
     SympyPGF,
-    SymenginePGF,
     ProdigyPGF,
 ])
 def test_decimal_literals_are_exact(factory):
@@ -71,11 +69,6 @@ def test_sympy_non_rational_equality_needs_a_symbolic_proof():
     # equal only for nonnegative x: not proven
     assert not provably_equal(sympy.sqrt(x ** 2), x)
     assert not provably_equal(sympy.exp(p * (x - 1)), sympy.exp(p * x) * sympy.exp(-p) + 10 ** -30)
-
-
-def test_symengine_non_rational_subterms_are_indeterminates():
-    assert equal(SymenginePGF, "exp(p*x)/(1-x)", "exp(p*x)*(1 + x/(1-x))", "x")
-    assert not equal(SymenginePGF, "exp(p*x)/(1-x)", "exp(p*x)*(1 + x)", "x")
 
 
 def test_sympy_parameters_get_no_global_assumptions():
@@ -103,14 +96,14 @@ def test_decide_equal(factory, lhs, rhs, verdict):
     assert factory.from_expr(lhs, "x", "c").decide_equal(factory.from_expr(rhs, "x", "c")) is verdict
 
 
-@pytest.mark.parametrize("factory, verdict", [(SympyPGF, True), (SymenginePGF, None), (ProdigyPGF, None)])
+@pytest.mark.parametrize("factory, verdict", [(SympyPGF, True), (ProdigyPGF, None)])
 def test_decide_equal_reports_unproven_equality_as_unknown(factory, verdict):
     # equal, but only SymPy's simplify proves it; the other engines must not call it different
     lhs = factory.from_expr("sin(c)^2 + cos(c)^2", "x", "c")
     assert lhs.decide_equal(factory.from_expr("1", "x", "c")) is verdict
 
 
-@pytest.mark.parametrize("factory, verdict", [(SympyPGF, False), (SymenginePGF, False), (ProdigyPGF, False)])
+@pytest.mark.parametrize("factory, verdict", [(SympyPGF, False), (ProdigyPGF, False)])
 def test_decide_equal_floats_prove_nothing(factory, verdict):
     # all engines parse decimals as exact rationals (GiNaC since prodigy-ppl-ginac 0.0.3), so 0.5 = 1/2
     # decides; only a genuine floating-point number proves nothing

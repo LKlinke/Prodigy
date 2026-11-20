@@ -5,13 +5,11 @@ from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.fast_generating_function import ProdigyPGF
 from prodigy.distribution.generating_function import SympyPGF
-from prodigy.distribution.symengine_distribution import SymenginePGF
 
 
 @pytest.mark.parametrize('engine,factory',
                          [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
-                          (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF),
-                          (ForwardAnalysisConfig.Engine.SYMENGINE, SymenginePGF)])
+                          (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_basic_function(engine, factory):
     prog = compile_pgcl("""
         fun f := {
@@ -29,8 +27,7 @@ def test_basic_function(engine, factory):
 
 @pytest.mark.parametrize('engine,factory',
                          [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
-                          (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF),
-                          (ForwardAnalysisConfig.Engine.SYMENGINE, SymenginePGF)])
+                          (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_parameter(engine, factory):
     prog = compile_pgcl("""
         fun f := {

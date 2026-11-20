@@ -253,8 +253,8 @@ Operand = Union["Distribution", str, int, float]
 variables of the first one. Each engine accepts its own distributions and some of the others."""
 
 Value = Union[int, sympy.Expr]
-"""The value of an expression in a state (:meth:`Distribution.evaluate`): an engine's number or expression (SymPy's,
-or SymEngine's, which mypy cannot tell apart, since neither has type information)."""
+"""The value of an expression in a state (:meth:`Distribution.evaluate`): an engine's number (GiNaC's) or a
+SymPy number or expression."""
 
 
 @dataclass

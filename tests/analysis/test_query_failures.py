@@ -13,7 +13,7 @@ from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
 from prodigy.pgcl import parse_pgcl
 
-ENGINES = ["SYMPY", "GINAC", "SYMENGINE"]
+ENGINES = ["SYMPY", "GINAC"]
 
 
 def _engine(name):

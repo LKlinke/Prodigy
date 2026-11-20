@@ -2,16 +2,14 @@
 Regression tests for engine-specific slowdowns.
 
 #224: unrolling was up to 100x slower on one engine than on another. SymPy factored the sparse polynomials of
-degree 2^k of a doubled variable and read their coefficients from a dense list; SymEngine cancelled its
-growing unsimplified closed forms in SymPy (at removable poles, to decide finiteness and equality) and let the
-coefficients extracted by derivatives grow exponentially.
+degree 2^k of a doubled variable and read their coefficients from a dense list. (The SymEngine engine, removed
+in v0.6.0, #416, had slowdowns of its own.)
 
 #274: ``GeneratingFunction.marginal`` called SymPy's ``limit``, which hangs on some removable singularities.
 """
 from pathlib import Path
 
 import pytest
-import symengine as se
 import sympy
 
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -20,14 +18,11 @@ from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.generating_function import (GeneratingFunction, _limit_at_one,
                                                       _polynomial_coefficients)
-from prodigy.distribution.symengine_distribution import (_differ_at_a_point, _is_polynomial_in,
-                                                         _not_polynomial_after_specialising,
-                                                         _value_at_removable_pole)
 from prodigy.pgcl import parse_pgcl
 
 ROOT = Path(__file__).resolve().parents[2]
 HARD = ROOT / "pgfexamples/inference/loopy/hard_distributions"
-ENGINES = ["SYMPY", "GINAC", "SYMENGINE"]
+ENGINES = ["SYMPY", "GINAC"]
 SIMPLIFICATION = [pytest.param(True, id="simplified"), pytest.param(False, id="unsimplified")]
 
 
@@ -61,17 +56,14 @@ def test_doubling_is_fast_on_every_engine(engine):
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize("engine", ENGINES)
 def test_geometric_inside_a_loop_is_fast_on_every_engine(engine):
-    # more than 300 s on SymEngine with 30 iterations
     source = (HARD / "algebraic/galton_watson_critical.ppy").read_text(encoding="utf-8")
     result = _analyse(source, engine, {"0": {"strategy": "unroll", "params": {"iterations": "20"}}})
     assert _values(result)[:3] == [sympy.Rational(1, 2), sympy.Rational(1, 8), sympy.Rational(1, 16)]
 
 
-@pytest.mark.slow
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize("engine", ENGINES)
 def test_nested_loops_are_fast_on_every_engine(engine):
-    # more than 60 s on SymEngine with 3 outer and 10 inner iterations
     source = (HARD / "d_finite/polya_urn_coins.ppy").read_text(encoding="utf-8")
     result = _analyse(source, engine, {"0": {"strategy": "unroll", "params": {"iterations": "3"}},
                                        "1": {"strategy": "unroll", "params": {"iterations": "10"}}})
@@ -117,42 +109,3 @@ def test_polynomial_coefficients_are_read_sparsely():
     assert _polynomial_coefficients(function, x, 4) == [sympy.Rational(1, 8), sympy.Rational(1, 8), y / 2, 0]
     assert _polynomial_coefficients(x * (1 + x), x, 3) == [0, 1, 1]
 
-
-def test_symengine_value_at_removable_pole():
-    x, y = se.symbols("x y")
-    # (x^2 - x)/x at 0 is -1; the cancelled form is x - 1
-    assert _value_at_removable_pole((x ** 2 - x) / x, x, se.Integer(0)) == -1
-    # at 1, with another symbol: y*(x^2 - 1)/(x - 1) -> 2*y
-    assert _value_at_removable_pole(y * (x ** 2 - 1) / (x - 1), x, se.Integer(1)) == 2 * y
-    # numerator vanishes to a higher order: 0
-    assert _value_at_removable_pole(x ** 3 / x ** 2, x, se.Integer(0)) == 0
-    # a real pole and non-rational functions are left to the caller
-    assert _value_at_removable_pole((1 + x) / x, x, se.Integer(0)) is None
-    assert _value_at_removable_pole(se.log(1 + x) / x, x, se.Integer(0)) is None
-    # the value may not contain the variable
-    assert _value_at_removable_pole(1 / (x - y), x, y + x) is None
-
-
-def test_symengine_polynomial_test():
-    x, y, p = se.symbols("x y p")
-    variables = frozenset({x, y})
-    # disproved cheaply
-    assert _not_polynomial_after_specialising(y / (1 - x / 2), variables)
-    assert not _is_polynomial_in(y / (1 - x / 2), variables)
-    # a polynomial in disguise is not disproved, and cancelling shows it
-    disguised = (x ** 2 - 1) / (x - 1) * y
-    assert not _not_polynomial_after_specialising(disguised, variables)
-    assert _is_polynomial_in(disguised, variables)
-    # parameters may occur in any form
-    assert _is_polynomial_in(x / (1 - p), variables)
-    assert not _not_polynomial_after_specialising(x / (1 - p), variables)
-
-
-def test_symengine_differ_at_a_point():
-    x = se.Symbol("x")
-    assert _differ_at_a_point(1 / (1 - x), 1 + x)
-    assert not _differ_at_a_point(1 / (1 - x), 1 + x / (1 - x))
-    # irrational values are not compared (their form need not be canonical)
-    assert not _differ_at_a_point(se.log(4 * x), 2 * se.log(2) + se.log(x))
-    # nor values at a pole
-    assert not _differ_at_a_point(1 / (x - se.Rational(3, 11)), x)

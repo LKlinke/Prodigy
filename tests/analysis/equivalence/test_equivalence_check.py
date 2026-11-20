@@ -17,7 +17,7 @@ from prodigy.pgcl.pgcl_operations import cav_phi
 
 @pytest.mark.parametrize(
     'engine',
-    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE])
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY])
 def test_equivalence_check_geometric_sampler(engine):
     prog = compile_pgcl("""
         nat x;
@@ -53,7 +53,7 @@ def test_equivalence_check_geometric_sampler(engine):
 
 @pytest.mark.parametrize(
     'engine',
-    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE])
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY])
 def test_equivalence_check_parameter(engine):
     prog = compile_pgcl("""
         nat x;
@@ -92,8 +92,7 @@ def test_equivalence_check_parameter(engine):
 
 @pytest.mark.parametrize(
     "engine",
-    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY,
-     ForwardAnalysisConfig.Engine.SYMENGINE]
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY]
 )
 @pytest.mark.parametrize(
     "file_path",
@@ -152,9 +151,7 @@ def _loopy_invariants(file_path: str) -> tuple[str, list[str]]:
 @pytest.mark.slow
 @pytest.mark.parametrize(
     "engine",
-    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY,
-     # ForwardAnalysisConfig.Engine.SYMENGINE
-     ]
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY]
 )
 @pytest.mark.parametrize(
     "file_path", sorted(glob(os.path.join(LOOPY_DIR, "*.ppy"))), ids=lambda path: os.path.basename(path)
@@ -191,9 +188,7 @@ def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
 
 @pytest.mark.parametrize(
     "engine",
-    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY,
-     # ForwardAnalysisConfig.Engine.SYMENGINE
-     ]
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY]
 )
 def test_equivalence_fail(engine):
     prog1 = compile_pgcl("""
@@ -215,7 +210,7 @@ def test_equivalence_fail(engine):
 
 @pytest.mark.parametrize(
     'engine',
-    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE])
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY])
 def test_equivalence_check_decrement_under_guard(engine):
     # Issue #143: in the second-order generating functions of the equivalence check, the marginal of `n` diverges,
     # so the check for negative values of `n := n-1` has to be decided on the joint function.
@@ -246,7 +241,7 @@ GAMBLER = """
 
 @pytest.mark.parametrize(
     'engine',
-    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE])
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY])
 @pytest.mark.parametrize('loop, invariant, expected', [
     # the guard x < n compares two variables of the second-order distribution, which has infinite mass
     pytest.param("nat x; nat n; while (x > 0 & x < n) { x := x - 1 }",
@@ -267,7 +262,7 @@ def test_equivalence_check_compares_two_variables_formally(engine, loop, invaria
 @pytest.mark.slow
 @pytest.mark.parametrize(
     'engine',
-    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE])
+    [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY])
 @pytest.mark.parametrize('branches, expected, witness', [
     # from x the walk reaches n with probability x/n (#366)
     pytest.param("{x := n} [x/n] {x := 0}", True, [], id="equivalent"),

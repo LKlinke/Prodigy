@@ -16,7 +16,7 @@ import { changedWhileRunningText, staleText } from "../staleness.js";
 
 export { guaranteeBadge, distributionFigure };
 
-const ENGINE_NAMES = { sympy: "SymPy", ginac: "GiNaC", symengine: "SymEngine" };
+const ENGINE_NAMES = { sympy: "SymPy", ginac: "GiNaC" };
 
 function exactSpan(exact, number) {
   if (!exactIsInformative(exact, number)) return null;

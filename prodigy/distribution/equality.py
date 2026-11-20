@@ -188,7 +188,7 @@ def sympify_distribution(dist: Distribution) -> sympy.Expr:
 def decide_equal_strings(lhs: str, rhs: str, names: Iterable[str]) -> Optional[bool]:
     """
     Like :func:`decide_equal` (without ``simplify``) for the string forms of two engine expressions, e.g. of
-    SymEngine or GiNaC. ``names`` are the variables and parameters; they are parsed as plain symbols, so names
+    GiNaC. ``names`` are the variables and parameters; they are parsed as plain symbols, so names
     such as ``E`` or ``S`` keep their meaning. Decimal literals stay floating-point numbers, so expressions
     containing them are never decided different. Unparsable strings give None.
 

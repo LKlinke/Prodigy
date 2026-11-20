@@ -7,7 +7,6 @@ import pytest
 import sympy
 
 from prodigy.distribution.generating_function import SympyPGF
-from prodigy.distribution.symengine_distribution import SymenginePGF
 
 
 def _ginac_factory():
@@ -20,7 +19,6 @@ def _ginac_factory():
 FACTORIES = [
     pytest.param(lambda: SympyPGF, id="sympy"),
     pytest.param(_ginac_factory, id="ginac"),
-    pytest.param(lambda: SymenginePGF, id="symengine"),
 ]
 
 # x ~ geometric(1/2) on {0, 1, ...} (mean 1, E[x^2] = 3) and y ~ bernoulli(1/3), independent

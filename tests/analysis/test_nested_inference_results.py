@@ -103,7 +103,7 @@ def _expected(source):
     return [match.group(1).strip() for match in re.finditer(r"#\s*expected:\s*(.+)", source)]
 
 
-@pytest.mark.parametrize("engine", [Engine.SYMPY, Engine.SYMENGINE, Engine.GINAC])
+@pytest.mark.parametrize("engine", [Engine.SYMPY, Engine.GINAC])
 @pytest.mark.parametrize("path", sorted(EXAMPLES.glob("*.ppy")), ids=lambda p: p.stem)
 def test_examples(path, engine):
     if engine == Engine.GINAC:

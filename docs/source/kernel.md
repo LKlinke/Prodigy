@@ -38,24 +38,24 @@ process with a time limit of 60 s:
 - `kernel`: `RationalGF`.
 - `sympy-cas`: the same operations on SymPy expressions with `cancel` after each iteration, i.e.
   SymPy without Prodigy's case analysis.
-- `sympy`, `ginac`, `symengine`: the engines' `Distribution` (`filter`, `update`, arithmetic), what an
+- `sympy`, `ginac`: the engines' `Distribution` (`filter`, `update`, arithmetic), what an
   unrolled loop costs in the analysis today.
 
 ```sh
 timeout 900 uv run python benchmarks/kernel.py     # all, a Markdown table (several minutes)
 ```
 
-Apple M-series (arm64), Python 3.13, SymPy 1.14, SymEngine 0.15, python-flint 0.9, prodigy-ppl-ginac
+Apple M-series (arm64), Python 3.13, SymPy 1.14, python-flint 0.9, prodigy-ppl-ginac
 0.0.6; times are the fastest of up to five runs, the factor is the time over the kernel's.
 
-| workload | kernel | sympy-cas | sympy | ginac | symengine |
-|---|---|---|---|---|---|
-| unroll st_petersburg (30) | 0.3 ms | 102.5 ms (348×) | 30.4 ms (103×) | 13.1 ms (44×) | 5.3 ms (18×) |
-| unroll galton_watson (15) | 0.3 ms | 294.7 ms (1051×) | 1.81 s (6437×) | 32.8 ms (117×) | 481.3 ms (1716×) |
-| unroll galton_watson (40) | 1.2 ms | 1.66 s (1394×) | 17.48 s (14673×) | 243.7 ms (205×) | 2.92 s (2452×) |
-| unroll random_walk (25) | 0.2 ms | 73.6 ms (339×) | 538.5 ms (2481×) | 42.9 ms (198×) | 142.3 ms (656×) |
-| cancel and decide equal | 1.0 ms | 47.2 ms (49×) | 103.6 ms (108×) | 3.9 ms (4×) | 4.3 ms (4×) |
-| 100 coefficients | 1.0 ms | 3.5 ms (4×) | 3.6 ms (4×) | 113.7 ms (119×) | 4.2 ms (4×) |
+| workload | kernel | sympy-cas | sympy | ginac |
+|---|---|---|---|---|
+| unroll st_petersburg (30) | 0.3 ms | 102.5 ms (348×) | 30.4 ms (103×) | 13.1 ms (44×) |
+| unroll galton_watson (15) | 0.3 ms | 294.7 ms (1051×) | 1.81 s (6437×) | 32.8 ms (117×) |
+| unroll galton_watson (40) | 1.2 ms | 1.66 s (1394×) | 17.48 s (14673×) | 243.7 ms (205×) |
+| unroll random_walk (25) | 0.2 ms | 73.6 ms (339×) | 538.5 ms (2481×) | 42.9 ms (198×) |
+| cancel and decide equal | 1.0 ms | 47.2 ms (49×) | 103.6 ms (108×) | 3.9 ms (4×) |
+| 100 coefficients | 1.0 ms | 3.5 ms (4×) | 3.6 ms (4×) | 113.7 ms (119×) |
 | SymPy → kernel → SymPy | 0.2 ms | – | – | – | – |
 
 The kernel's times include the conversion from and to SymPy where the workload starts or ends in

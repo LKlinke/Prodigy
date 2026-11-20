@@ -10,7 +10,6 @@ from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 from prodigy.distribution import known_convergent_series
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.distribution.multisection import rational_sections
-from prodigy.distribution.symengine_distribution import SymengineDist
 from prodigy.pgcl.parser import parse_expr
 
 try:
@@ -20,7 +19,7 @@ except ImportError:  # pragma: no cover - prodigy_ginac has no wheel for this pl
 
 GINAC = pytest.param(FPS, id="GiNaC",
                      marks=pytest.mark.skipif(FPS is None, reason="prodigy_ginac is not installed"))
-ENGINES = [pytest.param(GeneratingFunction, id="SymPy"), pytest.param(SymengineDist, id="SymEngine"), GINAC]
+ENGINES = [pytest.param(GeneratingFunction, id="SymPy"), GINAC]
 
 X, Y, P, L = sympy.symbols("x y p l")
 DEGREE = 12

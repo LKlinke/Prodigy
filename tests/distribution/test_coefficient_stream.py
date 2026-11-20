@@ -17,7 +17,6 @@ from prodigy.distribution import known_convergent_series
 from prodigy.distribution.coefficient_stream import doubling, marginal_stream, taylor_stream
 from prodigy.distribution.generating_function import SympyPGF
 from prodigy.distribution.rational_series import rational_taylor_coefficients, rational_taylor_stream
-from prodigy.distribution.symengine_distribution import SymenginePGF
 from prodigy.web.jobs import _Sender, merge_stream
 
 
@@ -31,7 +30,6 @@ def _ginac_factory():
 FACTORIES = [
     pytest.param(lambda: SympyPGF, id="sympy"),
     pytest.param(_ginac_factory, id="ginac"),
-    pytest.param(lambda: SymenginePGF, id="symengine"),
 ]
 
 UNIVARIATE = [

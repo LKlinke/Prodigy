@@ -23,8 +23,7 @@ except ImportError:  # pragma: no cover - prodigy_ginac has no wheel for this pl
     HAS_GINAC = False
 
 Engine = ForwardAnalysisConfig.Engine
-ENGINES = [pytest.param(Engine.SYMPY, id="SymPy"), pytest.param(Engine.SYMENGINE, id="SymEngine"),
-           pytest.param(Engine.GINAC, id="GiNaC",
+ENGINES = [pytest.param(Engine.SYMPY, id="SymPy"), pytest.param(Engine.GINAC, id="GiNaC",
                         marks=pytest.mark.skipif(not HAS_GINAC, reason="prodigy_ginac is not installed"))]
 
 

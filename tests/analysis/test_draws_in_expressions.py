@@ -20,8 +20,7 @@ except ImportError:  # pragma: no cover - prodigy_ginac has no wheel for this pl
 
 Engine = ForwardAnalysisConfig.Engine
 GINAC = pytest.mark.skipif(not HAS_GINAC, reason="prodigy_ginac is not installed")
-ENGINES = [pytest.param(Engine.SYMPY, id="SymPy"), pytest.param(Engine.SYMENGINE, id="SymEngine"),
-           pytest.param(Engine.GINAC, id="GiNaC", marks=GINAC)]
+ENGINES = [pytest.param(Engine.SYMPY, id="SymPy"), pytest.param(Engine.GINAC, id="GiNaC", marks=GINAC)]
 
 
 def _distribution(source: str, engine, syntax: str):

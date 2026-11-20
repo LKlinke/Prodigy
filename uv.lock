@@ -1786,7 +1786,6 @@ dependencies = [
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "setuptools" },
-    { name = "symengine" },
     { name = "sympy" },
 ]
 
@@ -1836,7 +1835,6 @@ requires-dist = [
     { name = "python-flint", specifier = ">=0.9" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "setuptools", specifier = ">=76.0.0,<85" },
-    { name = "symengine", specifier = ">=0.14.0,<0.16" },
     { name = "sympy", specifier = ">=1.8,<2" },
 ]
 provides-extras = ["ginac"]
@@ -2584,26 +2582,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/3b/44/6716b257b0aa6bfd51a1b31665d1c205fb12cb5ad56de752dfa15657de2f/sphinxcontrib_serializinghtml-2.0.0.tar.gz", hash = "sha256:e9d912827f872c029017a53f0ef2180b327c3f7fd23c87229f7a8e8b70031d4d", size = 16080, upload-time = "2024-07-29T01:10:09.332Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/52/a7/d2782e4e3f77c8450f727ba74a8f12756d5ba823d81b941f1b04da9d033a/sphinxcontrib_serializinghtml-2.0.0-py3-none-any.whl", hash = "sha256:6e2cb0eef194e10c27ec0023bfeb25badbbb5868244cf5bc5bdc04e4464bf331", size = 92072, upload-time = "2024-07-29T01:10:08.203Z" },
-]
-
-[[package]]
-name = "symengine"
-version = "0.15.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/76/f2/985d8b2e322e3dbe0a957a8d3f17c663390ac57dcc8cb956fac0968ce6f9/symengine-0.15.0.tar.gz", hash = "sha256:7f1f911c771e771bf0d73873c6bedb4af48148ffc887da2717b58aa846efca97", size = 107389, upload-time = "2026-10-31T04:29:27.657Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/59/6f/90230e26decc7cc8e11cea93ae45430b7a5539c50877ff270fa1b38d017e/symengine-0.15.0-cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:452d1ed85b9f3fbe3c2b5c29bce7d2d2f61437b69ed50765db322b5d5afe191f", size = 22779768, upload-time = "2026-10-31T04:27:51.608Z" },
-    { url = "https://files.pythonhosted.org/packages/5a/c3/b5742656285bb6d9203a27098e5a5f9200be140d5dc0c56ce2083e7f8eaa/symengine-0.15.0-cp311-abi3-macosx_11_0_x86_64.whl", hash = "sha256:cd9f38f011610ffe72c7e4fa0b0a8e441e91d46030cd7fbd0ccbfa5c714082e9", size = 25979496, upload-time = "2026-10-31T04:27:54.925Z" },
-    { url = "https://files.pythonhosted.org/packages/95/cd/a96d946de579e5f8c649e8cb4dd016fb0fc732f7bdf6251d794ec5341caa/symengine-0.15.0-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:18eb3b82791e0f4b98789fe2512f0217487036233f62430796acc76bae118218", size = 58499760, upload-time = "2026-10-31T04:27:59.932Z" },
-    { url = "https://files.pythonhosted.org/packages/b8/3c/9aae81a0df8ae99cab0fec88f84c2c106c6bb3cb9265e647a3ae08bcaa0c/symengine-0.15.0-cp311-abi3-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:790fcbbc13a18863c2a7f3107b6b1d5faaddb4058801327fcac42b41cb19ea6d", size = 60747259, upload-time = "2026-10-31T04:28:05.82Z" },
-    { url = "https://files.pythonhosted.org/packages/bc/7c/e74352a9a33a9bc2fb4387a6a09969c3a35735f84e69a7627dedaa80d682/symengine-0.15.0-cp311-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:30639ad83ec20f5d0d2b514b1150729f8d19f4d685dd187a3e6ec8b67fc89120", size = 48882606, upload-time = "2026-10-31T04:28:10.503Z" },
-    { url = "https://files.pythonhosted.org/packages/dd/3b/44906c009f401764e40315e95dc8835ded17904160521921602a9a15aa66/symengine-0.15.0-cp311-abi3-win_amd64.whl", hash = "sha256:80a565ed0638c1bfcdbba42be87851b21a705df8b504bd09694b0afebccdb6cb", size = 19092121, upload-time = "2026-10-31T04:28:14.114Z" },
-    { url = "https://files.pythonhosted.org/packages/67/d8/a73e3e598a6ec6a37365059ba9bfca4bc0bcd17c9d148100bf127c3016bc/symengine-0.15.0-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:9c331eeeca60ec9fae37057f5c21d2f930884441cdbce315ddb1db32882a6a5d", size = 22872932, upload-time = "2026-10-31T04:28:17.114Z" },
-    { url = "https://files.pythonhosted.org/packages/da/29/64546f10de07a3d50b8ef78e5ed775b4793588e25727bbc895a9762a9ff4/symengine-0.15.0-cp314-cp314t-macosx_11_0_x86_64.whl", hash = "sha256:2ef1accc404173fb0082b26af36d32ca41e037bb10d377afe1de22254aa4610f", size = 26086776, upload-time = "2026-10-31T04:28:21.313Z" },
-    { url = "https://files.pythonhosted.org/packages/2d/8d/430c7192f137299eb11920610802eb31c2d9823b7c7f3a001e90814fa5d5/symengine-0.15.0-cp314-cp314t-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:38bcfc2da15c89d757ada06b65a9a40037adb453040f8ba29150ae6b386d45d1", size = 58545759, upload-time = "2026-10-31T04:28:25.929Z" },
-    { url = "https://files.pythonhosted.org/packages/76/21/29ccd0040b5e231ef3e664db1dfbfe9447e496d702537daea812b42b799d/symengine-0.15.0-cp314-cp314t-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:b496b2a2100dc0f7c97e2b8c62e9842d986b830f553526c86959ced38facc5f4", size = 60813888, upload-time = "2026-10-31T04:28:30.733Z" },
-    { url = "https://files.pythonhosted.org/packages/dd/70/ceb37052e8e8ebbe23f1c8022e06a47e52c053468ae1be4375044a9da113/symengine-0.15.0-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:2de64071c5ba42a7e2c20ff9d860e4f37628efad52acad2017b36b69c5d66b3b", size = 48991489, upload-time = "2026-10-31T04:28:35.175Z" },
-    { url = "https://files.pythonhosted.org/packages/4b/5d/f1495a8afa09a1eaff9e16bb29901414f618b66a90d9b7a8e92eee742b72/symengine-0.15.0-cp314-cp314t-win_amd64.whl", hash = "sha256:4c1a4d73b7b95d96a479ed7434aa93608b1ca549689ea0796d7458f27b0f6c1f", size = 19244869, upload-time = "2026-10-31T04:28:38.382Z" },
 ]
 
 [[package]]

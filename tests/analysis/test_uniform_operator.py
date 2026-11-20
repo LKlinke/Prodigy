@@ -27,7 +27,6 @@ except ImportError:  # pragma: no cover - prodigy_ginac has no wheel for this pl
 
 ENGINES = [
     pytest.param(ForwardAnalysisConfig.Engine.SYMPY, id="SymPy"),
-    pytest.param(ForwardAnalysisConfig.Engine.SYMENGINE, id="SymEngine"),
     pytest.param(ForwardAnalysisConfig.Engine.GINAC, id="GiNaC",
                  marks=pytest.mark.skipif(not HAS_GINAC, reason="prodigy_ginac is not installed")),
 ]
@@ -130,11 +129,11 @@ def test_bound_zero_gives_zero(engine):
         assert _equal(query["value"], value), (query["value"], value)
 
 
-# The closed form has a removable singularity at x = 1. SymPy and SymEngine compute the value there; GiNaC's
+# The closed form has a removable singularity at x = 1. SymPy computes the value there; GiNaC's
 # substitution divides by zero (it cancels removable singularities of rational functions only), so the analysis
 # ends with an error, never with a wrong result. The fix belongs in the bindings.
 ENGINES_AT_X_ONE = [
-    ENGINES[0], ENGINES[1],
+    ENGINES[0],
     pytest.param(ForwardAnalysisConfig.Engine.GINAC, id="GiNaC",
                  marks=[pytest.mark.skipif(not HAS_GINAC, reason="prodigy_ginac is not installed"),
                         pytest.mark.xfail(raises=(ArithmeticError, ValueError), strict=True,

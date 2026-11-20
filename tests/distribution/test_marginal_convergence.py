@@ -17,7 +17,7 @@ from prodigy.distribution.convergence import _roots_outside_unit_disc, marginal_
 from prodigy.pgcl.parser import parse_expr
 
 Engine = ForwardAnalysisConfig.Engine
-ENGINES = [Engine.SYMPY, Engine.SYMENGINE, Engine.GINAC]
+ENGINES = [Engine.SYMPY, Engine.GINAC]
 
 x, y, z, p = sympy.symbols("x y z p")
 ISSUE = "1/((1 - 2*x)*(1 - y))"

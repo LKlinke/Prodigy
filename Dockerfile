@@ -1,5 +1,5 @@
-# The released image (ghcr.io/lklinke/prodigy): the command line and the web GUI with the SymPy, GiNaC and
-# SymEngine engines, as installed by pip install prodigy-ppl. Dockerfile.artifact builds the full
+# The released image (ghcr.io/lklinke/prodigy): the command line and the web GUI with the SymPy and GiNaC
+# engines, as installed by pip install prodigy-ppl. Dockerfile.artifact builds the full
 # environment for artifacts.
 #   docker run -p 8080:8080 ghcr.io/lklinke/prodigy                        web GUI on http://localhost:8080
 #   docker run -v "$PWD":/work ghcr.io/lklinke/prodigy main /work/prog.ppy   command line
