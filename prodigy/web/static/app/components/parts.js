@@ -4,6 +4,7 @@
 import { copyText, h, icon } from "./dom.js";
 import { marginalChart, marginalTable } from "./charts.js";
 import { BOUND_TEXT, formatValue } from "./format.js";
+import { onViewOptionsChange, viewOptions, viewOptionsControl } from "./view-options.js";
 import { formulaBox } from "./formula-box.js";
 
 export function guaranteeBadge(kind, label = null) {
@@ -51,27 +52,7 @@ export function press(group, key) {
   for (const button of group.children) button.setAttribute("aria-pressed", String(button.dataset.key === key));
 }
 
-// The scale of the charts (linear | log), remembered per browser. Same key as store.js would use;
-// kept here because these components must not depend on the GUI's modules (VS Code webview).
-const SCALE_KEY = "prodigy.gui.chartScale";
-
-export function loadScale() {
-  try {
-    return window.localStorage.getItem(SCALE_KEY) === "log" ? "log" : "linear";
-  } catch {
-    return "linear";
-  }
-}
-
-export function saveScale(scale) {
-  try {
-    window.localStorage.setItem(SCALE_KEY, scale);
-  } catch {
-    // ignore: storage is a convenience only
-  }
-}
-
-/** The figure of one marginal with its own chart/table and scale switches (queries, dist values). */
+/** The figure of one marginal with its own chart/table switch and the view options (queries, dist values). */
 export function distributionFigure(table, result, variable, mode = "chart") {
   const residual = result.bounds?.kind === "lower" ? result.bounds?.residual_mass_float : null;
   const residualExact = result.bounds?.residual_mass;
@@ -79,25 +60,19 @@ export function distributionFigure(table, result, variable, mode = "chart") {
   const holder = h("div", { class: "rv-figure-body" });
   const toggle = h("div", { class: "segmented small", role: "group", "aria-label": `Show the distribution of ${variable} as` });
   const views = { chart: "Chart", table: "Table" };
-  const scaleToggle = h("div", { class: "segmented small", role: "group", "aria-label": `Scale of the probability axis of ${variable}` });
+  const optionsControl = viewOptionsControl({ label: `View options of the chart of ${variable}: scale, colours and intervals` });
   let current = mode;
-  let scale = loadScale();
   let drawnWidth = 0;
   const show = (which) => {
     current = which;
     drawnWidth = holder.clientWidth || 560;
     holder.replaceChildren(which === "chart"
-      ? marginalChart(table, { residual, residualExact, variable, bound, width: drawnWidth, scale })
+      ? marginalChart(table, { residual, residualExact, variable, bound, width: drawnWidth, view: viewOptions() })
       : marginalTable(table, { variable, bound }));
     for (const button of toggle.children) button.setAttribute("aria-pressed", String(button.dataset.view === which));
-    for (const button of scaleToggle.children) button.setAttribute("aria-pressed", String(button.dataset.scale === scale));
-    scaleToggle.hidden = which !== "chart";
+    optionsControl.hidden = which !== "chart";
   };
-  for (const [key, label] of Object.entries({ linear: "Linear", log: "Log" })) {
-    scaleToggle.append(h("button", { type: "button", "data-scale": key, "aria-pressed": "false",
-      title: key === "log" ? "Logarithmic probability axis: small probabilities stay visible" : "Linear probability axis",
-      onclick: () => { scale = key; saveScale(key); show("chart"); } }, label));
-  }
+  onViewOptionsChange(holder, () => { if (current === "chart") show("chart"); });
   if (typeof ResizeObserver !== "undefined") {
     // draw the chart at its real size so that labels keep their font size
     new ResizeObserver(() => {
@@ -117,7 +92,7 @@ export function distributionFigure(table, result, variable, mode = "chart") {
   if (bound === "upper") caption.push("Hatched bars are upper bounds.");
   if (bound === "unknown") caption.push("Approximate values without a guarantee.");
   return h("figure", { class: "rv-figure" },
-    h("div", { class: "rv-figure-head" }, scaleToggle, toggle),
+    h("div", { class: "rv-figure-head" }, optionsControl, toggle),
     holder,
     caption.length ? h("figcaption", { class: "rv-note" }, caption.join(" ")) : null);
 }

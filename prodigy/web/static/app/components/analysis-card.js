@@ -14,7 +14,8 @@ import { BOUND_TEXT, chartLegend, formatNumber, formatSeconds, formatValue, qual
 import { formulaBox } from "./formula-box.js";
 import { JOINT_VIEWS, jointView } from "./joint-view.js";
 import { chartState, reducedMotion, tweenChart } from "./motion.js";
-import { copyButton, distributionFigure, expressionBox, guaranteeBadge, loadScale, press, saveScale, segmented } from "./parts.js";
+import { copyButton, distributionFigure, expressionBox, guaranteeBadge, press, segmented } from "./parts.js";
+import { onViewOptionsChange, viewOptions, viewOptionsControl } from "./view-options.js";
 import { breakpointTarget, marginalGap, positionData, positionLabel, positionOfStep, sizeSeries, timeSeries,
   timelineControl, timelinePositions } from "./timeline.js";
 
@@ -157,7 +158,6 @@ function distributionLens(ctx) {
 
   const render = () => {
     press(subjects, view.subject);
-    press(scaleToggle, loadScale());
     const views = isPair() ? Object.entries(JOINT_VIEWS) : MARGINAL_VIEWS;
     if (viewHolder.dataset.kind !== (isPair() ? "pair" : "single")) {
       viewHolder.dataset.kind = isPair() ? "pair" : "single";
@@ -167,7 +167,7 @@ function distributionLens(ctx) {
       }));
     }
     press(viewHolder.firstChild, mode());
-    scaleToggle.hidden = mode() === "table";
+    optionsControl.hidden = mode() === "table";
     legend.hidden = true;
     if (isPair()) {
       if (source.jointBlocked) {
@@ -190,7 +190,7 @@ function distributionLens(ctx) {
       figure.replaceChildren(h("p", { class: "rv-muted" }, `Not available: ${table.error}`));
     } else {
       figure.replaceChildren(mode() === "chart"
-        ? marginalChart(table, { residual: residual?.p, residualExact: residual?.exact, variable: name, bound, width: drawnWidth, scale: loadScale() })
+        ? marginalChart(table, { residual: residual?.p, residualExact: residual?.exact, variable: name, bound, width: drawnWidth, view: viewOptions() })
         : marginalTable(table, { variable: name, bound }));
       // the guarantee in words, not only implied by the intervals (#405)
       legend.textContent = chartLegend(bound);
@@ -203,8 +203,9 @@ function distributionLens(ctx) {
   const subjects = segmented("Variable", [...variables.map((v) => [v, v]), ...(withPair ? [[PAIR, pairLabel]] : [])],
     (key) => { view.subject = key; render(); },
     (key) => (key === PAIR ? "Joint distribution of two variables" : `Distribution of ${key}`));
-  const scaleToggle = segmented("Scale", [["linear", "Linear"], ["log", "Log"]], (key) => { saveScale(key); render(); },
-    (key) => (key === "log" ? "Logarithmic scale: small probabilities stay visible" : "Linear scale"));
+  // the view options of the plots (#452): scale, colours, intervals; a change redraws the figure
+  const optionsControl = viewOptionsControl({ label: "View options of the plots: scale, colours and intervals" });
+  onViewOptionsChange(figure, () => { if (variables.length) render(); });
   if (typeof ResizeObserver !== "undefined") {
     // draw the chart at its real size so that labels keep their font size (the joint view has its own)
     new ResizeObserver(() => {
@@ -219,7 +220,7 @@ function distributionLens(ctx) {
     mass.replaceChildren(data.iterate ? loopMass(source.snap, data.iterate) : massSummary({ total, residual }));
   }
   const controls = variables.length
-    ? h("div", { class: "rv-controls" }, variables.length > 1 || withPair ? subjects : null, viewHolder, scaleToggle)
+    ? h("div", { class: "rv-controls" }, variables.length > 1 || withPair ? subjects : null, viewHolder, optionsControl)
     : null;
 
   const lead = [];
@@ -855,7 +856,7 @@ export function analysisCard(result, options = {}) {
     // the joint view is kept across positions: its window and colour scale stay (#289)
     joint: (variables, onGrid) => {
       if (!joint) {
-        joint = jointView({ variables, view, maxAxis: options.maxJointAxis, scale: loadScale, onGrid: (grid) => joint?.onGrid(grid),
+        joint = jointView({ variables, view, maxAxis: options.maxJointAxis, options: viewOptions, onGrid: (grid) => joint?.onGrid(grid),
           load: (payload, signal, onPartial) => options.loadJoint({ ...payload, ...(distributionSource(ctx)?.joint || {}) }, signal, onPartial) });
         jointPosition = view.position;
       }
