@@ -44,9 +44,9 @@ def test_one_unrolling_keeps_the_parameters_of_the_loop():
 @pytest.mark.parametrize("name, constraints, relation", [
     # the invariants are those of p = 1/2; the check used to lose p and refute them
     ("geometric_observe_parameter", [{"p": "1/2"}], eq.FIRST_BELOW_SECOND),
-    # its invariant samples iid((1 - sqrt(1 - c^2))/c, s), a probability generating function that Prodigy cannot
-    # prove to be one (#431), so the analysis of the invariant has no guarantee and no relation is proven (#424)
-    ("random_walk_parameter", [{"p": "1/2"}], None),
+    # its invariant samples iid((1 - sqrt(1 - c^2))/c, s), proven a probability generating function by the shift
+    # and the monomial substitution (#431; before, no relation was proven, #424)
+    ("random_walk_parameter", [{"p": "1/2"}], eq.FIRST_BELOW_SECOND),
     # GiNaC took the parameter of the iid distribution for a variable ("must be univariate")
     ("negative_binomial_parameter", [], eq.FIRST_BELOW_SECOND),
     ("negative_binomial_reversed_parameter", [{"p": "1/2"}], eq.FIRST_BELOW_SECOND),
