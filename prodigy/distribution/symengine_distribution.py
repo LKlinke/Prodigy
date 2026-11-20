@@ -323,7 +323,7 @@ class SymengineDist(Distribution):
         res = _parse_to_symengine("0")
         for prob, state in self:
             if self.evaluate_condition(condition, state):
-                res += _parse_to_symengine(f"{prob} * {state.to_monomial()}")
+                res += _parse_to_symengine(f"({prob}) * {state.to_monomial()}")  # a sum with parameters (#444)
         return SymenginePGF.from_expr(
             res,
             *self._variables

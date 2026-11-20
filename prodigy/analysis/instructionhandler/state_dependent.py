@@ -145,7 +145,7 @@ def split_states(distribution: Distribution, variables: Set[str], construct: str
             f"depends on program variables only if these variables take finitely many values "
             f"(by a case split over their values); this is not implemented for infinitely many.")
     # The iteration of an engine may list a state with coefficient 0 (e.g. of the zero distribution),
-    # and a state once per term (GiNaC, see Distribution._unique_states): each state is split once.
+    # and each state once (Distribution.__iter__, #444); deduplicated as a guard: each state is split once.
     states: Dict[Tuple[Tuple[str, int], ...], State] = {}
     for coefficient, state in support:
         if not _is_zero(coefficient):
