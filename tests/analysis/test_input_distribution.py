@@ -7,10 +7,11 @@ from click.testing import CliRunner
 
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.input_distribution import InputDistributionError, check_input_expression, \
-    input_distribution_from_text, validate_input_distribution
+from prodigy.analysis.input_distribution import InputDistributionError, input_distribution_from_text, \
+    validate_input_distribution
 from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
+from prodigy.distribution.finite_measure import check_input_expression
 from prodigy.pgcl import parse_pgcl
 from prodigy.web.app import create_app
 

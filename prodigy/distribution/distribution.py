@@ -17,9 +17,11 @@ from prodigy.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, FunctionCallExpr,
                            RealLitExpr, Unop, UnopExpr, VarExpr)
 from prodigy.pgcl.ast.walk import Walk, walk_expr
 from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_printer import spell
 from prodigy.pgcl.util.ref import Mut
 from prodigy.distribution.convergence import marginal_obstacle
 from prodigy.distribution.equality import decide_equal_strings
+from prodigy.distribution.finite_measure import check_input_expression
 from prodigy.distribution.algebraic_comparison import filter_difference_algebraic
 from prodigy.distribution.independent_comparison import (DEPENDENT, NOT_A_DIFFERENCE, ComparisonNotImplemented,
                                                           filter_difference)
@@ -311,11 +313,24 @@ def _is_true(variable: VarExpr) -> Expr:
     """The condition that the ``bool`` variable ``variable`` holds: ``not (variable = 0)``."""
     return UnopExpr(Unop.NEG, BinopExpr(Binop.EQ, variable, NatLitExpr(0)))
 
+_OUTPUT_SYNTAX: ContextVar[str] = ContextVar("prodigy_output_syntax", default="pgcl")
+
+
+@contextlib.contextmanager
+def output_syntax(syntax: str) -> Iterator[None]:
+    """Messages of the distributions write program expressions in ``syntax`` (``pgcl`` or ``ppy``) inside this
+    context; an analysis session enters it with the syntax of its program (#423: the distributions do not look up
+    the session of the analysis)."""
+    token = _OUTPUT_SYNTAX.set(syntax)
+    try:
+        yield
+    finally:
+        _OUTPUT_SYNTAX.reset(token)
+
+
 def _spelled(expression: Expr) -> str:
-    """The expression in the program's syntax if an analysis session is running (else pGCL)."""
-    # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.session import current_session, has_current_session
-    return current_session().spell(expression) if has_current_session() else str(expression)
+    """The expression in the syntax of :func:`output_syntax` (pGCL outside of it)."""
+    return spell(expression, _OUTPUT_SYNTAX.get())
 
 
 def _in_programs_terms(error: Exception, names: Dict[str, str]) -> Exception:
@@ -1611,11 +1626,7 @@ class Distribution(ABC):
 
     def _is_proven_finite_measure(self) -> bool:
         """Whether this is proven to be a power series with non-negative coefficients and finite mass, by the
-        check of input distributions (:func:`~prodigy.analysis.input_distribution.check_input_expression`)."""
-        # pylint: disable=import-outside-toplevel
-        # Layering exception, see #423: the check of input distributions is part of the analysis package,
-        # which imports this one
-        from prodigy.analysis.input_distribution import check_input_expression
+        check of input distributions (:func:`~prodigy.distribution.finite_measure.check_input_expression`)."""
         text = str(self._sympy_expression()).replace("**", "^")
         verdict, _ = check_input_expression(text, sorted(self.get_variables()))
         return verdict is True

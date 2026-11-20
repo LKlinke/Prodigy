@@ -9,7 +9,7 @@ import pytest
 import sympy
 
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.evtinvariants.heuristics.positivity.coefficients import nonneg_by_construction
+from prodigy.distribution.coefficient_signs import nonneg_by_construction
 from prodigy.analysis.evtinvariants.heuristics.positivity.dominat_root_rejection import DominantRootHeuristic
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from prodigy.analysis.evtinvariants.heuristics.positivity.individual_sum_terms import SumPositivity

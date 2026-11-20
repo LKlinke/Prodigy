@@ -17,123 +17,22 @@ All loop-free pGCL statements of the supported fragment map numerators over ``D`
 ``bernoulli`` and ``binomial`` (and from ``geometric(q)`` if ``r_i = 1 - q`` and ``p_i = 1``), probabilistic choice,
 conditionals, ``observe`` (which removes the violating mass) and ``abort`` (divergence).
 
-Coefficient-wise nonnegativity of ``P / D`` is decided exactly by finitely many coefficients (Lemma "finite
-positivity check" of the paper): ``P / D >= 0`` iff all coefficients in the box ``prod_i [0, deg_i P + p_i - 1]`` are
-nonnegative.
+The representation, the polynomial arithmetic and the series operations (coefficients, the exact finite positivity
+check, masses and moments) are in :mod:`prodigy.distribution.product_form`; this module adds the statements.
 """
 from __future__ import annotations
 
 import math
 from fractions import Fraction
 
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast
-
-import numpy as np
+from typing import Callable, Dict, Optional, Tuple, Union
 
 from prodigy.analysis.lowerbounds.ir import IR, UnsupportedProgram, eval_number
+from prodigy.distribution.product_form import (ONE, ZERO, Denominator, Exp, Num, ProductFormSeries, Value, degrees,
+                                               monomial, padd, pmul, pscale, pshift)
 
-Exp = Tuple[int, ...]
-Num = Dict[Exp, Fraction]
-Value = Union[Fraction, float]
-
-ONE = Fraction(1)
-ZERO = Fraction(0)
-
-
-# ------------------------------------------------------------------------------------------- denominators
-class Denominator:
-    """The fixed product denominator ``prod_i (1 - r_i X_i^{p_i})``."""
-
-    def __init__(self, rates: Sequence, periods: Sequence[int]):
-        self.r: List[Fraction] = [Fraction(r) for r in rates]
-        self.p: List[int] = [int(p) for p in periods]
-        if len(self.r) != len(self.p):
-            raise ValueError("rates and periods must have the same length")
-        if any(r < 0 for r in self.r) or any(p < 1 for p in self.p):
-            raise ValueError("rates must be nonnegative and periods positive")
-        self.d = len(self.r)
-
-    def value_at_one(self) -> Fraction:
-        val = ONE
-        for r in self.r:
-            val *= 1 - r
-        return val
-
-    def factor(self, i: int) -> Num:
-        """The factor ``1 - r_i X_i^{p_i}`` as a numerator."""
-        zero = tuple([0] * self.d)
-        if self.r[i] == 0:
-            return {zero: ONE}
-        e = [0] * self.d
-        e[i] = self.p[i]
-        return {zero: ONE, tuple(e): -self.r[i]}
-
-    def poly(self) -> Num:
-        """``D`` itself as a numerator (i.e. the generating function ``1``)."""
-        out = {tuple([0] * self.d): ONE}
-        for i in range(self.d):
-            out = pmul(out, self.factor(i))
-        return out
-
-    def without(self, i: int) -> "Denominator":
-        rates = list(self.r)
-        rates[i] = ZERO
-        return Denominator(rates, self.p)
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, Denominator) and self.r == other.r and self.p == other.p
-
-    def __repr__(self) -> str:
-        return f"Denominator(rates={[str(r) for r in self.r]}, periods={self.p})"
-
-
-# ------------------------------------------------------------------------------------------- polynomials
-def padd(*polys: Num) -> Num:
-    out: Num = {}
-    for poly in polys:
-        for e, c in poly.items():
-            out[e] = out.get(e, 0) + c
-    return {e: c for e, c in out.items() if c != 0}
-
-
-def pscale(poly: Num, a: Union[int, Fraction]) -> Num:
-    if a == 0:
-        return {}
-    return {e: c * a for e, c in poly.items() if c != 0}
-
-
-def pmul(p1: Num, p2: Num) -> Num:
-    out: Num = {}
-    for e1, c1 in p1.items():
-        for e2, c2 in p2.items():
-            e = tuple(a + b for a, b in zip(e1, e2))
-            out[e] = out.get(e, 0) + c1 * c2
-    return {e: c for e, c in out.items() if c != 0}
-
-
-def pshift(poly: Num, i: int, k: int) -> Num:
-    """Multiply by ``X_i^k``; ``k`` may be negative if all exponents stay nonnegative."""
-    out: Num = {}
-    for e, c in poly.items():
-        e2 = list(e)
-        e2[i] += k
-        if e2[i] < 0:
-            raise ValueError("negative exponent in shift")
-        out[tuple(e2)] = c
-    return out
-
-
-def degrees(poly: Num, d: int) -> List[int]:
-    deg = [0] * d
-    for e in poly:
-        for i in range(d):
-            deg[i] = max(deg[i], e[i])
-    return deg
-
-
-def monomial(d: int, e: Iterable[int], c: Union[int, Fraction] = ONE) -> Num:  # pylint: disable=unused-argument
-    return {tuple(e): Fraction(c)} if c != 0 else {}
-
+__all__ = ["Denominator", "Exp", "GFCalculus", "Num", "Value", "degrees", "directed_decimal", "monomial", "padd",
+           "pmul", "pscale", "pshift"]
 
 # ------------------------------------------------------------------------------------------- linear guards
 def _affine(e: IR) -> Optional[Tuple[Fraction, Optional[str], Fraction]]:
@@ -232,42 +131,9 @@ def _int_pred(op: str, c: Fraction) -> Tuple[Callable[[int], bool], int]:
 
 
 # ------------------------------------------------------------------------------------------- the calculus
-class GFCalculus:
-    """Exact transformer semantics of loop-free statements on numerators over a fixed denominator."""
-
-    def __init__(self, variables: Sequence[str], den: Denominator):
-        self.vars = list(variables)
-        self.idx = {v: i for i, v in enumerate(self.vars)}
-        self.den = den
-        self.d = len(self.vars)
-        if den.d != self.d:
-            raise ValueError("denominator does not match the number of variables")
-
-    def with_den(self, den: Denominator) -> "GFCalculus":
-        return GFCalculus(self.vars, den)
-
-    # ---------------------------------------------------------------- coefficient slices along one variable
-    def coeffs_along(self, poly: Num, i: int, upto: int) -> List[Num]:
-        """The ``X_i``-coefficients ``c_0..c_upto`` of ``P / D``, each as a numerator over ``D`` without the
-        ``X_i`` factor (exponent ``i`` set to 0)."""
-        r, p = self.den.r[i], self.den.p[i]
-        slices: Dict[int, Num] = {}
-        for e, c in poly.items():
-            e2 = list(e)
-            e2[i] = 0
-            sl = slices.setdefault(e[i], {})
-            sl[tuple(e2)] = sl.get(tuple(e2), 0) + c
-        out: List[Num] = []
-        for v in range(upto + 1):
-            cur = dict(slices.get(v, {}))
-            if r != 0 and v - p >= 0:
-                cur = padd(cur, pscale(out[v - p], r))
-            out.append(cur)
-        return out
-
-    def _over_full(self, poly_minus: Num, i: int) -> Num:
-        """Numerator over ``D`` without the ``X_i`` factor -> numerator over ``D``."""
-        return pmul(poly_minus, self.den.factor(i)) if self.den.r[i] != 0 else poly_minus
+class GFCalculus(ProductFormSeries):
+    """Exact transformer semantics of loop-free statements on numerators over a fixed denominator (the series
+    operations are those of :class:`~prodigy.distribution.product_form.ProductFormSeries`)."""
 
     def restrict_pred(self, poly: Num, i: int, pred: Callable[[int], bool], threshold: int, modulus: int) -> Num:
         """Restriction of ``P / D`` to the states whose ``i``-th component satisfies ``pred``, where ``pred(v)``
@@ -291,25 +157,6 @@ class GFCalculus:
                 e2 = list(e)
                 e2[i] = v
                 out[tuple(e2)] = out.get(tuple(e2), 0) + c
-        return {e: c for e, c in out.items() if c != 0}
-
-    def eliminate(self, poly: Num, i: int) -> Optional[Num]:
-        """``F(X_i = 1)`` as a numerator over ``D`` without the ``X_i`` factor (exponent ``i`` set to 0), or None if
-        the series diverges at ``X_i = 1`` (only possible if ``r_i >= 1``)."""
-        r, p = self.den.r[i], self.den.p[i]
-        if r != 0 and r >= 1:
-            deg = degrees(poly, self.d)[i]
-            sl = self.coeffs_along(poly, i, deg + p)
-            if any(sl[v] for v in range(deg + 1, deg + p + 1)):
-                return None
-            return padd(*sl[: deg + 1]) if sl else {}
-        out: Num = {}
-        for e, c in poly.items():
-            e2 = list(e)
-            e2[i] = 0
-            out[tuple(e2)] = out.get(tuple(e2), 0) + c
-        if r != 0:
-            out = pscale(out, ONE / (1 - r))
         return {e: c for e, c in out.items() if c != 0}
 
     def _marginal_out(self, poly: Num, i: int) -> Num:
@@ -492,133 +339,6 @@ class GFCalculus:
         slices = self.coeffs_along(low, i, k - 1)
         low = self._over_full(padd(*slices) if slices else {}, i)
         return padd(high, low)
-
-    # ---------------------------------------------------------------- coefficients
-    def expand(self, poly: Num, box: Sequence[int]) -> np.ndarray:
-        """The coefficients of ``P / D`` on the box ``prod_i [0, box_i]`` (object array of Fractions)."""
-        shape = [b + 1 for b in box]
-        arr = np.empty(shape, dtype=object)
-        arr.fill(ZERO)
-        for e, c in poly.items():
-            if all(e[j] <= box[j] for j in range(self.d)):
-                arr[e] += c
-        for i in range(self.d):
-            r, p = self.den.r[i], self.den.p[i]
-            if r == 0:
-                continue
-            for v in range(p, shape[i]):
-                sl_v: List[Union[slice, int]] = [slice(None)] * self.d
-                sl_v[i] = v
-                sl_w: List[Union[slice, int]] = [slice(None)] * self.d
-                sl_w[i] = v - p
-                arr[tuple(sl_v)] = arr[tuple(sl_v)] + r * arr[tuple(sl_w)]
-        return arr
-
-    def positivity_box(self, poly: Num) -> List[int]:
-        deg = degrees(poly, self.d)
-        return [deg[i] + self.den.p[i] - 1 if self.den.r[i] != 0 else deg[i] for i in range(self.d)]
-
-    def is_nonneg(self, poly: Num) -> bool:
-        """Exact decision of coefficient-wise nonnegativity of ``P / D``."""
-        if not poly:
-            return True
-        return all(x >= 0 for x in self.expand(poly, self.positivity_box(poly)).flat)
-
-    def first_negative(self, poly: Num) -> Optional[Tuple[Exp, Fraction]]:
-        """A coefficient of ``P / D`` that is negative (state and value), or None."""
-        if not poly:
-            return None
-        arr = self.expand(poly, self.positivity_box(poly))
-        for idx in np.ndindex(*arr.shape):
-            if arr[idx] < 0:
-                return tuple(int(v) for v in idx), cast(Fraction, arr[idx])
-        return None
-
-    def coefficient(self, poly: Num, state: Sequence[int]) -> Fraction:
-        return self.expand(poly, list(state))[tuple(state)]
-
-    # ---------------------------------------------------------------- functionals
-    def mass(self, poly: Num) -> Union[Fraction, float]:
-        """Total mass ``(P / D)(1, ..., 1)`` in ``[0, inf]`` (exact); ``math.inf`` if the series diverges."""
-        cur, calc = dict(poly), self
-        for i in range(self.d):
-            if not cur:
-                return ZERO
-            elim = calc.eliminate(cur, i)
-            if elim is None:
-                return math.inf
-            cur = elim
-            calc = calc.with_den(calc.den.without(i))
-        return sum(cur.values(), ZERO) if cur else ZERO
-
-    def moment(self, poly: Num, i: int) -> Union[Fraction, float]:
-        """First moment ``sum_n n_i * coeff_n(P / D)`` of variable ``i`` (exact), ``math.inf`` if it diverges.
-        Requires ``P / D >= 0`` for the value ``inf`` to be meaningful."""
-        cur, calc = dict(poly), self
-        for j in range(self.d):
-            if j == i or not cur:
-                continue
-            elim = calc.eliminate(cur, j)
-            if elim is None:
-                return math.inf
-            cur = elim
-            calc = calc.with_den(calc.den.without(j))
-        if not cur:
-            return ZERO
-        r, p = calc.den.r[i], calc.den.p[i]
-        if r != 0 and r >= 1:
-            deg = degrees(cur, self.d)[i]
-            sl = calc.coeffs_along(cur, i, deg + p)
-            if any(sl[v] for v in range(deg + 1, deg + p + 1)):
-                return math.inf
-            return sum((v * sum(sl[v].values(), ZERO) for v in range(deg + 1)), ZERO)
-        num_val = sum(cur.values(), ZERO)
-        num_der = sum((e[i] * c for e, c in cur.items()), ZERO)
-        if r == 0:
-            return num_der
-        # X F'(X) at 1 for F = N / (1 - r X^p):  N'(1)/(1-r) + N(1) r p / (1-r)^2
-        return num_der / (1 - r) + num_val * r * p / (1 - r) ** 2
-
-    def defect_mass(self, poly: Num, sign: int = 1) -> Union[Fraction, float]:
-        """``sum_n max(sign * coeff_n(P/D), 0)`` over all states (exact; ``inf`` if a growing tail is positive)."""
-        if not poly:
-            return ZERO
-        deg = degrees(poly, self.d)
-        box = [deg[i] + (self.den.p[i] if self.den.r[i] != 0 else 0) for i in range(self.d)]
-        arr = self.expand(poly, box)
-        total = ZERO
-        for idx in np.ndindex(*arr.shape):
-            val = sign * arr[idx]
-            if val <= 0:
-                continue
-            weight = ONE
-            for i in range(self.d):
-                r = self.den.r[i]
-                if r != 0 and idx[i] > deg[i]:
-                    if r >= 1:
-                        return math.inf
-                    weight /= 1 - r
-            total += val * weight
-        return total
-
-    # ---------------------------------------------------------------- printing
-    def to_expr(self, poly: Num) -> str:
-        """``P / D`` as an expression string in the program variables (parsable by Prodigy's factories)."""
-        def mono(e: Sequence[int], c: Fraction) -> str:
-            parts = []
-            for v, k in zip(self.vars, e):
-                if k == 1:
-                    parts.append(v)
-                elif k > 1:
-                    parts.append(f"{v}^{k}")
-            coeff = f"({c})" if c.denominator != 1 or c < 0 else f"{c}"
-            return "*".join([coeff] + parts) if parts else coeff
-        num = " + ".join(mono(e, c) for e, c in sorted(poly.items())) if poly else "0"
-        dens = [f"(1 - ({r})*{v}^{p})" if p > 1 else f"(1 - ({r})*{v})"
-                for v, r, p in zip(self.vars, self.den.r, self.den.p) if r != 0]
-        if not dens:
-            return f"({num})"
-        return f"({num}) / ({'*'.join(dens)})"
 
 
 def directed_decimal(q: Union[int, float, Fraction], upward: bool, digits: int = 10) -> str:

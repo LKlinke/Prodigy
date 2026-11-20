@@ -5,7 +5,8 @@ from types import SimpleNamespace
 import pytest
 from click.testing import CliRunner
 
-from prodigy.analysis.ai_candidates import MATH_FUNCTIONS, CandidateError, admissible_expression
+from prodigy.analysis.ai_candidates import CandidateError
+from prodigy.pgcl.expression_allowlist import MATH_FUNCTIONS, admissible_expression
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound, get_loop_strategy
 from prodigy.analysis.session import AnalysisSession, InteractiveDecisions, parse_decisions, validate_decisions

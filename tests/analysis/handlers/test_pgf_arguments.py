@@ -9,7 +9,7 @@ from click.testing import CliRunner
 
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.input_distribution import check_probability_generating_function
+from prodigy.distribution.finite_measure import check_probability_generating_function
 from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
 from prodigy.pgcl.check import CheckFail

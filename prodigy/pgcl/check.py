@@ -215,8 +215,8 @@ def _check_generating_function(program: Program, expr: FunctionCallExpr) -> Opti
     if not names <= set(program.variables) | set(parameters):
         return None
     # pylint: disable=import-outside-toplevel
-    # Layering exception, see #423: the proof rules for generating functions are part of the analysis package
-    from prodigy.analysis.input_distribution import check_probability_generating_function
+    # the proof rules on generating functions are in prodigy.distribution, which imports this package (#423)
+    from prodigy.distribution.finite_measure import check_probability_generating_function
     natural = tuple(sorted(name for name, typ in parameters.items() if isinstance(typ, NatType)))
     try:
         verdict, reason = check_probability_generating_function(

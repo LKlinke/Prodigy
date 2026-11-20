@@ -172,7 +172,7 @@ def _check_generating_functions(call: FunctionCallExpr, assigned: Var, prog_info
     """
     Checks that the generating functions given to ``sample_pgf`` and ``iid`` are probability generating
     functions: power series at 0 with non-negative coefficients and mass 1 (#424), with the rules of input
-    distributions (:func:`~prodigy.analysis.input_distribution.check_probability_generating_function`).
+    distributions (:func:`~prodigy.distribution.finite_measure.check_probability_generating_function`).
 
     Refuted: ``ValueError`` naming the generating function. Not proven: if the generating function depends on
     parameters, the result is a formula in them that holds for the parameter values for which it is a
@@ -181,7 +181,7 @@ def _check_generating_functions(call: FunctionCallExpr, assigned: Var, prog_info
     (:meth:`~prodigy.analysis.session.AnalysisSession.unproven`).
     """
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.input_distribution import check_probability_generating_function
+    from prodigy.distribution.finite_measure import check_probability_generating_function
     from prodigy.analysis.session import current_session
     session = current_session()
     parameters = {str(name): typ for name, typ in prog_info.parameters.items()}

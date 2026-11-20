@@ -1,7 +1,7 @@
 import logging
 from typing import Collection, Optional
 
-from prodigy.analysis.evtinvariants.heuristics.positivity.coefficients import polynomial_verdict, series_form
+from prodigy.distribution.coefficient_signs import polynomial_verdict, series_form
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic, PositivityInput
 from prodigy.analysis.exceptions import HeuristicsError
 from prodigy.util.logger import log_setup

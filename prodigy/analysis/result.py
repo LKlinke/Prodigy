@@ -717,7 +717,7 @@ def outline_program(program: Program, source: Optional[str] = None, syntax: str 
 
 
 def _query_text(instr: Any, syntax: str) -> str:
-    from prodigy.analysis.session import spell  # pylint: disable=import-outside-toplevel
+    from prodigy.pgcl.ppy_printer import spell  # pylint: disable=import-outside-toplevel
     return spell(instr, syntax)
 
 
