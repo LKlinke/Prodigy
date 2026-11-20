@@ -22,8 +22,9 @@ from prodigy.pgcl.parser import parse_expr
 from prodigy.pgcl.ppy_printer import spell
 from prodigy.pgcl.util.ref import Mut
 from prodigy.distribution.convergence import marginal_obstacle
-from prodigy.distribution.equality import decide_equal_strings
+from prodigy.distribution.equality import decide_equal_strings, sympify_distribution
 from prodigy.distribution.finite_measure import check_input_expression
+from prodigy.distribution.ordering import OrderVerdict, UndecidedComparisonError, dominates_finite, nonneg_verdict
 from prodigy.distribution.algebraic_comparison import filter_difference_algebraic
 from prodigy.distribution.independent_comparison import (DEPENDENT, NOT_A_DIFFERENCE, ComparisonNotImplemented,
                                                           filter_difference)
@@ -425,12 +426,75 @@ class Distribution(ABC):
         names = self.get_variables() | self.get_parameters() | other.get_variables() | other.get_parameters()
         return decide_equal_strings(str(self), str(other), names)
 
-    @abstractmethod
+    def _series_expression(self) -> sympy.Expr:
+        """
+        The generating function as a SymPy expression, for the shared coefficient-sign checks. Engines whose
+        generating function already is a SymPy expression override this hook.
+        """
+        return sympify_distribution(self)
+
+    def _require_comparable(self, other: object) -> Distribution:
+        if not isinstance(other, Distribution) or type(other) is not type(self):
+            raise TypeError(f"Incomparable types {type(self)} and {type(other)}.")
+        if self.get_variables() != other.get_variables() or self.get_parameters() != other.get_parameters():
+            raise TypeError(
+                f"Incomparable distributions: variables {sorted(self.get_variables())} and parameters "
+                f"{sorted(self.get_parameters())} differ from variables {sorted(other.get_variables())} and "
+                f"parameters {sorted(other.get_parameters())}.")
+        return other
+
+    def decide_le_verdict(self, other: Distribution) -> OrderVerdict:
+        """
+        Three-valued ``self <= other`` (every coefficient of ``other - self`` is non-negative) with a witness
+        state for a refutation; see :mod:`prodigy.distribution.ordering`.
+
+        :raises TypeError: if `other` is of another engine or has other variables or parameters.
+        """
+        other = self._require_comparable(other)
+        if self.decide_equal(other) is True:
+            return OrderVerdict(True)
+        difference = other - self
+        verdict = nonneg_verdict(difference, difference._series_expression())  # pylint: disable=protected-access
+        if verdict.holds is None and self.is_finite() and not other.is_finite() \
+                and nonneg_verdict(other, other._series_expression()).holds is True \
+                and dominates_finite(self, other):  # pylint: disable=protected-access
+            return OrderVerdict(True)
+        return verdict
+
+    def decide_le(self, other: Distribution) -> Optional[bool]:
+        """
+        Three-valued ``self <= other``: True if proven, False if a coefficient of ``other - self`` is proven
+        negative, None if neither (see :meth:`decide_le_verdict`).
+        """
+        return self.decide_le_verdict(other).holds
+
+    def decide_lt(self, other: Distribution) -> Optional[bool]:
+        """Three-valued ``self < other``: ``self <= other`` and ``self`` not equal to `other`."""
+        less_equal = self.decide_le(other)
+        if less_equal is not True:
+            return less_equal
+        equal = self.decide_equal(other)
+        return None if equal is None else not equal
+
     def __le__(self, other: Distribution) -> bool:
-        """ Checks whether `self` is less or equal than `other`."""
+        """
+        Whether every coefficient of ``other - self`` is non-negative. The answer is proven either way.
+
+        :raises TypeError: if `other` is of another engine or has other variables or parameters.
+        :raises UndecidedComparisonError: if neither ``self <= other`` nor its negation is proven.
+        """
+        return self._decided(self.decide_le(other), "<=", other)
 
     def __lt__(self, other: Distribution) -> bool:
-        return self <= other and not self == other
+        """``self <= other`` and not equal; proven either way (see :meth:`__le__`)."""
+        return self._decided(self.decide_lt(other), "<", other)
+
+    def _decided(self, verdict: Optional[bool], relation: str, other: Distribution) -> bool:
+        if verdict is None:
+            raise UndecidedComparisonError(
+                f"Cannot decide whether {self} {relation} {other}: the coefficients of their difference are "
+                "neither proven non-negative nor is one proven negative.")
+        return verdict
 
     @abstractmethod
     def __str__(self) -> str:

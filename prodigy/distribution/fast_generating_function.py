@@ -186,9 +186,6 @@ class FPS(Distribution):
         else:
             return False
 
-    def __le__(self, other: Distribution) -> bool:
-        raise NotImplementedError(__name__)
-
     def __str__(self) -> str:
         return str(self._dist)
 

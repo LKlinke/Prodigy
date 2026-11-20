@@ -111,35 +111,6 @@ class SymengineDist(Distribution):
             return False
         return _provably_equal(self._s_func, other._s_func)
 
-    def __le__(self, other: Distribution) -> bool:
-        if not isinstance(other, SymengineDist):
-            raise TypeError(f"Incomparable types {type(self)} and {type(other)}.")
-
-        if self.is_finite():
-            for prob, state in self:
-                s, o = _parse_to_symengine(prob), other.get_prob_by_diff(state)
-                if s > o:
-                    return False
-            return True
-
-        if other.is_finite():
-            for prob, state in other:
-                if self.get_prob_by_diff(state) > _parse_to_symengine(prob):
-                    return False
-            return True
-
-        difference: se.Basic = self._s_func - other._s_func
-        # todo replace once suitable method is found
-        #   cf. https://github.com/symengine/symengine.py/issues/492
-        logger.info("Falling back to sympy")
-        if sp.S(difference).is_polynomial():
-            return all(
-                map(lambda x: x > 0, difference.as_coefficients_dict().values())
-            )
-        raise RuntimeError(
-            "Both objects have infinite support. We cannot determine the order between them."
-        )
-
     def coefficient_sum(self) -> se.Expr:
         """
         The closed form at 1. Outside an analysis

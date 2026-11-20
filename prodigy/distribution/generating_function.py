@@ -1367,34 +1367,8 @@ class GeneratingFunction(Distribution):
 
     # ====== Comparison of Generating Functions ======
 
-    def __le__(self, other: Distribution) -> bool:
-        if not isinstance(other, GeneratingFunction):
-            raise TypeError(
-                f"Incomparable types {type(self)} and {type(other)}.")
-
-        # if one of the generating functions is finite, we can check the relation coefficient-wise.
-        if self._is_finite:
-            for prob, state in self._iter_expr_state():
-                if prob > other._probability_of_state(state):
-                    return False
-            return True
-        if other._is_finite:
-            for prob, state in other._iter_expr_state():
-                if self._probability_of_state(state) > prob:
-                    return False
-            return True
-        # when both generating functions have infinite support we can only try to check whether we can eliminate
-        # common terms and check whether the result is finite. If so we can do a coefficient-wise pass again.
-        difference = self._function - other._function
-        if difference.is_polynomial():
-            return all(
-                map(lambda x: x > 0,
-                    difference.as_coefficients_dict().values()))
-
-        # We currently do not know what to do otherwise.
-        raise RuntimeError(
-            "Both objects have infinite support. We cannot determine the order between them."
-        )
+    def _series_expression(self) -> sympy.Expr:
+        return self._function
 
     def __eq__(self, other: object) -> bool:
         """
