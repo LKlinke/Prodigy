@@ -609,8 +609,11 @@ def joint_request(result: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, 
                   "residual_mass": snapshot.get("residual_mass")}
     else:
         bounds = result.get("bounds") or {}
+        upper = bounds.get("upper")
         source = {"closed_form": distribution["closed_form"], "bound": bounds.get("kind", "unknown"),
-                  "residual_mass": bounds.get("residual_mass")}
+                  "residual_mass": bounds.get("residual_mass"),
+                  # the proven upper bound of the result (#451); a step snapshot has none
+                  "upper_closed_form": upper.get("closed_form") if isinstance(upper, dict) else None}
     return {
         **source,
         "variables": variables,
@@ -635,9 +638,12 @@ def run_joint(request: Dict[str, Any], *, output: Optional[Callable[[str], None]
     with config.activate(), unlimited_int_digits(), known_convergent_series(True):
         try:
             dist = config.factory.from_expr(request["closed_form"], *request["variables"])
+            upper = request.get("upper_closed_form")
+            # the server's own proven upper bound of the same result, a finite measure as well
+            upper_dist = config.factory.from_expr(upper, *request["variables"]) if upper else None
             grid = joint_grid(dist, request["x"], request["y"], x_window=request.get("x_window"),
                               y_window=request.get("y_window"), kind=request["bound"],
-                              residual=request.get("residual_mass") or 0, stream=progress)
+                              residual=request.get("residual_mass") or 0, stream=progress, upper=upper_dist)
         except GridError as exc:
             return _error("request", str(exc))
         except Exception as exc:  # pylint: disable=broad-except

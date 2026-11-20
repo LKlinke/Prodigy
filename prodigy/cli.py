@@ -658,6 +658,9 @@ def _print_summary(result: Dict[str, Any]) -> None:  # the JSON result, see prod
     bounds = result.get("bounds") or {}
     if bounds and status == "ok":
         print(f"{Style.OKBLUE}Guarantee:{Style.RESET}\t{bounds.get('explanation', bounds.get('kind'))}")
+        if bounds.get("upper"):
+            print(f"{Style.OKBLUE}Upper bound per state:{Style.RESET}\tproven by the certificate of "
+                  f"{bounds['upper']['origin']}")
     for query in result.get("queries", []):
         where = f"line {query['line']}: " if query.get("line") else ""
         if query.get("error"):
@@ -673,7 +676,8 @@ def _print_summary(result: Dict[str, Any]) -> None:  # the JSON result, see prod
                 low = _format_value(query["lower"], query["lower_float"]) if query["lower"] is not None else "?"
                 high = _format_value(query["upper"], query["upper_float"]) if query["upper"] is not None else "∞" \
                     if query["bound"] == "lower" else "?"
-                interval = f"\t∈ [{low}, {high}]  ({query['bound']})"
+                source = "; upper end from the certificate" if query.get("upper_source") == "certificate" else ""
+                interval = f"\t∈ [{low}, {high}]  ({query['bound']}{source})"
             print(f"  {where}{label} = {value}{interval}")
         elif query["kind"] == "marginal":
             print(f"  {where}marginal of {query['expr']}: {query['value']}")

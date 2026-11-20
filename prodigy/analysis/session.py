@@ -57,7 +57,9 @@ from prodigy.util.logger import log_setup, print_progress_bar
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.analysis.result import AnalysisResult, QueryResult
+    from prodigy.analysis.instructionhandler.program_info import ProgramInfo
     from prodigy.analysis.trace import TraceLimits
+    from prodigy.analysis.upper_track import Analyzer, UpperTrack
     from prodigy.distribution import Distribution
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
@@ -640,6 +642,8 @@ class _Scope:
     reason: str = ""
     kind: str = Bound.EXACT
     residual: Any = 0
+    upper: Optional["UpperTrack"] = None
+    """The proven upper bound on the exact state (:mod:`prodigy.analysis.upper_track`), if one is carried."""
 
 
 ProgressCallback = Callable[[Dict[str, Any]], None]
@@ -745,6 +749,9 @@ class AnalysisSession:
         self._loop_query_bounds: Dict[Tuple[str, str], Tuple[Any, Any]] = {}
         # exact query values on the distribution the loop returned (LoopOutcome.query_values)
         self._loop_query_values: Tuple[Any, Dict[Tuple[str, str], Any]] = (None, {})
+        # the upper track that the loop booked last starts (its instruction and the track), see advance_upper
+        self._loop_upper: Tuple[Optional[WhileInstr], Optional["UpperTrack"]] = (None, None)
+        self._replaying_upper = False
         self.log = io.StringIO()
         self._scopes: List[_Scope] = [_Scope(silent=False)]
         self._query_index = 0
@@ -877,11 +884,17 @@ class AnalysisSession:
         scope = self.scope
         if scope.kind != Bound.LOWER:
             return
-        from prodigy.analysis.result import sym  # pylint: disable=import-outside-toplevel
+        # pylint: disable=import-outside-toplevel
+        from prodigy.analysis.result import sym
+        from prodigy.analysis.upper_track import normalized
         try:
             error_mass = sym(error_prob.get_probability_mass())
         except Exception:  # pylint: disable=broad-except
+            scope.upper = None
             return
+        if scope.upper is not None:
+            # also when the lower track has no violation mass: the upper one may have some
+            scope.upper = normalized(scope.upper, error_mass, scope.residual)
         if error_mass == 0:
             return
         scope.residual = (sym(scope.residual) / (1 - error_mass)).simplify()
@@ -898,6 +911,82 @@ class AnalysisSession:
     @property
     def residual(self) -> Any:
         return self._scopes[0].residual
+
+    @property
+    def upper(self) -> Optional["UpperTrack"]:
+        """The proven upper bound on the program's state (:mod:`prodigy.analysis.upper_track`), if one is
+        carried; only for a lower bound (for an exact result it is not needed, otherwise it is not sound)."""
+        scope = self._scopes[0]
+        return scope.upper if scope.kind == Bound.LOWER else None
+
+    @property
+    def upper_distribution(self) -> Optional["Distribution"]:
+        """The distribution of :attr:`upper`, or ``None``."""
+        track = self.upper
+        return track.distribution if track is not None else None
+
+    def start_upper(self) -> None:
+        """Starts an analysis of the program: no upper track is carried yet."""
+        if not self.silent:
+            self.scope.upper = None
+            self._loop_upper = (None, None)
+
+    def advance_upper(self, instruction: Instr, prog_info: "ProgramInfo", config: "ForwardAnalysisConfig",
+                      analyzer: "Analyzer") -> None:
+        """Moves the upper track past the top-level ``instruction``, which has just run
+        (:mod:`prodigy.analysis.upper_track`): a loop whose strategy proved an upper bound starts it, a query
+        leaves it as it is (normalisation is :meth:`on_normalize`), loop-free code is replayed on it, and
+        everything else ends it."""
+        # pylint: disable=import-outside-toplevel
+        from prodigy.analysis.nested_inference import dist_variables
+        from prodigy.analysis.upper_track import replay
+        if self.silent:
+            return
+        scope = self.scope
+        started_by, track = self._loop_upper
+        self._loop_upper = (None, None)
+        if dist_variables(prog_info):
+            scope.upper = None  # nested inference is not followed
+        elif started_by is not None and started_by is instruction:
+            scope.upper = track
+        elif scope.upper is None:
+            return
+        elif scope.kind != Bound.LOWER:
+            scope.upper = None
+        elif not isinstance(instruction, _QUERY_INSTRS) or isinstance(instruction, QueryInstr):
+            scope.upper = replay(scope.upper, instruction, prog_info, config, analyzer, self)
+
+    def restrict_upper(self, variables: Sequence[str]) -> None:
+        """Sums ``variables`` out of the upper track, as out of the program's distribution (a positive linear map,
+        so the bound stays one); the track ends if that fails."""
+        scope = self.scope
+        if self.silent or scope.upper is None:
+            return
+        # pylint: disable=import-outside-toplevel
+        from dataclasses import replace
+        from prodigy.distribution import MarginalType
+        try:
+            with known_convergent_series(True):  # a finite measure (prodigy.analysis.upper_track.start)
+                marginal = scope.upper.distribution.marginal(*variables, method=MarginalType.EXCLUDE)
+        except Exception:  # pylint: disable=broad-except  # the track is only an addition
+            scope.upper = None
+            return
+        scope.upper = replace(scope.upper, distribution=marginal)
+
+    @contextlib.contextmanager
+    def upper_replay(self) -> Iterator[_Scope]:
+        """The silent sub-analysis in which an instruction is replayed on the upper track; a loop met there
+        ends the track (:class:`~prodigy.analysis.upper_track.UpperTrackEnded`)."""
+        replaying = self._replaying_upper
+        # the replay passes on_instruction again; the bounds of the loop right before the next query stay
+        kept = (self._loop_query_bounds, self._loop_query_values, self._loop_upper)
+        self._replaying_upper = True
+        try:
+            with self.sub_analysis("upper bound") as scope:
+                yield scope
+        finally:
+            self._replaying_upper = replaying
+            self._loop_query_bounds, self._loop_query_values, self._loop_upper = kept
 
     # -- loops -------------------------------------------------------------------------
 
@@ -922,6 +1011,10 @@ class AnalysisSession:
             self.tracer.loop_iterate(task, iteration, terminated, inside, residual, kind)
 
     def _run_loop(self, task: LoopTask) -> LoopOutcome:
+        if self._replaying_upper:
+            # pylint: disable=import-outside-toplevel
+            from prodigy.analysis.upper_track import UpperTrackEnded
+            raise UpperTrackEnded("a loop: its strategy does not bound the exact state from above")
         key = task.loop.id if task.loop is not None else f"while ({task.instruction.cond})"
         record = self.loop_records.get(key)
         if record is None:
@@ -959,6 +1052,7 @@ class AnalysisSession:
         if not self.silent:
             self._loop_query_bounds = self._sound_query_bounds(scope.kind, outcome.query_bounds)
             self._loop_query_values = (outcome.distribution, dict(outcome.query_values))
+            self._loop_upper = (task.instruction, self._upper_track(task, outcome, scope.kind))
         scope.kind = Bound.combine(scope.kind, outcome.kind)
         if outcome.kind == Bound.LOWER and not self.silent:
             from prodigy.analysis.result import sym  # pylint: disable=import-outside-toplevel
@@ -966,6 +1060,15 @@ class AnalysisSession:
             record.residual = sym(record.residual) + residual
             scope.residual = sym(scope.residual) + residual
         return outcome
+
+    @staticmethod
+    def _upper_track(task: LoopTask, outcome: LoopOutcome, kind_before: str) -> Optional["UpperTrack"]:
+        """The upper track that the outcome of ``task`` starts, if any (:func:`~prodigy.analysis.upper_track.start`)."""
+        if outcome.upper is None:
+            return None
+        from prodigy.analysis.upper_track import start  # pylint: disable=import-outside-toplevel
+        where = f"loop {task.loop.id}" if task.loop is not None else "a loop"
+        return start(outcome.upper, outcome.error_prob, kind_before, f"{where} ({task.strategy.name})")
 
     @staticmethod
     def _sound_query_bounds(kind_before: str, bounds: Dict[Tuple[str, str], Tuple[Any, Any]]
