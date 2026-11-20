@@ -181,7 +181,21 @@ def sympify_symbolic_string(text: Union[str, int, float, sympy.Basic]) -> sympy.
 
 
 def sympify_distribution(dist: Distribution) -> sympy.Expr:
-    """The SymPy expression of a distribution of any engine, see :func:`sympify_engine_string`."""
+    """
+    The SymPy expression of a distribution of any engine: the engine's own expression
+    (``Distribution._series_expression``), so it does not depend on the printing flags (``str`` of a SymPy
+    generating function is LaTeX while ``latex_output`` is active, #445).
+    """
+    expression = dist._series_expression()  # pylint: disable=protected-access
+    # as parsed from the string form before: plain symbols, without the assumptions of the engine's symbols
+    return expression.xreplace({symbol: sympy.Symbol(symbol.name) for symbol in expression.free_symbols})
+
+
+def sympify_distribution_string(dist: Distribution) -> sympy.Expr:
+    """
+    The SymPy expression of a distribution whose engine has no SymPy expression, parsed from its string form,
+    see :func:`sympify_engine_string`. Only for engines whose ``str`` is a plain expression (#445).
+    """
     return sympify_engine_string(str(dist), dist.get_variables() | dist.get_parameters())
 
 

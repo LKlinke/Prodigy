@@ -22,7 +22,7 @@ from prodigy.pgcl.parser import parse_expr
 from prodigy.pgcl.ppy_printer import spell
 from prodigy.pgcl.util.ref import Mut
 from prodigy.distribution.convergence import marginal_obstacle
-from prodigy.distribution.equality import decide_equal_strings, sympify_distribution
+from prodigy.distribution.equality import decide_equal_strings, sympify_distribution_string
 from prodigy.distribution.finite_measure import check_input_expression
 from prodigy.distribution.ordering import OrderVerdict, UndecidedComparisonError, dominates_finite, nonneg_verdict
 from prodigy.distribution.algebraic_comparison import filter_difference_algebraic
@@ -444,7 +444,14 @@ class Distribution(ABC):
         The generating function as a SymPy expression, for the shared coefficient-sign checks. Engines whose
         generating function already is a SymPy expression override this hook.
         """
-        return sympify_distribution(self)
+        return sympify_distribution_string(self)
+
+    def _engine_text(self) -> str:
+        """
+        The engine's expression as text that its ``from_expr`` reads back, independent of the printing flags
+        (``str`` of a SymPy generating function is LaTeX while ``latex_output`` is active, #445).
+        """
+        return str(self)
 
     def _require_comparable(self, other: object) -> Distribution:
         if not isinstance(other, Distribution) or type(other) is not type(self):
@@ -1384,7 +1391,7 @@ class Distribution(ABC):
         case split over the states.
         """
         names = [str(var) for var in variables]
-        support = self.factory().from_expr(str(self), *names)
+        support = self.factory().from_expr(self._engine_text(), *names)
         return support if support.is_finite() else None
 
     @abstractmethod

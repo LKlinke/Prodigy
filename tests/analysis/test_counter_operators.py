@@ -379,3 +379,16 @@ def test_evt_modules_parse_strings_with_protected_names(name):
     assert decide_equal(sympy.S(mass), sympy.Rational(1, 3) + sympy.log(sympy.Rational(1, 2))) is True
     assert entire_exp_polynomial(f"exp({name}/2)*{name}", [name]) is True
     assert exp_polynomial_nonneg(f"exp({name}/2)*{name}", [name]) is not False
+
+
+def test_counter_operators_do_not_parse_latex_output():
+    # `str` of a SymPy generating function is LaTeX while `use_latex` is active; the operators read the
+    # engine's expression instead (#445)
+    source = "k: nat = poisson(1);\nx: nat = bernoulli(1/(k + 1));\nquery Pr[x == 1];\n"
+    config = ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.SYMPY, use_latex=True)
+    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
+                              decisions={}, capture_output=True)
+    result = session.run().to_json()
+    assert result["status"] == "ok", result.get("error")
+    assert result["queries"][0]["bound"] == Bound.EXACT
+    assert _equal(result["queries"][0]["value"], 1 - sympy.exp(-1))
