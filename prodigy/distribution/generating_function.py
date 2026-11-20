@@ -7,7 +7,7 @@ import operator
 from contextvars import ContextVar
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import (Any, Callable, FrozenSet, Generator, Iterator, List, Optional, Set,
+from typing import (Callable, FrozenSet, Generator, Iterator, List, Optional, Set,
                     Tuple, Type, Union, get_args)
 
 import sympy
@@ -15,6 +15,7 @@ import sympy
 # TODO Implement these checks in prodigy.pgcl
 from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
+from prodigy.distribution.distribution import Operand
 from prodigy.distribution.equality import decide_equal, sympy_text
 from prodigy.distribution.exact_division import divide_exponents
 from prodigy.distribution.rational_series import rational_taylor_coefficients
@@ -116,7 +117,14 @@ def _denominator_vanishes_at_ones(function: sympy.Expr) -> bool:
     return False
 
 
-def _term_generator(function: sympy.Poly):
+Term = Tuple[sympy.Expr, sympy.Expr]
+"""A term of a power series: its coefficient and its monomial."""
+
+SympyInput = Union[str, int, float, Fraction, Expr, sympy.Basic]
+"""What :func:`_parse_to_sympy` reads: text, a number, a pGCL expression or a SymPy object (returned as it is)."""
+
+
+def _term_generator(function: sympy.Poly) -> Iterator[Term]:
     assert isinstance(function,
                       sympy.Poly), "Terms can only be generated for finite GF"
     # `terms()` lists the monomials in decreasing lex order; the states come in increasing order. One pass,
@@ -127,7 +135,7 @@ def _term_generator(function: sympy.Poly):
         yield coefficient, sympy.Mul(*(gen ** power for gen, power in zip(function.gens, monomial)))
 
 
-def _parse_to_sympy(expr: Any, real=True, **kwargs) -> sympy.Expr:
+def _parse_to_sympy(expr: SympyInput, real: bool = True, **kwargs: bool) -> sympy.Expr:
     """
     Parses something (`float`s, `bool`s, `Fraction`s, pGCL `Expr`s, anything that can be converted to a valid
     string) to a sympy expression. Can convert a pGCL expression faster than passing it as a string to sympy.
@@ -143,7 +151,7 @@ def _parse_to_sympy(expr: Any, real=True, **kwargs) -> sympy.Expr:
 
     s: sympy.Expr
 
-    def get_function(name: str):
+    def get_function(name: str) -> Callable[..., sympy.Expr]:
         functions = {'sum': sum}
         if name in functions:
             return functions[name]
@@ -208,7 +216,7 @@ def _parse_to_sympy(expr: Any, real=True, **kwargs) -> sympy.Expr:
     return s
 
 
-def _sympy_symbol(name: Any, real=True, **kwargs) -> sympy.Symbol:
+def _sympy_symbol(name: str, real: bool = True, **kwargs: bool) -> sympy.Symbol:
     """
     Creates a real sympy Symbol.
     
@@ -478,7 +486,7 @@ class GeneratingFunction(Distribution):
                                   closed=self._is_closed_form,
                                   finite=self._is_finite)
 
-    def _mult_term_generator(self):
+    def _mult_term_generator(self) -> Iterator[Term]:
         """
             Generates terms of multivariate generating function in `grlex` order.
         """
@@ -518,7 +526,7 @@ class GeneratingFunction(Distribution):
     def _sympy_expression(self) -> sympy.Expr:
         return self._function
 
-    def _from_sympy_expression(self, expression: Any) -> GeneratingFunction:
+    def _from_sympy_expression(self, expression: sympy.Expr) -> GeneratingFunction:
         # a reduced fraction: finite iff the denominator has no variable; an algebraic function (with
         # square roots of the variables) is not rational and never finite
         finite = not sympy.denom(expression).free_symbols & self._variables \
@@ -780,7 +788,7 @@ class GeneratingFunction(Distribution):
             for state_l in self._unique_states(marginal_l):
                 if isinstance(marginal_r, Distribution):
                     for state_r in self._unique_states(marginal_r):
-                        val_l, val_r = state_l[numerator], state_r[denominator]
+                        val_l, val_r = state_l[str(numerator)], state_r[str(denominator)]
                         x = self.filter(
                             parse_expr(
                                 f'{numerator}={val_l} & {denominator}={val_r}')
@@ -792,7 +800,7 @@ class GeneratingFunction(Distribution):
                             )
                         result += _substitute_one(x, update_var) * update_var ** (val_l // val_r)
                 else:
-                    val_l, val_r = state_l[numerator], div_2
+                    val_l, val_r = state_l[str(numerator)], div_2
                     x = self.filter(
                         parse_expr(f'{numerator}={val_l}'))._function
                     if val_l % val_r != 0 and x != 0 and not provably_equal(x, sympy.Integer(0)):
@@ -804,7 +812,7 @@ class GeneratingFunction(Distribution):
         else:
             if isinstance(marginal_r, Distribution):
                 for state_r in self._unique_states(marginal_r):
-                    val_l, val_r = div_1, state_r[denominator]
+                    val_l, val_r = div_1, state_r[str(denominator)]
                     x = self.filter(
                         parse_expr(f'{denominator}={val_r}'))._function
                     if val_l % val_r != 0 and x != 0 and not provably_equal(x, sympy.Integer(0)):
@@ -843,11 +851,11 @@ class GeneratingFunction(Distribution):
         if self._is_finite:
             for prob, state_r in self._iter_expr_state():
                 if left_sym in self._variables:
-                    left_var = state_r[left]
+                    left_var = state_r[str(left)]
                 else:
                     left_var = _parse_to_sympy(left)
                 if right_sym in self._variables:
-                    right_var = state_r[right]
+                    right_var = state_r[str(right)]
                 else:
                     right_var = _parse_to_sympy(right)
                 result += prob * _parse_to_sympy(state_r.to_monomial()).subs(
@@ -973,7 +981,7 @@ class GeneratingFunction(Distribution):
                 for state in self._unique_states(finite):
                     result += self.filter(
                         parse_expr(f'{finite_var}={state[finite_var]}')
-                    )._update_product(temp_var, state[finite_var],
+                    )._update_product(temp_var, str(state[finite_var]),
                                       infinite_var, approximate)._function
             else:
                 for prob, state_expr in self._iter_expr_expr():
@@ -1114,9 +1122,9 @@ class GeneratingFunction(Distribution):
                 )
 
             for state in self._unique_states(marginal):
-                x = self.filter(parse_expr(f'{base}={state[base]}'))._function
+                x = self.filter(parse_expr(f'{base}={state[str(base)]}'))._function
                 res -= x
-                res += _substitute_one(x, update_var) * update_var ** (state[base] ** pow_2)
+                res += _substitute_one(x, update_var) * update_var ** (state[str(base)] ** pow_2)
 
         # literal to the power of a variable
         elif pow_2 in self._variables:
@@ -1127,9 +1135,9 @@ class GeneratingFunction(Distribution):
                 )
 
             for state in self._unique_states(marginal):
-                x = self.filter(parse_expr(f'{exp}={state[exp]}'))._function
+                x = self.filter(parse_expr(f'{exp}={state[str(exp)]}'))._function
                 res -= x
-                res += _substitute_one(x, update_var) * update_var ** (pow_1 ** state[exp])
+                res += _substitute_one(x, update_var) * update_var ** (pow_1 ** state[str(exp)])
 
         # literal to the power of a literal
         else:
@@ -1144,9 +1152,10 @@ class GeneratingFunction(Distribution):
     def _update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
                     variable: Union[str, VarExpr]) -> Distribution:
 
+        variable = str(variable)  # the assigned variable, by name
         subst_var = count.var if isinstance(count, VarExpr) else None
 
-        def subs(dist_gf, subst_var, variable):
+        def subs(dist_gf: sympy.Expr, subst_var: Optional[str], variable: Union[str, VarExpr]) -> GeneratingFunction:
             result = self._marginal(
                 variable,
                 method=MarginalType.EXCLUDE) if subst_var != variable else self
@@ -1272,7 +1281,7 @@ class GeneratingFunction(Distribution):
         result._parameters = set(_sympy_symbol(param) for param in remove_dups)
         return result
 
-    def _arithmetic(self, other, op: Callable) -> GeneratingFunction:
+    def _arithmetic(self, other: Operand, op: Callable[[sympy.Expr, sympy.Expr], sympy.Expr]) -> GeneratingFunction:
         """
         Computes the basic arithmetic of two generating functions.
         """
@@ -1333,16 +1342,16 @@ class GeneratingFunction(Distribution):
             raise SyntaxError(
                 f"You cannot {str(op)} {type(self)} with {type(other)}.")
 
-    def __add__(self, other) -> GeneratingFunction:
+    def __add__(self, other: Operand) -> GeneratingFunction:
         return self._arithmetic(other, operator.add)
 
-    def __sub__(self, other) -> GeneratingFunction:
+    def __sub__(self, other: Operand) -> GeneratingFunction:
         return self._arithmetic(other, operator.sub)
 
-    def __mul__(self, other) -> GeneratingFunction:
+    def __mul__(self, other: Operand) -> GeneratingFunction:
         return self._arithmetic(other, operator.mul)
 
-    def __truediv__(self, other) -> GeneratingFunction:
+    def __truediv__(self, other: Operand) -> GeneratingFunction:
         logger.debug("Isn't it weird to divide Distributions?")
         return self._arithmetic(other, operator.truediv)
 
@@ -1353,12 +1362,12 @@ class GeneratingFunction(Distribution):
             output = sympy_text(self._function)
         return output
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return repr(self._function)
 
     # ====== Comparison of Generating Functions ======
 
-    def __le__(self, other) -> bool:
+    def __le__(self, other: Distribution) -> bool:
         if not isinstance(other, GeneratingFunction):
             raise TypeError(
                 f"Incomparable types {type(self)} and {type(other)}.")
@@ -1387,7 +1396,7 @@ class GeneratingFunction(Distribution):
             "Both objects have infinite support. We cannot determine the order between them."
         )
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         """
         True only if the two generating functions are provably equal (see :func:`provably_equal`).
         False means "not shown equal", which is not a proof of inequality for non-rational functions.
@@ -1398,7 +1407,7 @@ class GeneratingFunction(Distribution):
             and self._parameters == other._parameters \
             and provably_equal(self._function, other._function)
 
-    def decide_equal(self, other) -> Optional[bool]:
+    def decide_equal(self, other: object) -> Optional[bool]:
         if isinstance(other, GeneratingFunction) and self._variables == other._variables \
                 and self._parameters == other._parameters:
             return decide_equal(self._function, other._function)
@@ -1531,7 +1540,7 @@ class GeneratingFunction(Distribution):
                                   closed=self._is_closed_form,
                                   finite=self._is_finite)
 
-    def is_finite(self):
+    def is_finite(self) -> bool:
         """
         Checks whether the generating function is finite.
 
@@ -1782,7 +1791,7 @@ class SympyPGF(CommonDistributionsFactory):
                                   finite=True)
 
     @staticmethod
-    def from_expr(expression: Union[str, Expr], *variables,
-                  **kwargs) -> Distribution:
+    def from_expr(expression: Union[str, Expr], *variables: Union[str, VarExpr],
+                  **kwargs: Optional[bool]) -> Distribution:
         return GeneratingFunction(str(expression), *map(str, variables),
                                   **kwargs)

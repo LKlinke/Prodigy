@@ -39,7 +39,7 @@ modulus 1; where the filtered series converges, the values agree as above.
 """
 from __future__ import annotations
 
-from typing import Iterable, Set, Tuple
+from typing import Iterable, Set, Tuple, Union
 
 import sympy
 
@@ -60,7 +60,8 @@ def _multiplicity(poly: sympy.Poly, factor: sympy.Poly) -> Tuple[int, sympy.Poly
         poly, count = quotient, count + 1
 
 
-def _residue(numerator: sympy.Expr, denominator: sympy.Expr, s: sympy.Symbol, point, order: int) -> sympy.Expr:
+def _residue(numerator: sympy.Expr, denominator: sympy.Expr, s: sympy.Symbol, point: Union[int, sympy.Expr],
+             order: int) -> sympy.Expr:
     """The residue at `point` of numerator / (denominator * (s - point)^order); denominator(point) != 0."""
     if order == 0:
         return sympy.Integer(0)

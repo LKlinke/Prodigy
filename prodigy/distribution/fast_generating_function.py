@@ -3,8 +3,8 @@ from __future__ import annotations
 import itertools
 import re
 
-from typing import (Any, Callable, Dict, FrozenSet, Generator, Iterator, List, Optional, Set, Tuple, Type,
-                    Union)
+from typing import (Any, Callable, Dict, FrozenSet, Generator, Iterator, List, Optional, Set, Tuple,
+                    Type, Union)
 
 import prodigy_ginac  # type: ignore
 from sympy import Expr as Expr_, Symbol, parse_expr
@@ -16,7 +16,7 @@ from prodigy.distribution.negative_values import can_be_negative, operand
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
-                                               MarginalType, NonFiniteMarginalError, State)
+                                               MarginalType, NonFiniteMarginalError, Operand, State)
 from prodigy.pgcl import Binop, BinopExpr, Expr, FunctionCallExpr, NatLitExpr, VarExpr
 
 from prodigy.util.order import default_monomial_iterator
@@ -100,7 +100,7 @@ class FPS(Distribution):
                   dist: prodigy_ginac.Dist,
                   variables: Set[str],
                   parameters: Set[str],
-                  finite: bool | None = None):
+                  finite: bool | None = None) -> FPS:
         result = cls("0")
         result._dist = dist
         result._variables = set(variables)
@@ -112,7 +112,7 @@ class FPS(Distribution):
     def factory() -> Type[ProdigyPGF]:
         return ProdigyPGF
 
-    def __add__(self, other) -> FPS:
+    def __add__(self, other: Operand) -> FPS:
         if isinstance(other, (str, int)):
             return FPS.from_dist(
                 self._dist + prodigy_ginac.Dist(
@@ -128,7 +128,7 @@ class FPS(Distribution):
             raise NotImplementedError(
                 f"Addition of {self._dist} (type {type(self._dist)}) and {other} (type {type(other)} not supported.")
 
-    def __sub__(self, other) -> FPS:
+    def __sub__(self, other: Operand) -> FPS:
         if isinstance(other, (str, int)):
             return FPS.from_dist(
                 self._dist - prodigy_ginac.Dist(
@@ -144,7 +144,7 @@ class FPS(Distribution):
             raise NotImplementedError(
                 f"Subtraction of {self._dist} and {other} not supported.")
 
-    def __mul__(self, other) -> FPS:
+    def __mul__(self, other: Operand) -> FPS:
         if isinstance(other, (str, int)):
             return FPS.from_dist(
                 self._dist * prodigy_ginac.Dist(
@@ -161,7 +161,7 @@ class FPS(Distribution):
                 f"Multiplication of {type(self._dist)} and {type(other)} not supported."
             )
 
-    def __truediv__(self, other) -> FPS:
+    def __truediv__(self, other: Operand) -> FPS:
         if isinstance(other, str):
             other = FPS(other, *self._variables)
         if isinstance(other, FPS):
@@ -172,7 +172,7 @@ class FPS(Distribution):
         raise NotImplementedError(
             f"Division of {type(self._dist)} and {type(other)} not supported.")
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, str):
             other = FPS(other)
         if isinstance(other, FPS):
@@ -186,13 +186,13 @@ class FPS(Distribution):
         else:
             return False
 
-    def __le__(self, other) -> bool:
+    def __le__(self, other: Distribution) -> bool:
         raise NotImplementedError(__name__)
 
     def __str__(self) -> str:
         return str(self._dist)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self._dist.__repr__()
 
     def __iter__(self) -> Iterator[Tuple[str, State]]:
@@ -533,7 +533,7 @@ class FPS(Distribution):
     def _sympy_expression(self) -> Expr_:
         return self._sympy_function()
 
-    def _from_sympy_expression(self, expression: Any) -> FPS:
+    def _from_sympy_expression(self, expression: Expr_) -> FPS:
         dist = prodigy_ginac.Dist(str(expression).replace('**', '^'), list(self._parameters))
         return FPS.from_dist(dist, set(self._variables), set(self._parameters))
 
@@ -697,7 +697,7 @@ class FPS(Distribution):
 
 class ProdigyPGF(CommonDistributionsFactory):
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: object, **kwargs: object) -> ProdigyPGF:
         raise TypeError(f"Static class {str(cls)} cannot be instantiated.")
 
     @staticmethod
@@ -743,7 +743,7 @@ class ProdigyPGF(CommonDistributionsFactory):
         return FPS("1", *variables, finite=True)
 
     @staticmethod
-    def from_expr(expression: Union[str, Expr], *variables, **kwargs) -> FPS:
+    def from_expr(expression: Union[str, Expr], *variables: Union[str, VarExpr], **kwargs: Optional[bool]) -> FPS:
         return FPS(str(expression), *variables)
 
     @staticmethod

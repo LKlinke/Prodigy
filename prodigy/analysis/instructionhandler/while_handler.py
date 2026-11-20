@@ -183,6 +183,8 @@ def _positivity(config: ForwardAnalysisConfig, variables: Sequence[str], invaria
         factors = None
     if factors is not None and all(_positivity(config, variables, factor) is True for factor in factors):
         return True
+    if not isinstance(invariant, Distribution):
+        return None  # the heuristics read a distribution (a text or a SymPy factor is not one)
     try:
         strategy: SynthesisStrategy = SynthesisStrategies.from_config(config, variables)
         verdict = strategy.positivity_heuristics.is_positive(sympify_distribution(invariant))

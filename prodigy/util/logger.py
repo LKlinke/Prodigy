@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Optional
+from typing import Optional, Union
 
 from prodigy.util.color import Style
 
@@ -8,7 +8,7 @@ from prodigy.util.color import Style
 LOG_FILE_ENV = "PRODIGY_LOG_FILE"
 
 
-def log_setup(name: str, level, file: Optional[str] = None) -> logging.Logger:
+def log_setup(name: str, level: Union[int, str], file: Optional[str] = None) -> logging.Logger:
     """
     The logger ``name``. By default it writes nothing to disk: records of level WARNING and above
     reach stderr through Python's last-resort handler. DEBUG output (it contains whole generating
@@ -27,7 +27,7 @@ def log_setup(name: str, level, file: Optional[str] = None) -> logging.Logger:
 
 
 # Print iterations progress
-def print_progress_bar(iteration, total, decimals=1, length=100, print_end=""):
+def print_progress_bar(iteration: int, total: int, decimals: int = 1, length: int = 100, print_end: str = "") -> None:
     """
     Call in a loop to create terminal progress bar
 

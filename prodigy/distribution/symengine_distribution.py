@@ -6,7 +6,7 @@ import logging
 import operator
 import re
 from fractions import Fraction
-from typing import Any, Union, Generator, Sequence, Iterator, Tuple, Type, List, get_args, Callable
+from typing import Union, Generator, Iterable, Optional, Sequence, Iterator, Tuple, Type, List, get_args, Callable
 
 import symengine as se
 # pylint: disable-msg=no-name-in-module
@@ -26,14 +26,18 @@ from prodigy.distribution.multisection import rational_sections
 from prodigy.distribution.negative_values import can_be_negative, operand
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.distribution import MarginalType, State, CommonDistributionsFactory, DistributionParam
+from prodigy.distribution.distribution import Operand
 from prodigy.util.logger import log_setup
 from prodigy.util.order import default_monomial_iterator
+
+SymengineInput = Union[str, int, float, Fraction, Expr, se.Basic]
+"""What :func:`_parse_to_symengine` reads (SymEngine is deprecated, #416: annotated only as far as mypy requires)."""
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
 
-def _text(expr: Any) -> str:
+def _text(expr: se.Basic) -> str:
     """The string form of a SymEngine expression with Euler's number as ``exp(1)``: SymEngine prints it as ``E``,
     which Prodigy reads back as a symbol elsewhere (a variable named E is rejected on SymEngine, #204)."""
     return re.sub(r"\bE\b", "exp(1)", str(expr))
@@ -43,7 +47,7 @@ class SymengineDist(Distribution):
     def factory() -> Type[CommonDistributionsFactory]:
         return SymenginePGF
 
-    def __init__(self, function, *variables: Union[se.Symbol, str]):
+    def __init__(self, function: SymengineInput, *variables: Union[se.Symbol, str]):
         self._s_func: se.Expr = _parse_to_symengine(function)
         self._variables: set[se.Symbol] = self._s_func.free_symbols
         self._parameters: set[se.Symbol] = set()
@@ -60,19 +64,19 @@ class SymengineDist(Distribution):
         parameters = self._parameters | other._parameters
         return variables.intersection(parameters) == set()
 
-    def __add__(self, other) -> SymengineDist:
+    def __add__(self, other: Operand) -> SymengineDist:
         return self._arithmetic_operator(other, "add", operator.add)
 
-    def __sub__(self, other) -> SymengineDist:
+    def __sub__(self, other: Operand) -> SymengineDist:
         return self._arithmetic_operator(other, "subtract", operator.sub)
 
-    def __mul__(self, other) -> SymengineDist:
+    def __mul__(self, other: Operand) -> SymengineDist:
         return self._arithmetic_operator(other, "multiply", operator.mul)
 
-    def __truediv__(self, other) -> SymengineDist:
+    def __truediv__(self, other: Operand) -> SymengineDist:
         return self._arithmetic_operator(other, "divide", operator.truediv)
 
-    def _arithmetic_operator(self, other: str | int | float | SymengineDist, textual_descr: str,
+    def _arithmetic_operator(self, other: Operand, textual_descr: str,
                              op: Callable) -> SymengineDist:
         """
         Applies an arithmetic operator to self and one unknown object.
@@ -98,7 +102,7 @@ class SymengineDist(Distribution):
         res = op(self._s_func, other._s_func)
         return SymengineDist(res).set_variables_and_parameters(new_vars, new_params)
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, SymengineDist):
             return False
         if not other._variables == self._variables:
@@ -107,7 +111,7 @@ class SymengineDist(Distribution):
             return False
         return _provably_equal(self._s_func, other._s_func)
 
-    def __le__(self, other: SymengineDist) -> bool:
+    def __le__(self, other: Distribution) -> bool:
         if not isinstance(other, SymengineDist):
             raise TypeError(f"Incomparable types {type(self)} and {type(other)}.")
 
@@ -395,7 +399,7 @@ class SymengineDist(Distribution):
     def _sympy_expression(self) -> sp.Expr:
         return sp.sympify(self._s_func)
 
-    def _from_sympy_expression(self, expression: Any) -> SymengineDist:
+    def _from_sympy_expression(self, expression: sp.Expr) -> SymengineDist:
         return SymengineDist(se.sympify(expression)).set_variables_and_parameters(
             self.get_variables(), self.get_parameters())
 
@@ -437,7 +441,7 @@ class SymengineDist(Distribution):
         return {str(sym) for sym in _parse_to_symengine(expr).free_symbols}
 
     @staticmethod
-    def evaluate(expression: str, state: State):
+    def evaluate(expression: str, state: State) -> se.Expr:
         """ Evaluates the expression in a given state. """
 
         s_exp = _parse_to_symengine(expression)
@@ -555,7 +559,7 @@ class SymengineDist(Distribution):
                     res += self.filter(
                         parse_expr(f'{finite_var}={state[finite_var]}')
                     )._update_product(
-                        temp_var, state[finite_var], infinite_var, approximate
+                        temp_var, str(state[finite_var]), infinite_var, approximate
                     )._s_func
             else:
                 for prob, state in self:
@@ -646,11 +650,11 @@ class SymengineDist(Distribution):
             for prob, state_r in self:
                 prob = _parse_to_symengine(prob)
                 if left_sym in self._variables:
-                    left_var = state_r[left]
+                    left_var = state_r[str(left)]
                 else:
                     left_var = _parse_to_symengine(left)
                 if right_sym in self._variables:
-                    right_var = state_r[right]
+                    right_var = state_r[str(right)]
                 else:
                     right_var = _parse_to_symengine(right)
                 result += prob * self.safe_subs(
@@ -666,9 +670,9 @@ class SymengineDist(Distribution):
                 values_r = self._approximated_support(
                     right, approximate, f'Cannot perform modulo operation with infinite right hand side {right}')
             for state_r in self._unique_states(values_r):
-                section = self.filter(parse_expr(f'{right}={state_r[right]}'))
+                section = self.filter(parse_expr(f'{right}={state_r[str(right)]}'))
                 try:
-                    result += section._update_modulo(temp_var, left, state_r[right], None)._s_func
+                    result += section._update_modulo(temp_var, left, state_r[str(right)], None)._s_func
                 except ValueError:
                     # a value without mass (coefficient not simplified to 0), see is_provably_zero
                     if not section.is_provably_zero():
@@ -684,8 +688,8 @@ class SymengineDist(Distribution):
             if values_l is not None:
                 for state_l in self._unique_states(values_l):
                     result += self.filter(
-                        parse_expr(f'{left}={state_l[left]}'))._update_modulo(
-                        temp_var, state_l[left], right, None)._s_func
+                        parse_expr(f'{left}={state_l[str(left)]}'))._update_modulo(
+                        temp_var, state_l[str(left)], right, None)._s_func
             else:
                 for index, gf in enumerate(
                         self._arithmetic_progression(left, str(right))):
@@ -739,7 +743,7 @@ class SymengineDist(Distribution):
             for state_l in self._unique_states(marginal_l):
                 if isinstance(marginal_r, Distribution):
                     for state_r in self._unique_states(marginal_r):
-                        val_l, val_r = state_l[numerator], state_r[denominator]
+                        val_l, val_r = state_l[str(numerator)], state_r[str(denominator)]
                         x = self.filter(
                             parse_expr(f'{numerator}={val_l} & {denominator}={val_r}')
                         )._s_func
@@ -750,7 +754,7 @@ class SymengineDist(Distribution):
                             )
                         res += self.safe_subs(update_var, 1, fun=x) * update_var ** (val_l // val_r)
                 else:
-                    val_l, val_r = state_l[numerator], div_2
+                    val_l, val_r = state_l[str(numerator)], div_2
                     x = self.filter(
                         parse_expr(f'{numerator}={val_l}'))._s_func
                     if val_l % val_r != 0 and x != 0 and not _provably_equal(x, se.Integer(0)):
@@ -762,7 +766,7 @@ class SymengineDist(Distribution):
         else:
             if isinstance(marginal_r, Distribution):
                 for state_r in self._unique_states(marginal_r):
-                    val_l, val_r = div_1, state_r[denominator]
+                    val_l, val_r = div_1, state_r[str(denominator)]
                     x = self.filter(
                         parse_expr(f'{denominator}={val_r}'))._s_func
                     if val_l % val_r != 0 and x != 0 and not _provably_equal(x, se.Integer(0)):
@@ -803,11 +807,11 @@ class SymengineDist(Distribution):
                 for state_r in self._unique_states(marginal_r):
                     x = self.filter(
                         parse_expr(
-                            f'{base}={state_l[base]} & {exp}={state_r[exp]}')
+                            f'{base}={state_l[str(base)]} & {exp}={state_r[str(exp)]}')
                     )._s_func
                     res -= x
-                    res += self.safe_subs(update_var, 1, fun=x) * update_var ** (state_l[base] **
-                                                                                 state_r[exp])
+                    res += self.safe_subs(update_var, 1, fun=x) * update_var ** (state_l[str(base)] **
+                                                                                 state_r[str(exp)])
 
         # variable to the power of a literal
         elif pow_1 in self._variables:
@@ -818,9 +822,9 @@ class SymengineDist(Distribution):
                 )
 
             for state in self._unique_states(marginal):
-                x = self.filter(parse_expr(f'{base}={state[base]}'))._s_func
+                x = self.filter(parse_expr(f'{base}={state[str(base)]}'))._s_func
                 res -= x
-                res += self.safe_subs(update_var, 1, fun=x) * update_var ** (state[base] ** pow_2)
+                res += self.safe_subs(update_var, 1, fun=x) * update_var ** (state[str(base)] ** pow_2)
 
         # literal to the power of a variable
         elif pow_2 in self._variables:
@@ -831,9 +835,9 @@ class SymengineDist(Distribution):
                 )
 
             for state in self._unique_states(marginal):
-                x = self.filter(parse_expr(f'{exp}={state[exp]}'))._s_func
+                x = self.filter(parse_expr(f'{exp}={state[str(exp)]}'))._s_func
                 res -= x
-                res += self.safe_subs(update_var, 1, fun=x) * update_var ** (pow_1 ** state[exp])
+                res += self.safe_subs(update_var, 1, fun=x) * update_var ** (pow_1 ** state[str(exp)])
 
         # literal to the power of a literal
         else:
@@ -843,9 +847,10 @@ class SymengineDist(Distribution):
 
     def _update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
                     variable: Union[str, VarExpr]) -> SymengineDist:
+        variable = str(variable)  # the assigned variable, by name
         subst_var = count.var if isinstance(count, VarExpr) else None
 
-        def subs(dist_gf, subst_var, variable) -> SymengineDist:
+        def subs(dist_gf: se.Expr, subst_var: Optional[str], variable: str) -> SymengineDist:
             result = self._marginal(
                 variable,
                 method=MarginalType.EXCLUDE) if subst_var != variable else self
@@ -950,7 +955,7 @@ class SymengineDist(Distribution):
         new_gf._parameters = new_params
         return new_gf
 
-    def set_variables_and_parameters(self, variables: set[str], parameters: set[str]):
+    def set_variables_and_parameters(self, variables: set[str], parameters: set[str]) -> SymengineDist:
         var_sym = {se.Symbol(v) for v in variables}
         param_sym = {se.Symbol(p) for p in parameters}
         if not (var_sym | param_sym).issuperset(self._s_func.free_symbols):
@@ -1159,7 +1164,7 @@ def _clear_inner_denominators(expr: se.Basic) -> se.Basic:
     return se.expand(numerator) / denominator
 
 
-def _parse_to_symengine(expression) -> se.Expr:
+def _parse_to_symengine(expression: SymengineInput) -> se.Expr:
     """
     Parses an arbitrary expression to symengine.
 
@@ -1167,7 +1172,7 @@ def _parse_to_symengine(expression) -> se.Expr:
     :returns: The parsed expression.
     """
 
-    def probably_to_symengine(expr: Expr):
+    def probably_to_symengine(expr: Expr) -> se.Expr:
         if isinstance(expr, NatLitExpr):
             return se.Integer(expr.value)
         elif isinstance(expr, VarExpr):
@@ -1224,7 +1229,7 @@ def _parse_to_symengine(expression) -> se.Expr:
 RESERVED_NAMES = frozenset({"E", "I", "pi"})
 
 
-def check_names(names) -> None:
+def check_names(names: Iterable[Union[str, se.Symbol]]) -> None:
     """Rejects variable or parameter names that SymEngine reads as constants (issue #204)."""
     clashes = sorted(set(map(str, names)) & RESERVED_NAMES)
     if clashes:
@@ -1381,7 +1386,8 @@ class SymenginePGF(CommonDistributionsFactory):
         return SymengineDist("1", *map(str, variables))
 
     @staticmethod
-    def from_expr(expression: Union[str, Expr], *variables, **kwargs) -> SymengineDist:
+    def from_expr(expression: Union[str, Expr], *variables: Union[str, VarExpr],
+                  **kwargs: Optional[bool]) -> SymengineDist:
         return SymengineDist(expression, *map(str, variables))
 
 # pylint: enable=protected-access
