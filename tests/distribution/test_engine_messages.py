@@ -59,7 +59,7 @@ def test_symengine_subtraction_keeps_laurent_polynomials():
 def test_guard_with_a_subtraction_names_the_term_as_written(engine):
     source = "a: nat;\nb: nat;\na = geometric(1/3);\nb = poisson(4);\nif (a - 1 < b) { a = 1; } else { skip; }\n"
     message = _error_message(source, engine)
-    assert "The guard a - 1 < b" in message
+    assert "The guard (a - 1) < b" in message
     assert not any(name in message for name in ("_0", "sym_", "x_0"))
 
 
@@ -102,3 +102,28 @@ def test_convergence_message_substitutes_the_term_for_the_temporary_variable():
     assert "sets x - 1 to 1 in" in message
     assert "(x - 1)" in message
     assert "_0" not in message and "stands for" not in message
+
+
+@pytest.mark.timeout(60)
+def test_messages_parenthesise_compound_terms_for_temporary_variables():
+    """A compound term of the program replaces the temporary variable in parentheses, so that the closed form
+    in a message does not read as `2*x - 1*x - 1` (#454); a name or a number stays bare."""
+    # pylint: disable=import-outside-toplevel,protected-access
+    from prodigy.distribution.distribution import ComparisonNotImplemented, _in_programs_terms
+    names = {"_0": "x - 1", "_1": "y * y", "_2": "z", "_3": "2"}
+    error = _in_programs_terms(NonFiniteMarginalError("2*_0 - _1 + _2*_3"), names)
+    assert str(error) == "2*(x - 1) - (y * y) + z*2"
+    assert isinstance(error, NonFiniteMarginalError)
+    comparison = _in_programs_terms(ComparisonNotImplemented("_0 < _1", "reason"), names)
+    assert isinstance(comparison, ComparisonNotImplemented)
+    assert comparison.condition == "(x - 1) < (y * y)"
+    unchanged = ValueError("nothing here")
+    assert _in_programs_terms(unchanged, names) is unchanged
+
+
+@pytest.mark.timeout(60)
+def test_guard_message_with_compound_terms_keeps_the_program_text():
+    source = ("x: nat;\ny: nat;\nx = geometric(1/3);\ny = poisson(4);\n"
+              "if (x - 1 < y * y) { x = 1; } else { skip; }\n")
+    message = _error_message(source, "SYMPY")
+    assert not any(name in message for name in ("_0", "_1", "sym_"))

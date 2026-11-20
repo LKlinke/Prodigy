@@ -348,16 +348,16 @@ def _in_programs_terms(error: Exception, names: Dict[str, str]) -> Exception:
     """
     A copy of `error` with the temporary variables of an operator update (`_0`, `sym_1`, `x_2`: engine
     internals) replaced by the operands as the program wrote them (#349). `names` maps temporary to
-    program text; an unknown or unchanged message returns `error` itself.
+    program text, in parentheses unless it is a name or a number (:func:`_with_terms`); an unknown or
+    unchanged message returns `error` itself.
     """
     if not names:
         return error
-    pattern = re.compile(r"\b(" + "|".join(re.escape(name) for name in names) + r")\b")
-    message = pattern.sub(lambda match: names[match.group(1)], str(error))
+    message = _with_terms(str(error), names)
     if message == str(error):
         return error
     if isinstance(error, ComparisonNotImplemented):
-        return ComparisonNotImplemented(pattern.sub(lambda match: names[match.group(1)], error.condition), error.reason)
+        return ComparisonNotImplemented(_with_terms(error.condition, names), error.reason)
     return type(error)(message)
 
 
