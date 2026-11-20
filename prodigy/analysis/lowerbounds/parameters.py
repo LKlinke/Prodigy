@@ -31,7 +31,7 @@ import math
 from dataclasses import dataclass, field
 from fractions import Fraction
 from itertools import product
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -362,6 +362,28 @@ def _reach_count(init_states: Iterable[State], guard: IR, body: IR, variables: S
     return sum(1 for s in reach if all(s[i] <= hi[i] for i in range(len(hi))))
 
 
+def _largest_fitting_scale(fits: Callable[[float], bool], start: float = 400.0, step: float = 0.9) -> float:
+    """The first scale of the sequence ``start, start * step, start * step**2, ...`` (stopping at the first value
+    ``<= 1``) for which ``fits`` holds, or that last value if none does.
+
+    ``fits`` must be monotone: if it holds for a scale, it holds for every smaller one.  This is the case for the
+    template sizes of :func:`plan_parameters`: a smaller scale gives a coordinatewise smaller box, the states
+    reachable inside a smaller box are reachable inside the larger one, and the counted region shrinks with it.
+    Then a binary search over the sequence finds the same scale as walking it from the start, with a logarithmic
+    number of (expensive) evaluations instead of a linear one."""
+    scales = [start]
+    while scales[-1] > 1:
+        scales.append(scales[-1] * step)
+    lo, hi = 0, len(scales) - 1  # the answer lies in scales[lo..hi]; scales[hi] is taken if nothing fits
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if fits(scales[mid]):
+            hi = mid
+        else:
+            lo = mid + 1
+    return scales[lo]
+
+
 def plan_parameters(init: Measure, guard: IR, body: IR, variables: Sequence[str], size: int = 1200,
                     upper_size: Optional[int] = None, lower_multipliers: Sequence[float] = (0.95, 0.985, 0.998),
                     upper_steps: Sequence[float] = (0.01, 0.05, 0.15, 0.35),
@@ -480,18 +502,17 @@ def plan_parameters(init: Measure, guard: IR, body: IR, variables: Sequence[str]
                     tail[i] = profiles[i].max_value
             return tail
 
-        def upper_count(lam: float) -> int:
+        def upper_fits(lam: float) -> bool:
+            """Whether the upper template of scale ``lam`` has at most ``upper_size`` values (monotone in ``lam``)."""
             tail = upper_tail(lam)  # pylint: disable=cell-var-from-loop  # called in this iteration only
             full = int(np.prod([b + 1 for b in upper_box(tail)]))
             if full <= upper_size:
-                return full
+                return True
             shape = TemplateShape([Fraction(1, 2) if i in unb else Fraction(0) for i in range(d)], periods_up, tail,
                                   reach_box=upper_box(tail))
-            return _reach_count(init_states, guard, body, variables, shape)
+            return _reach_count(init_states, guard, body, variables, shape) <= upper_size
 
-        lam = 400.0
-        while lam > 1 and upper_count(lam) > upper_size:
-            lam *= 0.9
+        lam = _largest_fitting_scale(upper_fits)
         tail_up = upper_tail(lam)
         if tuple(tail_up) in seen:
             continue
