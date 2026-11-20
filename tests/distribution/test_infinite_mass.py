@@ -16,7 +16,7 @@ from prodigy.distribution import Distribution, NonFiniteMarginalError, known_con
 from prodigy.pgcl import Binop, BinopExpr, VarExpr
 from prodigy.pgcl.parser import parse_expr
 
-ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE]
+ENGINES = [ForwardAnalysisConfig.Engine.SYMPY]
 ALL_ENGINES = [*ENGINES, ForwardAnalysisConfig.Engine.GINAC]
 SIMPLIFICATION = [True, False]
 

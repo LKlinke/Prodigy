@@ -28,7 +28,7 @@ def _ginac(engine):
         pytest.importorskip("prodigy_ginac")
 
 
-ENGINES = [Engine.SYMPY, Engine.SYMENGINE, Engine.GINAC]
+ENGINES = [Engine.SYMPY, Engine.GINAC]
 
 
 def run(source, engine, initial="1"):

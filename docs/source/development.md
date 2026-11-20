@@ -24,7 +24,7 @@ the `.pgcl` syntax is removed (#433, #446).
 - `distribution.py`: the `Distribution` interface and the shared logic (case splits, filters,
   marginals, the iteration contract).
 - Engines: SymPy (`generating_function.py`, the default), GiNaC via the bindings
-  (`fast_generating_function.py`), SymEngine (deprecated, removed in v0.6.0, #416).
+  (`fast_generating_function.py`). SymEngine was removed in v0.6.0 (#416).
 - Proof rules on closed forms: `finite_measure.py`, `product_form.py`, `coefficient_signs.py`,
   `series_transforms.py` (monomial substitution, shift), `dominant_pole.py` (univariate rational
   functions with a unique dominant simple pole, Arb bounds), `convergence.py` (convergence at 1),
@@ -40,6 +40,8 @@ the `.pgcl` syntax is removed (#433, #446).
   `instructionhandler/while_handler.py` and appear in the CLI menu, `prodigy analyze --loop` and
   the GUI automatically.
 - `result.py`: the JSON result `prodigy/analysis-result@1`.
+- `upper_track.py`: a loop's proven upper bound (the EVT sandwich's super-invariant), carried through
+  the rest of the program; it tightens the upper ends of coefficients and queries (#451).
 - `equivalence/`: the equivalence check of two programs and its three-valued verdict.
 - `evtinvariants/`: EVT invariants, their synthesis and the positivity heuristics.
 - `lowerbounds/`: occupation sub-invariants and the sandwich (`evt_subinvariant`, `evt_sandwich`).

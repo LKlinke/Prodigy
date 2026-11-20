@@ -65,7 +65,7 @@ def check_input_expression(text: str, variables: Sequence[str],
     local: Dict[str, sympy.Symbol] = {name: sympy.Symbol(name) for name in variables}
     for name in set(_identifiers(text)) - set(variables) - set(MATH_FUNCTIONS):
         if name in _CONSTANTS and name not in parameter_types:
-            continue  # printed by an engine, e.g. SymEngine writes exp(1) as E
+            continue  # printed by an engine, e.g. exp(1) as E
         local[name] = _parameter_symbol(name, parameter_types.get(name))
     try:
         expr = sympy.parse_expr(text.replace("^", "**"), local_dict=local)

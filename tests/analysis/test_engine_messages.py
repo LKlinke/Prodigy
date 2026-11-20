@@ -14,7 +14,6 @@ except ImportError:  # pragma: no cover
 
 ENGINES = [
     ForwardAnalysisConfig.Engine.SYMPY,
-    ForwardAnalysisConfig.Engine.SYMENGINE,
     pytest.param(ForwardAnalysisConfig.Engine.GINAC,
                  marks=pytest.mark.skipif(not HAS_GINAC, reason="prodigy_ginac is not installed")),
 ]

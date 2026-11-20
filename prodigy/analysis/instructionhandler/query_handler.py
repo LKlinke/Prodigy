@@ -16,7 +16,7 @@ from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import (QueryResult, describe_distribution, error_type, finish_query,
                                      is_non_finite, is_monotone_nonnegative, joint_table, show, sym, tidy,
-                                     univariate_table)
+                                     univariate_table, with_upper)
 from prodigy.analysis.session import AnalysisSession, current_session
 from prodigy.distribution import Distribution, MarginalType
 from prodigy.distribution.distribution import NonFiniteMarginalError
@@ -103,10 +103,13 @@ class QueryHandler(InstructionHandler):
                 result = distribution.get_expected_value_of(expression)
 
             print(f"Expected value: {result}")
+            monotone = is_monotone_nonnegative(expression, prog_info.program)
+            known = session.loop_query_bounds("?Ex", str(expression))
+            if monotone and (known is None or known[1] is None):
+                known = with_upper(known, _upper_value(session, lambda upper: upper.get_expected_value_of(expression)))
             session.record_query(finish_query(
                 session, QueryResult("expectation", session.spell(expression), value=result),
-                monotone=is_monotone_nonnegative(expression, prog_info.program), probability=False,
-                known=session.loop_query_bounds("?Ex", str(expression))))
+                monotone=monotone, probability=False, known=known))
             return distribution, error_prob
 
         # User wants the variance or covariance of expressions
@@ -273,7 +276,7 @@ class QueryHandler(InstructionHandler):
         query = QueryResult("plot", ", ".join(variables), bound=session.bound_kind)
         if len(variables) == 1:
             table = univariate_table(dist, variables[0], limit, kind=session.bound_kind,
-                                     residual=session.residual)
+                                     residual=session.residual, upper=session.upper_distribution)
             if threshold is not None:
                 kept, total = [], 0
                 for row in table["rows"]:
@@ -301,7 +304,8 @@ class QueryHandler(InstructionHandler):
             if session.collect_details:
                 query.data = {"marginal": univariate_table(dist, expression.var, session.coefficient_limit,
                                                            kind=session.bound_kind,
-                                                           residual=session.residual)}
+                                                           residual=session.residual,
+                                                           upper=session.upper_distribution)}
             session.record_query(query)
         # Probability of condition computation.
         else:
@@ -315,10 +319,39 @@ class QueryHandler(InstructionHandler):
                     prob = filter_by_cases(dist.query_marginal(expression, error), expression).get_probability_mass()
             text = session.spell(expression)
             print(f"Probability of {text}: {prob}")
+            known = session.loop_query_bounds("?Pr", str(expression))
+            if known is None or known[1] is None:
+                known = with_upper(known, _upper_value(session, lambda upper: _probability(upper, expression)))
             session.record_query(finish_query(session, QueryResult("probability", text, value=prob),
-                                              monotone=True, probability=True,
-                                              known=session.loop_query_bounds("?Pr", str(expression))))
+                                              monotone=True, probability=True, known=known))
         return dist
+
+
+def _probability(dist: Distribution, condition: Expr) -> str:
+    """The probability of ``condition`` under ``dist``, as for a ``?Pr`` query."""
+    try:
+        return filter_by_cases(dist, condition).get_probability_mass()
+    except NotImplementedError as error:
+        return filter_by_cases(dist.query_marginal(condition, error), condition).get_probability_mass()
+
+
+def _upper_value(session: AnalysisSession, evaluate: Callable[[Distribution], str]) -> Optional[sympy.Expr]:
+    """A monotone query (a probability, or the expectation of a non-negative expression) evaluated on the
+    session's proven upper bound (:mod:`prodigy.analysis.upper_track`): an upper bound of its exact value, since
+    the query is a positive linear functional. ``None`` without an upper track, or if the value is not a finite
+    non-negative number (the bound is only an addition). Callers skip it for a query that the loop right before
+    already bounds from above (:meth:`AnalysisSession.loop_query_bounds`): that bound comes from the same
+    certificate, evaluated exactly on its template, and evaluating the closed form again can be expensive."""
+    upper = session.upper_distribution
+    if upper is None:
+        return None
+    try:
+        value = sym(evaluate(upper))
+        if value.is_number and value.is_real and value.is_finite and bool(value >= 0):
+            return tidy(value)
+    except Exception:  # pylint: disable=broad-except  # the bound is only an addition
+        logger.debug("A query on the upper bound failed", exc_info=True)
+    return None
 
 
 # The most values of one variable that a case split (see :func:`filter_by_cases`) enumerates

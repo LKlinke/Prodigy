@@ -10,7 +10,7 @@ backend with the same semantics:
   operation).
 * ``sympy-cas``: the same operations on SymPy expressions with ``sympy.cancel`` after every iteration: SymPy's
   cost without Prodigy's case analysis (what step 2 of #417 would replace).
-* ``sympy``, ``ginac``, ``symengine``: the engines' ``Distribution`` (``filter``, ``update``, arithmetic),
+* ``sympy``, ``ginac``: the engines' ``Distribution`` (``filter``, ``update``, arithmetic),
   i.e. what an unrolled loop costs in the analysis today, including the shared case analysis.
 
 Workloads:
@@ -52,10 +52,10 @@ import sympy  # noqa: E402
 
 from prodigy.distribution.kernel import RationalGF  # noqa: E402
 
-BACKENDS = ("kernel", "sympy-cas", "sympy", "ginac", "symengine")
+BACKENDS = ("kernel", "sympy-cas", "sympy", "ginac")
 WORKLOADS = ("unroll_st_petersburg", "unroll_galton_watson", "unroll_galton_watson_40", "unroll_random_walk",
              "cancel_equal", "coefficients_100", "convert")
-ENGINES = ("sympy", "ginac", "symengine")
+ENGINES = ("sympy", "ginac")
 
 PAYOUT, STOP, ALIVE, TOTAL, S, C = sympy.symbols("payout stop alive total s c")
 
@@ -144,8 +144,7 @@ def _factory(engine: str):  # -> Type[CommonDistributionsFactory]
     if engine == "ginac":
         from prodigy.distribution.fast_generating_function import ProdigyPGF
         return ProdigyPGF
-    from prodigy.distribution.symengine_distribution import SymenginePGF
-    return SymenginePGF
+    raise ValueError(f"unknown engine {engine!r}")
 
 
 def _expr(text: str):  # -> Expr

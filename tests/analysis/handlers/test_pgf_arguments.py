@@ -21,7 +21,6 @@ ENGINES = [
     pytest.param(Engine.SYMPY, id="SymPy"),
     pytest.param(Engine.GINAC, id="GiNaC"),
     # feature-frozen (#416), but must not report a wrong result either
-    pytest.param(Engine.SYMENGINE, id="SymEngine"),
 ]
 
 # the square of 7/13 * (16*i - 3*i^3) / (16 - 8*i - i^2) (from the invariant of
@@ -124,7 +123,7 @@ def test_proven_generating_function_has_no_warning(engine):
                       engine)
     assert result["status"] == "ok", result["error"]
     assert result["bounds"]["kind"] == "exact"
-    assert not [w for w in result["warnings"] if "deprecated" not in w]  # SymEngine warns about itself
+    assert not result["warnings"]
 
 
 def test_main_prints_the_warning(tmp_path):

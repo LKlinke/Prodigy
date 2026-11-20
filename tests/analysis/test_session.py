@@ -266,7 +266,7 @@ def test_prodigy_version_without_package_metadata(monkeypatch):
     assert prodigy_version() == __version__ != "unknown"
 
 
-@pytest.mark.parametrize("engine", ["SYMPY", "SYMENGINE", "GINAC"])
+@pytest.mark.parametrize("engine", ["SYMPY", "GINAC"])
 @pytest.mark.parametrize("invariant", ["(x + 1/3)/(1 - c/2)", "x/(1 - c)"])
 def test_refuted_invariant_carries_no_guarantee(engine, invariant):
     # Issue #121: the error result used to report bounds.kind = "exact".

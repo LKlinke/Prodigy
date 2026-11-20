@@ -19,8 +19,7 @@ from prodigy.analysis.nested_inference import _values
 from prodigy.distribution import ZeroDivisorError
 from prodigy.pgcl.parser import parse_expr
 
-ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE,
-           ForwardAnalysisConfig.Engine.GINAC]
+ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINAC]
 SIMPLIFICATION = [True, False]
 
 # the example of #256: a = 1 with w - b^2, a = 2 with b^3/(2 - b)
@@ -162,7 +161,7 @@ def test_divisor_variable_with_value_zero_on_infinite_measure(engine):
 ])
 def test_divisor_zero_gives_one_error_naming_the_expression(engine, simplification, function, assignment, message):
     # #273: a variable divisor or modulus with the value 0 on a finite distribution raised ZeroDivisionError
-    # (SymPy, SymEngine) or RuntimeError (GiNaC); now the error of the literal case, naming the expression
+    # (SymPy) or RuntimeError (GiNaC); now the error of the literal case, naming the expression
     config = _config(engine, simplification)
     with config.activate():
         dist = config.factory.from_expr(function, "a", "b", "w", "x")

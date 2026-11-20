@@ -20,7 +20,7 @@ def test_numeric_precheck_never_calls_a_zero_nonzero():
 
 
 def test_roots_of_unity_in_two_notations_cancel():
-    # SymPy writes the roots of unity as exp(2*I*pi/3), SymEngine as -1/2 + sqrt(3)*I/2
+    # the roots of unity as exp(2*I*pi/3) and as -1/2 + sqrt(3)*I/2
     left = sympy.exp(Y * (-sympy.Rational(1, 2) + sympy.sqrt(3) * sympy.I / 2)) * (OMEGA + 1)
     right = sympy.exp(Y * OMEGA) * (OMEGA + 1)
     assert decide_equal(left, right, use_simplify=False) is True

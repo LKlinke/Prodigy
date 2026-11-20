@@ -12,11 +12,10 @@ from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.fast_generating_function import FPS
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.distribution.roots_of_unity import NotSingleValuedError, is_single_valued_in
-from prodigy.distribution.symengine_distribution import SymengineDist
 from prodigy.pgcl import parse_pgcl
 from prodigy.pgcl.parser import parse_expr
 
-ENGINES = [GeneratingFunction, FPS, SymengineDist]
+ENGINES = [GeneratingFunction, FPS]
 VARIABLES = ("c", "y", "z")
 C, Y, Z = sympy.symbols("c y z")
 DEGREE = 6

@@ -11,7 +11,6 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.distribution import MarginalType, NonFiniteMarginalError, known_convergent_series
 from prodigy.distribution.generating_function import SympyPGF
-from prodigy.distribution.symengine_distribution import SymenginePGF
 from prodigy.pgcl import parse_pgcl
 from prodigy.pgcl.parser import parse_expr
 
@@ -26,7 +25,6 @@ def _ginac_factory():
 FACTORIES = [
     pytest.param(lambda: SympyPGF, id="sympy"),
     pytest.param(_ginac_factory, id="ginac"),
-    pytest.param(lambda: SymenginePGF, id="symengine"),
 ]
 
 
@@ -96,7 +94,7 @@ query Ex[c];
 """
 
 
-@pytest.mark.parametrize("engine", ["SYMPY", "GINAC", "SYMENGINE"])
+@pytest.mark.parametrize("engine", ["SYMPY", "GINAC"])
 def test_infinite_expectation_is_infinity(engine):
     decisions = {"0": {"strategy": "evt_invariant",
                        "params": {"invariant": "(1-(1-c^2)^(1/2)+c*x)/(c+(1-c^2)^(1/2)*x-x)"}}}

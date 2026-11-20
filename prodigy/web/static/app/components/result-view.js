@@ -10,12 +10,13 @@ import { intervalBar, marginalChart } from "./charts.js";
 import { BOUND_TEXT, chartLegend, exactIsInformative, formatNumber, formatSeconds, formatValue, qualify, shortExact } from "./format.js";
 import { analysisCard, verdictText } from "./analysis-card.js";
 import { chartState, tweenChart } from "./motion.js";
-import { distributionFigure, expressionBox, guaranteeBadge, loadScale } from "./parts.js";
+import { distributionFigure, expressionBox, guaranteeBadge } from "./parts.js";
+import { viewOptions } from "./view-options.js";
 import { changedWhileRunningText, staleText } from "../staleness.js";
 
 export { guaranteeBadge, distributionFigure };
 
-const ENGINE_NAMES = { sympy: "SymPy", ginac: "GiNaC", symengine: "SymEngine" };
+const ENGINE_NAMES = { sympy: "SymPy", ginac: "GiNaC" };
 
 function exactSpan(exact, number) {
   if (!exactIsInformative(exact, number)) return null;
@@ -393,7 +394,7 @@ function liveCharts(stream, width, key, { title = "Distribution so far", program
     else if (marginal) status = `computing… ${rows.length} of ${limit}`;
     const pending = done ? 0 : Math.max(0, limit - rows.length);
     const chart = marginal?.error ? null
-      : marginalChart({ rows }, { variable: name, bound, width, pending, scale: loadScale() });
+      : marginalChart({ rows }, { variable: name, bound, width, pending, view: viewOptions() });
     return h("section", { class: "rv-live-item", "data-done": String(done), "aria-label": `Distribution of ${name}: ${status}` },
       h("h4", { class: "rv-live-title" }, h("span", { class: "mono" }, name), h("span", { class: "rv-note" }, status)),
       chart);
@@ -434,7 +435,7 @@ export function renderRunning(container, state, options = {}) {
   const width = Math.max(260, (container.clientWidth || 600) - 40);
   const before = {};
   const sections = streams.map(([live, title, program]) => {
-    const liveKey = JSON.stringify([width, loadScale(), live.limit, live.bound,
+    const liveKey = JSON.stringify([width, viewOptions(), live.limit, live.bound,
       (live.variables || []).map((name) => [name, live.marginals?.[name]?.rows?.length ?? -1, Boolean(live.marginals?.[name]?.done)])]);
     const previous = container.querySelector(program ? `.rv-live[data-program="${program}"]` : ".rv-live");
     if (previous && previous.dataset.key === liveKey) return previous;

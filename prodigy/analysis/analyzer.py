@@ -96,10 +96,6 @@ def compute_discrete_distribution(
     (:mod:`prodigy.analysis.trace`) is printed when it is done, with its line (and the analysis
     waits for Enter after each step); a session that records steps itself is left alone.
     """
-    if config.engine == ForwardAnalysisConfig.Engine.SYMENGINE:
-        # pylint: disable=import-outside-toplevel
-        from prodigy.distribution.symengine_distribution import check_names
-        check_names([*program.variables, *program.parameters])
     # the input must be proven to be a distribution, else the guarantees of the result mean nothing (#296)
     validate_input_distribution(dist, program)
     # the input is a finite measure, so are all distributions of the program's analysis; candidate checks
@@ -167,14 +163,14 @@ def _compute_discrete_distribution(
         if var in dist.get_variables():
             initial_dist = initial_dist.update(BinopExpr(Binop.EQ, VarExpr(var), NatLitExpr(0)))
     error_prob = config.factory.one(*variables) * 0
-    if step_callback is None:
-        dist, error_prob = compute_semantics(prog_info.instructions,
-                                             prog_info, initial_dist,
-                                             error_prob, config)
-    else:
-        dist = initial_dist
-        for instr in prog_info.instructions:
-            dist, error_prob = compute_semantics([instr], prog_info, dist, error_prob, config)
+    session = current_session()
+    session.start_upper()
+    dist = initial_dist
+    for instr in prog_info.instructions:
+        dist, error_prob = compute_semantics([instr], prog_info, dist, error_prob, config)
+        # a proven upper bound of a loop follows the program (prodigy.analysis.upper_track, #451)
+        session.advance_upper(instr, prog_info, config, compute_semantics)
+        if step_callback is not None:
             step_callback(instr, dist, error_prob)
     if config.normalize:
         tracer = current_session().tracer
@@ -187,6 +183,7 @@ def _compute_discrete_distribution(
     if block_variables and not dist.get_variables() <= set(block_variables):
         # they are 0 here, so this only removes them from the variables of the result
         dist = dist.marginal(*block_variables, method=MarginalType.EXCLUDE)
+        session.restrict_upper(block_variables)
     if nested_inference.dist_variables(prog_info):
         # the values of dist variables are reported apart from the program state
         current_session().dist_values = nested_inference.dist_values(dist, prog_info)

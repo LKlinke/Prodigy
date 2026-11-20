@@ -17,19 +17,20 @@ growing total degree, so that a streamed grid grows from its corner (#405).
 The result carries the guarantee of the analysis it comes from (``bound``): for a lower bound,
 every cell is a lower bound and at most ``residual_mass`` is not accounted for (the "?" mass,
 which may still end up in any cell, outside the window, or nowhere); ``outside_mass`` is the
-mass of the computed distribution outside the window.
+mass of the computed distribution outside the window. With a proven upper bound U on the exact distribution
+(``upper``, :mod:`prodigy.analysis.upper_track`), each cell's upper end is min(U, lower + residual, 1), and
+``upper_source`` says which (:func:`~prodigy.analysis.result.upper_with_source`).
 """
 from __future__ import annotations
 
-import itertools
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence, Tuple, TypeVar
 
 import sympy
 
 from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.result import exact_and_float, sym, tidy, to_sympy, upper_end
+from prodigy.analysis.result import exact_and_float, sym, tidy, to_sympy, upper_with_source
 from prodigy.analysis.streaming import Batcher, Sink
-from prodigy.distribution.coefficient_stream import Waiting, taylor_stream
+from prodigy.distribution.coefficient_stream import Waiting, taylor_window
 
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.distribution import Distribution
@@ -87,45 +88,68 @@ def _cells_by_total_degree(expr: sympy.Expr, x: sympy.Symbol, y: sympy.Symbol, x
     """
     The coefficients of x^i y^j of ``expr`` in the windows as ``(r, c, coefficient)`` with ``i = x_low + c``
     and ``j = y_low + r``, by growing total degree ``r + c`` (the heatmap grows from its corner, #405): the
-    coefficients of x^i are expanded once, lazily (:func:`taylor_stream`, rational functions in y), and each of
-    them is expanded in y as far as the diagonal needs it.
+    coefficients of x^i are expanded once, lazily (:func:`taylor_window`), and each of them is expanded in y as
+    far as the diagonal needs it.
     """
     (x_low, x_high), (y_low, y_high) = x_window, y_window
     cols, rows = x_high - x_low + 1, y_high - y_low + 1
-    in_x = itertools.islice(taylor_stream(expr, x, x_high + 1, incremental=incremental, on_wait=on_wait), x_low, None)
+    in_x = taylor_window(expr, x, y, x_window, y_window, incremental=incremental, on_wait=on_wait)
     in_y: List[Iterator[sympy.Expr]] = []
     for degree in range(rows + cols - 1):
         if degree < cols:
-            in_y.append(itertools.islice(taylor_stream(_next(in_x), y, y_high + 1, incremental=incremental,
-                                                       on_wait=on_wait), y_low, None))
+            in_y.append(_next(in_x))
         for c in range(max(0, degree - rows + 1), min(cols - 1, degree) + 1):
             yield degree - c, c, _next(in_y[c])
 
 
-def _next(stream: Iterator[sympy.Expr]) -> sympy.Expr:
-    """The next coefficient of a stream of :func:`taylor_stream`, which yields as many as asked for."""
+Item = TypeVar("Item")
+
+
+def _next(stream: Iterator[Item]) -> Item:
+    """The next column or coefficient of :func:`taylor_window`, which yields as many as asked for."""
     for value in stream:
         return value
-    raise AssertionError("the Taylor stream ended early")  # pragma: no cover - taylor_stream yields `limit` values
+    raise AssertionError("the Taylor stream ended early")  # pragma: no cover - taylor_window yields the windows
 
 
-def _cell(prob: sympy.Expr, kind: str, residual: sympy.Expr) -> Dict[str, Any]:
+def _cell(prob: sympy.Expr, kind: str, residual: sympy.Expr, upper: Optional[sympy.Expr] = None) -> Dict[str, Any]:
     exact, number = exact_and_float(tidy(prob))
     cell: Dict[str, Any] = {"prob": exact, "p": number}
     if kind == Bound.LOWER and residual != 0:
-        upper, upper_float = exact_and_float(tidy(upper_end(prob, residual)))
-        cell.update({"upper": upper, "upper_p": upper_float})
+        end, source = upper_with_source(prob, residual, upper)
+        upper_exact, upper_float = exact_and_float(tidy(end))
+        cell.update({"upper": upper_exact, "upper_p": upper_float, "upper_source": source})
     return cell
+
+
+def _upper_cells(upper: Optional["Distribution"], x: str, y: str, x_window: Tuple[int, int],
+                 y_window: Tuple[int, int]) -> Dict[Tuple[int, int], sympy.Expr]:
+    """The coefficients ``(r, c) -> U[x = x_low + c, y = y_low + r]`` of a proven upper bound U in the windows,
+    or none if they cannot be computed (the upper ends then come from the residual mass)."""
+    if upper is None:
+        return {}
+    try:
+        expr = to_sympy(upper.marginal(x, y))
+        if expr is None:
+            return {}
+        sx = next((s for s in expr.free_symbols if s.name == x), sympy.Symbol(x))
+        sy = next((s for s in expr.free_symbols if s.name == y), sympy.Symbol(y))
+        return {(r, c): prob for r, c, prob in _cells_by_total_degree(expr, sx, sy, x_window, y_window,
+                                                                     incremental=False)}
+    except Exception:  # pylint: disable=broad-except  # the upper ends are only an addition
+        return {}
 
 
 def joint_grid(dist: "Distribution", x: str, y: str, *, x_window: Optional[Tuple[int, int]] = None,
                y_window: Optional[Tuple[int, int]] = None, kind: str = Bound.EXACT,
-               residual: Any = 0, stream: Optional[Sink] = None) -> Dict[str, Any]:
+               residual: Any = 0, stream: Optional[Sink] = None,
+               upper: Optional["Distribution"] = None) -> Dict[str, Any]:
     """
     The exact coefficients Pr[x = i, y = j] of ``dist`` for the windows (default: the support of a
     finite distribution, else the first :data:`DEFAULT_AXIS` values), as JSON. ``cells[r][c]`` is
     the cell of ``y = y_values[r]`` and ``x = x_values[c]``. With ``stream``, the cells also go there in
-    batches by growing total degree while they are computed (:mod:`prodigy.analysis.streaming`).
+    batches by growing total degree while they are computed (:mod:`prodigy.analysis.streaming`). ``upper`` is a
+    proven upper bound on the exact distribution, if one is known (see the module documentation).
     """
     # pylint: disable=too-many-locals
     variables = sorted(dist.get_variables())
@@ -148,6 +172,8 @@ def joint_grid(dist: "Distribution", x: str, y: str, *, x_window: Optional[Tuple
     check_window([y_low, y_high], y)
 
     residual_expr = sym(residual) if residual is not None else sympy.Integer(0)
+    bounds = _upper_cells(upper if kind == Bound.LOWER and residual_expr != 0 else None, x, y,
+                          (x_low, x_high), (y_low, y_high))
     x_values, y_values = list(range(x_low, x_high + 1)), list(range(y_low, y_high + 1))
     batcher = None
     if stream is not None:
@@ -163,7 +189,7 @@ def joint_grid(dist: "Distribution", x: str, y: str, *, x_window: Optional[Tuple
                                              incremental=stream is not None,
                                              on_wait=None if batcher is None else batcher.flush):
         shown += prob
-        rows[r][c] = _cell(prob, kind, residual_expr)
+        rows[r][c] = _cell(prob, kind, residual_expr, bounds.get((r, c)))
         if batcher is not None:
             batcher.add([r, c, rows[r][c]])
     if batcher is not None:

@@ -2,6 +2,22 @@
 // Plain SVG; colours come from CSS custom properties, so light/dark/high contrast follow.
 import { h, s } from "./dom.js";
 import { PROBABILITY_GUARANTEE, formatNumber, formatValue, probabilityText } from "./format.js";
+import { LOG_DECADES, niceMax, probabilityScale, scaleName, scaleTag } from "./plot-scale.js";
+
+export { LOG_DECADES, niceMax };
+
+/** The view options of a plot when the caller gives none (view-options.js: loadViewOptions). */
+export const DEFAULT_VIEW = Object.freeze({ lambda: 1, colours: "viridis", intervals: "glass", unaccounted: true });
+
+/**
+ * Whether the upper ends of single values are drawn (#452): only when at least one of them has an
+ * upper end of its own (`upper_source` "certificate", #451). Otherwise every upper end is the lower
+ * end plus the same residual mass; drawing it at every value would repeat one number and hide the
+ * distribution, so only the "?" bar shows the residual, and a value's interval appears on hover.
+ */
+export function ownUpperEnds(rows) {
+  return (rows || []).some((row) => row && row.upper_source === "certificate");
+}
 
 let patternCounter = 0;
 
@@ -42,25 +58,12 @@ export function intervalBar({ value, lower, upper, bound }, label) {
     role: "img", "aria-label": label }, ...parts);
 }
 
-export function niceMax(value) {
-  if (!(value > 0)) return 1;
-  const exponent = Math.floor(Math.log10(value));
-  const base = 10 ** exponent;
-  for (const step of [1, 2, 2.5, 5, 10]) {
-    if (value <= step * base) return step * base;
-  }
-  return 10 * base;
-}
-
 const SUPERSCRIPT = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
 
 /** 10^k as text, e.g. "10⁻³" (1 for k = 0). */
 export function powerOfTen(k) {
   return k === 0 ? "1" : `10${String(k).replace(/./g, (c) => SUPERSCRIPT[c])}`;
 }
-
-/** At most this many decades are shown; smaller values get the minimal bar height. */
-export const LOG_DECADES = 12;
 
 /**
  * The decades of a logarithmic axis for the positive values among `values`: the axis runs from
@@ -86,9 +89,12 @@ export function logAxis(values) {
  * bounds, the mass not yet accounted for (hatched). While the coefficients are streamed (#405),
  * `pending` more values are still being computed: their slots are hatched and labelled "computing…".
  * Each value is an interval (#405, format.js: probabilityText): for a lower bound the bar is solid up
- * to the lower end and hatched up to the upper end; for an upper bound it is hatched up to the upper end.
+ * to the lower end, and the part up to the upper end is drawn as glass or outline (`view.intervals`)
+ * for the values with an upper end of their own (ownUpperEnds) and on hover for the others; for an
+ * upper bound the bar is hatched up to the upper end. `view` holds the view options (#452): the scale
+ * (λ, plot-scale.js: probabilityScale), the colour map of the bars and whether the "?" bar is shown.
  */
-export function marginalChart(table, { residual = null, residualExact = null, variable = "x", bound = "exact", width: pixelWidth = 560, scale = "linear", pending = 0 } = {}) {
+export function marginalChart(table, { residual = null, residualExact = null, variable = "x", bound = "exact", width: pixelWidth = 560, view = DEFAULT_VIEW, pending = 0 } = {}) {
   const rows = (table.rows || []).filter((row) => row.p !== null);
   const extras = [];
   if (table.truncated && table.tail_mass_float && table.tail_mass_float > 1e-12) {
@@ -96,19 +102,22 @@ export function marginalChart(table, { residual = null, residualExact = null, va
     extras.push({ kind: "tail", label: `≥${next}`, p: table.tail_mass_float, exact: table.tail_mass,
       title: `${variable} ≥ ${next}: ${formatValue(table.tail_mass, table.tail_mass_float)} (not shown individually)` });
   }
-  if (residual && residual > 0) {
+  if (residual && residual > 0 && view.unaccounted) {
     extras.push({ kind: "residual", label: "?", p: residual, exact: residualExact,
       title: `Not yet accounted for: ${formatValue(residualExact, residual)} — may end up at any value, or never terminate` });
   }
   if (!rows.length && !extras.length && !pending) {
     return h("p", { class: "rv-muted" }, table.rows?.length ? "The probabilities depend on parameters; see the table." : "No values.");
   }
+  const own = ownUpperEnds(rows);
   const bars = [...rows.map((row) => ({ kind: "value", label: String(row.value), p: row.p, exact: row.prob,
     // the upper end of the interval of a lower bound (capped at 1 by the server)
     up: bound === "lower" && Number.isFinite(row.upper_p) && row.upper_p > row.p ? row.upper_p : null,
+    ownUp: row.upper_source === "certificate",
     title: `${variable} = ${row.value}: ${probabilityText(bound, row)}` })),
   ...extras];
-  const tops = bars.map((b) => Math.max(b.p, b.up ?? 0));
+  // the scale reaches the upper ends that are drawn; the others show on hover and may reach above it
+  const tops = bars.map((b) => Math.max(b.p, own && b.ownUp ? b.up ?? 0 : 0));
 
   const width = Math.max(260, Math.round(pixelWidth));
   const height = 168;
@@ -120,27 +129,24 @@ export function marginalChart(table, { residual = null, residualExact = null, va
   const plotH = height - top - bottom;
   const id = `hatch-${++patternCounter}`;
   const labelEvery = Math.max(1, Math.ceil((bars.length + pending) / Math.max(1, Math.floor(plotW / 26))));
-  const axis = scale === "log" ? logAxis([...bars.map((b) => b.p), ...tops]) : null;
-  const max = axis ? 10 ** axis.hi : niceMax(Math.max(0, ...tops));
-  // the fraction of the plot height that a probability fills (log: decades above 10^lo)
-  const fraction = axis
-    ? (p) => (p > 0 ? Math.max(0, Math.min(1, (Math.log10(p) - axis.lo) / (axis.hi - axis.lo))) : 0)
-    : (p) => p / max;
+  const scale = probabilityScale([...bars.map((b) => b.p), ...tops], { lambda: view.lambda, decades: true });
+  const linear = scale.lambda === 1;
+  const max = scale.max > 0 ? scale.max : 1;
+  // the fraction of the plot height that a probability fills
+  const fraction = linear ? (p) => (p > 0 ? Math.min(1, p / max) : 0) : (p) => scale.t(p) ?? 0;
   const y = (p) => top + plotH * (1 - fraction(p));
   const slots = bars.length + pending;
   const slot = plotW / slots;
   const barW = Math.max(2, Math.min(36, slot * 0.72));
 
-  const grid = axis
-    ? axis.ticks.map((k) => s("g", { class: "mc-grid" },
-      s("line", { x1: left, x2: left + plotW, y1: y(10 ** k), y2: y(10 ** k) }),
-      s("text", { x: left + plotW + 6, y: y(10 ** k) + 4 }, powerOfTen(k))))
-    : [0, max / 2, max].map((tick) => s("g", { class: "mc-grid" },
-      s("line", { x1: left, x2: left + plotW, y1: y(tick), y2: y(tick) }),
-      s("text", { x: left + plotW + 6, y: y(tick) + 4 }, formatNumber(tick, 2))));
-  if (axis) {
-    // the axis says that it is logarithmic (not only the toggle above it)
-    grid.push(s("text", { class: "mc-scale", x: left + plotW + 6, y: top + plotH + 4 }, "log"));
+  const tickText = (tick) => (scale.lambda === 0 ? powerOfTen(Math.round(Math.log10(tick))) : formatNumber(tick, 2));
+  // on a scale that is not linear the floor sits on the axis, where the scale's own label is
+  const grid = (linear ? [0, max / 2, max] : scale.ticks.filter((tick) => fraction(tick) > 0)).map((tick) => s("g", { class: "mc-grid" },
+    s("line", { x1: left, x2: left + plotW, y1: y(tick), y2: y(tick) }),
+    s("text", { x: left + plotW + 6, y: y(tick) + 4 }, tickText(tick))));
+  if (!linear) {
+    // the axis says how it is scaled (not only the view options)
+    grid.push(s("text", { class: "mc-scale", x: left + plotW + 6, y: top + plotH + 4 }, scaleTag(scale.lambda)));
   }
 
   const marks = bars.map((bar, index) => {
@@ -150,16 +156,17 @@ export function marginalChart(table, { residual = null, residualExact = null, va
     const showLabel = bar.kind !== "value" || (index % labelEvery === 0 && !crowdedByExtra);
     const kindClass = bar.kind === "value" && (bound === "upper" || bound === "unknown") ? `mc-${bound}` : `mc-${bar.kind}`;
     const hatched = bar.kind === "residual" || (bar.kind === "value" && bound === "upper");
+    const extClass = own && bar.ownUp ? "mc-ext" : "mc-ext mc-ext-hover";
     // data-* keep the bar's own state, so that the analysis card can tween from one chart to the next (motion.js)
     return s("g", { class: `mc-bar ${kindClass}`, "data-key": bar.kind === "value" ? `v${bar.label}` : bar.kind },
       s("title", {}, bar.title),
       s("rect", { x: cx - barW / 2, y: top + plotH - barHeight, width: barW, height: barHeight, rx: Math.min(3, barW / 4),
         fill: hatched ? `url(#${id})` : null, "data-p": bar.p, "data-cx": cx, "data-w": barW }),
-      // the rest of the interval of a lower bound: hatched from the lower to the upper end
-      bar.up !== null && bar.up !== undefined ? s("rect", { class: "mc-ext", x: cx - barW / 2, y: y(bar.up), width: barW,
-        height: Math.max(1, top + plotH - barHeight - y(bar.up)), style: `fill: url(#${id})`, "data-up": bar.up }) : null,
-      // log scale: probability 0 has no bar height at all; an outline on the axis marks it as empty
-      axis && bar.p === 0 ? s("rect", { class: "mc-zero", x: cx - barW / 2, y: top + plotH - 3, width: barW, height: 3 }) : null,
+      // the rest of the interval of a lower bound: glass or outline from the lower to the upper end
+      bar.up !== null && bar.up !== undefined ? s("rect", { class: extClass, x: cx - barW / 2, y: y(bar.up), width: barW,
+        height: Math.max(1, top + plotH - barHeight - y(bar.up)), "data-up": bar.up }) : null,
+      // probability 0 has no bar height at all; on a scale that is not linear an outline on the axis marks it as empty
+      !linear && bar.p === 0 ? s("rect", { class: "mc-zero", x: cx - barW / 2, y: top + plotH - 3, width: barW, height: 3 }) : null,
       showLabel ? s("text", { x: cx, y: height - 6, class: "mc-label" }, bar.label) : null);
   });
 
@@ -183,9 +190,10 @@ export function marginalChart(table, { residual = null, residualExact = null, va
   const summary = `Bar chart of the distribution of ${variable}: ${rows.length} values` +
     (pending > 0 ? `, ${pending} more still being computed` : "") +
     (extras.length ? `, plus ${extras.map((e) => e.kind === "tail" ? "the remaining tail" : "the mass not yet accounted for").join(" and ")}` : "") +
-    (axis ? `, logarithmic scale from ${powerOfTen(axis.lo)} to ${powerOfTen(axis.hi)}` : "") + ".";
+    (linear ? "" : `, ${scaleName(scale.lambda).toLowerCase()} scale from ${formatNumber(scale.min, 2)} to ${formatNumber(max, 2)}`) + ".";
   return s("svg", { class: "marginal-chart", viewBox: `0 0 ${width} ${height}`, width, height, role: "img", "aria-label": summary,
-    "data-variable": variable, "data-max": max, "data-scale": axis ? "log" : "linear", "data-width": width, "data-top": top, "data-plot-h": plotH },
+    "data-variable": variable, "data-max": max, "data-scale": linear ? "linear" : "power", "data-lambda": scale.lambda,
+    "data-colours": view.colours, "data-intervals": view.intervals, "data-width": width, "data-top": top, "data-plot-h": plotH },
     s("defs", {}, ...defs), ...grid, ...pendingMarks, ...marks,
     s("line", { class: "mc-axis", x1: left, x2: left + plotW, y1: top + plotH, y2: top + plotH }));
 }

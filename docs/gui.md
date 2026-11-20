@@ -72,11 +72,37 @@ Prodigy is tested with Python 3.11 and 3.14.
   exactly those of the result; when the result arrives, its chart starts from the streamed one.
   Stopping the analysis stops the streaming.
 
-  The charts have a **Linear / Log** switch; the browser remembers the choice for the probability
-  axis (the heatmap and the 3D view share it). On the log scale the axis is labelled in decades
-  (`1`, `10⁻³`, …) and marked *log*, it spans at most 12 decades (smaller probabilities get the
-  minimal bar), and a probability 0, which has no place on a log axis, is drawn as a dashed
-  outline on the axis. Log charts are not animated. The lens, the choice of variable and view are
+  Next to the view switch, the **View options** toggle (#452) shows or hides an inspector for all
+  plots of a result (bar charts, heatmap, 3D view). It never covers the plot, so every change shows
+  at once next to it: when the figure has at least 1000 px of width, the inspector is a 260 px
+  column to the right of the plot; in a narrower figure it is a section between the toolbar and the
+  plot, which it pushes down (its groups side by side as far as they fit). The button looks
+  pressed while the inspector is open; Escape inside the inspector closes it and returns focus to
+  the button. The browser remembers the choices and whether the inspector is open per viewer, not
+  per analysis. It has three groups:
+
+  * *Scale*: a slider from linear to logarithmic. Every position is the Box-Cox scale
+    t(p) = (p^λ − 1)/λ, normalised between a floor and the largest value: λ = 1 is linear (from 0),
+    λ = ½ the square root, λ → 0 the logarithm (from the smallest value, at most 12 decades below
+    the largest). The floor moves continuously from 0 to that smallest value as λ goes from 1 to 0,
+    so every position is a monotone scale with ticks at their true places. The slider snaps to
+    *Linear*, *√ Root* and *Log* (buttons below it jump there) and names the scale as text, e.g.
+    *Square root (λ = 0.50)*, also for screen readers. On a scale that is not linear the axis is
+    marked (*log*, *√*, *λ 0.30*), smaller probabilities get the minimal bar, and a probability 0
+    is a dashed outline on the axis. Only linear charts are animated.
+  * *Colour*: Viridis (default), Cividis (for colour-vision deficiencies) or Greyscale (for print;
+    there hatching and dashed edges carry every distinction, an empty heatmap cell has a dashed
+    edge). The marginal bars take a tone of the map with at least 4.5:1 against the background.
+  * *Intervals*: *Glass* (a translucent part with dashed edges from the lower to the upper end) or
+    *Outline* (the dashed edges alone; the default when the system asks for reduced transparency
+    or increased contrast), and *Show unaccounted mass (?)*: the hatched "?" bar of the marginal
+    chart and the "?" tower beside the 3D grid, on the same scale as the bars.
+
+  The upper ends of single values are drawn only when at least one value has an upper end of its
+  own (`upper_source: "certificate"`, #451). While every upper end is the lower end plus the same
+  residual mass, drawing it at every bar would repeat one number and hide the distribution: then
+  only the "?" bar shows the residual, and a value's interval appears on hover (bar charts) or for
+  the selected bar (3D view). The lens, the choice of variable and view are
   kept when the program is analysed again; the timeline starts at the final result.
 * **Examples**: the programs in `pgfexamples/` (in `.ppy`), with a suggested setup derived from
   their first line (e.g. `check_equality` examples come with their invariant and open in Compare
@@ -93,9 +119,8 @@ Prodigy is tested with Python 3.11 and 3.14.
   Safari and Firefox cannot write to a folder: Open reads the chosen file, Save downloads the
   program. The program is also kept in the browser, together with the setup (the strategy of each
   loop), so a reload never loses either; replacing a program with unsaved changes (New, Open…, an example) asks first.
-* **Engine** (toolbar, pop-up button before Analyze, #308): SymPy, GiNaC or SymEngine (deprecated in v0.5.0, removed in v0.6.0; choosing it says so, and
-  every result of it carries the warning) for the next
-  run; GiNaC is usually much faster, SymPy is the reference implementation. An engine the server
+* **Engine** (toolbar, pop-up button before Analyze, #308): SymPy or GiNaC for the next run (SymEngine was removed in
+  v0.6.0, #416; a setup kept in the browser that names it falls back to the default engine); GiNaC is usually much faster, SymPy is the reference implementation. An engine the server
   cannot use (GiNaC without `prodigy-ppl-ginac`) is listed as *not installed* and cannot be chosen;
   the tooltip says how to install it. The choice is part of the setup kept in the browser, stays
   across New, Open… and reloads, and changing it marks the shown result as out of date. The
@@ -274,16 +299,18 @@ hatched, and the status line says *Computing… n of m cells*.
 * **Window**: the values *from*–*to* of each axis, at most 50 per axis and up to 1000; *Show
   window* (or Return) computes them. A finite distribution starts with its support (the status
   line names it), an infinite one with the values 0–15.
-* **Heatmap**: one cell per pair of values, coloured on the viridis scale (perceptually uniform,
-  readable with colour-vision deficiencies) by probability; probability 0 is an empty grey cell,
-  a value that depends on parameters is hatched. *Linear / Log* switches the colour scale (the same
-  setting as the bar charts; the log scale spans at most 12 decades and labels both ends). Values never depend on colour
+* **Heatmap**: one cell per pair of values, coloured by probability on the colour map and scale of
+  the *View options* (viridis by default, see the bar charts above); probability 0 is an empty grey
+  cell, a value that depends on parameters is hatched. Both ends of the colour key are labelled. Values never depend on colour
   alone: the line below the heatmap names the selected cell with its probability as an interval
   (`x = 1, y = 2: [1/36, 13/360] ([0.0277777, 0.0361112])` for a lower bound, see *Probabilities as
   intervals* below), large cells print their value, and the table lists all of them. Keyboard: Tab focuses the heatmap, the arrow keys move between cells (↑ is the next
   larger y), Home/End go to the first/last column, Page Up/Page Down to the top/bottom row; the
   pointer selects the cell under it.
-* **3D**: a bar per cell (plain canvas, no library), height and colour by probability; the view fits the bars, so low bars leave no empty space. Pointing at
+* **3D**: a bar per cell (plain canvas, no library), height and colour by probability; the view fits the bars, so low bars leave no empty space.
+  For a lower bound the selected bar carries its interval as a glass or outlined box up to the
+  upper end, and a hatched tower labelled "?" beside the grid is the mass not yet accounted for; a
+  key below the view says both in words, and pointing at the tower shows its value. Pointing at
   a bar (or at the floor of a cell with probability 0) shows a tooltip with the values of both
   variables and the probability, formatted as in the heatmap's line; the bar gets an outline and the
   line below the view repeats the text. Keyboard: Tab focuses the view and shows the tooltip of the
@@ -293,8 +320,8 @@ hatched, and the status line says *Computing… n of m cells*.
 * **Table**: the window as a table, rows y (largest on top) and columns x; hovering a value shows
   its exact form.
 * **Colour key and mass**: two separate, labelled blocks below the heatmap and the 3D view.
-  *Colour: probability of one cell* is the viridis key of a single cell's probability (linear from
-  0, or logarithmic; the heading names the range). The card's *Mass* line, set apart by a rule,
+  *Colour: probability of one cell* is the key of a single cell's probability on the chosen colour
+  map (the heading names the scale and the range). The card's *Mass* line, set apart by a rule,
   adds up the cells: the total mass, the mass in the window, the mass outside it, and for a lower
   bound the hatched "?" mass not yet accounted for, which may still end up in any cell, outside the
   window, or never terminate. For a lower bound every cell is the lower end of an interval whose
@@ -312,8 +339,8 @@ the 3D view's tooltip and the grid table show each probability by its guarantee:
 
 Exact rationals are shown with their decimals; the decimals of an interval are rounded outward (the
 lower end down, the upper end up, 6 significant digits), so the printed interval still contains the
-true value. A bar of a lower bound is solid up to the lower end and hatched up to the upper end; a
-bar of an upper bound is hatched. The guarantee is also stated in words below each chart and table
+true value. A bar of a lower bound is solid up to the lower end; its part up to the upper end is drawn as
+glass or outline (see *View options*); a bar of an upper bound is hatched. The guarantee is also stated in words below each chart and table
 (*Exact probabilities.*, *Bounds: …*), and in the streamed charts while the analysis runs.
 
 Moving along the timeline or playing it redraws the joint view for each position (#289): the pair,
@@ -537,7 +564,7 @@ bound) and for products of such factors over disjoint variables. See
 An invariant that fails its check gets a verdict. *Refuted* means it is provably wrong: a
 counterexample, or Φ(I) − I is a nonzero rational function after exact cancellation.
 *Not proven* means the check could neither prove nor refute it, e.g. for non-rational
-closed forms such as `sin(c)^2 + cos(c)^2 - 1`, which SymPy simplifies to 0 but SymEngine and
+closed forms such as `sin(c)^2 + cos(c)^2 - 1`, which SymPy simplifies to 0 but
 GiNaC cannot, or for a template whose parameters the solver could not determine; such an
 invariant may still be correct. The result JSON carries the verdict as `error.verdict`.
 
@@ -745,8 +772,9 @@ app (foundations: accessibility, colour, typography, layout, writing).
   bounded is hatched — in the interval bar of each query and as the "?" bar of the
   residual mass in the marginal charts and the joint view.
 * Sequential data (the heatmap and the 3D view of a joint distribution) use viridis, a
-  perceptually uniform scale that stays ordered for the common colour-vision deficiencies;
-  numbers printed on a cell are black or white, whichever has the higher contrast.
+  perceptually uniform scale that stays ordered for the common colour-vision deficiencies, or
+  cividis or greyscale from the *View options*; numbers printed on a cell are black or white,
+  whichever has the higher contrast (at least 4.5:1 on every colour of the three maps).
 * System font for interface text (13 px body, macOS scale), monospace for code and exact
   values, KaTeX for closed forms. Controls are at least 28 px high.
 * Long expressions (closed forms, invariants, certificates, printed query values) sit in

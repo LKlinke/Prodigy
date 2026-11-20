@@ -2,7 +2,7 @@
   "description": "Benchmark set for benchmarks/run.py (docs/source/testing.md). Each case runs on every engine.",
   "cases": [
     {"name": "st_petersburg", "program": "pgfexamples/inference/loopy/hard_distributions/non_d_finite/st_petersburg.ppy", "loops": ["0=unroll:iterations=30"], "note": "x = 2 * x: sparse polynomials of degree 2^k (#224, SymPy)"},
-    {"name": "galton_watson_critical", "program": "pgfexamples/inference/loopy/hard_distributions/algebraic/galton_watson_critical.ppy", "loops": ["0=unroll:iterations=15"], "note": "geometric inside a loop (#224, SymEngine)"},
+    {"name": "galton_watson_critical", "program": "pgfexamples/inference/loopy/hard_distributions/algebraic/galton_watson_critical.ppy", "loops": ["0=unroll:iterations=15"], "note": "geometric inside a loop (#224)"},
     {"name": "polya_urn_coins", "program": "pgfexamples/inference/loopy/hard_distributions/d_finite/polya_urn_coins.ppy", "loops": ["0=unroll:iterations=3", "1=unroll:iterations=10"], "note": "nested loops (#224)"},
     {"name": "log_series_coins", "program": "pgfexamples/inference/loopy/hard_distributions/d_finite/log_series_coins.ppy", "loops": ["0=unroll:iterations=15"], "note": "observe after a loop (#224)"},
     {"name": "dnd_handicap", "program": "pgfexamples/inference/loop_free/dnd_handicap.ppy", "note": "loop-free"},
@@ -14,6 +14,7 @@
     {"name": "ky_die_invariant", "program": "pgfexamples/equivalence/loopy/ky_die.ppy", "loops": ["0=invariant:invariant_file=pgfexamples/equivalence/loopy/invariants/ky_die_invariant.ppy"], "note": "invariant check"},
     {"name": "galton_watson_critical_coeffs", "program": "pgfexamples/inference/loopy/hard_distributions/algebraic/galton_watson_critical.ppy", "loops": ["0=unroll:iterations=15"], "coefficients": 100, "note": "100 coefficients of an algebraic result (#348)"},
     {"name": "dnd_handicap_coeffs", "program": "pgfexamples/inference/loop_free/dnd_handicap.ppy", "coefficients": 100, "note": "100 coefficients of a multivariate loop-free result (#348)"},
-    {"name": "poisson_from_coins_coeffs", "program": "pgfexamples/inference/loopy/conditioning/poisson_from_coins.ppy", "loops": ["0=unroll:iterations=5", "1=unroll:iterations=10"], "coefficients": 100, "note": "100 coefficients of an unrolled nested loop with conditioning (#348)"}
+    {"name": "poisson_from_coins_coeffs", "program": "pgfexamples/inference/loopy/conditioning/poisson_from_coins.ppy", "loops": ["0=unroll:iterations=5", "1=unroll:iterations=10"], "coefficients": 100, "note": "100 coefficients of an unrolled nested loop with conditioning (#348)"},
+    {"name": "compound_poisson_binomial_coeffs", "program": "pgfexamples/inference/loop_free/compound_poisson_binomial.ppy", "coefficients": 30, "note": "the GUI's 30 coefficients of exp of a polynomial: the recurrence of F' = g'F instead of a series expansion (#455)"}
   ]
 }

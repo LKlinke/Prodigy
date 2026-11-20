@@ -22,8 +22,7 @@ while (w = 0) { if (a < 2*b) { w := 1 } else { {b := b + 1} [1/2] {w := 2} } }
 ?Ex[b]
 """
 
-ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.SYMENGINE,
-           ForwardAnalysisConfig.Engine.GINAC]
+ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINAC]
 
 
 @pytest.mark.parametrize("engine", ENGINES)

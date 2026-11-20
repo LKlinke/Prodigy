@@ -48,9 +48,13 @@ def test_sandwich_gives_finite_upper_bounds_for_expectations():
 @pytest.mark.slow
 def test_query_bounds_of_the_loop_end_at_the_next_instruction():
     source = (EXAMPLES / "sandwich" / "rw_counter_23.ppy").read_text().replace("query Pr[c >= 20]", "skip;\nquery Pr[c >= 20]")
-    steps = query(analyse(source, "evt_sandwich"), "c")
-    # without the super-invariant's bound, an expectation only has a lower bound
-    assert steps["lower"] is not None and steps["upper"] is None
+    result = analyse(source, "evt_sandwich")
+    steps = query(result, "c")
+    # the loop's own query bounds end at `skip`, but its super-invariant has finite mass and is carried past it
+    # (#451): the expectation keeps an upper bound from the certificate
+    assert result["bounds"]["upper"] is not None
+    assert steps["lower"] is not None and steps["upper"] is not None and steps["upper_source"] == "certificate"
+    assert steps["lower_float"] < 3 < steps["upper_float"]
 
 
 def test_sandwich_rejects_conditioning():

@@ -17,7 +17,7 @@ from prodigy.pgcl import Binop, BinopExpr, VarExpr, parse_pgcl
 from prodigy.pgcl.parser import parse_expr
 
 Engine = ForwardAnalysisConfig.Engine
-ENGINES = [Engine.SYMPY, Engine.SYMENGINE, Engine.GINAC]
+ENGINES = [Engine.SYMPY, Engine.GINAC]
 
 # the example of #398: the filter of y < w is right as a formal power series, but the series diverges at x = 1
 ISSUE = "1/((1 - 2*x)*(2 - y)*(2 - w)) + (x - 1)*x*y*w"
@@ -113,7 +113,7 @@ def test_candidate_checks_keep_their_fast_path(engine):
             dist.checked_marginal("x")
 
 
-@pytest.mark.parametrize("engine", ["SYMPY", "SYMENGINE", "GINAC"])
+@pytest.mark.parametrize("engine", ["SYMPY", "GINAC"])
 def test_analysis_results_with_parameters_are_summarised(engine):
     # the summary of an analysis result evaluates the output at 1 after the analysis; it is a finite measure
     if engine == "GINAC":
@@ -237,7 +237,7 @@ def test_filter_with_fresh_variables_is_proven(engine, monkeypatch):
         factory.from_expr("1/((2 - x)*(2 - y)) + sqrt(4 - x)", "x", "y").filter(parse_expr("x - 1 < 2"))
 
 
-@pytest.mark.parametrize("engine", [Engine.SYMPY, Engine.SYMENGINE])
+@pytest.mark.parametrize("engine", [Engine.SYMPY])
 def test_coefficient_sum_is_proven(engine):
     factory = _factory(engine)
     with pytest.raises(NonFiniteMarginalError, match="The coefficient sum is not proven"):

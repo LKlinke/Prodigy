@@ -3,64 +3,27 @@
 // (POST api/jobs/<id>/joint, prodigy/analysis/joint_grid.py); the browser only draws them.
 //
 // Like result-view.js this needs no GUI module: `load(payload, signal)` fetches a grid.
-// Colours: viridis (perceptually uniform, readable with colour-vision deficiencies). Values are
-// never shown by colour alone: the readout below the heatmap, the tooltips and the table give them.
+// Colours: viridis by default, cividis or greyscale in the view options (#452, view-options.js). Values
+// are never shown by colour alone: the readout below the heatmap, the tooltips and the table give them.
 import { h, s } from "./dom.js";
-import { exactInterval, hatchPattern } from "./charts.js";
+import { DEFAULT_VIEW, exactInterval, hatchPattern, ownUpperEnds } from "./charts.js";
 import { PROBABILITY_GUARANTEE, formatNumber, formatValue, probabilityText } from "./format.js";
+import { COLOUR_MAPS, colourAt, probabilityScale, scaleName, shade, textOn, viridis } from "./plot-scale.js";
+
+export { viridis };
 
 // ---- colour scale ---------------------------------------------------------------------------
 
-const VIRIDIS = ["#440154", "#482878", "#3e4989", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6ece58", "#b5de2b", "#fde725"];
-
-const hex = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
-const toHex = (rgb) => `#${rgb.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("")}`;
-
-/** The viridis colour at t in [0, 1] as #rrggbb. */
-export function viridis(t) {
-  const x = Math.max(0, Math.min(1, t)) * (VIRIDIS.length - 1);
-  const i = Math.min(VIRIDIS.length - 2, Math.floor(x));
-  const [a, b] = [hex(VIRIDIS[i]), hex(VIRIDIS[i + 1])];
-  return toHex(a.map((v, k) => v + (b[k] - v) * (x - i)));
-}
-
-/** Text colour (black or white) with the higher contrast on a viridis background. */
-function onColour(t) {
-  const [r, g, b] = hex(viridis(t)).map((v) => {
-    const c = v / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  });
-  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return (luminance + 0.05) / 0.05 > 1.05 / (luminance + 0.05) ? "#000000" : "#ffffff";
-}
-
-const LOG_DECADES = 12;
-
 /**
- * Maps probabilities to [0, 1]: linear from 0 to the largest value, or logarithmic from the
- * smallest to the largest positive value (at most 12 decades). `t(p)` is null for 0 and for values
- * without a number (parameters), which get no colour. `atLeast` raises the largest value, so that
- * the frames of an animation share one scale (#289).
+ * Maps probabilities to [0, 1] and to colours (plot-scale.js: probabilityScale, colourAt) with the
+ * view options `view` (λ of the scale from linear to logarithmic, the colour map). `t(p)` is null for
+ * 0 and for values without a number (parameters), which get no colour. `atLeast` raises the largest
+ * value, so that the frames of an animation share one scale (#289).
  */
-export function colourScale(values, scale = "linear", atLeast = 0) {
-  const positive = values.filter((p) => Number.isFinite(p) && p > 0);
-  const max = positive.length ? Math.max(atLeast, ...positive) : 0;
-  if (scale === "log" && positive.length) {
-    const hi = Math.log10(max);
-    const lo = Math.max(Math.log10(Math.min(...positive)), hi - LOG_DECADES);
-    const t = (p) => (Number.isFinite(p) && p > 0 ? (hi === lo ? 1 : Math.max(0, Math.min(1, (Math.log10(p) - lo) / (hi - lo)))) : null);
-    // both ends are labelled (#307); whole decades between them, as far as they leave room for the
-    // labels (a tick closer than a third of the scale to an end would overlap its label)
-    const span = Math.max(hi - lo, 1e-9);
-    const ticks = [10 ** lo];
-    for (let k = Math.ceil(lo - 1e-9); k <= Math.floor(hi + 1e-9); k += Math.max(1, Math.ceil((hi - lo) / 4))) {
-      if (k - lo > span * 0.35 && hi - k > span * 0.35) ticks.push(10 ** k);
-    }
-    if (hi > lo) ticks.push(max);
-    return { scale, min: 10 ** lo, max, t, ticks };
-  }
-  const t = (p) => (Number.isFinite(p) && p > 0 && max > 0 ? Math.min(1, p / max) : null);
-  return { scale: "linear", min: 0, max, t, ticks: max > 0 ? [0, max / 2, max] : [0] };
+export function colourScale(values, view = DEFAULT_VIEW, atLeast = 0) {
+  const scale = probabilityScale(values, { lambda: view.lambda, atLeast });
+  const colours = COLOUR_MAPS[view.colours] ? view.colours : "viridis";
+  return { ...scale, colours, colour: (t) => colourAt(colours, t) };
 }
 
 // ---- helpers ----------------------------------------------------------------------------------
@@ -127,18 +90,18 @@ function heatmap(grid, colours, view, readout, width) {
       const cell = grid.cells[r][c];
       const t = colours.t(cell.p);
       const kind = cell.pending ? "pending" : cell.p === null ? "symbolic" : t === null ? "zero" : "value";
-      const fill = { value: viridis(t), symbolic: `url(#${hatch})`, pending: `url(#${hatch}-pending)` }[kind] ?? null;
+      const fill = { value: colours.colour(t), symbolic: `url(#${hatch})`, pending: `url(#${hatch}-pending)` }[kind] ?? null;
       cells.push(s("rect", { class: `jv-cell jv-${kind}`, x: left + c * cw, y: cy(r), width: cw, height: ch,
         fill, "data-r": r, "data-c": c }));
       const number = kind === "value" && cw >= 30 && ch >= 16 ? cellNumber(cell.p) : null;
       if (number) {
-        cells.push(s("text", { class: "jv-cell-text", x: left + c * cw + cw / 2, y: cy(r) + ch / 2 + 4, fill: onColour(t),
+        cells.push(s("text", { class: "jv-cell-text", x: left + c * cw + cw / 2, y: cy(r) + ch / 2 + 4, fill: textOn(colours.colour(t)),
           "aria-hidden": "true" }, number));
       }
     }
   }
   const marker = s("rect", { class: "jv-active", width: cw, height: ch, rx: 2 });
-  const svg = s("svg", { class: "jv-heatmap", viewBox: `0 0 ${svgW} ${svgH}`, width: svgW, height: svgH, "aria-hidden": "true" },
+  const svg = s("svg", { class: "jv-heatmap", "data-colours": colours.colours, viewBox: `0 0 ${svgW} ${svgH}`, width: svgW, height: svgH, "aria-hidden": "true" },
     s("defs", {}, hatchPattern(hatch), hatchPattern(`${hatch}-pending`, "pending")),
     ...cells,
     ...xLabels.map((label, c) => (label === null ? null
@@ -182,10 +145,6 @@ function heatmap(grid, colours, view, readout, width) {
 
 const DEFAULT_CAMERA = { yaw: -35, pitch: 32, zoom: 1 };
 
-function shade(colour, factor) {
-  return toHex(hex(colour).map((v) => v * factor));
-}
-
 /** Whether the point (x, y) lies inside the convex or simple polygon `points` (even-odd rule). */
 function inside(points, x, y) {
   let hit = false;
@@ -196,7 +155,36 @@ function inside(points, x, y) {
   return hit;
 }
 
-function bars3d(grid, colours, view, readout, width) {
+/** `colour` (#rrggbb) with opacity `alpha` as rgba(). */
+function translucent(colour, alpha) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(colour.slice(i, i + 2), 16));
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/** A canvas pattern of diagonal lines, the hatching of the SVG charts (charts.js: hatchPattern). */
+function canvasHatch(ctx, background, line) {
+  const tile = document.createElement("canvas");
+  tile.width = 8;
+  tile.height = 8;
+  const g = tile.getContext("2d");
+  if (!g) return background;
+  g.fillStyle = background;
+  g.fillRect(0, 0, 8, 8);
+  g.strokeStyle = line;
+  g.lineWidth = 2;
+  g.beginPath();
+  for (const [x0, y0, x1, y1] of [[-2, 10, 10, -2], [-2, 2, 2, -2], [6, 10, 10, 6]]) { g.moveTo(x0, y0); g.lineTo(x1, y1); }
+  g.stroke();
+  return ctx.createPattern(tile, "repeat") || background;
+}
+
+/**
+ * The 3D bars of a grid. With a lower bound (#452), the part of a cell's interval above its bar is a
+ * glass or outlined box (`options.intervals`): for the cells with an upper end of their own (charts.js:
+ * ownUpperEnds) always, for the others only while the cell is hovered or selected. The mass not yet
+ * accounted for is one hatched "?" tower beside the grid on the same scale (`options.unaccounted`).
+ */
+function bars3d(grid, colours, view, readout, width, options = DEFAULT_VIEW) {
   const camera = view.camera || (view.camera = { ...DEFAULT_CAMERA });
   const cols = grid.x_values.length;
   const rows = grid.y_values.length;
@@ -204,14 +192,34 @@ function bars3d(grid, colours, view, readout, width) {
   // the window is drawn on a square floor of side SIDE, whatever its numbers of rows and columns
   const SIDE = 10;
   const heightUnits = SIDE * 0.55;
+  // the height of a probability in the scene (above the largest value for the "?" tower), null for none
+  const heightOf = (p) => {
+    const value = colours.height(p);
+    return value === null ? null : Math.max(0.02, value) * heightUnits;
+  };
+  const lower = grid.bound === "lower";
+  const own = lower && ownUpperEnds(grid.cells.flat());
+  const upperOf = (r, c) => {
+    const cell = grid.cells[r][c];
+    return lower && Number.isFinite(cell.upper_p) && Number.isFinite(cell.p) && cell.upper_p > cell.p ? cell.upper_p : null;
+  };
+  const residual = lower && options.unaccounted && grid.residual_mass_float > 0 ? grid.residual_mass_float : null;
+  // the "?" tower stands beside the front right corner of the grid
+  const towerW = Math.max(0.8, cols * 0.08);
+  const towerD = Math.max(0.8, rows * 0.08);
+  const tower = residual === null ? null
+    : { x0: cols + Math.max(0.5, cols * 0.05), y0: 0, z: heightOf(residual) };
+  if (tower) Object.assign(tower, { x1: tower.x0 + towerW, y1: towerD });
   // the tops of the bars, which decide how much room the scene needs above the floor
   const tops = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const t = colours.t(grid.cells[r][c].p);
-      if (t !== null) tops.push({ c, r, z: Math.max(0.02, t) * heightUnits });
+      const z = heightOf(grid.cells[r][c].p);
+      const up = own && grid.cells[r][c].upper_source === "certificate" ? heightOf(upperOf(r, c)) : null;
+      if (z !== null) tops.push({ x0: c, x1: c + 1, y0: r, y1: r + 1, z: Math.max(z, up ?? 0) });
     }
   }
+  if (tower) tops.push({ ...tower, z: tower.z + 0.6 });
   const projection = (cam, scale, cx, cy) => {
     const yaw = (cam.yaw * Math.PI) / 180;
     const pitch = (cam.pitch * Math.PI) / 180;
@@ -231,7 +239,8 @@ function bars3d(grid, colours, view, readout, width) {
       // where the axis labels are
       project(0, -0.2 * rows, 0), project(cols, -0.2 * rows, 0), project(-0.2 * cols, 0, 0), project(-0.2 * cols, rows, 0),
     ];
-    for (const { c, r, z } of tops) points.push(project(c, r, z), project(c + 1, r, z), project(c, r + 1, z), project(c + 1, r + 1, z));
+    for (const { x0, x1, y0, y1, z } of tops) points.push(project(x0, y0, z), project(x1, y0, z), project(x0, y1, z), project(x1, y1, z));
+    if (tower) points.push(project(tower.x1, tower.y0, 0), project(tower.x1, tower.y1, 0));
     const xs = points.map((p) => p.x);
     const ys = points.map((p) => p.y);
     return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
@@ -247,9 +256,11 @@ function bars3d(grid, colours, view, readout, width) {
   const tipWhere = h("span", { class: "jv-tip-where" });
   const tipValue = h("span", { class: "jv-tip-value" });
   const tip = h("div", { class: "jv-tip", "aria-hidden": "true", hidden: true }, tipWhere, tipValue);
-  // what the last drawing put where, for the pointer: per cell its floor and, for a bar, its outline
+  // what the last drawing put where, for the pointer: per cell its floor and, for a bar (and the "?"
+  // tower, kind "tower"), its outline, in the order of drawing
   let shapes = { bars: [], floor: [] };
   let hover = false; // the pointer is over a bar or a floor cell
+  let hoverTower = false; // the pointer is over the "?" tower
   let pinned = false; // the view has the focus (keyboard, click or tap)
   let drag = null;
 
@@ -265,6 +276,8 @@ function bars3d(grid, colours, view, readout, width) {
     const text = style.getPropertyValue("--rv-text-2").trim() || "#6E6E73";
     const strong = style.getPropertyValue("--rv-text").trim() || "#1D1D1F";
     const line = style.getPropertyValue("--jv-floor").trim() || "rgba(128,128,128,0.45)";
+    const boundColour = style.getPropertyValue("--rv-bound").trim() || "#7A3FA8";
+    const surface = style.getPropertyValue("--rv-surface").trim() || "#FFFFFF";
     // fit the scene into the canvas; zoom magnifies around its centre
     const box = extent(camera);
     const fit = Math.min((cssW - 2 * PAD) / (box.x1 - box.x0), (cssH - 2 * PAD) / (box.y1 - box.y0));
@@ -285,7 +298,31 @@ function bars3d(grid, colours, view, readout, width) {
         floor.push({ r, c, points: [project(c, r, 0), project(c + 1, r, 0), project(c + 1, r + 1, 0), project(c, r + 1, 0)] });
       }
     }
-    // bars, the farthest first (painter's algorithm)
+    // a box from z0 to z1 over [x0, x1] × [y0, y1]: its two sides that face the camera and its top
+    const prism = (x0, x1, y0, y1, z0, z1) => {
+      const faces = [
+        [[x0, y0], [x1, y0]], [[x1, y0], [x1, y1]], [[x1, y1], [x0, y1]], [[x0, y1], [x0, y0]],
+      ].map(([[ax, ay], [bx, by]], i) => ({
+        points: [project(ax, ay, z0), project(bx, by, z0), project(bx, by, z1), project(ax, ay, z1)],
+        depth: project((ax + bx) / 2, (ay + by) / 2, 0).depth,
+        factor: i % 2 ? 0.62 : 0.78,
+      })).sort((a, b) => b.depth - a.depth);
+      return { sides: faces.slice(2), top: [project(x0, y0, z1), project(x1, y0, z1), project(x1, y1, z1), project(x0, y1, z1)] };
+    };
+    const inset = 0.12;
+    // the part of a cell's interval above its bar: glass (translucent, dashed edges) or outline (dashed edges)
+    const intervalBox = (r, c, colour) => {
+      const z0 = heightOf(grid.cells[r][c].p) ?? 0;
+      const z1 = heightOf(upperOf(r, c));
+      if (z1 === null || !(z1 > z0)) return;
+      const { sides, top } = prism(c + inset, c + 1 - inset, r + inset, r + 1 - inset, z0, z1);
+      ctx.setLineDash([4, 3]);
+      for (const points of [...sides, { points: top }].map((face) => face.points)) {
+        polygon(points, options.intervals === "glass" ? translucent(colour, 0.28) : null, boundColour, 1.25);
+      }
+      ctx.setLineDash([]);
+    };
+    // bars and the "?" tower, the farthest first (painter's algorithm)
     const list = [];
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -293,39 +330,51 @@ function bars3d(grid, colours, view, readout, width) {
         if (t !== null) list.push({ r, c, t, depth: project(c + 0.5, r + 0.5, 0).depth });
       }
     }
+    if (tower) list.push({ kind: "tower", depth: project((tower.x0 + tower.x1) / 2, (tower.y0 + tower.y1) / 2, 0).depth });
     list.sort((a, b) => b.depth - a.depth);
-    const inset = 0.12;
     const bars = [];
     for (const bar of list) {
-      const z = Math.max(0.02, bar.t) * heightUnits;
-      const [x0, x1, y0, y1] = [bar.c + inset, bar.c + 1 - inset, bar.r + inset, bar.r + 1 - inset];
-      const colour = viridis(bar.t);
-      const faces = [
-        [[x0, y0], [x1, y0]], [[x1, y0], [x1, y1]], [[x1, y1], [x0, y1]], [[x0, y1], [x0, y0]],
-      ].map(([[ax, ay], [bx, by]], i) => ({
-        points: [project(ax, ay, 0), project(bx, by, 0), project(bx, by, z), project(ax, ay, z)],
-        depth: project((ax + bx) / 2, (ay + by) / 2, 0).depth,
-        factor: i % 2 ? 0.62 : 0.78,
-      })).sort((a, b) => b.depth - a.depth);
-      const visible = faces.slice(2);
-      const top = [project(x0, y0, z), project(x1, y0, z), project(x1, y1, z), project(x0, y1, z)];
-      for (const face of visible) polygon(face.points, shade(colour, face.factor), null);
+      if (bar.kind === "tower") {
+        const { sides, top } = prism(tower.x0, tower.x1, tower.y0, tower.y1, 0, tower.z);
+        const hatch = canvasHatch(ctx, surface, boundColour);
+        for (const face of sides) {
+          polygon(face.points, hatch, boundColour);
+          polygon(face.points, `rgba(0, 0, 0, ${face.factor > 0.7 ? 0.06 : 0.14})`, null);
+        }
+        polygon(top, hatch, boundColour);
+        // labelled, so that it is not told apart by its hatching alone
+        const peak = project((tower.x0 + tower.x1) / 2, (tower.y0 + tower.y1) / 2, tower.z);
+        ctx.fillStyle = boundColour;
+        ctx.font = "600 13px -apple-system, BlinkMacSystemFont, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("?", peak.x, peak.y - 6);
+        bars.push({ kind: "tower", polygons: [top, ...sides.map((face) => face.points)] });
+        continue;
+      }
+      const z = heightOf(grid.cells[bar.r][bar.c].p);
+      const colour = colours.colour(bar.t);
+      const { sides, top } = prism(bar.c + inset, bar.c + 1 - inset, bar.r + inset, bar.r + 1 - inset, 0, z);
+      for (const face of sides) polygon(face.points, shade(colour, face.factor), null);
       polygon(top, colour, shade(colour, 0.55));
-      bars.push({ r: bar.r, c: bar.c, polygons: [top, ...visible.map((face) => face.points)] });
+      if (own && grid.cells[bar.r][bar.c].upper_source === "certificate") intervalBox(bar.r, bar.c, colour);
+      bars.push({ r: bar.r, c: bar.c, polygons: [top, ...sides.map((face) => face.points)] });
     }
     shapes = { bars, floor };
     // the active cell: its bar outlined, or its place on the floor for probability 0; drawn after
-    // all bars, so that it shows through bars in front of it
+    // all bars, so that it shows through bars in front of it; with its interval above it
     if (view.active) {
       const [ar, ac] = view.active;
       const bar = bars.find((b) => b.r === ar && b.c === ac);
       ctx.setLineDash([]);
-      if (bar) for (const points of bar.polygons) polygon(points, null, strong, 2);
+      // a halo in the surface colour under the outline keeps it visible on dark bars (greyscale)
+      if (bar) for (const points of bar.polygons) { polygon(points, null, surface, 4); polygon(points, null, strong, 2); }
       else {
         ctx.setLineDash([3, 3]);
         polygon(floor[ar * cols + ac].points, null, strong, 2);
         ctx.setLineDash([]);
       }
+      const t = colours.t(grid.cells[ar][ac].p);
+      if (!(own && grid.cells[ar][ac].upper_source === "certificate")) intervalBox(ar, ac, colours.colour(t ?? 0));
     }
     // axis labels on top, so that bars never hide them
     ctx.fillStyle = text;
@@ -342,16 +391,25 @@ function bars3d(grid, colours, view, readout, width) {
   };
 
   // the tooltip sits above the active bar (or its floor cell), kept inside the canvas
+  // (or above the "?" tower while the pointer is over it)
   function placeTip() {
-    const shown = Boolean(view.active) && !drag?.moved && (hover || pinned);
+    const onTower = hoverTower && !drag?.moved && Boolean(tower);
+    const shown = onTower || (Boolean(view.active) && !drag?.moved && (hover || pinned));
     tip.hidden = !shown;
     if (!shown) return;
-    const [ar, ac] = view.active;
-    const { where, value } = cellParts(grid, ar, ac);
-    tipWhere.textContent = where;
-    tipValue.textContent = value;
-    const bar = shapes.bars.find((b) => b.r === ar && b.c === ac);
-    const points = bar ? bar.polygons.flat() : shapes.floor[ar * cols + ac]?.points || [];
+    let points;
+    if (onTower) {
+      tipWhere.textContent = "? Not yet accounted for";
+      tipValue.textContent = formatValue(grid.residual_mass, grid.residual_mass_float);
+      points = shapes.bars.find((b) => b.kind === "tower")?.polygons.flat() || [];
+    } else {
+      const [ar, ac] = view.active;
+      const { where, value } = cellParts(grid, ar, ac);
+      tipWhere.textContent = where;
+      tipValue.textContent = value;
+      const bar = shapes.bars.find((b) => b.r === ar && b.c === ac);
+      points = bar ? bar.polygons.flat() : shapes.floor[ar * cols + ac]?.points || [];
+    }
     if (!points.length) return;
     const xMid = points.reduce((sum, p) => sum + p.x, 0) / points.length;
     const yTop = Math.min(...points.map((p) => p.y));
@@ -368,13 +426,13 @@ function bars3d(grid, colours, view, readout, width) {
     readout.textContent = cellText(grid, r, c);
     draw();
   };
-  // the cell under a point of the canvas: the frontmost bar, else the floor cell
+  // the cell under a point of the canvas: the frontmost bar (or "tower"), else the floor cell
   const cellAt = (event) => {
     const box = canvas.getBoundingClientRect();
     const [x, y] = [event.clientX - box.left, event.clientY - box.top];
     for (let i = shapes.bars.length - 1; i >= 0; i--) {
       const bar = shapes.bars[i];
-      if (bar.polygons.some((points) => inside(points, x, y))) return [bar.r, bar.c];
+      if (bar.polygons.some((points) => inside(points, x, y))) return bar.kind === "tower" ? "tower" : [bar.r, bar.c];
     }
     const cell = shapes.floor.find((f) => inside(f.points, x, y));
     return cell ? [cell.r, cell.c] : null;
@@ -424,8 +482,9 @@ function bars3d(grid, colours, view, readout, width) {
       return;
     }
     const cell = cellAt(event);
-    hover = Boolean(cell);
-    if (!cell) { placeTip(); return; }
+    hoverTower = cell === "tower";
+    hover = Boolean(cell) && !hoverTower;
+    if (!hover) { placeTip(); return; }
     if (!view.active || cell[0] !== view.active[0] || cell[1] !== view.active[1]) select(...cell);
     else placeTip();
   });
@@ -433,13 +492,13 @@ function bars3d(grid, colours, view, readout, width) {
     // a click without dragging selects the bar under the pointer and focuses the view
     if (drag && !drag.moved) {
       const cell = cellAt(event);
-      if (cell) select(...cell);
+      if (Array.isArray(cell)) select(...cell);
       holder.focus({ preventScroll: true });
     }
     drag = null;
     placeTip();
   });
-  canvas.addEventListener("pointerleave", () => { if (!drag) { hover = false; placeTip(); } });
+  canvas.addEventListener("pointerleave", () => { if (!drag) { hover = false; hoverTower = false; placeTip(); } });
   canvas.addEventListener("wheel", (event) => {
     // pinch on a trackpad (ctrl + wheel) zooms; a plain wheel keeps scrolling the page
     if (!event.ctrlKey && !event.metaKey) return;
@@ -491,23 +550,39 @@ function keyHeading(id, title, detail) {
 const COLOUR_END = { lower: " (the lower end of its interval)", upper: " (the upper end of its interval)" };
 
 function legend(colours, bound) {
-  const stops = Array.from({ length: 11 }, (_, i) => `${viridis(i / 10)} ${i * 10}%`).join(", ");
-  const position = (value) => {
-    if (colours.scale === "log") return colours.max === colours.min ? 100 : ((Math.log10(value) - Math.log10(colours.min)) / (Math.log10(colours.max) - Math.log10(colours.min))) * 100;
-    return colours.max > 0 ? (value / colours.max) * 100 : 0;
-  };
+  const stops = Array.from({ length: 11 }, (_, i) => `${colours.colour(i / 10)} ${i * 10}%`).join(", ");
+  // the position of a tick on the key is its place on the scale (0 has none on a scale with a floor)
+  const position = (value) => (colours.t(value) ?? 0) * 100;
   const id = `jv-legend-${++idCounter}`;
-  const detail = colours.scale === "log"
-    ? ` — logarithmic, from ${formatNumber(colours.min, 2)} to ${formatNumber(colours.max, 2)}`
-    : ` — linear, from 0 to ${formatNumber(colours.max, 2)}`;
+  const detail = colours.max > 0
+    ? ` — ${scaleName(colours.lambda).replace(/^\w/, (c) => c.toLowerCase())}, from ${formatNumber(colours.min, 2)} to ${formatNumber(colours.max, 2)}`
+    : "";
   return h("section", { class: "jv-key-block jv-legend", "aria-labelledby": id },
     keyHeading(id, `Colour: probability of one cell${COLOUR_END[bound] || ""}`, detail),
     h("div", { class: "jv-legend-row" },
-      h("span", { class: "jv-legend-zero" }, h("span", { class: "jv-swatch jv-zero", "aria-hidden": "true" }), "0"),
+      h("span", { class: "jv-legend-zero" }, h("span", { class: "jv-swatch jv-zero", "data-colours": colours.colours, "aria-hidden": "true" }), "0"),
       h("div", { class: "jv-gradient-wrap" },
         h("div", { class: "jv-gradient", style: `background: linear-gradient(to right, ${stops})`, "aria-hidden": "true" }),
         h("div", { class: "jv-gradient-ticks" }, ...colours.ticks.map((tick) => h("span", {
           style: `left: ${Math.max(0, Math.min(100, position(tick)))}%` }, formatNumber(tick, 2)))))));
+}
+
+/**
+ * The key of the 3D view's interval marks (#452), in words: the box above a bar and the "?" tower,
+ * so that neither is told apart by colour or hatching alone.
+ */
+function intervalKey(grid, options) {
+  if (grid.bound !== "lower") return null;
+  const own = ownUpperEnds(grid.cells.flat());
+  const style = options.intervals === "glass" ? "translucent box with dashed edges" : "dashed outline";
+  const items = [h("li", {}, h("span", { class: `jv-key-glyph vo-glyph vo-glyph-${options.intervals}`, "aria-hidden": "true" }),
+    own ? `Upper ends: a ${style} above a bar reaches the upper end of its interval; drawn for the cells with an upper end of their own, for the others on hover or selection.`
+      : `Upper ends: a ${style} above the selected bar reaches the upper end of its interval (its lower end plus the mass not yet accounted for).`)];
+  if (options.unaccounted && grid.residual_mass_float > 0) {
+    items.push(h("li", {}, h("span", { class: "jv-key-glyph vo-glyph vo-glyph-residual", "aria-hidden": "true" }, "?"),
+      `The hatched “?” tower beside the grid: the mass not yet accounted for, ${formatValue(grid.residual_mass, grid.residual_mass_float)}, on the same scale.`));
+  }
+  return h("ul", { class: "jv-interval-key rv-note" }, ...items);
 }
 
 // ---- the section ----------------------------------------------------------------------------------
@@ -532,8 +607,8 @@ export const JOINT_VIEWS = VIEWS;
 /**
  * The joint view of two variables. `load({x, y, x_window, y_window}, signal)` resolves to a grid
  * (prodigy/analysis/joint_grid.py) or rejects with an Error. `view` keeps the choices across
- * re-renders of the result; `view.mode` is one of JOINT_VIEWS. `scale()` is the linear/log choice
- * shared with the bar charts. The switches for the view and the scale belong to the caller (the
+ * re-renders of the result; `view.mode` is one of JOINT_VIEWS. `options()` gives the view options
+ * shared with the bar charts (view-options.js). The switches for the view and the options belong to the caller (the
  * result view has one control row for all its figures), which calls `draw()` after a change.
  * `onGrid(grid | null)` reports each grid shown (null while none is), for the caller's mass line.
  * `refresh()` loads the grid again for the same pair (the analysis card calls it when its timeline
@@ -542,7 +617,7 @@ export const JOINT_VIEWS = VIEWS;
  * pair and the window stay the same, the colour scale keeps the largest value seen so far, so that
  * frames can be compared (#289). Returns {element, draw, refresh}.
  */
-export function jointView({ variables, load, view, maxAxis = 50, scale, onGrid = () => {} }) {
+export function jointView({ variables, load, view, maxAxis = 50, options = () => DEFAULT_VIEW, onGrid = () => {} }) {
   if (!view.x || !variables.includes(view.x)) view.x = variables[0];
   if (!view.y || !variables.includes(view.y) || view.y === view.x) view.y = variables.find((v) => v !== view.x);
 
@@ -576,7 +651,8 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, onGrid =
     const key = peakKey(grid);
     if (view.peak?.key !== key) view.peak = { key, max: 0 };
     view.peak.max = Math.max(view.peak.max, ...values.filter((p) => Number.isFinite(p)));
-    const colours = colourScale(values, scale(), view.peak.max);
+    const chosen = options();
+    const colours = colourScale(values, chosen, view.peak.max);
     const width = body.clientWidth || 560;
     const symbolic = grid.cells.some((row) => row.some((cell) => cell.p === null && !cell.pending));
     // the readout gives the interval of the active cell
@@ -584,13 +660,14 @@ export function jointView({ variables, load, view, maxAxis = 50, scale, onGrid =
     if (symbolic) notes.push("Hatched cells depend on parameters; the table lists them.");
     const parts = [];
     if (view.mode === "heatmap") parts.push(heatmap(grid, colours, view, readout, width), readout);
-    else if (view.mode === "bars") parts.push(bars3d(grid, colours, view, readout, width), readout);
+    else if (view.mode === "bars") parts.push(bars3d(grid, colours, view, readout, width, chosen), readout);
     else parts.push(gridTable(grid));
     if (view.mode !== "table") parts.push(legend(colours, grid.bound));
+    if (view.mode === "bars") parts.push(intervalKey(grid, chosen));
     // the guarantee in words (#405); the readout gives each cell's interval
     if (view.mode !== "table") notes.push(PROBABILITY_GUARANTEE[grid.bound] || PROBABILITY_GUARANTEE.unknown);
     if (notes.length) parts.push(h("p", { class: "rv-note" }, notes.join(" ")));
-    body.replaceChildren(...parts);
+    body.replaceChildren(...parts.filter(Boolean));
   };
 
   const fetchGrid = async (useWindow) => {

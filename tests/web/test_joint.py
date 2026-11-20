@@ -34,7 +34,7 @@ y = binomial(3, 1/2);
 z = bernoulli(1/4);
 """
 
-ENGINES = ["sympy", "ginac", "symengine"]
+ENGINES = ["sympy", "ginac"]
 
 
 def _engine(engine):
@@ -207,14 +207,15 @@ def test_grids_are_pruned_before_analyses():
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
 def test_heatmap_colour_scale(tmp_path):
-    """The colour scale of the heatmap (viridis, colour-blind safe): linear from 0 to the largest
-    value, logarithmic with both ends labelled (#307), no colour for 0 or unknown values."""
+    """The colour scale of the heatmap (viridis, colour-blind safe): linear (λ = 1) from 0 to the
+    largest value, logarithmic (λ = 0, #452) with both ends labelled (#307), no colour for 0 or
+    unknown values."""
     module = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components" / "joint-view.js"
     script = tmp_path / "check.mjs"
     script.write_text(
         f"const j = await import({str(module.as_uri())!r});\n"
-        "const lin = j.colourScale([0, 0.25, 0.5, null], 'linear');\n"
-        "const log = j.colourScale([0.001, 0.1, 0], 'log');\n"
+        "const lin = j.colourScale([0, 0.25, 0.5, null], { lambda: 1, colours: 'viridis' });\n"
+        "const log = j.colourScale([0.001, 0.1, 0], { lambda: 0, colours: 'viridis' });\n"
         "console.log(JSON.stringify([lin.t(0.5), lin.t(0.25), lin.t(0), lin.t(null), log.t(0.1), log.t(0.001),"
         " log.t(0), j.viridis(0), j.viridis(1), log.ticks[0] === log.min, log.ticks.at(-1) === log.max]));\n",
         encoding="utf-8")
@@ -244,3 +245,31 @@ def test_cell_text_of_heatmap_and_3d_view(tmp_path):
         {"where": "x = 0, y = 2", "value": "[1/36, 0.031684] ([0.0277777, 0.031684])"},
         {"where": "x = 1, y = 2", "value": "[0, 1]"},
     ]
+
+
+COMPOUND_POISSON = """x: nat;
+y: nat;
+
+x = poisson(2);
+y = iid(binomial(10,1/2), x);
+"""
+
+
+@pytest.mark.parametrize("engine", ["sympy", "ginac"])
+def test_compound_poisson_coefficients_are_fast(engine):
+    """#455: the marginals and the default grid of a compound Poisson–Binomial distribution, which took longer
+    than the time limit (series expansion of exp of a polynomial), are exact and well within it."""
+    result = run_analysis({"source": COMPOUND_POISSON, "syntax": "ppy", "engine": _engine(engine),
+                           "coefficients": 30})
+    assert result["status"] == "ok"
+    distribution = result["distribution"]
+    rows = distribution["marginals"]["y"]["rows"]
+    assert len(rows) == 30
+    assert [r["prob"] for r in rows[:2]] == ["exp(-1023/512)", "5*exp(-1023/512)/256"]
+    grid = run_joint({**joint_request(result, {"x": "x", "y": "y"}), "engine": engine})
+    assert grid["status"] == "ok"
+    cells = grid["joint"]["cells"]
+    for i, j in [(0, 0), (1, 1), (2, 7), (3, 15)]:
+        expected = sympy.exp(-2) * sympy.Integer(2) ** i / sympy.factorial(i) * sympy.binomial(10 * i, j) \
+            / sympy.Integer(2) ** (10 * i)
+        assert sympy.simplify(sympy.sympify(cells[j][i]["prob"]) - expected) == 0, (i, j)

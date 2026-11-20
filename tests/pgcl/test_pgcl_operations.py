@@ -182,8 +182,7 @@ def test_cav_phi_rejects_empty_program():
 @pytest.mark.parametrize("engine", [
     ForwardAnalysisConfig.Engine.SYMPY,
     ForwardAnalysisConfig.Engine.GINAC,
-    ForwardAnalysisConfig.Engine.SYMENGINE,
-])
+    ])
 @pytest.mark.parametrize("initial", ["x * c^2", "x^3", "1"])
 def test_cav_phi_semantics_match_hand_written_unrolling(engine, initial):
     """Φ(I) and a hand-written unrolling have the same output distribution on concrete inputs."""

@@ -15,7 +15,7 @@
 #
 # What Prodigy proves: with "Unroll" (20 iterations) Pr[red == 1] ∈ [0.693147, 0.693148], which
 # contains ln 2, and Pr[red == 2] ∈ [0.193147, 0.193148]. This takes about 1 s on GiNaC and 15 s on
-# SymPy; SymEngine is much slower (issue #224). Strategies that reason about the whole loop give no
+# SymPy (issue #224). Strategies that reason about the whole loop give no
 # result: red and black take infinitely many values there.
 
 draws: nat;

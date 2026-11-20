@@ -22,7 +22,7 @@ from prodigy.pgcl.parser import parse_expr
 from prodigy.pgcl.ppy_printer import spell
 from prodigy.pgcl.util.ref import Mut
 from prodigy.distribution.convergence import marginal_obstacle
-from prodigy.distribution.equality import decide_equal_strings, sympify_distribution
+from prodigy.distribution.equality import decide_equal_strings, sympify_distribution_string
 from prodigy.distribution.finite_measure import check_input_expression
 from prodigy.distribution.ordering import OrderVerdict, UndecidedComparisonError, dominates_finite, nonneg_verdict
 from prodigy.distribution.algebraic_comparison import filter_difference_algebraic
@@ -253,8 +253,8 @@ Operand = Union["Distribution", str, int, float]
 variables of the first one. Each engine accepts its own distributions and some of the others."""
 
 Value = Union[int, sympy.Expr]
-"""The value of an expression in a state (:meth:`Distribution.evaluate`): an engine's number or expression (SymPy's,
-or SymEngine's, which mypy cannot tell apart, since neither has type information)."""
+"""The value of an expression in a state (:meth:`Distribution.evaluate`): an engine's number (GiNaC's) or a
+SymPy number or expression."""
 
 
 @dataclass
@@ -348,16 +348,16 @@ def _in_programs_terms(error: Exception, names: Dict[str, str]) -> Exception:
     """
     A copy of `error` with the temporary variables of an operator update (`_0`, `sym_1`, `x_2`: engine
     internals) replaced by the operands as the program wrote them (#349). `names` maps temporary to
-    program text; an unknown or unchanged message returns `error` itself.
+    program text, in parentheses unless it is a name or a number (:func:`_with_terms`); an unknown or
+    unchanged message returns `error` itself.
     """
     if not names:
         return error
-    pattern = re.compile(r"\b(" + "|".join(re.escape(name) for name in names) + r")\b")
-    message = pattern.sub(lambda match: names[match.group(1)], str(error))
+    message = _with_terms(str(error), names)
     if message == str(error):
         return error
     if isinstance(error, ComparisonNotImplemented):
-        return ComparisonNotImplemented(pattern.sub(lambda match: names[match.group(1)], error.condition), error.reason)
+        return ComparisonNotImplemented(_with_terms(error.condition, names), error.reason)
     return type(error)(message)
 
 
@@ -444,7 +444,14 @@ class Distribution(ABC):
         The generating function as a SymPy expression, for the shared coefficient-sign checks. Engines whose
         generating function already is a SymPy expression override this hook.
         """
-        return sympify_distribution(self)
+        return sympify_distribution_string(self)
+
+    def _engine_text(self) -> str:
+        """
+        The engine's expression as text that its ``from_expr`` reads back, independent of the printing flags
+        (``str`` of a SymPy generating function is LaTeX while ``latex_output`` is active, #445).
+        """
+        return str(self)
 
     def _require_comparable(self, other: object) -> Distribution:
         if not isinstance(other, Distribution) or type(other) is not type(self):
@@ -1384,7 +1391,7 @@ class Distribution(ABC):
         case split over the states.
         """
         names = [str(var) for var in variables]
-        support = self.factory().from_expr(str(self), *names)
+        support = self.factory().from_expr(self._engine_text(), *names)
         return support if support.is_finite() else None
 
     @abstractmethod

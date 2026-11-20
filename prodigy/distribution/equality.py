@@ -181,14 +181,28 @@ def sympify_symbolic_string(text: Union[str, int, float, sympy.Basic]) -> sympy.
 
 
 def sympify_distribution(dist: Distribution) -> sympy.Expr:
-    """The SymPy expression of a distribution of any engine, see :func:`sympify_engine_string`."""
+    """
+    The SymPy expression of a distribution of any engine: the engine's own expression
+    (``Distribution._series_expression``), so it does not depend on the printing flags (``str`` of a SymPy
+    generating function is LaTeX while ``latex_output`` is active, #445).
+    """
+    expression = dist._series_expression()  # pylint: disable=protected-access
+    # as parsed from the string form before: plain symbols, without the assumptions of the engine's symbols
+    return expression.xreplace({symbol: sympy.Symbol(symbol.name) for symbol in expression.free_symbols})
+
+
+def sympify_distribution_string(dist: Distribution) -> sympy.Expr:
+    """
+    The SymPy expression of a distribution whose engine has no SymPy expression, parsed from its string form,
+    see :func:`sympify_engine_string`. Only for engines whose ``str`` is a plain expression (#445).
+    """
     return sympify_engine_string(str(dist), dist.get_variables() | dist.get_parameters())
 
 
 def decide_equal_strings(lhs: str, rhs: str, names: Iterable[str]) -> Optional[bool]:
     """
     Like :func:`decide_equal` (without ``simplify``) for the string forms of two engine expressions, e.g. of
-    SymEngine or GiNaC. ``names`` are the variables and parameters; they are parsed as plain symbols, so names
+    GiNaC. ``names`` are the variables and parameters; they are parsed as plain symbols, so names
     such as ``E`` or ``S`` keep their meaning. Decimal literals stay floating-point numbers, so expressions
     containing them are never decided different. Unparsable strings give None.
 

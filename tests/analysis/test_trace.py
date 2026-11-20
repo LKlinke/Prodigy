@@ -18,7 +18,7 @@ from prodigy.pgcl.ast.walk import Walk, walk_instrs
 from prodigy.pgcl.positions import span_of
 
 Engine = ForwardAnalysisConfig.Engine
-ENGINES = [Engine.SYMPY, Engine.SYMENGINE, Engine.GINAC]
+ENGINES = [Engine.SYMPY, Engine.GINAC]
 
 PPY = """# a coin is flipped until heads
 x: nat = 1;

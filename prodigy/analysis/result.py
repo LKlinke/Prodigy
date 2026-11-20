@@ -13,7 +13,7 @@ the web GUI, a language server). Its top-level keys::
     input        distribution, engine, normalize, decisions
     distribution closed_form, latex, variables, parameters, finite_support, mass,
                  error_probability, expectations, marginals, display, computed_form, computed_latex
-    bounds       kind, residual_mass, explanation
+    bounds       kind, residual_mass, explanation, upper (closed_form, origin) or null
     distributions variable, depends_on_state, values (probability, infer, function, arguments,
                  closed, closed_form, latex, normalizing_constant, mean, finite_support, table)
     queries      kind, expr, value, lower, upper, bound, line, data, error
@@ -66,6 +66,12 @@ were used for the loops (``bounds.kind``):
   does later (terminate in φ, outside φ, violate an observation, or diverge). No
   termination assumption is involved. Expectations of monotone, non-negative expressions
   get the lower bound only (the upper bound is ∞ while r > 0).
+
+  Where a loop strategy proved an upper bound U on the exact output (the EVT sandwich), U is carried
+  through the rest of the program (:mod:`prodigy.analysis.upper_track`), and each upper end is
+  min(U, μ_N + r, 1). ``upper_source`` (rows of marginal tables and joint grids, queries) says which end it
+  is: ``certificate`` (from U, strictly below μ_N + r) or ``residual`` (μ_N + r, capped at 1).
+  ``bounds.upper`` holds U at the end of the program (``closed_form``, ``origin``), or is ``null``.
 * ``upper``: the computed distribution lies coefficient-wise above μ (Park's lemma); with
   conditioning the violation mass is over-approximated as well, so values are upper bounds.
 * ``unknown``: no guaranteed direction (e.g. lower and upper approximations were mixed,
@@ -122,12 +128,13 @@ If a proposed invariant is not certified, ``status`` is ``error`` and ``error.ve
 from __future__ import annotations
 
 import itertools
+import logging
 import math
 import re
 import time
 import traceback
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Literal, Optional, Tuple, TypeVar
 
 import sympy
 from prodigy.pgcl import (Binop, BinopExpr, BoolType, Expr, NatLitExpr, NatType, RealLitExpr,
@@ -141,6 +148,7 @@ from prodigy.distribution.display import display_form
 from prodigy.distribution.distribution import known_convergent_series
 from prodigy.distribution.equality import sympy_text
 from prodigy.util.integers import unlimited_int_digits
+from prodigy.util.logger import log_setup
 
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.config import ForwardAnalysisConfig
@@ -148,6 +156,13 @@ if TYPE_CHECKING:  # pragma: no cover
     from prodigy.distribution import Distribution
 
 T = TypeVar("T")
+
+logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
+
+UpperSource = Literal["certificate", "residual"]
+"""Where the upper end of an interval comes from: a loop's upper certificate, or the residual mass."""
+CERTIFICATE: UpperSource = "certificate"
+RESIDUAL: UpperSource = "residual"
 
 SCHEMA = "prodigy/analysis-result@1"
 
@@ -360,25 +375,86 @@ def upper_end(prob: Any, residual: Any) -> sympy.Expr:
     return upper
 
 
-def _row(value: int, prob: Any, residual: Any = None, kind: str = Bound.EXACT) -> Dict[str, Any]:
+def upper_with_source(prob: Any, residual: Any, upper: Any = None) -> Tuple[sympy.Expr, UpperSource]:
+    """The upper end of the interval of a coefficient (or event) of a lower bound ``prob`` with residual mass
+    ``residual``, and where it comes from: ``min(U, prob + residual, 1)``, where ``upper`` is the value U of a
+    proven upper bound (:mod:`prodigy.analysis.upper_track`) or ``None``. All three are proven upper bounds of
+    the exact value. U is taken only where it is a finite number that is provably below ``prob + residual``
+    (capped at 1) and not below ``prob`` (which would contradict the bounds: then neither is trusted to be
+    tighter, and the residual end is kept)."""
+    fallback = upper_end(prob, residual)
+    if upper is None:
+        return fallback, RESIDUAL
+    try:
+        value = tidy(sym(upper))
+        if (value.is_number and value.is_real and value.is_finite and bool(value < fallback)
+                and not bool(value < sym(prob))):
+            return value, CERTIFICATE
+        if value.is_number and value.is_real and bool(value < sym(prob)):
+            logger.warning("An upper bound %s lies below the lower bound %s; it is not used.", value, prob)
+    except (TypeError, ValueError, ArithmeticError, sympy.SympifyError):
+        pass  # not comparable (e.g. parameters): the residual end stays
+    return fallback, RESIDUAL
+
+
+def _row(value: int, prob: Any, residual: Any = None, kind: str = Bound.EXACT, upper: Any = None
+         ) -> Dict[str, Any]:
     exact, number = exact_and_float(prob)
     row: Dict[str, Any] = {"value": value, "prob": exact, "p": number}
     if kind == Bound.LOWER and residual is not None:
-        upper, upper_float = exact_and_float(upper_end(prob, residual))
-        row.update({"upper": upper, "upper_p": upper_float})
+        end, source = upper_with_source(prob, residual, upper)
+        upper_exact, upper_float = exact_and_float(end)
+        row.update({"upper": upper_exact, "upper_p": upper_float, "upper_source": source})
     return row
+
+
+MAX_UPPER_VALUE = 2000
+"""The largest value of a variable whose coefficient in a marginal of the upper track is computed; beyond it the
+upper ends come from the residual mass."""
+
+
+class UpperCoefficients:
+    """The coefficients of the marginal of one variable of a proven upper bound (:mod:`prodigy.analysis.upper_track`),
+    computed on demand by series expansion. A coefficient that cannot be computed is ``None``: its cell falls back
+    to the residual mass."""
+
+    def __init__(self, upper: Optional["Distribution"], variable: str, size: int):
+        self._values: List[sympy.Expr] = []
+        self._stream: Optional[Iterator[Any]] = None
+        if upper is None or size <= 0:
+            return
+        try:
+            marginal = upper.marginal(variable)
+            self._stream = marginal_stream(marginal, variable, min(size, MAX_UPPER_VALUE + 1), incremental=False)
+        except Exception:  # pylint: disable=broad-except  # the upper ends are only an addition
+            logger.debug("No coefficients of the upper bound for %s", variable, exc_info=True)
+
+    def get(self, value: int) -> Optional[sympy.Expr]:
+        """The coefficient of ``variable = value``, or ``None``."""
+        while self._stream is not None and len(self._values) <= value:
+            try:
+                self._values.append(tidy(sym(next(self._stream))))
+            except StopIteration:
+                self._stream = None
+            except Exception:  # pylint: disable=broad-except  # the upper ends are only an addition
+                logger.debug("A coefficient of the upper bound failed", exc_info=True)
+                self._stream = None
+        return self._values[value] if 0 <= value < len(self._values) else None
 
 
 def univariate_table(dist: "Distribution", variable: str, limit: int, *,
                      kind: str = Bound.EXACT, residual: Any = 0,
-                     max_finite_terms: int = 2000, stream: Optional[Batcher] = None) -> Dict[str, Any]:
+                     max_finite_terms: int = 2000, stream: Optional[Batcher] = None,
+                     upper: Optional["Distribution"] = None) -> Dict[str, Any]:
     """The first ``limit`` coefficients of the marginal of ``variable``.
 
     Finite marginals are listed completely (up to ``max_finite_terms`` states);
     infinite ones by series expansion around 0 (:func:`~prodigy.distribution.coefficient_stream.marginal_stream`).
     With ``stream``, each row also goes to the batcher as soon as it is computed (#405); the rows are the
-    same."""
+    same. For a lower bound, each row has an upper end (:func:`upper_with_source`), also from ``upper``, a
+    proven upper bound on the exact distribution, if given."""
     marginal = dist.marginal(variable)
+    upper_known = upper is not None and kind == Bound.LOWER
     total, total_float = exact_and_float(_safe(marginal.get_probability_mass))
     rows: List[Dict[str, Any]] = []
     finite = bool(_safe(marginal.is_finite))
@@ -388,17 +464,20 @@ def univariate_table(dist: "Distribution", variable: str, limit: int, *,
         truncated = len(terms) > max_finite_terms
         pairs = sorted(((state[variable], prob) for prob, state in terms[:max_finite_terms]),
                        key=lambda pair: pair[0])
+        bounds = UpperCoefficients(upper if upper_known else None, variable,
+                                   max((int(value) for value, _ in pairs), default=-1) + 1)
         for value, prob in pairs:
             if sym(prob) != 0:
-                rows.append(_row(value, prob, residual, kind))
+                rows.append(_row(value, prob, residual, kind, bounds.get(int(value))))
         if stream is not None:
             for row in rows:
                 stream.add(row)
     else:
         coefficients = marginal_stream(marginal, variable, limit, incremental=stream is not None,
                                        on_wait=None if stream is None else stream.flush)
+        bounds = UpperCoefficients(upper if upper_known else None, variable, limit)
         for value, prob in enumerate(coefficients):
-            row = _row(value, tidy(prob), residual, kind)
+            row = _row(value, tidy(prob), residual, kind, bounds.get(value))
             rows.append(row)
             if stream is not None:
                 stream.add(row)
@@ -463,6 +542,8 @@ class QueryResult:
     lower_float: Optional[float] = None
     upper: Optional[str] = None
     upper_float: Optional[float] = None
+    upper_source: Optional[UpperSource] = None
+    """For a lower bound with an upper end: whether it comes from a certificate or the residual mass."""
     bound: str = Bound.EXACT
     note: str = ""
     data: Dict[str, Any] = field(default_factory=dict)
@@ -483,6 +564,7 @@ class QueryResult:
             "lower_float": self.lower_float,
             "upper": self.upper,
             "upper_float": self.upper_float,
+            "upper_source": self.upper_source,
             "bound": self.bound,
             "note": self.note,
             "line": self.line,
@@ -577,13 +659,32 @@ def tighten_interval(lower: Any, upper: Any, bound: str, known: Tuple[Any, Any])
     return lower, upper, bound
 
 
+def with_upper(known: Optional[Tuple[Any, Any]], upper: Any) -> Optional[Tuple[Any, Any]]:
+    """``known`` bounds of a query (``None``: none) with the upper bound ``upper`` added (``None``: none): both
+    are proven, so the smaller one holds. Undecided comparisons keep the bound known before."""
+    if upper is None:
+        return known
+    if known is None:
+        return None, upper
+    lower, before = known
+    if before is None:
+        return lower, upper
+    try:
+        return lower, upper if bool(sym(upper) < sym(before)) else before
+    except TypeError:
+        return known
+
+
 def finish_query(session: "AnalysisSession", query: QueryResult, *, monotone: bool,
                  probability: bool, known: Optional[Tuple[Any, Any]] = None) -> QueryResult:
     """Fills value_float and the interval of ``query`` from the session's bound state, intersected
-    with ``known`` bounds (e.g. from the strategy of the loop right before the query)."""
+    with ``known`` bounds (e.g. from the strategy of the loop right before the query, or from the upper track,
+    :mod:`prodigy.analysis.upper_track`). ``upper_source`` says whether the upper end of a lower bound is one of
+    them (``certificate``) or the residual end (``residual``)."""
     query.value, query.value_float = exact_and_float(query.value)
     lower, upper, bound, note = make_interval(query.value, session.bound_kind, session.residual,
                                               monotone=monotone, probability=probability)
+    residual_upper = upper
     if known is not None and monotone:
         lower, upper, bound = tighten_interval(lower, upper, bound, known)
         if bound == Bound.LOWER and lower is not None:
@@ -594,6 +695,8 @@ def finish_query(session: "AnalysisSession", query: QueryResult, *, monotone: bo
     query.lower, query.lower_float = exact_and_float(lower)
     query.upper, query.upper_float = exact_and_float(upper)
     query.bound = bound
+    if bound == Bound.LOWER and upper is not None:
+        query.upper_source = RESIDUAL if residual_upper is not None and upper is residual_upper else CERTIFICATE
     if note and not query.note:
         query.note = note
     return query
@@ -605,7 +708,8 @@ def finish_query(session: "AnalysisSession", query: QueryResult, *, monotone: bo
 
 def describe_distribution(dist: "Distribution", *, limit: int, kind: str = Bound.EXACT,
                           residual: Any = 0, expectations: bool = True,
-                          stream: Optional[Sink] = None, simplify: bool = False) -> Dict[str, Any]:
+                          stream: Optional[Sink] = None, simplify: bool = False,
+                          upper: Optional["Distribution"] = None) -> Dict[str, Any]:
     """The JSON summary of an output distribution; with ``stream``, the coefficients of the marginals also
     go to ``stream`` in batches while they are computed (:mod:`prodigy.analysis.streaming`).
 
@@ -643,7 +747,8 @@ def describe_distribution(dist: "Distribution", *, limit: int, kind: str = Bound
             batcher = None if stream is None else Batcher(stream, "rows", {"kind": "coefficients",
                                                                              "variable": variable})
             try:
-                table = univariate_table(dist, variable, limit, kind=kind, residual=residual, stream=batcher)
+                table = univariate_table(dist, variable, limit, kind=kind, residual=residual, stream=batcher,
+                                         upper=upper)
                 summary["marginals"][variable] = table
                 if batcher is not None:
                     batcher.flush(done=True, finite_support=table["finite_support"])
@@ -663,13 +768,15 @@ def describe_distribution(dist: "Distribution", *, limit: int, kind: str = Bound
     return summary
 
 
-def bounds_explanation(kind: str, residual: Optional[str]) -> str:
+def bounds_explanation(kind: str, residual: Optional[str], upper: bool = False) -> str:
     if kind == Bound.EXACT:
         return "Exact: every loop was handled by a certified method or terminated during unrolling."
     if kind == Bound.LOWER:
         return ("Lower bound: the result lies coefficient-wise below the exact distribution; "
                 f"at most {residual} probability mass is unaccounted for. "
-                "No termination assumption is involved.")
+                "No termination assumption is involved."
+                + (" A proven upper bound per state (from a loop's certificate) tightens the upper ends."
+                   if upper else ""))
     if kind == Bound.UPPER:
         return ("Upper bound: the result lies coefficient-wise above the exact distribution "
                 "(Park's lemma). It is exact if the loops terminate almost surely.")
@@ -688,6 +795,7 @@ def failure_bounds(status: str) -> Dict[str, Any]:
         "residual_mass": None,
         "residual_mass_float": None,
         "explanation": f"No guarantee: the analysis did not finish (status '{status}').",
+        "upper": None,
     }
 
 
@@ -868,18 +976,22 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
             final, error_prob = compute_discrete_distribution(program, dist, config)
             analysis_time = time.perf_counter() - analysis_start
             residual, residual_float = exact_and_float(session.residual)
+            track = session.upper
             result.bounds = {
                 "kind": session.bound_kind,
                 "residual_mass": residual,
                 "residual_mass_float": residual_float,
-                "explanation": bounds_explanation(session.bound_kind, residual),
+                "explanation": bounds_explanation(session.bound_kind, residual, track is not None),
+                "upper": None if track is None else {"closed_form": str(track.distribution),
+                                                     "origin": track.origin},
             }
             summary_start = time.perf_counter()
             stream = session.progress_callback if session.stream_coefficients else None
             result.distribution = describe_distribution(final, limit=session.coefficient_limit,
                                                         kind=session.bound_kind,
                                                         residual=session.residual, stream=stream,
-                                                        simplify=config.use_simplification)
+                                                        simplify=config.use_simplification,
+                                                        upper=session.upper_distribution)
             if session.dist_values:
                 # pylint: disable=import-outside-toplevel
                 from prodigy.analysis.nested_inference import dist_values_json
@@ -937,10 +1049,10 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
 
 
 def _deprecation_warnings(session: Any) -> List[str]:
-    """The deprecations of a ``.pgcl`` program and of the SymEngine engine (:mod:`prodigy.analysis.deprecations`)."""
+    """The deprecation of a ``.pgcl`` program (:mod:`prodigy.analysis.deprecations`)."""
     if session.program is None or session.silent:
         return []
-    return deprecation_warnings(session.syntax, session.config.engine.name)
+    return deprecation_warnings(session.syntax)
 
 
 def _language_warnings(session: Any) -> List[str]:

@@ -13,7 +13,7 @@ from prodigy.pgcl.converter import convert_pgcl
 from prodigy.pgcl.ppy_parser import parse_ppy
 from prodigy.pgcl.ppy_printer import instr_to_ppy
 
-ENGINES = ["SYMPY", "GINAC", "SYMENGINE"]
+ENGINES = ["SYMPY", "GINAC"]
 R = sympy.Rational
 
 

@@ -207,6 +207,13 @@ class LoopOutcome:
     ``query_bounds``, if the strategy knows them anyway (e.g. from its certificate). They must be
     exactly what evaluating the query on ``distribution`` gives; the query handler then skips that
     evaluation, which can be expensive for large closed forms."""
+    upper: Optional["Distribution"] = None
+    """A proven coefficient-wise upper bound on the loop's exact output for the incoming ``distribution``
+    (e.g. ``[not guard]·I`` for an EVT super-invariant I, Park induction), or ``None``. A strategy sets it only
+    for a power series with non-negative coefficients and finite mass, and only if the loop adds no violation
+    mass (``error_prob`` is the incoming one). The session carries it through the rest of the program as a
+    second track (:mod:`prodigy.analysis.upper_track`) if the incoming distribution is exact; it tightens the
+    upper ends of the coefficients and queries that ``residual`` alone gives."""
 
 
 @dataclass

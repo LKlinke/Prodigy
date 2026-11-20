@@ -24,8 +24,8 @@ from prodigy.pgcl.syntax_errors import ProgramSyntaxError
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.deprecations import deprecation_warnings
-from prodigy.analysis.exceptions import (HeuristicsError, InvalidProbabilityError, UndefinedDistributionError,
-                                         UnsupportedFeatureError, VerificationError)
+from prodigy.analysis.exceptions import (ConfigurationError, HeuristicsError, InvalidProbabilityError,
+                                         UndefinedDistributionError, UnsupportedFeatureError, VerificationError)
 from prodigy.analysis.equivalence.verdict import Comparison, compare, show_valuation
 from prodigy.analysis.input_distribution import InputDistributionError, input_distribution_from_text
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
@@ -106,11 +106,13 @@ def cli(ctx: click.Context,
     synthesis_strategy = SynthesisStrategies.__members__[strategy.upper()]
     if synthesis_strategy != SynthesisStrategies.FROM_HEURISTICS and (template_heuristic or pos_heuristic):
         raise click.UsageError("--template-heuristic and --pos-heuristic only apply to --strategy from_heuristics.")
+    try:
+        engine_choice = ForwardAnalysisConfig.Engine.from_name(engine)
+    except ConfigurationError as exc:
+        raise click.BadParameter(str(exc), param_hint="--engine") from exc
     ctx.obj['CONFIG'] = \
         ForwardAnalysisConfig(
-            engine=ForwardAnalysisConfig.Engine.GINAC if engine == 'ginac'
-            else ForwardAnalysisConfig.Engine.SYMENGINE if engine == 'symengine' else
-            ForwardAnalysisConfig.Engine.SYMPY,
+            engine=engine_choice,
             show_intermediate_steps=intermediate_results,
             step_wise=stepwise,
             use_simplification=not no_simplification,
@@ -186,12 +188,11 @@ def _require_type_correct(program_file: IO, program: Program, source: str, synta
 
 
 def _warn_deprecated(syntax: str) -> None:
-    """Prints the deprecation warnings (``.pgcl``, SymEngine) on stderr, once per run, so that ``--json`` stays
-    clean (#432, #416). ``prodigy analyze`` reports them in the ``warnings`` of its result instead."""
+    """Prints the deprecation warnings (``.pgcl``) on stderr, once per run, so that ``--json`` stays clean
+    (#432). ``prodigy analyze`` reports them in the ``warnings`` of its result instead."""
     ctx = click.get_current_context()
-    config: ForwardAnalysisConfig = ctx.obj['CONFIG']
     shown: Set[str] = ctx.meta.setdefault("prodigy.deprecations_shown", set())
-    for warning in deprecation_warnings(syntax, config.engine.name):
+    for warning in deprecation_warnings(syntax):
         if warning not in shown:
             shown.add(warning)
             print(f"{Style.YELLOW}Deprecated:{Style.RESET} {warning}", file=sys.stderr)
@@ -657,6 +658,9 @@ def _print_summary(result: Dict[str, Any]) -> None:  # the JSON result, see prod
     bounds = result.get("bounds") or {}
     if bounds and status == "ok":
         print(f"{Style.OKBLUE}Guarantee:{Style.RESET}\t{bounds.get('explanation', bounds.get('kind'))}")
+        if bounds.get("upper"):
+            print(f"{Style.OKBLUE}Upper bound per state:{Style.RESET}\tproven by the certificate of "
+                  f"{bounds['upper']['origin']}")
     for query in result.get("queries", []):
         where = f"line {query['line']}: " if query.get("line") else ""
         if query.get("error"):
@@ -672,7 +676,8 @@ def _print_summary(result: Dict[str, Any]) -> None:  # the JSON result, see prod
                 low = _format_value(query["lower"], query["lower_float"]) if query["lower"] is not None else "?"
                 high = _format_value(query["upper"], query["upper_float"]) if query["upper"] is not None else "∞" \
                     if query["bound"] == "lower" else "?"
-                interval = f"\t∈ [{low}, {high}]  ({query['bound']})"
+                source = "; upper end from the certificate" if query.get("upper_source") == "certificate" else ""
+                interval = f"\t∈ [{low}, {high}]  ({query['bound']}{source})"
             print(f"  {where}{label} = {value}{interval}")
         elif query["kind"] == "marginal":
             print(f"  {where}marginal of {query['expr']}: {query['value']}")

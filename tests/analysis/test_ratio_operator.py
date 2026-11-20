@@ -30,7 +30,6 @@ except ImportError:  # pragma: no cover - prodigy_ginac has no wheel for this pl
 
 ENGINES = [
     pytest.param(ForwardAnalysisConfig.Engine.SYMPY, id="SymPy"),
-    pytest.param(ForwardAnalysisConfig.Engine.SYMENGINE, id="SymEngine"),
     pytest.param(ForwardAnalysisConfig.Engine.GINAC, id="GiNaC",
                  marks=pytest.mark.skipif(not HAS_GINAC, reason="prodigy_ginac is not installed")),
 ]
@@ -152,14 +151,12 @@ def _check_on_every_input(guard: str, engine):
     return check_equivalence(program, program, ForwardAnalysisConfig(engine=engine), compute_semantics)
 
 
-@pytest.mark.slow
 @pytest.mark.parametrize("engine", ENGINES)
 def test_guarded_ratio_on_every_input_is_well_formed(engine):
     # on the second-order generating function (infinite mass) the guard makes the part n = 0 or x > n the zero series
     assert _check_on_every_input("n > 0 & x <= n", engine) == (True, [])
 
 
-@pytest.mark.slow
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("guard, message", [
     pytest.param("true", "is undefined in the state n = 0, x = 0: 0 / 0 has no value", id="unguarded"),

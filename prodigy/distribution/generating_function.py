@@ -1355,6 +1355,9 @@ class GeneratingFunction(Distribution):
         logger.debug("Isn't it weird to divide Distributions?")
         return self._arithmetic(other, operator.truediv)
 
+    def _engine_text(self) -> str:
+        return sympy_text(self._function)
+
     def __str__(self) -> str:
         if GeneratingFunction.settings().latex_output:
             return sympy.latex(self._function)
