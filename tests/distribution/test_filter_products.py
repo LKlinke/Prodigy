@@ -13,7 +13,7 @@ from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.fast_generating_function import FPS
 from prodigy.distribution.generating_function import GeneratingFunction
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 ENGINES = [GeneratingFunction, FPS]
 X, Y = sympy.Symbol('x'), sympy.Symbol('y')
@@ -24,7 +24,7 @@ GUARDS = [
     ("x <= 5", lambda x: x <= 5),
     ("x > 5", lambda x: x > 5),
     ("x >= 6", lambda x: x >= 6),
-    ("x = 6", lambda x: x == 6),
+    ("x == 6", lambda x: x == 6),
     ("5 < x", lambda x: x > 5),
 ]
 
@@ -37,7 +37,7 @@ def _to_sympy(text: str, symbols: dict) -> sympy.Expr:
 @pytest.mark.parametrize('guard,holds', GUARDS)
 def test_filter_product_of_polynomials(engine, guard, holds):
     # GiNaC does not truncate the series of this product at x^6
-    result = sympy.expand(_to_sympy(str(engine('1/4*(1+x*y)*(1+x^5)', 'x', 'y').filter(parse_expr(guard))),
+    result = sympy.expand(_to_sympy(str(engine('1/4*(1+x*y)*(1+x^5)', 'x', 'y').filter(parse_ppy_expr(guard))),
                                     {'x': X, 'y': Y}))
     terms = [(0, 0), (1, 1), (5, 0), (6, 1)]
     assert result == sum((sympy.Rational(1, 4) * X**x * Y**y for x, y in terms if holds(x)), sympy.Integer(0))
@@ -47,7 +47,7 @@ def test_filter_product_of_polynomials(engine, guard, holds):
 def test_parameters_survive_filter_and_division(engine):
     # exhaustive search and division used to register the parameter p as a variable on GiNaC
     distribution = engine('p*x*y + (1-p)', 'x', 'y').set_parameters('p')
-    filtered = distribution.filter(parse_expr('x*y = 1'))
+    filtered = distribution.filter(parse_ppy_expr("x * y == 1"))
     symbols = {'x': X, 'y': Y, 'p': sympy.Symbol('p')}
     assert sympy.simplify(_to_sympy(str(filtered + distribution), symbols) - (2 * symbols['p'] * X * Y + 1 - symbols['p'])) == 0
     normalized = filtered / engine('p', 'x', 'y').set_parameters('p')

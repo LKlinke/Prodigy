@@ -17,7 +17,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.fast_generating_function import FPS
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.distribution.rational_series import rational_taylor_coefficients
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 ENGINES = [GeneratingFunction, FPS]
 X, Y, P = sympy.symbols('x y p')
@@ -77,8 +77,8 @@ GUARDS = [
     ("x < 10", lambda x: x < 10),
     ("x < 100", lambda x: x < 100),
     ("x <= 3", lambda x: x <= 3),
-    ("x = 5", lambda x: x == 5),
-    ("x = 50", lambda x: x == 50),
+    ("x == 5", lambda x: x == 5),
+    ("x == 50", lambda x: x == 50),
     ("x > 2", lambda x: x > 2),
     ("x >= 12", lambda x: x >= 12),
     ("x < 0", lambda x: x < 0),
@@ -91,7 +91,7 @@ GUARDS = [
 def test_filter_finite_closed_form(engine, name, make, support, guard, holds):
     del name
     with _time_limit(TIME_LIMIT):
-        result = _to_sympy(str(make(engine).filter(parse_expr(guard))))
+        result = _to_sympy(str(make(engine).filter(parse_ppy_expr(guard))))
     expected = sum((sympy.Rational(prob.numerator, prob.denominator) * X ** x * Y ** y
                     for (x, y), prob in support.items() if holds(x)), sympy.Integer(0))
     assert sympy.cancel(result - expected) == 0
@@ -100,7 +100,7 @@ def test_filter_finite_closed_form(engine, name, make, support, guard, holds):
 @pytest.mark.parametrize('engine', ENGINES)
 def test_probability_of_closed_form(engine):
     with _time_limit(TIME_LIMIT):
-        probability = engine('(x^4-1)/(4*(x-1))', 'x').get_probability_of(parse_expr('x = 2'))
+        probability = engine('(x^4-1)/(4*(x-1))', 'x').get_probability_of(parse_ppy_expr("x == 2"))
     assert sympy.nsimplify(str(probability)) == sympy.Rational(1, 4)
 
 

@@ -11,7 +11,7 @@ import sympy
 
 from prodigy.distribution.equality import decide_equal
 from prodigy.distribution.generating_function import SympyPGF
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 
 def _ginac_factory():
@@ -64,6 +64,6 @@ def test_exhaustive_filter_keeps_sum_coefficients_together(factory):
     # the filter rebuilds the polynomial from (probability, state) pairs: a probability `1/2 - p/2` must stay a
     # factor of its monomial (GiNaC wrote `1/2-1/2*p * x^2`)
     dist = factory().from_expr("p*x + (1-p)/2*x^2 + (1-p)/2", "x")
-    filtered = dist._exhaustive_search(parse_expr("not (x = 1)"))  # pylint: disable=protected-access
+    filtered = dist._exhaustive_search(parse_ppy_expr("not x == 1"))  # pylint: disable=protected-access
     expected = sympy.sympify("(1-p)/2*x**2 + (1-p)/2")
     assert decide_equal(_symbolic(filtered), expected) is True, str(filtered)

@@ -12,7 +12,7 @@ import sympy
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution import NonFiniteMarginalError
 from prodigy.distribution.independent_comparison import ComparisonNotImplemented
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 Engine = ForwardAnalysisConfig.Engine
 ENGINES = [Engine.SYMPY, Engine.GINAC]
@@ -39,13 +39,13 @@ FUNCTIONS = [
 GUARDS = [
     ("x < n", lambda i, j: i < j),
     ("x <= n + 1", lambda i, j: i <= j + 1),
-    ("x = n", lambda i, j: i == j),
-    ("n + 2 = x", lambda i, j: i == j + 2),
+    ("x == n", lambda i, j: i == j),
+    ("n + 2 == x", lambda i, j: i == j + 2),
     ("x > n", lambda i, j: i > j),
     ("x >= n + 2", lambda i, j: i >= j + 2),
     ("n < x + 1", lambda i, j: j < i + 1),
     ("not (x < n)", lambda i, j: not i < j),
-    ("x > 0 & x < n", lambda i, j: 0 < i < j),
+    ("x > 0 and x < n", lambda i, j: 0 < i < j),
 ]
 
 
@@ -75,7 +75,7 @@ def test_filter_coefficients(engine, function, variables, guard, holds):
     config = _config(engine)
     with config.activate():
         dist = config.factory.from_expr(function, *variables)
-        filtered = dist.filter(parse_expr(guard))
+        filtered = dist.filter(parse_ppy_expr(guard))
     full = _terms(sympy.sympify(function.replace("^", "**")), variables)
     expected = {m: c for m, c in full.items() if holds(m[0], m[1])}
     assert _terms(_sympy(filtered), variables) == expected
@@ -88,7 +88,7 @@ def test_monus_coefficients(engine, function, variables):
     config = _config(engine)
     with config.activate():
         dist = config.factory.from_expr(function, *variables, "z")
-        result = dist.update(parse_expr("z = n - x"))
+        result = dist.update(parse_ppy_expr("z == n - x"))
     full = _terms(sympy.sympify(function.replace("^", "**")), variables)
     expected: dict = {}
     for monomial, coefficient in full.items():
@@ -108,7 +108,7 @@ def test_closed_form_on_the_second_order_distribution(engine):
     config = _config(engine)
     with config.activate():
         dist = config.factory.from_expr("1/((1 - x)*(1 - n))", "x", "n")
-        below = dist.filter(parse_expr("x < n"))
+        below = dist.filter(parse_ppy_expr("x < n"))
     assert sympy.simplify(_sympy(below) - n / ((1 - n) * (1 - x * n))) == 0
 
 
@@ -120,7 +120,7 @@ def test_unproven_branch_stays_not_implemented(engine):
     with config.activate():
         dist = config.factory.from_expr("1/(1 - x - n)", "x", "n")
         with pytest.raises(ComparisonNotImplemented, match="branch"):
-            dist.filter(parse_expr("x < n"))
+            dist.filter(parse_ppy_expr("x < n"))
 
 
 @pytest.mark.parametrize("engine", ENGINES)
@@ -131,4 +131,4 @@ def test_other_guards_still_need_a_finite_measure(engine):
     with config.activate():
         dist = config.factory.from_expr("1/((1 - x)*(1 - n))", "x", "n")
         with pytest.raises(NonFiniteMarginalError, match="not a finite measure"):
-            dist.filter(parse_expr("x < 2*n"))
+            dist.filter(parse_ppy_expr("x < 2 * n"))

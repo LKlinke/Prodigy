@@ -9,7 +9,7 @@ import sympy
 
 from prodigy.distribution import known_convergent_series
 from prodigy.distribution.generating_function import SympyPGF
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 
 def _ginac_factory():
@@ -38,23 +38,23 @@ def test_modulo_with_parameter_agrees_between_engines(modulus, remainder):
     sections = []
     for factory in FACTORIES:
         dist = factory.values[0]().from_expr("p/(1 - (1 - p)*x)", "x")
-        sections.append(_expr(dist.filter(parse_expr(f"x % {modulus} = {remainder}"))))
+        sections.append(_expr(dist.filter(parse_ppy_expr(f"x % {modulus} == {remainder}"))))
     assert _same(sections[0], sections[1])
 
 
 @pytest.mark.parametrize("factory", FACTORIES)
 def test_odd_part_of_a_doubled_poisson_is_zero(factory):
-    doubled = factory().from_expr("exp(3*(x - 1))", "x").update(parse_expr("x = x + x"))
-    odd = doubled.filter(parse_expr("x % 2 = 1"))
+    doubled = factory().from_expr("exp(3*(x - 1))", "x").update(parse_ppy_expr("x == x + x"))
+    odd = doubled.filter(parse_ppy_expr("x % 2 == 1"))
     with known_convergent_series(True):
         assert sympy.simplify(sympy.sympify(str(odd.get_probability_mass()).replace("^", "**"))) == 0
-    even = doubled.filter(parse_expr("x % 2 = 0"))
+    even = doubled.filter(parse_ppy_expr("x % 2 == 0"))
     assert _same(_expr(even), _expr(doubled))
 
 
 @pytest.mark.parametrize("factory", FACTORIES)
 def test_laurent_terms_after_a_subtraction_stay_unexpanded(factory):
-    dist = factory().from_expr("(exp(2*x - 2) - exp(-2))/(2 - y)", "x", "y").update(parse_expr("x = x - 1"))
+    dist = factory().from_expr("(exp(2*x - 2) - exp(-2))/(2 - y)", "x", "y").update(parse_ppy_expr("x == x - 1"))
     expression = _expr(dist)
     assert _same(expression, sympy.sympify("(exp(2*x - 2) - exp(-2))/((2 - y)*x)"))
     # a pole at 0 of the factor 1/x, not expanded into a sum of terms

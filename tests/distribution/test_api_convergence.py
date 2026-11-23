@@ -14,7 +14,7 @@ from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution import NonFiniteMarginalError, known_convergent_series
 from prodigy.distribution.distribution import MarginalType
 from prodigy.pgcl import Binop, BinopExpr, VarExpr, parse_pgcl
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 Engine = ForwardAnalysisConfig.Engine
 ENGINES = [Engine.SYMPY, Engine.GINAC]
@@ -160,7 +160,7 @@ DIVERGENT = "1/((1 - 2*x)*(2 - y))"
 
 
 def _iid(text):
-    call = parse_expr(text)
+    call = parse_ppy_expr(text)
     sampled, count = call.params[0]
     return sampled, count
 
@@ -203,7 +203,7 @@ def test_update_iid_is_proven(engine):
 
 
 def _assignment(variable, rhs):
-    return BinopExpr(Binop.EQ, VarExpr(variable), parse_expr(rhs))
+    return BinopExpr(Binop.EQ, VarExpr(variable), parse_ppy_expr(rhs))
 
 
 @pytest.mark.parametrize("engine", ENGINES)
@@ -230,7 +230,7 @@ def test_filter_with_fresh_variables_is_proven(engine, monkeypatch):
     factory = _factory(engine)
     x, y = sympy.symbols("x y")
     # x - 1 < 2 introduces t := x - 1 (monus) and sums out t: proven for a rational closed form
-    filtered = factory.from_expr(PROVEN, "x", "y").filter(parse_expr("x - 1 < 2"))
+    filtered = factory.from_expr(PROVEN, "x", "y").filter(parse_ppy_expr("x - 1 < 2"))
     assert sympy.simplify(_sympy(filtered) - (sympy.Rational(1, 2) + x / 4 + x ** 2 / 8) / (2 - y)) == 0
     # the sum over the fresh variable goes through the same proof (here an obstacle is forced wherever a summed
     # variable occurs in the closed form)
@@ -240,7 +240,7 @@ def test_filter_with_fresh_variables_is_proven(engine, monkeypatch):
 
     monkeypatch.setattr("prodigy.distribution.distribution.marginal_obstacle", forced)
     with pytest.raises(NonFiniteMarginalError, match=r"The filter of \(x - 1\) < 2 is not proven .*forced obstacle"):
-        factory.from_expr("1/((2 - x)*(2 - y)) + sqrt(4 - x)", "x", "y").filter(parse_expr("x - 1 < 2"))
+        factory.from_expr("1/((2 - x)*(2 - y)) + sqrt(4 - x)", "x", "y").filter(parse_ppy_expr("x - 1 < 2"))
 
 
 @pytest.mark.parametrize("engine", [Engine.SYMPY])

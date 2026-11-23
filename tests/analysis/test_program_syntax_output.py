@@ -9,7 +9,7 @@ from prodigy.analysis.session import AnalysisSession
 from prodigy.pgcl.ppy_printer import spell
 from prodigy.cli import EXIT_UNDECIDED, cli
 from prodigy.pgcl import parse_pgcl
-from prodigy.pgcl.parser import parse_expectation
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 PPY = """x: nat;
 c: nat;

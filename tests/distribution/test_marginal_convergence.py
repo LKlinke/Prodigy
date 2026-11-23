@@ -14,7 +14,7 @@ import sympy
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution import NonFiniteMarginalError, known_convergent_series
 from prodigy.distribution.convergence import _roots_outside_unit_disc, marginal_obstacle
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 Engine = ForwardAnalysisConfig.Engine
 ENGINES = [Engine.SYMPY, Engine.GINAC]
@@ -127,7 +127,7 @@ def test_case_split_update_with_approximation_is_rejected(engine):
     with config.activate():
         dist = config.factory.from_expr("1/((1 - 2*x)^2*(2 - y)*(2 - w))", "x", "y", "w", "z")
         with pytest.raises(NonFiniteMarginalError, match="not proven"):
-            dist.update(parse_expr("z = y*w"), approximate="0.5")
+            dist.update(parse_ppy_expr("z == y * w"), approximate="0.5")
 
 
 @pytest.mark.parametrize("engine", ENGINES)
@@ -139,7 +139,7 @@ def test_query_marginal_is_rejected(engine):
         dist = config.factory.from_expr("1/((1 - 2*x)*(2 - y)*(2 - w))", "x", "y", "w")
         error = NotImplementedError("not computed on the joint distribution")
         with pytest.raises(NotImplementedError) as raised:
-            dist.query_marginal(parse_expr("y < 2*w"), error)
+            dist.query_marginal(parse_ppy_expr("y < 2 * w"), error)
     assert raised.value is error
 
 

@@ -21,7 +21,7 @@ from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.equality import decide_equal, sympy_text
 from prodigy.pgcl import parse_pgcl
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINAC]
 
@@ -207,11 +207,11 @@ def _pr(alpha, *poles):
     ("1/(k + 1/2)", None),
 ])
 def test_counter_probability_shapes(probability, expected):
-    assert counter_probability(parse_expr(probability), {"k"}) == expected
+    assert counter_probability(parse_ppy_expr(probability), {"k"}) == expected
 
 
 def test_counter_probability_needs_one_variable():
-    assert counter_probability(parse_expr("k/(k + j + 1)"), {"k", "j"}) is None
+    assert counter_probability(parse_ppy_expr("k / (k + j + 1)"), {"k", "j"}) is None
 
 
 def test_integral_from_zero():

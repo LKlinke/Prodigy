@@ -10,7 +10,7 @@ from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 from prodigy.distribution import known_convergent_series
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.distribution.multisection import rational_sections
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 try:
     from prodigy.distribution.fast_generating_function import FPS
@@ -69,7 +69,7 @@ def test_sections_are_exact_and_rational(engine, expression, variables, modulus)
     expected = _coefficients(function)
     total = 0
     for remainder in range(modulus):
-        result = engine(expression, *variables).filter(parse_expr(f"x % {modulus} = {remainder}"))
+        result = engine(expression, *variables).filter(parse_ppy_expr(f"x % {modulus} == {remainder}"))
         assert result.get_variables() == set(variables)
         section = _sympy(result)
         _assert_rational(section)
@@ -83,21 +83,21 @@ def test_sections_are_exact_and_rational(engine, expression, variables, modulus)
 @pytest.mark.parametrize("expression, variables", [RATIONAL[1], RATIONAL[4]])
 def test_modulo_assignment_is_rational(engine, expression, variables):
     # z := x % 3 splits the infinite marginal of x into its residue classes
-    result = engine(expression, *variables, "z").update(parse_expr("z = x % 3"))
+    result = engine(expression, *variables, "z").update(parse_ppy_expr("z == x % 3"))
     function = _sympy(result)
     assert not function.has(sympy.I) and not function.has(sympy.pi)
     for remainder in range(3):
-        section = engine(expression, *variables).filter(parse_expr(f"x % 3 = {remainder}"))
+        section = engine(expression, *variables).filter(parse_ppy_expr(f"x % 3 == {remainder}"))
         # with a parameter, the poles are not located outside analyses (#398)
         with known_convergent_series(True):
-            probability = result.filter(parse_expr(f"z = {remainder}")).get_probability_mass()
+            probability = result.filter(parse_ppy_expr(f"z == {remainder}")).get_probability_mass()
             _assert_equal(_sympy(probability), _sympy(section.get_probability_mass()))
 
 
 @pytest.mark.parametrize("engine", ENGINES)
 def test_large_modulus(engine):
     expression = "p/(1 - (1 - p)*x)"
-    result = engine(expression, "x").filter(parse_expr("x % 60 = 7"))
+    result = engine(expression, "x").filter(parse_ppy_expr("x % 60 == 7"))
     section = _sympy(result)
     _assert_rational(section)
     _assert_equal(section, P * (1 - P) ** 7 * X ** 7 / (1 - (1 - P) ** 60 * X ** 60))
