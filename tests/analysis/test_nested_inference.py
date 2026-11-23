@@ -392,24 +392,25 @@ def test_recursion_is_not_implemented(source, calls):
 
 
 def test_pgcl_syntax():
-    source = """
-dist d;
-nat x;
-nat w;
-fun f := {
-    nat a;
-    nat b;
-    a := bernoulli(1/2);
-    b := bernoulli(1/2);
+    source = """d: dist;
+x: nat;
+w: nat;
+def f(a: nat, b: nat) -> nat {
+    a = bernoulli(1/2);
+    b = bernoulli(1/2);
     observe(a + b >= 1);
     return a + b;
 }
-d := infer { f() }
-x := sample { d }
-if (Ex[d] > 1 & Pr[d = 1] = 2/3) { w := 1 } else { w := 0 }
-?Pr[w = 1]
+d = infer(f);
+x = sample(d);
+if (Ex[d] > 1 and Pr[d == 1] == 2/3) {
+    w = 1;
+} else {
+    w = 0;
+}
+query Pr[w == 1];
 """
-    result, _ = analyse(source, syntax="pgcl")
+    result, _ = analyse(source, syntax="ppy")
     assert query_values(result) == ["1"]
     assert same(closed_form(result), "w*(2*x + x^2)/3")
 
@@ -449,9 +450,7 @@ if (Ex[d] > 1 and Pr[d == 1] < 1/2) {
     printed = program_to_ppy(program)
     assert "Ex[d] > 1 and Pr[d == 1] < 1/2" in printed
     assert parse_pgcl(printed, "ppy") == program
-    pgcl = str(program)
-    assert "(Ex[d] > 1) & (Pr[d = 1] < 1/2)" in pgcl
-    assert parse_pgcl(pgcl) == program
+    assert "(Ex[d] > 1) & (Pr[d = 1] < 1/2)" in str(program)
 
 
 @pytest.mark.parametrize("engine", ENGINES)

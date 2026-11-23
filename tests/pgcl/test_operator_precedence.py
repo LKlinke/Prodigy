@@ -5,9 +5,10 @@ from pytest import mark, raises
 
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.pgcl.ast import *
-from prodigy.pgcl.converter import convert_pgcl
+from prodigy.pgcl.ppy_printer import program_to_ppy
 from prodigy.pgcl.parser import parse_expr, parse_pgcl
 from prodigy.pgcl.ppy_parser import parse_ppy, parse_ppy_expr
+from tests.pgcl.legacy import parse_pgcl  # noqa: E402  # the old syntax, see legacy.py
 
 
 def test_all_operators():
@@ -105,20 +106,20 @@ def test_unary_minus_precedence_is_the_same_in_both_syntaxes(pgcl, value):
 
 
 def test_unary_minus_in_a_program_and_its_conversion():
-    """A leading minus of a sum is not the minus of the whole sum, and ``prodigy convert`` keeps
+    """A leading minus of a sum is not the minus of the whole sum, and printing as ``.ppy`` keeps
     the meaning (#430)."""
     source = "nat x; nat y; x := 3; y := -x + 2*x + (-1 + 3) * 2"
     program = parse_pgcl(source)
     assert _value(program.instructions[1].rhs) == 7
-    conversion = convert_pgcl(source)
-    assert "y = -x + 2 * x + (-1 + 3) * 2;" in conversion.text
-    converted = parse_ppy(conversion.text)
+    printed = program_to_ppy(program)
+    assert "y = -x + 2 * x + (-1 + 3) * 2;" in printed
+    converted = parse_ppy(printed)
     assert converted == program
     assert _value(converted.instructions[1].rhs) == 7
 
 
 def test_unary_minus_in_a_query_string():
-    """Strings given to the distribution API are read with the .pgcl expression parser."""
+    """Strings given to the distribution API are read with the .ppy expression parser."""
     dirac = GeneratingFunction("x^3", "x")
     assert dirac.get_expected_value_of("-x + 3") == "0"
-    assert dirac.get_probability_of("-x + 2*x = 3") == "1"
+    assert dirac.get_probability_of("-x + 2*x == 3") == "1"

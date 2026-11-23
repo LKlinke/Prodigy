@@ -212,9 +212,17 @@ def test_selectable_heuristics_do_not_treat_parameters_as_variables(engine, heur
 
 # a geometric loop with a parameter: its least fixed point (1 + (1 - p)*t)/(1 - p*x) has non-negative
 # coefficients only for 0 <= p <= 1, which the program does not state (parameters have no bounds)
-GEOMETRIC_PARAMETER = """nat x; nat t; rparam p;
-while (t = 0) { {t := 1} [1 - p] {x := x + 1} }
-?Pr[x = 0]
+GEOMETRIC_PARAMETER = """x: nat;
+t: nat;
+param p: real;
+while (t == 0) {
+    {
+        t = 1;
+    } [1 - p] {
+        x = x + 1;
+    }
+}
+query Pr[x == 0];
 """
 
 

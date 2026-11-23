@@ -10,6 +10,7 @@ from prodigy.pgcl.ast.walk import Walk, mut_expr_children, walk_expr
 from prodigy.pgcl.parser import parse_pgcl
 from prodigy.pgcl.substitute import substitute_constants, substitute_expr
 from prodigy.pgcl.util.ref import Mut
+from tests.pgcl.legacy import parse_pgcl  # noqa: E402  # the old syntax, see legacy.py
 
 
 def make_closure(substs: List[Tuple[int, int]], var: int,

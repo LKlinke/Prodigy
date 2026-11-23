@@ -1338,8 +1338,7 @@ async function loadExample(example, syntax = "ppy") {
   resetAnalysis();
   documents.exampleLoaded(example, data.source);
   renderResultPanel();
-  const renamed = renamingText(data.renamings);
-  const note = [suggestion.note, renamed].filter(Boolean).join(" ");
+  const note = suggestion.note;
   showRunMessage(note ? `${note} ⌘Z restores your program.` : "Example loaded. ⌘Z restores your program.", "info");
   await runCheck();
   if (state.pendingDefault) {
@@ -1357,61 +1356,21 @@ async function loadExample(example, syntax = "ppy") {
 
 // ---- syntax: pGCL or .ppy ------------------------------------------------------------------------
 
-function renamingText(renamings) {
-  if (!renamings?.length) return "";
-  const list = renamings.map((r) => `${r.from} → ${r.to}`).join(", ");
-  return `Renamed ${list} (keywords in .ppy).`;
-}
-
 function renderSyntax() {
   const syntax = editor.getSyntax();
   $("syntax-label").textContent = SYNTAXES[syntax].label;
   $("syntax-label").setAttribute("aria-label", `Syntax: ${SYNTAXES[syntax].label}`);
-  $("btn-convert").hidden = syntax !== "pgcl";
   $("btn-save").title = canWriteFiles ? "Save (⌘S) · Save As… (⇧⌘S)"
     : `Download the program as a ${SYNTAXES[syntax].extension} file (⌘S)`;
 }
 
-/** The syntax changed (New, Open…, an example, Convert to .ppy, or undoing one of them). */
+/** The syntax changed (New, Open…, an example, or undoing one of them). */
 function syntaxChanged(syntax) {
   save("syntax", syntax);
   renderSyntax();
   documents?.changed();
   renderSetupPanel();
   scheduleCheck(0);
-}
-
-/** Convert to .ppy: one undoable change of text, syntax and the invariant programs in the setup
- * (they ride along as the change's companion, so undo and redo restore all three together). */
-async function convertProgram() {
-  if (editor.getSyntax() !== "pgcl") return;
-  const source = editor.getSource();
-  let converted;
-  try {
-    converted = await api.convert(source);
-  } catch (error) {
-    showRunMessage(error.message);
-    if (error.data?.line) editor.revealLine(error.data.line);
-    return;
-  }
-  if (source !== editor.getSource()) return;
-  const before = {};
-  const after = {};
-  for (const [key, decision] of Object.entries(state.setup.decisions)) {
-    const invariant = decision.strategy === "invariant" ? decision.params?.invariant : null;
-    if (typeof invariant !== "string" || !invariant.trim()) continue;
-    try {
-      after[key] = (await api.convert(invariant)).source;
-      before[key] = invariant;
-    } catch {
-      // left as it is: the setup reports it when the analysis runs
-    }
-  }
-  if (source !== editor.getSource() || editor.getSyntax() !== "pgcl") return;
-  editor.setSource(converted.source, "ppy", { companion: { before, after } });
-  const renamed = renamingText(converted.renamings);
-  notify(`Converted to .ppy.${renamed ? ` ${renamed}` : ""} ⌘Z undoes it.`, "info");
-  editor.focus();
 }
 
 /** A conversion was applied, undone or redone: the setup's invariant programs follow. */
@@ -1490,7 +1449,6 @@ async function boot() {
   $("btn-new").addEventListener("click", () => documents.new());
   $("btn-open").addEventListener("click", () => documents.open());
   $("btn-save").addEventListener("click", () => documents.save());
-  $("btn-convert").addEventListener("click", convertProgram);
   renderSyntax();
   $("btn-examples").addEventListener("click", () => library.open());
   renderEngine();

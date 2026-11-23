@@ -140,7 +140,6 @@ import sympy
 from prodigy.pgcl import (Binop, BinopExpr, BoolType, Expr, NatLitExpr, NatType, RealLitExpr,
                            Program, UnopExpr, VarExpr)
 
-from prodigy.analysis.deprecations import deprecation_warnings
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.streaming import Batcher, Sink
 from prodigy.distribution.coefficient_stream import marginal_stream
@@ -803,7 +802,7 @@ def failure_bounds(status: str) -> Dict[str, Any]:
 # Program outline
 # ---------------------------------------------------------------------------------------
 
-def outline_program(program: Program, source: Optional[str] = None, syntax: str = "pgcl") -> Dict[str, Any]:
+def outline_program(program: Program, source: Optional[str] = None, syntax: str = "ppy") -> Dict[str, Any]:
     """Variables, parameters, loops and queries of ``program`` (for editors and forms)."""
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.session import LoopRegistry, query_instructions, query_positions
@@ -829,7 +828,7 @@ def _query_text(instr: Any, syntax: str) -> str:
     return spell(instr, syntax)
 
 
-def type_name(typ: Any, syntax: str = "pgcl") -> str:
+def type_name(typ: Any, syntax: str = "ppy") -> str:
     """Spelling of a declared type in ``syntax`` (``nat``, ``nat [0, 5]`` or ``nat[0, 5]`` in
     ``.ppy``, ``bool``, ``real``, ...)."""
     name = type(typ).__name__
@@ -866,7 +865,7 @@ def _query_kind(instr: Any) -> str:
 class AnalysisResult:
     status: str = "ok"
     """``ok``, ``needs_decision``, ``error``; front ends add ``timeout`` and ``cancelled``."""
-    syntax: str = "pgcl"
+    syntax: str = "ppy"
     """Syntax of the program (``pgcl`` or ``ppy``); expressions from the program use it."""
     error: Optional[Dict[str, Any]] = None
     program: Optional[Dict[str, Any]] = None
@@ -1039,20 +1038,13 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
     result.loops.sort(key=lambda r: (r["id"] is None, r["id"] if r["id"] is not None else 0))
     result.steps = session.steps
     result.trace = session.tracer.to_json() if session.tracer is not None else None
-    result.warnings = _deprecation_warnings(session) + _language_warnings(session) + list(session.warnings) + [
+    result.warnings = _language_warnings(session) + list(session.warnings) + [
         f"Undefined value (nan or ∞) in {part}; it has no guarantee. The distribution and the other queries "
         "are not affected." for part in undefined_queries]
     result.log = _ANSI.sub("", session.log.getvalue())
     result.timing["analysis"] = round(analysis_time, 6)
     result.timing["total"] = round(time.perf_counter() - started, 6)
     return result
-
-
-def _deprecation_warnings(session: Any) -> List[str]:
-    """The deprecation of a ``.pgcl`` program (:mod:`prodigy.analysis.deprecations`)."""
-    if session.program is None or session.silent:
-        return []
-    return deprecation_warnings(session.syntax)
 
 
 def _language_warnings(session: Any) -> List[str]:

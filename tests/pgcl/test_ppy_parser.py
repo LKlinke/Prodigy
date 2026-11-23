@@ -10,16 +10,14 @@ from prodigy.pgcl.ast import (AsgnInstr, Binop, BinopExpr, CategoricalExpr,
                               VarExpr)
 from prodigy.pgcl.check import CheckFail
 from prodigy.pgcl.compiler import compile_pgcl
-from prodigy.pgcl.converter import convert_pgcl, rename
 from prodigy.pgcl.parser import parse_expectation, parse_pgcl, select_syntax
 from prodigy.pgcl.ppy_parser import PpySyntaxError, parse_ppy, parse_ppy_expr
 from prodigy.pgcl.ppy_printer import (PpyPrintError, expr_to_ppy,
                                       program_to_ppy)
+from tests.pgcl.legacy import parse_pgcl, compile_pgcl  # noqa: E402  # the old syntax, see legacy.py
 
 EXAMPLES = Path(__file__).parents[2] / "pgfexamples"
 ALL_EXAMPLES = sorted(EXAMPLES.rglob("*.ppy"))
-# the former .pgcl version of an example whose variable 'switch' is a keyword in .ppy
-MONTY_HALL = Path(__file__).parent / "former_examples/inference/loop_free/conditioning/monty_hall_nested.pgcl"
 
 
 def _same(new, old):
@@ -48,15 +46,9 @@ def test_round_trip_example(path: Path):
     _same(parse_ppy(program_to_ppy(program)), program)
 
 
-def test_round_trip_after_renaming_keyword():
-    old = parse_pgcl(MONTY_HALL.read_text())
+def test_a_keyword_as_a_name_has_no_ppy_form():
     with pytest.raises(PpyPrintError):
-        program_to_ppy(old)
-    conversion = convert_pgcl(MONTY_HALL.read_text())
-    assert conversion.renamings == {"switch": "switch_"}
-    assert "switch_ = unif(1, 3);" in conversion.text
-    assert conversion.messages() == ["renamed 'switch' to 'switch_' ('switch' is a keyword in .ppy)"]
-    _same(parse_ppy(conversion.text), rename(old, conversion.renamings))
+        program_to_ppy(parse_pgcl("nat switch; switch := 1"))
 
 
 # --- declarations -------------------------------------------------------------
@@ -530,7 +522,7 @@ def test_unterminated_block_comment(source, line, column):
 
 
 def test_select_syntax():
-    assert select_syntax() == "pgcl"
+    assert select_syntax() == "ppy"
     assert select_syntax(path="a.pgcl") == "pgcl"
     assert select_syntax(path=Path("dir/a.ppy")) == "ppy"
     assert select_syntax("ppy", path="a.pgcl") == "ppy"

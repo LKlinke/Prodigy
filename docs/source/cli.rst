@@ -5,18 +5,18 @@ Program syntax
 --------------
 
 The commands that read programs (``analyze``, ``main``, ``outline``, ``check_equality``,
-``independent_vars``, ``invariant_synthesis``, ``evt_lower_bound``, ``evt_sandwich``) accept both
-surface syntaxes. The file extension decides: ``.ppy`` is read in the Python-like syntax (see
-:doc:`language`), every other file in the original pGCL syntax (see :ref:`pgcl_grammar`). ``--syntax pgcl`` or
-``--syntax ppy`` overrides the extension, e.g. for files without one. ``check_equality`` reads each
-of its two files by its own extension, unless ``--syntax`` is given.
+``independent_vars``, ``invariant_synthesis``, ``evt_lower_bound``, ``evt_sandwich``) read programs
+in the ``.ppy`` syntax (see :doc:`language`), whatever the file extension.
 
 .. note::
 
-   The ``.pgcl`` syntax is **deprecated in v0.5.0 and removed in v0.6.0** (including
-   ``prodigy convert``). The commands that read a ``.pgcl`` program print a deprecation warning on
-   stderr; ``prodigy analyze`` puts it into the ``warnings`` of the result instead (so ``--json``
-   stays clean). Convert programs with ``prodigy convert program.pgcl`` while v0.5.x is installed.
+   The ``.pgcl`` syntax was **removed in v0.6.0**, together with ``prodigy convert``. A file ending
+   in ``.pgcl`` or ``--syntax pgcl`` ends with the error "The .pgcl syntax was removed in v0.6.0.
+   Convert the program to .ppy with Prodigy v0.5.x (`prodigy convert program.pgcl`, or Convert to
+   .ppy in its GUI)."
+
+   The Z3 solver is being rebuilt (#474): ``--solver z3`` ends with the error "the Z3 solver is being
+   rebuilt (#474); use sympy". Use ``--solver sympy`` (the default).
 
    The SymEngine engine was **removed in v0.6.0**: ``--engine symengine`` ends with the error
    "the SymEngine engine was removed in v0.6.0; use sympy or ginac". Use ``--engine sympy`` (the
@@ -28,9 +28,8 @@ of ``invariant_synthesis`` and ``evt_lower_bound``, the EVT strategies) are not 
 keep their own syntax.
 
 Output speaks the syntax of the program: queries, loop guards and certificates are written as
-``x == 1 and y < 3`` for a ``.ppy`` program and as ``(x = 1) & (y < 3)`` for a ``.pgcl`` program, in
-the summary of ``analyze``, the output of ``main`` and the JSON result (whose key ``syntax``
-states the syntax).
+``x == 1 and y < 3``, in the summary of ``analyze``, the output of ``main`` and the JSON result
+(whose key ``syntax`` states the syntax).
 
 Syntax errors in ``.ppy`` programs are reported with line and column, the source line and a hint
 for constructs of the old syntax, e.g.:
@@ -114,24 +113,6 @@ under which equality was proven, and the witness with the probability of its sta
    Witness: on the input every variable 0, the output state x = 0, c = 0 has probability
      in [1/2, 524289/1048576] in program A (lower)
      1/3 in program B (exact)
-
-Converting programs to ``.ppy``
--------------------------------
-
-``prodigy convert FILE.pgcl [-o FILE.ppy]`` translates a program from the old syntax into
-``.ppy`` and prints it, or writes it to ``-o``. The result parses to the same program:
-
-- Names that are keywords in ``.ppy`` (``switch``, ``case``, ``default``, ``def``, ``param``,
-  ``print``, ``sample``, …) are renamed by appending ``_``, as often as needed to avoid a keyword or
-  another name of the program, e.g. ``switch`` becomes ``switch_``. Every renaming is reported on
-  stderr.
-- Comments are kept. A comment on a line of its own is placed before the next statement or
-  declaration, a comment after code after the statement that ends on its line; ``//`` comments
-  become ``#`` comments. Since the converter works on the parsed program, a comment can move
-  slightly, e.g. a comment at the end of a block moves behind the block. Empty lines that separate
-  parts of the program are kept; the code itself is laid out anew.
-
-The library function is :func:`prodigy.pgcl.converter.convert_pgcl`.
 
 Stepping through an analysis
 ----------------------------

@@ -20,29 +20,33 @@ from prodigy.pgcl.pgcl_operations import cav_phi
     [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY])
 def test_equivalence_check_geometric_sampler(engine):
     prog = compile_pgcl("""
-        nat x;
-        nat c;
-        nat temp;
+x: nat;
+c: nat;
+temp: nat;
 
-        while (x >= 1){
-        {x := 0 } [1/2] {c := c+1}
-        temp :=0
-        }
-    """)
+while (x >= 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+    temp = 0;
+}""")
     assert isinstance(prog, Program)
 
     inv = compile_pgcl("""
-        nat x;
-        nat c;
-        nat temp;
+x: nat;
+c: nat;
+temp: nat;
 
-        if(x >= 1){
-            temp := geometric(1/2)
-            c := c + temp
-            x := 0
-            temp := 0
-        } else {skip}
-    """)
+if (x >= 1) {
+    temp = geometric(1/2);
+    c = c + temp;
+    x = 0;
+    temp = 0;
+} else {
+    skip;
+}""")
     assert isinstance(inv, Program)
 
     phi_inv = cav_phi(prog, inv)
@@ -56,31 +60,35 @@ def test_equivalence_check_geometric_sampler(engine):
     [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY])
 def test_equivalence_check_parameter(engine):
     prog = compile_pgcl("""
-        nat x;
-        nat c;
-        nat temp;
-        rparam p;
+x: nat;
+c: nat;
+temp: nat;
+param p: real;
 
-        while (x >= 1){
-        {x := 0 } [1.0-p] {c := c+1}
-        temp :=0
-        }
-    """)
+while (x >= 1) {
+    {
+        x = 0;
+    } [1.0 - p] {
+        c = c + 1;
+    }
+    temp = 0;
+}""")
     assert isinstance(prog, Program)
 
     inv = compile_pgcl("""
-        nat x;
-        nat c;
-        nat temp;
-        rparam p;
+x: nat;
+c: nat;
+temp: nat;
+param p: real;
 
-        if(x >= 1){
-            temp := geometric(p)
-            c := c + temp
-            x := 0
-            temp := 0
-        } else {skip}
-    """)
+if (x >= 1) {
+    temp = geometric(p);
+    c = c + temp;
+    x = 0;
+    temp = 0;
+} else {
+    skip;
+}""")
     assert isinstance(inv, Program)
 
     phi_inv = cav_phi(prog, inv)
@@ -192,14 +200,12 @@ def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
 )
 def test_equivalence_fail(engine):
     prog1 = compile_pgcl("""
-    nat x;
-    x := geometric(1/2);
-    """)
+x: nat;
+x = geometric(1/2);""")
 
     prog2 = compile_pgcl("""
-    nat x;
-    x := unif(1,6);
-    """)
+x: nat;
+x = unif(1, 6);""")
 
     assert(isinstance(prog1, Program))
     assert(isinstance(prog2, Program))
@@ -217,15 +223,33 @@ def test_equivalence_check_decrement_under_guard(engine):
     if engine == ForwardAnalysisConfig.Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
     prog = compile_pgcl("""
-        nat n; nat m; nat tmp;
-        while (0 < n) { tmp := unif(1,6); m := m + tmp; tmp := 0; n := n-1 }
-    """)
+n: nat;
+
+m: nat;
+
+tmp: nat;
+while (0 < n) {
+    tmp = unif(1, 6);
+    m = m + tmp;
+    tmp = 0;
+    n = n - 1;
+}""")
     assert isinstance(prog, Program)
 
     inv = compile_pgcl("""
-        nat n; nat m; nat tmp;
-        if (0 < n) { tmp := iid(unif(1,6), n); m := m+tmp; n := 0; tmp := 0 } else {skip}
-    """)
+n: nat;
+
+m: nat;
+
+tmp: nat;
+if (0 < n) {
+    tmp = iid(unif(1, 6), n);
+    m = m + tmp;
+    n = 0;
+    tmp = 0;
+} else {
+    skip;
+}""")
     assert isinstance(inv, Program)
 
     res, subs = check_equivalence(cav_phi(prog, inv), inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
@@ -233,9 +257,16 @@ def test_equivalence_check_decrement_under_guard(engine):
     assert subs == []
 
 
-GAMBLER = """
-    nat x; nat n;
-    while (x > 0 & x < n) { {x := x - 1} [1/2] {x := x + 1} }
+GAMBLER = """x: nat;
+
+n: nat;
+while (x > 0 and x < n) {
+    {
+        x = x - 1;
+    } [1/2] {
+        x = x + 1;
+    }
+}
 """
 
 
@@ -244,9 +275,29 @@ GAMBLER = """
     [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY])
 @pytest.mark.parametrize('loop, invariant, expected', [
     # the guard x < n compares two variables of the second-order distribution, which has infinite mass
-    pytest.param("nat x; nat n; while (x > 0 & x < n) { x := x - 1 }",
-                 "nat x; nat n; if (x > 0 & x < n) { x := 0 } else {skip}", True, id="decrement"),
-    pytest.param(GAMBLER, "nat x; nat n; if (n > 0 & x < n) { {x := 0} [1/2] {x := n} } else {skip}",
+    pytest.param("""x: nat;
+n: nat;
+while (x > 0 and x < n) {
+    x = x - 1;
+}""",
+                 """x: nat;
+n: nat;
+if (x > 0 and x < n) {
+    x = 0;
+} else {
+    skip;
+}""", True, id="decrement"),
+    pytest.param(GAMBLER, """x: nat;
+n: nat;
+if (n > 0 and x < n) {
+    {
+        x = 0;
+    } [1/2] {
+        x = n;
+    }
+} else {
+    skip;
+}""",
                  False, id="gambler-wrong-invariant"),
 ])
 def test_equivalence_check_compares_two_variables_formally(engine, loop, invariant, expected):
@@ -265,9 +316,17 @@ def test_equivalence_check_compares_two_variables_formally(engine, loop, invaria
     [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY])
 @pytest.mark.parametrize('branches, expected, witness', [
     # from x the walk reaches n with probability x/n (#366)
-    pytest.param("{x := n} [x/n] {x := 0}", True, [], id="equivalent"),
+    pytest.param("""{
+    x = n;
+} [x / n] {
+    x = 0;
+}""", True, [], id="equivalent"),
     # swapped branches: from x = 0 and n = 1 the loop keeps x = 0, the counterpart sets x = 1
-    pytest.param("{x := 0} [x/n] {x := n}", False, {"x": 0, "n": 1}, id="swapped"),
+    pytest.param("""{
+    x = 0;
+} [x / n] {
+    x = n;
+}""", False, {"x": 0, "n": 1}, id="swapped"),
 ])
 def test_equivalence_check_gambler_with_the_probability_x_over_n(engine, branches, expected, witness):
     # Issue #237: the probability x/n of two variables with infinitely many values is the operator
@@ -275,7 +334,7 @@ def test_equivalence_check_gambler_with_the_probability_x_over_n(engine, branche
     if engine == ForwardAnalysisConfig.Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
     prog = compile_pgcl(GAMBLER)
-    inv = compile_pgcl(f"nat x; nat n; if (n > 0 & x < n) {{ {branches} }} else {{skip}}")
+    inv = compile_pgcl(f"x: nat; n: nat; if (n > 0 and x < n) {{ {branches} }} else {{ skip; }}")
     assert isinstance(prog, Program) and isinstance(inv, Program)
     res, subs = check_equivalence(cav_phi(prog, inv), inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
     assert res is expected

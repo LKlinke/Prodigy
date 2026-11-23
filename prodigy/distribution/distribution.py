@@ -13,12 +13,12 @@ from typing import (Callable, ContextManager, Dict, FrozenSet, Generator, ItemsV
 
 import sympy
 
-from lark.exceptions import LarkError
 
 from prodigy.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, FunctionCallExpr, NatLitExpr,
                            RealLitExpr, Unop, UnopExpr, VarExpr)
 from prodigy.pgcl.ast.walk import Walk, walk_expr
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.pgcl.syntax_errors import ProgramSyntaxError
 from prodigy.pgcl.ppy_printer import spell
 from prodigy.pgcl.util.ref import Mut
 from prodigy.distribution.convergence import marginal_obstacle
@@ -550,14 +550,14 @@ class Distribution(ABC):
         """
         Returns the probability of a given `condition` or variable.
 
-        :param condition: The condition.
+        :param condition: The condition, as an AST or in the ``.ppy`` syntax.
 
         :return: The probability that the condition is satisfied.
         """
 
         expr = condition
         if isinstance(expr, str):
-            expr = parse_expr(expr)
+            expr = parse_ppy_expr(expr)
         with self._declared_context():
             try:
                 filtered = self.filter(expr)
@@ -615,9 +615,9 @@ class Distribution(ABC):
         parsed: Union[Expr, str] = expression
         if isinstance(expression, str):
             try:
-                parsed = parse_expr(expression)
-            except LarkError:
-                # not in pGCL syntax (e.g. `x**2`): the engine reads it itself
+                parsed = parse_ppy_expr(expression)
+            except ProgramSyntaxError:
+                # not in the .ppy syntax (e.g. `x^2`): the engine reads it itself
                 return self._checked_expected_value_of(expression)
         assert not isinstance(parsed, str)
         try:

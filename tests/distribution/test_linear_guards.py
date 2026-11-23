@@ -114,10 +114,13 @@ def test_normalized_guards():
 @pytest.mark.parametrize('engine', list(ForwardAnalysisConfig.Engine))
 def test_program_from_issue(engine):
     program = pgcl.parse_pgcl("""
-        nat x;
-        x := geometric(1/2);
-        if (1/2*x < 2) { x := 0 } else { x := 1 }
-    """)
+x: nat;
+x = geometric(1/2);
+if (1/2 * x < 2) {
+    x = 0;
+} else {
+    x = 1;
+}""")
     config = ForwardAnalysisConfig(engine=engine)
     result, error_prob = compute_discrete_distribution(program, config.factory.one('x'), config)
     assert sympy.simplify(_to_sympy(result) - (sympy.Rational(15, 16) + X / 16)) == 0

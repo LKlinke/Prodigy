@@ -139,7 +139,7 @@ def test_ginac_multivariate_iteration_matches_the_filtered_probabilities(express
     totals = [sum(state.valuations.values()) for _, state in terms]
     assert totals == sorted(totals)
     for probability, state in terms:
-        condition = " & ".join(f"{k}={v}" for k, v in state.valuations.items())
+        condition = " and ".join(f"{k} == {v}" for k, v in state.valuations.items())
         expected = dist.get_probability_of(condition)
         assert sympy.simplify(sympy.sympify(probability.replace("^", "**"))
                               - sympy.sympify(str(expected).replace("^", "**"))) == 0

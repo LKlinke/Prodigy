@@ -5,14 +5,12 @@ Pretty printer for .ppy
 
 Prints a pGCL AST in the ``.ppy`` syntax, with the canonical spelling ``and``,
 ``or`` and ``not``. Parsing the output with :func:`prodigy.pgcl.ppy_parser.parse_ppy`
-gives back an equal AST; the converter from ``.pgcl`` is built on this.
-
-Comments are not part of the AST; :mod:`prodigy.pgcl.converter` carries them over.
+gives back an equal AST. Comments are not part of the AST.
 
 .. doctest::
 
     >>> from prodigy.pgcl.parser import parse_pgcl
-    >>> print(program_to_ppy(parse_pgcl("nat x; rparam p; {x := x + 1} [p] {x := 0}; ?Pr[x = 1]")), end="")
+    >>> print(program_to_ppy(parse_pgcl("x: nat; param p: real; {x = x + 1;} [p] {x = 0;} query Pr[x == 1];")), end="")
     x: nat;
     param p: real;
     {
@@ -218,7 +216,7 @@ class PpyPrinter:
     Prints instructions, declarations and programs in the ``.ppy`` syntax.
 
     Subclasses can decorate the text of single instructions and declarations
-    (the converter adds comments this way) by overriding :meth:`instr` and
+    (e.g. to add comments) by overriding :meth:`instr` and
     :meth:`decl`; blocks and function bodies are printed through them.
     """
 

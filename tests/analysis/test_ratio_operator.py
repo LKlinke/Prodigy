@@ -146,7 +146,7 @@ def test_no_witness_and_no_proof_is_not_implemented(engine, monkeypatch):
 
 
 def _check_on_every_input(guard: str, engine):
-    program = compile_pgcl(f"nat x; nat n; nat y; if ({guard}) {{ {{y := 1}} [x/n] {{y := 0}} }} else {{skip}}")
+    program = compile_pgcl(f"x: nat; n: nat; y: nat; if ({guard}) {{     {{         y = 1;     }} [x / n] {{         y = 0;     }} }} else {{     skip; }}")
     assert isinstance(program, Program)
     return check_equivalence(program, program, ForwardAnalysisConfig(engine=engine), compute_semantics)
 
@@ -154,7 +154,7 @@ def _check_on_every_input(guard: str, engine):
 @pytest.mark.parametrize("engine", ENGINES)
 def test_guarded_ratio_on_every_input_is_well_formed(engine):
     # on the second-order generating function (infinite mass) the guard makes the part n = 0 or x > n the zero series
-    assert _check_on_every_input("n > 0 & x <= n", engine) == (True, [])
+    assert _check_on_every_input("n > 0 and x <= n", engine) == (True, [])
 
 
 @pytest.mark.parametrize("engine", ENGINES)

@@ -56,7 +56,7 @@ def test_former_wrong_bound_is_not_evaluated(engine):
     # the closed form gives Pr[x = 0] = -2 and Ex[y] = 4 (as main did inside the analysis before #393)
     dist = _factory(engine).from_expr(DIVERGENT_EXIT, "x", "y")
     with pytest.raises(NonFiniteMarginalError, match="not proven"):
-        dist.get_probability_of("x = 0")
+        dist.get_probability_of("x == 0")
     with pytest.raises(NonFiniteMarginalError, match="not proven"):
         dist.get_expected_value_of("y")
     with pytest.raises(NonFiniteMarginalError, match="marginal of x is not proven"):
@@ -108,7 +108,7 @@ def test_candidate_checks_keep_their_fast_path(engine):
     # evaluations are guarded by the checks themselves (#276, finite mass of sub-invariants)
     dist = _factory(engine).from_expr(DIVERGENT_EXIT, "x", "y")
     with known_convergent_series(False):
-        assert _sympy(dist.get_probability_of("x = 0")) == -2
+        assert _sympy(dist.get_probability_of("x == 0")) == -2
         with pytest.raises(NonFiniteMarginalError, match="not proven"):
             dist.checked_marginal("x")
 
@@ -118,9 +118,12 @@ def test_analysis_results_with_parameters_are_summarised(engine):
     # the summary of an analysis result evaluates the output at 1 after the analysis; it is a finite measure
     if engine == "GINAC":
         pytest.importorskip("prodigy_ginac")
-    source = "rparam p;\nnat x;\nx := geometric(p);\n"
+    source = """param p: real;
+x: nat;
+x = geometric(p);
+"""
     config = ForwardAnalysisConfig(engine=getattr(Engine, engine))
-    session = AnalysisSession(parse_pgcl(source, "pgcl"), source=source, syntax="pgcl", config=config,
+    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
                               decisions={}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result.get("error")
@@ -133,12 +136,15 @@ def test_analysis_outputs_are_declared_finite_measures(engine):
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.analyzer import compute_discrete_distribution
     factory = _factory(engine)
-    source = "rparam p;\nnat x;\nx := geometric(p);\n"
-    program = parse_pgcl(source, "pgcl")
+    source = """param p: real;
+x: nat;
+x = geometric(p);
+"""
+    program = parse_pgcl(source, "ppy")
     result, error_prob = compute_discrete_distribution(program, factory.one("x"), ForwardAnalysisConfig(engine=engine))
     p = sympy.Symbol("p")
     assert sympy.simplify(_sympy(result.get_expected_value_of("x")) - (1 - p) / p) == 0
-    assert sympy.simplify(_sympy(result.get_probability_of("x = 0")) - p) == 0
+    assert sympy.simplify(_sympy(result.get_probability_of("x == 0")) - p) == 0
     assert _sympy(error_prob.get_probability_mass()) == 0
     # the declaration belongs to the object: a distribution computed from it is proven again
     with pytest.raises(NonFiniteMarginalError, match="parameters p"):

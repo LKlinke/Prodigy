@@ -10,11 +10,17 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
 from prodigy.pgcl import parse_pgcl
 
-GEOMETRIC = """nat x;
-nat c;
-x := 1;
-while (x = 1) { {x := 0} [1/2] {c := c + 1} }
-?Ex[c]
+GEOMETRIC = """x: nat;
+c: nat;
+x = 1;
+while (x == 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+}
+query Ex[c];
 """
 
 

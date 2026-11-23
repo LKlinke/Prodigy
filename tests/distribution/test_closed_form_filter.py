@@ -108,11 +108,14 @@ def test_probability_of_closed_form(engine):
 def test_program_guard_on_uniform(engine):
     config = ForwardAnalysisConfig(engine=engine)
     program = pgcl.parse_pgcl("""
-        nat x;
-        nat y;
-        x := unif(0, 3);
-        if (x < 10) {y := 1} else {y := 2}
-    """)
+x: nat;
+y: nat;
+x = unif(0, 3);
+if (x < 10) {
+    y = 1;
+} else {
+    y = 2;
+}""")
     with _time_limit(TIME_LIMIT):
         result, error_prob = compute_discrete_distribution(program, config.factory.one(*program.variables), config)
     assert sympy.cancel(_to_sympy(str(result)) - Y * (1 + X + X ** 2 + X ** 3) / 4) == 0

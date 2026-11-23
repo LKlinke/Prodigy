@@ -58,12 +58,23 @@ def test_query_bounds_of_the_loop_end_at_the_next_instruction():
 
 
 def test_sandwich_rejects_conditioning():
-    source = """nat x; nat y;
-{y := 1} [1/2] {y := 0}
-observe(y = 1);
-x := 1;
-while (x > 0) { {x := x + 1} [2/3] {x := x - 1} }
-?Pr[true]
+    source = """x: nat;
+y: nat;
+{
+    y = 1;
+} [1/2] {
+    y = 0;
+}
+observe(y == 1);
+x = 1;
+while (x > 0) {
+    {
+        x = x + 1;
+    } [2/3] {
+        x = x - 1;
+    }
+}
+query Pr[true];
 """
     session = AnalysisSession(parse_pgcl(source), source=source, config=ForwardAnalysisConfig(),
                               decisions={"0": "evt_sandwich"}, capture_output=True)

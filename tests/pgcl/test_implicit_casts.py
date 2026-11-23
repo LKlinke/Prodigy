@@ -15,55 +15,119 @@ from prodigy.pgcl.compiler import compile_pgcl
 
 @pytest.mark.parametrize("code", [
     # bool as 0/1 in comparisons and arithmetic
-    "bool b; nat x; if (b = 1) { x := 2 } else { skip }",
-    "bool b; bool c; nat x; x := b + c",
-    "bool b; nat x; x := b * 3 + 1",
-    "bool b; nat x; x := b",
-    "bool b; nat x; x := true",
-    "bool b; nat x; observe(b < x)",
+    """b: bool;
+x: nat;
+if (b == 1) {
+    x = 2;
+} else {
+    skip;
+}""",
+    """b: bool;
+c: bool;
+x: nat;
+x = b + c;""",
+    """b: bool;
+x: nat;
+x = b * 3 + 1;""",
+    """b: bool;
+x: nat;
+x = b;""",
+    """b: bool;
+x: nat;
+x = true;""",
+    """b: bool;
+x: nat;
+observe(b < x);""",
     # nat where real is expected
-    "nat c; nat t; t := iid(1 - (1 - c)^(1/2), c)",
-    "nat x; real y; y := x",
-    "rparam a; nat t; t := bernoulli((1 - a) / 2)",
-    "nat x; x := poisson(1/2)",
-    "nat x; x := bernoulli(1)",
+    """c: nat;
+t: nat;
+t = iid(1 - (1 - c) ** (1/2), c);""",
+    """x: nat;
+y: real;
+y = x;""",
+    """param a: real;
+t: nat;
+t = bernoulli((1 - a) / 2);""",
+    """x: nat;
+x = poisson(1/2);""",
+    """x: nat;
+x = bernoulli(1);""",
     # categorical choices take the widest type
-    "nat x; bool b; x := b : 1/2 + 3 : 1/2",
+    """x: nat;
+b: bool;
+x = categorical({b: 1/2, 3: 1/2});""",
 ])
 def test_widening_is_accepted(code):
     assert isinstance(compile_pgcl(code), Program)
 
 
 @pytest.mark.parametrize("code", [
-    "bool b; b := bernoulli(1/2)",
-    "bool b; rparam p; b := bernoulli(p)",
-    "bool b; b := 0",
-    "bool b; b := 1",
-    "bool b; bool c; b := c",
-    "bool b; nat x; b := x < 3",
-    "bool b; b := unif(0, 1)",
-    "bool b; bool c; b := c : 1/3 + 1 : 2/3",
+    """b: bool;
+b = bernoulli(1/2);""",
+    """b: bool;
+param p: real;
+b = bernoulli(p);""",
+    """b: bool;
+b = 0;""",
+    """b: bool;
+b = 1;""",
+    """b: bool;
+c: bool;
+b = c;""",
+    """b: bool;
+x: nat;
+b = x < 3;""",
+    """b: bool;
+b = unif(0, 1);""",
+    """b: bool;
+c: bool;
+b = categorical({c: 1/3, 1: 2/3});""",
 ])
 def test_provable_narrowing_is_accepted(code):
     assert isinstance(compile_pgcl(code), Program)
 
 
 @pytest.mark.parametrize("code", [
-    "bool b; nat x; b := x + 1",
-    "bool b; nat x; b := x",
-    "bool b; b := 2",
-    "bool b; bool c; b := c + 1",
+    """b: bool;
+x: nat;
+b = x + 1;""",
+    """b: bool;
+x: nat;
+b = x;""",
+    """b: bool;
+b = 2;""",
+    """b: bool;
+c: bool;
+b = c + 1;""",
     # arithmetic on bools yields nat, it is never reduced back to a bool
-    "bool b; bool b1; bool b2; b := b1 + b2",
-    "bool b; bool b1; bool b2; b := b1 * b2",
+    """b: bool;
+b1: bool;
+b2: bool;
+b = b1 + b2;""",
+    """b: bool;
+b1: bool;
+b2: bool;
+b = b1 * b2;""",
     # the bounds of a nat are not enforced (`nat x [0,1]; x := 5` type-checks), so they prove nothing
-    "bool b; nat x [0, 1]; b := x",
-    "bool b; b := unif(0, 2)",
-    "bool b; b := geometric(1/2)",
-    "bool b; b := binomial(2, 1/2)",
-    "bool b; nat x; b := x : 1/2 + 0 : 1/2",
+    """b: bool;
+x: nat[0, 1];
+b = x;""",
+    """b: bool;
+b = unif(0, 2);""",
+    """b: bool;
+b = geometric(1/2);""",
+    """b: bool;
+b = binomial(2, 1/2);""",
+    """b: bool;
+x: nat;
+b = categorical({x: 1/2, 0: 1/2});""",
     # a user-defined function is not the predefined distribution
-    "fun f := { nat x; x := 2; return x; } bool b; b := f()",
+    """def f(x: nat) -> nat {
+    x = 2;
+    return x;
+}
+b: bool;
+b = f();""",
 ])
 def test_unprovable_narrowing_is_rejected(code):
     result = compile_pgcl(code)
@@ -73,12 +137,19 @@ def test_unprovable_narrowing_is_rejected(code):
 
 @pytest.mark.parametrize("code", [
     # real to nat loses values
-    "nat x; x := 1/2",
-    "nat x; rparam p; x := p * x",
+    """x: nat;
+x = 1/2;""",
+    """x: nat;
+param p: real;
+x = p * x;""",
     # conditions stay boolean (a guard that is no bool is rejected by the parser, see
     # tests/pgcl/test_guard_types.py)
-    "nat x; bool b; b := not x",
-    "nat x; bool b; b := b & x",
+    """x: nat;
+b: bool;
+b = not x;""",
+    """x: nat;
+b: bool;
+b = b and x;""",
 ])
 def test_other_narrowing_is_rejected(code):
     assert isinstance(compile_pgcl(code), CheckFail)
@@ -87,12 +158,15 @@ def test_other_narrowing_is_rejected(code):
 def test_bool_is_zero_or_one_in_the_generating_function():
     """The analysis treats a bool variable as a number that is 0 or 1, as the checker assumes."""
     program = compile_pgcl("""
-        bool b
-        nat x
-        b := bernoulli(1/3)
-        x := b + 1
-        if (b = 1) { x := x + 5 } else { skip }
-    """)
+b: bool;
+x: nat;
+b = bernoulli(1/3);
+x = b + 1;
+if (b == 1) {
+    x = x + 5;
+} else {
+    skip;
+}""")
     assert isinstance(program, Program)
     config = ForwardAnalysisConfig()
     dist, _ = compute_discrete_distribution(program, config.factory.one('b', 'x'), config)
@@ -101,7 +175,7 @@ def test_bool_is_zero_or_one_in_the_generating_function():
 
 
 @pytest.mark.parametrize("path", sorted(glob.glob("pgfexamples/**/*.ppy", recursive=True))
-                         + sorted(glob.glob("tests/pgcl/former_examples/**/*.pgcl", recursive=True)))
+                         + sorted(glob.glob("tests/pgcl/former_examples/**/*.ppy", recursive=True)))
 def test_examples_type_check(path):
     with open(path, encoding="utf-8") as file:
         result = compile_pgcl(file.read(), path=path)

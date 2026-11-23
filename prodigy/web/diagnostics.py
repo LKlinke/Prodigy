@@ -19,7 +19,6 @@ from prodigy.pgcl.check import CheckFail, check_program
 from prodigy.pgcl.language_warnings import LanguageWarning, language_warnings
 from prodigy.pgcl.positions import span_of
 
-from prodigy.analysis.deprecations import PGCL_DEPRECATION
 from prodigy.analysis.result import outline_program
 
 _CACHE: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
@@ -94,14 +93,14 @@ def _locate_compact(source: str, text: str) -> Optional[Tuple[int, int, int, int
     return (*_position(source, start), *_position(source, end))
 
 
-def _locate_name(source: str, name: str, syntax: str = "pgcl") -> Optional[Tuple[int, int, int, int]]:
+def _locate_name(source: str, name: str, syntax: str = "ppy") -> Optional[Tuple[int, int, int, int]]:
     match = re.search(rf"(?<![\w]){re.escape(name)}(?![\w])", _blank_comments(source, syntax))
     if match is None:
         return None
     return (*_position(source, match.start()), *_position(source, match.end()))
 
 
-def _blank_comments(source: str, syntax: str = "pgcl") -> str:
+def _blank_comments(source: str, syntax: str = "ppy") -> str:
     # in .ppy, '//' is floor division; comments are '#' and '/* … */' (keep their line breaks)
     pattern = r"#.*$|/\*[\s\S]*?\*/" if syntax == "ppy" else r"(#|//).*$"
     return re.sub(pattern, lambda m: re.sub(r"[^\n]", " ", m.group(0)), source, flags=re.M)
@@ -163,7 +162,7 @@ def _spelling(node: Any, syntax: str) -> str:
     return str(node)
 
 
-def _check_failure(source: str, failure: CheckFail, syntax: str = "pgcl") -> Dict[str, Any]:
+def _check_failure(source: str, failure: CheckFail, syntax: str = "ppy") -> Dict[str, Any]:
     message = failure.message.replace("NatType(bounds=None)", "nat").replace("BoolType()", "bool") \
         .replace("RealType()", "real")
     blanked = _blank_comments(source, syntax)
@@ -216,7 +215,7 @@ def _locate_in_instruction(source: str, warning: LanguageWarning, syntax: str) -
             base_line + last_line - 1, last_column + (base_column - 1 if last_line == 1 else 0))
 
 
-def language_warning_diagnostics(program: Any, source: str, syntax: str = "pgcl") -> List[Dict[str, Any]]:
+def language_warning_diagnostics(program: Any, source: str, syntax: str = "ppy") -> List[Dict[str, Any]]:
     """Warnings for valid programs that are likely to surprise (monus, implicit casts), as diagnostics
     with the position of the expression; also used by the CLI."""
     try:
@@ -227,7 +226,7 @@ def language_warning_diagnostics(program: Any, source: str, syntax: str = "pgcl"
                         hint=_LANGUAGE_HINTS[warning.kind]) for warning in warnings]
 
 
-def type_error(program: Any, source: str, syntax: str = "pgcl") -> Optional[Dict[str, Any]]:
+def type_error(program: Any, source: str, syntax: str = "ppy") -> Optional[Dict[str, Any]]:
     """The GUI's diagnostic for the first type error of ``program`` (None if it type checks); also used by the CLI."""
     checked_program = copy.deepcopy(program)
     substitute.substitute_constants(checked_program)
@@ -235,7 +234,7 @@ def type_error(program: Any, source: str, syntax: str = "pgcl") -> Optional[Dict
     return _check_failure(source, failure, syntax) if isinstance(failure, CheckFail) else None
 
 
-def check_source(source: str, syntax: str = "pgcl") -> Dict[str, Any]:
+def check_source(source: str, syntax: str = "ppy") -> Dict[str, Any]:
     """Diagnostics and outline for ``source`` in ``syntax`` (``pgcl`` or ``ppy``; cached,
     thread-safe)."""
     key = f"{syntax}\0{source}"
@@ -308,9 +307,6 @@ def _check(source: str, syntax: str) -> Dict[str, Any]:
                                        hint="Reported by the pGCL type checker; Prodigy may still be "
                                             "able to analyse the program."))
     diagnostics.extend(language_warning_diagnostics(program, source, syntax))
-    if syntax == "pgcl":
-        diagnostics.append(_diagnostic("warning", PGCL_DEPRECATION, None, source,
-                                       hint="Use Convert to .ppy in the toolbar."))
     diagnostics.extend(_nested_inference_limits(program, source))
     if outline is not None and not outline["queries"]:
         line, _ = _end_of_source(source)

@@ -6,6 +6,7 @@ from lark.exceptions import UnexpectedInput
 from prodigy.pgcl.parser import parse_expectation, parse_expr, parse_pgcl, parse_pgcl_with_lines
 from prodigy.pgcl.ppy_parser import PpySyntaxError, parse_ppy, parse_ppy_expr
 from prodigy.pgcl.syntax_errors import ProgramSyntaxError
+from tests.pgcl.legacy import parse_pgcl  # noqa: E402  # the old syntax, see legacy.py
 
 TICK = "tick(e) is not supported."
 IVERSON = "Iverson brackets '[g]' are not supported."

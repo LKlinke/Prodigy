@@ -17,7 +17,6 @@ from prodigy.distribution.generating_function import SympyPGF
 from prodigy.pgcl import FunctionCallExpr, NatLitExpr, RealLitExpr, parse_pgcl
 from prodigy.pgcl.check import CheckFail
 from prodigy.pgcl.compiler import compile_pgcl
-from prodigy.pgcl.converter import convert_pgcl
 from prodigy.pgcl.ppy_printer import program_to_ppy
 
 try:
@@ -36,7 +35,7 @@ EXAMPLE = (Path(__file__).resolve().parents[3]
            / "pgfexamples/inference/loop_free/conditioning/high_risk_policyholder.ppy")
 
 
-def _run(source: str, engine: ForwardAnalysisConfig.Engine, syntax: str = "pgcl"):
+def _run(source: str, engine: ForwardAnalysisConfig.Engine, syntax: str = "ppy"):
     program = compile_pgcl(source, syntax=syntax)
     assert not isinstance(program, CheckFail), program
     config = ForwardAnalysisConfig(engine=engine)
@@ -50,31 +49,35 @@ def _run(source: str, engine: ForwardAnalysisConfig.Engine, syntax: str = "pgcl"
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("r, p", [(0, "1/2"), (1, "1/3"), (2, "1/2"), (3, "1/3"), (2, "0.25"), (2, "1")])
 def test_equals_iid_geometric(engine, r, p):
-    negative_binomial, factory = _run(f"nat x; nat y; y := 1; x := negative_binomial({r}, {p})", engine)
-    iid, _ = _run(f"nat x; nat y; y := 1; x := iid(geometric({p}), {r})", engine)
+    negative_binomial, factory = _run(f"x: nat; y: nat; y = 1; x = negative_binomial({r}, {p});", engine)
+    iid, _ = _run(f"x: nat; y: nat; y = 1; x = iid(geometric({p}), {r});", engine)
     assert negative_binomial == iid
     assert negative_binomial == factory.from_expr(f"y * (({p}) / (1 - (1 - ({p})) * x))^{r}", "x", "y")
 
 
 @pytest.mark.parametrize("engine", ENGINES)
 def test_one_success_is_geometric(engine):
-    negative_binomial, _ = _run("nat x; x := negative_binomial(1, 1/3)", engine)
-    geometric, _ = _run("nat x; x := geometric(1/3)", engine)
+    negative_binomial, _ = _run("""x: nat;
+x = negative_binomial(1, 1/3);""", engine)
+    geometric, _ = _run("""x: nat;
+x = geometric(1/3);""", engine)
     assert negative_binomial == geometric
 
 
 @pytest.mark.parametrize("engine", ENGINES)
 def test_inside_iid(engine):
     """The sum of two samples of NB(2, p) is NB(4, p)."""
-    twice, _ = _run("nat x; x := iid(negative_binomial(2, 1/2), 2)", engine)
-    once, _ = _run("nat x; x := negative_binomial(4, 1/2)", engine)
+    twice, _ = _run("""x: nat;
+x = iid(negative_binomial(2, 1/2), 2);""", engine)
+    once, _ = _run("""x: nat;
+x = negative_binomial(4, 1/2);""", engine)
     assert twice == once
 
 
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("r, p", [(1, sympy.Rational(1, 2)), (3, sympy.Rational(1, 3)), (5, sympy.Rational(3, 4))])
 def test_mean(engine, r, p):
-    result, _ = _run(f"nat x; x := negative_binomial({r}, {p})", engine)
+    result, _ = _run(f"x: nat; x = negative_binomial({r}, {p});", engine)
     with ForwardAnalysisConfig(engine=engine).activate():
         mean = result.get_expected_value_of("x")
     assert sympy.sympify(mean) == r * (1 - p) / p
@@ -82,7 +85,9 @@ def test_mean(engine, r, p):
 
 @pytest.mark.parametrize("engine", ENGINES)
 def test_parametric_success_probability(engine):
-    result, factory = _run("nat x; rparam q; x := negative_binomial(2, q)", engine)
+    result, factory = _run("""x: nat;
+param q: real;
+x = negative_binomial(2, q);""", engine)
     assert result == factory.from_expr("(q / (1 - (1 - q) * x))^2", "x").set_parameters("q")
     with ForwardAnalysisConfig(engine=engine).activate():
         mean = sympy.sympify(result.get_expected_value_of("x"))
@@ -102,7 +107,8 @@ def test_factory_validates_its_arguments():
 
 
 @pytest.mark.parametrize("syntax, source", [
-    ("pgcl", "nat x; x := negative_binomial(2, 1/2)"),
+    ("ppy", """x: nat;
+x = negative_binomial(2, 1/2);"""),
     ("ppy", "x: nat;\nx = negative_binomial(2, 1/2);\n"),
 ])
 def test_parsing(syntax, source):
@@ -112,16 +118,18 @@ def test_parsing(syntax, source):
 
 
 def test_printing_and_conversion():
-    program = parse_pgcl("nat x; x := negative_binomial(2, 1/2)")
+    program = parse_pgcl("""x: nat;
+x = negative_binomial(2, 1/2);""")
     printed = program_to_ppy(program)
     assert "x = negative_binomial(2, 1/2);" in printed
     assert parse_pgcl(printed, "ppy").instructions == program.instructions
-    converted = convert_pgcl("nat x;\nx := negative_binomial(3, 0.25);\n").text
-    assert "x = negative_binomial(3, 0.25);" in converted
+    assert "x = negative_binomial(3, 0.25);" in program_to_ppy(parse_pgcl("""x: nat;
+x = negative_binomial(3, 0.25);
+"""))
 
 
 @pytest.mark.parametrize("syntax, source", [
-    ("pgcl", "fun negative_binomial := { nat y; y := 1; return y; } nat x; x := 1"),
+    ("ppy", "fun negative_binomial := { nat y; y := 1; return y; } nat x; x := 1"),
     ("ppy", "def negative_binomial() -> nat { return 1; }\nx: nat;\n"),
 ])
 def test_name_is_reserved_for_functions(syntax, source):
@@ -130,16 +138,28 @@ def test_name_is_reserved_for_functions(syntax, source):
 
 
 @pytest.mark.parametrize("source, message", [
-    ("nat x; nparam n; x := negative_binomial(n, 1/2)", "must be a natural number"),
-    ("nat x; nat y; x := negative_binomial(y, 1/2)", "must be a natural number"),
-    ("nat x; x := negative_binomial(1 + 1, 1/2)", "must be a natural number"),
-    ("nat x; x := negative_binomial(0.5, 1/2)", "must be a natural number"),
-    ("nat x; x := negative_binomial(2, 0)", "must be in (0, 1]"),
-    ("nat x; x := negative_binomial(2, 3/2)", "must be in (0, 1]"),
-    ("nat x; x := negative_binomial(2, 1 - 3/2)", "must be in (0, 1]"),
-    ("nat x; x := negative_binomial(2, 2)", "must be in (0, 1]"),
-    ("nat x; x := negative_binomial(2)", "Too few parameters"),
-    ("nat x; x := negative_binomial(2, 1/2, 1/2)", "Too many parameters"),
+    ("""x: nat;
+param n: nat;
+x = negative_binomial(n, 1/2);""", "must be a natural number"),
+    ("""x: nat;
+y: nat;
+x = negative_binomial(y, 1/2);""", "must be a natural number"),
+    ("""x: nat;
+x = negative_binomial(1 + 1, 1/2);""", "must be a natural number"),
+    ("""x: nat;
+x = negative_binomial(0.5, 1/2);""", "must be a natural number"),
+    ("""x: nat;
+x = negative_binomial(2, 0);""", "must be in (0, 1]"),
+    ("""x: nat;
+x = negative_binomial(2, 3/2);""", "must be in (0, 1]"),
+    ("""x: nat;
+x = negative_binomial(2, 1 - 3/2);""", "must be in (0, 1]"),
+    ("""x: nat;
+x = negative_binomial(2, 2);""", "must be in (0, 1]"),
+    ("""x: nat;
+x = negative_binomial(2);""", "Too few parameters"),
+    ("""x: nat;
+x = negative_binomial(2, 1/2, 1/2);""", "Too many parameters"),
 ])
 def test_rejected_arguments(source, message):
     result = compile_pgcl(source)

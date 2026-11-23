@@ -10,6 +10,7 @@ from prodigy.pgcl.ast.expressions import (Binop, BinopExpr, CategoricalExpr,
 from prodigy.pgcl.ast.instructions import AsgnInstr
 from prodigy.pgcl.ast.types import NatType
 from prodigy.pgcl.parser import parse_expr
+from tests.pgcl.legacy import parse_pgcl  # noqa: E402  # the old syntax, see legacy.py
 
 
 def test_basic_function():

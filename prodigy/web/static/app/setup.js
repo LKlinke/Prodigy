@@ -632,7 +632,7 @@ export function renderSetup(container, ctx) {
       }),
     ...heuristicRows,
     selectRow("Solver", "For equation systems during invariant checks.", options.solver,
-      meta.solvers.map((s) => [s, s === "z3" ? "Z3" : "SymPy"]), (v) => { options.solver = v; onChange(); }),
+      meta.solvers.map((s) => [s, s === "sympy" ? "SymPy" : s]), (v) => { options.solver = v; onChange(); }),
   );
   const optionsDisclosure = h("details", { class: "disclosure" }, h("summary", {}, "Analysis options"), optionsBody);
   optionsDisclosure.open = Boolean(ctx.optionsOpen);

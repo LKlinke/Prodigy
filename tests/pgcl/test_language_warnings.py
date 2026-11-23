@@ -6,6 +6,7 @@ from prodigy.cli import cli
 from prodigy.pgcl import parse_pgcl
 from prodigy.pgcl.language_warnings import language_warnings
 from prodigy.web.app import create_app
+from tests.pgcl.legacy import parse_pgcl  # noqa: E402  # the old syntax, see legacy.py
 
 DECLS = "nat x; nat y; nat z;\n"
 PPY_DECLS = "x: nat;\ny: nat;\nz: nat;\n"

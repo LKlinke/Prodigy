@@ -46,7 +46,7 @@ class NatType(TypeClass):
 
         >>> from prodigy.pgcl.parser import parse_pgcl, parse_expr
         >>> from prodigy.pgcl.check import get_type
-        >>> program = parse_pgcl("nat x [1,5]")
+        >>> program = parse_pgcl("x: nat[1, 5];")
         >>> get_type(program, parse_expr("x + 5"))
         NatType(bounds=None)
     """

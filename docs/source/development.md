@@ -11,12 +11,11 @@ Parsers, AST, type checker and compiler. The package will be renamed to `prodigy
 the `.pgcl` syntax is removed (#433, #446).
 
 - `ppy_parser.py`, `ppy_printer.py`: the `.ppy` syntax (the default, `language.md`).
-- `parser.py`: the deprecated `.pgcl` syntax (`grammar.rst`). Its lark grammar is taken over from
-  probably together with its history (`prodigy/pgcl/NOTICE`); it is removed in v0.6.0.
+- `parser.py`: the removed `.pgcl` syntax (`grammar.rst`), left only for tests until its removal
+  (#433). Its lark grammar is taken over from probably together with its history (`prodigy/pgcl/NOTICE`).
 - `check.py`: the type checker; `pgcl_checks.py`, `pgcl_operations.py`: further checks and AST
   operations.
 - `scope.py`: block scope, lowered to assignments and marginalisation.
-- `converter.py`: `prodigy convert` from `.pgcl` to `.ppy` (removed in v0.6.0).
 - `positions.py`: source positions for messages and the editor.
 
 ### `prodigy/distribution` — distributions and engines
@@ -60,8 +59,6 @@ animation through `motion.js`.
 
 - `pgfexamples/`: example programs in `.ppy`, also the GUI's library and test inputs; the wheel
   contains them as `prodigy/pgfexamples`.
-- `tests/pgcl/former_examples/`: former `.pgcl` versions of a representative set with their
-  results (removed with `.pgcl`).
 - Tests marked `slow` (over about 10 s on the CI) run on Python 3.14 in every CI run and weekly on
   3.11; `make test-fast` skips them (`testing.md`).
 

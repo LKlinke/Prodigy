@@ -616,20 +616,22 @@ def select_syntax(syntax: Optional[str] = None,
                   path: Union[str, os.PathLike, None] = None) -> str:
     """
     Choose the syntax of a program: an explicit ``syntax`` wins, otherwise the
-    file extension of ``path`` (``.ppy``), otherwise ``pgcl``.
+    file extension of ``path`` (``.pgcl``), otherwise ``ppy``. Programs from outside (CLI, GUI,
+    API) are ``ppy`` only (:func:`prodigy.analysis.deprecations.program_syntax`); the old syntax is
+    left for the tests that still use it until its parser is removed (#433).
 
     .. doctest::
 
         >>> select_syntax(path="examples/dice.ppy"), select_syntax(path="dice.pgcl"), select_syntax()
-        ('ppy', 'pgcl', 'pgcl')
+        ('ppy', 'pgcl', 'ppy')
     """
     if syntax is not None:
         if syntax not in SYNTAXES:
             raise ValueError(f"Unknown syntax {syntax!r}, expected one of {', '.join(SYNTAXES)}.")
         return syntax
-    if path is not None and Path(path).suffix == ".ppy":
-        return "ppy"
-    return "pgcl"
+    if path is not None and Path(path).suffix == ".pgcl":
+        return "pgcl"
+    return "ppy"
 
 
 def parse_pgcl(code: str,
@@ -639,20 +641,20 @@ def parse_pgcl(code: str,
                check_guards: bool = True) -> Program:
     """
     Parse a program. The syntax is chosen by :func:`select_syntax`: ``syntax``
-    (``"pgcl"`` or ``"ppy"``), else the extension of ``path``, else pGCL. The
+    (``"pgcl"`` or ``"ppy"``), else the extension of ``path``, else ``.ppy``. The
     ``.ppy`` syntax is parsed by :func:`prodigy.pgcl.ppy_parser.parse_ppy`, and its
     declarations inside blocks are lowered into plain assignments
     (:func:`prodigy.pgcl.scope.lower_block_scope`).
 
     .. doctest::
 
-        >>> parse_pgcl("x := y")
+        >>> parse_pgcl("x = y;")
         Program(variables={}, constants={}, parameters={}, functions={}, instructions=[AsgnInstr(lhs='x', rhs=VarExpr('y'))])
 
-        >>> parse_pgcl("x := unif(5, 17)").instructions[0]
+        >>> parse_pgcl("x = unif(5, 17);").instructions[0]
         AsgnInstr(lhs='x', rhs=FunctionCallExpr(function='unif', params=([NatLitExpr(5), NatLitExpr(17)], {})))
 
-        >>> parse_pgcl("x := x : 1/3 + y : 2/3").instructions[0]
+        >>> parse_pgcl("x = categorical({x: 1/3, y: 2/3});").instructions[0]
         AsgnInstr(lhs='x', rhs=CategoricalExpr(exprs=[(VarExpr('x'), RealLitExpr("1/3")), (VarExpr('y'), RealLitExpr("2/3"))]))
     """
     chosen = select_syntax(syntax, path)

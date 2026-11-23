@@ -56,7 +56,7 @@ def test_parameters_survive_filter_and_division(engine):
     assert sympy.simplify(_to_sympy(str(filtered.normalize()), symbols) - X * Y) == 0
 
 
-def _run(engine, source: str, syntax: str = "pgcl"):
+def _run(engine, source: str, syntax: str = "ppy"):
     config = ForwardAnalysisConfig(engine=engine)
     program = pgcl.parse_pgcl(source, syntax)
     result, error_prob = compute_discrete_distribution(program, config.factory.one(*program.variables), config)
@@ -66,15 +66,17 @@ def _run(engine, source: str, syntax: str = "pgcl"):
 
 @pytest.mark.parametrize('engine', list(ForwardAnalysisConfig.Engine))
 def test_subtraction_in_branch(engine):
-    result, error_prob, symbols = _run(engine, """
-        nat a;
-        nat b;
-        nat cipher;
-        a := unif(0,5);
-        b := unif(0,5);
-        cipher := a+b;
-        if (5 < cipher) {cipher := cipher - 5} else {skip}
-    """)
+    result, error_prob, symbols = _run(engine, """a: nat;
+b: nat;
+cipher: nat;
+a = unif(0, 5);
+b = unif(0, 5);
+cipher = a + b;
+if (5 < cipher) {
+    cipher = cipher - 5;
+} else {
+    skip;
+}""")
     a, b, cipher = symbols['a'], symbols['b'], symbols['cipher']
     expected = sum(sympy.Rational(1, 36) * a**i * b**j * cipher**(i + j - 5 if i + j > 5 else i + j)
                    for i, j in product(range(6), repeat=2))

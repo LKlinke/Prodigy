@@ -19,24 +19,53 @@ ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINA
 # 5/(2 - x) + t*(1/2 + x^5/2). The candidate below is a fixed point of the closed forms only: its
 # series has radius 1/2, so the marginal in `x := 5` is ∞ for the series but finite (5) for the closed
 # form. Its terminating part is t, which would claim Pr[x = 5] <= 0.
-RESET_WALK = """nat x; nat t;
-while (t = 0) {
-  { if (x = 0) { t := 1 } else { t := 1; x := 5 } } [1/5] { {x := x + 1} [1/2] { if (x > 0) { x := x - 1 } else { skip } } }
+RESET_WALK = """x: nat;
+t: nat;
+while (t == 0) {
+    {
+        if (x == 0) {
+            t = 1;
+        } else {
+            t = 1;
+            x = 5;
+        }
+    } [1/5] {
+        {
+            x = x + 1;
+        } [1/2] {
+            if (x > 0) {
+                x = x - 1;
+            } else {
+                skip;
+            }
+        }
+    }
 }
-?Pr[x = 5]
+query Pr[x == 5];
 """
 SPURIOUS = "(5/3)/(1-2*x) + (10/3)/(1-x/2) + t"
 
-BIASED_WALK = """nat x;
-x := 1
-while (x > 0) { {x := x - 1} [1/3] {x := x + 1} }
-?Pr[x = 0]
+BIASED_WALK = """x: nat;
+x = 1;
+while (x > 0) {
+    {
+        x = x - 1;
+    } [1/3] {
+        x = x + 1;
+    }
+}
+query Pr[x == 0];
 """
 
 # never terminates; the body marginalises x, but the invariant 1/(1 - c) converges on the open polydisc
-DIVERGING = """nat x; nat c; nat t;
-while (t = 0) { c := c + 1; x := 0 }
-?Pr[c = 0]
+DIVERGING = """x: nat;
+c: nat;
+t: nat;
+while (t == 0) {
+    c = c + 1;
+    x = 0;
+}
+query Pr[c == 0];
 """
 
 
@@ -93,11 +122,18 @@ def test_formal_loop_keeps_the_upper_bound(engine):
 # non-negative closed-form fixed point is one of the series: I = ((1 + x^2) I0(y) - 2x^2)/(1 - x)^2 for any
 # I0(y) = I(0, y) (the terminating part), here I0 = 2/(1 - 2y). Park bounds its coefficients, but its series
 # diverges at y = 1, where the closed form gives -2: main reported Pr[x = 0] <= -2 and Ex[y] <= 4 (#393).
-FORMAL_WALK = """nat x; nat y;
-x := 1
-while (x > 0) { {x := x - 1} [1/2] {x := x + 1} }
-?Pr[x = 0]
-?Ex[y]
+FORMAL_WALK = """x: nat;
+y: nat;
+x = 1;
+while (x > 0) {
+    {
+        x = x - 1;
+    } [1/2] {
+        x = x + 1;
+    }
+}
+query Pr[x == 0];
+query Ex[y];
 """
 DIVERGENT_EXIT = "(2 + 4*x^2*y)/((1 - x)^2*(1 - 2*y))"
 
@@ -160,16 +196,60 @@ def test_converges_on_unit_polydisc(expression, expected):
 
 @pytest.mark.parametrize("source, expected", [
     (BIASED_WALK, True),
-    ("nat x; nat y; while (x < 10 & not (y = 2)) { {x := x + y} [1/2] {y := 3 + y}; skip }", True),
-    ("nat x; nat y; bool b; while (b) { if (x >= 3) { x := x - 2 } else { b := b } }", True),
+    ("""x: nat;
+y: nat;
+while (x < 10 and not y == 2) {
+    {
+        x = x + y;
+    } [1/2] {
+        y = 3 + y;
+    }
+    skip;
+}""", True),
+    ("""x: nat;
+y: nat;
+b: bool;
+while (b) {
+    if (x >= 3) {
+        x = x - 2;
+    } else {
+        b = b;
+    }
+}""", True),
     (RESET_WALK, False),
     (DIVERGING, False),
-    ("nat x; nat y; while (x < y) { x := x + 1 }", False),
-    ("nat x; while (x > 0) { x := geometric(1/2) }", False),
-    ("nat x; while (x > 0) { x := 2 * x }", False),
-    ("nat x; nat y; while (x > 0) { x := x - y }", False),
-    ("nat x; while (x > 0) { {x := x - 1} [1/(x+1)] {skip} }", False),
-    ("nat x; while (x > 0) { while (x > 5) { x := x - 1 } }", False),
+    ("""x: nat;
+y: nat;
+while (x < y) {
+    x = x + 1;
+}""", False),
+    ("""x: nat;
+while (x > 0) {
+    x = geometric(1/2);
+}""", False),
+    ("""x: nat;
+while (x > 0) {
+    x = 2 * x;
+}""", False),
+    ("""x: nat;
+y: nat;
+while (x > 0) {
+    x = x - y;
+}""", False),
+    ("""x: nat;
+while (x > 0) {
+    {
+        x = x - 1;
+    } [1 / (x + 1)] {
+        skip;
+    }
+}""", False),
+    ("""x: nat;
+while (x > 0) {
+    while (x > 5) {
+        x = x - 1;
+    }
+}""", False),
 ])
 def test_formal_loop(source, expected):
     program = parse_pgcl(source)

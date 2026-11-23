@@ -19,7 +19,7 @@ A request looks like::
       "synthesis_strategy": "default",       # for EVT invariant synthesis
       "template_heuristic": "default",       # only with synthesis_strategy "from_heuristics"
       "positivity_heuristic": "default",     # only with synthesis_strategy "from_heuristics"
-      "solver": "sympy" | "z3"
+      "solver": "sympy"
     }
 
 Generating functions (``input_distribution`` and the ``expression`` parameters of the loop
@@ -53,14 +53,15 @@ MAX_STEP_ITERATIONS = 200
 
 
 def request_syntax(request: Dict[str, Any]) -> str:
-    """The syntax of the request's program: ``syntax``, else the extension of ``file_name``, else
-    pGCL. Raises ``ValueError`` for an unknown syntax."""
+    """The syntax of the request's program, ``ppy``. Raises ``ValueError`` (a
+    :class:`~prodigy.analysis.deprecations.PgclRemovedError`) if ``syntax`` or the extension of ``file_name``
+    is ``pgcl``, and for an unknown syntax."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.pgcl.parser import select_syntax
+    from prodigy.analysis.deprecations import program_syntax
     syntax = request.get("syntax")
     file_name = request.get("file_name")
-    return select_syntax(syntax if isinstance(syntax, str) else None,
-                         file_name if isinstance(file_name, str) else None)
+    return program_syntax(syntax if isinstance(syntax, str) else None,
+                          file_name if isinstance(file_name, str) else None)
 
 
 def _expressions(request: Dict[str, Any]) -> List[Tuple[str, Dict[str, Any], str]]:
@@ -114,7 +115,7 @@ def validate_request(request: Dict[str, Any]) -> List[str]:
         syntax = request_syntax(request)
     except ValueError as exc:
         problems.append(str(exc))
-        syntax = "pgcl"
+        syntax = "ppy"
     for label, container, key in _expressions(request):
         if container is not request:
             continue  # the generating functions of the decisions are checked by validate_decisions
@@ -139,8 +140,10 @@ def validate_request(request: Dict[str, Any]) -> List[str]:
         problems.append(f"Unknown template heuristic {request.get('template_heuristic')!r}.")
     if str(request.get("positivity_heuristic", "default")).lower() not in SELECTABLE_POSITIVITY_HEURISTICS:
         problems.append(f"Unknown positivity heuristic {request.get('positivity_heuristic')!r}.")
-    if str(request.get("solver", "sympy")).upper() not in SolverType.__members__:
-        problems.append(f"Unknown solver {request.get('solver')!r}.")
+    try:
+        SolverType.named(str(request.get("solver", "sympy")))
+    except ValueError as exc:
+        problems.append(f"Solver {request.get('solver')!r}: {exc}.")
     try:
         decisions = parse_decisions(request.get("decisions") or {})
         problems.extend(validate_decisions(decisions, syntax=syntax))
@@ -189,7 +192,7 @@ def make_config(request: Dict[str, Any]) -> ForwardAnalysisConfig:
         strategy=SynthesisStrategies[str(request.get("synthesis_strategy", "default")).upper()],
         templ_heuristic=TemplateHeuristics[str(request.get("template_heuristic", "default")).upper()],
         positivity_heuristic=PositivityHeuristics[str(request.get("positivity_heuristic", "default")).upper()],
-        solver_type=SolverType[str(request.get("solver", "sympy")).upper()],
+        solver_type=SolverType.named(str(request.get("solver", "sympy"))),
     )
 
 

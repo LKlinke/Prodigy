@@ -23,24 +23,34 @@ from tests.analysis.equivalence.test_equivalence_check import _loopy_invariants
 
 # The pair of #395: the loop diverges for x >= 1, the invariant sets x to 0; Park's lemma proves only
 # that the loop is below the invariant.
-DIVERGING = "nat x;\nwhile (x >= 1) { x := x }\n"
-DIVERGING_INVARIANT = "nat x;\nif (x >= 1) { x := 0 } else {skip}\n"
+DIVERGING = """x: nat;
+while (x >= 1) {
+    x = x;
+}
+"""
+DIVERGING_INVARIANT = """x: nat;
+if (x >= 1) {
+    x = 0;
+} else {
+    skip;
+}
+"""
 
 
-def _session(answers: List[str], monkeypatch: pytest.MonkeyPatch, syntax: str = "pgcl") -> AnalysisSession:
+def _session(answers: List[str], monkeypatch: pytest.MonkeyPatch, syntax: str = "ppy") -> AnalysisSession:
     replies = iter(answers)
     monkeypatch.setattr(builtins, "input", lambda _=None: next(replies))
     return AnalysisSession(None, syntax=syntax, config=ForwardAnalysisConfig(),
                            provider=InteractiveDecisions(remember=True), parameter_synthesis="allow")
 
 
-def _compare(first: str, second: str, session: AnalysisSession, syntax: str = "pgcl") -> eq.Comparison:
+def _compare(first: str, second: str, session: AnalysisSession, syntax: str = "ppy") -> eq.Comparison:
     program, other = parse_pgcl(first, syntax), parse_pgcl(second, syntax)
     with session.activate(), session.config.activate():
         return eq.compare(program, other, session)
 
 
-def _cli(tmp_path, first: str, second: str, suffix: str = ".pgcl", answers: str = ""):
+def _cli(tmp_path, first: str, second: str, suffix: str = ".ppy", answers: str = ""):
     one, two = tmp_path / f"a{suffix}", tmp_path / f"b{suffix}"
     one.write_text(first)
     two.write_text(second)
@@ -74,8 +84,18 @@ def test_park_upper_bound_in_the_library(monkeypatch):
 # ---- "not equivalent" needs a witness --------------------------------------------------------
 
 @pytest.mark.parametrize("first, second", [
-    ("nat x;\nnat y;\nx := 1\n", "nat x;\nx := 1\n"),
-    ("nat x;\nx := 1\n", "nat x;\nnat y;\nx := 1\n"),
+    ("""x: nat;
+y: nat;
+x = 1;
+""", """x: nat;
+x = 1;
+"""),
+    ("""x: nat;
+x = 1;
+""", """x: nat;
+y: nat;
+x = 1;
+"""),
 ])
 def test_different_variables_are_no_refutation(first, second, monkeypatch, tmp_path):
     # both directions: before #395 only variables of the first program were noticed, as "not equivalent"
@@ -103,7 +123,14 @@ class _Solver:
 
 def test_constraints_without_a_common_solution_are_no_refutation(monkeypatch):
     monkeypatch.setattr(equivalence_check.SolverType, "make", lambda *_: _Solver())
-    program = parse_pgcl("nat x;\nrparam p;\n{x := 1} [p] {x := 0}\n")
+    program = parse_pgcl("""x: nat;
+param p: real;
+{
+    x = 1;
+} [p] {
+    x = 0;
+}
+""")
     with AnalysisSession.detached().activate():
         answer, difference = check_equivalence(program, program, ForwardAnalysisConfig(), compute_semantics)
     assert answer is None and difference is not None
@@ -169,7 +196,9 @@ def test_a_non_finite_marginal_is_a_limitation_of_the_check(monkeypatch):
     def analyzer(*_):
         raise NonFiniteMarginalError("the marginal of x diverges")
 
-    program = parse_pgcl("nat x;\nx := 1\n")
+    program = parse_pgcl("""x: nat;
+x = 1;
+""")
     with AnalysisSession.detached().activate(), pytest.raises(CheckNotImplemented, match="infinite mass"):
         check_equivalence(program, program, ForwardAnalysisConfig(), analyzer)
     monkeypatch.setattr("prodigy.analysis.analyzer.compute_semantics", analyzer)

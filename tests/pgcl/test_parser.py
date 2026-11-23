@@ -3,6 +3,7 @@ from pytest import raises
 from prodigy.pgcl.ast import *
 from prodigy.pgcl.parser import parse_pgcl
 from prodigy.pgcl.syntax_errors import ProgramSyntaxError
+from tests.pgcl.legacy import parse_pgcl  # noqa: E402  # the old syntax, see legacy.py
 
 
 def test_all_distributions():

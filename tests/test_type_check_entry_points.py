@@ -8,23 +8,27 @@ from prodigy.pgcl import parse_pgcl
 from prodigy.pgcl.compiler import compile_pgcl
 
 # `y` is no declared variable
-BAD = "nat x;\nx := y\n"
+BAD = """x: nat;
+x = y;
+"""
 
 
 def test_cli_commands_reject_type_errors(tmp_path):
-    path = tmp_path / "bad.pgcl"
+    path = tmp_path / "bad.ppy"
     path.write_text(BAD)
-    for command in ("convert", "outline", "main"):
+    for command in ("outline", "main"):
         result = CliRunner().invoke(cli, [command, str(path)])
         assert result.exit_code != 0, command
         assert "type error" in result.output, command
 
 
 def test_check_equality_rejects_type_errors(tmp_path):
-    bad = tmp_path / "bad.pgcl"
+    bad = tmp_path / "bad.ppy"
     bad.write_text(BAD)
-    good = tmp_path / "good.pgcl"
-    good.write_text("nat x;\nx := 1\n")
+    good = tmp_path / "good.ppy"
+    good.write_text("""x: nat;
+x = 1;
+""")
     result = CliRunner().invoke(cli, ["check_equality", str(good), str(bad)])
     assert result.exit_code != 0
     assert "type error" in result.output

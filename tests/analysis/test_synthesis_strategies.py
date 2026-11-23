@@ -20,9 +20,15 @@ from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
 
 # The EVT invariant 2*x + 1 is a polynomial, so the polynomial heuristics find it.
-GEOMETRIC = """nat x;
-x := 1
-while (x = 1) { {x := x - 1} [1/2] {skip} }
+GEOMETRIC = """x: nat;
+x = 1;
+while (x == 1) {
+    {
+        x = x - 1;
+    } [1/2] {
+        skip;
+    }
+}
 """
 
 FACTORY = ForwardAnalysisConfig().factory
@@ -92,7 +98,7 @@ def test_from_config_passes_the_configured_heuristics():
 
 
 def test_cli_synthesises_with_the_chosen_heuristics(tmp_path):
-    program = tmp_path / "geometric.pgcl"
+    program = tmp_path / "geometric.ppy"
     program.write_text(GEOMETRIC)
     runner = CliRunner()
     poly = runner.invoke(cli, ["--strategy", "from_heuristics", "--template-heuristic", "poly",
@@ -107,7 +113,7 @@ def test_cli_synthesises_with_the_chosen_heuristics(tmp_path):
 
 
 def test_cli_rejects_heuristics_without_from_heuristics(tmp_path):
-    program = tmp_path / "geometric.pgcl"
+    program = tmp_path / "geometric.ppy"
     program.write_text(GEOMETRIC)
     runner = CliRunner()
     result = runner.invoke(cli, ["--template-heuristic", "poly", "invariant_synthesis", str(program)])

@@ -16,14 +16,12 @@ from itertools import combinations
 from typing import IO, Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar, TYPE_CHECKING
 
 import click
-from lark.exceptions import UnexpectedInput
 from prodigy.pgcl import Instr, Program, Var, compiler, WhileInstr
-from prodigy.pgcl.parser import SYNTAXES, select_syntax
 from prodigy.pgcl.syntax_errors import ProgramSyntaxError
 
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.deprecations import deprecation_warnings
+from prodigy.analysis.deprecations import program_syntax as _program_syntax
 from prodigy.analysis.exceptions import (ConfigurationError, HeuristicsError, InvalidProbabilityError,
                                          UndefinedDistributionError, UnsupportedFeatureError, VerificationError)
 from prodigy.analysis.equivalence.verdict import Comparison, compare, show_valuation
@@ -101,8 +99,10 @@ def cli(ctx: click.Context,
         intermediate_results: bool, stepwise: bool, no_simplification: bool, use_latex: bool, no_normalize: bool,
         show_all_invs: bool) -> None:
     ctx.ensure_object(dict)
-    if solver.upper() not in SolverType.__members__:
-        raise ValueError(f"Solver {solver} is not known.")
+    try:
+        solver_type = SolverType.named(solver)
+    except ValueError as exc:
+        raise click.BadParameter(str(exc), param_hint="--solver") from exc
     synthesis_strategy = SynthesisStrategies.__members__[strategy.upper()]
     if synthesis_strategy != SynthesisStrategies.FROM_HEURISTICS and (template_heuristic or pos_heuristic):
         raise click.UsageError("--template-heuristic and --pos-heuristic only apply to --strategy from_heuristics.")
@@ -122,7 +122,7 @@ def cli(ctx: click.Context,
             templ_heuristic=TemplateHeuristics.__members__[(template_heuristic or 'default').upper()],
             positivity_heuristic=PositivityHeuristics.__members__[(pos_heuristic or 'default').upper()],
             show_all_invs=show_all_invs,
-            solver_type=SolverType.__members__[solver.upper()]
+            solver_type=solver_type
         )
     # The engine settings (simplification, LaTeX output) hold for this command, printing included.
     ctx.with_resource(ctx.obj['CONFIG'].activate())
@@ -131,15 +131,15 @@ def cli(ctx: click.Context,
 # pylint: enable-msg=too-many-arguments
 
 
-_SYNTAX_HELP = ("Syntax of the program files, pgcl or ppy (default: by file extension, '.ppy' is ppy, "
-                "everything else pgcl). Invariants given as program text use the program's syntax.")
+_SYNTAX_HELP = ("Syntax of the program files: ppy (the default; .pgcl was removed in v0.6.0, "
+                "convert such programs with Prodigy v0.5.x).")
 
 
 _Command = TypeVar("_Command", bound=Callable[..., Any])  # a click command function
 
 
 def _syntax_option(command: _Command) -> _Command:
-    return click.option('--syntax', type=click.Choice(SYNTAXES), default=None, help=_SYNTAX_HELP)(command)
+    return click.option('--syntax', type=click.Choice(("ppy", "pgcl")), default=None, help=_SYNTAX_HELP)(command)
 
 
 def _with_source_line(message: str, source: str, line: Optional[int], column: Optional[int]) -> str:
@@ -149,29 +149,24 @@ def _with_source_line(message: str, source: str, line: Optional[int], column: Op
     return f"{message}\n    {lines[line - 1]}\n    {' ' * (column - 1)}^"
 
 
-def _pgcl_syntax_error(name: str, source: str, exc: UnexpectedInput) -> click.ClickException:
-    return click.ClickException(f"{name}: syntax error in line {exc.line}, column {exc.column} (pgcl syntax).\n"
-                                f"{exc.get_context(source)}")
-
-
 def _read_program(program_file: IO, syntax: Optional[str]) -> Tuple[str, Program, str]:
     """Read and parse a program file; the syntax is chosen by ``syntax`` or the file extension."""
     source = program_file.read()
     name = getattr(program_file, "name", "<program>")
-    chosen = select_syntax(syntax, name)
+    try:
+        chosen = _program_syntax(syntax, name)
+    except ValueError as exc:
+        raise click.ClickException(f"{name}: {exc}") from exc
     try:
         program = compiler.parse_pgcl(source, chosen)
     except ProgramSyntaxError as exc:
         raise click.ClickException(_with_source_line(f"{name}: {exc}", source, exc.line, exc.column)) from exc
-    except UnexpectedInput as exc:
-        raise _pgcl_syntax_error(name, source, exc) from exc
     return source, program, chosen
 
 
-def _require_type_correct(program_file: IO, program: Program, source: str, syntax: str,
-                          deprecations: bool = True) -> None:
-    """Ends with the GUI's message if the type checker rejects the program (#334); prints its warnings on stderr,
-    and the deprecation warnings (#432, #416) unless ``deprecations`` is False."""
+def _require_type_correct(program_file: IO, program: Program, source: str, syntax: str) -> None:
+    """Ends with the GUI's message if the type checker rejects the program (#334); prints its warnings on
+    stderr."""
     # pylint: disable=import-outside-toplevel
     from prodigy.web.diagnostics import language_warning_diagnostics, type_error
     diagnostic = type_error(program, source, syntax)
@@ -179,23 +174,10 @@ def _require_type_correct(program_file: IO, program: Program, source: str, synta
     if diagnostic is not None:
         raise click.ClickException(_with_source_line(f"{name}: type error: {diagnostic['message']}", source,
                                                      diagnostic["line"], diagnostic["column"]))
-    if deprecations:
-        _warn_deprecated(syntax)
     # warnings go to stderr, so that --json stays clean (#377, #335)
     for warning in language_warning_diagnostics(program, source, syntax):
         print(f"{name}:{warning['line']}:{warning['column']}: {Style.YELLOW}warning:{Style.RESET} "
               f"{warning['message']}", file=sys.stderr)
-
-
-def _warn_deprecated(syntax: str) -> None:
-    """Prints the deprecation warnings (``.pgcl``) on stderr, once per run, so that ``--json`` stays clean
-    (#432). ``prodigy analyze`` reports them in the ``warnings`` of its result instead."""
-    ctx = click.get_current_context()
-    shown: Set[str] = ctx.meta.setdefault("prodigy.deprecations_shown", set())
-    for warning in deprecation_warnings(syntax):
-        if warning not in shown:
-            shown.add(warning)
-            print(f"{Style.YELLOW}Deprecated:{Style.RESET} {warning}", file=sys.stderr)
 
 
 _LOOP_OPTION_HELP = ("Strategy for a loop, as ID=STRATEGY[:NAME=VALUE,...], e.g. 0=unroll:iterations=100 or "
@@ -473,7 +455,7 @@ def invariant_synthesis(ctx: click.Context,  # pylint: disable=too-many-argument
 def _invariant_synthesis(config: ForwardAnalysisConfig, prog: Program,  # pylint: disable=too-many-arguments
                          invariant: str, input_dist: str,
                          max_degree: int = DEFAULT_MAX_DEGREE, time_limit: int = DEFAULT_SYNTHESIS_TIME_LIMIT,
-                         template_time_limit: int = DEFAULT_TEMPLATE_TIME_LIMIT, syntax: str = "pgcl") -> None:
+                         template_time_limit: int = DEFAULT_TEMPLATE_TIME_LIMIT, syntax: str = "ppy") -> None:
 
     # isolate the initial distribution description from the actual while loop.
     loops = [1 if isinstance(instr, WhileInstr) else 0 for instr in prog.instructions]
@@ -727,7 +709,7 @@ def analyze(  # pylint: disable=too-many-arguments
     --decisions). Queries are answered with sound intervals.
     """
     program_source, program, syntax = _read_program(program_file, syntax)
-    _require_type_correct(program_file, program, program_source, syntax, deprecations=False)
+    _require_type_correct(program_file, program, program_source, syntax)
     config: ForwardAnalysisConfig = ctx.obj['CONFIG']
     decisions = parse_decisions(_checked_decisions(_collect_decisions(loop_specs, decisions_file), program,
                                                    program_source, syntax))
@@ -774,7 +756,7 @@ def outline(program_file: IO, as_json: bool, syntax: Optional[str]) -> None:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import outline_program
     source, program, syntax = _read_program(program_file, syntax)
-    _require_type_correct(program_file, program, source, syntax, deprecations=False)
+    _require_type_correct(program_file, program, source, syntax)
     info = outline_program(program, source, syntax)
     if as_json:
         print(json.dumps(info, indent=2))
@@ -788,40 +770,6 @@ def outline(program_file: IO, as_json: bool, syntax: Optional[str]) -> None:
     for query in info["queries"]:
         print(f"query {query['index']} (line {query['line']}): {query['text']}")
 
-
-@cli.command('convert')
-@click.argument('program_file', type=click.File('r'))
-@click.option('-o', '--output', type=click.File('w'), default=None,
-              help="Write the .ppy program to this file instead of printing it.")
-def convert(program_file: IO, output: Optional[IO]) -> None:
-    """
-    Convert a program from the .pgcl syntax into the .ppy syntax.
-
-    Names that are keywords in .ppy (e.g. a variable 'switch') are renamed by appending '_'; every
-    renaming is reported on stderr. Comments are kept, at approximately their original place.
-    """
-    # pylint: disable=import-outside-toplevel
-    from prodigy.pgcl.converter import convert_pgcl
-    from prodigy.pgcl.ppy_printer import PpyPrintError
-    name = getattr(program_file, "name", "<program>")
-    if select_syntax(path=name) == "ppy":
-        raise click.ClickException(f"{name} is already a .ppy program.")
-    source = program_file.read()
-    try:
-        result = convert_pgcl(source)
-    except ProgramSyntaxError as exc:
-        raise click.ClickException(_with_source_line(f"{name}: {exc}", source, exc.line, exc.column)) from exc
-    except UnexpectedInput as exc:
-        raise _pgcl_syntax_error(name, source, exc) from exc
-    except PpyPrintError as exc:
-        raise click.ClickException(f"{name}: {exc}") from exc
-    _require_type_correct(program_file, compiler.parse_pgcl(source, "pgcl"), source, "pgcl", deprecations=False)
-    for message in result.messages():
-        click.echo(f"{name}: {message}", err=True)
-    if output is None:
-        click.echo(result.text, nl=False)
-    else:
-        output.write(result.text)
 
 
 @cli.command('loop_strategies')

@@ -333,7 +333,7 @@ def substitute_constants(program: Program,
     .. doctest::
 
         >>> from prodigy.pgcl.parser import parse_pgcl
-        >>> program = parse_pgcl("const x := 23; nat y; nat z; y := x; z := y")
+        >>> program = parse_pgcl("const x: nat = 23; y: nat; z: nat; y = x; z = y;")
         >>> substitute_constants(program)
         >>> program.instructions
         [AsgnInstr(lhs='y', rhs=NatLitExpr(23)), AsgnInstr(lhs='z', rhs=VarExpr('y'))]

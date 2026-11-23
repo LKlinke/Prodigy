@@ -11,9 +11,21 @@ from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.session import AnalysisSession
 from prodigy.pgcl import parse_pgcl
 
-PROGRAM = """nat a; nat b; nat w;
-while (w = 0) { if (a < b) { w := 1 } else { {b := b + 1} [1/2] {w := 2} } }
-?Ex[b]
+PROGRAM = """a: nat;
+b: nat;
+w: nat;
+while (w == 0) {
+    if (a < b) {
+        w = 1;
+    } else {
+        {
+            b = b + 1;
+        } [1/2] {
+            w = 2;
+        }
+    }
+}
+query Ex[b];
 """
 # a < 2*b is no comparison of the form a < b + c: it needs a case split over the values of b
 SCALED_PROGRAM = PROGRAM.replace("a < b", "a < 2*b")

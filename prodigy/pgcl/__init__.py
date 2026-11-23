@@ -14,25 +14,20 @@ The most important modules are the two below:
 
     >>> from prodigy.pgcl.compiler import compile_pgcl
     >>> code = '''# this is a comment
-    ... # A program starts with the variable declarations.
-    ... # Every variable must be declared.
-    ... # A variable is either of type nat or of type bool.
-    ... bool f;
-    ... nat c;  # optional: provide bounds for the variables. The declaration then looks as follows: nat c [0,100]
+    ... # Every variable must be declared, with its type (nat, bool, real, dist).
+    ... f: bool;
+    ... c: nat;  # optional bounds: c: nat[0, 100];
     ...
-    ... # Logical operators: & (and),  || (or), not (negation)
-    ... # Operator precedences: not > & > ||
-    ... # Comparing arithmetic expressions: <=, <, ==
-    ...
+    ... # Logical operators: and, or, not; comparisons: <=, <, ==
     ... skip;
     ...
-    ... while (c < 10 & f) {
-    ...     {c := unif(1,10)} [0.8] {f:=true}
+    ... while (c < 10 and f) {
+    ...     { c = unif(1, 10); } [0.8] { f = true; }
     ... }'''
     >>> compile_pgcl(code)
     Program(variables={'f': BoolType(), 'c': NatType(bounds=None)}, constants={}, parameters={}, functions={}, instructions=[SkipInstr(), WhileInstr(cond=BinopExpr(operator=Binop.AND, lhs=BinopExpr(operator=Binop.LT, lhs=VarExpr('c'), rhs=NatLitExpr(10)), rhs=VarExpr('f')), body=[ChoiceInstr(prob=RealLitExpr("0.8"), lhs=[AsgnInstr(lhs='c', rhs=FunctionCallExpr(function='unif', params=([NatLitExpr(1), NatLitExpr(10)], {})))], rhs=[AsgnInstr(lhs='f', rhs=BoolLitExpr(True))])])])
 
-For more details on what syntax is accepted for pGCL programs, you can view the :ref:`formal grammar used for the pGCL parser <pgcl_grammar>`.
+The syntax is described in :ref:`ppy_reference`.
 
 .. automodule:: prodigy.pgcl.compiler
 .. automodule:: prodigy.pgcl.ast

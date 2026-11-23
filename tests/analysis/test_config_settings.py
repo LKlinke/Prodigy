@@ -15,7 +15,13 @@ from prodigy.pgcl.compiler import parse_pgcl
 
 DEFAULTS = GeneratingFunctionSettings()
 
-PROGRAM = "nat x; nat y; {x := x + 1} [1/2] {y := y + 1}"
+PROGRAM = """x: nat;
+y: nat;
+{
+    x = x + 1;
+} [1/2] {
+    y = y + 1;
+}"""
 
 
 def analyse(config):
@@ -62,7 +68,8 @@ def test_settings_do_not_leak_into_other_threads():
 
 
 def test_session_result_uses_its_own_settings():
-    source = "nat x; x := 1"
+    source = """x: nat;
+x = 1;"""
     for use_latex in (True, False, True):
         session = AnalysisSession(parse_pgcl(source), source=source,
                                   config=ForwardAnalysisConfig(use_latex=use_latex), capture_output=True)
@@ -71,8 +78,13 @@ def test_session_result_uses_its_own_settings():
 
 
 def test_cli_prints_latex_and_leaves_the_defaults(tmp_path):
-    program = tmp_path / "program.pgcl"
-    program.write_text("nat x; {x := 1} [1/2] {x := 2}")
+    program = tmp_path / "program.ppy"
+    program.write_text("""x: nat;
+{
+    x = 1;
+} [1/2] {
+    x = 2;
+}""")
     runner = CliRunner()
     latex = runner.invoke(cli, ["--use-latex", "--no-simplification", "main", str(program)])
     assert latex.exit_code == 0, latex.output

@@ -3,19 +3,15 @@
 pGCL grammar (``.pgcl``)
 ========================
 
-This page is the reference for the original pGCL syntax, which Prodigy still reads (files that do
-not end in ``.ppy``).
+This page is the reference for the original pGCL syntax.
 
 .. warning::
 
-   The ``.pgcl`` syntax is **deprecated since v0.5.0 and will be removed in v0.6.0**. Reading a
-   ``.pgcl`` program (command line, GUI, Python API) gives a deprecation warning; the result carries it
-   in ``warnings``. Convert programs while v0.5.x is installed: ``prodigy convert program.pgcl``
-   writes the ``.ppy`` program (the GUI offers *Convert to .ppy*); v0.6.0 removes the converter as
-   well. There are no new ``.pgcl`` features.
+   The ``.pgcl`` syntax was **removed in v0.6.0**: the command line, the GUI and its API reject a
+   ``.pgcl`` program and point to ``prodigy convert`` of v0.5.x. Its parser is left only for tests
+   that still use it and goes with this page (#433).
 
-Programs are written in ``.ppy`` now (see :doc:`language`);
-``prodigy convert`` translates a ``.pgcl`` program into it. The notes on division, guards, modulo,
+Programs are written in ``.ppy`` (see :doc:`language`). The notes on division, guards, modulo,
 floor division, block-scoped declarations and sampling below describe the semantics and hold for
 both syntaxes.
 

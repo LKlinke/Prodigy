@@ -13,13 +13,35 @@ from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.session import AnalysisSession
 from prodigy.pgcl import parse_pgcl
 
-PROGRAM = """nat a; nat b; nat c; nat w;
-while (w = 0) { c := a * b; {w := 1} [1/2] {b := b + 1} }
-?Ex[c]
+PROGRAM = """a: nat;
+b: nat;
+c: nat;
+w: nat;
+while (w == 0) {
+    c = a * b;
+    {
+        w = 1;
+    } [1/2] {
+        b = b + 1;
+    }
+}
+query Ex[c];
 """
-GUARD_PROGRAM = """nat a; nat b; nat w;
-while (w = 0) { if (a < 2*b) { w := 1 } else { {b := b + 1} [1/2] {w := 2} } }
-?Ex[b]
+GUARD_PROGRAM = """a: nat;
+b: nat;
+w: nat;
+while (w == 0) {
+    if (a < 2 * b) {
+        w = 1;
+    } else {
+        {
+            b = b + 1;
+        } [1/2] {
+            w = 2;
+        }
+    }
+}
+query Ex[b];
 """
 
 ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINAC]

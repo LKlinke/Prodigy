@@ -661,11 +661,11 @@ def _check_constant_declarations(program: Program) -> Optional[CheckFail]:
     .. doctest::
 
         >>> from .parser import parse_pgcl
-        >>> program = parse_pgcl("const x := y; const y := x")
+        >>> program = parse_pgcl("const x = y; const y = x;")
         >>> _check_constant_declarations(program)
         CheckFail(location=VarExpr('y'), message='Constant is not yet defined')
 
-        >>> program = parse_pgcl("nat x; const y := x")
+        >>> program = parse_pgcl("x: nat; const y = x;")
         >>> _check_constant_declarations(program)
         CheckFail(location=VarExpr('x'), message='Variable used in constant definition is not a constant')
     """
@@ -697,7 +697,7 @@ def _check_declaration_list(
     .. doctest::
 
         >>> from .parser import parse_pgcl
-        >>> program = parse_pgcl("const x := 1; const x := 1")
+        >>> program = parse_pgcl("const x: nat = 1; const x: nat = 1;")
         >>> _check_declaration_list(program, {})
         CheckFail(location=..., message='Already declared variable/constant before.')
     """
@@ -751,31 +751,31 @@ def check_instr(
 
         >>> from .parser import parse_pgcl
 
-        >>> program = parse_pgcl("bool x; x := true")
+        >>> program = parse_pgcl("x: bool; x = true;")
         >>> check_instr(program, program.instructions[0])
 
-        >>> program = parse_pgcl("nat x; x := true")
+        >>> program = parse_pgcl("x: nat; x = true;")
         >>> check_instr(program, program.instructions[0])
 
-        >>> program = parse_pgcl("bool x; x := bernoulli(1/2)")
+        >>> program = parse_pgcl("x: bool; x = bernoulli(1/2);")
         >>> check_instr(program, program.instructions[0])
 
-        >>> program = parse_pgcl("bool x; x := 2")
+        >>> program = parse_pgcl("x: bool; x = 2;")
         >>> check_instr(program, program.instructions[0])
         CheckFail(location=..., message='Expected value of type BoolType(), got NatType(bounds=None) that is not provably 0 or 1.')
 
-        >>> program = parse_pgcl("nat x; x := 1/2")
+        >>> program = parse_pgcl("x: nat; x = 1/2;")
         >>> check_instr(program, program.instructions[0])
         CheckFail(location=..., message='Expected value of type NatType(bounds=None), got RealType().')
 
-        >>> program = parse_pgcl("const x := true; x := true")
+        >>> program = parse_pgcl("const x: bool = true; x = true;")
         >>> check_instr(program, program.instructions[0])
         CheckFail(location=..., message='x is not a variable.')
 
-        >>> program = parse_pgcl("nat x [1,5]; x := 3")
+        >>> program = parse_pgcl("x: nat[1, 5]; x = 3;")
         >>> check_instr(program, program.instructions[0])
 
-        >>> program = parse_pgcl("nat x [1,5]; nat y; x := x + 3")
+        >>> program = parse_pgcl("x: nat[1, 5]; y: nat; x = x + 3;")
         >>> check_instr(program, program.instructions[0])
     """
     if isinstance(instr, (SkipInstr, AbortInstr)):
@@ -1122,10 +1122,10 @@ def non_bool_guard(program: Program) -> Optional[tuple[Instr, Expr, str, Type]]:
     .. doctest::
 
         >>> from .parser import parse_pgcl
-        >>> _, guard, what, typ = non_bool_guard(parse_pgcl("nat x; if (x) { x := 1 } else { skip }", check_guards=False))
+        >>> _, guard, what, typ = non_bool_guard(parse_pgcl("x: nat; if (x) {     x = 1; } else {     skip; }", check_guards=False))
         >>> guard, what, type_name(typ)
         (VarExpr('x'), 'the guard of if', 'nat')
-        >>> non_bool_guard(parse_pgcl("nat x; while (x > 0) { x := x - 1 }")) is None
+        >>> non_bool_guard(parse_pgcl("x: nat; while (x > 0) {     x = x - 1; }")) is None
         True
     """
     views = [(program, program.instructions)]

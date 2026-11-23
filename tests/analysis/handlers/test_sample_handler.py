@@ -25,11 +25,11 @@ def test_iid_predefined_distributions(engine, factory):
     for distribution in distributions.keys():
         result, error_prob = compute_discrete_distribution(
             pgcl.parse_pgcl("""
-                    nat x;
-                    nparam n;
-                    rparam p;
-                    
-                    x := iid(%s, x);
+                    x: nat;
+                    param n: nat;
+                    param p: real;
+
+                    x = iid(%s, x);
                 """ % distribution), factory.from_expr('x', 'x'),
             ForwardAnalysisConfig(engine=engine))
         assert result == distributions[distribution], distribution
@@ -41,11 +41,10 @@ def test_iid_predefined_distributions(engine, factory):
 def test_iid_update(engine, factory):
     result, error_prob = compute_discrete_distribution(
         pgcl.parse_pgcl("""
-            nat x;
-            rparam p;
-            
-            x := binomial(5,p);
-            x := iid(geometric(p), x);
-        """), factory.one('x'),
+x: nat;
+param p: real;
+
+x = binomial(5, p);
+x = iid(geometric(p), x);"""), factory.one('x'),
         ForwardAnalysisConfig(engine=engine))
     assert result == factory.from_expr("(p^2/(1-(1-p)*x) + 1 - p)^5", "x")

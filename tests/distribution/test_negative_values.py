@@ -141,13 +141,44 @@ def test_undecided_subtraction_is_not_implemented(factory):
 @pytest.mark.parametrize("engine, factory", ENGINES)
 @pytest.mark.parametrize("program, expected", [
     # subtraction is truncated at 0 (monus, #220)
-    ("nat x; nat y; y := geometric(1/2); x := x - y;", "1/(2 - y)"),
-    ("nat x; nat y; nat z; y := geometric(1/2); z := x - y;", "1/(2 - y)"),
-    ("nat x; x := geometric(1/2); x := 3 - x;", "x^3/2 + x^2/4 + x/8 + 1/8"),
-    ("nat x; x := geometric(1/2); if (x <= 3) { x := 3 - x } else { x := 0 }", "x^3/2 + x^2/4 + x/8 + 1/8"),
-    ("nat x; nat y; y := geometric(1/2); x := y; x := y - x;", "1/(2 - y)"),
-    ("nat x; nat y; nat z; y := poisson(2); x := y + 1; z := x - y;", "x*z*exp(2*(x*y - 1))"),
-    ("nat x; rparam p; x := geometric(p); if (x > 0) { x := x - 1 } else { skip }", "p + p*(1 - p)/(1 - (1 - p)*x)"),
+    ("""x: nat;
+y: nat;
+y = geometric(1/2);
+x = x - y;""", "1/(2 - y)"),
+    ("""x: nat;
+y: nat;
+z: nat;
+y = geometric(1/2);
+z = x - y;""", "1/(2 - y)"),
+    ("""x: nat;
+x = geometric(1/2);
+x = 3 - x;""", "x^3/2 + x^2/4 + x/8 + 1/8"),
+    ("""x: nat;
+x = geometric(1/2);
+if (x <= 3) {
+    x = 3 - x;
+} else {
+    x = 0;
+}""", "x^3/2 + x^2/4 + x/8 + 1/8"),
+    ("""x: nat;
+y: nat;
+y = geometric(1/2);
+x = y;
+x = y - x;""", "1/(2 - y)"),
+    ("""x: nat;
+y: nat;
+z: nat;
+y = poisson(2);
+x = y + 1;
+z = x - y;""", "x*z*exp(2*(x*y - 1))"),
+    ("""x: nat;
+param p: real;
+x = geometric(p);
+if (x > 0) {
+    x = x - 1;
+} else {
+    skip;
+}""", "p + p*(1 - p)/(1 - (1 - p)*x)"),
 ])
 def test_subtraction_in_programs(engine, factory, program, expected):
     prog = pgcl.parse_pgcl(program)

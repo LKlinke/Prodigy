@@ -64,8 +64,12 @@ def test_assignments(engine, simplification, source, expected):
 @pytest.mark.parametrize("simplification", SIMPLIFICATION)
 @pytest.mark.parametrize("engine", ENGINES)
 def test_pgcl_syntax(engine, simplification):
-    source = "nat x;\nnat y;\ny := 2 : 1/2 + 5 : 1/2;\nx := y : 1/3 + 7 : 2/3;\n"
-    result, _, factory = _distribution(source, engine, simplification, syntax="pgcl")
+    source = """x: nat;
+y: nat;
+y = categorical({2: 1/2, 5: 1/2});
+x = categorical({y: 1/3, 7: 2/3});
+"""
+    result, _, factory = _distribution(source, engine, simplification, syntax="ppy")
     assert _equal(result, factory, "x^2*y^2/6 + x^5*y^5/6 + x^7*y^2/3 + x^7*y^5/3")
 
 

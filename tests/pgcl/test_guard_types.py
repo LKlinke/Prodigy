@@ -12,6 +12,7 @@ from prodigy.pgcl.compiler import compile_pgcl
 from prodigy.pgcl.parser import parse_pgcl
 from prodigy.pgcl.syntax_errors import ProgramSyntaxError, ProgramTypeError
 from prodigy.web.diagnostics import check_source
+from tests.pgcl.legacy import parse_pgcl, compile_pgcl  # noqa: E402  # the old syntax, see legacy.py
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import

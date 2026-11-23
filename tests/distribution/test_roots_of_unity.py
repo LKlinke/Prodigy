@@ -122,10 +122,20 @@ def test_modulo_update_on_single_valued_function_matches_series(engine):
 # f + 2x(x - f)/(2x - u - u x^2) with u = c*y and f = (1 - sqrt(1 - u^2))/u, the generating function of
 # the number of steps (always odd). The second form writes u as sqrt(c^2*y^2) in f, which denotes
 # the same series; GiNaC accepts it and used to report Pr[c % 2 = 0] = 1 (the truth is 0).
-WALK = """nat x; nat c; nat y;
-x := 1
-while (x > 0) { {x := x - 1} [1/2] {x := x + 1}; c := c + 1; y := y + 1 }
-?Pr[c % 2 = 0]
+WALK = """x: nat;
+c: nat;
+y: nat;
+x = 1;
+while (x > 0) {
+    {
+        x = x - 1;
+    } [1/2] {
+        x = x + 1;
+    }
+    c = c + 1;
+    y = y + 1;
+}
+query Pr[c % 2 == 0];
 """
 
 

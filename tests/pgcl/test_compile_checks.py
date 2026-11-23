@@ -3,6 +3,7 @@ from lark.exceptions import UnexpectedCharacters
 
 from prodigy.pgcl.check import CheckFail
 from prodigy.pgcl.compiler import compile_pgcl
+from tests.pgcl.legacy import compile_pgcl  # noqa: E402  # the old syntax, see legacy.py
 
 
 def test_uniform_checks():

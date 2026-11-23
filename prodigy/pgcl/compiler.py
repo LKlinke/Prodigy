@@ -49,10 +49,10 @@ def compile_pgcl(
 
     .. doctest::
 
-        >>> compile_pgcl("nat x; nat y; x := y")
+        >>> compile_pgcl("x: nat; y: nat; x = y;")
         Program(variables={'x': NatType(bounds=None), 'y': NatType(bounds=None)}, constants={}, parameters={}, functions={}, instructions=[AsgnInstr(lhs='x', rhs=VarExpr('y'))])
 
-        >>> compile_pgcl("x := y")
+        >>> compile_pgcl("x = y;")
         CheckFail(location=..., message='x is not a variable.')
 
     Args:

@@ -81,9 +81,12 @@ def test_refuted_generating_functions_are_type_errors(source, expression):
 
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("source, reason", [
-    ("nat y; y := sample_pgf(2*y, y)", "its mass (its value at 1) is 2, not 1"),
-    ("nat y; y := iid(2*y, 3)", "its mass (its value at 1) is 2, not 1"),
-    ("nat y; y := sample_pgf(2*y*y - y, y)", "which is negative"),
+    ("""y: nat;
+y = sample_pgf(2 * y, y);""", "its mass (its value at 1) is 2, not 1"),
+    ("""y: nat;
+y = iid(2 * y, 3);""", "its mass (its value at 1) is 2, not 1"),
+    ("""y: nat;
+y = sample_pgf(2 * y * y - y, y);""", "which is negative"),
 ])
 def test_refuted_generating_functions_without_type_check(engine, source, reason):
     """Programs that did not pass the type checker (Python API) are checked by the analysis, on every engine."""

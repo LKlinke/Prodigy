@@ -69,13 +69,6 @@ def test_distributions_without_closed_form_and_without_dist():
     assert run("x: nat = bernoulli(1/2);\n")["distributions"] == []
 
 
-def test_pgcl_spelling():
-    source = "dist d;\nnat x;\nfun f := {\n nat a;\n a := bernoulli(1/2);\n return a;\n}\nd := infer { f() }\n"
-    session = AnalysisSession(parse_pgcl(source), source=source)
-    result = session.run().to_json()
-    assert result["distributions"][0]["values"][0]["infer"] == "infer { f() }"
-
-
 def test_trace_shows_dist_values_apart():
     result = run(SOURCE, record_steps=True)
     steps = {step["summary"]: step for step in result["steps"]}
