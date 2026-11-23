@@ -6,24 +6,22 @@ from pytest import mark, raises
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.pgcl.ast import *
 from prodigy.pgcl.ppy_printer import program_to_ppy
-from prodigy.pgcl.parser import parse_expr, parse_pgcl
+from prodigy.pgcl.parser import parse_pgcl
 from prodigy.pgcl.ppy_parser import parse_ppy, parse_ppy_expr
-from tests.pgcl.legacy import parse_pgcl  # noqa: E402  # the old syntax, see legacy.py
 
 
 def test_all_operators():
     program = parse_pgcl("""
-        const pi := 3.14;
-        bool b;
-        nat x;
-        real r;
-        b := true || false & true
-        b := 6.0 > pi & not (pi = pi*3)
-        n := 1 : 0.5 + 2 : 1/2
-        n := 1 + 2 + 3
-        n := 1^2^3
-        n := 1 % 2^3
-    """)
+const pi: real = 3.14;
+b: bool;
+x: nat;
+r: real;
+b = true or false and true;
+b = 6.0 > pi and not pi == pi * 3;
+n = categorical({1: 0.5, 2: 1/2});
+n = 1 + 2 + 3;
+n = 1 ** 2 ** 3;
+n = 1 % 2 ** 3;""")
     instr: List[AsgnInstr] = program.instructions
 
     assert instr[0].rhs == BinopExpr(
@@ -48,15 +46,6 @@ def test_all_operators():
     assert instr[5].rhs == BinopExpr(
         Binop.MODULO, NatLitExpr(1),
         BinopExpr(Binop.POWER, NatLitExpr(2), NatLitExpr(3)))
-
-
-def test_likely_minus_error():
-    with raises(Exception) as e:
-        parse_pgcl("""
-            nat x
-            x := 1 : 0.5 - 2 : 0.5
-        """)
-    assert "Illegal place for a probability annotation" in str(e)
 
 
 # --- unary minus (#430) ---------------------------------------------------------------------------
@@ -100,15 +89,17 @@ _UMINUS_CASES = [
 
 @mark.parametrize("pgcl,value", _UMINUS_CASES)
 def test_unary_minus_precedence_is_the_same_in_both_syntaxes(pgcl, value):
-    parsed = parse_expr(pgcl)
-    assert parsed == parse_ppy_expr(pgcl.replace("^", "**"))
+    parsed = parse_ppy_expr(pgcl.replace("^", "**"))
     assert _value(parsed) == value
 
 
 def test_unary_minus_in_a_program_and_its_conversion():
     """A leading minus of a sum is not the minus of the whole sum, and printing as ``.ppy`` keeps
     the meaning (#430)."""
-    source = "nat x; nat y; x := 3; y := -x + 2*x + (-1 + 3) * 2"
+    source = """x: nat;
+y: nat;
+x = 3;
+y = -x + 2 * x + (-1 + 3) * 2;"""
     program = parse_pgcl(source)
     assert _value(program.instructions[1].rhs) == 7
     printed = program_to_ppy(program)

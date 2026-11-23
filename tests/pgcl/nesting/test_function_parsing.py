@@ -3,26 +3,24 @@ from fractions import Fraction
 from pytest import raises
 
 from prodigy.pgcl import parse_pgcl
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 from prodigy.pgcl.ast.declarations import FunctionDecl, VarDecl
 from prodigy.pgcl.ast.expressions import (Binop, BinopExpr, CategoricalExpr,
                                            FunctionCallExpr, NatLitExpr,
                                            RealLitExpr, VarExpr)
 from prodigy.pgcl.ast.instructions import AsgnInstr
 from prodigy.pgcl.ast.types import NatType
-from prodigy.pgcl.parser import parse_expr
-from tests.pgcl.legacy import parse_pgcl  # noqa: E402  # the old syntax, see legacy.py
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 
 def test_basic_function():
     prog = parse_pgcl("""
-        fun f := {
-            nat x;
-            x := 10;
-            return x;
-        }
-        nat x;
-        x := f(x := 10);
-    """)
+def f(x: nat) -> nat {
+    x = 10;
+    return x;
+}
+x: nat;
+x = f(x = 10);""")
     decl = prog.declarations[0]
     assert isinstance(decl, FunctionDecl)
     fun = decl.body
@@ -37,14 +35,12 @@ def test_basic_function():
     ]
 
     prog = parse_pgcl("""
-        fun f := {
-            nat x;
-            x := 10;
-            return x;
-        }
-        nat x;
-        x := f(10);
-    """)
+def f(x: nat) -> nat {
+    x = 10;
+    return x;
+}
+x: nat;
+x = f(10);""")
     decl = prog.declarations[0]
     assert isinstance(decl, FunctionDecl)
     fun = decl.body
@@ -56,64 +52,14 @@ def test_basic_function():
     ]
 
 
-def test_illegal_names():
-    with raises(SyntaxError, match='Illegal function name: poisson'):
-        parse_pgcl("""
-            fun poisson := {
-                nat x;
-                x := 10;
-                return x;
-            }
-            nat x;
-            x := poisson(x := 10);
-        """)
-
-
-def test_wrong_declaration_type():
-    with raises(SyntaxError, match="Only VarDecls are allowed in functions"):
-        parse_pgcl("""
-            fun f := {
-                rparam x;
-                return 10;
-            }
-            nat x;
-            x := f(x := 10);
-        """)
-
-    with raises(SyntaxError, match="Only VarDecls are allowed in functions"):
-        parse_pgcl("""
-            fun f := {
-                fun g := {
-                    return 42;
-                };
-                return 10;
-            }
-            nat x;
-            x := f(x := 10);
-        """)
-
-    with raises(SyntaxError, match="Only VarDecls are allowed in functions"):
-        parse_pgcl("""
-            fun f := {
-                const g := 10;
-                return g;
-            }
-            nat x;
-            x := f(x := 10);
-        """)
-
-
 def test_positional_and_named_parameters():
     prog = parse_pgcl("""
-        fun f := {
-            nat x;
-            nat y;
-            x := 10;
-            return x;
-        }
-        nat x;
-        x := f(5, y := 10);
-    """)
+def f(x: nat, y: nat) -> nat {
+    x = 10;
+    return x;
+}
+x: nat;
+x = f(5, y = 10);""")
     assert prog.instructions == [
         AsgnInstr(lhs='x',
                   rhs=FunctionCallExpr('f', ([NatLitExpr(5)], {
@@ -127,15 +73,12 @@ def test_positional_and_named_parameters():
         }
 
     prog = parse_pgcl("""
-        fun f := {
-            nat x;
-            nat y;
-            x := 10;
-            return x;
-        }
-        nat x;
-        x := f(y := 10);
-    """)
+def f(x: nat, y: nat) -> nat {
+    x = 10;
+    return x;
+}
+x: nat;
+x = f(y = 10);""")
     assert prog.instructions == [
         AsgnInstr(lhs='x',
                   rhs=FunctionCallExpr('f', ([], {
@@ -149,15 +92,12 @@ def test_positional_and_named_parameters():
         }
 
     prog = parse_pgcl("""
-        fun f := {
-            nat x;
-            nat y;
-            x := 10;
-            return x;
-        }
-        nat x;
-        x := f(7);
-    """)
+def f(x: nat, y: nat) -> nat {
+    x = 10;
+    return x;
+}
+x: nat;
+x = f(7);""")
     assert prog.instructions == [
         AsgnInstr(lhs='x', rhs=FunctionCallExpr('f', ([NatLitExpr(7)], {})))
     ]
@@ -168,19 +108,12 @@ def test_positional_and_named_parameters():
         }
 
     prog = parse_pgcl("""
-        fun f := {
-            nat x;
-            nat y;
-            nat z;
-            nat a;
-            nat b;
-            nat c;
-            x := 10;
-            return x;
-        }
-        nat x;
-        x := f(7, 8, 9, 10, 42);
-    """)
+def f(x: nat, y: nat, z: nat, a: nat, b: nat, c: nat) -> nat {
+    x = 10;
+    return x;
+}
+x: nat;
+x = f(7, 8, 9, 10, 42);""")
     assert prog.instructions[0].rhs.params[0] == [
         NatLitExpr(7),
         NatLitExpr(8),
@@ -201,15 +134,12 @@ def test_positional_and_named_parameters():
 
 def test_likely_expr():
     prog = parse_pgcl("""
-        fun f := {
-            nat x;
-            nat y;
-            x := 10;
-            return x;
-        }
-        nat x;
-        x := f(7 : 6/10 + 42: 4/10);
-    """)
+def f(x: nat, y: nat) -> nat {
+    x = 10;
+    return x;
+}
+x: nat;
+x = f(categorical({7: 3/5, 42: 2/5}));""")
     assert prog.instructions == [
         AsgnInstr(lhs='x',
                   rhs=FunctionCallExpr('f', ([
@@ -230,8 +160,7 @@ def test_likely_expr():
 
 def test_nested_params():
     prog = parse_pgcl("""
-        x := f(g(h), y);
-    """)
+x = f(g(h), y);""")
     assert prog.instructions == [
         AsgnInstr(lhs='x',
                   rhs=FunctionCallExpr(function="f",
@@ -245,6 +174,6 @@ def test_nested_params():
 
 
 def test_expression():
-    expr = parse_expr("x * sin(x)")
+    expr = parse_ppy_expr("x * sin(x)")
     assert expr == BinopExpr(Binop.TIMES, VarExpr("x"),
                              FunctionCallExpr("sin", ([VarExpr("x")], {})))

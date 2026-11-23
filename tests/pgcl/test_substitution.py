@@ -10,7 +10,6 @@ from prodigy.pgcl.ast.walk import Walk, mut_expr_children, walk_expr
 from prodigy.pgcl.parser import parse_pgcl
 from prodigy.pgcl.substitute import substitute_constants, substitute_expr
 from prodigy.pgcl.util.ref import Mut
-from tests.pgcl.legacy import parse_pgcl  # noqa: E402  # the old syntax, see legacy.py
 
 
 def make_closure(substs: List[Tuple[int, int]], var: int,
@@ -85,7 +84,9 @@ def test_generated_substitution(expr: Expr):
 
 
 def test_substitute_constants_categorical():
-    program = parse_pgcl("const c := 3; nat x; x := c : 0.25 + (c + 1) : 0.75;")
+    program = parse_pgcl("""const c: nat = 3;
+x: nat;
+x = categorical({c: 0.25, c + 1: 0.75});""")
     substitute_constants(program)
     assert str(program.instructions[0]) == "x := 3 : 0.25 + (3 + 1) : 0.75;"
 
