@@ -165,8 +165,8 @@ def expr_to_ppy(expr: Expr) -> str:
 
     .. doctest::
 
-        >>> from prodigy.pgcl.parser import parse_expectation
-        >>> expr_to_ppy(parse_expectation("not (x = 1) & y^2 < -x + 1"))
+        >>> from prodigy.pgcl.ppy_parser import parse_ppy_expr
+        >>> expr_to_ppy(parse_ppy_expr("not (x == 1) and y ** 2 < -x + 1"))
         'not x == 1 and y ** 2 < -x + 1'
     """
     return _expr(expr)[0]

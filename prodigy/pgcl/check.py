@@ -630,11 +630,11 @@ def _is_zero_or_one(program: Program, expr: Expr) -> bool:
 
     .. doctest::
 
-        >>> from .parser import parse_expr
+        >>> from prodigy.pgcl.ppy_parser import parse_ppy_expr
         >>> program = Program(list(), dict(), dict(), dict(), dict(), list())
-        >>> _is_zero_or_one(program, parse_expr("bernoulli(1/3)"))
+        >>> _is_zero_or_one(program, parse_ppy_expr("bernoulli(1/3)"))
         True
-        >>> _is_zero_or_one(program, parse_expr("unif(0, 2)"))
+        >>> _is_zero_or_one(program, parse_ppy_expr("unif(0, 2)"))
         False
     """
     if isinstance(expr, NatLitExpr):

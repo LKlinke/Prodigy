@@ -36,16 +36,16 @@ Instead, a substitution applied to a symbolic variable will wrap the variable in
 
     >>> from prodigy.pgcl.util.ref import Mut
     >>> from .ast import SubstExpr, NatLitExpr, VarExpr
-    >>> from .parser import parse_expr
+    >>> from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
     Simple substitution without symbolic variables:
-    >>> expr_ref = Mut.alloc(SubstExpr({"x": NatLitExpr(2)}, parse_expr("x + y")))
+    >>> expr_ref = Mut.alloc(SubstExpr({"x": NatLitExpr(2)}, parse_ppy_expr("x + y")))
     >>> substitute_expr(expr_ref)
     >>> str(expr_ref.val)
     '2 + y'
 
     The same substitution with `y` being symbolic:
-    >>> expr_ref = Mut.alloc(SubstExpr({"x": NatLitExpr(2)}, parse_expr("x + y")))
+    >>> expr_ref = Mut.alloc(SubstExpr({"x": NatLitExpr(2)}, parse_ppy_expr("x + y")))
     >>> substitute_expr(expr_ref, symbolic=set("y"))
     >>> str(expr_ref.val)
     '2 + ((y)[x/2])'

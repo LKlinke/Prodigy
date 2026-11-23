@@ -20,7 +20,8 @@ from prodigy.pgcl.util.ref import Mut
 from .ast import Expr, Instr, Node, Program, Var, VarDecl
 from .check import (CheckFail, check_expectation, check_expression,
                     check_program, sample_predefined_functions)
-from .parser import parse_expectation, parse_expr, parse_pgcl, select_syntax
+from .parser import parse_pgcl, select_syntax
+from .ppy_parser import parse_ppy_expr
 
 
 def _ppy_spelling(node: Node) -> str:
@@ -82,14 +83,14 @@ def compile_expr(
                                List[VarDecl]] = sample_predefined_functions
 ) -> Union[Expr, CheckFail]:
     """
-    Parse and type-check an expression.
+    Parse (``.ppy`` syntax) and type-check an expression.
 
     Args:
         program:
         code:
         substitute_constants: Whether constant substitution is done on the expression, defaults to `True`.
     """
-    expr = parse_expr(code)
+    expr = parse_ppy_expr(code)
     check_result = check_expression(program, expr, predefined_functions)
     if check_result is not None:
         return check_result
@@ -109,14 +110,14 @@ def compile_expectation(
                                List[VarDecl]] = sample_predefined_functions
 ) -> Union[Expr, CheckFail]:
     """
-    Parse and type-check an expectation.
+    Parse (``.ppy`` syntax) and type-check an expectation.
 
     Args:
         program:
         code:
         substitute_constants: Whether constant substitution is done on the expectation, defaults to `True`.
     """
-    expr = parse_expectation(code)
+    expr = parse_ppy_expr(code)
     check_result = check_expectation(program, expr, predefined_functions)
     if check_result is not None:
         return check_result
