@@ -127,8 +127,10 @@ class TestDistributionInterface:
         assert gf.get_probability_of(parse_expr("not (z*y < 12)")) == "0"
 
     def test_get_probability_mass(self):
-        gf = GeneratingFunction("(1-sqrt(1-x**2))/x")
-        # the walk's series has radius 1, which the API does not prove (#398); an analysis vouches for it
+        # the walk's series is a finite measure by the shift and the monomial substitution (#431)
+        assert GeneratingFunction("(1-sqrt(1-x**2))/x").get_probability_mass() == "1"
+        gf = GeneratingFunction("(1 + x**2 - x**3)*(1-sqrt(1-x**2))/x")
+        # no rule proves this series (with radius 1) convergent at 1 (#398); an analysis vouches for it
         with pytest.raises(NonFiniteMarginalError, match="not proven"):
             gf.get_probability_mass()
         with known_convergent_series(True):
@@ -142,10 +144,10 @@ class TestDistributionInterface:
 
     def test_expected_value_of(self):
         gf: GeneratingFunction = GeneratingFunction("(1-sqrt(1-x**2))/x")
+        assert gf.get_expected_value_of("x") == "Infinity"  # proven a finite measure (#431)
+        gf = GeneratingFunction("(1 + x**2 - x**3)*(1-sqrt(1-x**2))/x")
         with pytest.raises(NonFiniteMarginalError, match="not proven"):
             gf.get_expected_value_of("x")
-        with known_convergent_series(True):
-            assert gf.get_expected_value_of("x") == "Infinity"
 
         gf = SympyPGF.zero("x")
         assert gf.get_expected_value_of("x") == "0"
