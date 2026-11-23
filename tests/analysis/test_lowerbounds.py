@@ -19,7 +19,7 @@ from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.lowerbounds import explicit
 from prodigy.analysis.lowerbounds.egcalc import Denominator, GFCalculus, padd, pscale
 from prodigy.analysis.lowerbounds.ir import UnsupportedProgram, split_program
-from prodigy.analysis.lowerbounds.parameters import TemplateShape
+from prodigy.analysis.lowerbounds.parameters import TemplateShape, _largest_fitting_scale
 from prodigy.analysis.lowerbounds.problem import load_problem
 from prodigy.analysis.lowerbounds.sandwich import evt_sandwich
 from prodigy.analysis.lowerbounds.subinvariant import evt_subinvariant_verification, to_product_form
@@ -263,3 +263,32 @@ def test_rational_mass_is_sound_outside_the_radius_of_convergence():
     assert rational_mass("(1-x**4)/(4*(1-x))", ["x"]) == 1            # uniform on {0,..,3}: 0/0 at 1
     assert rational_mass("(1+y/3)/(1-3*x/5)", ["x", "y"]) == Fraction(10, 3)
     assert rational_mass("(1-sqrt(1-x**2))/x", ["x"]) is None         # not rational: no claim
+
+
+def _walk_down(fits, start=400.0, step=0.9):
+    """The linear search that :func:`_largest_fitting_scale` replaces."""
+    lam = start
+    while lam > 1 and not fits(lam):
+        lam *= step
+    return lam
+
+
+@pytest.mark.parametrize("threshold", [1000.0, 400.0, 399.9, 123.4, 5.0, 1.01, 1.0, 0.5, -1.0])
+def test_largest_fitting_scale_agrees_with_the_linear_walk(threshold):
+    calls = []
+
+    def fits(lam):
+        calls.append(lam)
+        return lam <= threshold
+
+    assert _largest_fitting_scale(fits) == _walk_down(lambda lam: lam <= threshold)
+    assert len(calls) <= 7  # ~58 scales: a binary search, not a walk
+
+
+def test_reachable_states_grow_with_the_box():
+    """The monotonicity that lets the template planning search the box scale by bisection: the states reachable
+    inside a box are reachable inside every larger box."""
+    _, problem = _load("sandwich/escape_noisy.ppy")
+    init = list(problem.initial_measure().keys())
+    sets = [explicit.reachable(init, problem.guard, problem.body, problem.variables, [b, b + 3]) for b in (2, 5, 9, 14)]
+    assert all(small <= large for small, large in zip(sets, sets[1:])) and len(sets[0]) < len(sets[-1])
