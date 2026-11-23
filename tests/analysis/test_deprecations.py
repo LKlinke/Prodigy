@@ -96,3 +96,11 @@ def test_gui_request_with_symengine_is_refused_with_the_removal_message():
     assert SYMENGINE_REMOVED in validate_request({"source": PPY, "syntax": "ppy", "engine": "symengine"})
     with pytest.raises(ConfigurationError, match="removed in v0.6.0"):
         make_config({"engine": "symengine"})
+
+
+def test_direct_access_to_a_removed_engine_gives_the_removal_message():
+    # #464: the enum has no member SYMENGINE any more
+    with pytest.raises(AttributeError, match="SymEngine engine was removed"):
+        _ = ForwardAnalysisConfig.Engine.SYMENGINE
+    with pytest.raises(AttributeError, match="^FOO$"):
+        _ = ForwardAnalysisConfig.Engine.FOO
