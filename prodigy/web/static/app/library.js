@@ -1,6 +1,5 @@
 // The example library: a sheet listing pgfexamples, grouped by category, with search and
-// keyboard navigation (↑ ↓ to move, Return to open, Esc to close). Examples open in .ppy; a .pgcl
-// example from a custom examples folder (prodigy web --examples) is converted on the fly.
+// keyboard navigation (↑ ↓ to move, Return to open, Esc to close). Examples are .ppy programs.
 import { h, icon } from "./components/dom.js";
 import { clearRecent, recentEntries } from "./recent.js";
 

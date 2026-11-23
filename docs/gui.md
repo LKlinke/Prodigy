@@ -128,7 +128,7 @@ Prodigy is tested with Python 3.11 and 3.14.
 
 Keyboard: ⌘/Ctrl + Return analyses (checks, in Compare mode), ⌥⌘1 / ⌥⌘2 choose the mode, ⌘/Ctrl + . (or Esc) stops, ⌘/Ctrl + O opens,
 ⌘/Ctrl + S saves; F10 / ⇧F10 move the analysis card's timeline to the next / previous position,
-F5 / ⇧F5 to the next / previous breakpoint, and F9 in the editor sets a breakpoint. Every analysis runs in its own process with a time limit and can be stopped
+F5 / ⇧F5 to the next / previous breakpoint, and F9 in the editor sets a breakpoint. In the editor, Tab accepts the selected completion (Return always starts a new line). Every analysis runs in its own process with a time limit and can be stopped
 at any time.
 A message in the toolbar (an error, a notice) that does not fit is cut off with an ellipsis; a *Show full
 message* button next to it opens the whole text (Esc closes it), so it is reachable by keyboard and
@@ -496,8 +496,8 @@ scripts; `prodigy analyze --json` has the exploration in the loop's certificate 
 Programs are written in `.ppy`. The `.pgcl` syntax was removed in v0.6.0, together with
 *Convert to .ppy*: the server answers a `.pgcl` program with the error "The .pgcl syntax was
 removed in v0.6.0. Convert the program to .ppy with Prodigy v0.5.x (`prodigy convert
-program.pgcl`, or Convert to .ppy in its GUI).", shown in the editor. (The editor still offers
-a pGCL mode for New and Open; it goes in a later step of #433.)
+program.pgcl`, or Convert to .ppy in its GUI)." **New** starts a `.ppy` program, and Save writes
+`.ppy`; a `.pgcl` file can still be opened, and its errors show in the editor.
 
 Everything typed into the setup is read in the program's syntax: an invariant program of
 *Check invariant* is a loop-free program in that syntax. Generating functions (the initial

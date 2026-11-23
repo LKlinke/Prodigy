@@ -1354,7 +1354,7 @@ async function loadExample(example, syntax = "ppy") {
   selectTab("setup");
 }
 
-// ---- syntax: pGCL or .ppy ------------------------------------------------------------------------
+// ---- syntax (.ppy) ------------------------------------------------------------------------
 
 function renderSyntax() {
   const syntax = editor.getSyntax();
@@ -1399,8 +1399,8 @@ async function boot() {
   const storedSource = load("source", null);
   editor = createEditor($("editor"), {
     doc: storedSource ?? WELCOME,
-    // a program kept by a version without .ppy support is pGCL
-    syntax: load("syntax", storedSource === null ? "ppy" : "pgcl") === "ppy" ? "ppy" : "pgcl",
+    // a program kept by an earlier version may be pGCL; the server then reports that .pgcl was removed
+    syntax: "ppy",
     onSyntaxChange: syntaxChanged,
     onCompanion: companionApplied,
     onChange: (source) => {
@@ -1419,7 +1419,7 @@ async function boot() {
   });
   otherEditor = createEditor($("editor-other"), {
     doc: load("otherSource", "") || "",
-    syntax: load("otherSyntax", "ppy") === "pgcl" ? "pgcl" : "ppy",
+    syntax: "ppy",
     label: "Second program",
     breakpoints: false,
     onSyntaxChange: (syntax) => { save("otherSyntax", syntax); renderOtherSyntax(); scheduleOtherCheck(0); refreshStale(); },

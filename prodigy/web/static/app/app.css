@@ -61,6 +61,7 @@
   --error: #C4161C;
   --error-fill: rgba(196, 22, 28, 0.08);
 
+  --code-keyword: #9B2393;
   --code-type: #0B6E79;
   --code-number: #1F4FBF;
   --code-builtin: #0B6E79;
@@ -102,6 +103,7 @@
     --error: #FF6B61;
     --error-fill: rgba(255, 107, 97, 0.12);
 
+    --code-keyword: #FF7AB2;
     --code-type: #5DD4E0;
     --code-number: #8AB4FF;
     --code-builtin: #5DD4E0;
@@ -617,7 +619,7 @@ dialog.alert::backdrop { background: rgba(0, 0, 0, 0.28); }
   .spinner { animation: none; border-top-color: var(--accent); }
 }
 
-/* ---- syntax of the program (pGCL or .ppy) ----------------------------------------- */
+/* ---- syntax of the program (.ppy) ----------------------------------------- */
 
 .pane-title-group { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .syntax-chip { font-family: var(--font-mono); }
