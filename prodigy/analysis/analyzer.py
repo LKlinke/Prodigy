@@ -29,7 +29,7 @@ from prodigy.analysis.instructionhandler.while_handler import WhileHandler
 from prodigy.analysis import nested_inference
 from prodigy.analysis.session import AnalysisSession, current_session, has_current_session
 from prodigy.distribution import Distribution, MarginalType, known_convergent_series
-from prodigy.distribution.equality import sympify_engine_string
+from prodigy.distribution.equality import engine_text, sympify_engine_string
 from prodigy.util.logger import log_setup
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
@@ -63,12 +63,12 @@ def condition_distribution(
     return result, error_prob
 
 
-def _provably_positive(mass: object, parameters: Iterable[str]) -> bool:
+def _provably_positive(mass: Union[str, sympy.Basic, Distribution], parameters: Iterable[str]) -> bool:
     """Whether the engine's value ``mass`` is provably positive (SymPy's assumptions; False: not shown)."""
     # parameters stay symbols; the constants pi, E and I keep their meaning
     names = [name for name in parameters if name not in ("pi", "E", "I")]
     try:
-        return bool(sympify_engine_string(str(mass), names).is_positive)
+        return bool(sympify_engine_string(engine_text(mass), names).is_positive)
     except (SyntaxError, TypeError, ValueError, sympy.SympifyError):
         return False
 

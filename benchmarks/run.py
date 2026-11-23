@@ -2,10 +2,12 @@
 Runs the benchmark set (benchmarks/suite.json) on each engine and compares the times with a baseline.
 
 Each case runs ``prodigy --engine E analyze --json --coefficients N`` (``N`` is the case's ``coefficients``,
-default 0, i.e. the extraction of coefficients is not measured) in a fresh process (so no cache survives from one case
+default 0) in a fresh process (so no cache survives from one case
 to the next) with a time limit, and its time is the analysis time from the JSON result (without the start of
-Python and the imports). Shared CI runners differ in speed, so the baseline also stores the time of a fixed
-calibration workload, and the baseline times are scaled by the ratio of the calibration times before they
+Python and the imports). The total time (``timing.total``: analysis, result summary and coefficient tables) is
+compared as well, so that a slowdown of the coefficient generation of the ``*_coeffs`` cases is found (a baseline
+without total times is compared on the analysis time only). Shared CI runners differ in speed, so the baseline
+also stores the time of a fixed calibration workload, and the baseline times are scaled by the ratio of the calibration times before they
 are compared. A case is a regression if it takes more than ``--threshold`` times its scaled baseline time
 (and more than ``--min-seconds``), or if its status differs from the baseline (e.g. a time-out or an error).
 
@@ -50,7 +52,7 @@ def calibrate(repetitions: int = 5) -> float:
 
 
 def run_case(case: Dict[str, Any], engine: str, timeout: float) -> Dict[str, Any]:
-    """Runs one case on one engine; returns its status and analysis time in seconds."""
+    """Runs one case on one engine; returns its status and its analysis and total time in seconds."""
     command = [sys.executable, "-c", RUNNER, "--engine", engine, *case.get("options", []),
                "analyze", "--json", "--coefficients", str(case.get("coefficients", 0))]
     for loop in case.get("loops", []):
@@ -60,13 +62,15 @@ def run_case(case: Dict[str, Any], engine: str, timeout: float) -> Dict[str, Any
     try:
         process = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=timeout, check=False)
     except subprocess.TimeoutExpired:
-        return {"status": "timeout", "seconds": None, "wall": round(time.perf_counter() - started, 3)}
+        return {"status": "timeout", "seconds": None, "total": None, "wall": round(time.perf_counter() - started, 3)}
     wall = round(time.perf_counter() - started, 3)
     try:
         result = json.loads(process.stdout)
     except json.JSONDecodeError:
-        return {"status": "crash", "seconds": None, "wall": wall, "stderr": process.stderr[-2000:]}
-    return {"status": result["status"], "seconds": round(result["timing"]["analysis"], 3), "wall": wall}
+        return {"status": "crash", "seconds": None, "total": None, "wall": wall, "stderr": process.stderr[-2000:]}
+    timing = result["timing"]
+    return {"status": result["status"], "seconds": round(timing["analysis"], 3),
+            "total": round(timing["total"], 3) if "total" in timing else None, "wall": wall}
 
 
 def compare(measured: Dict[str, Any], baseline: Optional[Dict[str, Any]], scale: float, threshold: float,
@@ -76,11 +80,12 @@ def compare(measured: Dict[str, Any], baseline: Optional[Dict[str, Any]], scale:
         return None
     if measured["status"] != baseline["status"]:
         return f"status {measured['status']} (baseline {baseline['status']})"
-    if measured["seconds"] is None or baseline["seconds"] is None:
-        return None
-    expected = baseline["seconds"] * scale
-    if measured["seconds"] > max(threshold * expected, min_seconds):
-        return f"{measured['seconds'] / expected:.1f}× the baseline"
+    for key, label in (("seconds", "analysis"), ("total", "total")):
+        if measured.get(key) is None or baseline.get(key) is None:
+            continue
+        expected = baseline[key] * scale
+        if measured[key] > max(threshold * expected, min_seconds):
+            return f"{label} time {measured[key] / expected:.1f}× the baseline"
     return None
 
 
@@ -89,7 +94,7 @@ def markdown(cases: List[Dict[str, Any]], engines: List[str], results: Dict[str,
              threshold: float) -> str:
     """The results as a Markdown table (program × engine, seconds) with the baseline times."""
     lines = ["## Benchmarks", "",
-             f"Analysis time in seconds; in brackets the baseline scaled by the calibration "
+             f"Analysis time in seconds (the total time is compared as well, see the regressions); in brackets the baseline scaled by the calibration "
              f"(this runner is {1 / scale:.2f}× as fast as the one of the baseline). "
              f"A regression is more than {threshold:g}× the scaled baseline or another status.", "",
              "| Program | " + " | ".join(engines) + " |", "|---|" + "---|" * len(engines)]
@@ -166,7 +171,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                                encoding="utf-8")
     if args.write_baseline:
         # the whole baseline is replaced: its times only make sense together with its calibration
-        stored = {name: {engine: {"status": value["status"], "seconds": value["seconds"]}
+        stored = {name: {engine: {"status": value["status"], "seconds": value["seconds"],
+                                     "total": value["total"]}
                          for engine, value in per_engine.items()} for name, per_engine in results.items()}
         BASELINE.write_text(json.dumps({"calibration": round(calibration, 4), "results": stored}, indent=2) + "\n",
                             encoding="utf-8")

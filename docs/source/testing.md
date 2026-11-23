@@ -119,6 +119,10 @@ second (`--min-seconds`), or if its status differs from the baseline (e.g. a tim
 generous on purpose: it catches the large slowdowns that matter (a factor of 10 or 100, as in #224) and
 ignores the noise of shared runners.
 
+The total time of a case (`timing.total`: analysis, result summary and coefficient tables) is compared
+in the same way, so that the `*_coeffs` cases find a slowdown of the coefficient generation. A baseline
+without total times is compared on the analysis time only, until it is recorded again (below).
+
 The CI job `benchmarks (report only)` runs `make bench` with `--fail-on-regression` on Python 3.14
 and writes the table to the job summary. It is not required by `build`, so a noisy runner never
 blocks a pull request; a red benchmark job is a hint to look at the table. After an intended change of

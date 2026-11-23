@@ -2,7 +2,7 @@ from typing import List, Union
 
 import sympy
 
-from prodigy.distribution.equality import sympify_engine_string
+from prodigy.distribution.equality import engine_text, sympify_engine_string
 from prodigy.pgcl import Expr, OptimizationType, VarExpr
 from prodigy.pgcl.parser import parse_expr
 
@@ -31,7 +31,7 @@ class GFOptimizer(Optimizer):
             expr = condition
 
         # Compute the target function that needs to be optimized:
-        target_function = sympify_engine_string(str(dist.filter(expr).get_probability_mass()),
+        target_function = sympify_engine_string(engine_text(dist.filter(expr).get_probability_mass()),
                                            dist.get_variables() | dist.get_parameters())
 
         # invoke sympy to get the optimization.

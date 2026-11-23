@@ -151,6 +151,19 @@ def sympy_text(expr: sympy.Basic) -> str:
     return _EngineStrPrinter().doprint(expr)
 
 
+def engine_text(value: Union[str, sympy.Basic, Distribution]) -> str:
+    """
+    The string form of an engine's value as Prodigy reads it back: a string stays, a SymPy expression goes
+    through :func:`sympy_text`, a distribution through its engine's SymPy expression (its ``str`` is LaTeX while
+    ``latex_output`` is active, #445, #465). Use it instead of ``str(value)`` where the text is parsed again.
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, sympy.Basic):
+        return sympy_text(value)
+    return sympy_text(value._series_expression())  # pylint: disable=protected-access
+
+
 def sympify_engine_string(text: str, names: Iterable[str]) -> sympy.Expr:
     """
     The SymPy expression of an engine's string form ``text`` (``^`` or ``**`` for powers). ``names`` are the
