@@ -630,7 +630,7 @@ def make_interval(value: Any, kind: str, residual: Any, *, monotone: bool,
             return value, value, Bound.EXACT, ""
         if probability and residual_expr is not None:
             try:
-                upper = tidy(sym(value) + residual_expr)
+                upper = tidy(upper_end(value, residual_expr))
             except Exception:  # pylint: disable=broad-except
                 upper = None
             return value, upper, Bound.LOWER, ""

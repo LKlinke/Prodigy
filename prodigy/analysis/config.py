@@ -4,7 +4,7 @@ Forward Analysis Config
 -----------------------
 """
 from contextlib import contextmanager
-from enum import Enum, auto
+from enum import Enum, EnumMeta, auto
 from typing import Iterator, Type
 
 import attr
@@ -24,11 +24,21 @@ from .solver.solver_type import SolverType
 from ..distribution.distribution import CommonDistributionsFactory
 
 
+class _EngineMeta(EnumMeta):
+    """Direct access to a removed engine (``Engine.SYMENGINE``) raises an ``AttributeError`` with the removal
+    message (:data:`REMOVED_ENGINES`) instead of a bare name, like :meth:`Engine.from_name` (#464)."""
+
+    def __getattr__(cls, name: str) -> object:
+        if name.lower() in REMOVED_ENGINES:
+            raise AttributeError(REMOVED_ENGINES[name.lower()])
+        raise AttributeError(name)
+
+
 @attr.s
 class ForwardAnalysisConfig:
     """Global configurable options for forward analysis."""
 
-    class Engine(Enum):
+    class Engine(Enum, metaclass=_EngineMeta):
         """
         This enumeration specifies the type of backend used for distribution encodings and mathematical operations.
         """

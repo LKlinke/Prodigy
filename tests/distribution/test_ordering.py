@@ -105,10 +105,17 @@ def test_parametric_decided(factory):
 
 
 def test_undecided_infinite(factory):
-    # 1 - sqrt(1 - x) has positive coefficients, but that is not proven by construction
-    a, b = _pair(factory, "1/(2-x)", "1/(2-x) + 1 - sqrt(1-x)")
+    # exp(x) - 1 - x has positive coefficients, but no rule proves it
+    a, b = _pair(factory, "1/(2-x)", "1/(2-x) + exp(x) - 1 - x")
     with pytest.raises(UndecidedComparisonError):
         assert a <= b
+
+
+def test_fractional_power_difference(factory):
+    # 1 - sqrt(1 - x) has positive coefficients: proven by the rule for fractional powers (#431 uses the proofs
+    # of finite measures in the order)
+    a, b = _pair(factory, "1/(2-x)", "1/(2-x) + 1 - sqrt(1-x)")
+    assert a <= b
 
 
 def test_incomparable(factory):

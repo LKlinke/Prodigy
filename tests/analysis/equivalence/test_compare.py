@@ -3,7 +3,7 @@ equivalence only if both analyses are exact, "not equivalent" only with a witnes
 import builtins
 import os
 from glob import glob
-from typing import Dict, List
+from typing import Dict, List, Set
 
 import pytest
 from click.testing import CliRunner
@@ -215,10 +215,9 @@ x = 1;
 # Pairs whose check ends without a result (on main as an error of `check_equality`), with the reason
 LIBRARY_FAILING: Dict[str, str] = {}  # #403 fixed the last two (the check lost the parameters of the loop)
 # Pairs whose invariant programs sample generating functions that are probability generating functions, but
-# Prodigy cannot prove it (#424, missing proof rules: #431): (1 - sqrt(1 - c^2))/c and rational functions with irrational poles. Their
-# analysis has no guarantee, so no relation is proven.
-LIBRARY_UNPROVEN = {"random_walk", "random_walk_parameter", "sequential_loops", "bit_flip_conditioning",
-                    "bit_flip_conditioning_parameter"}
+# Prodigy cannot prove it (#424). Their analysis has no guarantee, so no relation is proven. #431 proved the
+# last ones ((1 - sqrt(1 - c^2))/c and rational functions with an irrational dominant pole).
+LIBRARY_UNPROVEN: Set[str] = set()
 # Pairs left out here, with the reason
 LIBRARY_SKIPPED = {
     "brp_obs_parameter": "the check takes minutes (conditioning on the second-order generating function)",

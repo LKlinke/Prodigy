@@ -27,7 +27,7 @@ from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.distribution import Distribution
-from prodigy.distribution.equality import sympify_distribution
+from prodigy.distribution.equality import engine_text, sympify_distribution
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 from prodigy.util.time_limit import TimeLimitReached as _TimeLimitReached, time_limit as _time_limit
@@ -187,7 +187,7 @@ def _solutions(evt_candidate: Distribution, loop: WhileInstr, prog_info: Program
     for sol in solutions:
         sol_inv = sympify_distribution(evt_inv).subs(sol).ratsimp()
         # The solver's solution is only a proposal (its values pass through string conversions).
-        sol_dist = config.factory.from_expr(str(sol_inv).replace("**", "^"), *prog_info.program.variables)
+        sol_dist = config.factory.from_expr(engine_text(sol_inv).replace("**", "^"), *prog_info.program.variables)
         if not is_evt_fixed_point(loop, prog_info, distribution, sol_dist, config, analyzer):
             logger.info("Discarding the solution %s: the fixed-point equation is not proven.", sol)
             continue

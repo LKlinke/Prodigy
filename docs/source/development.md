@@ -25,7 +25,9 @@ the `.pgcl` syntax is removed (#433, #446).
 - Engines: SymPy (`generating_function.py`, the default), GiNaC via the bindings
   (`fast_generating_function.py`). SymEngine was removed in v0.6.0 (#416).
 - Proof rules on closed forms: `finite_measure.py`, `product_form.py`, `coefficient_signs.py`,
-  `convergence.py` (convergence at 1), `ordering.py` (`<=` on distributions).
+  `series_transforms.py` (monomial substitution, shift), `dominant_pole.py` (univariate rational
+  functions with a unique dominant simple pole, Arb bounds), `convergence.py` (convergence at 1),
+  `ordering.py` (`<=` on distributions).
 - `prodigy/distribution` and `prodigy/pgcl` import nothing from `prodigy/analysis`
   (`tests/test_layering.py`).
 

@@ -96,8 +96,12 @@ single variable (`x, y: nat = 0;` is an error).
   that names the input and the reason (a negative coefficient, infinite mass, a pole at 0, or
   that the property could not be proven). Polynomials and rational functions are checked
   exactly, as far as their denominators allow (products of `c - R` with constants `c > 0` and
-  `R` with non-negative coefficients), `exp(G)` when `G` minus its constant term is such a
-  series, and sums and products of these. A `real` parameter has no known sign, so an input like
+  `R` with non-negative coefficients; in one variable with rational coefficients, also any
+  denominator with a unique dominant simple pole, e.g. `(3*x^3 - 16*x)/(x^2 + 8*x - 16)`),
+  `exp(G)` when `G` minus its constant term is such a series, `A - B*(1 - r*x)^a` with
+  `0 < a < 1`, and sums and products of these. A form `G(x^m)` (e.g. `1 - sqrt(1 - x^2)`) is
+  checked as `G(x)`, and `G / x^k` as `G` when the coefficients of `G` below `x^k` vanish (e.g.
+  `(1 - sqrt(1 - x^2))/x`). A `real` parameter has no known sign, so an input like
   `p*x + 1 - p` is refused; a `nat` parameter is non-negative.
 - *At the top level, after the first statement,* a declaration starts at its value, or at 0
   (`false`).

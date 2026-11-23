@@ -3,6 +3,7 @@ from typing import Collection, Optional
 from prodigy.distribution.coefficient_signs import series_form, sign
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic, PositivityInput
 from prodigy.distribution import CommonDistributionsFactory
+from prodigy.distribution.equality import engine_text
 
 
 class IterateTermsHeuristic(PositivityHeuristic):
@@ -28,7 +29,7 @@ class IterateTermsHeuristic(PositivityHeuristic):
         self._vars = tuple(sorted(map(str, variables)))
 
     def _is_positive(self, f: PositivityInput) -> Optional[bool]:
-        dist = self._factory.from_expr(str(f).replace("**", "^"), *self._vars)
+        dist = self._factory.from_expr(engine_text(f).replace("**", "^"), *self._vars)
         verdict: Optional[bool] = True
         for i, (prob, _) in enumerate(dist):
             if i >= self._max_iters:

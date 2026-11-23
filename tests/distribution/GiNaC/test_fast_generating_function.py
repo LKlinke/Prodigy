@@ -108,8 +108,10 @@ class TestDistributionInterface:
         assert gf.copy() == gf
 
     def test_get_probability_mass(self):
-        gf = FPS("(1-sqrt(1-x^2))/x")
-        # the walk's series has radius 1, which the API does not prove (#398); an analysis vouches for it
+        # the walk's series is a finite measure by the shift and the monomial substitution (#431)
+        assert FPS("(1-sqrt(1-x^2))/x").get_probability_mass() == "1"
+        gf = FPS("(1 + x^2 - x^3)*(1-sqrt(1-x^2))/x")
+        # no rule proves this series (with radius 1) convergent at 1 (#398); an analysis vouches for it
         with pytest.raises(NonFiniteMarginalError, match="not proven"):
             gf.get_probability_mass()
         with known_convergent_series(True):
