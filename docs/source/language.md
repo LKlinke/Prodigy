@@ -200,11 +200,11 @@ x = x - y - z;        # no warning
 `x <= 2`; assigned to a `nat` variable, the result must be a natural number. `e // q` rounds down
 as in Python (`7 // 2 == 3`), in guards and assignments alike; `q` must be a positive natural
 literal or constant. `e % q` is the remainder. How these are computed on infinite distributions,
-and when they are exact, is described in {ref}`pgcl_grammar` (sections "Division", "Modulo" and
+and when they are exact, is described in {ref}`semantics_notes` (sections "Division", "Modulo" and
 "Floor division").
 
 **Guards.** Conditions of `if`, `while`, `observe` and `query Pr[…]` are boolean expressions;
-comparisons are evaluated over the rationals (see "Guards" in {ref}`pgcl_grammar` for what can
+comparisons are evaluated over the rationals (see "Guards" in {ref}`semantics_notes` for what can
 be filtered on infinite distributions). A guard of `if` or `while` and the condition of `observe`
 must be of type `bool`: a `bool` variable (`if (b)`), a comparison or a combination with `!`, `&&`
 and `||`. A number such as `if (x)` with `x: nat` or `if (bernoulli(1/2))` is a type error,

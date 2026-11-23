@@ -4,7 +4,7 @@ Random programs for property-based testing (Hypothesis).
 :func:`programs` is a Hypothesis strategy for small, valid programs: assignments, sampling from
 the built-in distributions, ``if``, probabilistic choice, ``observe``, ``loop(n)``, bounded
 ``while`` loops, modulo and floor division, and queries. A :class:`GeneratedProgram` is rendered
-in both syntaxes (:meth:`GeneratedProgram.source`), so one strategy tests ``.ppy`` and ``.pgcl``.
+in ``.ppy`` (:meth:`GeneratedProgram.source`; the ``.pgcl`` syntax was removed in v0.6.0).
 
 :class:`Features` switches constructs on and off. The defaults leave out the classes of programs
 with known open bugs, so that the test suite stays green while they are open; each switch names
@@ -35,7 +35,7 @@ class Features:  # pylint: disable=too-many-instance-attributes
     modulo: bool = True
     """``e % q`` in guards and assignments."""
     floor_division: bool = True
-    """``e // q`` (``.ppy`` only: :meth:`GeneratedProgram.source` refuses to render it in ``.pgcl``)."""
+    """``e // q``."""
     two_variable_guards: bool = False
     """Guards comparing two variables (``x < y``); with infinite support they end with an error (#225)."""
     subtraction: bool = True
@@ -102,13 +102,12 @@ class Categorical:
 
 Expr = Union[Num, Var, Prob, Op, Not, Call, Categorical]
 
-_PGCL_OPS = {"==": "=", "and": "&", "or": "||", "**": "^"}
 _PRECEDENCE = {"or": 1, "and": 2, "<": 4, "<=": 4, ">": 4, ">=": 4, "==": 4, "+": 5, "-": 5,
                "*": 6, "/": 6, "//": 6, "%": 6}
 
 
 def render_expr(expr: Expr, syntax: str) -> str:
-    """``expr`` in the syntax ``ppy`` or ``pgcl``; every operation is parenthesised."""
+    """``expr`` in the syntax ``ppy`` (the only one); every operation is parenthesised."""
     if isinstance(expr, Num):
         return str(expr.value)
     if isinstance(expr, Var):
@@ -118,15 +117,11 @@ def render_expr(expr: Expr, syntax: str) -> str:
     if isinstance(expr, Not):
         return f"not ({render_expr(expr.expr, syntax)})"
     if isinstance(expr, Op):
-        if syntax == "pgcl" and expr.op == "//":
-            raise ValueError("floor division // has no .pgcl syntax")
-        op =_PGCL_OPS.get(expr.op, expr.op) if syntax == "pgcl" else expr.op
+        op = expr.op
         return f"({render_expr(expr.lhs, syntax)} {op} {render_expr(expr.rhs, syntax)})"
     if isinstance(expr, Call):
         return f"{expr.name}({', '.join(render_expr(arg, syntax) for arg in expr.args)})"
     if isinstance(expr, Categorical):
-        if syntax == "pgcl":
-            return " + ".join(f"{value} : {prob}" for value, prob in expr.items)
         return "categorical({" + ", ".join(f"{value}: {prob}" for value, prob in expr.items) + "})"
     raise TypeError(expr)
 
@@ -184,8 +179,8 @@ def _block(stmts: Sequence[Stmt], syntax: str, indent: str) -> str:
 
 
 def render_stmt(stmt: Stmt, syntax: str, indent: str = "") -> str:
-    """``stmt`` in the syntax ``ppy`` or ``pgcl``."""
-    assign = ":=" if syntax == "pgcl" else "="
+    """``stmt`` in the syntax ``ppy``."""
+    assign = "="
     if isinstance(stmt, Assign):
         return f"{indent}{stmt.var} {assign} {render_expr(stmt.expr, syntax)};"
     if isinstance(stmt, Observe):
@@ -260,19 +255,16 @@ class GeneratedProgram:
         return {"*": f"unroll:iterations={self.max_iterations + 1}"}
 
     def source(self, syntax: str = "ppy") -> str:
-        """The program text in ``ppy`` or ``pgcl``."""
+        """The program text in ``ppy``."""
         lines = []
         names = list(VARIABLES) + ([COUNTER] if self.while_loops else [])
         for name in names:
-            lines.append(f"nat {name};" if syntax == "pgcl" else f"{name}: nat;")
+            lines.append(f"{name}: nat;")
         lines.extend(render_stmt(stmt, syntax) for stmt in self.body)
         for query in self.queries:
             text = render_expr(query.expr, syntax)
-            if syntax == "pgcl":
-                lines.append(f"?{query.kind}[{text}];")
-            else:
-                lines.append(f"query {query.kind}[{text}];")
-        lines.append("!Print;" if syntax == "pgcl" else "print;")
+            lines.append(f"query {query.kind}[{text}];")
+        lines.append("print;")
         return "\n".join(lines) + "\n"
 
 

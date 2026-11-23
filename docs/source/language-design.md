@@ -69,7 +69,7 @@ answers of language models) simple.
 
 `/` is rational division, as in Python. In guards, `x/2 <= 1` means `x <= 2`. An assignment to a
 `nat` variable requires a natural result and is rejected otherwise; it never rounds (see the
-section "Division" in the grammar page). `//` is floor division, as in Python (`7 // 2 == 3`). It
+section "Division" in {ref}`semantics_notes`). `//` is floor division, as in Python (`7 // 2 == 3`). It
 rounds the same way in guards and in assignments. As an update of a generating function it is
 computed exactly via the residue classes modulo the divisor, as for `x % q`. Accepted by the type checker: `e // q` for natural `e` and `q` (a literal divisor 0 is rejected).
 Implemented: a positive natural constant `q`, exact if `e` has a finite marginal
@@ -101,7 +101,7 @@ in the current state. By induction on `b`, this is `max(a - b, 0)`: for `b = 0` 
   independent variables); otherwise the residue method computes it for many rational generating
   functions, with a result that may be algebraic (a square root) and has no guarantee of staying
   rational. The other cases end with "not implemented" with the reason ("Guards" in
-  {ref}`pgcl_grammar`).
+  {ref}`semantics_notes`).
 - Infinite mass (#366): both methods are identities of formal power series, so they also apply to
   generating functions with infinite mass, e.g. the second-order distribution of the equivalence
   check or an uninitialised `n` in a guard `x < n`. The product method works over the field of

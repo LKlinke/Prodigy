@@ -16,7 +16,7 @@ The sources, installation instructions and issue tracker are on
    gui
    cli
    language
-   grammar
+   semantics
    language-design
    testing
    development

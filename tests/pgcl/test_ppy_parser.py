@@ -10,7 +10,7 @@ from prodigy.pgcl.ast import (AsgnInstr, Binop, BinopExpr, CategoricalExpr,
                               VarExpr)
 from prodigy.pgcl.check import CheckFail
 from prodigy.pgcl.compiler import compile_pgcl
-from prodigy.pgcl.parser import parse_pgcl, select_syntax
+from prodigy.pgcl.parser import parse_pgcl
 from prodigy.pgcl.ppy_parser import PpySyntaxError, parse_ppy, parse_ppy_expr
 from prodigy.pgcl.ppy_printer import (PpyPrintError, expr_to_ppy,
                                       program_to_ppy)
@@ -596,15 +596,6 @@ def test_unterminated_block_comment(source, line, column):
 
 
 # --- selecting the syntax -------------------------------------------------------
-
-
-def test_select_syntax():
-    assert select_syntax() == "ppy"
-    assert select_syntax(path="a.ppy") == "ppy"
-    assert select_syntax(path=Path("dir/a.ppy")) == "ppy"
-    assert select_syntax("ppy", path="a.ppy") == "ppy"
-    with pytest.raises(ValueError, match="Unknown syntax"):
-        select_syntax("python")
 
 
 def test_compile_by_extension_or_argument():

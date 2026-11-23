@@ -25,7 +25,6 @@ import os
 import pytest
 from hypothesis import HealthCheck, event, given, reject, settings
 
-from prodigy.pgcl.parser import parse_pgcl
 
 from .oracles import ProgramCrash, ProgramError, ProgramTimeout, check_program, isolated
 from .programs import Features, GeneratedProgram, programs
@@ -60,8 +59,3 @@ def test_engines_and_simulation_agree(program: GeneratedProgram):
     assert not problems, source + "\n" + "\n".join(problems)
 
 
-@settings(PROFILE, max_examples=PROFILE.max_examples * 5)
-@given(programs(Features(floor_division=False)))
-def test_both_syntaxes_give_the_same_program(program: GeneratedProgram):
-    ppy, pgcl = program.source("ppy"), program.source("pgcl")
-    assert parse_pgcl(ppy, "ppy") == parse_pgcl(pgcl, "pgcl"), ppy + "\n" + pgcl

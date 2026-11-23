@@ -11,8 +11,8 @@ Parsers, AST, type checker and compiler. The package will be renamed to `prodigy
 the `.pgcl` syntax is removed (#433, #446).
 
 - `ppy_parser.py`, `ppy_printer.py`: the `.ppy` syntax (the default, `language.md`).
-- `parser.py`: the removed `.pgcl` syntax (`grammar.rst`), left only for tests until its removal
-  (#433). Its lark grammar is taken over from probably together with its history (`prodigy/pgcl/NOTICE`).
+- `parser.py`: `parse_pgcl`, the entry point that reads a `.ppy` program (the `.pgcl` syntax and its
+  parser, taken over from probably, were removed in v0.6.0, #433; see `prodigy/pgcl/NOTICE`).
 - `check.py`: the type checker; `pgcl_checks.py`, `pgcl_operations.py`: further checks and AST
   operations.
 - `scope.py`: block scope, lowered to assignments and marginalisation.

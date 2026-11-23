@@ -1,26 +1,11 @@
-.. _pgcl_grammar:
+.. _semantics_notes:
 
-pGCL grammar (``.pgcl``)
-========================
+Semantics notes
+===============
 
-This page is the reference for the original pGCL syntax.
-
-.. warning::
-
-   The ``.pgcl`` syntax was **removed in v0.6.0**: the command line, the GUI and its API reject a
-   ``.pgcl`` program and point to ``prodigy convert`` of v0.5.x. Its parser is left only for tests
-   that still use it and goes with this page (#433).
-
-Programs are written in ``.ppy`` (see :doc:`language`). The notes on division, guards, modulo,
-floor division, block-scoped declarations and sampling below describe the semantics and hold for
-both syntaxes.
-
-The `Lark <https://lark-parser.readthedocs.io/>`_ grammar that :mod:`prodigy.pgcl.parser` is
-built from. Expressions are parsed with the operator table of
-:mod:`prodigy.pgcl.util.lark_expr_parser`, which is appended as the rule ``expression``.
-
-.. literalinclude:: _generated/pgcl.lark
-   :language: text
+Notes on the meaning of division, guards, modulo, floor division, block-scoped declarations and
+sampling in ``.ppy`` programs (see :doc:`language`). Until v0.6.0, this page also held the grammar
+of the original pGCL syntax (``.pgcl``), which was removed then (#433).
 
 Division
 --------

@@ -5,8 +5,8 @@ Parser for .ppy
 
 A Lark-based parser for the Python-like surface syntax ``.ppy`` (see the design
 in ``docs/source/language-design.md``). It produces the same AST as
-:mod:`prodigy.pgcl.parser` for everything the old syntax can express, so the type
-checker, the compiler and the analysis do not change.
+the original pGCL parser did for everything that syntax could express (it was removed in v0.6.0),
+so the type checker, the compiler and the analysis do not change.
 
 Sugar is translated into the existing AST:
 

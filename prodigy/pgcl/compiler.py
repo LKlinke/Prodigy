@@ -20,7 +20,7 @@ from prodigy.pgcl.util.ref import Mut
 from .ast import Expr, Instr, Node, Program, Var, VarDecl
 from .check import (CheckFail, check_expectation, check_expression,
                     check_program, sample_predefined_functions)
-from .parser import parse_pgcl, select_syntax
+from .parser import parse_pgcl
 from .ppy_parser import parse_ppy_expr
 
 
@@ -58,17 +58,14 @@ def compile_pgcl(
 
     Args:
         code:
-        syntax: ``"pgcl"`` or ``"ppy"``; by default chosen from the extension of ``path``, else pGCL
-            (see :func:`prodigy.pgcl.parser.select_syntax`).
-        path: The file the code comes from, only used to choose the syntax.
+        syntax: ``"ppy"`` (``"pgcl"`` raises ``ValueError``, see :func:`prodigy.pgcl.parser.parse_pgcl`).
+        path: The file the code comes from, only checked (a ``.pgcl`` file raises ``ValueError``).
         substitute_constants: Whether constant substitution is done on the program, defaults to `True`.
     """
     program = parse_pgcl(code, syntax, path=path)
     if substitute_constants:
         substitute.substitute_constants(program)
-    chosen = select_syntax(syntax, path)
-    check_result = check_program(program, predefined_functions,
-                                 spell=_ppy_spelling if chosen == "ppy" else None)
+    check_result = check_program(program, predefined_functions, spell=_ppy_spelling)
     if check_result is not None:
         return check_result
     return program
