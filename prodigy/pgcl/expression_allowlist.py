@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from typing import AbstractSet, Optional, Sequence
 
-from prodigy.pgcl.parser import parse_expectation
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 FUNCTIONS = frozenset({"sqrt", "exp"})
 """Functions a candidate of a language model may use."""
@@ -36,20 +36,22 @@ def to_syntax(expression: str, syntax: str) -> str:
     return expression.replace("^", "**") if syntax == "ppy" else expression.replace("**", "^")
 
 
-def admissible_expression(text: str, names: Optional[Sequence[str]] = None, syntax: str = "pgcl",
+def admissible_expression(text: str, names: Optional[Sequence[str]] = None, syntax: str = "ppy",
                           functions: AbstractSet[str] = FUNCTIONS) -> str:
     """Checks that ``text`` is a generating function that is safe to give to a computer algebra
     system and returns it in the engines' spelling (powers as ``^``).
 
-    ``text`` must consist of numbers, names, ``+ - * /``, powers (``^`` or ``**``, both
-    syntaxes accept both), parentheses and calls of ``functions``, and parse as an expression of
-    ``syntax``. With ``names``, every other name is rejected as well.
+    ``text`` must consist of numbers, names, ``+ - * /``, powers (``^`` or ``**``), parentheses and
+    calls of ``functions``, and parse as a ``.ppy`` expression (``syntax`` is the program's, always
+    ``ppy`` since the ``.pgcl`` syntax was removed, #433). With ``names``, every other name is rejected
+    as well.
 
     Raises :class:`InadmissibleExpression` otherwise."""
-    text = to_syntax(text, syntax)
+    del syntax  # every expression is read as .ppy
+    text = to_syntax(text, "ppy")
     if not _ALLOWED.fullmatch(text):
         raise InadmissibleExpression(f"{text!r} contains characters other than numbers, names, "
-                             f"+ - * / {'**' if syntax == 'ppy' else '^'} and parentheses.")
+                             "+ - * / ** and parentheses.")
     if "//" in text:
         # floor division in .ppy and Python, a comment in pGCL: neither belongs into a generating function
         raise InadmissibleExpression(f"{text!r} contains '//', which is not an operation on generating functions.")
@@ -69,12 +71,7 @@ def admissible_expression(text: str, names: Optional[Sequence[str]] = None, synt
             raise InadmissibleExpression(f"{text!r} uses {', '.join(unknown)}, which are neither program "
                                  "variables nor parameters.")
     try:
-        if syntax == "ppy":
-            # pylint: disable=import-outside-toplevel
-            from prodigy.pgcl.ppy_parser import parse_ppy_expr
-            parse_ppy_expr(text)
-        else:
-            parse_expectation(text)
+        parse_ppy_expr(text)
     except Exception as exc:  # pylint: disable=broad-except  # lark raises several error types
         raise InadmissibleExpression(f"{text!r} is not a well-formed expression: {exc}") from exc
     return text.replace("**", "^")

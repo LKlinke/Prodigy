@@ -256,7 +256,7 @@ def describe_rejection(message: str, details: Optional[Mapping[str, Any]]) -> st
 _FENCE = re.compile(r"```[A-Za-z]*\n?(.*?)```", re.S)
 _ANSWER = re.compile(r"^[\s*_#>]*ANSWER[\s*_]*:[\s*_`$]*(.*?)[\s*_`$]*$", re.I | re.M)
 _PREFIX = re.compile(r"^(?:[A-Za-z_]\w*\s*(?:\([^)]*\))?\s*=\s*)+")
-def candidate_from_answer(answer: str, names: Sequence[str], syntax: str = "pgcl") -> str:
+def candidate_from_answer(answer: str, names: Sequence[str], syntax: str = "ppy") -> str:
     """The candidate in a model's answer: its last ``ANSWER:`` line, else the last line of its last
     code block or of the answer, written with the power operator of ``syntax`` (``^`` for pGCL,
     ``**`` for ``.ppy``).

@@ -137,7 +137,7 @@ def test_rejections_in_words():
 def test_answers_are_untrusted():
     names = ["x", "c"]
     assert candidate_from_answer("I(x, c) = (x + 1/2)/(1 - c/2).", names) == "(x + 1/2)/(1 - c/2)"
-    assert candidate_from_answer("so\n$x**2 + sqrt(1 - c)$", names) == "x^2 + sqrt(1 - c)"
+    assert candidate_from_answer("so\n$x**2 + sqrt(1 - c)$", names) == "x**2 + sqrt(1 - c)"
     assert candidate_from_answer("Reasoning.\n**ANSWER:** `(x + 1/2)/(1 - c/2)`\nThis is exact.", names) \
         == "(x + 1/2)/(1 - c/2)"
     with pytest.raises(CandidateError, match="no candidate"):

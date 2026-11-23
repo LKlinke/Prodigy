@@ -125,7 +125,6 @@ def parse_watch(text: str, syntax: str, names: Optional[Sequence[str]] = None) -
     With ``names``, the expression may only use these names. Raises ``ValueError``."""
     # pylint: disable=import-outside-toplevel
     from prodigy.pgcl.ast.walk import Walk, walk_expr
-    from prodigy.pgcl.parser import parse_expr
     from prodigy.pgcl.ppy_parser import parse_ppy_expr
     from prodigy.pgcl.util.ref import Mut
     original = text
@@ -140,7 +139,7 @@ def parse_watch(text: str, syntax: str, names: Optional[Sequence[str]] = None) -
     if not inner:
         raise ValueError(f"{original.strip()!r} has no expression.")
     try:
-        expr = parse_ppy_expr(inner) if syntax == "ppy" else parse_expr(inner)
+        expr = parse_ppy_expr(inner)
     except Exception as exc:  # pylint: disable=broad-except  # lark and syntax errors
         message = str(exc).split("\n", maxsplit=1)[0]
         raise ValueError(f"{original.strip()!r}: not an expression in the {syntax} syntax ({message})") from None

@@ -103,7 +103,7 @@ def _parse_text(raw: Any) -> str:
     return text
 
 
-def _parse_expression(raw: Any, syntax: str = "pgcl") -> str:
+def _parse_expression(raw: Any, syntax: str = "ppy") -> str:
     """A generating function given from outside (CLI, decisions, GUI), checked before any engine
     sees it: SymPy's parser evaluates Python code. Returns it in the engines' spelling (powers as
     ``^``, which GiNaC needs); raises ``ValueError`` (a
@@ -161,7 +161,7 @@ class ParamSpec:
     """Optional parameters are never asked for; if missing, :attr:`default` (or ``None``)
     is used."""
 
-    def parse(self, raw: Any, syntax: str = "pgcl") -> Any:
+    def parse(self, raw: Any, syntax: str = "ppy") -> Any:
         """The value of ``raw``; raises ``ValueError`` if it is not admissible. ``expression``
         parameters must be generating functions of the program's ``syntax`` (``pgcl`` or ``ppy``)."""
         value: Any = _parse_expression(raw, syntax) if self.kind == "expression" else _PARSERS[self.kind](raw)
