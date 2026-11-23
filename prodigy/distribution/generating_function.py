@@ -24,8 +24,9 @@ from prodigy.distribution.multisection import rational_sections
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 from prodigy.pgcl.pgcl_checks import has_variable
+from prodigy.pgcl.pgcl_operations import state_condition
 from prodigy.pgcl.util.ref import Mut
 from prodigy.util.logger import log_setup, logging
 
@@ -790,8 +791,7 @@ class GeneratingFunction(Distribution):
                     for state_r in self._unique_states(marginal_r):
                         val_l, val_r = state_l[str(numerator)], state_r[str(denominator)]
                         x = self.filter(
-                            parse_expr(
-                                f'{numerator}={val_l} & {denominator}={val_r}')
+                            state_condition({str(numerator): val_l, str(denominator): val_r})
                         )._function
                         if val_l % val_r != 0 and x != 0 and not provably_equal(x, sympy.Integer(0)):
                             raise ValueError(
@@ -802,7 +802,7 @@ class GeneratingFunction(Distribution):
                 else:
                     val_l, val_r = state_l[str(numerator)], div_2
                     x = self.filter(
-                        parse_expr(f'{numerator}={val_l}'))._function
+                        state_condition({str(numerator): val_l}))._function
                     if val_l % val_r != 0 and x != 0 and not provably_equal(x, sympy.Integer(0)):
                         raise ValueError(
                             f"Cannot assign {numerator} / {denominator} to {temp_var} " \
@@ -814,7 +814,7 @@ class GeneratingFunction(Distribution):
                 for state_r in self._unique_states(marginal_r):
                     val_l, val_r = div_1, state_r[str(denominator)]
                     x = self.filter(
-                        parse_expr(f'{denominator}={val_r}'))._function
+                        state_condition({str(denominator): val_r}))._function
                     if val_l % val_r != 0 and x != 0 and not provably_equal(x, sympy.Integer(0)):
                         raise ValueError(
                             f"Cannot assign {numerator} / {denominator} to {temp_var} " \
@@ -870,7 +870,7 @@ class GeneratingFunction(Distribution):
                 values_r = self._approximated_support(
                     right, approximate, f'Cannot perform modulo operation with infinite right hand side {right}')
             for state_r in self._unique_states(values_r):
-                section = self.filter(parse_expr(f'{right}={state_r[right]}'))
+                section = self.filter(state_condition({str(right): state_r[right]}))
                 try:
                     result += section._update_modulo(temp_var, left, state_r[right], None)._function
                 except ValueError:
@@ -888,7 +888,7 @@ class GeneratingFunction(Distribution):
             if values_l is not None:
                 for state_l in self._unique_states(values_l):
                     result += self.filter(
-                        parse_expr(f'{left}={state_l[left]}'))._update_modulo(
+                        state_condition({str(left): state_l[left]}))._update_modulo(
                         temp_var, state_l[left], right, None)._function
             else:
                 for index, gf in enumerate(
@@ -980,7 +980,7 @@ class GeneratingFunction(Distribution):
                                                                             approximate)
                 for state in self._unique_states(finite):
                     result += self.filter(
-                        parse_expr(f'{finite_var}={state[finite_var]}')
+                        state_condition({str(finite_var): state[finite_var]})
                     )._update_product(temp_var, str(state[finite_var]),
                                       infinite_var, approximate)._function
             else:
@@ -1106,8 +1106,7 @@ class GeneratingFunction(Distribution):
             for state_l in self._unique_states(marginal_l):
                 for state_r in self._unique_states(marginal_r):
                     x = self.filter(
-                        parse_expr(
-                            f'{base}={state_l[base]} & {exp}={state_r[exp]}')
+                        state_condition({str(base): state_l[base], str(exp): state_r[exp]})
                     )._function
                     res -= x
                     res += _substitute_one(x, update_var) * update_var ** (state_l[base] **
@@ -1122,7 +1121,7 @@ class GeneratingFunction(Distribution):
                 )
 
             for state in self._unique_states(marginal):
-                x = self.filter(parse_expr(f'{base}={state[str(base)]}'))._function
+                x = self.filter(state_condition({str(base): state[str(base)]}))._function
                 res -= x
                 res += _substitute_one(x, update_var) * update_var ** (state[str(base)] ** pow_2)
 
@@ -1135,7 +1134,7 @@ class GeneratingFunction(Distribution):
                 )
 
             for state in self._unique_states(marginal):
-                x = self.filter(parse_expr(f'{exp}={state[str(exp)]}'))._function
+                x = self.filter(state_condition({str(exp): state[str(exp)]}))._function
                 res -= x
                 res += _substitute_one(x, update_var) * update_var ** (pow_1 ** state[str(exp)])
 
@@ -1628,7 +1627,7 @@ class SympyPGF(CommonDistributionsFactory):
     def geometric(var: Union[str, VarExpr],
                   p: DistributionParam) -> GeneratingFunction:
         if not isinstance(p, get_args(Expr)):
-            expr = parse_expr(str(p))
+            expr = parse_ppy_expr(str(p))
         else:
             expr = p
         if not has_variable(expr, None) and not 0 < _parse_to_sympy(p) <= 1:
@@ -1643,11 +1642,11 @@ class SympyPGF(CommonDistributionsFactory):
     def uniform(var: Union[str, VarExpr], lower: DistributionParam,
                 upper: DistributionParam) -> GeneratingFunction:
         if not isinstance(lower, get_args(Expr)):
-            expr_l = parse_expr(str(lower))
+            expr_l = parse_ppy_expr(str(lower))
         else:
             expr_l = lower
         if not isinstance(upper, get_args(Expr)):
-            expr_u = parse_expr(str(upper))
+            expr_u = parse_ppy_expr(str(upper))
         else:
             expr_u = upper
         if not has_variable(expr_l, None) and (
@@ -1667,7 +1666,7 @@ class SympyPGF(CommonDistributionsFactory):
     def bernoulli(var: Union[str, VarExpr],
                   p: DistributionParam) -> GeneratingFunction:
         if not isinstance(p, get_args(Expr)):
-            expr = parse_expr(str(p))
+            expr = parse_ppy_expr(str(p))
         else:
             expr = p
         if not has_variable(expr, None) and not 0 <= _parse_to_sympy(p) <= 1:
@@ -1683,7 +1682,7 @@ class SympyPGF(CommonDistributionsFactory):
     def poisson(var: Union[str, VarExpr],
                 lam: DistributionParam) -> GeneratingFunction:
         if not isinstance(lam, get_args(Expr)):
-            expr = parse_expr(str(lam))
+            expr = parse_ppy_expr(str(lam))
         else:
             expr = lam
         if not has_variable(expr, None) and _parse_to_sympy(lam) < 0:
@@ -1699,7 +1698,7 @@ class SympyPGF(CommonDistributionsFactory):
     def log(var: Union[str, VarExpr],
             p: DistributionParam) -> GeneratingFunction:
         if not isinstance(p, get_args(Expr)):
-            expr = parse_expr(str(p))
+            expr = parse_ppy_expr(str(p))
         else:
             expr = p
         if not has_variable(expr, None) and not 0 <= _parse_to_sympy(p) <= 1:
@@ -1715,7 +1714,7 @@ class SympyPGF(CommonDistributionsFactory):
     def binomial(var: Union[str, VarExpr], n: DistributionParam,
                  p: DistributionParam) -> GeneratingFunction:
         if not isinstance(p, get_args(Expr)):
-            expr_p = parse_expr(str(p))
+            expr_p = parse_ppy_expr(str(p))
         else:
             expr_p = p
         if not has_variable(expr_p, None) and not 0 <= _parse_to_sympy(p) <= 1:
@@ -1723,7 +1722,7 @@ class SympyPGF(CommonDistributionsFactory):
                 f"Parameter of Binomial Distribution must be in [0,1], but was {p}"
             )
         if not isinstance(n, get_args(Expr)):
-            expr_n = parse_expr(str(n))
+            expr_n = parse_ppy_expr(str(n))
         else:
             expr_n = n
         if not has_variable(expr_n, None) and not 0 <= _parse_to_sympy(n):
@@ -1738,12 +1737,12 @@ class SympyPGF(CommonDistributionsFactory):
     @staticmethod
     def negative_binomial(var: Union[str, VarExpr], r: DistributionParam,
                           p: DistributionParam) -> GeneratingFunction:
-        expr_p = p if isinstance(p, get_args(Expr)) else parse_expr(str(p))
+        expr_p = p if isinstance(p, get_args(Expr)) else parse_ppy_expr(str(p))
         if not has_variable(expr_p, None) and not 0 < _parse_to_sympy(p) <= 1:
             raise ValueError(
                 f"Parameter p of Negative Binomial Distribution must be in (0,1], but was {p}"
             )
-        expr_r = r if isinstance(r, get_args(Expr)) else parse_expr(str(r))
+        expr_r = r if isinstance(r, get_args(Expr)) else parse_ppy_expr(str(r))
         if not isinstance(expr_r, NatLitExpr):
             raise ValueError(
                 f"Parameter r of Negative Binomial Distribution must be a natural number, but was {r}"

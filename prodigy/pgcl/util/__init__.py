@@ -6,7 +6,6 @@
 .. autofunction:: prodigy.pgcl.util.dedup_list
 
 .. automodule:: prodigy.pgcl.util.ref
-.. automodule:: prodigy.pgcl.util.lark_expr_parser
 """
 
 from typing import List, TypeVar

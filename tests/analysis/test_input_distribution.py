@@ -17,7 +17,11 @@ from prodigy.web.app import create_app
 
 ENGINES = list(ForwardAnalysisConfig.Engine)
 
-PROGRAM = "nat x; nat y; x := x + 1;\n?Pr[x = 1];\n"
+PROGRAM = """x: nat;
+y: nat;
+x = x + 1;
+query Pr[x == 1];
+"""
 
 VALID = {
     "finite": "1/2*x + 1/4*x^2*y + 1/4",
@@ -42,7 +46,7 @@ UNPROVEN = {
     "double irrational pole": "(7/13*(3*x^3 - 16*x)/(x^2 + 8*x - 16))^2",
     "exp with negative coefficients": "exp(-x)",
     "root": "sqrt(x)",
-    "real parameter": "p*x + 1 - p",
+    "parameter: real;": "p*x + 1 - p",
 }
 
 
@@ -75,7 +79,8 @@ def test_refuted_inputs_are_refused(config, text, reason):
 
 @pytest.mark.parametrize("text", UNPROVEN.values(), ids=UNPROVEN.keys())
 def test_unproven_inputs_are_refused(config, text):
-    program = _program("rparam p;\n")
+    program = _program("""param p: real;
+""")
     dist = config.factory.from_expr(text, *program.variables)
     with pytest.raises(InputDistributionError, match="Prodigy accepts an input distribution only") as info:
         compute_discrete_distribution(program, dist, config)
@@ -83,7 +88,9 @@ def test_unproven_inputs_are_refused(config, text):
 
 
 def test_parameters_count_only_with_a_proven_sign():
-    program = _program("nparam n;\nrparam p;\n")
+    program = _program("""param n: nat;
+param p: real;
+""")
     config = ForwardAnalysisConfig()
     # an nparam is a natural number
     validate_input_distribution(config.factory.from_expr("(n*x + 1)/(n + 1)", *program.variables), program)
@@ -119,7 +126,7 @@ def test_session_reports_a_refused_input_as_error(config, text):
 @pytest.mark.parametrize("engine", ["sympy", "ginac"])
 @pytest.mark.parametrize("command", ["main", "analyze"])
 def test_cli_refuses_invalid_inputs(tmp_path, engine, command):
-    program = tmp_path / "program.pgcl"
+    program = tmp_path / "program.ppy"
     program.write_text(PROGRAM)
     runner = CliRunner()
     accepted = runner.invoke(cli, ["--engine", engine, command, str(program), "1/(2 - x)"])
@@ -133,8 +140,17 @@ def test_cli_refuses_invalid_inputs(tmp_path, engine, command):
 
 @pytest.mark.parametrize("command", ["invariant_synthesis", "evt_lower_bound"])
 def test_cli_loop_commands_refuse_invalid_inputs(tmp_path, command):
-    program = tmp_path / "program.pgcl"
-    program.write_text("nat x; nat c;\nwhile (c = 0) { {c := 1} [1/2] {x := x + 1} }\n")
+    program = tmp_path / "program.ppy"
+    program.write_text("""x: nat;
+c: nat;
+while (c == 0) {
+    {
+        c = 1;
+    } [1/2] {
+        x = x + 1;
+    }
+}
+""")
     refused = CliRunner().invoke(cli, [command, str(program), "--invariant", "1", "1 - x"])
     assert refused.exit_code == 1, refused.output
     assert "is not a distribution" in refused.output

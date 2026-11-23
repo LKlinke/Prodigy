@@ -35,18 +35,31 @@ def _run(source: str, engine: ForwardAnalysisConfig.Engine):
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("source, expected", [
     # the sum of three geometric samples is negative binomial
-    ("nat x; x := iid(geometric(1/2), 3)", "(1/(2-x))^3"),
-    ("nat x; x := iid(bernoulli(1/3), 2)", "(2/3 + x/3)^2"),
-    ("nat x; x := iid(unif(1, 2), 2)", "(x/2 + x^2/2)^2"),
+    ("""x: nat;
+x = iid(geometric(1/2), 3);""", "(1/(2-x))^3"),
+    ("""x: nat;
+x = iid(bernoulli(1/3), 2);""", "(2/3 + x/3)^2"),
+    ("""x: nat;
+x = iid(unif(1, 2), 2);""", "(x/2 + x^2/2)^2"),
     # the distribution as a generating function in the assigned variable
-    ("nat x; x := iid(1/2*x + 1/2, 3)", "(1/2 + x/2)^3"),
+    ("""x: nat;
+x = iid(1/2 * x + 1/2, 3);""", "(1/2 + x/2)^3"),
     # constants are substituted before the analysis
-    ("nat x; const N := 3; x := iid(bernoulli(1/2), N)", "(1/2 + x/2)^3"),
+    ("""x: nat;
+const N: nat = 3;
+x = iid(bernoulli(1/2), N);""", "(1/2 + x/2)^3"),
     # zero samples sum up to zero
-    ("nat x; x := iid(geometric(1/2), 0)", "1"),
+    ("""x: nat;
+x = iid(geometric(1/2), 0);""", "1"),
     # x is overwritten, y is kept
-    ("nat x; nat y; x := 5; y := 1; x := iid(bernoulli(1/2), 2)", "y * (1/2 + x/2)^2"),
-    ("nat x; x := 7; x := sample_pgf(1/2*x + 1/2, x)", "1/2 + x/2"),
+    ("""x: nat;
+y: nat;
+x = 5;
+y = 1;
+x = iid(bernoulli(1/2), 2);""", "y * (1/2 + x/2)^2"),
+    ("""x: nat;
+x = 7;
+x = sample_pgf(1/2 * x + 1/2, x);""", "1/2 + x/2"),
 ])
 def test_accepted_forms_are_exact(engine, source, expected):
     result, error_prob, factory = _run(source, engine)
@@ -57,21 +70,40 @@ def test_accepted_forms_are_exact(engine, source, expected):
 
 @pytest.mark.parametrize("engine", ENGINES)
 def test_literal_count_agrees_with_variable_count(engine):
-    literal, _, _ = _run("nat x; nat n; n := 3; x := iid(geometric(1/3), 3); n := 0", engine)
-    variable, _, _ = _run("nat x; nat n; n := 3; x := iid(geometric(1/3), n); n := 0", engine)
+    literal, _, _ = _run("""x: nat;
+n: nat;
+n = 3;
+x = iid(geometric(1/3), 3);
+n = 0;""", engine)
+    variable, _, _ = _run("""x: nat;
+n: nat;
+n = 3;
+x = iid(geometric(1/3), n);
+n = 0;""", engine)
     assert literal == variable
 
 
 @pytest.mark.parametrize("source, message", [
-    ("nat x; x := sample_pgf(1/2, 3)", "must be the program variable"),
-    ("nat x; x := sample_pgf(1/2*z + 1/2, z)", "must be the program variable"),
-    ("nat x; nat y; x := sample_pgf(1/2*y + 1/2, y)", "only sampling in the assigned variable x"),
-    ("nat x; nat y; x := iid(geometric(1/2), y + 1)", "must be a program variable or a natural number"),
+    ("""x: nat;
+x = sample_pgf(1/2, 3);""", "must be the program variable"),
+    ("""x: nat;
+x = sample_pgf(1/2 * z + 1/2, z);""", "must be the program variable"),
+    ("""x: nat;
+y: nat;
+x = sample_pgf(1/2 * y + 1/2, y);""", "only sampling in the assigned variable x"),
+    ("""x: nat;
+y: nat;
+x = iid(geometric(1/2), y + 1);""", "must be a program variable or a natural number"),
     # a parameter count used to give the point mass at 0 on every engine
-    ("nat x; nparam n; x := iid(bernoulli(1/2), n)", "must be a program variable or a natural number"),
-    ("nat x; x := iid(geometric(1/2))", "Too few parameters"),
-    ("nat x; x := sample_pgf(1/2)", "Too few parameters"),
-    ("nat x; x := geometric()", "Too few parameters"),
+    ("""x: nat;
+param n: nat;
+x = iid(bernoulli(1/2), n);""", "must be a program variable or a natural number"),
+    ("""x: nat;
+x = iid(geometric(1/2));""", "Too few parameters"),
+    ("""x: nat;
+x = sample_pgf(1/2);""", "Too few parameters"),
+    ("""x: nat;
+x = geometric();""", "Too few parameters"),
 ])
 def test_rejected_forms(source, message):
     result = compile_pgcl(source)

@@ -36,16 +36,16 @@ Instead, a substitution applied to a symbolic variable will wrap the variable in
 
     >>> from prodigy.pgcl.util.ref import Mut
     >>> from .ast import SubstExpr, NatLitExpr, VarExpr
-    >>> from .parser import parse_expr
+    >>> from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
     Simple substitution without symbolic variables:
-    >>> expr_ref = Mut.alloc(SubstExpr({"x": NatLitExpr(2)}, parse_expr("x + y")))
+    >>> expr_ref = Mut.alloc(SubstExpr({"x": NatLitExpr(2)}, parse_ppy_expr("x + y")))
     >>> substitute_expr(expr_ref)
     >>> str(expr_ref.val)
     '2 + y'
 
     The same substitution with `y` being symbolic:
-    >>> expr_ref = Mut.alloc(SubstExpr({"x": NatLitExpr(2)}, parse_expr("x + y")))
+    >>> expr_ref = Mut.alloc(SubstExpr({"x": NatLitExpr(2)}, parse_ppy_expr("x + y")))
     >>> substitute_expr(expr_ref, symbolic=set("y"))
     >>> str(expr_ref.val)
     '2 + ((y)[x/2])'
@@ -333,7 +333,7 @@ def substitute_constants(program: Program,
     .. doctest::
 
         >>> from prodigy.pgcl.parser import parse_pgcl
-        >>> program = parse_pgcl("const x := 23; nat y; nat z; y := x; z := y")
+        >>> program = parse_pgcl("const x: nat = 23; y: nat; z: nat; y = x; z = y;")
         >>> substitute_constants(program)
         >>> program.instructions
         [AsgnInstr(lhs='y', rhs=NatLitExpr(23)), AsgnInstr(lhs='z', rhs=VarExpr('y'))]

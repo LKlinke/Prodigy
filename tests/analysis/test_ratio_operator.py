@@ -20,7 +20,7 @@ from prodigy.distribution import Distribution
 from prodigy.distribution.equality import decide_equal, sympify_distribution
 from prodigy.pgcl import Program
 from prodigy.pgcl.compiler import compile_pgcl
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import
@@ -81,7 +81,7 @@ def test_finite_values_agree_with_the_case_split(engine, prefix):
 def test_infinite_values_are_weighted_coefficient_by_coefficient(engine, generating_function):
     config = ForwardAnalysisConfig(engine=engine)
     with config.activate():
-        before = config.factory.from_expr(generating_function, "n", "x").filter(parse_expr("n > 0 & x <= n"))
+        before = config.factory.from_expr(generating_function, "n", "x").filter(parse_ppy_expr("n > 0 and x <= n"))
         left, right = apply_ratio(RATIO, before, CONSTRUCT)
     original = _coefficients(sympify_distribution(before), 5)
     for (a, b), coefficient in _coefficients(sympify_distribution(left), 5).items():
@@ -146,7 +146,7 @@ def test_no_witness_and_no_proof_is_not_implemented(engine, monkeypatch):
 
 
 def _check_on_every_input(guard: str, engine):
-    program = compile_pgcl(f"nat x; nat n; nat y; if ({guard}) {{ {{y := 1}} [x/n] {{y := 0}} }} else {{skip}}")
+    program = compile_pgcl(f"x: nat; n: nat; y: nat; if ({guard}) {{     {{         y = 1;     }} [x / n] {{         y = 0;     }} }} else {{     skip; }}")
     assert isinstance(program, Program)
     return check_equivalence(program, program, ForwardAnalysisConfig(engine=engine), compute_semantics)
 
@@ -154,7 +154,7 @@ def _check_on_every_input(guard: str, engine):
 @pytest.mark.parametrize("engine", ENGINES)
 def test_guarded_ratio_on_every_input_is_well_formed(engine):
     # on the second-order generating function (infinite mass) the guard makes the part n = 0 or x > n the zero series
-    assert _check_on_every_input("n > 0 & x <= n", engine) == (True, [])
+    assert _check_on_every_input("n > 0 and x <= n", engine) == (True, [])
 
 
 @pytest.mark.parametrize("engine", ENGINES)
@@ -185,11 +185,11 @@ def test_uncertified_integral_is_not_implemented(engine, monkeypatch):
     ("x / 3", None),
 ])
 def test_ratio_probability_shapes(probability, expected):
-    assert ratio_probability(parse_expr(probability), {"x", "n"}) == expected
+    assert ratio_probability(parse_ppy_expr(probability), {"x", "n"}) == expected
 
 
 def test_ratio_probability_needs_both_variables_in_the_state():
-    assert ratio_probability(parse_expr("x / n"), {"x"}) is None
+    assert ratio_probability(parse_ppy_expr("x / n"), {"x"}) is None
 
 
 def test_rational_integrand_with_parameters():

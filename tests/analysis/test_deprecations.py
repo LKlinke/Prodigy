@@ -1,66 +1,83 @@
-"""``.pgcl`` is deprecated in v0.5.0 and removed in v0.6.0 (#432); the SymEngine engine, deprecated in v0.5.0
-as well, was removed in v0.6.0 (#416)."""
-import json
+"""``.pgcl`` was deprecated in v0.5.0 (#432) and removed in v0.6.0 (#433); the SymEngine engine, deprecated in
+v0.5.0 as well, was removed in v0.6.0 (#416). The old Z3 solver went with the ``.pgcl`` parser (#474)."""
+import re
 
 import pytest
 from click.testing import CliRunner
 
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.deprecations import PGCL_DEPRECATION, REMOVED_ENGINES, deprecation_warnings
+from prodigy.analysis.deprecations import PGCL_REMOVED, REMOVED_ENGINES, PgclRemovedError, program_syntax
 from prodigy.analysis.exceptions import ConfigurationError
-from prodigy.analysis.session import AnalysisSession
+from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.cli import cli
-from prodigy.pgcl import parse_pgcl
+from prodigy.web.app import create_app
 from prodigy.web.requests import make_config, validate_request
 
 PGCL = "nat x;\nx := 1;\n"
 PPY = "x: nat;\nx = 1;\n"
 SYMENGINE_REMOVED = "the SymEngine engine was removed in v0.6.0; use sympy or ginac"
+Z3_REBUILT = "the Z3 solver is being rebuilt (#474); use sympy"
 
 
-def test_the_warnings_name_the_release_and_the_migration():
-    assert "v0.6.0" in PGCL_DEPRECATION and "prodigy convert" in PGCL_DEPRECATION
-    assert deprecation_warnings("ppy") == []
-    assert deprecation_warnings("pgcl") == [PGCL_DEPRECATION]
+def test_the_message_names_the_release_and_the_migration():
+    assert "v0.6.0" in PGCL_REMOVED and "v0.5.x" in PGCL_REMOVED and "prodigy convert" in PGCL_REMOVED
+    assert program_syntax() == program_syntax("ppy") == program_syntax(path="a.ppy") == "ppy"
+    for kwargs in ({"syntax": "pgcl"}, {"path": "a.pgcl"}, {"syntax": "ppy", "path": "a.pgcl"}):
+        with pytest.raises(PgclRemovedError, match="removed in v0.6.0"):
+            program_syntax(**kwargs)
+    with pytest.raises(ValueError, match="Unknown syntax"):
+        program_syntax("java")
 
 
-@pytest.mark.parametrize("source, syntax, expected", [
-    (PGCL, "pgcl", [PGCL_DEPRECATION]),
-    (PPY, "ppy", []),
-])
-def test_the_result_carries_the_deprecation_warnings(source, syntax, expected):
-    config = ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.SYMPY)
-    result = AnalysisSession(parse_pgcl(source, syntax), source=source, syntax=syntax, config=config).run()
-    assert result.status == "ok"
-    assert [w for w in result.to_json()["warnings"] if "deprecated" in w] == expected
-
-
-@pytest.mark.parametrize("name, source, expected", [
-    ("a.pgcl", PGCL, True),
-    ("a.ppy", PPY, False),
-])
-def test_cli_main_warns_on_stderr(tmp_path, name, source, expected):
-    path = tmp_path / name
-    path.write_text(source)
-    result = CliRunner().invoke(cli, ["--engine", "sympy", "main", str(path)])
-    assert result.exit_code == 0
-    assert ("The .pgcl syntax is deprecated" in result.output) == expected
-
-
-def test_cli_analyze_json_stays_clean_and_has_the_warning(tmp_path):
+@pytest.mark.parametrize("command", ["main", "analyze", "outline"])
+def test_cli_rejects_a_pgcl_file(tmp_path, command):
     path = tmp_path / "a.pgcl"
     path.write_text(PGCL)
-    result = CliRunner().invoke(cli, ["analyze", str(path), "--json"])
-    assert result.exit_code == 0
-    assert PGCL_DEPRECATION in json.loads(result.output)["warnings"]
+    result = CliRunner().invoke(cli, [command, str(path)])
+    assert result.exit_code != 0
+    assert PGCL_REMOVED in " ".join(result.output.split())
+    assert "Traceback" not in result.output
 
 
-def test_convert_does_not_warn_about_the_syntax_it_converts(tmp_path):
+def test_cli_rejects_the_pgcl_syntax_option(tmp_path):
+    path = tmp_path / "a.txt"
+    path.write_text(PPY)
+    result = CliRunner().invoke(cli, ["main", "--syntax", "pgcl", str(path)])
+    assert result.exit_code != 0 and "removed in v0.6.0" in result.output
+    assert CliRunner().invoke(cli, ["--engine", "sympy", "main", str(path)]).exit_code == 0
+
+
+def test_cli_has_no_convert_command(tmp_path):
     path = tmp_path / "a.pgcl"
     path.write_text(PGCL)
     result = CliRunner().invoke(cli, ["convert", str(path)])
-    assert result.exit_code == 0
-    assert "deprecated" not in result.output
+    assert result.exit_code == 2 and "No such command" in result.output
+
+
+def test_gui_requests_reject_pgcl():
+    for request in ({"source": PGCL, "syntax": "pgcl"}, {"source": PGCL, "file_name": "a.pgcl"}):
+        assert PGCL_REMOVED in validate_request(request)
+    assert validate_request({"source": PPY}) == []
+
+
+def test_gui_check_shows_the_message_as_an_error():
+    client = create_app(time_limit=30, max_jobs=1).test_client()
+    data = client.post("/api/check", json={"source": PGCL, "syntax": "pgcl"},
+                       headers={"Host": "localhost"}).get_json()
+    assert not data["ok"] and data["diagnostics"][0]["severity"] == "error"
+    assert data["diagnostics"][0]["message"] == PGCL_REMOVED
+    assert client.post("/api/convert", json={"source": PGCL}, headers={"Host": "localhost"}).status_code in (404, 405)
+
+
+def test_choosing_z3_ends_with_the_rebuild_message(tmp_path):
+    with pytest.raises(ValueError, match=re.escape(Z3_REBUILT)):
+        SolverType.named("Z3")
+    assert not hasattr(SolverType, "Z3")
+    path = tmp_path / "a.ppy"
+    path.write_text(PPY)
+    result = CliRunner().invoke(cli, ["--solver", "z3", "main", str(path)])
+    assert result.exit_code == 2 and Z3_REBUILT in " ".join(result.output.split())
+    assert any(Z3_REBUILT in problem for problem in validate_request({"source": PPY, "solver": "z3"}))
 
 
 @pytest.mark.parametrize("name", ["symengine", "SymEngine"])

@@ -9,13 +9,11 @@ from prodigy.pgcl.compiler import compile_pgcl
 
 def test_basic_inference():
     prog = compile_pgcl("""
-        dist d;
-        fun f := {
-            nat x;
-            return 7;
-        }
-        d := infer { f(x := 10) };
-    """)
+d: dist;
+def f(x: nat) -> nat {
+    return 7;
+}
+d = infer(f, x = 10);""")
     assert isinstance(prog, Program)
     assert prog.declarations[0] == VarDecl('d', DistributionType())
     assert prog.instructions == [
@@ -29,14 +27,12 @@ def test_basic_inference():
 
 def test_basic_sampling():
     prog = compile_pgcl("""
-        dist d;
-        nat x;
-        fun f := {
-            nat x;
-            return 7;
-        }
-        d := infer { f(x := 10) };
-        x := sample { d };
-    """)
+d: dist;
+x: nat;
+def f(x: nat) -> nat {
+    return 7;
+}
+d = infer(f, x = 10);
+x = sample(d);""")
     assert isinstance(prog, Program)
     assert prog.instructions[1] == AsgnInstr(lhs='x', rhs=SampleExpr('d'))

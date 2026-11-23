@@ -64,10 +64,10 @@ def test_iid_of_sample_pgf_is_the_iid_sum_of_the_generating_function(engine):
 def test_iid_of_sample_pgf_in_another_variable_is_not_implemented():
     # pylint: disable=import-outside-toplevel
     from prodigy.distribution.generating_function import GeneratingFunction
-    from prodigy.pgcl.parser import parse_expr
-    call = parse_expr("sample_pgf(1/2 + z/2, z)")
+    from prodigy.pgcl.ppy_parser import parse_ppy_expr
+    call = parse_ppy_expr("sample_pgf(1/2 + z/2, z)")
     with pytest.raises(NotImplementedError, match="only sampling in the assigned variable y"):
-        GeneratingFunction("x^2", "x", "y").update_iid(call, parse_expr("x"), "y")
+        GeneratingFunction("x^2", "x", "y").update_iid(call, parse_ppy_expr("x"), "y")
 
 
 @pytest.mark.timeout(60)

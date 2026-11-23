@@ -56,7 +56,7 @@ REQUIREMENT = ("Prodigy accepts an input distribution only when it can prove tha
 
 
 def input_distribution_from_text(config: ForwardAnalysisConfig, text: str, program: Program,
-                                 syntax: str = "pgcl") -> Distribution:
+                                 syntax: str = "ppy") -> Distribution:
     """The distribution of the closed form ``text`` for ``program``, after checking that ``text``
     is a generating function that is safe to give to the engines (SymPy evaluates Python code)
     and that it is a distribution (:func:`validate_input_distribution`)."""

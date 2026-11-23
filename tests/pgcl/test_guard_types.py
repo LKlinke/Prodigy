@@ -27,19 +27,34 @@ ENGINES = [pytest.param(Engine.SYMPY, id="SymPy"), pytest.param(Engine.GINAC, id
 REJECTED = [
     pytest.param("x: nat;\nif (x) { x = 1; } else { x = 2; }", "ppy", 2, 1,
                  "the guard of if", "x", "nat", id="ppy-if-nat"),
-    pytest.param("nat x;\nif (x) { x := 1 } else { x := 2 }", "pgcl", 2, 1,
+    pytest.param("""x: nat;
+if (x) {
+    x = 1;
+} else {
+    x = 2;
+}""", "ppy", 2, 1,
                  "the guard of if", "x", "nat", id="pgcl-if-nat"),
     pytest.param("x: nat;\nx = 1;\nif (bernoulli(1/2)) { x = 2; }", "ppy", 3, 1,
                  "the guard of if", "bernoulli(1/2)", "nat", id="ppy-if-draw"),
-    pytest.param("nat x;\nx := 1;\nif (bernoulli(1/2)) { x := 2 } else { skip }", "pgcl", 3, 1,
+    pytest.param("""x: nat;
+x = 1;
+if (bernoulli(1/2)) {
+    x = 2;
+} else {
+    skip;
+}""", "ppy", 3, 1,
                  "the guard of if", "bernoulli(1/2)", "nat", id="pgcl-if-draw"),
     pytest.param("x: nat;\nwhile (x + 1) { x = 0; }", "ppy", 2, 1,
                  "the guard of while", "x + 1", "nat", id="ppy-while"),
-    pytest.param("nat x;\nwhile (x) { x := 0 }", "pgcl", 2, 1,
+    pytest.param("""x: nat;
+while (x) {
+    x = 0;
+}""", "ppy", 2, 1,
                  "the guard of while", "x", "nat", id="pgcl-while"),
     pytest.param("x: nat;\nobserve(x);", "ppy", 2, 1,
                  "the condition of observe", "x", "nat", id="ppy-observe"),
-    pytest.param("nat x;\nobserve(x);", "pgcl", 2, 1,
+    pytest.param("""x: nat;
+observe(x);""", "ppy", 2, 1,
                  "the condition of observe", "x", "nat", id="pgcl-observe"),
     pytest.param("x: nat;\nif (1/2) { x = 1; }", "ppy", 2, 1,
                  "the guard of if", "1/2", "real", id="ppy-real"),
@@ -47,9 +62,17 @@ REJECTED = [
                  "the guard of if", "x", "nat", id="ppy-nested"),
     pytest.param("def f(a: nat) -> nat {\n    if (a) { a = 1; }\n    return a;\n}\nx: nat;\nx = f(1);",
                  "ppy", 2, 5, "the guard of if", "a", "nat", id="ppy-function-body"),
-    pytest.param("fun f := {\n    nat a;\n    if (a) { a := 1 } else { skip }\n    return a;\n}\n"
-                 "nat x;\nx := f(1);", "pgcl", 3, 5, "the guard of if", "a", "nat",
-                 id="pgcl-function-body"),
+    pytest.param("""def f(a: nat) -> nat {
+    if (a) {
+        a = 1;
+    } else {
+        skip;
+    }
+    return a;
+}
+x: nat;
+x = f(1);""", "ppy", 2, 5, "the guard of if", "a", "nat",
+                 id="function-body"),
 ]
 
 
@@ -74,15 +97,35 @@ def test_message_suggests_a_comparison_or_a_variable():
 
 
 def test_the_check_can_be_skipped():
-    program = parse_pgcl("nat x; if (x) { x := 1 } else { skip }", check_guards=False)
+    program = parse_pgcl("""x: nat;
+if (x) {
+    x = 1;
+} else {
+    skip;
+}""", check_guards=False)
     assert len(program.instructions) == 1
 
 
 @pytest.mark.parametrize("source, syntax", [
     pytest.param("b: bool;\nx: nat;\nif (b) { x = 1; }\nwhile (!b) { b = true; }", "ppy", id="ppy"),
-    pytest.param("bool b;\nnat x;\nif (b) { x := 1 } else { skip }\nwhile (not b) { b := true }",
-                 "pgcl", id="pgcl"),
-    pytest.param("const c := true;\nnat x;\nif (c) { x := 1 } else { skip }", "pgcl", id="constant"),
+    pytest.param("""b: bool;
+x: nat;
+if (b) {
+    x = 1;
+} else {
+    skip;
+}
+while (not b) {
+    b = true;
+}""",
+                 "ppy", id="ppy"),
+    pytest.param("""const c: bool = true;
+x: nat;
+if (c) {
+    x = 1;
+} else {
+    skip;
+}""", "ppy", id="constant"),
     pytest.param("x: nat;\nif (x > 0 && x < 3 || !(x == 7)) { x = 1; }", "ppy", id="comparisons"),
 ])
 def test_bool_guards_are_accepted(source, syntax):
@@ -93,8 +136,17 @@ def test_bool_guards_are_accepted(source, syntax):
 @pytest.mark.parametrize("source, syntax", [
     pytest.param("b: bool;\nc: bool;\nx: nat;\nb = bernoulli(1/3);\nc = bernoulli(1/2);\n"
                  "if (b && !c) { x = 1; } else { x = 2; }\nobserve(b || c);", "ppy", id="ppy"),
-    pytest.param("bool b;\nbool c;\nnat x;\nb := bernoulli(1/3);\nc := bernoulli(1/2);\n"
-                 "if (b & not c) { x := 1 } else { x := 2 }\nobserve(b || c);", "pgcl", id="pgcl"),
+    pytest.param("""b: bool;
+c: bool;
+x: nat;
+b = bernoulli(1/3);
+c = bernoulli(1/2);
+if (b and not c) {
+    x = 1;
+} else {
+    x = 2;
+}
+observe(b or c);""", "ppy", id="ppy"),
 ])
 def test_bool_variable_as_guard_is_analysed(engine, source, syntax):
     program = compile_pgcl(source, syntax=syntax)
@@ -111,7 +163,12 @@ def test_bool_variable_as_guard_is_analysed(engine, source, syntax):
 
 @pytest.mark.parametrize("source, syntax", [
     pytest.param("x: nat;\nif (x) { x = 1; }", "ppy", id="ppy"),
-    pytest.param("nat x;\nif (x) { x := 1 } else { skip }", "pgcl", id="pgcl"),
+    pytest.param("""x: nat;
+if (x) {
+    x = 1;
+} else {
+    skip;
+}""", "ppy", id="ppy"),
 ])
 def test_gui_reports_the_type_error_as_error(source, syntax):
     result = check_source(source, syntax)

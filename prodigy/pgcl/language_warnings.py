@@ -22,9 +22,9 @@ Two checks exist:
 .. doctest::
 
     >>> from prodigy.pgcl.parser import parse_pgcl
-    >>> program = parse_pgcl("nat x; nat y; nat z; x := x - y + z; x := (x - y) + z")
+    >>> program = parse_pgcl("x: nat; y: nat; z: nat; x = x - y + z; x = (x - y) + z;")
     >>> [w.message.split(":")[0] for w in language_warnings(program)]
-    ['`(x - y) + z`']
+    ['`x - y + z`']
 """
 from __future__ import annotations
 
@@ -123,7 +123,7 @@ def _warnings_of(program: Program, instructions: List[Instr], syntax: str) -> It
             yield from _monus_warnings(program, instr, expr_ref.val, spell)
 
 
-def language_warnings(program: Program, syntax: str = "pgcl") -> List[LanguageWarning]:
+def language_warnings(program: Program, syntax: str = "ppy") -> List[LanguageWarning]:
     """The warnings of ``program`` (and its functions), in source order of their instructions.
 
     Call it on a program that type checks, before constants are substituted; expressions that cannot

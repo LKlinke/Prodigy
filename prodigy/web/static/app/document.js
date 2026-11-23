@@ -5,25 +5,24 @@
 // (Safari, Firefox) Open reads a chosen file and Save downloads the program. The text itself is
 // always kept in the browser as well, so a reload never loses work.
 //
-// A program is pGCL or .ppy; the file extension decides when opening, and Save writes the
-// extension of the program's syntax (a .pgcl file converted to .ppy is saved as a new file).
+// A program is .ppy. A .pgcl file still opens (the server then reports that the syntax was removed
+// in v0.6.0), but Save writes .ppy only.
 import { h } from "./components/dom.js";
 import { addRecent } from "./recent.js";
 import { load, save } from "./store.js";
 
-const EXTENSIONS = { pgcl: ".pgcl", ppy: ".ppy" };
+const EXTENSIONS = { ppy: ".ppy" };
 const OPEN_TYPES = [{ description: "Prodigy program (.ppy, .pgcl)", accept: { "text/plain": [".ppy", ".pgcl"] } }];
 const SAVE_TYPES = {
-  pgcl: [{ description: "pGCL program", accept: { "text/plain": [".pgcl"] } }],
   ppy: [{ description: ".ppy program", accept: { "text/plain": [".ppy"] } }],
 };
 
 export const canWriteFiles = typeof window.showOpenFilePicker === "function" &&
   typeof window.showSaveFilePicker === "function";
 
-/** The syntax of a file: .ppy, or pGCL for everything else (.pgcl, .txt). */
-export function syntaxOf(fileName) {
-  return /\.ppy$/i.test(String(fileName || "")) ? "ppy" : "pgcl";
+/** The syntax of a file: always .ppy (the server rejects a .pgcl file by its name). */
+export function syntaxOf() {
+  return "ppy";
 }
 
 function stem(fileName) {
@@ -160,13 +159,13 @@ export function createDocument({ editor, initialText, onReplace, notify, onChang
   /** The linked file, if the program is still in its syntax (a converted program is not). */
   function linkedFile() {
     if (meta.origin !== "file") return null;
-    const file = meta.file || `${meta.name}.pgcl`;
+    const file = meta.file || `${meta.name}.ppy`;
     return syntaxOf(file) === editor.getSyntax() ? file : null;
   }
 
   function changed() {
     onChange?.({ name: displayName(), category: meta.category, edited: isEdited(), origin: meta.origin,
-      fileName: meta.origin === "file" ? (meta.file || `${meta.name}.pgcl`) : null, syntax: editor.getSyntax() });
+      fileName: meta.origin === "file" ? (meta.file || `${meta.name}.ppy`) : null, syntax: editor.getSyntax() });
   }
 
   function become(next, newHandle = null) {
@@ -200,17 +199,9 @@ export function createDocument({ editor, initialText, onReplace, notify, onChang
     return choice === "save" && name ? name : null;
   }
 
-  /** Asks for the syntax of a new program; resolves to "ppy", "pgcl" or null (cancelled). */
-  async function askSyntax() {
-    const choice = await ask(document.getElementById("new-alert"));
-    return choice === "ppy" || choice === "pgcl" ? choice : null;
-  }
-
   async function newDocument() {
     if (!(await confirmClose())) return;
-    const syntax = await askSyntax();
-    if (!syntax) return;
-    editor.setSource("", syntax);
+    editor.setSource("", "ppy");
     become({ name: null, origin: "untitled", category: "", saved: "" });
     onReplace({ kind: "new" });
     editor.focus();
@@ -255,7 +246,7 @@ export function createDocument({ editor, initialText, onReplace, notify, onChang
   /** A file of the recent list: its remembered text, without a link to the file on disk. */
   async function openRecentFile(entry) {
     if (!(await confirmClose())) return;
-    openPicked({ handle: null, name: entry.file || `${entry.title}.pgcl`, text: entry.text });
+    openPicked({ handle: null, name: entry.file || `${entry.title}.ppy`, text: entry.text });
   }
 
   async function openDocument() {
@@ -325,7 +316,7 @@ export function createDocument({ editor, initialText, onReplace, notify, onChang
   async function restoreHandle() {
     if (meta.origin !== "file" || !canWriteFiles) return;
     const stored = await loadHandle();
-    if (stored && stored.name === (meta.file || `${meta.name}.pgcl`)) handle = stored;
+    if (stored && stored.name === (meta.file || `${meta.name}.ppy`)) handle = stored;
   }
 
   restoreHandle();

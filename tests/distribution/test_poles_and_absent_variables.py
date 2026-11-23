@@ -12,7 +12,7 @@ from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.distribution import MarginalType, NonFiniteMarginalError, known_convergent_series
 from prodigy.distribution.generating_function import SympyPGF
 from prodigy.pgcl import parse_pgcl
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 
 def _ginac_factory():
@@ -37,18 +37,18 @@ def _engine(name):
 @pytest.mark.parametrize("factory", FACTORIES)
 @pytest.mark.parametrize("function, assignment, expected", [
     # the old distribution of y must not end up on x (#232)
-    ("1/3 + y/3 + y^2/3", "y = x", "1"),
-    ("1/3 + y/3 + y^2/3", "x = z", "1/3 + y/3 + y^2/3"),
-    ("1/(2 - y)", "y = z", "1"),
-    ("1/(2 - y)", "z = x", "1/(2 - y)"),
+    ("1/3 + y/3 + y^2/3", "y == x", "1"),
+    ("1/3 + y/3 + y^2/3", "x == z", "1/3 + y/3 + y^2/3"),
+    ("1/(2 - y)", "y == z", "1"),
+    ("1/(2 - y)", "z == x", "1/(2 - y)"),
     # z occurs: a copy
-    ("z/(2 - y)", "y = z", "z*y"),
-    ("1/(2 - y)", "z = y", "1/(2 - y*z)"),
+    ("z/(2 - y)", "y == z", "z*y"),
+    ("1/(2 - y)", "z == y", "1/(2 - y*z)"),
 ])
 def test_copy_of_a_variable(factory, function, assignment, expected):
     pgf = factory()
     dist = pgf.from_expr(function, "x", "y", "z")
-    result = dist.update(parse_expr(assignment))
+    result = dist.update(parse_ppy_expr(assignment))
     assert result == pgf.from_expr(expected, "x", "y", "z")
 
 
@@ -113,4 +113,4 @@ def test_assignment_from_parameter_is_not_implemented(factory):
     """#375: ``x = p`` on a parameter names the unsupported construct on every engine."""
     dist = factory().from_expr("p*x", "x").set_parameters("p")
     with pytest.raises(ValueError, match="a parameter cannot be the source of an assignment"):
-        dist.update(parse_expr("x = p"))
+        dist.update(parse_ppy_expr("x == p"))

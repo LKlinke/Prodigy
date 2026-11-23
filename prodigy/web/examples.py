@@ -7,9 +7,8 @@ From that line the library derives a suggested setup for the GUI: an invariant f
 invariant synthesis, or plain analysis. For ``check_equality`` it also loads the second program
 (``other``), which the GUI compares with the first.
 
-The examples are ``.ppy`` files. A folder given with ``prodigy web --examples`` may also hold
-``.pgcl`` files; :meth:`ExampleLibrary.load` with ``syntax="ppy"`` converts such an example and
-its invariants into the ``.ppy`` syntax on the fly (:func:`prodigy.pgcl.converter.convert_pgcl`).
+The examples are ``.ppy`` files; ``.pgcl`` files in a folder given with ``prodigy web --examples``
+are not listed (the syntax was removed in v0.6.0).
 """
 from __future__ import annotations
 
@@ -20,7 +19,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from prodigy.pgcl import parse_pgcl
-from prodigy.pgcl.parser import select_syntax
 
 _CATEGORY_TITLES = {
     "inference": "Inference",
@@ -33,7 +31,7 @@ _CATEGORY_TITLES = {
     "conditioning": "conditioning",
 }
 
-EXTENSIONS = (".ppy", ".pgcl")
+EXTENSIONS = (".ppy",)
 """File extensions of example programs."""
 
 
@@ -121,14 +119,12 @@ class ExampleLibrary:
             raise FileNotFoundError(example_id)
         return path
 
-    def load(self, example_id: str, syntax: Optional[str] = None) -> Dict[str, Any]:
-        """Source, example data and suggested setup of an example. The example comes in the syntax
-        of its file; with ``syntax="ppy"``, a ``.pgcl`` example is converted on the fly (``.ppy``
-        examples cannot be converted to ``.pgcl``, so ``syntax="pgcl"`` changes nothing). Raises
-        ``FileNotFoundError`` for an unknown example and ``ValueError`` if it cannot be converted."""
+    def load(self, example_id: str) -> Dict[str, Any]:
+        """Source, example data and suggested setup of an example. Raises ``FileNotFoundError`` for an
+        unknown example."""
         path = self._resolve(example_id)
         source = path.read_text(encoding="utf-8")
-        file_syntax = select_syntax(path=path.name)
+        file_syntax = "ppy"
         example = next((e for e in self.examples if e.id == example_id), None)
         suggestion = self._suggest(path, source, example, file_syntax)
         data: Dict[str, Any] = {"id": example_id, "syntax": file_syntax, "source": source,
@@ -137,15 +133,6 @@ class ExampleLibrary:
         other = self._other_program(example)
         if other is not None:
             data["other"] = other
-        if syntax == "ppy" and file_syntax == "pgcl":
-            data.update(syntax="ppy", **convert(source))
-            data["file_name"] = f"{path.stem}.ppy"
-            for decision in suggestion["decisions"].values():
-                if decision["strategy"] == "invariant" and "invariant" in decision["params"]:
-                    decision["params"]["invariant"] = convert(decision["params"]["invariant"])["source"]
-            if other is not None and other["syntax"] == "pgcl":
-                other.update(syntax="ppy", source=convert(other["source"])["source"],
-                             file_name=f"{Path(other['file_name']).stem}.ppy")
         if data["syntax"] == "ppy" and suggestion["input_distribution"]:
             suggestion["input_distribution"] = _to_ppy_expression(suggestion["input_distribution"])
         return data
@@ -159,7 +146,7 @@ class ExampleLibrary:
         if other is None or other.suffix not in EXTENSIONS:
             return None
         return {"id": other.relative_to(self.root).as_posix(), "source": other.read_text(encoding="utf-8"),
-                "syntax": select_syntax(path=other.name), "file_name": other.name}
+                "syntax": "ppy", "file_name": other.name}
 
     def _resolve_arg(self, arg: str) -> Optional[Path]:
         """Paths in the first line are relative to the repository root (``pgfexamples/...``)."""
@@ -250,42 +237,6 @@ def _count_loops(source: str, syntax: str) -> int:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.session import LoopRegistry
     return len(LoopRegistry(parse_pgcl(source, syntax), source, syntax))
-
-
-def convert(source: str) -> Dict[str, Any]:
-    """``source`` (pGCL) in the ``.ppy`` syntax, with the renamed names. Raises ``ValueError``
-    with line and column if ``source`` is not a valid pGCL program or has no ``.ppy`` form."""
-    # pylint: disable=import-outside-toplevel
-    from lark.exceptions import UnexpectedInput
-
-    from prodigy.pgcl.converter import convert_pgcl
-    from prodigy.pgcl.ppy_printer import PpyPrintError
-    from prodigy.pgcl.syntax_errors import ProgramSyntaxError
-    try:
-        conversion = convert_pgcl(source)
-    except ProgramSyntaxError as exc:
-        raise ConversionError(f"The program is not valid pGCL ({exc}); fix it before converting.",
-                              exc.line, exc.column) from exc
-    except UnexpectedInput as exc:
-        raise ConversionError(f"The program is not valid pGCL (line {exc.line}, column {exc.column}); "
-                              "fix it before converting.", exc.line, exc.column) from exc
-    except PpyPrintError as exc:
-        raise ConversionError(f"The program has no .ppy form: {exc}") from exc
-    except Exception as exc:  # pylint: disable=broad-except  # the pGCL parser raises plain exceptions
-        raise ConversionError(f"The program cannot be converted: {str(exc).splitlines()[0] if str(exc) else exc}") \
-            from exc
-    return {"source": conversion.text,
-            "renamings": [{"from": old, "to": new} for old, new in conversion.renamings.items()],
-            "messages": conversion.messages()}
-
-
-class ConversionError(ValueError):
-    """A program cannot be converted to ``.ppy``; ``line``/``column`` locate a syntax error."""
-
-    def __init__(self, message: str, line: Optional[int] = None, column: Optional[int] = None):
-        super().__init__(message)
-        self.line = line
-        self.column = column
 
 
 def _to_ppy_expression(expression: str) -> str:

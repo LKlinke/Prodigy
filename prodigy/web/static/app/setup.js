@@ -177,10 +177,9 @@ const nextId = (prefix) => `${prefix}-${++uid}`;
 
 // placeholders in the syntax of the program (set by renderSetup)
 const PLACEHOLDERS = {
-  pgcl: { program: "nat x;\nif (x = 1) { … } else { skip }", expression: "1/(1 - c/2)" },
   ppy: { program: "x: nat;\nif (x == 1) { … } else { skip; }", expression: "1/(1 - c/2)" },
 };
-let placeholders = PLACEHOLDERS.pgcl;
+let placeholders = PLACEHOLDERS.ppy;
 
 function paramField(param, value, onInput, suggest = null) {
   const id = nextId(`param-${param.name}`);
@@ -590,7 +589,7 @@ export function applyInputProblem(input, message, error = input.parentElement?.q
 export function renderSetup(container, ctx) {
   const { outline, setup, meta, onChange } = ctx;
   const comparing = Boolean(ctx.second);
-  placeholders = PLACEHOLDERS[ctx.syntax] || PLACEHOLDERS.pgcl;
+  placeholders = PLACEHOLDERS.ppy;
   const inputId = nextId("input");
   const input = h("input", { id: inputId, class: "field mono input-distribution", type: "text", spellcheck: "false",
     autocomplete: "off", placeholder: "1   (every variable starts at 0)", "aria-describedby": `${inputId}-error ${inputId}-help` });
@@ -632,7 +631,7 @@ export function renderSetup(container, ctx) {
       }),
     ...heuristicRows,
     selectRow("Solver", "For equation systems during invariant checks.", options.solver,
-      meta.solvers.map((s) => [s, s === "z3" ? "Z3" : "SymPy"]), (v) => { options.solver = v; onChange(); }),
+      meta.solvers.map((s) => [s, s === "sympy" ? "SymPy" : s]), (v) => { options.solver = v; onChange(); }),
   );
   const optionsDisclosure = h("details", { class: "disclosure" }, h("summary", {}, "Analysis options"), optionsBody);
   optionsDisclosure.open = Boolean(ctx.optionsOpen);
@@ -714,7 +713,7 @@ export function focusLoopCard(container, loopId, { field = false } = {}) {
 
 /** Problems that prevent running (shown next to the Analyze button): {loop, message, param} (`param` names the
  * parameter whose value is missing or wrong). `syntax` is the syntax of the program (for the labels). */
-export function setupProblems(outline, setup, strategies, syntax = "pgcl") {
+export function setupProblems(outline, setup, strategies, syntax = "ppy") {
   const byName = Object.fromEntries(strategies.map((s) => [s.name, s]));
   const problems = [];
   for (const loop of outline?.loops || []) {

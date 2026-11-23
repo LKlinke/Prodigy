@@ -7,28 +7,35 @@ from prodigy.pgcl import parse_pgcl
 from prodigy.pgcl.language_warnings import language_warnings
 from prodigy.web.app import create_app
 
-DECLS = "nat x; nat y; nat z;\n"
+DECLS = """x: nat;
+y: nat;
+z: nat;
+"""
 PPY_DECLS = "x: nat;\ny: nat;\nz: nat;\n"
 
 
-def kinds(source, syntax="pgcl"):
+def kinds(source, syntax="ppy"):
     return [(w.kind, w.message) for w in language_warnings(parse_pgcl(source, syntax), syntax)]
 
 
 @pytest.mark.parametrize("expr", ["x - y + z", "x - y + 1", "x - y + (z - 1)"])
 def test_monus_warns(expr):
-    found = kinds(DECLS + f"x := {expr}")
+    found = kinds(DECLS + f"x = {expr};")
     assert [kind for kind, _ in found] == ["monus"]
 
 
 @pytest.mark.parametrize("expr", ["x - y - z", "(x - y) * z", "x + z - y", "5 - 3 + z", "x - (y + z)", "z + (x - y)", "(x - y) + z", "x - (y - z)", "(x - y) + (z - 1)"])
 def test_monus_does_not_warn(expr):
-    assert kinds(DECLS + f"x := {expr}") == []
+    assert kinds(DECLS + f"x = {expr};") == []
 
 
 def test_monus_skips_constants_and_reals():
-    assert kinds("const N := 5;\nnat z;\nz := N - 2 + z") == []
-    assert kinds("real r; nat x;\nr := r - 1/2 + x") == []
+    assert kinds("""const N: nat = 5;
+z: nat;
+z = N - 2 + z;""") == []
+    assert kinds("""r: real;
+x: nat;
+r = r - 1/2 + x;""") == []
 
 
 def test_monus_message_in_the_programs_syntax():
@@ -37,8 +44,7 @@ def test_monus_message_in_the_programs_syntax():
                   "or `(x + z) - y` for integer arithmetic.")]
 
 
-@pytest.mark.parametrize("syntax,source", [("pgcl", DECLS + "x := (x - y) + z"),
-                                           ("ppy", PPY_DECLS + "x = (x - y) + z;"),
+@pytest.mark.parametrize("syntax,source", [("ppy", PPY_DECLS + "x = (x - y) + z;"),
                                            ("ppy", PPY_DECLS + "x = ((x - y)) + z;")])
 def test_explicit_parentheses_silence_the_warning(syntax, source):
     assert kinds(source, syntax) == []
@@ -46,7 +52,7 @@ def test_explicit_parentheses_silence_the_warning(syntax, source):
 
 def test_subtrahend_warning_for_programs_built_as_asts():
     # `a - (b - c)` needs its parentheses in the syntax, so only an AST without the mark gets the warning
-    program = parse_pgcl(DECLS + "x := x - (y - z)")
+    program = parse_pgcl(DECLS + "x = x - (y - z);")
     instr = program.instructions[0]
     assert language_warnings(program) == []
     instr.rhs.rhs.__dict__.pop("_prodigy_parenthesized")
@@ -56,12 +62,12 @@ def test_subtrahend_warning_for_programs_built_as_asts():
 
 def test_parentheses_survive_deepcopy():
     import copy
-    program = copy.deepcopy(parse_pgcl(DECLS + "x := (x - y) + z"))
+    program = copy.deepcopy(parse_pgcl(DECLS + "x = (x - y) + z;"))
     assert language_warnings(program) == []
 
 
 def test_warnings_in_queries():
-    assert [k for k, _ in kinds(DECLS + "?Ex[x - y + z]")] == ["monus"]
+    assert [k for k, _ in kinds(DECLS + "query Ex[x - y + z];")] == ["monus"]
     assert [k for k, _ in kinds(PPY_DECLS + "query Ex[x - y + z];", "ppy")] == ["monus"]
     assert [k for k, _ in kinds(PPY_DECLS + "query Pr[x - y + z > 1];", "ppy")] == ["monus"]
 
@@ -74,21 +80,28 @@ def test_json_result_carries_the_warnings_with_position():
 
 
 def test_monus_in_guards_and_functions():
-    assert len(kinds(DECLS + "while (x - y + z > 1) { x := x - 1 }")) == 1
+    assert len(kinds(DECLS + """while (x - y + z > 1) {
+    x = x - 1;
+}""")) == 1
     function = "def f(n: nat) -> nat {\n    m: nat;\n    m = n - 1 + 2;\n    return m;\n}\n"
     assert [kind for kind, _ in kinds(function + PPY_DECLS + "x = f(y);", "ppy")] == ["monus"]
 
 
 def test_implicit_cast_bool_to_nat():
-    assert kinds(DECLS + "x := x < 2") == [("cast", "implicit cast from bool to nat (true → 1, false → 0)")]
-    assert [kind for kind, _ in kinds(DECLS + "x := true")] == ["cast"]
-    assert kinds("bool b; nat x;\nx := b")[0][0] == "cast"
+    assert kinds(DECLS + "x = x < 2;") == [("cast", "implicit cast from bool to nat (true → 1, false → 0)")]
+    assert [kind for kind, _ in kinds(DECLS + "x = true;")] == ["cast"]
+    assert kinds("""b: bool;
+x: nat;
+x = b;""")[0][0] == "cast"
 
 
 def test_no_cast_warning_otherwise():
-    assert kinds("bool b; nat x;\nb := x < 2") == []
-    assert kinds(DECLS + "x := y") == []
-    assert kinds("bool b;\nb := true") == []
+    assert kinds("""b: bool;
+x: nat;
+b = x < 2;""") == []
+    assert kinds(DECLS + "x = y;") == []
+    assert kinds("""b: bool;
+b = true;""") == []
 
 
 @pytest.fixture(name="client")

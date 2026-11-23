@@ -32,17 +32,15 @@ def _run(source, syntax, engine):
 # P(x + y < 3) for x ~ binomial(4, 1/2), y ~ geometric(1/3): sum over x of P(x) * P(y < 3 - x)
 SUM_WITH_FINITE_SUMMAND = {
     "ppy": "x: nat = binomial(4, 1/2);\ny: nat = geometric(1/3);\nquery Pr[x + y < 3];\nquery Ex[x];\n",
-    "pgcl": "nat x;\nnat y;\nx := binomial(4, 1/2);\ny := geometric(1/3);\n?Pr[x + y < 3];\n?Ex[x];\n",
 }
 
 # both summands have infinite support, and x * y < 3 is no linear guard: not computable (yet)
 NOT_COMPUTABLE = {
     "ppy": "x: nat = geometric(1/2);\ny: nat = geometric(1/3);\nquery Pr[x * y < 3];\nquery Ex[x];\n",
-    "pgcl": "nat x;\nnat y;\nx := geometric(1/2);\ny := geometric(1/3);\n?Pr[x * y < 3];\n?Ex[x];\n",
 }
 
 
-@pytest.mark.parametrize("syntax", ["ppy", "pgcl"])
+@pytest.mark.parametrize("syntax", ["ppy"])
 @pytest.mark.parametrize("engine", ENGINES)
 def test_filter_on_sum_with_finite_summand_is_computed(syntax, engine):
     result = _run(SUM_WITH_FINITE_SUMMAND[syntax], syntax, engine)
@@ -53,7 +51,7 @@ def test_filter_on_sum_with_finite_summand_is_computed(syntax, engine):
     assert sym(expectation["value"]) == 2
 
 
-@pytest.mark.parametrize("syntax", ["ppy", "pgcl"])
+@pytest.mark.parametrize("syntax", ["ppy"])
 @pytest.mark.parametrize("engine", ENGINES)
 def test_query_that_cannot_be_computed_fails_only_itself(syntax, engine):
     result = _run(NOT_COMPUTABLE[syntax], syntax, engine)
@@ -99,12 +97,10 @@ def test_cli_reports_failed_query_and_keeps_the_rest(tmp_path):
 BOOL_LITERALS = {
     "ppy": "x: nat = binomial(2, 1/2);\nb: bool = false;\nc: bool = true;\nb = true;\nc = false;\n"
            "if (x == 0) {\n    c = true;\n}\nquery Pr[b];\nquery Pr[c];\n",
-    "pgcl": "nat x;\nbool b;\nbool c;\nx := binomial(2, 1/2);\nc := true;\nb := true;\nc := false;\n"
-            "if (x = 0) { c := true } else { skip }\n?Pr[b = 1];\n?Pr[c = 1];\n",
 }
 
 
-@pytest.mark.parametrize("syntax", ["ppy", "pgcl"])
+@pytest.mark.parametrize("syntax", ["ppy"])
 @pytest.mark.parametrize("engine", ENGINES)
 def test_bool_literal_assignment(syntax, engine):
     result = _run(BOOL_LITERALS[syntax], syntax, engine)

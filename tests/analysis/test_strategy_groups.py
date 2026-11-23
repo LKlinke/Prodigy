@@ -14,25 +14,50 @@ from prodigy.analysis.loop_strategies import STRATEGY_GROUPS, get_loop_strategy,
 from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
 
-GEOMETRIC = """nat x; nat c;
-x := 1
-while (x = 1) { {x := 0} [1/2] {c := c + 1} }
-?Pr[c = 0]
+GEOMETRIC = """x: nat;
+c: nat;
+x = 1;
+while (x == 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+}
+query Pr[c == 0];
 """
 
-OBSERVED = """nat x; nat c; nat y;
-x := 1
-{y := 1} [1/2] {y := 0}
-observe(y = 0)
-while (x = 1) { {x := 0} [1/2] {c := c + 1} }
-?Pr[c = 0]
+OBSERVED = """x: nat;
+c: nat;
+y: nat;
+x = 1;
+{
+    y = 1;
+} [1/2] {
+    y = 0;
+}
+observe(y == 0);
+while (x == 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+}
+query Pr[c == 0];
 """
 
 # terminates with probability 1/2 only: the synthesised invariant has infinite mass (upper bound)
-BIASED_WALK = """nat x;
-x := 1
-while (x > 0) { {x := x - 1} [1/3] {x := x + 1} }
-?Pr[x = 0]
+BIASED_WALK = """x: nat;
+x = 1;
+while (x > 0) {
+    {
+        x = x - 1;
+    } [1/3] {
+        x = x + 1;
+    }
+}
+query Pr[x == 0];
 """
 
 
@@ -169,7 +194,7 @@ def test_auto_keeps_the_upper_bound_of_an_infinite_mass_invariant(monkeypatch):
 
 def test_auto_without_upper_bound_keeps_the_mass_based_interval():
     """The upper bound of the invariant is only an addition: for a query it cannot bound, nothing changes."""
-    source = BIASED_WALK.replace("?Pr[x = 0]", "?Ex[x]")
+    source = BIASED_WALK.replace("query Pr[x == 0];", "query Ex[x];")
     query = analyse(source, {"*": "auto:iterations=6"})["queries"][0]
     assert query["upper"] is None or Fraction(query["upper"]) >= Fraction(query["lower"])
 

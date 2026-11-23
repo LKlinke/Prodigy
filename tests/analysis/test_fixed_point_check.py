@@ -14,10 +14,17 @@ from prodigy.analysis.instructionhandler import while_handler
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.session import AnalysisSession
 
-GEOMETRIC = """nat x; nat c;
-x := 1
-while (x = 1) { {x := 0} [1/2] {c := c + 1} }
-?Ex[c]
+GEOMETRIC = """x: nat;
+c: nat;
+x = 1;
+while (x == 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+}
+query Ex[c];
 """
 
 ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINAC]
@@ -137,7 +144,7 @@ def test_wrong_solution_of_the_synthesis_solver_is_not_certified(monkeypatch, en
 def test_cli_shows_the_verdict(tmp_path, invariant, verdict):
     from click.testing import CliRunner  # pylint: disable=import-outside-toplevel
     from prodigy.cli import cli  # pylint: disable=import-outside-toplevel
-    program = tmp_path / "geometric.pgcl"
+    program = tmp_path / "geometric.ppy"
     program.write_text(GEOMETRIC)
     result = CliRunner().invoke(cli, ["analyze", str(program), "--loop", f"0=evt_invariant:invariant={invariant}"])
     assert verdict in result.output

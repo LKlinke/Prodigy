@@ -139,7 +139,8 @@ def test_floor_division_in_guards(engine):
 def test_floor_division_rounds_alike_in_guards_and_assignments(engine):
     dist, _ = run("x, y, z: nat; x = unif(0, 11); y = x // 4; if (y == x // 4 and not (x // 4 < y)) "
                   "{ z = 1; }", engine)
-    assert dist.filter(parse_pgcl("nat z; ?Pr[z = 1]").instructions[0].expr).get_probability_mass() in (1, "1")
+    assert dist.filter(parse_pgcl("""z: nat;
+query Pr[z == 1];""").instructions[0].expr).get_probability_mass() in (1, "1")
 
 
 @pytest.mark.parametrize("engine", ENGINES)

@@ -9,9 +9,8 @@ from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.distribution import NonFiniteMarginalError
 from prodigy.pgcl import CovarianceInstr, VarianceInstr, parse_pgcl
-from prodigy.pgcl.converter import convert_pgcl
 from prodigy.pgcl.ppy_parser import parse_ppy
-from prodigy.pgcl.ppy_printer import instr_to_ppy
+from prodigy.pgcl.ppy_printer import instr_to_ppy, program_to_ppy
 
 ENGINES = ["SYMPY", "GINAC"]
 R = sympy.Rational
@@ -114,14 +113,21 @@ def test_higher_moments_are_expectations_of_powers():
 
 
 def test_pgcl_syntax_and_a_loop():
-    source = """nat x; nat c;
-x := 0;
-c := 1;
-while (c = 1) { {c := 0} [1/2] {x := x + 1} }
-?Var[x];
-?Cov[x, c];
+    source = """x: nat;
+c: nat;
+x = 0;
+c = 1;
+while (c == 1) {
+    {
+        c = 0;
+    } [1/2] {
+        x = x + 1;
+    }
+}
+query Var[x];
+query Cov[x, c];
 """
-    got = values(analyse(source, syntax="pgcl", decisions={"0": {"strategy": "auto"}}))
+    got = values(analyse(source, syntax="ppy", decisions={"0": {"strategy": "auto"}}))
     assert sym(got[("variance", "x")]["value"]) == 2
     assert sym(got[("covariance", "x, c")]["value"]) == 0
     assert got[("variance", "x")]["bound"] == Bound.EXACT
@@ -193,9 +199,13 @@ def test_parsing_and_printing_round_trip():
     var, cov = program.instructions
     assert isinstance(var, VarianceInstr) and isinstance(cov, CovarianceInstr)
     assert [instr_to_ppy(instr) for instr in program.instructions] == ["query Var[x];", "query Cov[x, y + 1];"]
-    old = parse_pgcl("nat x; nat y;\n?Var[x]\n?Cov[x, y + 1]\n")
+    old = parse_pgcl("""x: nat;
+y: nat;
+query Var[x];
+query Cov[x, y + 1];
+""")
     assert old.instructions == program.instructions
-    assert parse_ppy(convert_pgcl("nat x; nat y;\n?Var[x]\n?Cov[x, y + 1]\n").text) == program
+    assert parse_ppy(program_to_ppy(old)) == program
     assert str(var) == "?Var[x];" and str(cov) == "?Cov[x, y + 1];"
 
 

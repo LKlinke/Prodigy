@@ -22,13 +22,13 @@ choice are evaluated in their own branch, so draws inside them are lowered there
 
 .. doctest::
 
-    >>> from prodigy.pgcl.parser import parse_expr
+    >>> from prodigy.pgcl.ppy_parser import parse_ppy_expr
     >>> names = iter(["h0", "h1", "h2"])
-    >>> helpers, expr = lower_draws(parse_expr("geometric(1/2) + geometric(1/2) * 2"), set(),
+    >>> helpers, expr = lower_draws(parse_ppy_expr("geometric(1/2) + geometric(1/2) * 2"), set(),
     ...                             lambda: next(names))
     >>> [(name, str(draw)) for name, draw in helpers], str(expr)
     ([('h0', 'geometric(1/2)'), ('h1', 'geometric(1/2)')], 'h0 + (h1 * 2)')
-    >>> lower_draws(parse_expr("x + 1"), set(), lambda: "h")
+    >>> lower_draws(parse_ppy_expr("x + 1"), set(), lambda: "h")
     ([], BinopExpr(operator=Binop.PLUS, lhs=VarExpr('x'), rhs=NatLitExpr(1)))
 """
 from __future__ import annotations

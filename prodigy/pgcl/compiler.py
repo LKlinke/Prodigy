@@ -20,7 +20,8 @@ from prodigy.pgcl.util.ref import Mut
 from .ast import Expr, Instr, Node, Program, Var, VarDecl
 from .check import (CheckFail, check_expectation, check_expression,
                     check_program, sample_predefined_functions)
-from .parser import parse_expectation, parse_expr, parse_pgcl, select_syntax
+from .parser import parse_pgcl
+from .ppy_parser import parse_ppy_expr
 
 
 def _ppy_spelling(node: Node) -> str:
@@ -49,25 +50,22 @@ def compile_pgcl(
 
     .. doctest::
 
-        >>> compile_pgcl("nat x; nat y; x := y")
+        >>> compile_pgcl("x: nat; y: nat; x = y;")
         Program(variables={'x': NatType(bounds=None), 'y': NatType(bounds=None)}, constants={}, parameters={}, functions={}, instructions=[AsgnInstr(lhs='x', rhs=VarExpr('y'))])
 
-        >>> compile_pgcl("x := y")
+        >>> compile_pgcl("x = y;")
         CheckFail(location=..., message='x is not a variable.')
 
     Args:
         code:
-        syntax: ``"pgcl"`` or ``"ppy"``; by default chosen from the extension of ``path``, else pGCL
-            (see :func:`prodigy.pgcl.parser.select_syntax`).
-        path: The file the code comes from, only used to choose the syntax.
+        syntax: ``"ppy"`` (``"pgcl"`` raises ``ValueError``, see :func:`prodigy.pgcl.parser.parse_pgcl`).
+        path: The file the code comes from, only checked (a ``.pgcl`` file raises ``ValueError``).
         substitute_constants: Whether constant substitution is done on the program, defaults to `True`.
     """
     program = parse_pgcl(code, syntax, path=path)
     if substitute_constants:
         substitute.substitute_constants(program)
-    chosen = select_syntax(syntax, path)
-    check_result = check_program(program, predefined_functions,
-                                 spell=_ppy_spelling if chosen == "ppy" else None)
+    check_result = check_program(program, predefined_functions, spell=_ppy_spelling)
     if check_result is not None:
         return check_result
     return program
@@ -82,14 +80,14 @@ def compile_expr(
                                List[VarDecl]] = sample_predefined_functions
 ) -> Union[Expr, CheckFail]:
     """
-    Parse and type-check an expression.
+    Parse (``.ppy`` syntax) and type-check an expression.
 
     Args:
         program:
         code:
         substitute_constants: Whether constant substitution is done on the expression, defaults to `True`.
     """
-    expr = parse_expr(code)
+    expr = parse_ppy_expr(code)
     check_result = check_expression(program, expr, predefined_functions)
     if check_result is not None:
         return check_result
@@ -109,14 +107,14 @@ def compile_expectation(
                                List[VarDecl]] = sample_predefined_functions
 ) -> Union[Expr, CheckFail]:
     """
-    Parse and type-check an expectation.
+    Parse (``.ppy`` syntax) and type-check an expectation.
 
     Args:
         program:
         code:
         substitute_constants: Whether constant substitution is done on the expectation, defaults to `True`.
     """
-    expr = parse_expectation(code)
+    expr = parse_ppy_expr(code)
     check_result = check_expectation(program, expr, predefined_functions)
     if check_result is not None:
         return check_result

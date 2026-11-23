@@ -13,10 +13,17 @@ from prodigy.analysis.session import AnalysisSession, InteractiveDecisions, pars
 from prodigy.cli import cli
 from prodigy.pgcl import parse_pgcl
 
-GEOMETRIC = """nat x; nat c;
-x := 1
-while (x = 1) { {x := 0} [1/2] {c := c + 1} }
-?Pr[c = 0]
+GEOMETRIC = """x: nat;
+c: nat;
+x = 1;
+while (x == 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+}
+query Pr[c == 0];
 """
 INVARIANT = "(x + 1/2)/(1 - c/2)"
 SUBINVARIANT = "x/2"
@@ -49,7 +56,7 @@ def _assert_untouched(tmp_path):
     assert not (tmp_path / "pwned").exists(), "a malicious expression was evaluated"
 
 
-@pytest.mark.parametrize("syntax", ["pgcl", "ppy"])
+@pytest.mark.parametrize("syntax", ["ppy"])
 def test_expression_parameters_refuse_malicious_text(tmp_path, syntax):
     spec = get_loop_strategy("evt_invariant").param("invariant")
     for text in _malicious(tmp_path):
@@ -58,7 +65,7 @@ def test_expression_parameters_refuse_malicious_text(tmp_path, syntax):
     _assert_untouched(tmp_path)
 
 
-@pytest.mark.parametrize("syntax", ["pgcl", "ppy"])
+@pytest.mark.parametrize("syntax", ["ppy"])
 @pytest.mark.parametrize("text, spelled", [
     ("(x + 1/2)/(1 - c/2)", "(x + 1/2)/(1 - c/2)"),
     ("x**2/2 + 1/2", "x^2/2 + 1/2"),
@@ -72,7 +79,7 @@ def test_expression_parameters_accept_generating_functions(syntax, text, spelled
 
 def test_boolean_words_are_not_generating_functions():
     for text in ["not x", "x and c", "x or c", "true", "False*x"]:
-        for syntax in ("pgcl", "ppy"):
+        for syntax in ("ppy", "ppy"):
             with pytest.raises(CandidateError, match="Boolean"):
                 admissible_expression(text, syntax=syntax, functions=MATH_FUNCTIONS)
 
@@ -129,7 +136,7 @@ def test_interactive_answers_are_checked(tmp_path, monkeypatch, capsys):
 
 @pytest.fixture(name="program")
 def _program(tmp_path):
-    path = tmp_path / "program.pgcl"
+    path = tmp_path / "program.ppy"
     path.write_text(GEOMETRIC)
     return path
 

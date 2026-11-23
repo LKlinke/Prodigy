@@ -7,65 +7,60 @@ from prodigy.pgcl.parser import parse_pgcl
 
 def test_correct_program():
     program = parse_pgcl("""
-        const pi := 3.14
-        nat x
-        real y
-        const twopi := 2 * pi
-        while(x < 10 & false) {
-            skip
+const pi: real = 3.14;
+x: nat;
+y: real;
+const twopi = 2 * pi;
+while (x < 10 and false) {
+    skip;
+}
+if (pi == 5.0 or false) {
+    x = 3;
+} else {
+    {
+        loop(300) {
+            skip;
         }
-        if(pi = 5.0 || false) {
-            x := 3
-        } {
-            {
-                loop(300) {
-                    skip
-                }
-            } [y] {
-                observe(true)
-            }
-        }
-        ?Pr [true]
-        ?Pr [5]
-        ?Ex [7 = 8]
-        !Plot [x, y, 5]
-    """)
+    } [y] {
+        observe(true);
+    }
+}
+query Pr[true];
+query Pr[5];
+query Ex[7 == 8];
+plot(x, y, 5);""")
     assert check_program(program) is None
 
 
 def test_for_declaration_errors():
     program = parse_pgcl("""
-        const twopi := 2 * pi
-        const pi := 3.14
-    """)
+const twopi = 2 * pi;
+const pi: real = 3.14;""")
     check = check_program(program)
     assert isinstance(check, CheckFail)
     assert check.location == VarExpr("pi")
     assert "Constant is not yet defined" in check.message
 
     program = parse_pgcl("""
-        const pi := 3.14
-        nat x
-        const xpi := x * pi
-    """)
+const pi: real = 3.14;
+x: nat;
+const xpi = x * pi;""")
     check = check_program(program)
     assert isinstance(check, CheckFail)
     assert check.location == VarExpr("x")
     assert "Variable used in constant definition is not a constant" in check.message
 
     program = parse_pgcl("""
-        nat x
-        nat x
-    """)
+x: nat;
+x: nat;""")
     check = check_program(program)
     assert isinstance(check, CheckFail)
     assert check.location == VarDecl("x", NatType(None))
     assert "Already declared variable/constant before." in check.message
 
     program = parse_pgcl("""
-        const x := 4
-        const x := 5
-    """)
+const x: nat = 4;
+const x: nat = 5;""")
     check = check_program(program)
     assert isinstance(check, CheckFail)
     assert check.location == ConstDecl("x", NatLitExpr(5))
@@ -74,46 +69,39 @@ def test_for_declaration_errors():
 
 def test_for_instr_errors():
     program = parse_pgcl("""
-        real x
-        while(x) {
-            skip
-        }
-    """, check_guards=False)
+x: real;
+while (x) {
+    skip;
+}""", check_guards=False)
     assert isinstance(check_program(program), CheckFail)
 
     program = parse_pgcl("""
-        real x
-        if(x) {
-            skip
-        } else {
-            // ???
-        }
-    """, check_guards=False)
+x: real;
+if (x) {
+    skip;
+}
+# ???""", check_guards=False)
     assert isinstance(check_program(program), CheckFail)
 
     program = parse_pgcl("""
-        nat x
-        x := 0.5
-    """)
+x: nat;
+x = 0.5;""")
     assert isinstance(check_program(program), CheckFail)
 
     program = parse_pgcl("""
-        x := 5
-    """)
+x = 5;""")
     assert isinstance(check_program(program), CheckFail)
 
     program = parse_pgcl("""
-        {
-            skip
-        } [true] {
-            skip
-        }
-    """)
+{
+    skip;
+} [true] {
+    skip;
+}""")
     # a bool is widened to the probability 0 or 1
     assert check_program(program) is None
 
     program = parse_pgcl("""
-        nparam x
-        x := 5
-    """)
+param x: nat;
+x = 5;""")
     assert isinstance(check_program(program), CheckFail)

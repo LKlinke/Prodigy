@@ -23,9 +23,9 @@ pip install prodigy-ppl
 ```
 
 This needs Python 3.11 or newer and contains the SymPy and the faster GiNaC engine (`--engine ginac`).
-The SymEngine engine was removed in v0.6.0 (use `--engine sympy` or `--engine ginac`). The `.pgcl` syntax is
-deprecated in v0.5.0 and removed in v0.6.0 (programs are written in `.ppy`; `prodigy convert program.pgcl` translates
-old ones while v0.5.x is installed).
+The SymEngine engine was removed in v0.6.0 (use `--engine sympy` or `--engine ginac`). Programs are written in
+`.ppy`; the `.pgcl` syntax was removed in v0.6.0 (convert old programs with `prodigy convert program.pgcl` of Prodigy
+v0.5.x). The Z3 solver option is being rebuilt (#474); `--solver z3` ends with a message, use `--solver sympy`.
 The GiNaC engine comes from [`prodigy-ppl-ginac`](https://pypi.org/project/prodigy-ppl-ginac/), whose wheels bundle
 GiNaC; pip installs it on Linux (x86_64, aarch64, glibc) and macOS with Python 3.11–3.14. Elsewhere, the extra `ginac`
 builds it from source, which needs a C++17 compiler, CMake and [GiNaC](https://www.ginac.de/Download.html):
@@ -59,7 +59,7 @@ To install Prodigy from the repository, follow these steps:
 
 1. Make sure [Python](https://www.python.org/downloads/) 3.11 or newer is installed (tested with 3.11 and 3.14).
 2. Install [uv](https://docs.astral.sh/uv/getting-started/installation/).
-3. Clone or download the Prodigy repository, open a command prompt in its root folder, and type `./install.sh`. This installs Prodigy with the dependency versions locked in `uv.lock` into `.venv`, and the Z3 solver for pysmt.
+3. Clone or download the Prodigy repository, open a command prompt in its root folder, and type `./install.sh`. This installs Prodigy with the dependency versions locked in `uv.lock` into `.venv`.
 
 If no errors occurred, you have successfully installed Prodigy.
 Now there are two options on how to use the tool. You can either use the command-line interface (CLI) or the web GUI. The next section (_Basic Usage_) details how to achieve both of these things.

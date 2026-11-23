@@ -15,8 +15,6 @@ from prodigy.pgcl import parse_pgcl
 ROOT = Path(__file__).resolve().parents[2]
 MONTY_HALL = [
     pytest.param(ROOT / "pgfexamples/inference/loop_free/conditioning/monty_hall_nested.ppy", id="ppy"),
-    pytest.param(ROOT / "tests/pgcl/former_examples/inference/loop_free/conditioning/monty_hall_nested.pgcl",
-                 id="pgcl"),
 ]
 
 
@@ -49,7 +47,7 @@ def _expected_monty_hall():
 @pytest.mark.parametrize("simplification", SIMPLIFICATION)
 def test_monty_hall_nested_is_exact(path, engine, simplification):
     source = path.read_text(encoding="utf-8")
-    syntax = "ppy" if path.suffix == ".ppy" else "pgcl"
+    syntax = "ppy"
     config = ForwardAnalysisConfig(engine=_engine(engine), use_simplification=simplification)
     session = AnalysisSession(parse_pgcl(source, syntax), source=source, syntax=syntax, config=config,
                               decisions={}, capture_output=True)

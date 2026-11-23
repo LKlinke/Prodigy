@@ -11,10 +11,17 @@ from prodigy.web.app import create_app
 
 HOST = {"Host": "localhost:8080"}
 
-GEOMETRIC = """nat x; nat c;
-x := 1
-while (x = 1) { {x := 0} [1/2] {c := c + 1} }
-?Pr[c = 0]
+GEOMETRIC = """x: nat;
+c: nat;
+x = 1;
+while (x == 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+}
+query Pr[c == 0];
 """
 
 
@@ -61,7 +68,7 @@ def test_engine_is_chosen_in_the_toolbar_not_in_the_setup(client):
 
 
 def test_check_reports_syntax_errors_with_position(client):
-    result = client.post("/api/check", json={"source": "nat x;\nwhile (x < 3 { x := x+1 }"}, headers=HOST).get_json()
+    result = client.post("/api/check", json={"source": "x: nat;\nwhile (x < 3 { x = x + 1; }"}, headers=HOST).get_json()
     assert not result["ok"]
     error = result["diagnostics"][0]
     assert (error["severity"], error["line"], error["column"]) == ("error", 2, 14)
@@ -70,7 +77,9 @@ def test_check_reports_syntax_errors_with_position(client):
 
 def test_check_examines_the_input_distribution(client):
     """The Setup field shows a refused initial distribution before the job starts (#307)."""
-    def check(text, source="nat x;\nx := 1;\n"):
+    def check(text, source="""x: nat;
+x = 1;
+"""):
         body = {"source": source, "input_distribution": text}
         return client.post("/api/check", json=body, headers=HOST).get_json().get("input_distribution")
     assert check("x**3") == {"status": "ok"}
@@ -80,16 +89,20 @@ def test_check_examines_the_input_distribution(client):
     assert check("x +")["status"] == "refused"                    # not an expression
     assert check("x", source="nat x;\nx := ")["status"] == "skipped"  # the program does not parse
     assert "input_distribution" not in client.post(
-        "/api/check", json={"source": "nat x;\nx := 1;\n", "input_distribution": "  "}, headers=HOST).get_json()
+        "/api/check", json={"source": """x: nat;
+x = 1;
+""", "input_distribution": "  "}, headers=HOST).get_json()
 
 
 def test_check_outline_and_type_warnings(client):
-    result = client.post("/api/check", json={"source": "nat x;\ny := 2\n" + GEOMETRIC.split("\n", 1)[1]},
+    result = client.post("/api/check", json={"source": """x: nat;
+y = 2;
+""" + GEOMETRIC.split("\n", 1)[1]},
                          headers=HOST).get_json()
     assert result["ok"]  # type-checker findings are warnings
     assert result["diagnostics"][0]["severity"] == "warning"
     assert result["diagnostics"][0]["line"] == 2
-    assert result["outline"]["loops"][0]["line"] == 4
+    assert result["outline"]["loops"][0]["line"] == 5
 
 
 def test_requests_from_other_sites_are_rejected(client):
@@ -143,7 +156,17 @@ def test_invalid_requests_are_rejected_before_running(client):
 
 def test_cancel_and_time_limit(client):
     # does not terminate with probability 1/2, so the threshold 0.9 is never reached
-    source = "nat x;\nx := 1\nwhile (x > 0) { {x := x - 1} [1/3] {x := x + 1} }\n?Pr[x = 0]\n"
+    source = """x: nat;
+x = 1;
+while (x > 0) {
+    {
+        x = x - 1;
+    } [1/3] {
+        x = x + 1;
+    }
+}
+query Pr[x == 0];
+"""
     request = {"source": source, "decisions": {"0": "mass_threshold:threshold=0.9"}}
     job = client.post("/api/analyze", json=request, headers=HOST).get_json()["job"]
     time.sleep(1.5)
@@ -170,7 +193,16 @@ def test_from_heuristics_with_chosen_heuristics(client):
     assert "from_heuristics" in meta["synthesis_strategies"]
     assert meta["template_heuristics"] == ["default", "poly"]
     assert "polynomial" in meta["positivity_heuristics"] and "or" not in meta["positivity_heuristics"]
-    source = "nat x;\nx := 1\nwhile (x = 1) { {x := x - 1} [1/2] {skip} }\n"
+    source = """x: nat;
+x = 1;
+while (x == 1) {
+    {
+        x = x - 1;
+    } [1/2] {
+        skip;
+    }
+}
+"""
     rejected = client.post("/api/analyze", json={"source": source, "synthesis_strategy": "from_heuristics",
                                                  "positivity_heuristic": "or"}, headers=HOST)
     assert rejected.status_code == 400 and "positivity heuristic" in rejected.get_json()["error"]
@@ -187,28 +219,28 @@ def test_from_heuristics_with_chosen_heuristics(client):
 
 def test_analysis_records_the_step_trace(client):
     response = client.post("/api/analyze", json={
-        "source": GEOMETRIC, "engine": "sympy", "record_steps": True, "watches": ["Pr[c = 0]"], "step_iterations": 2,
+        "source": GEOMETRIC, "engine": "sympy", "record_steps": True, "watches": ["Pr[c == 0]"], "step_iterations": 2,
         "decisions": {"0": {"strategy": "unroll", "params": {"iterations": 4}}}}, headers=HOST)
     assert response.status_code == 202
     result = wait_for(client, response.get_json()["job"])["result"]
     assert result["status"] == "ok"
     steps = result["steps"]
-    assert [(s["line"], s["kind"]) for s in steps] == [(2, "assign"), (3, "while"), (4, "query")]
+    assert [(s["line"], s["kind"]) for s in steps] == [(3, "assign"), (4, "while"), (11, "query")]
     loop = steps[1]["loop"]
     assert [i["iteration"] for i in loop["iterates"]][-1] == 4 and len(loop["iterates"]) <= 4
     assert steps[1]["watches"][0]["lower"] == "1/2" and steps[1]["watches"][0]["upper"] == "9/16"
-    assert result["trace"]["watches"] == [{"text": "Pr[c = 0]", "kind": "probability"}]
+    assert result["trace"]["watches"] == [{"text": "Pr[c == 0]", "kind": "probability"}]
 
 
 def test_bad_watches_are_rejected_before_running(client):
-    for payload in ({"watches": ["Pr[c = "]}, {"watches": "Pr[c = 0]"}, {"watches": ["Pr[c = 0]"] * 9},
+    for payload in ({"watches": ["Pr[c == "]}, {"watches": "Pr[c == 0]"}, {"watches": ["Pr[c == 0]"] * 9},
                     {"step_iterations": 0}, {"step_iterations": True}):
         response = client.post("/api/analyze", json={"source": GEOMETRIC, "record_steps": True, **payload},
                                headers=HOST)
         assert response.status_code == 400, payload
     # a name that is not a variable is found once the program is parsed
     response = client.post("/api/analyze", json={
-        "source": GEOMETRIC, "record_steps": True, "watches": ["Pr[y = 0]"],
+        "source": GEOMETRIC, "record_steps": True, "watches": ["Pr[y == 0]"],
         "decisions": {"0": {"strategy": "unroll", "params": {"iterations": 2}}}}, headers=HOST)
     result = wait_for(client, response.get_json()["job"])["result"]
     assert result["status"] == "error" and "not a variable" in result["error"]["message"]
@@ -309,7 +341,7 @@ console.log(JSON.stringify({
   sizes: t.sizeSeries(result, model), times: t.timeSeries(result, model).map((v) => v === null ? null : "t"),
   ofStep: model.positions.map((_, i) => i).filter((i) => model.positions[i].kind === "step").map((i) => model.positions[i].step),
   stepOfWhile: t.positionOfStep(model, 1), missing: t.positionOfStep(model, 99),
-  breakNext: t.breakpointTarget(result, model, 0, new Set([4]), 1), breakNone: t.breakpointTarget(result, model, 0, new Set([77]), 1),
+  breakNext: t.breakpointTarget(result, model, 0, new Set([11]), 1), breakNone: t.breakpointTarget(result, model, 0, new Set([77]), 1),
   breakBack: t.breakpointTarget(result, model, model.final, new Set([2]), -1),
 }));
 """
@@ -338,9 +370,9 @@ def test_trace_to_timeline_mapping(client, tmp_path):
     assert output["final"] == n - 1
     assert output["segments"] == [{"loop": 0, "step": 1, "from": 1, "to": 1 + iterates}]
     assert output["ofStep"] == [0, 1, 2]
-    assert output["labels"][0] == "after step 1 of 3 · line 2"
+    assert output["labels"][0] == "after step 1 of 3 · line 3"
     assert output["labels"][1].startswith("in step 2 of 3 · loop 0, iteration ") and output["labels"][1].endswith(" of 3")
-    assert output["labels"][1 + iterates] == "after step 2 of 3 · line 3 · loop 0 done"
+    assert output["labels"][1 + iterates] == "after step 2 of 3 · line 4 · loop 0 done"
     assert output["labels"][-1] == "final result"
     # every position but the final one has a snapshot of the trace, with its size
     assert all(isinstance(size, int) for size in output["snapshots"][:-1]) and output["snapshots"][-1] is None
@@ -595,7 +627,9 @@ def test_check_of_a_hard_input_distribution_is_bounded(client, monkeypatch):
     monkeypatch.setattr(web_requests, "INPUT_CHECK_SECONDS", 0.5)
     monkeypatch.setattr(web_requests, "check_input_distribution", lambda *args: time.sleep(60))
     started = time.monotonic()
-    result = client.post("/api/check", json={"source": "nat x;\nx := 1;\n", "input_distribution": "x"},
+    result = client.post("/api/check", json={"source": """x: nat;
+x = 1;
+""", "input_distribution": "x"},
                          headers=HOST).get_json()
     assert result["input_distribution"] == {"status": "timeout"}
     assert time.monotonic() - started < 10

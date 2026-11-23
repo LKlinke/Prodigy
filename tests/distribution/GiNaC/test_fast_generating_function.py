@@ -3,7 +3,7 @@ import random
 import prodigy_ginac
 import pytest
 from prodigy.pgcl.ast import Binop, BinopExpr, NatLitExpr, VarExpr
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 from prodigy.distribution.distribution import MarginalType, NonFiniteMarginalError, State, known_convergent_series
 from prodigy.distribution.fast_generating_function import FPS, ProdigyPGF
@@ -17,7 +17,7 @@ def test_geometric():
 
 def test_conditions():
     dist = ProdigyPGF.from_expr("1/2 * x*y + 1/2*y", "x", "y")
-    assert dist.filter(parse_expr("y*x < 5")) == dist
+    assert dist.filter(parse_ppy_expr("y * x < 5")) == dist
 
 
 def create_random_gf(number_of_variables: int = 1, terms: int = 1):
@@ -167,27 +167,27 @@ class TestDistributionInterface:
 
     def test_filter(self):
         gf = ProdigyPGF.zero("x", "y")
-        assert gf.filter(parse_expr("x*3 < 25*y")) == gf
+        assert gf.filter(parse_ppy_expr("x * 3 < 25 * y")) == gf
 
         # check filter on infinite GF
         gf = FPS("(1-sqrt(1-c^2))/c")
-        assert gf.filter(parse_expr("c <= 5")) == FPS("c/2 + c^3/8 + c^5/16")
-        assert gf.filter(parse_expr('3+2<10')) == gf
+        assert gf.filter(parse_ppy_expr("c <= 5")) == FPS("c/2 + c^3/8 + c^5/16")
+        assert gf.filter(parse_ppy_expr("3 + 2 < 10")) == gf
 
         # check filter on finite GF
         gf = FPS("1/2*x*c + 1/4 * x^2 + 1/4")
-        assert gf.filter(parse_expr("x*c < 123")) == gf
+        assert gf.filter(parse_ppy_expr("x * c < 123")) == gf
 
         gf = FPS("0.1*x^5+0.2*x^6+0.3*x^7+0.4*x^8")
         # TODO this also results in huge complex expressions which are likely correct but cannot be simplified
-        # assert gf.filter(parse_expr("x % 3 = 2")) == FPS('0.1*x^5 + 0.4*x^8')
+        # assert gf.filter(parse_ppy_expr("x % 3 = 2")) == FPS('0.1*x^5 + 0.4*x^8')
 
         gf = FPS("(1-sqrt(1-c^2))/c", "c", "x", "z")
-        assert gf.filter(parse_expr("x*z <= 10")) == gf
+        assert gf.filter(parse_ppy_expr("x * z <= 10")) == gf
 
         gf = FPS("(c/2 + c^3/2) * (1-sqrt(1-x^2))/x")
         assert gf.filter(
-            parse_expr("c*c <= 5")) == FPS("c/2 * (1-sqrt(1-x^2))/x")
+            parse_ppy_expr("c * c <= 5")) == FPS("c/2 * (1-sqrt(1-x^2))/x")
 
     def test_is_zero_dist(self):
         gf = create_random_gf(4, 10)
@@ -260,11 +260,11 @@ def test_predefined_variable_names(name):
     assert len(gf.get_variables()) == 2
     assert gf.marginal(name) == FPS(f'{name}^3')
     assert gf.update(
-        parse_expr(f'{name} = {name} + 1')) == FPS(f'{name}^4*x^5')
+        parse_ppy_expr(f'{name} == {name} + 1')) == FPS(f'{name}^4*x^5')
 
     assert ProdigyPGF.bernoulli(name, '1/2') == FPS(f'1/2+1/2*{name}')
 
     # prodigy_ginac.reset_symbol_cache()
     gf = FPS(f'{name}*x', 'x')
     assert len(gf.get_parameters()) == 1
-    assert gf.update(parse_expr('x = 2')) == FPS(f'{name}*x^2', 'x')
+    assert gf.update(parse_ppy_expr("x == 2")) == FPS(f'{name}*x^2', 'x')

@@ -10,7 +10,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution import NonFiniteMarginalError, known_convergent_series
 from prodigy.distribution.algebraic_comparison import filter_difference_algebraic
 from prodigy.distribution.independent_comparison import ComparisonNotImplemented, filter_difference
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import
@@ -75,7 +75,7 @@ def test_closed_forms():
     assert sympy.simplify(below - 2 * y / ((3 - y) * (6 - x * y))) == 0
     assert below.subs({x: 1, y: 1}) == sympy.Rational(1, 5)
     # Pr[x = y] = sum_i 2^-(i+1) (2/3) 3^-i = 2/5
-    assert filter_difference(function, "x", "y", "eq", 0, "x = y").subs({x: 1, y: 1}) == sympy.Rational(2, 5)
+    assert filter_difference(function, "x", "y", "eq", 0, "x == y").subs({x: 1, y: 1}) == sympy.Rational(2, 5)
     # parametric: x with Pr[i] = (1-p) p^i, y with Pr[j] = (1/2)^(j+1): Pr[x < y] = (1-p) / (2-p)
     parametric = _geometric(p, x) * _geometric(HALF, y)
     probability = filter_difference(parametric, "x", "y", "ge", 1, "x < y").subs({x: 1, y: 1})
@@ -101,17 +101,17 @@ def test_outside_the_class(function, reason):
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("guard, probability", [
     ("x < y", sympy.Rational(1, 5)), ("x <= y", sympy.Rational(3, 5)), ("x > y", sympy.Rational(2, 5)),
-    ("x >= y", sympy.Rational(4, 5)), ("x = y", sympy.Rational(2, 5)), ("y + 1 = x", sympy.Rational(1, 5)),
+    ("x >= y", sympy.Rational(4, 5)), ("x == y", sympy.Rational(2, 5)), ("y + 1 == x", sympy.Rational(1, 5)),
     ("x < y + 2", sympy.Rational(4, 5)), ("2*x < 2*y + 1", sympy.Rational(3, 5)),
-    ("2*x = 2*y + 1", 0), ("not (x < y)", sympy.Rational(4, 5)),
+    ("2 * x == 2 * y + 1", 0), ("not (x < y)", sympy.Rational(4, 5)),
 ])
 def test_engines(engine, guard, probability):
     factory = ForwardAnalysisConfig(engine=engine).factory
     dist = factory.from_expr(str(_geometric(HALF, x) * _geometric(THIRD, y)).replace("**", "^"), "x", "y")
-    filtered = dist.filter(parse_expr(guard))
+    filtered = dist.filter(parse_ppy_expr(guard))
     assert sympy.nsimplify(sympy.sympify(str(filtered.get_probability_mass()))) == probability
     # the filtered part and its complement give the distribution back
-    rest = dist.filter(parse_expr(f"not ({guard})"))
+    rest = dist.filter(parse_ppy_expr(f"not ({guard})"))
     assert filtered + rest == dist
 
 
@@ -180,7 +180,7 @@ def test_algebraic_outside(function, reason):
 def test_engines_counterexample(engine):
     factory = ForwardAnalysisConfig(engine=engine).factory
     dist = factory.from_expr("(1/2)/(1 - x/4 - y/4)", "x", "y")
-    below = dist.filter(parse_expr("x < y"))
+    below = dist.filter(parse_ppy_expr("x < y"))
     assert not below.is_finite()
     # the algebraic closed form of the filter is not proven to converge at 1 outside analyses (#398)
     with pytest.raises(NonFiniteMarginalError, match="not proven"):
@@ -188,7 +188,7 @@ def test_engines_counterexample(engine):
     with known_convergent_series(True):
         value = sympy.sympify(str(below.get_probability_mass()).replace("^", "**"))
     assert sympy.simplify(value - (1 - 1 / sympy.sqrt(3)) / 2) == 0
-    monus = dist.set_variables("x", "y", "z").update(parse_expr("z = x - y"))
+    monus = dist.set_variables("x", "y", "z").update(parse_ppy_expr("z == x - y"))
     # Ex[z] = sum_k>=1 k (2 - sqrt(3))^k / sqrt(3) = 1 / (2 sqrt(3))
     with known_convergent_series(True):
         value = sympy.sympify(str(monus.get_expected_value_of("z")).replace("^", "**"))
@@ -196,11 +196,11 @@ def test_engines_counterexample(engine):
     assert sympy.simplify(sympy.nsimplify(value, [sympy.sqrt(3)]) - 1 / (2 * sympy.sqrt(3))) == 0
     # the algebraic part is not rational: comparing two variables on it is not implemented
     with pytest.raises(ComparisonNotImplemented, match="not rational"):
-        below.filter(parse_expr("x + 1 < y"))
+        below.filter(parse_ppy_expr("x + 1 < y"))
     with pytest.raises(ComparisonNotImplemented, match="of the form"):
-        dist.filter(parse_expr("2*x < y"))
+        dist.filter(parse_ppy_expr("2 * x < y"))
     with pytest.raises(ComparisonNotImplemented, match="degree"):
-        factory.from_expr("(1/2)/(1 - x/4 - y^2/4)", "x", "y").filter(parse_expr("x < y"))
+        factory.from_expr("(1/2)/(1 - x/4 - y^2/4)", "x", "y").filter(parse_ppy_expr("x < y"))
 
 
 @pytest.mark.parametrize("engine", ENGINES)
@@ -208,7 +208,7 @@ def test_engines_second_comparison_on_a_filtered_part(engine):
     # the part with x < y is no product any more: its filter y < x goes through the residue method
     factory = ForwardAnalysisConfig(engine=engine).factory
     dist = factory.from_expr(str(_geometric(HALF, x) * _geometric(THIRD, y)).replace("**", "^"), "x", "y")
-    either = dist.filter(parse_expr("x < y || y < x"))
+    either = dist.filter(parse_ppy_expr("x < y or y < x"))
     assert sympy.nsimplify(sympy.sympify(str(either.get_probability_mass()))) == sympy.Rational(3, 5)
 
 
@@ -220,7 +220,7 @@ def test_engines_message_names_the_guard_not_the_generating_function(engine):
     factory = ForwardAnalysisConfig(engine=engine).factory
     template = factory.from_expr("(a + b*x)/((1 - x/4 - y/4)*(1 - y/3))", "x", "y")
     with pytest.raises(NotImplementedError) as info:
-        template.filter(parse_expr("y < x + 2"))
+        template.filter(parse_ppy_expr("y < x + 2"))
     message = str(info.value)
     assert "y < (x + 2)" in message or "y < x + 2" in message
     assert "not implemented on infinite generating functions" in message

@@ -1781,7 +1781,6 @@ dependencies = [
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "prodigy-ppl-ginac", marker = "(python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'linux') or (python_full_version < '3.15' and sys_platform == 'darwin')" },
-    { name = "pysmt" },
     { name = "python-flint" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
@@ -1831,7 +1830,6 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.26" },
     { name = "prodigy-ppl-ginac", marker = "(python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.15' and platform_machine == 'x86_64' and sys_platform == 'linux') or (python_full_version < '3.15' and sys_platform == 'darwin')", specifier = ">=0.0.7,<0.1" },
     { name = "prodigy-ppl-ginac", marker = "extra == 'ginac'", specifier = ">=0.0.7,<0.1" },
-    { name = "pysmt", specifier = ">=0.9.0,<0.10" },
     { name = "python-flint", specifier = ">=0.9" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "setuptools", specifier = ">=76.0.0,<85" },
@@ -1918,15 +1916,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e4/11/b213bebff182584360cb8d17c72c1677fec5c5c228de439e63bcf8ab1c8f/pyparsing-3.3.3.tar.gz", hash = "sha256:928ae7e20211f3b6f3915a72f06a0cfd29ab9d24279dd6346b6b1a7146397d36", size = 1050487, upload-time = "2026-09-20T20:59:05.609Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/38/bb/d215ee7c73b61497b28a5503f9f53523f294fcc936762b7caf90e0c1c2b5/pyparsing-3.3.3-py3-none-any.whl", hash = "sha256:ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4", size = 126420, upload-time = "2026-09-20T20:59:04.025Z" },
-]
-
-[[package]]
-name = "pysmt"
-version = "0.9.6"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/48/4d/a972e021606eb56828b339842ec523d164879c4b62dcd2c5e4404355d10e/PySMT-0.9.6.tar.gz", hash = "sha256:e101927b65d66f7929ce9bfc4ad2d1e6914449575807fa37e9c810934c8a5d09", size = 262806, upload-time = "2024-06-24T19:01:57.852Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/79/0a/4e0369b2a4ce40a5b2e2bdf09e7be32e39eb0511a9ca7eb3f921d4cc03af/PySMT-0.9.6-py2.py3-none-any.whl", hash = "sha256:41e9afed77d4d21930ee3abfd77b4c28189e579225d8def96e9fab6059a7ffce", size = 326100, upload-time = "2024-06-24T19:01:55.204Z" },
 ]
 
 [[package]]

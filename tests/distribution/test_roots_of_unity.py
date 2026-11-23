@@ -13,7 +13,7 @@ from prodigy.distribution.fast_generating_function import FPS
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.distribution.roots_of_unity import NotSingleValuedError, is_single_valued_in
 from prodigy.pgcl import parse_pgcl
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 ENGINES = [GeneratingFunction, FPS]
 VARIABLES = ("c", "y", "z")
@@ -83,10 +83,10 @@ def test_absolute_value_is_not_single_valued():
 
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("expression", MULTI_VALUED)
-@pytest.mark.parametrize("guard", ["c % 2 = 0", "c % 2 = 1", "c % 3 = 2"])
+@pytest.mark.parametrize("guard", ["c % 2 == 0", "c % 2 == 1", "c % 3 == 2"])
 def test_modulo_guard_on_multi_valued_function_is_rejected(engine, expression, guard):
     with pytest.raises(NotSingleValuedError, match="not provably single-valued in 'c'"):
-        engine(expression, *VARIABLES).filter(parse_expr(guard))
+        engine(expression, *VARIABLES).filter(parse_ppy_expr(guard))
 
 
 @pytest.mark.parametrize("engine", ENGINES)
@@ -107,7 +107,7 @@ def test_arithmetic_progression_on_multi_valued_function_is_rejected(engine, exp
 @pytest.mark.parametrize("expression", SINGLE_VALUED)
 @pytest.mark.parametrize("modulus, remainder", [(2, 0), (2, 1), (3, 2)])
 def test_modulo_guard_on_single_valued_function_matches_series(engine, expression, modulus, remainder):
-    result = engine(expression, *VARIABLES).filter(parse_expr(f"c % {modulus} = {remainder}"))
+    result = engine(expression, *VARIABLES).filter(parse_ppy_expr(f"c % {modulus} == {remainder}"))
     assert _coefficients(result) == _coefficients(expression, lambda i: i % modulus == remainder)
 
 
@@ -122,10 +122,20 @@ def test_modulo_update_on_single_valued_function_matches_series(engine):
 # f + 2x(x - f)/(2x - u - u x^2) with u = c*y and f = (1 - sqrt(1 - u^2))/u, the generating function of
 # the number of steps (always odd). The second form writes u as sqrt(c^2*y^2) in f, which denotes
 # the same series; GiNaC accepts it and used to report Pr[c % 2 = 0] = 1 (the truth is 0).
-WALK = """nat x; nat c; nat y;
-x := 1
-while (x > 0) { {x := x - 1} [1/2] {x := x + 1}; c := c + 1; y := y + 1 }
-?Pr[c % 2 = 0]
+WALK = """x: nat;
+c: nat;
+y: nat;
+x = 1;
+while (x > 0) {
+    {
+        x = x - 1;
+    } [1/2] {
+        x = x + 1;
+    }
+    c = c + 1;
+    y = y + 1;
+}
+query Pr[c % 2 == 0];
 """
 
 

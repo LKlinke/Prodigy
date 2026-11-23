@@ -12,14 +12,12 @@ from prodigy.distribution.generating_function import SympyPGF
                           (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_basic_function(engine, factory):
     prog = compile_pgcl("""
-        fun f := {
-            nat y;
-            y := 42;
-            return y;
-        }
-        nat x;
-        x := f(y := 5);
-    """)
+def f(y: nat) -> nat {
+    y = 42;
+    return y;
+}
+x: nat;
+x = f(y = 5);""")
     res, error_prob = compute_discrete_distribution(
         prog, factory.one(), ForwardAnalysisConfig(engine=engine))
     assert res == factory.from_expr("x^42")
@@ -30,15 +28,13 @@ def test_basic_function(engine, factory):
                           (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_parameter(engine, factory):
     prog = compile_pgcl("""
-        fun f := {
-            nat y;
-            y := geometric(p);
-            return y;
-        }
-        nat x;
-        rparam p;
-        x := f();
-    """)
+def f(y: nat) -> nat {
+    y = geometric(p);
+    return y;
+}
+x: nat;
+param p: real;
+x = f();""")
     res, error_prob = compute_discrete_distribution(
         prog, factory.one(), ForwardAnalysisConfig(engine=engine))
     assert res == factory.geometric('x', 'p')

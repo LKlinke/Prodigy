@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple
 
 from prodigy.pgcl import Program, WhileInstr
 from prodigy.pgcl.ast import (Binop, BinopExpr, BoolLitExpr, Expr, IfInstr,
-                               Instr, NatLitExpr, SkipInstr, VarExpr)
+                               Instr, NatLitExpr, RealLitExpr, SkipInstr, VarExpr)
 
 from prodigy.util.logger import log_setup
 
@@ -46,6 +46,28 @@ def state_to_equality_expression(state: Dict[str, int]) -> Expr:
 
     true: Expr = BoolLitExpr(value=True)
     return functools.reduce(conjoin, equalities, true)
+
+
+def value_literal(value: int) -> Expr:
+    """An integer literal; a negative one is ``(-1) * n``, the form the parsers give ``-n``."""
+    if value < 0:
+        return BinopExpr(Binop.TIMES, RealLitExpr("-1"), NatLitExpr(-value))
+    return NatLitExpr(value)
+
+
+def state_condition(state: Dict[str, int]) -> Expr:
+    """
+    The condition ``x1 = v1 & ... & xn = vn`` of a state (at least one variable), built as an AST
+    so that no text goes through a parser.
+
+    .. doctest::
+
+        >>> str(state_condition({"x": 1, "y": -2}))
+        '(x = 1) & (y = (-1 * 2))'
+    """
+    equalities: List[Expr] = [BinopExpr(Binop.EQ, VarExpr(var), value_literal(int(val)))
+                              for var, val in state.items()]
+    return functools.reduce(lambda lhs, rhs: BinopExpr(Binop.AND, lhs, rhs), equalities)
 
 
 def cav_phi(program: Program, invariant: Program) -> Program:

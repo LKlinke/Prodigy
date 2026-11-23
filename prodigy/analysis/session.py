@@ -79,13 +79,13 @@ _QUERY_INSTRS = (CovarianceInstr, VarianceInstr, ExpectationInstr, OptimizationQ
                  ProbabilityQueryInstr, QueryInstr)
 
 
-def _blank_comments(source: str, syntax: str = "pgcl") -> str:
+def _blank_comments(source: str, syntax: str = "ppy") -> str:
     """Replaces comments by spaces (keeping line breaks) so that offsets stay valid."""
     pattern = _PPY_COMMENT_RE if syntax == "ppy" else _COMMENT_RE
     return pattern.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), source)
 
 
-def token_positions(source: str, pattern: "re.Pattern[str]", syntax: str = "pgcl") -> List[Tuple[int, int]]:
+def token_positions(source: str, pattern: "re.Pattern[str]", syntax: str = "ppy") -> List[Tuple[int, int]]:
     """1-based (line, column) of every match of ``pattern`` outside of comments."""
     text = _blank_comments(source, syntax)
     positions = []
@@ -127,7 +127,7 @@ def _ppy_while_positions(source: str, functions: List[str]) -> List[Tuple[int, i
     return [_offset_position(text, offset) for offset in ordered]
 
 
-def query_positions(source: str, syntax: str = "pgcl") -> List[Tuple[int, int]]:
+def query_positions(source: str, syntax: str = "ppy") -> List[Tuple[int, int]]:
     """1-based (line, column) of the queries (``?Pr``, ``query Pr``, ...) of a program in ``syntax``."""
     return token_positions(source, _PPY_QUERY_RE if syntax == "ppy" else _QUERY_RE, syntax)
 
@@ -192,7 +192,7 @@ def _collect_loops(instrs: List[Instr], depth: int, function: Optional[str],
 class LoopRegistry:
     """Assigns stable ids to the while loops of a program (textual pre-order)."""
 
-    def __init__(self, program: Optional[Program], source: Optional[str] = None, syntax: str = "pgcl"):
+    def __init__(self, program: Optional[Program], source: Optional[str] = None, syntax: str = "ppy"):
         self.loops: List[LoopInfo] = []
         self._by_identity: Dict[int, LoopInfo] = {}
         self._by_text: Dict[str, List[LoopInfo]] = {}
@@ -361,7 +361,7 @@ def parse_decisions(data: Optional[Mapping[Any, Any]]) -> Dict[Union[int, str], 
 
 
 def validate_decisions(decisions: Mapping[Union[int, str], LoopDecision],
-                       loops: Optional[LoopRegistry] = None, syntax: str = "pgcl") -> List[str]:
+                       loops: Optional[LoopRegistry] = None, syntax: str = "ppy") -> List[str]:
     """Problems with ``decisions`` (unknown strategies, unknown loops, bad parameters, generating
     functions that are not expressions of ``syntax``)."""
     problems: List[str] = []
@@ -686,7 +686,7 @@ class AnalysisSession:
                  program: Optional[Program],
                  *,
                  source: Optional[str] = None,
-                 syntax: str = "pgcl",
+                 syntax: str = "ppy",
                  config: Optional[ForwardAnalysisConfig] = None,
                  provider: Optional[DecisionProvider] = None,
                  decisions: Optional[Mapping[Any, Any]] = None,
@@ -764,7 +764,7 @@ class AnalysisSession:
     # -- construction helpers ------------------------------------------------------------
 
     @classmethod
-    def detached(cls, syntax: str = "pgcl") -> "AnalysisSession":
+    def detached(cls, syntax: str = "ppy") -> "AnalysisSession":
         """Session for code that runs handlers without setting up a session. Activate one with
         ``syntax="ppy"`` to have invariant programs read and queries printed in ``.ppy``."""
         session = cls(None, syntax=syntax, provider=InteractiveDecisions())

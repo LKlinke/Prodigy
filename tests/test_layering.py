@@ -32,7 +32,7 @@ def _imports(package: str) -> Iterator[Tuple[str, int, str]]:
 
 @pytest.mark.parametrize("package, forbidden", [
     ("distribution", ("prodigy.analysis",)),
-    ("pgcl", ("prodigy.analysis",)),
+    ("ppy", ("prodigy.analysis",)),
     ("util", ("prodigy.analysis", "prodigy.distribution")),
 ])
 def test_lower_layers_do_not_import_higher_ones(package, forbidden):
@@ -43,7 +43,7 @@ def test_lower_layers_do_not_import_higher_ones(package, forbidden):
 
 def test_relative_imports_are_not_used_to_cross_layers():
     """The check above reads absolute imports; a relative import that leaves its package would escape it."""
-    for package in ("distribution", "pgcl", "util"):
+    for package in ("distribution", "ppy", "util"):
         for path in sorted((ROOT / package).rglob("*.py")):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             depth = len(path.relative_to(ROOT / package).parts)  # level 1 is the own package, level k leaves k - 1

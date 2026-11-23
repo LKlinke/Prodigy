@@ -1,6 +1,6 @@
 # Prodigy web GUI and analysis API
 
-`prodigy web` starts a local web server and opens the GUI in the browser. You write a pGCL
+`prodigy web` starts a local web server and opens the GUI in the browser. You write a `.ppy`
 program, choose how each `while` loop is analysed, and get the output distribution and the
 answers to the queries — each with what is *guaranteed* about it.
 
@@ -21,7 +21,7 @@ Prodigy is tested with Python 3.11 and 3.14.
 * **Program** (left): editor with highlighting for both syntaxes, syntax errors (and
   type-checker warnings) as you type. Above each loop a pill shows its strategy and, after a
   run, what it certified. After each query (`query Pr[…]`, `?Pr[…]`) the value appears inline.
-  The chip next to the title shows the syntax of the program; see [Two syntaxes](#two-syntaxes).
+  The chip next to the title shows the syntax of the program; see [The `.pgcl` syntax](#the-pgcl-syntax).
 * **Setup** (right): initial distribution (refused with a message unless it is proven to be a
   distribution, see the language reference), one strategy per loop with its parameters (see
   [Choosing a loop strategy](#choosing-a-loop-strategy)),
@@ -106,9 +106,8 @@ Prodigy is tested with Python 3.11 and 3.14.
   kept when the program is analysed again; the timeline starts at the final result.
 * **Examples**: the programs in `pgfexamples/` (in `.ppy`), with a suggested setup derived from
   their first line (e.g. `check_equality` examples come with their invariant and open in Compare
-  mode with both programs, see [Comparing two programs](#comparing-two-programs)). A `.pgcl` example
-  in a folder given with `prodigy web --examples` is converted to `.ppy` on the fly (with its
-  invariants). The sheet lists the eight most recently opened programs (examples and local files)
+  mode with both programs, see [Comparing two programs](#comparing-two-programs)). `.pgcl` files in a
+  folder given with `prodigy web --examples` are not listed. The sheet lists the eight most recently opened programs (examples and local files)
   first, reachable with ↑ ↓ and Return; "Clear recent" empties the list. It is kept in the browser's
   `localStorage` only. A file is remembered with its text (up to 60 000 characters), not as a link to
   the file on disk.
@@ -129,7 +128,7 @@ Prodigy is tested with Python 3.11 and 3.14.
 
 Keyboard: ⌘/Ctrl + Return analyses (checks, in Compare mode), ⌥⌘1 / ⌥⌘2 choose the mode, ⌘/Ctrl + . (or Esc) stops, ⌘/Ctrl + O opens,
 ⌘/Ctrl + S saves; F10 / ⇧F10 move the analysis card's timeline to the next / previous position,
-F5 / ⇧F5 to the next / previous breakpoint, and F9 in the editor sets a breakpoint. Every analysis runs in its own process with a time limit and can be stopped
+F5 / ⇧F5 to the next / previous breakpoint, and F9 in the editor sets a breakpoint. In the editor, Tab accepts the selected completion (Return always starts a new line). Every analysis runs in its own process with a time limit and can be stopped
 at any time.
 A message in the toolbar (an error, a notice) that does not fit is cut off with an ellipsis; a *Show full
 message* button next to it opens the whole text (Esc closes it), so it is reachable by keyboard and
@@ -492,19 +491,13 @@ card says that this is not the program's distribution). The command line keeps t
 scripts; `prodigy analyze --json` has the exploration in the loop's certificate (`exploration`:
 `iterates`, `states`, `guess`).
 
-## Two syntaxes
+## The `.pgcl` syntax
 
-The GUI reads and writes both syntaxes: the Python-like `.ppy` and the original pGCL
-(`.pgcl`). The file extension decides when a file is opened; **New** asks which one to use
-(Return chooses `.ppy`, the syntax for new programs); examples open as `.ppy`. Highlighting, comments (`#` and `/* … */` in `.ppy`;
-`#` and `//` in pGCL), completion, diagnostics and the loop pills follow the syntax.
-
-**Convert to .ppy** (next to the syntax chip of a pGCL program; `.pgcl` is deprecated in v0.5.0 and removed in v0.6.0, so
-the editor shows a deprecation warning for every pGCL program, and so does its result) converts the program with the
-same converter as `prodigy convert`. Names that are keywords in `.ppy` are renamed (`switch`
-becomes `switch_`); the notice lists the renamings. Invariant programs in the setup are
-converted as well. The conversion is one undoable change: ⌘Z restores the pGCL program, its
-syntax and the setup's invariant programs (an invariant edited after the conversion stays as it is). A converted file is not written over the `.pgcl` file: Save asks for a new `.ppy` file.
+Programs are written in `.ppy`. The `.pgcl` syntax was removed in v0.6.0, together with
+*Convert to .ppy*: the server answers a `.pgcl` program with the error "The .pgcl syntax was
+removed in v0.6.0. Convert the program to .ppy with Prodigy v0.5.x (`prodigy convert
+program.pgcl`, or Convert to .ppy in its GUI)." **New** starts a `.ppy` program, and Save writes
+`.ppy`; a `.pgcl` file can still be opened, and its errors show in the editor.
 
 Everything typed into the setup is read in the program's syntax: an invariant program of
 *Check invariant* is a loop-free program in that syntax. Generating functions (the initial
@@ -730,7 +723,6 @@ in the GUI's strategy pop-up in the section of its `group` (`automatic`, `exact`
 | `GET /`, `GET /analyze`, `GET /compare` | the page; the path selects the mode (Analyze or Compare), which the page keeps in the URL |
 | `GET /api/meta` | version, engines (`name, label, available, reason, default`; `reason` says why an unavailable engine cannot be used), loop strategies with parameter specs, synthesis strategies and heuristics, limits |
 | `POST /api/check` `{source, syntax}` | diagnostics `{severity, message, line, column, end_line, end_column}` and outline (variables, loops with ids and lines, queries); with `input_distribution` (and `engine`) also `input_distribution: {status: ok | refused | skipped | timeout, message}`, shown at the Setup field (the check runs in a process that is killed after 8 s) |
-| `POST /api/convert` `{source}` | the pGCL program in `.ppy`: `{source, renamings: [{from, to}], messages}`; 422 with `line`/`column` if it is not valid pGCL |
 | `POST /api/analyze` | starts an analysis (`source, syntax, input_distribution, engine, normalize, simplification, decisions, coefficients, record_steps, watches, step_iterations, synthesis_strategy, template_heuristic, positivity_heuristic, solver, time_limit`; the two heuristics only apply to `synthesis_strategy` `from_heuristics`; `record_steps` records the step trace, `watches` (at most 8 queries such as `Pr[x == 3]`, in the program's syntax) are evaluated after every top-level step, `step_iterations` (1–200, default 40) bounds the iterates kept per loop) and returns a job id |
 | `GET /api/jobs` | the running jobs: `{jobs, background}`, each `{id, kind, description, elapsed, auxiliary}`; `jobs` are analyses and checks, `background` grids and suggestions |
 | `GET /api/jobs/<id>?log_offset=n` | state (`running`, `done`, `timeout`, `cancelled`, `crashed`), new console output, progress per loop, result; while it runs, `stream`: the coefficients computed so far (`variables`, `limit`, `bound`, `residual_mass`, `marginals: {x: {rows, done}}`, or for a grid job `grid` with `cells[r][c]` null while pending; `prodigy/web/jobs.py: merge_stream`) |
@@ -738,10 +730,10 @@ in the GUI's strategy pop-up in the section of its `group` (`automatic`, `exact`
 | `POST /api/jobs/<id>/joint` `{x, y, x_window, y_window}` | starts a job for the exact coefficient grid of two variables of the finished analysis `<id>` (not of a comparison, which has no distributions); the windows `[from, to]` are optional (default: the support of a finite distribution, else 0–15) with at most 50 values per axis (`limits.max_joint_axis` in `GET /api/meta`) and values up to 1000. The distribution, the engine and the guarantee come from the result the server keeps, never from the request. The job's result is `{status: "ok", joint: {x, y, x_values, y_values, cells, bound, mass, shown_mass, outside_mass, residual_mass, finite_support, support}}`: `cells[r][c]` is `{prob, p}` (exact and float; for a lower bound also `upper`, `upper_p`) for `y = y_values[r]`, `x = x_values[c]`. 400 for an unknown variable, the same variable twice or a window beyond the limits, 404 for an unknown or pruned analysis (analyze again), 409 while it runs |
 | `POST /api/equivalence` | checks whether program A and program B are equivalent for every input: `source`, `syntax`, `decisions`, `engine`, `time_limit` and the EVT synthesis options of program A, plus `other_source`, `other_syntax` (default: `syntax`) and `other_decisions` (the strategies of B's loops, keyed by B's own loop ids; B never takes A's decisions) for program B. There is no initial distribution: a request with `input_distribution` is refused (400). Returns a job id; the job streams no coefficients. Its result is `{schema: "prodigy/equivalence-result@1", prodigy_version, status, error, syntax, loops, other_loops, log, timing, equivalence}`, where `loops` and `other_loops` are the loop records of programs A and B in the check (as in an analysis result) and `equivalence` is `{verdict: equivalent \| not_equivalent \| unknown, reason, relation: null \| first_below_second \| second_below_first, constraints: [{param: value}], witness: null \| {input, state, first, second}, witness_search: null \| timeout, check: {answer: equal \| different \| undecided \| failed, first, second, constraints, counterexample, difference, error, time}}`. `input` and `state` of the witness are variable values (every variable of the input; the output state as the engine lists it); `first`/`second` of the witness are `{lower, lower_float, upper, upper_float, kind}`; `check.first`/`check.second` are the guarantees (`exact`, `lower`, `upper`, `unknown`) of the two analyses inside the check. The rules are in `prodigy/analysis/equivalence/verdict.py`. Earlier versions returned the analysis result of program A on one input, with `equivalence.input` and `equivalence.other` (program B's analysis result); both are gone, and a comparison has no grids. |
 | `POST /api/suggest` | asks the language model for one candidate for a loop: an analysis request without `coefficients` and `record_steps`, plus `loop` (id) and `form` (`evt_invariant` or `evt_subinvariant`), `time_limit` optional (default: the server's); returns a job id. The job's result is `{status: "ok", suggestion: {candidate, param, answer, model, provider, entering, loop, form}}` or an error (the model's answer in `error.suggestion` if it held no admissible candidate). `GET /api/meta` says under `ai` whether a model is configured. |
-| `GET /api/examples`, `GET /api/examples/<path>?syntax=ppy` | example library; source in the syntax of the example file (`syntax`; a `.pgcl` example is converted to `.ppy` with `syntax=ppy`, with `renamings`), `file_name` and suggested setup; a `check_equality` example also has `other: {id, source, syntax, file_name}`, its second program |
+| `GET /api/examples`, `GET /api/examples/<path>` | example library (`.ppy` files); source, `syntax` (`ppy`; the parameter `syntax=pgcl` gives 400), `file_name` and suggested setup; a `check_equality` example also has `other: {id, source, syntax, file_name}`, its second program |
 
-Every request with a program takes `syntax` (`pgcl` or `ppy`) or `file_name` (its extension
-decides); without either the program is pGCL.
+Programs are `.ppy`. A request with `syntax` `pgcl` or a `file_name` ending in `.pgcl` is
+refused with the removal message (`POST /api/check` reports it as an error diagnostic).
 
 ## Security and hosting
 

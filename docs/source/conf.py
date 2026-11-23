@@ -93,10 +93,9 @@ def _escape_click_help(app, ctx, lines):
 
 
 def _write_grammar(app):
-    # grammar.rst and language.md include the grammars the parsers are built from.
-    from prodigy.pgcl.parser import _PGCL_GRAMMAR
+    # language.md includes the grammar the parser is built from.
     from prodigy.pgcl.ppy_parser import PPY_GRAMMAR
-    for name, grammar in (('pgcl.lark', _PGCL_GRAMMAR), ('ppy.lark', PPY_GRAMMAR)):
+    for name, grammar in (('ppy.lark', PPY_GRAMMAR),):
         target = os.path.join(app.srcdir, '_generated', name)
         os.makedirs(os.path.dirname(target), exist_ok=True)
         with open(target, 'w', encoding='utf-8') as file:

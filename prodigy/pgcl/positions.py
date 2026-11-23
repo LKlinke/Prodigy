@@ -15,7 +15,7 @@ step happened.
 .. doctest::
 
     >>> from prodigy.pgcl.parser import parse_pgcl
-    >>> program = parse_pgcl("nat x;\\nx := 1;\\nwhile (x < 3) {\\n  x := x + 1\\n}")
+    >>> program = parse_pgcl("x: nat;\\nx = 1;\\nwhile (x < 3) {\\n    x = x + 1;\\n}")
     >>> span_of(program.instructions[1])
     SourceSpan(line=3, column=1, end_line=5, end_column=2)
     >>> span_of(program.instructions[1].body[0]).line

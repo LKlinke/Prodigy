@@ -75,13 +75,6 @@ def test_a_loop_inside_a_program_keeps_only_the_declarations():
     assert isolated["declarations"] == "x: nat;\nc: nat;\n"
 
 
-def test_the_isolated_loop_of_a_pgcl_program_is_pgcl():
-    source = "nat x;\nnat c;\nx := 1;\nwhile (x = 1) { {x := 0} [1/2] {c := c + 1} }\n"
-    isolated = loop_program(source, "pgcl", 0)
-    assert not isolated["whole"] and "while" in isolated["program"] and ":=" in isolated["program"]
-    parse_pgcl(isolated["program"], "pgcl")
-
-
 def test_loops_inside_functions_and_unknown_loops_are_refused():
     source = """def f(a: nat) -> nat {
     while (a > 0) { a = a - 1; }

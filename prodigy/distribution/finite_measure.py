@@ -59,7 +59,7 @@ def check_input_expression(text: str, variables: Sequence[str],
     ``probability``, the mass must also be 1 (see :func:`check_probability_generating_function`)."""
     parameter_types = dict(parameter_types or {})
     try:
-        admissible_expression(text, syntax="pgcl", functions=MATH_FUNCTIONS)
+        admissible_expression(text, functions=MATH_FUNCTIONS)
     except InadmissibleExpression as exc:
         return None, f"it could not be read back for the check ({exc})"
     local: Dict[str, sympy.Symbol] = {name: sympy.Symbol(name) for name in variables}

@@ -1,30 +1,11 @@
-.. _pgcl_grammar:
+.. _semantics_notes:
 
-pGCL grammar (``.pgcl``)
-========================
+Semantics notes
+===============
 
-This page is the reference for the original pGCL syntax, which Prodigy still reads (files that do
-not end in ``.ppy``).
-
-.. warning::
-
-   The ``.pgcl`` syntax is **deprecated since v0.5.0 and will be removed in v0.6.0**. Reading a
-   ``.pgcl`` program (command line, GUI, Python API) gives a deprecation warning; the result carries it
-   in ``warnings``. Convert programs while v0.5.x is installed: ``prodigy convert program.pgcl``
-   writes the ``.ppy`` program (the GUI offers *Convert to .ppy*); v0.6.0 removes the converter as
-   well. There are no new ``.pgcl`` features.
-
-Programs are written in ``.ppy`` now (see :doc:`language`);
-``prodigy convert`` translates a ``.pgcl`` program into it. The notes on division, guards, modulo,
-floor division, block-scoped declarations and sampling below describe the semantics and hold for
-both syntaxes.
-
-The `Lark <https://lark-parser.readthedocs.io/>`_ grammar that :mod:`prodigy.pgcl.parser` is
-built from. Expressions are parsed with the operator table of
-:mod:`prodigy.pgcl.util.lark_expr_parser`, which is appended as the rule ``expression``.
-
-.. literalinclude:: _generated/pgcl.lark
-   :language: text
+Notes on the meaning of division, guards, modulo, floor division, block-scoped declarations and
+sampling in ``.ppy`` programs (see :doc:`language`). Until v0.6.0, this page also held the grammar
+of the original pGCL syntax (``.pgcl``), which was removed then (#433).
 
 Division
 --------

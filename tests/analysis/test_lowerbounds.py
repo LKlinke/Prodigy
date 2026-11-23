@@ -179,36 +179,55 @@ def _tail_rates(program: str, seeds: bool = True):
 def test_upper_tail_rates_account_for_phases():
     """The tail of the geometric loop decays with rate 1/2 because the guard variable (a bounded *phase*) is resampled;
     a per-phase increment condition would wrongly demand rate 1 (no finite moment bound)."""
-    geo = """
-    nat y;
-    nat e;
-    e := bernoulli(1/2);
-    while (e = 1) { e := 0; y := y + 1; e := bernoulli(1/2) }
-    ?Ex[y]
-    """
+    geo = """y: nat;
+e: nat;
+e = bernoulli(1/2);
+while (e == 1) {
+    e = 0;
+    y = y + 1;
+    e = bernoulli(1/2);
+}
+query Ex[y];"""
     assert _tail_rates(geo)["y"] == pytest.approx(0.5, abs=1e-3)
-    walk = """
-    nat x;
-    nat c;
-    x := 1;
-    while (x > 0) { {x := x - 1} [2/3] {x := x + 1}; c := c + 1 }
-    ?Ex[c]
-    """
+    walk = """x: nat;
+c: nat;
+x = 1;
+while (x > 0) {
+    {
+        x = x - 1;
+    } [2/3] {
+        x = x + 1;
+    }
+    c = c + 1;
+}
+query Ex[c];"""
     assert _tail_rates(walk)["c"] == pytest.approx(8 / 9, abs=1e-3)
 
 
 def test_upper_tail_rates_only_use_reachable_phases():
     """The phase i = 0 is not reachable; as a phase of the tail it would loop forever and demand rate 1."""
-    stages = """
-    nat i;
-    nat c;
-    i := 1;
-    while (i < 3) {
-        c := c + 1;
-        if (i = 1) { {i := i + 1} [1/2] {skip} } else { if (i = 2) { {i := i + 1} [1/4] {skip} } else { skip } }
+    stages = """i: nat;
+c: nat;
+i = 1;
+while (i < 3) {
+    c = c + 1;
+    if (i == 1) {
+        {
+            i = i + 1;
+        } [1/2] {
+            skip;
+        }
+    } else if (i == 2) {
+        {
+            i = i + 1;
+        } [1/4] {
+            skip;
+        }
+    } else {
+        skip;
     }
-    ?Ex[c]
-    """
+}
+query Ex[c];"""
     assert _tail_rates(stages)["c"] == pytest.approx(0.75, abs=1e-3)
     assert _tail_rates(stages, seeds=False)["c"] == pytest.approx(1.0, abs=1e-3)
 
@@ -216,14 +235,19 @@ def test_upper_tail_rates_only_use_reachable_phases():
 def test_upper_tail_rates_keep_the_rate_of_a_geometric_input():
     """c is sampled from geometric(1/2) before the loop, so every template has rate 1/2 in c; the rates of m and n
     must then satisfy (1/2)(1/2)/s_m + (1/2)(1/2)/s_n <= 1, i.e. s_m = s_n = 1/2 at the optimum."""
-    split = """
-    nat c;
-    nat m;
-    nat n;
-    c := geometric(1/2);
-    while (c > 0) { {m := m + 1} [1/2] {n := n + 1}; c := c - 1 }
-    ?Ex[m]
-    """
+    split = """c: nat;
+m: nat;
+n: nat;
+c = geometric(1/2);
+while (c > 0) {
+    {
+        m = m + 1;
+    } [1/2] {
+        n = n + 1;
+    }
+    c = c - 1;
+}
+query Ex[m];"""
     rates = _tail_rates(split)
     assert rates["c"] == pytest.approx(0.5, abs=1e-9)
     assert rates["m"] == pytest.approx(0.5, abs=1e-3) and rates["n"] == pytest.approx(0.5, abs=1e-3)
@@ -232,13 +256,14 @@ def test_upper_tail_rates_keep_the_rate_of_a_geometric_input():
 def test_upper_certificate_with_values_over_many_orders_of_magnitude():
     """The occupation measure 2^-(x+j+1) at (x, 2j) spans many orders of magnitude on the template box; without scaling
     the unknowns of the LP, small values are lost in the solver's tolerances and the certificate is far from tight."""
-    double_geo = """
-    nat x;
-    nat y;
-    x := geometric(1/2);
-    while (x > 0) { x := x - 1; y := y + 2 }
-    ?Ex[y]
-    """
+    double_geo = """x: nat;
+y: nat;
+x = geometric(1/2);
+while (x > 0) {
+    x = x - 1;
+    y = y + 2;
+}
+query Ex[y];"""
     pb = load_problem(compiler.parse_pgcl(double_geo))
     res = evt_sandwich(pb, size=300, verbose=False)
     (bound,) = res.bounds

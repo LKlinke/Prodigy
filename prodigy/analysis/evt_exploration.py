@@ -166,7 +166,7 @@ def _closed_form(dist: "Distribution") -> Tuple[str, bool]:
     return (text[:MAX_CLOSED_FORM], True) if len(text) > MAX_CLOSED_FORM else (text, False)
 
 
-def exploration(iterates: Sequence[Tuple[int, "Distribution"]], variables: Sequence[str], syntax: str = "pgcl",
+def exploration(iterates: Sequence[Tuple[int, "Distribution"]], variables: Sequence[str], syntax: str = "ppy",
                 last: Sequence["Distribution"] = ()) -> Dict[str, Any]:
     """Data for front ends: the kept iterates (N, closed form), the coefficients of the first states per
     iterate, and a candidate EVT invariant (a rational fit, or None). ``last`` are the last three consecutive

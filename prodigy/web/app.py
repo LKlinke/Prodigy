@@ -9,7 +9,6 @@ A small Flask application: one page (``templates/app.html`` with the ES modules 
 ``POST /api/check``               diagnostics (syntax/type errors with positions) and outline;
                                   with ``input_distribution`` also whether that initial
                                   distribution is accepted
-``POST /api/convert``             a pGCL program in the ``.ppy`` syntax, with the renamed names
 ``POST /api/loop-program``        a loop of a program as a program of its own (``loop``: its id), for
                                   "Compare this loop" (:func:`prodigy.web.requests.loop_program`)
 ``POST /api/analyze``             starts an analysis in its own process, returns a job id
@@ -24,12 +23,12 @@ A small Flask application: one page (``templates/app.html`` with the ES modules 
                                   :mod:`prodigy.analysis.joint_grid`
 ``POST /api/suggest``             asks a language model for a loop invariant candidate (a job)
 ``GET  /api/examples``            the example library (``pgfexamples``)
-``GET  /api/examples/<id>``       source of an example and a suggested setup (``?syntax=ppy``:
-                                  a ``.pgcl`` example converted to ``.ppy``)
+``GET  /api/examples/<id>``       source of an example and a suggested setup
 ================================  ==================================================================
 
-Requests with a program take ``syntax`` (``pgcl`` or ``ppy``) or ``file_name`` (its extension
-decides); without either, the program is pGCL.
+Programs are in the ``.ppy`` syntax. A request with ``syntax`` ``pgcl`` or a ``file_name`` ending in
+``.pgcl`` is rejected with :data:`prodigy.analysis.deprecations.PGCL_REMOVED` (the syntax was removed in
+v0.6.0).
 
 The server binds to localhost by default. Requests to the API must be JSON and come from
 the page itself (Host and Origin are checked), which keeps other web sites from using a
@@ -46,7 +45,8 @@ from urllib.parse import urlparse
 
 from flask import Flask, abort, jsonify, render_template, request
 
-from prodigy.web.examples import ConversionError, ExampleLibrary, convert, default_examples_dir
+from prodigy.analysis.deprecations import PgclRemovedError, program_syntax
+from prodigy.web.examples import ExampleLibrary, default_examples_dir
 from prodigy.web.jobs import BusyError, JobManager
 from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, check_input_distribution_bounded,
                                   joint_request, loop_program, request_syntax, validate_equivalence,
@@ -151,7 +151,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
             "synthesis_strategies": [s.name.lower() for s in SynthesisStrategies],
             "template_heuristics": [name.lower() for name in TemplateHeuristics.__members__],
             "positivity_heuristics": list(SELECTABLE_POSITIVITY_HEURISTICS),
-            "solvers": ["sympy", "z3"],
+            "solvers": ["sympy"],
             "limits": {"time_limit": jobs.time_limit, "max_jobs": jobs.max_jobs,
                        "max_background_jobs": jobs.max_auxiliary,
                        "max_coefficients": MAX_COEFFICIENTS, "max_joint_axis": MAX_AXIS},
@@ -167,6 +167,11 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
             abort(400, description="'source' is missing.")
         try:
             syntax = request_syntax(payload)
+        except PgclRemovedError as exc:
+            # shown in the editor like any other error of the program
+            return jsonify({"ok": False, "outline": None, "syntax": "pgcl", "diagnostics": [
+                {"severity": "error", "line": 1, "column": 1, "end_line": 1, "end_column": 1,
+                 "message": str(exc)}]})
         except ValueError as exc:
             abort(400, description=str(exc))
         result = {**check_source(source, syntax), "syntax": syntax}
@@ -176,17 +181,6 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
             result["input_distribution"] = check_input_distribution_bounded(
                 source, syntax, text, engine if isinstance(engine, str) else "sympy")
         return jsonify(result)
-
-    @app.post("/api/convert")
-    def convert_program() -> Any:
-        payload = request.get_json(silent=True) or {}
-        source = payload.get("source")
-        if not isinstance(source, str):
-            abort(400, description="'source' is missing.")
-        try:
-            return jsonify({**convert(source), "syntax": "ppy"})
-        except ConversionError as exc:
-            return jsonify({"error": str(exc), "line": exc.line, "column": exc.column}), 422
 
     @app.post("/api/loop-program")
     def isolate() -> Any:
@@ -312,15 +306,13 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
 
     @app.get("/api/examples/<path:example_id>")
     def example(example_id: str) -> Any:
-        syntax = request.args.get("syntax")
-        if syntax not in (None, "pgcl", "ppy"):
-            abort(400, description=f"Unknown syntax {syntax!r}, expected pgcl or ppy.")
         try:
-            return jsonify(library.load(example_id, syntax))
+            program_syntax(request.args.get("syntax"))
+            return jsonify(library.load(example_id))
         except (FileNotFoundError, OSError):
             abort(404, description="Unknown example.")
-        except ConversionError as exc:
-            return jsonify({"error": f"{example_id} cannot be opened as .ppy: {exc}"}), 422
+        except ValueError as exc:
+            abort(400, description=str(exc))
 
     return app
 

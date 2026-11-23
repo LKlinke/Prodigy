@@ -35,20 +35,24 @@ observe(c < 2);
 query Pr[c == 0];
 """
 
-PGCL = """// a coin is flipped until heads
-nat x;
-nat c;
-x := 1
-while (x = 1) {
-    {x := 0} [1/2] {c := c + 1}
+PGCL = """# a coin is flipped until heads
+x: nat;
+c: nat;
+x = 1;
+while (x == 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
 }
 if (c > 2) {
-    c := 2
+    c = 2;
 } else {
-    skip
+    skip;
 }
-observe(c < 2)
-?Pr[c = 0]
+observe(c < 2);
+query Pr[c == 0];
 """
 
 # line of each top-level step and of the two branch steps, in the order of the trace
@@ -66,7 +70,7 @@ def _run(source, syntax, engine=Engine.SYMPY, decision="unroll:iterations=6", **
 # ---- source positions ------------------------------------------------------------------
 
 def test_every_parsed_instruction_has_a_span_in_both_syntaxes():
-    for source, syntax in ((PPY, "ppy"), (PGCL, "pgcl")):
+    for source, syntax in ((PPY, "ppy"), (PGCL, "ppy")):
         program = parse_pgcl(source, syntax)
         lines = source.split("\n")
         for ref in walk_instrs(Walk.DOWN, program.instructions):
@@ -88,7 +92,10 @@ def test_spans_survive_block_lowering_and_switch():
 
 
 def test_equality_and_printing_ignore_spans():
-    first, second = parse_pgcl("nat x;\nx := 1", "pgcl"), parse_pgcl("nat x;\n\n\nx := 1", "pgcl")
+    first, second = parse_pgcl("""x: nat;
+x = 1;""", "ppy"), parse_pgcl("""x: nat;
+
+x = 1;""", "ppy")
     assert span_of(first.instructions[0]).line != span_of(second.instructions[0]).line
     assert first.instructions == second.instructions and str(first) == str(second)
 
@@ -96,7 +103,7 @@ def test_equality_and_printing_ignore_spans():
 # ---- steps -------------------------------------------------------------------------------
 
 @pytest.mark.parametrize("engine", ENGINES)
-@pytest.mark.parametrize("syntax", ["ppy", "pgcl"])
+@pytest.mark.parametrize("syntax", ["ppy"])
 def test_trace_steps_with_positions_distributions_and_guarantees(engine, syntax):
     source, lines = (PPY, PPY_LINES) if syntax == "ppy" else (PGCL, PGCL_LINES)
     result = _run(source, syntax, engine, watches=["Pr[c == 0]" if syntax == "ppy" else "Pr[c = 0]"])
@@ -212,10 +219,33 @@ def test_failed_subinvariant_names_the_negative_coefficient():
 
 
 def test_park_invariant_is_an_upper_bound_not_exact():
-    source = "nat x; nat c; nat temp;\nx := 1\nwhile (x = 1) { {x := 0} [1/2] {c := c + 1}; temp := 0 }\n?Pr[c = 0]\n"
-    invariant = ("nat x; nat c; nat temp;\n"
-                 "if (x = 1) { temp := geometric(1/2); c := c + temp; x := 0; temp := 0 } else { skip }\n")
-    result = _run(source, "pgcl", decision={"strategy": "invariant", "params": {"invariant": invariant}})
+    source = """x: nat;
+c: nat;
+temp: nat;
+x = 1;
+while (x == 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+    temp = 0;
+}
+query Pr[c == 0];
+"""
+    invariant = ("""x: nat;
+c: nat;
+temp: nat;
+if (x == 1) {
+    temp = geometric(1/2);
+    c = c + temp;
+    x = 0;
+    temp = 0;
+} else {
+    skip;
+}
+""")
+    result = _run(source, "ppy", decision={"strategy": "invariant", "params": {"invariant": invariant}})
     assert result["status"] == "ok", result["error"]
     loop_step = result["steps"][1]
     assert loop_step["bound"] == Bound.UPPER and loop_step["after"]["bound"] == Bound.UPPER
@@ -224,7 +254,7 @@ def test_park_invariant_is_an_upper_bound_not_exact():
 
 
 def test_iterate_after_an_upper_bound_has_no_guarantee():
-    session = AnalysisSession(parse_pgcl("nat x;", "pgcl"), record_steps=True)
+    session = AnalysisSession(parse_pgcl("x: nat;", "ppy"), record_steps=True)
     tracer = session.tracer
     dist = ForwardAnalysisConfig().factory.from_expr("x/2", "x")
     frame = _LoopFrame(task=None, entry={}, kind_before=Bound.UPPER, residual_before=0)
@@ -317,8 +347,8 @@ def test_normalisation_at_the_end_is_a_step():
 def test_parse_watch():
     assert parse_watch("Pr[x == 3]", "ppy").kind == "probability"
     assert parse_watch("query Ex[x + 1];", "ppy").kind == "expectation"
-    assert parse_watch("?Pr[x = 3]", "pgcl").kind == "probability"
-    assert parse_watch("E[x]", "pgcl").kind == "expectation"
+    assert parse_watch("query Pr[x == 3];", "ppy").kind == "probability"
+    assert parse_watch("E[x]", "ppy").kind == "expectation"
     for text in ("Pr[x", "Foo[x]", "Pr[]", "Pr[__import__('os').system('true')]", "Pr[x = = 3]"):
         with pytest.raises(ValueError):
             parse_watch(text, "ppy")
@@ -338,7 +368,7 @@ def test_certificate_checks_never_claim_unproven_facts():
 
 
 def test_tracer_ignores_silent_scopes():
-    session = AnalysisSession(parse_pgcl("nat x;", "pgcl"), record_steps=True)
+    session = AnalysisSession(parse_pgcl("x: nat;", "ppy"), record_steps=True)
     with session.sub_analysis("check"):
         assert not session.tracer.wants(None)
     assert isinstance(session.tracer, Tracer) and session.tracer.wants(None)

@@ -9,7 +9,7 @@ from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.distribution.multisection import rational_multisection
 from prodigy.distribution.roots_of_unity import NotSingleValuedError
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 try:
     from prodigy.distribution.fast_generating_function import FPS
@@ -53,7 +53,7 @@ def _assert_section(result, expression, keep):
     series = sympy.series(_sympy(expression), X, 0, DEGREE).removeO()
     for i in range(DEGREE):
         expected = series.coeff(X, i) if keep(i) else 0
-        actual = _sympy(result.filter(parse_expr(f"x = {i}")).get_probability_mass())
+        actual = _sympy(result.filter(parse_ppy_expr(f"x == {i}")).get_probability_mass())
         assert abs(sympy.N(actual - expected, 40)) < 1e-30, f"Pr[x = {i}] is {actual}, expected {expected}"
 
 
@@ -61,25 +61,25 @@ def _assert_section(result, expression, keep):
 @pytest.mark.parametrize("expression", SINGLE_VALUED)
 @pytest.mark.parametrize("modulus, remainder", GUARDS)
 def test_modulo_guard_matches_series(engine, expression, modulus, remainder):
-    result = engine(expression, "x").filter(parse_expr(f"x % {modulus} = {remainder}"))
+    result = engine(expression, "x").filter(parse_ppy_expr(f"x % {modulus} == {remainder}"))
     _assert_section(result, expression, lambda i: i % modulus == remainder)
 
 
 @pytest.mark.parametrize("engine", ENGINES)
 def test_modulo_guard_probability(engine):
     # x ~ Geometric(1/2) on 0, 1, 2, ...: x is even with probability 2/3
-    result = engine("1/(2 - x)", "x").filter(parse_expr("x % 2 = 0"))
+    result = engine("1/(2 - x)", "x").filter(parse_ppy_expr("x % 2 == 0"))
     assert sympy.nsimplify(_sympy(result.get_probability_mass())) == sympy.Rational(2, 3)
 
 
 @pytest.mark.parametrize("engine", ENGINES)
 @pytest.mark.parametrize("expression", MULTI_VALUED)
-@pytest.mark.parametrize("guard", ["x % 2 = 0", "x % 2 = 1", "x % 3 = 2"])
+@pytest.mark.parametrize("guard", ["x % 2 == 0", "x % 2 == 1", "x % 3 == 2"])
 def test_modulo_guard_on_multi_valued_function_is_rejected(engine, expression, guard):
     if engine is FPS and expression == "sqrt(x^2)":
         pytest.skip("GiNaC parses sqrt(x^2) as x, which is single-valued")
     with pytest.raises(NotSingleValuedError, match="not provably single-valued in 'x'"):
-        engine(expression, "x").filter(parse_expr(guard))
+        engine(expression, "x").filter(parse_ppy_expr(guard))
 
 
 @pytest.mark.parametrize("expression", ["1/(2 - x)", "x/(3 - 2*x)^2", "(1 + x)^4/16", "x^7", "3", "1/x",

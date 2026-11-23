@@ -14,7 +14,7 @@ import sympy
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution import Distribution, NonFiniteMarginalError, known_convergent_series
 from prodigy.pgcl import Binop, BinopExpr, VarExpr
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 ENGINES = [ForwardAnalysisConfig.Engine.SYMPY]
 ALL_ENGINES = [*ENGINES, ForwardAnalysisConfig.Engine.GINAC]
@@ -63,7 +63,7 @@ def test_filter_on_infinite_measure_raises_instead_of_a_wrong_result(engine, sim
     with config.activate():
         dist = config.factory.from_expr(BOTH_INFINITE, "a", "b", "w")
         with pytest.raises(NonFiniteMarginalError):
-            dist.filter(parse_expr("a < 2*b"))
+            dist.filter(parse_ppy_expr("a < 2 * b"))
 
 
 @pytest.mark.parametrize("engine", ALL_ENGINES)
@@ -80,27 +80,27 @@ def test_difference_filter_on_infinite_measure_is_formal(engine, simplification)
 
 @pytest.mark.parametrize("engine", ALL_ENGINES)
 @pytest.mark.parametrize("simplification", SIMPLIFICATION)
-@pytest.mark.parametrize("assignment", ["x = b*a", "x = a*b", "x = a % b", "x = a ^ b", "x = 2 ^ b",
-                                        "x = b / 2", "x = a / b"])
+@pytest.mark.parametrize("assignment", ["x == b * a", "x == a * b", "x == a % b", "x == a ** b", "x == 2 ** b",
+                                        "x == b / 2", "x == a / b"])
 def test_case_split_updates_on_infinite_measure_raise(engine, simplification, assignment):
     # GiNaC raised the bindings' ValueError (division by zero) here (#250)
     config = _config(engine, simplification)
     with config.activate():
         dist = config.factory.from_expr(BOTH_INFINITE, "a", "b", "w", "x")
         with pytest.raises(NonFiniteMarginalError):
-            dist.update(parse_expr(assignment))
+            dist.update(parse_ppy_expr(assignment))
 
 
 @pytest.mark.parametrize("engine", ALL_ENGINES)
 @pytest.mark.parametrize("simplification", SIMPLIFICATION)
-@pytest.mark.parametrize("assignment", ["x = a ^ b", "x = 2 ^ b", "x = b ^ a"])
+@pytest.mark.parametrize("assignment", ["x == a ** b", "x == 2 ** b", "x == b ** a"])
 def test_updates_needing_an_infinite_support_still_raise(engine, simplification, assignment):
     # a has a finite support, but the power still needs the values of b (#249 only fixes finite ones)
     config = _config(engine, simplification)
     with config.activate():
         dist = config.factory.from_expr(TWO_VALUES, "a", "b", "w", "x")
         with pytest.raises(NonFiniteMarginalError):
-            dist.update(parse_expr(assignment))
+            dist.update(parse_ppy_expr(assignment))
 
 
 @pytest.mark.parametrize("engine", ALL_ENGINES)
@@ -109,7 +109,7 @@ def test_updates_needing_an_infinite_support_still_raise(engine, simplification,
     # a = 0 everywhere: a < b means b >= 1 (SymPy computed this by luck before #242)
     ("a < b", 1 / ((1 - W) * (2 - B)) - 1 / (2 * (1 - W))),
     ("b < a", sympy.Integer(0)),
-    ("a = b", 1 / (2 * (1 - W))),
+    ("a == b", 1 / (2 * (1 - W))),
     ("b <= a", 1 / (2 * (1 - W))),
 ])
 def test_filter_unfolds_the_finite_support_on_infinite_measure(engine, simplification, condition, expected):
@@ -117,7 +117,7 @@ def test_filter_unfolds_the_finite_support_on_infinite_measure(engine, simplific
     config = _config(engine, simplification)
     with config.activate():
         dist = config.factory.from_expr(INFINITE, "a", "b", "w")
-        result = dist.filter(parse_expr(condition))
+        result = dist.filter(parse_ppy_expr(condition))
     assert sympy.simplify(_sympy(result) - expected) == 0
 
 
@@ -139,21 +139,21 @@ def test_filter_unfolds_a_support_with_two_values(engine, simplification):
 @pytest.mark.parametrize("simplification", SIMPLIFICATION)
 @pytest.mark.parametrize("assignment, expected", [
     # a = 1: x := b; a = 2: x := 2*b
-    ("x = a*b", A / ((1 - W) * (2 - B * X)) + A ** 2 * W / ((1 - W) * (2 - B * X ** 2))),
-    ("x = b*a", A / ((1 - W) * (2 - B * X)) + A ** 2 * W / ((1 - W) * (2 - B * X ** 2))),
+    ("x == a * b", A / ((1 - W) * (2 - B * X)) + A ** 2 * W / ((1 - W) * (2 - B * X ** 2))),
+    ("x == b * a", A / ((1 - W) * (2 - B * X)) + A ** 2 * W / ((1 - W) * (2 - B * X ** 2))),
     # a = 1: x := 0; a = 2: x := b % 2
-    ("x = b % a", A / ((1 - W) * (2 - B)) + A ** 2 * W / (1 - W) * (2 + B * X) / (4 - B ** 2)),
+    ("x == b % a", A / ((1 - W) * (2 - B)) + A ** 2 * W / (1 - W) * (2 + B * X) / (4 - B ** 2)),
     # a = 1: x := 2*b; a = 2: x := b
-    ("x = (2*b) / a", A / ((1 - W) * (2 - B * X ** 2)) + A ** 2 * W / ((1 - W) * (2 - B * X))),
+    ("x == 2 * b / a", A / ((1 - W) * (2 - B * X ** 2)) + A ** 2 * W / ((1 - W) * (2 - B * X))),
     # the copies of a for both operands take the values (1, 1) and (2, 2) jointly
-    ("x = a ^ a", A * X / ((1 - W) * (2 - B)) + A ** 2 * W * X ** 4 / ((1 - W) * (2 - B))),
+    ("x == a ** a", A * X / ((1 - W) * (2 - B)) + A ** 2 * W * X ** 4 / ((1 - W) * (2 - B))),
 ])
 def test_case_split_updates_unfold_the_finite_support(engine, simplification, assignment, expected):
     # #249: the update is split over the values {1, 2} of a, the only operand with a finite support
     config = _config(engine, simplification)
     with config.activate():
         dist = config.factory.from_expr(TWO_VALUES, "a", "b", "w", "x")
-        result = dist.update(parse_expr(assignment))
+        result = dist.update(parse_ppy_expr(assignment))
     assert sympy.simplify(_sympy(result) - expected) == 0
 
 
@@ -178,16 +178,16 @@ def test_finite_support(engine):
 @pytest.mark.parametrize("simplification", SIMPLIFICATION)
 @pytest.mark.parametrize("assignment, expected", [
     # x := b % 2 does not unfold the marginal of b: the arithmetic progression is exact for any measure
-    ("x = b % 2", (2 + B * X) / ((4 - B ** 2) * (1 - W))),
+    ("x == b % 2", (2 + B * X) / ((4 - B ** 2) * (1 - W))),
     # an exact division by a constant needs no marginal either
-    ("x = (2*b) / 2", 1 / ((1 - W) * (2 - B * X))),
+    ("x == 2 * b / 2", 1 / ((1 - W) * (2 - B * X))),
 ])
 def test_constant_modulus_and_divisor_stay_exact_on_infinite_measure(engine, simplification, assignment,
                                                                       expected):
     config = _config(engine, simplification)
     with config.activate():
         dist = config.factory.from_expr(INFINITE, "a", "b", "w", "x")
-        result = dist.update(parse_expr(assignment))
+        result = dist.update(parse_ppy_expr(assignment))
     assert sympy.simplify(_sympy(result) - expected) == 0
 
 
@@ -240,7 +240,7 @@ def test_ginac_marginal_division_by_zero_is_a_non_finite_marginal():
         # GiNaC's marginal divides by zero (or, once the bindings handle it, returns a non-finite
         # value); either way the filter must not return a result
         with pytest.raises(NonFiniteMarginalError):
-            dist.filter(parse_expr("a < 2*b"))
+            dist.filter(parse_ppy_expr("a < 2 * b"))
 
 
 @pytest.mark.parametrize("engine", ALL_ENGINES)

@@ -137,7 +137,18 @@ def test_the_summary_says_which_form_is_shown():
     assert shown["marginals"] == plain["marginals"] and shown["mass"] == plain["mass"]
 
 
-SOURCE = "nat x; nat y; {x := x + 1} [1/2] {y := y + 1}; {x := 2 * x} [1/3] {skip}"
+SOURCE = """x: nat;
+y: nat;
+{
+    x = x + 1;
+} [1/2] {
+    y = y + 1;
+}
+{
+    x = 2 * x;
+} [1/3] {
+    skip;
+}"""
 
 
 @pytest.mark.parametrize("engine", ENGINES)

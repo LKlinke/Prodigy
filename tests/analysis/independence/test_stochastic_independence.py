@@ -6,12 +6,11 @@ from prodigy.analysis.independence import independent_vars
 
 def test_independence_fully_isolated():
     prog = compile_pgcl("""
-        nat x;
-        nat y;
+x: nat;
+y: nat;
 
-        x := geometric(1/2)
-        y := 0
-    """)
+x = geometric(1/2);
+y = 0;""")
     assert isinstance(prog, Program)
 
     res = independent_vars(prog)
@@ -20,14 +19,13 @@ def test_independence_fully_isolated():
 
 def test_independence_tri_copy():
     prog = compile_pgcl("""
-        nat x;
-        nat y;
-        nat z;
+x: nat;
+y: nat;
+z: nat;
 
-        x := geometric(1/2)
-        y := x
-        z := 2*x
-    """)
+x = geometric(1/2);
+y = x;
+z = 2 * x;""")
     assert isinstance(prog, Program)
 
     res = independent_vars(prog)
@@ -36,12 +34,11 @@ def test_independence_tri_copy():
 
 def test_independence_dist_param():
     prog = compile_pgcl("""
-        nat x;
-        nat y;
+x: nat;
+y: nat;
 
-        x := geometric(1/2)
-        y := unif(0, x)
-    """)
+x = geometric(1/2);
+y = unif(0, x);""")
     assert isinstance(prog, Program)
 
     res = independent_vars(prog)

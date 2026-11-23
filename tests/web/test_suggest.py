@@ -15,20 +15,38 @@ HOST = {"Host": "localhost:8080"}
 AI_ENV = ("ANTHROPIC_API_KEY", "ANTHROPIC_WORKSPACE_ID", "OPENAI_API_KEY", "PRODIGY_AI_BASE_URL",
           "PRODIGY_AI_MODEL", "PRODIGY_AI_PROVIDER", "PRODIGY_AI_TIMEOUT")
 
-GEOMETRIC = """nat x;
-nat c;
-x := 1;
-while (x = 1) { {x := 0} [1/2] {c := c + 1} }
-?Ex[c]
+GEOMETRIC = """x: nat;
+c: nat;
+x = 1;
+while (x == 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+}
+query Ex[c];
 """
 
-TWO_LOOPS = """nat x;
-nat c;
-nat d;
-x := 1;
-while (x = 1) { {x := 0} [1/2] {c := c + 1} }
-x := 1;
-while (x = 1) { {x := 0} [1/3] {d := d + 1} }
+TWO_LOOPS = """x: nat;
+c: nat;
+d: nat;
+x = 1;
+while (x == 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+}
+x = 1;
+while (x == 1) {
+    {
+        x = 0;
+    } [1/3] {
+        d = d + 1;
+    }
+}
 """
 
 

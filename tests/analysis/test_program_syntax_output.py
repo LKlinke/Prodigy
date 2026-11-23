@@ -9,7 +9,7 @@ from prodigy.analysis.session import AnalysisSession
 from prodigy.pgcl.ppy_printer import spell
 from prodigy.cli import EXIT_UNDECIDED, cli
 from prodigy.pgcl import parse_pgcl
-from prodigy.pgcl.parser import parse_expectation
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 PPY = """x: nat;
 c: nat;
@@ -23,14 +23,24 @@ query Ex[c];
 query Pr[c];
 """
 
-PGCL = """nat x;
-nat c;
-x := 1
-while (x = 1 & c < 5) { {x := 0} [1/2] {c := c + 1} }
-if (c = 0) { x := 1 } else { skip }
-?Pr[x = 0 & not (c = 1)]
-?Ex[c]
-?Pr[c]
+PGCL = """x: nat;
+c: nat;
+x = 1;
+while (x == 1 and c < 5) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+}
+if (c == 0) {
+    x = 1;
+} else {
+    skip;
+}
+query Pr[x == 0 and not c == 1];
+query Ex[c];
+query Pr[c];
 """
 
 
@@ -53,17 +63,8 @@ def test_ppy_result_uses_ppy_spelling():
     assert "if (c == 0) {" in steps and ":=" not in steps
 
 
-def test_pgcl_result_keeps_pgcl_spelling():
-    result = _analyse(PGCL, "pgcl")
-    assert result["status"] == "ok", result["error"]
-    assert result["syntax"] == "pgcl"
-    assert result["queries"][0]["expr"] == "(x = 0) & not (c = 1)"
-    assert result["loops"][0]["cond"] == "(x = 1) & (c < 5)"
-    assert any(":=" in step["instruction"] for step in result["steps"])
-
-
 def test_both_syntaxes_give_the_same_values():
-    ppy, pgcl = _analyse(PPY, "ppy"), _analyse(PGCL, "pgcl")
+    ppy, pgcl = _analyse(PPY, "ppy"), _analyse(PGCL, "ppy")
     assert [q["value"] for q in ppy["queries"]] == [q["value"] for q in pgcl["queries"]]
     assert ppy["distribution"]["closed_form"] == pgcl["distribution"]["closed_form"]
 
@@ -75,24 +76,12 @@ def test_certificate_equation_uses_the_program_syntax():
     assert "⟨I⟩_(x == 1)" in result["loops"][0]["certificates"][0]["equation"]
 
 
-def test_spell_falls_back_to_pgcl_without_ppy_form():
-    expr = parse_expectation("x = 1")
-    assert spell(expr, "ppy") == "x == 1"
-    assert spell(expr, "pgcl") == "x = 1"
-    # a name that is a keyword in .ppy has no .ppy form
-    assert spell(parse_expectation("case = 1"), "ppy") == "case = 1"
-
-
 def test_cli_summary_uses_the_program_syntax(tmp_path):
     program = tmp_path / "program.ppy"
     program.write_text(PPY)
     output = CliRunner().invoke(cli, ["analyze", str(program), "--loop", "0=unroll:iterations=5"]).output
     assert "Pr[x == 0 and not c == 1] =" in output
     assert "marginal of c:" in output
-    old = tmp_path / "program.pgcl"
-    old.write_text(PGCL)
-    output = CliRunner().invoke(cli, ["analyze", str(old), "--loop", "0=unroll:iterations=5"]).output
-    assert "Pr[(x = 0) & not (c = 1)] =" in output
 
 
 def test_cli_main_prints_queries_in_the_program_syntax(tmp_path):

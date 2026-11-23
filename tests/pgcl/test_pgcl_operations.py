@@ -11,23 +11,27 @@ from prodigy.pgcl.compiler import compile_pgcl
 from prodigy.pgcl.pgcl_operations import (cav_phi, make_else_if,
                                           state_to_equality_expression)
 
-LOOP = """
-    nat x;
-    nat c;
+LOOP = """x: nat;
+c: nat;
 
-    while (x >= 1) {
-        {x := 0} [1/2] {c := c + 1}
+while (x >= 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
     }
+}
 """
 
-INVARIANT = """
-    nat x;
-    nat c;
+INVARIANT = """x: nat;
+c: nat;
 
-    if (x >= 1) {
-        c := c + 1
-        x := 0
-    } else {skip}
+if (x >= 1) {
+    c = c + 1;
+    x = 0;
+} else {
+    skip;
+}
 """
 
 
@@ -74,18 +78,24 @@ def test_cav_phi_structure():
 
 def test_cav_phi_printed():
     result = cav_phi(_compile(LOOP), _compile(INVARIANT))
-    expected = _compile("""
-        nat x;
-        nat c;
+    expected = _compile("""x: nat;
+c: nat;
 
-        if (x >= 1) {
-            {x := 0} [1/2] {c := c + 1}
-            if (x >= 1) {
-                c := c + 1
-                x := 0
-            } else {skip}
-        } else {skip}
-    """)
+if (x >= 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+    if (x >= 1) {
+        c = c + 1;
+        x = 0;
+    } else {
+        skip;
+    }
+} else {
+    skip;
+}""")
     assert str(result) == str(expected)
 
 
@@ -107,19 +117,21 @@ def test_cav_phi_shares_no_nodes():
 
 
 def test_cav_phi_takes_variables_from_invariant_and_parameters_from_both():
-    prog = _compile("""
-        nat x;
-        nat unused;
-        rparam q;
+    prog = _compile("""x: nat;
+unused: nat;
+param q: real;
 
-        while (x >= 1) { x := x - 1 }
-    """)
-    inv = _compile("""
-        nat x;
-        rparam p;
+while (x >= 1) {
+    x = x - 1;
+}""")
+    inv = _compile("""x: nat;
+param p: real;
 
-        if (x >= 1) { x := 0 } else {skip}
-    """)
+if (x >= 1) {
+    x = 0;
+} else {
+    skip;
+}""")
 
     result = cav_phi(prog, inv)
 
@@ -133,23 +145,31 @@ def test_cav_phi_takes_variables_from_invariant_and_parameters_from_both():
 
 
 def test_cav_phi_keeps_nested_instructions_in_order():
-    prog = _compile("""
-        nat x;
-        nat y;
+    prog = _compile("""x: nat;
+y: nat;
 
-        while (x >= 1) {
-            while (y >= 1) { y := y - 1 }
-            if (y = 0) { x := x - 1 } else { skip }
-        }
-    """)
-    inv = _compile("""
-        nat x;
-        nat y;
+while (x >= 1) {
+    while (y >= 1) {
+        y = y - 1;
+    }
+    if (y == 0) {
+        x = x - 1;
+    } else {
+        skip;
+    }
+}""")
+    inv = _compile("""x: nat;
+y: nat;
 
-        y := 0
-        while (x >= 1) { x := x - 1 }
-        if (x = 0) { skip } else { y := 1 }
-    """)
+y = 0;
+while (x >= 1) {
+    x = x - 1;
+}
+if (x == 0) {
+    skip;
+} else {
+    y = 1;
+}""")
     loop = prog.instructions[0]
     assert isinstance(loop, WhileInstr)
 
@@ -162,10 +182,20 @@ def test_cav_phi_keeps_nested_instructions_in_order():
 
 
 @pytest.mark.parametrize("source", [
-    "nat x; x := 1",
-    "nat x; skip",
-    "nat x; while (x >= 1) { x := x - 1 } x := 2",
-    "nat x; x := 2 while (x >= 1) { x := x - 1 }",
+    """x: nat;
+x = 1;""",
+    """x: nat;
+skip;""",
+    """x: nat;
+while (x >= 1) {
+    x = x - 1;
+}
+x = 2;""",
+    """x: nat;
+x = 2;
+while (x >= 1) {
+    x = x - 1;
+}""",
 ])
 def test_cav_phi_rejects_non_loops(source):
     with pytest.raises(ValueError, match="one big loop"):
@@ -188,18 +218,24 @@ def test_cav_phi_semantics_match_hand_written_unrolling(engine, initial):
     """Φ(I) and a hand-written unrolling have the same output distribution on concrete inputs."""
     config = ForwardAnalysisConfig(engine=engine)
     phi_inv = cav_phi(_compile(LOOP), _compile(INVARIANT))
-    unrolled = _compile("""
-        nat x;
-        nat c;
+    unrolled = _compile("""x: nat;
+c: nat;
 
-        if (x >= 1) {
-            {x := 0} [1/2] {c := c + 1}
-            if (x >= 1) {
-                c := c + 1
-                x := 0
-            } else {skip}
-        } else {skip}
-    """)
+if (x >= 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+    if (x >= 1) {
+        c = c + 1;
+        x = 0;
+    } else {
+        skip;
+    }
+} else {
+    skip;
+}""")
 
     dist = config.factory.from_expr(initial, "x", "c")
     result, error = compute_discrete_distribution(phi_inv, dist, config)

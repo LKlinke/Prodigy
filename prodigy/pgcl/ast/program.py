@@ -122,7 +122,7 @@ class Program:
         .. doctest::
 
             >>> from prodigy.pgcl.parser import parse_pgcl
-            >>> program = parse_pgcl("nat x; nat y; while (x < 2) {}")
+            >>> program = parse_pgcl("x: nat; y: nat; while (x < 2) { }")
             >>> program.to_skeleton()
             Program(variables={'x': NatType(bounds=None), 'y': NatType(bounds=None)}, constants={}, parameters={}, functions={}, instructions=[])
         """
@@ -140,7 +140,7 @@ class Program:
         .. doctest::
 
             >>> from prodigy.pgcl.parser import parse_pgcl
-            >>> program = parse_pgcl("nat x; nat y; while (x < 2) {}")
+            >>> program = parse_pgcl("x: nat; y: nat; while (x < 2) { }")
             >>> print(program)
             nat x;
             nat y;

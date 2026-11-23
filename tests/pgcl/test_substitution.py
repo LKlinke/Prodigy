@@ -84,7 +84,9 @@ def test_generated_substitution(expr: Expr):
 
 
 def test_substitute_constants_categorical():
-    program = parse_pgcl("const c := 3; nat x; x := c : 0.25 + (c + 1) : 0.75;")
+    program = parse_pgcl("""const c: nat = 3;
+x: nat;
+x = categorical({c: 0.25, c + 1: 0.75});""")
     substitute_constants(program)
     assert str(program.instructions[0]) == "x := 3 : 0.25 + (3 + 1) : 0.75;"
 

@@ -14,7 +14,7 @@ from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution import NonFiniteMarginalError, known_convergent_series
 from prodigy.distribution.distribution import MarginalType
 from prodigy.pgcl import Binop, BinopExpr, VarExpr, parse_pgcl
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 Engine = ForwardAnalysisConfig.Engine
 ENGINES = [Engine.SYMPY, Engine.GINAC]
@@ -56,7 +56,7 @@ def test_former_wrong_bound_is_not_evaluated(engine):
     # the closed form gives Pr[x = 0] = -2 and Ex[y] = 4 (as main did inside the analysis before #393)
     dist = _factory(engine).from_expr(DIVERGENT_EXIT, "x", "y")
     with pytest.raises(NonFiniteMarginalError, match="not proven"):
-        dist.get_probability_of("x = 0")
+        dist.get_probability_of("x == 0")
     with pytest.raises(NonFiniteMarginalError, match="not proven"):
         dist.get_expected_value_of("y")
     with pytest.raises(NonFiniteMarginalError, match="marginal of x is not proven"):
@@ -108,7 +108,7 @@ def test_candidate_checks_keep_their_fast_path(engine):
     # evaluations are guarded by the checks themselves (#276, finite mass of sub-invariants)
     dist = _factory(engine).from_expr(DIVERGENT_EXIT, "x", "y")
     with known_convergent_series(False):
-        assert _sympy(dist.get_probability_of("x = 0")) == -2
+        assert _sympy(dist.get_probability_of("x == 0")) == -2
         with pytest.raises(NonFiniteMarginalError, match="not proven"):
             dist.checked_marginal("x")
 
@@ -118,9 +118,12 @@ def test_analysis_results_with_parameters_are_summarised(engine):
     # the summary of an analysis result evaluates the output at 1 after the analysis; it is a finite measure
     if engine == "GINAC":
         pytest.importorskip("prodigy_ginac")
-    source = "rparam p;\nnat x;\nx := geometric(p);\n"
+    source = """param p: real;
+x: nat;
+x = geometric(p);
+"""
     config = ForwardAnalysisConfig(engine=getattr(Engine, engine))
-    session = AnalysisSession(parse_pgcl(source, "pgcl"), source=source, syntax="pgcl", config=config,
+    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
                               decisions={}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result.get("error")
@@ -133,12 +136,15 @@ def test_analysis_outputs_are_declared_finite_measures(engine):
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.analyzer import compute_discrete_distribution
     factory = _factory(engine)
-    source = "rparam p;\nnat x;\nx := geometric(p);\n"
-    program = parse_pgcl(source, "pgcl")
+    source = """param p: real;
+x: nat;
+x = geometric(p);
+"""
+    program = parse_pgcl(source, "ppy")
     result, error_prob = compute_discrete_distribution(program, factory.one("x"), ForwardAnalysisConfig(engine=engine))
     p = sympy.Symbol("p")
     assert sympy.simplify(_sympy(result.get_expected_value_of("x")) - (1 - p) / p) == 0
-    assert sympy.simplify(_sympy(result.get_probability_of("x = 0")) - p) == 0
+    assert sympy.simplify(_sympy(result.get_probability_of("x == 0")) - p) == 0
     assert _sympy(error_prob.get_probability_mass()) == 0
     # the declaration belongs to the object: a distribution computed from it is proven again
     with pytest.raises(NonFiniteMarginalError, match="parameters p"):
@@ -154,7 +160,7 @@ DIVERGENT = "1/((1 - 2*x)*(2 - y))"
 
 
 def _iid(text):
-    call = parse_expr(text)
+    call = parse_ppy_expr(text)
     sampled, count = call.params[0]
     return sampled, count
 
@@ -197,7 +203,7 @@ def test_update_iid_is_proven(engine):
 
 
 def _assignment(variable, rhs):
-    return BinopExpr(Binop.EQ, VarExpr(variable), parse_expr(rhs))
+    return BinopExpr(Binop.EQ, VarExpr(variable), parse_ppy_expr(rhs))
 
 
 @pytest.mark.parametrize("engine", ENGINES)
@@ -224,7 +230,7 @@ def test_filter_with_fresh_variables_is_proven(engine, monkeypatch):
     factory = _factory(engine)
     x, y = sympy.symbols("x y")
     # x - 1 < 2 introduces t := x - 1 (monus) and sums out t: proven for a rational closed form
-    filtered = factory.from_expr(PROVEN, "x", "y").filter(parse_expr("x - 1 < 2"))
+    filtered = factory.from_expr(PROVEN, "x", "y").filter(parse_ppy_expr("x - 1 < 2"))
     assert sympy.simplify(_sympy(filtered) - (sympy.Rational(1, 2) + x / 4 + x ** 2 / 8) / (2 - y)) == 0
     # the sum over the fresh variable goes through the same proof (here an obstacle is forced wherever a summed
     # variable occurs in the closed form)
@@ -234,7 +240,7 @@ def test_filter_with_fresh_variables_is_proven(engine, monkeypatch):
 
     monkeypatch.setattr("prodigy.distribution.distribution.marginal_obstacle", forced)
     with pytest.raises(NonFiniteMarginalError, match=r"The filter of \(x - 1\) < 2 is not proven .*forced obstacle"):
-        factory.from_expr("1/((2 - x)*(2 - y)) + sqrt(4 - x)", "x", "y").filter(parse_expr("x - 1 < 2"))
+        factory.from_expr("1/((2 - x)*(2 - y)) + sqrt(4 - x)", "x", "y").filter(parse_ppy_expr("x - 1 < 2"))
 
 
 @pytest.mark.parametrize("engine", [Engine.SYMPY])

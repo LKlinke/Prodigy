@@ -125,10 +125,7 @@ def _solve_fixed_point_equation(evt_inv: Distribution, phi_inv: Distribution, pr
     if config.solver_type == SolverType.SYMPY:
         # linear in the numerator coefficients (#281)
         return _template_solutions(evt_inv, phi_inv, prog_info)
-    if config.solver_type == SolverType.Z3:
-        solver = SolverType.make(config.solver_type, config.factory)
-    else:
-        solver = SolverType.make(config.solver_type)
+    solver = SolverType.make(config.solver_type)
     # Check equality between the iterated expression and the invariant.
     is_solution, solution_candidates = solver.solve(evt_inv, phi_inv)
     if is_solution is False or is_solution is None:

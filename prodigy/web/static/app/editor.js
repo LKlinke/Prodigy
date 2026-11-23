@@ -1,8 +1,8 @@
-// The program editor: CodeMirror 6 with pGCL and .ppy highlighting, diagnostics from the server
-// and inline annotations (the strategy above each loop, the result after each query).
+// The program editor: CodeMirror 6 with .ppy highlighting, diagnostics from the server and inline
+// annotations (the strategy above each loop, the result after each query).
 //
-// The syntax ("pgcl" or "ppy") is part of the editor state, so that undoing a conversion to .ppy
-// also brings the old syntax back (invertedEffects). A change can carry a companion change of state
+// The syntax is part of the editor state; since v0.6.0 there is only "ppy" (the .pgcl syntax was
+// removed, #433), and undo and redo restore it with the text (invertedEffects). A change can carry a companion change of state
 // outside the editor ({before, after}, e.g. the setup's invariant programs), which undo and redo
 // apply together with the text.
 import {
@@ -10,14 +10,11 @@ import {
   highlightActiveLineGutter, drawSelection, Decoration, WidgetType, defaultKeymap, history,
   historyKeymap, indentWithTab, syntaxHighlighting, HighlightStyle, bracketMatching, indentOnInput,
   indentUnit, tags, lintGutter, setDiagnostics, lintKeymap, searchKeymap, highlightSelectionMatches,
-  autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap, pgcl, PGCL_WORDS, ppy, PPY_WORDS,
+  autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap, ppy, PPY_WORDS,
   placeholder, invertedEffects,
 } from "../vendor/codemirror.js";
 
 export const SYNTAXES = {
-  pgcl: { label: "pGCL", extension: ".pgcl", language: pgcl, words: PGCL_WORDS,
-    queries: ["?Pr[", "?Ex[", "?Var[", "?Cov[", "!Print", "!Plot["],
-    declaration: /\b(?:nat|bool|real|rparam|nparam|const|dist)\s+([A-Za-z_]\w*)/g },
   ppy: { label: ".ppy", extension: ".ppy", language: ppy, words: PPY_WORDS,
     queries: ["query Pr[", "query Ex[", "query Var[", "query Cov["],
     declaration: /(?:^|[;{]\s*|\b(?:const|param|def)\s+)([A-Za-z_]\w*)(?=\s*[:=(])/gm },
@@ -85,11 +82,11 @@ const appTheme = EditorView.theme({
 const darkScheme = window.matchMedia?.("(prefers-color-scheme: dark)");
 
 const highlightStyle = HighlightStyle.define([
-  { tag: tags.keyword, color: "var(--text)", fontWeight: "600" },
+  { tag: tags.keyword, color: "var(--code-keyword)", fontWeight: "600" },
   { tag: tags.typeName, color: "var(--code-type)" },
   { tag: [tags.number, tags.atom, tags.bool], color: "var(--code-number)" },
   { tag: tags.standard(tags.variableName), color: "var(--code-builtin)" },
-  { tag: tags.meta, color: "var(--text)", fontWeight: "700" },
+  { tag: tags.meta, color: "var(--code-keyword)", fontWeight: "700" },
   { tag: tags.comment, color: "var(--text-2)", fontStyle: "italic" },
   { tag: [tags.operator, tags.bracket, tags.punctuation], color: "var(--text-2)" },
   { tag: tags.definition(tags.variableName), color: "var(--text)", fontWeight: "500" },
@@ -240,12 +237,20 @@ function breakpointLines(state) {
 
 // ---- completion ------------------------------------------------------------------------
 
+// Tab accepts the selected completion (and indents when no completion is open); Return always
+// starts a new line, so a suggestion never swallows the end of a line.
+const acceptBinding = completionKeymap.find((binding) => binding.key === "Enter");
+const completionKeys = [
+  ...(acceptBinding ? [{ key: "Tab", run: acceptBinding.run }] : []),
+  ...completionKeymap.filter((binding) => binding !== acceptBinding),
+];
+
 // ---- syntax ---------------------------------------------------------------------------
 
 const setSyntax = StateEffect.define();
 
 const syntaxField = StateField.define({
-  create: () => "pgcl",
+  create: () => "ppy",
   update(value, transaction) {
     for (const effect of transaction.effects) {
       if (effect.is(setSyntax)) value = effect.value;
@@ -301,7 +306,7 @@ function languageFor(syntax, label = null) {
  * the breakpoints off;
  * onCompanion({before, after}) whenever a change made with setSource(…, {companion}) is applied,
  * undone (before and after swapped) or redone. */
-export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSyntaxChange, onCompanion, onRun, onStop,
+export function createEditor(parent, { doc = "", syntax = "ppy", onChange, onSyntaxChange, onCompanion, onRun, onStop,
   onBreakpointsChange, stepKeys = {}, breakpoints = true, label = null } = {}) {
   const toggleAt = (view, position) => {
     view.dispatch({ effects: toggleBreakpointEffect.of(view.state.doc.lineAt(position).from) });
@@ -331,12 +336,12 @@ export function createEditor(parent, { doc = "", syntax = "pgcl", onChange, onSy
     indentOnInput(),
     bracketMatching(),
     closeBrackets(),
-    autocompletion({ override: [completions], activateOnTyping: true }),
+    autocompletion({ override: [completions], activateOnTyping: true, defaultKeymap: false }),
     highlightActiveLine(),
     highlightSelectionMatches(),
     indentUnit.of("    "),
-    keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...searchKeymap, ...historyKeymap,
-      ...completionKeymap, ...lintKeymap, indentWithTab]),
+    keymap.of([...completionKeys, ...closeBracketsKeymap, ...defaultKeymap, ...searchKeymap, ...historyKeymap,
+      ...lintKeymap, indentWithTab]),
     invertSyntax,
     invertCompanion,
     syntaxHighlighting(highlightStyle),

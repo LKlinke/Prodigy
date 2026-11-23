@@ -44,8 +44,6 @@ uv run pytest tests/analysis/test_session.py -q   # one file
 ## Layout
 - `prodigy/pgcl` (renamed to `prodigy/language` after the `.pgcl` removal, #446): the `.ppy`
   parser and printer (`ppy_parser.py`, `ppy_printer.py`), type checker, AST.
-- `.pgcl` is deprecated and no longer maintained: no new features, only fixes of wrong results;
-  it is removed in v0.6.0 (#433). New tests and examples use `.ppy`.
 - `prodigy/distribution`: the `Distribution` interface, the engines (SymPy default, GiNaC) and
   the proof rules on closed forms.
   `prodigy/analysis`: the forward analysis. `prodigy/web`: the GUI (Flask, one process per job).

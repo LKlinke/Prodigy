@@ -36,8 +36,8 @@ def test_check_ppy_by_syntax_or_file_name(client):
         loop = result["outline"]["loops"][0]
         assert (loop["line"], loop["cond"]) == (4, "x == 1")
         assert [q["line"] for q in result["outline"]["queries"]] == [7, 8]
-    # the same text is no pGCL program
-    assert not client.post("/api/check", json={"source": GEOMETRIC}, headers=HOST).get_json()["ok"]
+    # without a syntax, the program is .ppy
+    assert client.post("/api/check", json={"source": GEOMETRIC}, headers=HOST).get_json()["ok"]
     response = client.post("/api/check", json={"source": GEOMETRIC, "syntax": "python"}, headers=HOST)
     assert response.status_code == 400
 
@@ -60,17 +60,6 @@ def test_block_scope_and_floor_division(client):
                              "decisions": {"0": {"strategy": "unroll", "params": {"iterations": 20}}}})
     assert analysis["status"] == "ok", analysis.get("error")
     assert analysis["queries"][0]["expr"] == "x == 0" and analysis["queries"][0]["value"] == "1"
-
-
-def test_convert(client):
-    response = client.post("/api/convert", json={"source": "nat switch;\nswitch := 1 // one\n?Pr[switch = 1]\n"},
-                           headers=HOST)
-    data = response.get_json()
-    assert response.status_code == 200 and data["syntax"] == "ppy"
-    assert data["source"] == "switch_: nat;\nswitch_ = 1;  # one\nquery Pr[switch_ == 1];\n"
-    assert data["renamings"] == [{"from": "switch", "to": "switch_"}]
-    response = client.post("/api/convert", json={"source": "nat x;\nx := := 1"}, headers=HOST)
-    assert response.status_code == 422 and response.get_json()["line"] == 2
 
 
 def test_analysis_of_a_ppy_program(client):
@@ -106,10 +95,10 @@ def test_untrusted_generating_functions_are_rejected():
     for text in ["open(x)", "__import__(x)", "x.real", "'a'", "x // 2", "lambda: x", "exit(0)"]:
         problems = validate_request({"source": GEOMETRIC, "syntax": "ppy", "input_distribution": text})
         assert problems and problems[0].startswith("Initial distribution"), text
-        problems = validate_request({"source": "nat x;", "decisions": {
+        problems = validate_request({"source": "x: nat;", "decisions": {
             "*": {"strategy": "evt_invariant", "params": {"invariant": text}}}})
         assert problems and "EVT invariant" in problems[0], text
-    assert validate_request({"source": "nat x;", "input_distribution": "exp(x - 1) + sin(x)^2"}) == []
+    assert validate_request({"source": "x: nat;", "input_distribution": "exp(x - 1) + sin(x)^2"}) == []
     with pytest.raises(CandidateError, match="calls sqrt"):
         admissible_expression("sqrt(x) ^ 2", syntax="ppy", functions=frozenset())
     with pytest.raises(CandidateError, match="well-formed"):
@@ -118,8 +107,6 @@ def test_untrusted_generating_functions_are_rejected():
 
 def test_candidates_in_the_program_syntax():
     assert candidate_from_answer("ANSWER: x^2 + sqrt(1 - c)", ["x", "c"], "ppy") == "x**2 + sqrt(1 - c)"
-    assert candidate_from_answer("ANSWER: x**2", ["x"], "pgcl") == "x^2"
-    assert admissible_expression("x**2 + c^3", syntax="ppy") == "x^2 + c^3"
 
 
 def test_suggestion_for_a_ppy_program(monkeypatch):
@@ -138,35 +125,9 @@ def test_examples_are_ppy(client):
     assert data["syntax"] == "ppy" and data["file_name"] == "dep_bern.ppy" and "renamings" not in data
     invariant = data["suggestion"]["decisions"]["0"]["params"]["invariant"]
     assert "if (c > 0) {" in invariant and ":=" not in invariant
-    # a .ppy example cannot be converted to pGCL; asking for it changes nothing
-    assert client.get(f"/api/examples/{with_invariant['id']}?syntax=pgcl", headers=HOST).get_json() == data
+    # .pgcl was removed
+    assert client.get(f"/api/examples/{with_invariant['id']}?syntax=pgcl", headers=HOST).status_code == 400
     assert client.get(f"/api/examples/{with_invariant['id']}?syntax=java", headers=HOST).status_code == 400
-
-
-def test_pgcl_examples_are_converted_on_the_fly(tmp_path):
-    """A folder of .pgcl examples (prodigy web --examples) opens as it is, or converted with syntax=ppy."""
-    former = Path(__file__).parents[1] / "pgcl" / "former_examples"
-    for name in ("inference/loop_free/conditioning/monty_hall_nested.pgcl", "equivalence/loopy/dep_bern.pgcl",
-                 "equivalence/loopy/invariants/dep_bern_invariant.pgcl"):
-        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
-        (tmp_path / name).write_text((former / name).read_text().replace("pgfexamples/", ""))
-    app = create_app(time_limit=30, max_jobs=1, examples_dir=str(tmp_path))
-    client = app.test_client()
-    try:
-        data = client.get("/api/examples/inference/loop_free/conditioning/monty_hall_nested.pgcl?syntax=ppy",
-                          headers=HOST).get_json()
-        assert data["syntax"] == "ppy" and data["file_name"] == "monty_hall_nested.ppy"
-        assert data["renamings"] == [{"from": "switch", "to": "switch_"}]
-        assert client.post("/api/check", json={"source": data["source"], "syntax": "ppy"},
-                           headers=HOST).get_json()["ok"]
-        data = client.get("/api/examples/equivalence/loopy/dep_bern.pgcl?syntax=ppy", headers=HOST).get_json()
-        invariant = data["suggestion"]["decisions"]["0"]["params"]["invariant"]
-        assert "if (c > 0) {" in invariant and ":=" not in invariant
-        original = client.get("/api/examples/equivalence/loopy/dep_bern.pgcl", headers=HOST).get_json()
-        assert original["syntax"] == "pgcl" and original["file_name"] == "dep_bern.pgcl"
-        assert ":=" in original["suggestion"]["decisions"]["0"]["params"]["invariant"]
-    finally:
-        app.extensions["prodigy_jobs"].shutdown()
 
 
 def test_block_comments_keep_positions(client):

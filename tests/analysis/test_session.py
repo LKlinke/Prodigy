@@ -12,25 +12,45 @@ from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.session import (AnalysisSession, LoopDecision, LoopRegistry, parse_decisions,
                                       validate_decisions)
 
-GEOMETRIC = """nat x; nat c;
-x := 1
-while (x = 1) { {x := 0} [1/2] {c := c + 1} }
-?Pr[c = 0]
-?Ex[c]
+GEOMETRIC = """x: nat;
+c: nat;
+x = 1;
+while (x == 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+}
+query Pr[c == 0];
+query Ex[c];
 """
 
 # terminates with probability 1/2 only
-BIASED_WALK = """nat x;
-x := 1
-while (x > 0) { {x := x - 1} [1/3] {x := x + 1} }
-?Pr[x = 0]
+BIASED_WALK = """x: nat;
+x = 1;
+while (x > 0) {
+    {
+        x = x - 1;
+    } [1/3] {
+        x = x + 1;
+    }
+}
+query Pr[x == 0];
 """
 
-CONDITIONED = """nat x; nat c;
-x := 1
-while (x = 1) { {x := 0} [1/2] {c := c + 1} }
-observe(c < 3)
-?Pr[c = 0]
+CONDITIONED = """x: nat;
+c: nat;
+x = 1;
+while (x == 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+}
+observe(c < 3);
+query Pr[c == 0];
 """
 
 
@@ -50,17 +70,25 @@ def query(result, expr):
 
 
 def test_loop_registry_assigns_ids_in_textual_order():
-    source = """nat x; nat y;
-fun f := { nat z; while (z > 0) { z := z - 1 } return z };
+    source = """x: nat;
+y: nat;
+def f(z: nat) -> nat {
+    while (z > 0) {
+        z = z - 1;
+    }
+    return z;
+}
 while (x > 0) {
-  x := x - 1
-  # while (comment) is ignored
-  while (y > 0) { y := y - 1 }
+    x = x - 1;
+    # while (comment) is ignored
+    while (y > 0) {
+        y = y - 1;
+    }
 }
 """
     loops = list(LoopRegistry(parse_pgcl(source), source))
     assert [(l.id, l.line, l.depth, l.function) for l in loops] == \
-           [(0, 2, 0, "f"), (1, 3, 0, None), (2, 6, 1, None)]
+           [(0, 4, 0, "f"), (1, 9, 0, None), (2, 12, 1, None)]
     assert loops[1].cond == "x > 0"
 
 
@@ -68,7 +96,7 @@ def test_missing_decision_is_reported_not_asked():
     result = analyse(GEOMETRIC, {})
     assert result["status"] == "needs_decision"
     assert result["error"]["loop"]["id"] == 0
-    assert result["error"]["loop"]["line"] == 3
+    assert result["error"]["loop"]["line"] == 4
     assert result["bounds"]["kind"] == Bound.UNKNOWN
 
 
@@ -77,15 +105,23 @@ def test_unrolling_gives_sound_interval_with_residual_mass():
     assert result["status"] == "ok"
     assert result["bounds"]["kind"] == Bound.LOWER
     assert fraction(result["bounds"]["residual_mass"]) == Fraction(1, 32)
-    pr = query(result, "c = 0")
+    pr = query(result, "c == 0")
     assert (fraction(pr["lower"]), fraction(pr["upper"])) == (Fraction(1, 2), Fraction(17, 32))
     expectation = query(result, "c")
     assert expectation["bound"] == Bound.LOWER and expectation["upper"] is None
-    assert expectation["line"] == 5
+    assert expectation["line"] == 12
 
 
 def test_unrolling_until_fixpoint_is_exact():
-    source = "nat x; nat y;\nx := 3\nwhile (x > 0) { x := x - 1; y := y + 2 }\n?Ex[y]\n"
+    source = """x: nat;
+y: nat;
+x = 3;
+while (x > 0) {
+    x = x - 1;
+    y = y + 2;
+}
+query Ex[y];
+"""
     result = analyse(source, {"*": "unroll:iterations=10"})
     assert result["bounds"]["kind"] == Bound.EXACT
     assert query(result, "y")["value"] == "6"
@@ -93,7 +129,7 @@ def test_unrolling_until_fixpoint_is_exact():
 
 def test_residual_is_rescaled_when_conditioning():
     result = analyse(CONDITIONED, {"0": {"strategy": "unroll", "params": {"iterations": 5}}})
-    pr = query(result, "c = 0")
+    pr = query(result, "c == 0")
     lower, upper = fraction(pr["lower"]), fraction(pr["upper"])
     assert (lower, upper) == (Fraction(16, 29), Fraction(17, 29))
     assert lower <= Fraction(4, 7) <= upper  # exact posterior probability
@@ -101,7 +137,7 @@ def test_residual_is_rescaled_when_conditioning():
 
 def test_interval_without_termination_assumption():
     result = analyse(BIASED_WALK, {"0": "unroll:iterations=10"})
-    pr = query(result, "x = 0")
+    pr = query(result, "x == 0")
     assert pr["bound"] == Bound.LOWER
     assert fraction(pr["lower"]) <= Fraction(1, 2) <= fraction(pr["upper"])
 
@@ -121,30 +157,51 @@ def test_spurious_fixed_point_is_only_an_upper_bound():
     # and the result must not claim more than an upper bound.
     result = analyse(BIASED_WALK, {"0": "evt_synthesis"})
     assert result["bounds"]["kind"] == Bound.UPPER
-    pr = query(result, "x = 0")
+    pr = query(result, "x == 0")
     assert pr["lower"] is None and fraction(pr["upper"]) >= Fraction(1, 2)
     assert result["loops"][0]["certificates"][0]["finite_mass"] is False
 
 
 def test_invariant_strategy_is_an_upper_bound_by_park():
     # pgfexamples/equivalence/loopy/geometric.ppy with its invariant, in pGCL
-    source = """nat x; nat c; nat temp;
-x := 1
-while (x = 1) { {x := 0} [1/2] {c := c + 1}; temp := 0 }
-?Pr[c = 0]
+    source = """x: nat;
+c: nat;
+temp: nat;
+x = 1;
+while (x == 1) {
+    {
+        x = 0;
+    } [1/2] {
+        c = c + 1;
+    }
+    temp = 0;
+}
+query Pr[c == 0];
 """
-    invariant = """nat x; nat c; nat temp;
-if (x = 1) { temp := geometric(1/2); c := c + temp; x := 0; temp := 0 } else { skip }
+    invariant = """x: nat;
+c: nat;
+temp: nat;
+if (x == 1) {
+    temp = geometric(1/2);
+    c = c + temp;
+    x = 0;
+    temp = 0;
+} else {
+    skip;
+}
 """
     result = analyse(source, {"0": {"strategy": "invariant", "params": {"invariant": invariant}}})
     assert result["status"] == "ok", result["error"]
     assert result["bounds"]["kind"] == Bound.UPPER
     assert result["loops"][0]["certificates"][0]["verdict"] == "verified"
-    assert fraction(query(result, "c = 0")["upper"]) == Fraction(1, 2)
+    assert fraction(query(result, "c == 0")["upper"]) == Fraction(1, 2)
 
 
 def test_refuted_invariant_reports_counterexample():
-    invariant = "nat x; nat c;\nx := 0\n"
+    invariant = """x: nat;
+c: nat;
+x = 0;
+"""
     result = analyse(GEOMETRIC, {"0": {"strategy": "invariant", "params": {"invariant": invariant}}})
     assert result["status"] == "error"
     assert result["error"]["details"]["verdict"] == "refuted"
@@ -157,7 +214,10 @@ def test_invariant_without_a_witness_is_not_proven_instead_of_refuted(monkeypatc
     # Issue #403: the raw "different" of the check may come from approximated loops in the body; the
     # invariant is refuted only with a witness
     monkeypatch.setattr("prodigy.analysis.equivalence.verdict.search_witness", lambda *args, **kwargs: None)
-    invariant = "nat x; nat c;\nx := 0\n"
+    invariant = """x: nat;
+c: nat;
+x = 0;
+"""
     result = analyse(GEOMETRIC, {"0": {"strategy": "invariant", "params": {"invariant": invariant}}})
     assert result["status"] == "error"
     assert result["error"]["details"]["verdict"] == "unknown"
@@ -225,7 +285,7 @@ def test_result_is_json_serialisable_and_complete():
 
 def test_cli_analyze(tmp_path):
     from prodigy.cli import cli  # pylint: disable=import-outside-toplevel
-    program = tmp_path / "geometric.pgcl"
+    program = tmp_path / "geometric.ppy"
     program.write_text(GEOMETRIC)
     runner = CliRunner()
     result = runner.invoke(cli, ["analyze", str(program), "--loop", "0=unroll:iterations=5", "--json"])

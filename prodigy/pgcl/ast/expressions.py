@@ -32,8 +32,8 @@ class ExprClass(Node):
 
         .. doctest::
 
-            >>> from prodigy.pgcl.parser import parse_expr
-            >>> str(parse_expr("x < 2 & not true"))
+            >>> from prodigy.pgcl.ppy_parser import parse_ppy_expr
+            >>> str(parse_ppy_expr("x < 2 and not true"))
             '(x < 2) & not true'
         """
 

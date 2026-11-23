@@ -4,7 +4,7 @@ import sympy
 
 from prodigy.distribution.equality import engine_text, sympify_engine_string
 from prodigy.pgcl import Expr, OptimizationType, VarExpr
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 from prodigy.distribution.distribution import Distribution
 
@@ -24,9 +24,9 @@ class GFOptimizer(Optimizer):
             raise NotImplementedError(
                 "We currently do not support multivariate optimization.")
 
-        # Make sure, that the condition is a parsed expression.
+        # Make sure, that the condition is a parsed expression (text is in the .ppy syntax).
         if isinstance(condition, str):
-            expr = parse_expr(condition)
+            expr = parse_ppy_expr(condition)
         else:
             expr = condition
 

@@ -13,11 +13,13 @@ from prodigy.distribution.generating_function import SympyPGF
                          [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
                           (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_probabilistic_choice(engine, factory):
-    pgcl = """
-    nat x;
-    
-    {x := 3} [1/2] { x:= 5}
-    """
+    pgcl = """x: nat;
+
+{
+    x = 3;
+} [1/2] {
+    x = 5;
+}"""
 
     program = parse_pgcl(pgcl)
     dist = factory.one(*program.variables)
@@ -36,11 +38,13 @@ def test_probabilistic_choice(engine, factory):
                              [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
                               (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
     def test_probabilistic_choice_with_error(engine, factory):
-        pgcl = """
-        nat x;
+        pgcl = """x: nat;
 
-        {x := 3} [1/2] { x:= 5}
-        """
+{
+    x = 3;
+} [1/2] {
+    x = 5;
+}"""
 
         program = parse_pgcl(pgcl)
         dist = factory.one("x", "y") * "1/2"

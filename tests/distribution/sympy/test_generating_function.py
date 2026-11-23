@@ -3,7 +3,7 @@ import random
 import pytest
 import sympy
 from prodigy.pgcl import Binop, BinopExpr, NatLitExpr, VarExpr
-from prodigy.pgcl.parser import parse_expr
+from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
 from prodigy.distribution.distribution import MarginalType, NonFiniteMarginalError, State, known_convergent_series
 from prodigy.distribution.generating_function import (GeneratingFunction,
@@ -121,10 +121,10 @@ class TestDistributionInterface:
 
     def test_get_probability_of(self):
         gf = GeneratingFunction("(1-sqrt(1-x**2))/x")
-        assert gf.get_probability_of(parse_expr("x <= 3")) == "5/8"
+        assert gf.get_probability_of(parse_ppy_expr("x <= 3")) == "5/8"
 
         gf = SympyPGF.zero("z", "y")
-        assert gf.get_probability_of(parse_expr("not (z*y < 12)")) == "0"
+        assert gf.get_probability_of(parse_ppy_expr("not z * y < 12")) == "0"
 
     def test_get_probability_mass(self):
         # the walk's series is a finite measure by the shift and the monomial substitution (#431)
@@ -205,22 +205,22 @@ class TestDistributionInterface:
 
     def test_filter(self):
         gf = SympyPGF.zero("x", "y")
-        assert gf.filter(parse_expr("x*3 < 25*y")) == gf
+        assert gf.filter(parse_ppy_expr("x * 3 < 25 * y")) == gf
 
         # check filter on infinite GF
         gf = GeneratingFunction("(1-sqrt(1-c**2))/c")
-        assert gf.filter(parse_expr("c <= 5")) == GeneratingFunction(
+        assert gf.filter(parse_ppy_expr("c <= 5")) == GeneratingFunction(
             "c/2 + c**3/8 + c**5/16")
 
         # check filter on finite GF
         gf = GeneratingFunction("1/2*x*c + 1/4 * x**2 + 1/4")
-        assert gf.filter(parse_expr("x*c < 123")) == gf
+        assert gf.filter(parse_ppy_expr("x * c < 123")) == gf
 
         gf = GeneratingFunction("(1-sqrt(1-c**2))/c", "c", "x", "z")
-        assert gf.filter(parse_expr("x*z <= 10")) == gf
+        assert gf.filter(parse_ppy_expr("x * z <= 10")) == gf
 
         gf = GeneratingFunction("(c/2 + c^3/2) * (1-sqrt(1-x**2))/x")
-        assert gf.filter(parse_expr("c*c <= 5")) == GeneratingFunction(
+        assert gf.filter(parse_ppy_expr("c * c <= 5")) == GeneratingFunction(
             "c/2 * (1-sqrt(1-x**2))/x")
 
     def test_is_zero_dist(self):
@@ -310,14 +310,14 @@ def test_predefined_variable_names(name):
     gf = GeneratingFunction(f'{name}^3*x^5')
     assert len(gf.get_variables()) == 2
     assert gf.marginal(name) == GeneratingFunction(f'{name}^3')
-    assert gf.update(parse_expr(f'{name} = {name} + 1')) == GeneratingFunction(
+    assert gf.update(parse_ppy_expr(f'{name} == {name} + 1')) == GeneratingFunction(
         f'{name}^4*x^5')
 
     assert SympyPGF.bernoulli(name,
                               '1/2') == GeneratingFunction(f'1/2+1/2*{name}')
     gf = GeneratingFunction(f'{name}*x', 'x')
     assert len(gf.get_parameters()) == 1
-    assert gf.update(parse_expr('x = 2')) == GeneratingFunction(
+    assert gf.update(parse_ppy_expr("x == 2")) == GeneratingFunction(
         f'{name}*x^2', 'x')
 
 

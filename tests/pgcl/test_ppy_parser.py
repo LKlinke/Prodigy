@@ -10,16 +10,13 @@ from prodigy.pgcl.ast import (AsgnInstr, Binop, BinopExpr, CategoricalExpr,
                               VarExpr)
 from prodigy.pgcl.check import CheckFail
 from prodigy.pgcl.compiler import compile_pgcl
-from prodigy.pgcl.converter import convert_pgcl, rename
-from prodigy.pgcl.parser import parse_expectation, parse_pgcl, select_syntax
+from prodigy.pgcl.parser import parse_pgcl
 from prodigy.pgcl.ppy_parser import PpySyntaxError, parse_ppy, parse_ppy_expr
 from prodigy.pgcl.ppy_printer import (PpyPrintError, expr_to_ppy,
                                       program_to_ppy)
 
 EXAMPLES = Path(__file__).parents[2] / "pgfexamples"
 ALL_EXAMPLES = sorted(EXAMPLES.rglob("*.ppy"))
-# the former .pgcl version of an example whose variable 'switch' is a keyword in .ppy
-MONTY_HALL = Path(__file__).parent / "former_examples/inference/loop_free/conditioning/monty_hall_nested.pgcl"
 
 
 def _same(new, old):
@@ -29,8 +26,9 @@ def _same(new, old):
     assert repr(getattr(new, "declarations", None)) == repr(getattr(old, "declarations", None))
 
 
-def _agree(ppy: str, pgcl: str):
-    _same(parse_ppy(ppy), parse_pgcl(pgcl))
+def _agree(ppy: str, canonical: str):
+    """Two .ppy spellings (the second canonical, as the printer writes it) give the same program."""
+    _same(parse_ppy(ppy), parse_pgcl(canonical))
 
 
 # --- all examples -------------------------------------------------------------
@@ -48,28 +46,31 @@ def test_round_trip_example(path: Path):
     _same(parse_ppy(program_to_ppy(program)), program)
 
 
-def test_round_trip_after_renaming_keyword():
-    old = parse_pgcl(MONTY_HALL.read_text())
+def test_a_keyword_as_a_name_has_no_ppy_form():
     with pytest.raises(PpyPrintError):
-        program_to_ppy(old)
-    conversion = convert_pgcl(MONTY_HALL.read_text())
-    assert conversion.renamings == {"switch": "switch_"}
-    assert "switch_ = unif(1, 3);" in conversion.text
-    assert conversion.messages() == ["renamed 'switch' to 'switch_' ('switch' is a keyword in .ppy)"]
-    _same(parse_ppy(conversion.text), rename(old, conversion.renamings))
+        expr_to_ppy(VarExpr("switch"))
 
 
 # --- declarations -------------------------------------------------------------
 
 
 def test_declarations():
-    _agree("x: nat; b: bool; r: real; d: dist;", "nat x; bool b; real r; dist d;")
-    _agree("x, y: nat;", "nat x; nat y;")
-    _agree("x: nat[0, 10];", "nat x [0, 10];")
-    _agree("x, y: nat[1, 5];", "nat x [1, 5]; nat y [1, 5];")
-    _agree("param p: real; param n: nat;", "rparam p; nparam n;")
+    _agree("x: nat; b: bool; r: real; d: dist;", """x: nat;
+b: bool;
+r: real;
+d: dist;""")
+    _agree("x, y: nat;", """x: nat;
+y: nat;""")
+    _agree("x: nat[0, 10];", "x: nat[0, 10];")
+    _agree("x, y: nat[1, 5];", """x: nat[1, 5];
+y: nat[1, 5];""")
+    _agree("param p: real; param n: nat;", """param p: real;
+param n: nat;""")
     _agree("const N: nat = 10; const q: real = 1/2; const b: bool = true; const M = N + 1;",
-           "const N := 10; const q := 1/2; const b := true; const M := N + 1;")
+           """const N: nat = 10;
+const q: real = 1/2;
+const b: bool = true;
+const M = N + 1;""")
 
 
 def test_bounds_are_not_shared():
@@ -79,15 +80,26 @@ def test_bounds_are_not_shared():
 
 
 def test_initial_value():
-    _agree("x: nat = 3; b: bool = true;", "nat x; bool b; x := 3; b := true;")
-    _agree("x: nat = unif(1, 6);", "nat x; x := unif(1, 6);")
+    _agree("x: nat = 3; b: bool = true;", """x: nat;
+b: bool;
+x = 3;
+b = true;""")
+    _agree("x: nat = unif(1, 6);", """x: nat;
+x = unif(1, 6);""")
 
 
 def test_declaration_after_statements_starts_at_zero():
     # at the start, a declaration keeps the old meaning (input variable);
     # later it gives 0 explicitly
     _agree("x: nat; x = 2; y: nat; b: bool; z: nat = x;",
-           "nat x; nat y; bool b; nat z; x := 2; y := 0; b := false; z := x;")
+           """x: nat;
+y: nat;
+b: bool;
+z: nat;
+x = 2;
+y = 0;
+b = false;
+z = x;""")
 
 
 def test_declarations_inside_blocks():
@@ -102,13 +114,42 @@ def test_declarations_inside_blocks():
 
 @pytest.mark.parametrize("source, expected", [
     ("x: nat; while (x < 3) { y: nat = 1; x = x + y; }",
-     "nat x; nat y; while (x < 3) { y := 1; x := x + y; y := 0 }"),
+     """x: nat;
+y: nat;
+while (x < 3) {
+    y = 1;
+    x = x + y;
+    y = 0;
+}"""),
     ("x: nat; if (x == 0) { y: nat; } else { skip; }",
-     "nat x; nat y; if (x = 0) { y := 0 } else { skip }"),
+     """x: nat;
+y: nat;
+if (x == 0) {
+    y = 0;
+} else {
+    skip;
+}"""),
     ("x: nat; if (x == 0) { b: bool = x == 0; if (b) { x = 2; } }",
-     "nat x; bool b; if (x = 0) { b := x = 0; if (b) { x := 2 } else { } b := false } else { }"),
+     """x: nat;
+b: bool;
+if (x == 0) {
+    b = x == 0;
+    if (b) {
+        x = 2;
+    }
+    b = false;
+}"""),
     ("def f(a: nat) -> nat { while (a > 0) { t: nat = a; a = a - 1; } return a; } x: nat; x = f(2);",
-     "fun f := { nat a; nat t; while (a > 0) { t := a; a := a - 1; t := 0 } return a; }; nat x; x := f(2)"),
+     """def f(a: nat, t: nat) -> nat {
+    while (a > 0) {
+        t = a;
+        a = a - 1;
+        t = 0;
+    }
+    return a;
+}
+x: nat;
+x = f(2);"""),
 ])
 def test_block_declarations_are_lowered(source, expected):
     result = compile_pgcl(source, syntax="ppy")
@@ -149,48 +190,78 @@ def test_initial_value_needs_single_variable():
 
 def test_simple_statements():
     _agree("x: nat; skip; abort; x = 1; observe(x > 0);",
-           "nat x; skip; abort; x := 1; observe(x > 0);")
+           """x: nat;
+skip;
+abort;
+x = 1;
+observe(x > 0);""")
 
 
 def test_empty_statements_are_ignored():
-    _agree("x: nat;; x = 1;;", "nat x; x := 1;")
+    _agree("x: nat;; x = 1;;", """x: nat;
+x = 1;""")
 
 
 def test_while_and_loop():
-    _agree("x: nat; while (x < 10) { x = x + 1; }", "nat x; while (x < 10) { x := x + 1 }")
-    _agree("x: nat; loop(3) { x = x + 1; }", "nat x; loop(3) { x := x + 1 }")
+    _agree("x: nat; while (x < 10) { x = x + 1; }", """x: nat;
+while (x < 10) {
+    x = x + 1;
+}""")
+    _agree("x: nat; loop(3) { x = x + 1; }", """x: nat;
+loop(3) {
+    x = x + 1;
+}""")
 
 
 def test_loop_with_constant():
     _agree("const N: nat = 4; x: nat; loop(N) { x = x + 1; }",
-           "const N := 4; nat x; loop(4) { x := x + 1 }")
+           """const N: nat = 4;
+x: nat;
+loop(4) {
+    x = x + 1;
+}""")
     with pytest.raises(PpySyntaxError, match="loop\\(M\\) needs a constant"):
         parse_ppy("x: nat; loop(M) { skip; }")
 
 
 def test_if_with_optional_else():
-    _agree("x: nat; if (x == 1) { x = 2; }", "nat x; if (x = 1) { x := 2 } else { }")
+    _agree("x: nat; if (x == 1) { x = 2; }", """x: nat;
+if (x == 1) {
+    x = 2;
+}""")
     _agree("x: nat; if (x == 1) { x = 2; } else { x = 3; }",
-           "nat x; if (x = 1) { x := 2 } else { x := 3 }")
-
-
-def test_if_without_else_prints_as_pgcl_that_parses_again():
-    """The pGCL printer writes ``else { }`` for an empty branch, which the grammar needs (#207)."""
-    program = parse_ppy("x: nat; b: bool; if (x == 1) { x = 2; if (b) { x = 3; } } "
-                        "while (x < 5) { if (x == 0) { x = 1; } x = x + 1; }")
-    printed = str(program)
-    assert "if (x = 1) {" in printed and printed.count("else { }") == 3
-    _same(parse_pgcl(printed), program)
+           """x: nat;
+if (x == 1) {
+    x = 2;
+} else {
+    x = 3;
+}""")
 
 
 def test_else_if():
     _agree("x: nat; if (x == 1) { x = 2; } else if (x == 2) { x = 3; } else { skip; }",
-           "nat x; if (x = 1) { x := 2 } else { if (x = 2) { x := 3 } else { skip } }")
+           """x: nat;
+if (x == 1) {
+    x = 2;
+} else if (x == 2) {
+    x = 3;
+} else {
+    skip;
+}""")
 
 
 def test_binary_choice():
-    _agree("x: nat; {x = 1;} [1/3] {x = 2;}", "nat x; {x := 1} [1/3] {x := 2}")
-    _agree("x: nat; param p: real; {x = 1;} [p] { }", "nat x; rparam p; {x := 1} [p] {}")
+    _agree("x: nat; {x = 1;} [1/3] {x = 2;}", """x: nat;
+{
+    x = 1;
+} [1/3] {
+    x = 2;
+}""")
+    _agree("x: nat; param p: real; {x = 1;} [p] { }", """x: nat;
+param p: real;
+{
+    x = 1;
+} [p] { }""")
 
 
 def test_switch():
@@ -203,58 +274,41 @@ def test_switch():
             default: { x = 2; }
         }
     """
-    pgcl = """
-        nat c; nat x;
-        c := 1 : 1/6 + 2 : 1/3 + 3 : 1/2;
-        if (c = 1) { x := 0 } else { if (c = 2 || c = 3) { x := 1 } else { x := 2 } }
-    """
+    pgcl = """c: nat;
+
+x: nat;
+c = categorical({1: 1/6, 2: 1/3, 3: 1/2});
+if (c == 1) {
+    x = 0;
+} else if (c == 2 or c == 3) {
+    x = 1;
+} else {
+    x = 2;
+}"""
     _agree(ppy, pgcl)
 
 
 def test_switch_without_default():
     _agree("c, x: nat; switch (c) { case 1: { x = 0; } case 2: { x = 1; } }",
-           "nat c; nat x; if (c = 1) { x := 0 } else { if (c = 2) { x := 1 } else { } }")
+           """c: nat;
+x: nat;
+if (c == 1) {
+    x = 0;
+} else if (c == 2) {
+    x = 1;
+}""")
 
 
 def test_query_block():
     _agree("x: nat; query { x = 1; observe(x == 1); }",
-           "nat x; query { x := 1; observe(x = 1) }")
+           """x: nat;
+query {
+    x = 1;
+    observe(x == 1);
+}""")
 
 
 # --- expressions --------------------------------------------------------------
-
-
-@pytest.mark.parametrize("ppy, pgcl", [
-    ("x and y", "x & y"),
-    ("x && y", "x & y"),
-    ("x or y", "x || y"),
-    ("x || y", "x || y"),
-    ("not x", "not x"),
-    ("!x", "not x"),
-    ("x == 1", "x = 1"),
-    ("x ** 2", "x^2"),
-    ("x ** y ** 2", "x^(y^2)"),
-    ("-x", "-x"),
-    ("-x ** 2", "-(x^2)"),
-    ("2 ** -x", "2^(-x)"),
-    ("-x + 1", "(-x) + 1"),
-    ("x - y - 1", "(x - y) - 1"),
-    ("x - (y - 1)", "x - (y - 1)"),
-    ("x * y % 3", "(x * y) % 3"),
-    ("1/2", "1/2"),
-    ("1/2 * x", "1/2 * x"),
-    ("x / 2", "x / 2"),
-    ("0.5", "0.5"),
-    ("∞", "∞"),
-    ("\\infty", "∞"),
-    ("not x < 2 and y", "(not (x < 2)) & y"),
-    ("x < 2 or y >= 3 and z", "(x < 2) || ((y >= 3) & z)"),
-    ("x <= 1 and x > 0", "x <= 1 & x > 0"),
-    ("unif(1, 6)", "unif(1, 6)"),
-    ("iid(geometric(1/2), x)", "iid(geometric(1/2), x)"),
-])
-def test_expressions(ppy, pgcl):
-    _same(parse_ppy_expr(ppy), parse_expectation(pgcl))
 
 
 def test_floor_division_is_parsed_and_checked():
@@ -290,9 +344,13 @@ def test_categorical():
                                 (NatLitExpr(2), RealLitExpr(Fraction(1, 3))),
                                 (NatLitExpr(5), RealLitExpr(Fraction(1, 2)))])
     assert parse_ppy("x: nat; x = categorical({1: 1/6, 2: 1/3, 5: 1/2});").instructions[0].rhs == expected
-    _agree("x: nat; x = categorical({1: 1/6, 2: 1/3, 5: 1/2});", "nat x; x := 1 : 1/6 + 2 : 1/3 + 5 : 1/2")
-    _agree("x: nat; x = categorical(0.2, 0.3, 0.5);", "nat x; x := 0 : 0.2 + 1 : 0.3 + 2 : 0.5")
-    _agree("x, y: nat; x = categorical({y: 1/2, y + 1: 1/2});", "nat x; nat y; x := y : 1/2 + (y + 1) : 1/2")
+    _agree("x: nat; x = categorical({1: 1/6, 2: 1/3, 5: 1/2});", """x: nat;
+x = categorical({1: 1/6, 2: 1/3, 5: 1/2});""")
+    _agree("x: nat; x = categorical(0.2, 0.3, 0.5);", """x: nat;
+x = categorical({0: 0.2, 1: 0.3, 2: 0.5});""")
+    _agree("x, y: nat; x = categorical({y: 1/2, y + 1: 1/2});", """x: nat;
+y: nat;
+x = categorical({y: 1/2, y + 1: 1/2});""")
 
 
 def test_categorical_errors():
@@ -321,14 +379,15 @@ def test_function_definition_and_calls():
         y = f(a = 2, b = 3);
         y = f();
     """
-    pgcl = """
-        fun f := { nat a; nat b; x := a; return a + b };
-        nat y;
-        y := f(2, 3);
-        y := f(2, b := 3);
-        y := f(a := 2, b := 3);
-        y := f();
-    """
+    pgcl = """def f(a: nat, b: nat) -> nat {
+    x = a;
+    return a + b;
+}
+y: nat;
+y = f(2, 3);
+y = f(2, b = 3);
+y = f(a = 2, b = 3);
+y = f();"""
     _agree(ppy, pgcl)
 
 
@@ -343,7 +402,9 @@ def test_function_with_local_variable():
 
 
 def test_function_return_type_is_optional():
-    _agree("def f(a: nat) { return a; }", "fun f := { nat a; return a };")
+    _agree("def f(a: nat) { return a; }", """def f(a: nat) -> nat {
+    return a;
+}""")
 
 
 def test_function_errors():
@@ -373,18 +434,22 @@ def test_infer_and_sample():
         d = infer(f, a = 2);
         d = infer(f);
     """
-    pgcl = """
-        fun f := { nat a; return a + 1 };
-        dist d;
-        nat x;
-        d := infer { f(10) };
-        x := sample { d };
-        d := infer { f(a := 2) };
-        d := infer { f() };
-    """
+    pgcl = """def f(a: nat) -> nat {
+    return a + 1;
+}
+d: dist;
+x: nat;
+d = infer(f, 10);
+x = sample(d);
+d = infer(f, a = 2);
+d = infer(f);"""
     _agree(ppy, pgcl)
     _agree("def f(a: nat) -> nat { return a; } d: dist = infer(f, 1);",
-           "fun f := { nat a; return a }; dist d; d := infer { f(1) }")
+           """def f(a: nat) -> nat {
+    return a;
+}
+d: dist;
+d = infer(f, 1);""")
 
 
 # --- queries ------------------------------------------------------------------
@@ -408,22 +473,24 @@ def test_queries():
         optimize(x, p, MAX);
         optimize(x, p, MIN);
     """
-    pgcl = """
-        nat x; nat y; rparam p;
-        ?Pr[x = 3]
-        ?Ex[x + y]
-        ?Var[x]
-        ?Cov[x, y]
-        !Print
-        !Plot[x]
-        !Plot[x, y]
-        !Plot[x, 0.9]
-        !Plot[x, 10]
-        !Plot[x, ∞]
-        !Plot[x, y, 0.5]
-        ?Opt[x, p, MAX]
-        ?Opt[x, p, MIN]
-    """
+    pgcl = """x: nat;
+
+y: nat;
+
+param p: real;
+query Pr[x == 3];
+query Ex[x + y];
+query Var[x];
+query Cov[x, y];
+print;
+plot(x);
+plot(x, y);
+plot(x, 0.9);
+plot(x, 10);
+plot(x, ∞);
+plot(x, y, 0.5);
+optimize(x, p, MAX);
+optimize(x, p, MIN);"""
     _agree(ppy, pgcl)
 
 
@@ -497,13 +564,15 @@ def test_syntax_error_hints(source, hint):
 
 
 def test_comments():
-    _agree("# a comment\nx: nat; # another\nx = 1;", "nat x; x := 1")
+    _agree("# a comment\nx: nat; # another\nx = 1;", """x: nat;
+x = 1;""")
 
 
 def test_block_comments():
     # at the start of a line, inside an expression, spanning lines, next to '//' and '#'
     _agree("/* head */ x: nat;\nx = 1 /* one */ + /* two\n lines # not a line comment */ 2;",
-           "nat x; x := 1 + 2")
+           """x: nat;
+x = 1 + 2;""")
     assert parse_ppy("x: nat; x = 7 // /* floor */ 2;") == parse_ppy("x: nat; x = 7 // 2;")
     # '//*' is floor division followed by '*', as the longest token wins
     with pytest.raises(PpySyntaxError, match="Unexpected '\\*'"):
@@ -529,21 +598,15 @@ def test_unterminated_block_comment(source, line, column):
 # --- selecting the syntax -------------------------------------------------------
 
 
-def test_select_syntax():
-    assert select_syntax() == "pgcl"
-    assert select_syntax(path="a.pgcl") == "pgcl"
-    assert select_syntax(path=Path("dir/a.ppy")) == "ppy"
-    assert select_syntax("ppy", path="a.pgcl") == "ppy"
-    with pytest.raises(ValueError, match="Unknown syntax"):
-        select_syntax("python")
-
-
 def test_compile_by_extension_or_argument():
-    expected = compile_pgcl("nat x; x := 1")
+    expected = compile_pgcl("""x: nat;
+x = 1;""")
     assert compile_pgcl("x: nat; x = 1;", path="prog.ppy") == expected
     assert compile_pgcl("x: nat; x = 1;", syntax="ppy") == expected
-    assert parse_pgcl("x: nat; x = 1;", "ppy") == parse_pgcl("nat x; x := 1")
-    assert compile_pgcl("nat x; x := 1", path="prog.pgcl") == expected
+    assert parse_pgcl("x: nat; x = 1;", "ppy") == parse_pgcl("""x: nat;
+x = 1;""")
+    assert compile_pgcl("""x: nat;
+x = 1;""", path="prog.ppy") == expected
 
 
 # --- pretty printer -------------------------------------------------------------
@@ -560,13 +623,13 @@ def test_printer_canonical_spelling():
 
 def test_printer_literals_round_trip():
     for text in ["5.", "0.10", "1E+5", "4/2", "∞"]:
-        expr = parse_expectation(text)
+        expr = parse_ppy_expr(text)
         _same(parse_ppy_expr(expr_to_ppy(expr)), expr)
 
 
 def test_printer_rejects_what_ppy_cannot_express():
     with pytest.raises(PpyPrintError, match="reserved word"):
-        program_to_ppy(parse_pgcl("nat case; case := 1"))
+        expr_to_ppy(VarExpr("case"))
     with pytest.raises(PpyPrintError, match="negative literal"):
         expr_to_ppy(RealLitExpr("-0.5"))
 

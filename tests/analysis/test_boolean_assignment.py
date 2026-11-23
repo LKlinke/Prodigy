@@ -25,13 +25,10 @@ PROGRAMS = {
     "ppy": "x: nat = geometric(1/2);\nb: bool;\nc: bool;\nd: bool;\n"
            "b = x < 2;\nc = not b;\nb = b and c or x == 3;\nd = not d;\n"
            "query Pr[b == 1];\nquery Pr[c == 1];\nquery Pr[b == 1 and c == 1];\nquery Pr[d == 1];\n",
-    "pgcl": "nat x;\nbool b;\nbool c;\nbool d;\nx := geometric(1/2);\n"
-            "b := x < 2;\nc := not b;\nb := b & c || x = 3;\nd := not d;\n"
-            "?Pr[b = 1];\n?Pr[c = 1];\n?Pr[b = 1 & c = 1];\n?Pr[d = 1];\n",
 }
 
 
-@pytest.mark.parametrize("syntax", ["ppy", "pgcl"])
+@pytest.mark.parametrize("syntax", ["ppy"])
 @pytest.mark.parametrize("engine", ENGINES)
 def test_boolean_expression_on_the_right_hand_side(syntax, engine):
     result = _run(PROGRAMS[syntax], syntax, engine)
