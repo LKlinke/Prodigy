@@ -6,6 +6,11 @@ the built-in distributions, ``if``, probabilistic choice, ``observe``, ``loop(n)
 ``while`` loops, modulo and floor division, and queries. A :class:`GeneratedProgram` is rendered
 in ``.ppy`` (:meth:`GeneratedProgram.source`; the ``.pgcl`` syntax was removed in v0.6.0).
 
+With :attr:`Features.parameters`, probabilities may depend on the parameters ``p`` and ``q``
+(``param p: real;``), from a class of expressions that are admissible probabilities for every value
+of the parameters in (0, 1) (:data:`PARAMETRIC_PROBABILITIES`). :meth:`GeneratedProgram.instantiate`
+replaces the parameters by values, which gives a program with constant probabilities (#453).
+
 :class:`Features` switches constructs on and off. The defaults leave out the classes of programs
 with known open bugs, so that the test suite stays green while they are open; each switch names
 its issue. A fuzzing run with a switch turned on finds programs of that class.
@@ -13,7 +18,8 @@ its issue. A fuzzing run with a switch turned on finds programs of that class.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import List, Optional, Sequence, Tuple, Union
+from fractions import Fraction
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 from hypothesis import strategies as st
 
@@ -22,6 +28,10 @@ VARIABLES = ("x", "y", "z")
 COUNTER = "c"
 """The counter of the bounded ``while`` loops; only the loop itself assigns it."""
 PROBABILITIES = ("1/2", "1/3", "2/3", "1/4", "3/4", "1/5", "0.5", "0.25", "0.1")
+PARAMETERS = ("p", "q")
+"""The parameters (``param p: real;``) of parametric programs; a program declares those it uses."""
+PARAMETER_VALUES = tuple(Fraction(*v) for v in ((1, 2), (1, 3), (2, 3), (1, 4), (3, 4), (1, 5), (4, 5)))
+"""The admissible values a parameter is instantiated with: rationals in (0, 1)."""
 
 
 @dataclass(frozen=True)
@@ -44,6 +54,8 @@ class Features:  # pylint: disable=too-many-instance-attributes
     """Probabilities that depend on a variable (``[1/(x+1)]``, ``bernoulli(1/(x+1))``; case split since #213)."""
     categorical: bool = True
     """``categorical({v: p, …})`` (computed since #233)."""
+    parameters: bool = False
+    """Probabilities with the parameters ``p`` and ``q`` (:data:`PARAMETRIC_PROBABILITIES`, #453)."""
     max_depth: int = 2
     max_statements: int = 4
 
@@ -74,6 +86,12 @@ class Prob:
 
 
 @dataclass(frozen=True)
+class Param:
+    """A parameter (``param p: real;``)."""
+    name: str
+
+
+@dataclass(frozen=True)
 class Op:
     """A binary operation; ``op`` is the .ppy spelling."""
     op: str
@@ -100,7 +118,7 @@ class Categorical:
     items: Tuple[Tuple[int, str], ...]
 
 
-Expr = Union[Num, Var, Prob, Op, Not, Call, Categorical]
+Expr = Union[Num, Var, Prob, Param, Op, Not, Call, Categorical]
 
 _PRECEDENCE = {"or": 1, "and": 2, "<": 4, "<=": 4, ">": 4, ">=": 4, "==": 4, "+": 5, "-": 5,
                "*": 6, "/": 6, "//": 6, "%": 6}
@@ -110,7 +128,7 @@ def render_expr(expr: Expr, syntax: str) -> str:
     """``expr`` in the syntax ``ppy`` (the only one); every operation is parenthesised."""
     if isinstance(expr, Num):
         return str(expr.value)
-    if isinstance(expr, Var):
+    if isinstance(expr, (Var, Param)):
         return expr.name
     if isinstance(expr, Prob):
         return expr.text
@@ -201,6 +219,82 @@ def render_stmt(stmt: Stmt, syntax: str, indent: str = "") -> str:
     raise TypeError(stmt)
 
 
+def _expr_parameters(expr: Expr) -> List[str]:
+    if isinstance(expr, Param):
+        return [expr.name]
+    if isinstance(expr, Op):
+        return _expr_parameters(expr.lhs) + _expr_parameters(expr.rhs)
+    if isinstance(expr, Not):
+        return _expr_parameters(expr.expr)
+    if isinstance(expr, Call):
+        return [name for arg in expr.args for name in _expr_parameters(arg)]
+    return []
+
+
+def _value(expr: Expr, values: Mapping[str, Fraction]) -> Fraction:
+    """The value of a parametric probability (built from parameters, literals and arithmetic)."""
+    if isinstance(expr, Param):
+        return values[expr.name]
+    if isinstance(expr, (Num, Prob)):
+        return Fraction(str(expr.value) if isinstance(expr, Num) else expr.text)
+    if isinstance(expr, Op) and expr.op in ("+", "-", "*", "/"):
+        lhs, rhs = _value(expr.lhs, values), _value(expr.rhs, values)
+        return {"+": lhs + rhs, "-": lhs - rhs, "*": lhs * rhs, "/": lhs / rhs if rhs else Fraction(0)}[expr.op]
+    raise TypeError(expr)
+
+
+def _instantiate_expr(expr: Expr, values: Mapping[str, Fraction]) -> Expr:
+    """``expr`` with every parametric subexpression replaced by its value (a literal)."""
+    if not _expr_parameters(expr):
+        return expr
+    if isinstance(expr, Call):
+        return Call(expr.name, tuple(_instantiate_expr(arg, values) for arg in expr.args))
+    if isinstance(expr, Not):
+        return Not(_instantiate_expr(expr.expr, values))
+    if isinstance(expr, Op) and expr.op not in ("+", "-", "*", "/"):
+        return Op(expr.op, _instantiate_expr(expr.lhs, values), _instantiate_expr(expr.rhs, values))
+    return Prob(str(_value(expr, values)))
+
+
+def _children(stmt: "Stmt") -> List[Tuple["Stmt", ...]]:
+    if isinstance(stmt, If):
+        return [stmt.then, stmt.orelse]
+    if isinstance(stmt, Choice):
+        return [stmt.lhs, stmt.rhs]
+    if isinstance(stmt, (Repeat, Bounded)):
+        return [stmt.body]
+    return []
+
+
+def _stmt_parameters(stmt: "Stmt") -> List[str]:
+    own: List[str] = []
+    if isinstance(stmt, Assign):
+        own = _expr_parameters(stmt.expr)
+    elif isinstance(stmt, (Observe, If)):
+        own = _expr_parameters(stmt.cond)
+    elif isinstance(stmt, Choice):
+        own = _expr_parameters(stmt.prob)
+    return own + [name for block in _children(stmt) for child in block for name in _stmt_parameters(child)]
+
+
+def _instantiate_stmt(stmt: "Stmt", values: Mapping[str, Fraction]) -> "Stmt":
+    def block(stmts: Tuple["Stmt", ...]) -> Tuple["Stmt", ...]:
+        return tuple(_instantiate_stmt(child, values) for child in stmts)
+    if isinstance(stmt, Assign):
+        return Assign(stmt.var, _instantiate_expr(stmt.expr, values))
+    if isinstance(stmt, Observe):
+        return Observe(_instantiate_expr(stmt.cond, values))
+    if isinstance(stmt, If):
+        return If(_instantiate_expr(stmt.cond, values), block(stmt.then), block(stmt.orelse))
+    if isinstance(stmt, Choice):
+        return Choice(_instantiate_expr(stmt.prob, values), block(stmt.lhs), block(stmt.rhs))
+    if isinstance(stmt, Repeat):
+        return Repeat(stmt.times, block(stmt.body))
+    if isinstance(stmt, Bounded):
+        return Bounded(stmt.bound, block(stmt.body))
+    raise TypeError(stmt)
+
+
 @dataclass(frozen=True)
 class Query:
     """``Pr[cond]`` (``kind == "Pr"``) or ``Ex[expr]`` (``kind == "Ex"``)."""
@@ -232,6 +326,18 @@ class GeneratedProgram:
         return count(self.body)
 
     @property
+    def parameters(self) -> Tuple[str, ...]:
+        """The parameters the program uses, sorted."""
+        return tuple(sorted({name for stmt in self.body for name in _stmt_parameters(stmt)}
+                            | {name for query in self.queries for name in _expr_parameters(query.expr)}))
+
+    def instantiate(self, values: Mapping[str, Fraction]) -> "GeneratedProgram":
+        """The program with each parameter replaced by its value: every parametric probability becomes the
+        literal of its value."""
+        return GeneratedProgram(tuple(_instantiate_stmt(stmt, values) for stmt in self.body),
+                                tuple(Query(q.kind, _instantiate_expr(q.expr, values)) for q in self.queries))
+
+    @property
     def max_iterations(self) -> int:
         """An unrolling depth after which every bounded loop has terminated."""
         def bound(stmts: Sequence[Stmt]) -> int:
@@ -256,7 +362,7 @@ class GeneratedProgram:
 
     def source(self, syntax: str = "ppy") -> str:
         """The program text in ``ppy``."""
-        lines = []
+        lines = [f"param {name}: real;" for name in self.parameters]
         names = list(VARIABLES) + ([COUNTER] if self.while_loops else [])
         for name in names:
             lines.append(f"{name}: nat;")
@@ -276,9 +382,39 @@ def _variables() -> st.SearchStrategy[Var]:
     return st.sampled_from(VARIABLES).map(Var)
 
 
-def probabilities(features: Features = DEFAULT_FEATURES) -> st.SearchStrategy[Expr]:
-    """A probability: a literal, or (with ``state_probabilities``) ``1/(v + 1)``."""
+def _parametric(builder) -> st.SearchStrategy[Expr]:
+    return st.sampled_from(PARAMETERS).map(lambda name: builder(Param(name)))
+
+
+def parametric_probabilities() -> st.SearchStrategy[Expr]:
+    """
+    A probability with parameters, from the class ``p``, ``1 - p``, ``p/2``, ``(1 - p)/2``, ``(1 + p)/2``
+    and ``p*q``: affine maps ``a + b·p`` with ``a`` and ``a + b`` in [0, 1], and the product of two such maps.
+    Each maps the parameter values in (0, 1) into (0, 1), so it is an admissible probability (and an argument
+    of ``geometric``, which must be positive) for every value the program can be instantiated with
+    (:data:`PARAMETER_VALUES`).
+    """
+    half = Num(2)
+    return st.one_of(
+        _parametric(lambda p: p),
+        _parametric(lambda p: Op("-", Num(1), p)),
+        _parametric(lambda p: Op("/", p, half)),
+        _parametric(lambda p: Op("/", Op("-", Num(1), p), half)),
+        _parametric(lambda p: Op("/", Op("+", Num(1), p), half)),
+        st.just(Op("*", Param(PARAMETERS[0]), Param(PARAMETERS[1]))),
+    )
+
+
+def _constant_probabilities(features: Features) -> st.SearchStrategy[Expr]:
+    """A literal probability, or (with ``parameters``) a parametric one."""
     literal = st.sampled_from(PROBABILITIES).map(Prob)
+    return st.one_of(literal, parametric_probabilities()) if features.parameters else literal
+
+
+def probabilities(features: Features = DEFAULT_FEATURES) -> st.SearchStrategy[Expr]:
+    """A probability: a literal, (with ``parameters``) a parametric one, or (with ``state_probabilities``)
+    ``1/(v + 1)``."""
+    literal = _constant_probabilities(features)
     if not features.state_probabilities:
         return literal
     return st.one_of(literal, _variables().map(lambda v: Op("/", Num(1), Op("+", v, Num(1)))))
@@ -320,16 +456,20 @@ def samples(features: Features = DEFAULT_FEATURES) -> st.SearchStrategy[Expr]:
     options = [
         st.builds(lambda p: Call("bernoulli", (p,)), prob),
         st.builds(lambda a, d: Call("unif", (Num(a), Num(a + d))), small, small),
-        st.builds(lambda n, p: Call("binomial", (Num(n), p)), st.integers(1, 3), st.sampled_from(PROBABILITIES).map(Prob)),
+        st.builds(lambda n, p: Call("binomial", (Num(n), p)), st.integers(1, 3), _constant_probabilities(features)),
     ]
     if features.categorical:
         options.append(st.lists(st.tuples(st.integers(0, 4), st.sampled_from(((1, 2), (1, 3), (1, 4), (1, 6)))),
                                 min_size=1, max_size=3).map(_categorical))
     if features.infinite:
-        literal = st.sampled_from(("1/2", "1/3", "2/3", "1/4", "0.5")).map(Prob)
+        literal: st.SearchStrategy[Expr] = st.sampled_from(("1/2", "1/3", "2/3", "1/4", "0.5")).map(Prob)
+        rate: st.SearchStrategy[Expr] = st.sampled_from(("1", "2", "1/2")).map(Prob)
+        if features.parameters:
+            literal = st.one_of(literal, parametric_probabilities())
+            rate = st.one_of(rate, st.sampled_from(PARAMETERS).map(Param))
         options += [
             st.builds(lambda p: Call("geometric", (p,)), literal),
-            st.builds(lambda l: Call("poisson", (l,)), st.sampled_from(("1", "2", "1/2")).map(Prob)),
+            st.builds(lambda l: Call("poisson", (l,)), rate),
             st.builds(lambda r, p: Call("negative_binomial", (Num(r), p)), st.integers(1, 2), literal),
             st.builds(lambda p: Call("logdist", (p,)), st.sampled_from(("1/2", "1/3")).map(Prob)),
         ]
@@ -400,3 +540,8 @@ def programs(features: Features = DEFAULT_FEATURES) -> st.SearchStrategy[Generat
     body = st.lists(statements(features), min_size=1, max_size=features.max_statements) \
         .filter(lambda stmts: all(_no_nested_loops(s) for s in stmts)).map(tuple)
     return st.builds(GeneratedProgram, body, st.lists(queries(features), min_size=1, max_size=3).map(tuple))
+
+
+def parameter_values() -> st.SearchStrategy[Dict[str, Fraction]]:
+    """A value for every parameter, from :data:`PARAMETER_VALUES`."""
+    return st.fixed_dictionaries({name: st.sampled_from(PARAMETER_VALUES) for name in PARAMETERS})
