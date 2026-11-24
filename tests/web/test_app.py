@@ -55,6 +55,15 @@ def test_page_and_meta(client):
     assert list(engines) == ["sympy", "ginac"]
     assert all(e["available"] == (e["reason"] is None) for e in engines.values())
     assert sum(e["default"] for e in engines.values()) == 1
+    assert "solvers" not in meta  # SymPy is the only solver; the setup page has no choice (#480)
+
+
+def test_request_keeps_the_solver_field(client):
+    """Saved setups and API clients still send `"solver": "sympy"` (#480)."""
+    started = client.post("/api/analyze", json={"source": "x: nat\nx = 1", "solver": "sympy"}, headers=HOST)
+    assert started.status_code == 202,started.get_data(as_text=True)
+    assert client.post("/api/analyze", json={"source": "x: nat\nx = 1", "solver": "nope"},
+                       headers=HOST).status_code == 400
 
 
 def test_engine_is_chosen_in_the_toolbar_not_in_the_setup(client):

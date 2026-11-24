@@ -151,7 +151,6 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
             "synthesis_strategies": [s.name.lower() for s in SynthesisStrategies],
             "template_heuristics": [name.lower() for name in TemplateHeuristics.__members__],
             "positivity_heuristics": list(SELECTABLE_POSITIVITY_HEURISTICS),
-            "solvers": ["sympy"],
             "limits": {"time_limit": jobs.time_limit, "max_jobs": jobs.max_jobs,
                        "max_background_jobs": jobs.max_auxiliary,
                        "max_coefficients": MAX_COEFFICIENTS, "max_joint_axis": MAX_AXIS},
