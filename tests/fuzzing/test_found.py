@@ -212,11 +212,22 @@ query Ex[z];
 query Pr[((z % 2) == 1)];
 print;
 """,
+    # and a sum of exponentials over c·exp(x) (the odd part of a Poisson draw)
+    """x: nat;
+y: nat;
+z: nat;
+x = poisson(1);
+observe(((x % 2) == 1));
+y = 2;
+query Ex[(x + z)];
+print;
+""",
 ]
 
 
 @pytest.mark.timeout(100)  # a few seconds (it was more than a minute); the bound leaves room for a slow runner
 @pytest.mark.parametrize("source", RESIDUES_OF_POISSON,
-                         ids=["observe-residue", "residue-after-observe", "observed-residue-normalised"])
+                         ids=["observe-residue", "residue-after-observe", "observed-residue-normalised",
+                              "odd-poisson"])
 def test_residue_classes_of_poisson_draws_agree_and_are_fast(source):
     assert not isolated(check_program, source, "ppy", {}, seconds=90, seed=0)
