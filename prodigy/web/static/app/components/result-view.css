@@ -206,6 +206,14 @@
 .marginal-chart .mc-bar rect.mc-ext-hover { visibility: hidden; }
 .marginal-chart .mc-bar:hover rect.mc-ext-hover { visibility: visible; }
 .marginal-chart .mc-bar:hover rect { opacity: 0.8; }
+/* the selected bar (#462): an outline over its slot and its interval, while the chart has the focus or
+   after a bar was picked; the readout below the chart gives the same in text */
+.marginal-chart .mc-marker { fill: none; stroke: var(--rv-text); stroke-width: 2; pointer-events: none; visibility: hidden; }
+.mc-plot:focus .marginal-chart .mc-marker, .mc-plot[data-picked="true"] .marginal-chart .mc-marker { visibility: visible; }
+.mc-plot:focus .marginal-chart .mc-bar.mc-active rect.mc-ext-hover,
+.mc-plot[data-picked="true"] .marginal-chart .mc-bar.mc-active rect.mc-ext-hover { visibility: visible; }
+.mc { display: grid; gap: 4px; min-width: 0; }
+.mc-plot { touch-action: manipulation; }
 .marginal-chart .mc-scale { font-style: italic; }
 .marginal-chart .mc-pending .mc-pending-text {
   fill: var(--rv-text-2); font-size: 11px; font-family: var(--font-ui, sans-serif);

@@ -7,7 +7,7 @@
 // are never shown by colour alone: the readout below the heatmap, the tooltips and the table give them.
 import { h, s } from "./dom.js";
 import { DEFAULT_VIEW, exactInterval, hatchPattern, ownUpperEnds } from "./charts.js";
-import { PROBABILITY_GUARANTEE, formatNumber, formatValue, probabilityText } from "./format.js";
+import { PROBABILITY_GUARANTEE, formatNumber, formatValue, probabilityText, upperSourceText } from "./format.js";
 import { COLOUR_MAPS, colourAt, probabilityScale, scaleName, shade, textOn, viridis } from "./plot-scale.js";
 
 export { viridis };
@@ -41,9 +41,11 @@ export function cellParts(grid, r, c) {
   return { where, value: probabilityText(grid.bound, cell) };
 }
 
+/** The readout of a cell: its interval and where its upper end comes from (#451), like the bar charts' readout. */
 function cellText(grid, r, c) {
   const { where, value } = cellParts(grid, r, c);
-  return `${where}: ${value}`;
+  const cell = grid.cells[r][c];
+  return [`${where}: ${value}`, cell.pending ? null : upperSourceText(grid.bound, cell)].filter(Boolean).join("; ");
 }
 
 /** The cell [r, c] after an arrow, Home/End or Page Up/Down key (y grows upwards), or null. */

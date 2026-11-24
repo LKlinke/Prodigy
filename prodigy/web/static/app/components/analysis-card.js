@@ -9,7 +9,7 @@
 // result-view.css and analysis-card.css and optionally KaTeX; the editor and the server are reached
 // through callbacks (onPosition, loadJoint, onRecord, ...).
 import { h } from "./dom.js";
-import { marginalChart, marginalTable, massSummary, positionChart } from "./charts.js";
+import { chartFocus, marginalChart, marginalTable, massSummary, positionChart } from "./charts.js";
 import { BOUND_TEXT, chartLegend, formatNumber, formatSeconds, formatValue, qualify } from "./format.js";
 import { formulaBox } from "./formula-box.js";
 import { JOINT_VIEWS, jointView } from "./joint-view.js";
@@ -189,9 +189,13 @@ function distributionLens(ctx) {
     } else if (table.error) {
       figure.replaceChildren(h("p", { class: "rv-muted" }, `Not available: ${table.error}`));
     } else {
+      // the selected bar of each variable stays selected from position to position (#462)
+      const selection = ((view.selectedBars ||= {})[name] ||= {});
+      const refocus = chartFocus(figure);
       figure.replaceChildren(mode() === "chart"
-        ? marginalChart(table, { residual: residual?.p, residualExact: residual?.exact, variable: name, bound, width: drawnWidth, view: viewOptions() })
+        ? marginalChart(table, { residual: residual?.p, residualExact: residual?.exact, variable: name, bound, width: drawnWidth, view: viewOptions(), selection })
         : marginalTable(table, { variable: name, bound }));
+      refocus();
       // the guarantee in words, not only implied by the intervals (#405)
       legend.textContent = chartLegend(bound);
       legend.hidden = false;
@@ -924,6 +928,7 @@ export function analysisCard(result, options = {}) {
     // keep the keyboard focus on the same control across the re-rendering
     const active = document.activeElement;
     const focusKey = active && controls.contains(active) ? active.closest?.("[data-key]")?.dataset.key : null;
+    const refocusChart = chartFocus(body);
     press(lenses, view.lens);
     renderHead();
     const parts = LENS_RENDER[view.lens](ctx);
@@ -934,6 +939,7 @@ export function analysisCard(result, options = {}) {
     details.replaceChildren(...(parts.details || []).filter(Boolean));
     if (focusLens) lenses.querySelector('[aria-pressed="true"]')?.focus({ preventScroll: true });
     else if (focusKey) element.querySelector(`.ac-controls [data-key="${CSS.escape(focusKey)}"]`)?.focus({ preventScroll: true });
+    else refocusChart();
     if (before) motions.push(tweenChart(() => body.querySelector(".marginal-chart"), before, TRANSITION_MS));
     reserve(reset);
   }
