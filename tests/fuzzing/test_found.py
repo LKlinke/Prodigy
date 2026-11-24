@@ -200,10 +200,23 @@ query Ex[z];
 query Pr[((z % 2) == 1)];
 print;
 """,
+    # found by a local nightly run with the seed of the weekly run: exp(x - 1/2) + exp(x + 3/2) in a denominator
+    """x: nat;
+y: nat;
+z: nat;
+x = poisson(1);
+observe(((x % 2) == 0));
+y = (z // 2);
+y = poisson(1/2);
+query Ex[z];
+query Pr[((z % 2) == 1)];
+print;
+""",
 ]
 
 
 @pytest.mark.timeout(100)  # a few seconds (it was more than a minute); the bound leaves room for a slow runner
-@pytest.mark.parametrize("source", RESIDUES_OF_POISSON, ids=["observe-residue", "residue-after-observe"])
+@pytest.mark.parametrize("source", RESIDUES_OF_POISSON,
+                         ids=["observe-residue", "residue-after-observe", "observed-residue-normalised"])
 def test_residue_classes_of_poisson_draws_agree_and_are_fast(source):
     assert not isolated(check_program, source, "ppy", {}, seconds=90, seed=0)

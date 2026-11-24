@@ -93,7 +93,7 @@ def test_generic_members_match_the_series_expansion(seed):
     assert all(_same(a, b) for a, b in zip(computed, expanded))
 
 
-@pytest.mark.parametrize("seed", range(6))
+@pytest.mark.parametrize("seed", range(10))
 def test_exponentials_in_a_denominator(seed):
     # R·exp(g) written with exp(-g) as a common factor of a denominator, as a normalisation writes it
     # (Prodigy#472): the same member of the class
@@ -103,7 +103,11 @@ def test_exponentials_in_a_denominator(seed):
     constants = [sympy.Rational(rng.randint(1, 5), rng.randint(1, 4)), sympy.exp(-1), sympy.sqrt(3) * sympy.I]
     chosen = constants[:rng.randint(2, 3)]
     numerator = _random_polynomial(rng, x, rng.randint(0, 2))
-    function = numerator / sympy.Add(*(c * sympy.Mul(*split) for c in chosen))
+    if rng.random() < 0.5:
+        function = numerator / sympy.Add(*(c * sympy.Mul(*split) for c in chosen))
+    else:  # the constants inside the exponentials, exp(-g + k), as the engine writes exp(x - 1/2)
+        function = numerator / sympy.Add(*(sympy.exp(-g + k) for k in range(len(chosen))))
+        chosen = [sympy.exp(k) for k in range(len(chosen))]
     assert function.is_Mul and not any(isinstance(f, sympy.exp) for f in sympy.Mul.make_args(function))
     stream = exp_polynomial_taylor_stream(function, x)
     assert stream is not None

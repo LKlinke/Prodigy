@@ -163,14 +163,16 @@ def _prepare(function: sympy.Expr, variables: Tuple[sympy.Symbol, ...]) -> Optio
 def _exponentials_out(summand: sympy.Expr, variables: Tuple[sympy.Symbol, ...]) -> sympy.Expr:
     """
     ``summand`` with the exponentials of the expanded variables that are common factors of a sum (typically of a
-    denominator, ``1/(a·exp(y) + b·exp(y))``) pulled out of it (``exp(-y)/(a + b)``), so that each becomes a factor
-    of the summand. An identity (:func:`sympy.factor_terms`); applied only if such an exponential is not already a
-    factor, as the common case needs no rewriting (Prodigy#472).
+    denominator, ``1/(a·exp(y) + b·exp(y))`` or ``1/(exp(y - 1) + exp(y + 1))``) pulled out of it
+    (``exp(-y)/(a + b)``), so that each becomes a factor of the summand. An identity: the exponentials of sums are
+    split into products (:func:`sympy.expand_power_exp`), then the common factors are pulled out
+    (:func:`sympy.factor_terms`). Applied only if such an exponential is not already a factor, as the common case
+    needs no rewriting (Prodigy#472).
     """
     if all(_exponent(factor, variables) is not None or not _has_exponential(factor, variables)
            for factor in sympy.Mul.make_args(summand)):
         return summand
-    return sympy.factor_terms(summand)
+    return sympy.factor_terms(sympy.expand_power_exp(summand))
 
 
 def _has_exponential(expression: sympy.Expr, variables: Tuple[sympy.Symbol, ...]) -> bool:

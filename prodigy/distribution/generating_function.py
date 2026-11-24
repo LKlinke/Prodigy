@@ -79,16 +79,19 @@ def _is_finite_function(function: sympy.Expr, variables: FrozenSet[sympy.Symbol]
     not used, so a function that is a polynomial only because of them may be reported as not finite, the
     conservative answer of this heuristic.
 
-    A function with an exponential of a variable (Poisson distributions and their residue classes) is
-    reported as not finite without cancelling: cancelling would treat each exponential as a further
-    generator, slowly (many of them after a roots-of-unity filter), and finds a polynomial only if the
-    exponentials cancel algebraically, which SymPy's automatic simplification does for the forms the engine
-    builds (``exp(x)*exp(-x)``, ``exp(x) - exp(x)``); otherwise the answer is the conservative one.
+    A function with an exponential of a variable (Poisson distributions and their residue classes) is not
+    cancelled: cancelling would treat each exponential as a further generator, slowly (many of them after a
+    roots-of-unity filter). Its exponentials are split into products (``exp(5*x - 5)`` into
+    ``exp(5*x)*exp(-5)``), so that equal factors cancel in products and quotients (``x**3*exp(5*x - 5)/exp(5*x -
+    5)``); it is finite if that leaves a polynomial. Otherwise the answer is the conservative one (exponentials
+    that would cancel only in sums, e.g. ``exp(x)*(1 + y) - exp(x)*y``, are not found).
     """
     if function.is_polynomial(*variables):
         return True
     if any(power.args[0].free_symbols & variables for power in function.atoms(sympy.exp)):
-        return False
+        # exp(5*x - 5) is split into exp(5*x)*exp(-5), so that equal exponentials cancel in products and quotients
+        split = sympy.expand_power_exp(function)
+        return bool(split.is_polynomial(*variables))
     numerator, denominator = sympy.cancel(_constants_as_symbols(function, variables, {})).as_numer_denom()
     if denominator.free_symbols & variables:
         return False
