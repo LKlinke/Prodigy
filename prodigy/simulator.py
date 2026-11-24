@@ -603,7 +603,10 @@ def compare(program: Program, result: Mapping[str, Any], simulation: Simulation,
     simulation of the same program: the queries ``Pr[g]``, ``Ex[e]`` and ``Pr[x]``, the first
     ``marginal_rows`` rows of every marginal, and the mass of the output distribution. Every
     reported value or interval ``[lower, upper]`` must meet the simulation's confidence interval.
-    Values the analysis reports as infinite or without a float (symbolic) are skipped.
+    Values the analysis reports as infinite or without a float (symbolic) are skipped, and so are
+    expected values whose reported upper end is infinite: then the expectation may be infinite
+    (e.g. the St. Petersburg payout), and the confidence interval of the sample mean, which assumes a
+    finite variance, says nothing about it (Prodigy#472).
     """
     mismatches: List[Mismatch] = []
 
@@ -626,8 +629,11 @@ def compare(program: Program, result: Mapping[str, Any], simulation: Simulation,
             check(f"Pr[{expr_text}]", _reported(entry),
                   simulation.probability(_holds(event), z))
         elif query_kind == "expectation" and isinstance(instr, ExpectationInstr):
+            reported = _reported(entry)
+            if reported is not None and reported[1] == math.inf:
+                continue
             value = _evaluator(program, instr.expr)
-            check(f"Ex[{expr_text}]", _reported(entry), simulation.expectation(value, z))
+            check(f"Ex[{expr_text}]", reported, simulation.expectation(value, z))
     marginals = ((result.get("distribution") or {}).get("marginals") or {})
     for var, marginal in marginals.items():
         if var not in program.variables:

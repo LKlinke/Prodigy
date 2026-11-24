@@ -3,15 +3,18 @@ Substitutions with roots of unity (modulo guards, arithmetic progressions, `x % 
 marginal of x) are only sound for generating functions that are single-valued in x, e.g. rational
 (issue #116).
 """
+import math
+
 import pytest
 import sympy
 from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
 from prodigy.analysis.config import ForwardAnalysisConfig
+from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.fast_generating_function import FPS
 from prodigy.distribution.generating_function import GeneratingFunction
-from prodigy.distribution.roots_of_unity import NotSingleValuedError, is_single_valued_in
+from prodigy.distribution.roots_of_unity import NotSingleValuedError, is_single_valued_in, root_of_unity
 from prodigy.pgcl import parse_pgcl
 from prodigy.pgcl.ppy_parser import parse_ppy_expr
 
@@ -159,3 +162,52 @@ def test_modulo_guard_after_loop_with_root_invariant_is_rejected(engine, f):
     (query,) = result["queries"]
     assert query["bound"] == "unknown" and query["value"] is None
     assert "not provably single-valued in 'c'" in query["note"]
+
+
+@pytest.mark.parametrize("order", range(1, 13))
+def test_root_of_unity_is_canonical(order):
+    # one expression per root: exp(2πik/q), its powers and k + q, k - q give the same (Prodigy#472)
+    for power in range(order):
+        root = root_of_unity(power, order)
+        assert abs(complex(root) - complex(sympy.exp(2 * sympy.pi * sympy.I * power / order))) < 1e-12
+        assert root_of_unity(power + order, order) == root == root_of_unity(power - 3 * order, order)
+    assert all(not root.has(sympy.exp) for root in map(lambda k: root_of_unity(k, order), range(order))) \
+        or order in (7, 9, 11)
+
+
+def _poisson_residue(rate, modulus, remainder, observed_modulus=None):
+    """Pr[x % modulus = remainder] for x ~ poisson(rate), conditioned on x % observed_modulus = 0, by summing."""
+    terms = [math.exp(-rate) * rate ** k / math.factorial(k) for k in range(80)]
+    if observed_modulus is not None:
+        terms = [t if k % observed_modulus == 0 else 0.0 for k, t in enumerate(terms)]
+    return sum(t for k, t in enumerate(terms) if k % modulus == remainder) / sum(terms)
+
+
+def _constant(text):
+    """A constant of a result as a number: the parser reads I, pi and GiNaC's Pi as symbols."""
+    expression = sym(text)
+    names = {"I": sympy.I, "pi": sympy.pi, "Pi": sympy.pi}
+    return expression.xreplace({s: names[s.name] for s in expression.free_symbols if s.name in names})
+
+
+@pytest.mark.parametrize("engine", ["SYMPY", "GINAC"])
+@pytest.mark.parametrize("rate, modulus, observed", [("1", 3, 2), ("1/2", 3, None), ("2", 4, 2), ("1", 5, None)])
+def test_modulo_of_a_conditioned_poisson_variable(engine, rate, modulus, observed):
+    # Residue classes of exp-polynomial generating functions: exact on both engines, and fast on SymPy, whose
+    # roots of unity in mixed forms (exp(4πi/3), (-1)**(2/3)) did not cancel and grew without bound (Prodigy#472)
+    if engine == "GINAC":
+        pytest.importorskip("prodigy_ginac")
+    observe = "" if observed is None else f"observe(x % {observed} == 0);"
+    queries = "".join(f"query Pr[x == {r}];" for r in range(modulus))
+    source = f"x: nat; y: nat; x = poisson({rate}); {observe} x = x % {modulus}; y = poisson(1/2); {queries}"
+    config = ForwardAnalysisConfig(engine=getattr(ForwardAnalysisConfig.Engine, engine))
+    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
+                              capture_output=True, coefficient_limit=12)
+    result = session.run().to_json()
+    assert result["status"] == "ok", result["error"]
+    numeric_rate = float(sympy.Rational(rate))
+    for remainder, query in enumerate(result["queries"]):
+        assert query["bound"] == "exact"
+        # the closed form is real, but written with complex roots of unity (no value_float)
+        value = complex(_constant(query["value"]).evalf(30))
+        assert abs(value - _poisson_residue(numeric_rate, modulus, remainder, observed)) < 1e-9

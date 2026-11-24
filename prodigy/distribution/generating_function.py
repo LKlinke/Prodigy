@@ -7,7 +7,7 @@ import operator
 from contextvars import ContextVar
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import (Callable, FrozenSet, Generator, Iterator, List, Optional, Set,
+from typing import (Callable, Dict, FrozenSet, Generator, Iterator, List, Optional, Set,
                     Tuple, Type, Union, get_args)
 
 import sympy
@@ -21,7 +21,7 @@ from prodigy.distribution.exact_division import divide_exponents
 from prodigy.distribution.rational_series import rational_taylor_coefficients
 from prodigy.distribution.negative_values import can_be_negative
 from prodigy.distribution.multisection import rational_sections
-from prodigy.distribution.roots_of_unity import require_single_valued
+from prodigy.distribution.roots_of_unity import require_single_valued, root_of_unity
 from prodigy.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
 from prodigy.pgcl.ppy_parser import parse_ppy_expr
@@ -67,17 +67,52 @@ def _is_finite_function(function: sympy.Expr, variables: FrozenSet[sympy.Symbol]
     analysis builds many distributions with the same function (every ``copy`` repeats the
     heuristic for a flag that is False), so the result is cached; it depends only on the arguments.
 
-    ratsimp first cancels the function to ``f/g`` in lowest terms and then divides ``f`` by ``g``
-    with remainder. If ``g`` contains a variable, the remainder is not zero (``g`` would divide
-    ``f``) and stays over ``g`` in lowest terms, so the result is no polynomial; the division and
-    the second cancellation, the expensive part on large closed forms, are skipped then.
+    The function is cancelled to ``f/g`` in lowest terms. If ``g`` contains a variable, ``g`` does not
+    divide ``f``, so the function is no polynomial; else it is ``f/g`` with a constant ``g``, a polynomial
+    iff ``f`` is one (this is what ratsimp, used before, decided after a second, expensive cancellation).
+
+    The subexpressions without a variable that are not rational (``I``, ``sqrt(3)``, ``exp(1/2)``, the
+    constants of a roots-of-unity filter) are replaced by fresh symbols first, so that the cancellation
+    works over the integers instead of an algebraic or transcendental extension, which can take minutes
+    (Prodigy#472). A polynomial in the variables with symbolic constants stays one when the constants are
+    substituted back, so the answer True is exact; the relations between the constants (``I**2 = -1``) are
+    not used, so a function that is a polynomial only because of them may be reported as not finite, the
+    conservative answer of this heuristic.
+
+    A function with an exponential of a variable (Poisson distributions and their residue classes) is not
+    cancelled: cancelling would treat each exponential as a further generator, slowly (many of them after a
+    roots-of-unity filter). Its exponentials are split into products (``exp(5*x - 5)`` into
+    ``exp(5*x)*exp(-5)``), so that equal factors cancel in products and quotients (``x**3*exp(5*x - 5)/exp(5*x -
+    5)``); it is finite if that leaves a polynomial. Otherwise the answer is the conservative one (exponentials
+    that would cancel only in sums, e.g. ``exp(x)*(1 + y) - exp(x)*y``, are not found).
     """
     if function.is_polynomial(*variables):
         return True
-    _, denominator = sympy.cancel(function).as_numer_denom()
+    if any(power.args[0].free_symbols & variables for power in function.atoms(sympy.exp)):
+        # exp(5*x - 5) is split into exp(5*x)*exp(-5), so that equal exponentials cancel in products and quotients
+        split = sympy.expand_power_exp(function)
+        return bool(split.is_polynomial(*variables))
+    numerator, denominator = sympy.cancel(_constants_as_symbols(function, variables, {})).as_numer_denom()
     if denominator.free_symbols & variables:
         return False
-    return bool(function.ratsimp().is_polynomial(*variables))
+    return bool(numerator.is_polynomial(*variables))
+
+
+def _constants_as_symbols(expression: sympy.Expr, variables: FrozenSet[sympy.Symbol],
+                          replacements: Dict[sympy.Expr, sympy.Dummy]) -> sympy.Expr:
+    """``expression`` with each maximal subexpression without a variable that is not built from symbols and
+    rational numbers by ``+``, ``*`` and integer powers replaced by a fresh symbol (the same one for equal
+    subexpressions, recorded in ``replacements``)."""
+    if isinstance(expression, (sympy.Symbol, sympy.Rational)):
+        return expression
+    if isinstance(expression, (sympy.Add, sympy.Mul)) or (
+            isinstance(expression, sympy.Pow) and isinstance(expression.exp, sympy.Integer)):
+        return expression.func(*(_constants_as_symbols(arg, variables, replacements) for arg in expression.args))
+    if expression.free_symbols & variables:
+        return expression.func(*(_constants_as_symbols(arg, variables, replacements) for arg in expression.args))
+    if expression not in replacements:
+        replacements[expression] = sympy.Dummy("c")
+    return replacements[expression]
 
 
 @functools.lru_cache(maxsize=1024)
@@ -253,7 +288,9 @@ def _cheap_value_at_one(function: sympy.Expr, variable: sympy.Symbol) -> sympy.E
     """
     if variable not in function.free_symbols:
         return function
-    for candidate in (function, sympy.cancel(function)):
+    # the cancelled form only if the function itself fails: cancelling is the expensive part (Prodigy#472)
+    for form in (lambda: function, lambda: sympy.cancel(function)):
+        candidate = form()
         if _continuous_at_one(candidate, variable):
             value = candidate.subs(variable, 1)
             if not value.has(*_UNDEFINED_VALUES):
@@ -562,19 +599,15 @@ class GeneratingFunction(Distribution):
 
         require_single_valued(self._function, variable, f"{variable} % {modulus}")
         # This is the general algorithm
-        primitive_uroot = sympy.exp(2 * sympy.pi * sympy.I / a)
+        q = int(a)
+        roots = [root_of_unity(k, q) for k in range(q)]
+        images = [self._function.subs(var, roots[m] * var) for m in range(q)]
         result = []
-        for remainder in range(a):  # type: ignore
-            psum = 0
-            for m in range(a):  # type: ignore
-                psum += primitive_uroot ** (-m *
-                                            remainder) * self._function.subs(
-                    var, (primitive_uroot ** m) * var)
-            result.append(
-                GeneratingFunction(f"(1/{a}) * ({psum})",
-                                   *self._variables,
-                                   closed=self._is_closed_form,
-                                   finite=self._is_finite))
+        for remainder in range(q):
+            psum = sympy.Add(*(roots[(-m * remainder) % q] * images[m] for m in range(q)))
+            gf = GeneratingFunction(psum / q, *self._variables, closed=self._is_closed_form, finite=self._is_finite)
+            gf._parameters = set(self._parameters)
+            result.append(gf)
         return result
 
     def hadamard_product(self, other: Distribution) -> GeneratingFunction:

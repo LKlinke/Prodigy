@@ -92,7 +92,8 @@ def _cancels_with_frozen_constants(expression: sympy.Expr) -> bool:
         return False
 
 
-def decide_equal(lhs: sympy.Expr, rhs: sympy.Expr, use_simplify: bool = True) -> Optional[bool]:
+def decide_equal(lhs: sympy.Expr, rhs: sympy.Expr, use_simplify: bool = True, *,
+                 prove_equality: bool = True) -> Optional[bool]:
     """
     Decides ``lhs == rhs`` as an identity in all symbols.
 
@@ -109,6 +110,11 @@ def decide_equal(lhs: sympy.Expr, rhs: sympy.Expr, use_simplify: bool = True) ->
       if ``simplify`` turns the difference into 0 or, for constant differences, by an algebraic proof
       (minimal polynomials). Its False comes from evaluation at random points and is no proof, so it counts
       as None.
+
+    With ``prove_equality=False`` (for callers that only act on a proven difference, such as the fuzzing
+    oracle), a difference with irrational constants that is not shown nonzero numerically gives None at once:
+    for it the steps above could essentially only prove equality, and cancelling over an algebraic extension
+    (``I``, ``sqrt(3)`` and the exponentials of a roots-of-unity filter) can take minutes (Prodigy#472).
     """
     if lhs == rhs:
         return True
@@ -120,6 +126,8 @@ def decide_equal(lhs: sympy.Expr, rhs: sympy.Expr, use_simplify: bool = True) ->
         if _has_irrational_constants(difference) and _numerically_nonzero(difference):
             # nonzero, so no proof of 0; and not rational over Q (the constants stay in it), so no proof of
             # inequality: cancelling over the algebraic extension (seconds) cannot decide anything
+            return None
+        if not prove_equality and _has_irrational_constants(difference):
             return None
         normal_form = _constants_in_normal_form(difference)
         if normal_form.count_ops() <= NORMAL_FORM_LIMIT:
@@ -212,12 +220,13 @@ def sympify_distribution_string(dist: Distribution) -> sympy.Expr:
     return sympify_engine_string(str(dist), dist.get_variables() | dist.get_parameters())
 
 
-def decide_equal_strings(lhs: str, rhs: str, names: Iterable[str]) -> Optional[bool]:
+def decide_equal_strings(lhs: str, rhs: str, names: Iterable[str], *,
+                         prove_equality: bool = True) -> Optional[bool]:
     """
-    Like :func:`decide_equal` (without ``simplify``) for the string forms of two engine expressions, e.g. of
-    GiNaC. ``names`` are the variables and parameters; they are parsed as plain symbols, so names
-    such as ``E`` or ``S`` keep their meaning. Decimal literals stay floating-point numbers, so expressions
-    containing them are never decided different. Unparsable strings give None.
+    Like :func:`decide_equal` (without ``simplify``; ``prove_equality`` as there) for the string forms of two
+    engine expressions, e.g. of GiNaC. ``names`` are the variables and parameters; they are parsed as plain
+    symbols, so names such as ``E`` or ``S`` keep their meaning. Decimal literals stay floating-point numbers,
+    so expressions containing them are never decided different. Unparsable strings give None.
 
     The strings must come from an engine, not from the user: SymPy's parser evaluates Python code.
     """
@@ -231,4 +240,4 @@ def decide_equal_strings(lhs: str, rhs: str, names: Iterable[str]) -> Optional[b
         return None
     if not isinstance(lhs_expr, sympy.Expr) or not isinstance(rhs_expr, sympy.Expr):
         return None
-    return decide_equal(lhs_expr, rhs_expr, use_simplify=False)
+    return decide_equal(lhs_expr, rhs_expr, use_simplify=False, prove_equality=prove_equality)
