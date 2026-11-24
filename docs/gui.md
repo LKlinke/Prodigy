@@ -101,8 +101,11 @@ Prodigy is tested with Python 3.11 and 3.14.
   The upper ends of single values are drawn only when at least one value has an upper end of its
   own (`upper_source: "certificate"`, #451). While every upper end is the lower end plus the same
   residual mass, drawing it at every bar would repeat one number and hide the distribution: then
-  only the "?" bar shows the residual, and a value's interval appears on hover (bar charts) or for
-  the selected bar (3D view). The lens, the choice of variable and view are
+  only the "?" bar shows the residual, and a value's interval appears on hover or for the selected
+  bar. Keyboard (#462): Tab focuses a bar chart, the left and right arrow keys and Home/End move
+  between its bars (Enter or Space selects the current one); the selected bar is outlined, and the
+  line below the chart gives its interval and where its upper end comes from (its own certificate,
+  or the lower end plus the mass not yet accounted for), like the heatmap's line. The lens, the choice of variable and view are
   kept when the program is analysed again; the timeline starts at the final result.
 * **Examples**: the programs in `pgfexamples/` (in `.ppy`), with a suggested setup derived from
   their first line (e.g. `check_equality` examples come with their invariant and open in Compare
