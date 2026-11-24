@@ -13,19 +13,7 @@ from prodigy.distribution.distribution import MarginalType, NonFiniteMarginalErr
 from prodigy.distribution.generating_function import SympyPGF
 from prodigy.pgcl import parse_pgcl
 from prodigy.pgcl.ppy_parser import parse_ppy_expr
-
-
-def _ginac_factory():
-    pytest.importorskip("prodigy_ginac")
-    # pylint: disable=import-outside-toplevel
-    from prodigy.distribution.fast_generating_function import ProdigyPGF
-    return ProdigyPGF
-
-
-FACTORIES = [
-    pytest.param(lambda: SympyPGF, id="sympy"),
-    pytest.param(_ginac_factory, id="ginac"),
-]
+from tests.distribution.engines import ginac_factory
 
 
 def _engine(name):
@@ -34,7 +22,6 @@ def _engine(name):
     return getattr(ForwardAnalysisConfig.Engine, name)
 
 
-@pytest.mark.parametrize("factory", FACTORIES)
 @pytest.mark.parametrize("function, assignment, expected", [
     # the old distribution of y must not end up on x (#232)
     ("1/3 + y/3 + y^2/3", "y == x", "1"),
@@ -46,13 +33,12 @@ def _engine(name):
     ("1/(2 - y)", "z == y", "1/(2 - y*z)"),
 ])
 def test_copy_of_a_variable(factory, function, assignment, expected):
-    pgf = factory()
+    pgf = factory
     dist = pgf.from_expr(function, "x", "y", "z")
     result = dist.update(parse_ppy_expr(assignment))
     assert result == pgf.from_expr(expected, "x", "y", "z")
 
 
-@pytest.mark.parametrize("factory", FACTORIES)
 @pytest.mark.parametrize("function, expression, expected", [
     ("1/(1 - c)^2", "c", "Infinity"),
     ("(1 - c)/((1 - c)*(2 - c))", "c", "1"),
@@ -60,7 +46,7 @@ def test_copy_of_a_variable(factory, function, assignment, expected):
     ("(1 - (1 - c^2)^(1/2))/c", "c", "Infinity"),
 ])
 def test_expected_value_at_a_pole(factory, function, expression, expected):
-    dist = factory().from_expr(function, "c", "x")
+    dist = factory.from_expr(function, "c", "x")
     # the engines' values at a pole or branch point of a measure that an analysis vouches for: the API does not
     # prove these radius-1 series (#398)
     with known_convergent_series(True):
@@ -69,13 +55,13 @@ def test_expected_value_at_a_pole(factory, function, expression, expected):
 
 @pytest.mark.parametrize("variables", [("a",), ("a", "b")])
 def test_ginac_marginal_at_a_pole_is_an_error(variables):
-    dist = _ginac_factory().from_expr("1/((1 - w)*(2 - b))", "a", "b", "w")
+    dist = ginac_factory().from_expr("1/((1 - w)*(2 - b))", "a", "b", "w")
     with pytest.raises(NonFiniteMarginalError, match="pole at w = 1"):
         dist.marginal(*variables)
 
 
 def test_ginac_marginal_without_the_pole():
-    pgf = _ginac_factory()
+    pgf = ginac_factory()
     dist = pgf.from_expr("1/((1 - w)*(2 - b))", "a", "b", "w")
     # a measure with infinite mass, but no pole in the variables marginalised out
     assert dist.marginal("w") == pgf.from_expr("1/(1 - w)", "w")
@@ -108,9 +94,8 @@ def test_infinite_expectation_is_infinity(engine):
     assert expectation["bound"] == result["bounds"]["kind"]
 
 
-@pytest.mark.parametrize("factory", FACTORIES)
 def test_assignment_from_parameter_is_not_implemented(factory):
     """#375: ``x = p`` on a parameter names the unsupported construct on every engine."""
-    dist = factory().from_expr("p*x", "x").set_parameters("p")
+    dist = factory.from_expr("p*x", "x").set_parameters("p")
     with pytest.raises(ValueError, match="a parameter cannot be the source of an assignment"):
         dist.update(parse_ppy_expr("x == p"))
