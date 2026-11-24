@@ -1,5 +1,5 @@
 // Entry point of the vendored CodeMirror bundle (static/vendor/codemirror.js).
-// Re-exports the pieces the GUI uses, plus the language definitions of pGCL and .ppy.
+// Re-exports the pieces the GUI uses, plus the language definition of .ppy.
 export { EditorState, StateField, StateEffect, Compartment, RangeSetBuilder, Prec } from "@codemirror/state";
 export {
   EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection,
@@ -17,51 +17,9 @@ export { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap, c
 
 import { StreamLanguage } from "@codemirror/language";
 
-const KEYWORDS = new Set(["while", "if", "else", "skip", "abort", "observe", "loop", "query",
-  "return", "infer", "sample", "fun", "not"]);
-const TYPES = new Set(["nat", "bool", "real", "const", "rparam", "nparam", "dist"]);
 const BUILTINS = new Set(["unif", "unif_d", "unif_c", "geometric", "poisson", "logdist", "binomial",
   "negative_binomial", "bernoulli", "iid", "sample_pgf"]);
 const ATOMS = new Set(["true", "false"]);
-
-export const PGCL_WORDS = { keywords: [...KEYWORDS], types: [...TYPES], builtins: [...BUILTINS] };
-
-/** pGCL as accepted by the parser in prodigy/pgcl (comments: # and //, queries ?Pr ?Ex ?Var ?Cov ?Opt !Print !Plot). */
-export const pgcl = StreamLanguage.define({
-  name: "pgcl",
-  startState: () => ({ afterType: false }),
-  token(stream, state) {
-    if (stream.eatSpace()) return null;
-    if (stream.match("//") || stream.peek() === "#") {
-      stream.skipToEnd();
-      return "comment";
-    }
-    if (stream.match(/^\?(?:Pr|Ex|Var|Cov|Opt)\b/) || stream.match(/^!(?:Print|Plot)\b/)) return "meta";
-    if (stream.match(/^\\infty/) || stream.match("∞")) return "atom";
-    if (stream.match(/^\d+\.\d*(?:[eE][+-]?\d+)?/) || stream.match(/^\.\d+/) || stream.match(/^\d+/)) {
-      return "number";
-    }
-    if (stream.match(/^[A-Za-z_]\w*/)) {
-      const word = stream.current();
-      if (KEYWORDS.has(word)) { state.afterType = false; return "keyword"; }
-      if (TYPES.has(word)) { state.afterType = true; return "type"; }
-      if (ATOMS.has(word)) return "atom";
-      if (BUILTINS.has(word)) return "builtin";
-      if (state.afterType) { state.afterType = false; return "def"; }
-      return "variable";
-    }
-    if (stream.match(":=")) { state.afterType = false; return "operator"; }
-    if (stream.match(/^(?:<=|>=|\|\||[<>=&+\-*\/%^:])/)) return "operator";
-    if (stream.match(/^[{}()\[\]]/)) return "bracket";
-    if (stream.match(/^[;,]/)) { state.afterType = false; return "punctuation"; }
-    stream.next();
-    return null;
-  },
-  languageData: {
-    commentTokens: { line: "//" },
-    closeBrackets: { brackets: ["(", "[", "{"] },
-  },
-});
 
 const PPY_KEYWORDS = new Set(["while", "if", "else", "skip", "abort", "observe", "loop", "query",
   "return", "infer", "sample", "def", "switch", "case", "default", "const", "param", "print", "plot", "optimize",

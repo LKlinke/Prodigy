@@ -6,7 +6,7 @@
 // step of the analysis card's timeline).
 import { explorationCard, explorations } from "./evt-exploration.js";
 import { h, icon } from "./dom.js";
-import { intervalBar, marginalChart } from "./charts.js";
+import { chartFocus, intervalBar, marginalChart } from "./charts.js";
 import { BOUND_TEXT, chartLegend, exactIsInformative, formatNumber, formatSeconds, formatValue, qualify, shortExact } from "./format.js";
 import { analysisCard, verdictText } from "./analysis-card.js";
 import { chartState, tweenChart } from "./motion.js";
@@ -364,6 +364,8 @@ export function renderResult(container, result, options = {}) {
 
 const LIVE_TWEEN_MS = 180;
 let liveMotions = [];
+// the selected bar of each streamed chart ("program:variable" or the variable), kept while it grows (#462)
+const liveSelections = new Map();
 
 /** The state of the streamed charts in `container` (chartState per variable), for a transition. The charts of
  * a comparison are keyed "<program>:<variable>". */
@@ -393,8 +395,12 @@ function liveCharts(stream, width, key, { title = "Distribution so far", program
     else if (done) status = `done · ${rows.length} ${rows.length === 1 ? "value" : "values"}`;
     else if (marginal) status = `computing… ${rows.length} of ${limit}`;
     const pending = done ? 0 : Math.max(0, limit - rows.length);
+    // the selected bar stays selected while the chart grows (#462)
+    const selectionKey = program ? `${program}:${name}` : name;
+    const selection = liveSelections.get(selectionKey) || {};
+    liveSelections.set(selectionKey, selection);
     const chart = marginal?.error ? null
-      : marginalChart({ rows }, { variable: name, bound, width, pending, view: viewOptions() });
+      : marginalChart({ rows }, { variable: name, bound, width, pending, view: viewOptions(), selection });
     return h("section", { class: "rv-live-item", "data-done": String(done), "aria-label": `Distribution of ${name}: ${status}` },
       h("h4", { class: "rv-live-title" }, h("span", { class: "mono" }, name), h("span", { class: "rv-note" }, status)),
       chart);
@@ -445,6 +451,7 @@ export function renderRunning(container, state, options = {}) {
     }
     return liveCharts(live, width, liveKey, { title, program });
   });
+  const refocus = chartFocus(container);
   container.replaceChildren(h("div", { class: "result-view" },
     h("div", { class: "rv-running", "data-bars": String(bars.length), "data-live": String(sections.length > 0), style: `--bars: ${bars.length}` },
       h("div", { class: "rv-running-head" }, h("span", { class: "spinner", "aria-hidden": "true" }),
@@ -456,6 +463,7 @@ export function renderRunning(container, state, options = {}) {
       ...sections,
       logBox)));
   logBox.scrollTop = logBox.scrollHeight;
+  refocus();
   for (const { chart: from, program } of Object.values(before)) {
     const section = program ? `.rv-live[data-program="${program}"]` : ".rv-live";
     const find = () => container.querySelector(`${section} .marginal-chart[data-variable="${CSS.escape(from.variable)}"]`);

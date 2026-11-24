@@ -2,7 +2,7 @@
 // badges, buttons, segmented controls, cards and the figure of one marginal. Like those modules it
 // needs only the result JSON and the CSS custom properties of result-view.css.
 import { copyText, h, icon } from "./dom.js";
-import { marginalChart, marginalTable } from "./charts.js";
+import { chartFocus, marginalChart, marginalTable } from "./charts.js";
 import { BOUND_TEXT, formatValue } from "./format.js";
 import { onViewOptionsChange, viewOptions, viewOptionsControl } from "./view-options.js";
 import { formulaBox } from "./formula-box.js";
@@ -63,12 +63,16 @@ export function distributionFigure(table, result, variable, mode = "chart") {
   const optionsControl = viewOptionsControl({ label: `View options of the chart of ${variable}: scale, colours and intervals` });
   let current = mode;
   let drawnWidth = 0;
+  // the selected bar stays selected when the chart is drawn anew (#462)
+  const selection = {};
   const show = (which) => {
     current = which;
     drawnWidth = holder.clientWidth || 560;
+    const refocus = chartFocus(holder);
     holder.replaceChildren(which === "chart"
-      ? marginalChart(table, { residual, residualExact, variable, bound, width: drawnWidth, view: viewOptions() })
+      ? marginalChart(table, { residual, residualExact, variable, bound, width: drawnWidth, view: viewOptions(), selection })
       : marginalTable(table, { variable, bound }));
+    refocus();
     for (const button of toggle.children) button.setAttribute("aria-pressed", String(button.dataset.view === which));
     optionsControl.setAvailable(which === "chart");
   };
