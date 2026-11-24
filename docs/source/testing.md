@@ -54,6 +54,21 @@ compared. Hypothesis shrinks a failing program to a small one; it becomes an iss
 test in `tests/fuzzing/test_found.py`. Classes of programs with known open bugs are switched off in
 `Features` (each switch names its issue), so the test suite stays green until they are fixed.
 
+**Parametric programs** (`test_parametric_programs_agree`, #453). With `Features(parameters=True)` the
+probabilities of choices, `bernoulli`, `binomial`, `geometric` and `negative_binomial` may depend on the
+parameters `p` and `q` (`param p: real;`), and a `poisson` rate may be a parameter. The parametric
+probabilities form a class: `p`, `1 - p`, `p/2`, `(1 - p)/2`, `(1 + p)/2` and `p*q`, which map every
+parameter value in (0, 1) into (0, 1), so they are admissible for every value the test draws.
+Each program is checked by `tests.fuzzing.oracles.check_parametric`:
+
+- engine-differential: SymPy and GiNaC on the parametric program, as above (the simulator does not run
+  parameters);
+- instantiation: the program with random admissible values for the parameters (rationals in (0, 1)) is
+  checked as a constant program, and on every engine, each number of the parametric result with the values
+  substituted must not be provably different from the number of the instantiated program;
+- simulator: each parametric result with the values substituted must meet the confidence intervals of a
+  simulation of the instantiated program.
+
 ## Engine conformance (`tests/distribution/test_conformance.py`)
 
 Every engine implements the same `Distribution` interface, and the engines share their case
@@ -89,8 +104,8 @@ The fuzzing and the comparison of the examples with the simulation carry the pyt
 and locally they run with
 
 ```sh
-make fuzz                         # profile ci: 20 derandomized programs, the fast examples
-PRODIGY_FUZZ=nightly make fuzz    # profile nightly: 400 programs with a fresh seed, all examples
+make fuzz                         # profile ci: 20 derandomized programs (8 parametric), the fast examples
+PRODIGY_FUZZ=nightly make fuzz    # profile nightly: 400 programs (150 parametric), fresh seed, all examples
 ```
 
 The profile `ci` checks the same programs in every run, so the CI is reproducible. The workflow

@@ -7,6 +7,7 @@ and off), compared with each other and with the simulator (:mod:`prodigy.simulat
 from __future__ import annotations
 
 import contextlib
+import copy
 import math
 import multiprocessing
 import random
@@ -15,11 +16,14 @@ import threading
 import time
 import traceback
 from dataclasses import dataclass
+from fractions import Fraction
 from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
-from prodigy.distribution.equality import decide_equal_strings
+import sympy
+
+from prodigy.distribution.equality import decide_equal, decide_equal_strings, sympify_engine_string
 from prodigy.pgcl.parser import parse_pgcl
 from prodigy.simulator import SimulationError, UnsupportedConstruct, compare, simulate
 
@@ -210,8 +214,7 @@ def check_program(source: str, syntax: str = "ppy", decisions: Optional[Mapping[
         for what, value in _numbers(result).items():
             if _non_finite(value) and not (what.startswith("query") and value in ("oo", "inf", "\\infty")):
                 problems.append(f"{name}: status ok, but {what} is {value}")
-    names = sorted({var for result in ok.values() for var in (result.get("distribution") or {}).get("variables", [])}
-                   | {"x", "y", "z", "c"})
+    names = _names(ok.values())
     reference_name = next(iter(ok), None)
     if reference_name is not None:
         reference = ok[reference_name]
@@ -239,6 +242,119 @@ def check_program(source: str, syntax: str = "ppy", decisions: Optional[Mapping[
             for name, result in ok.items():
                 problems.extend(f"{name} vs. simulation: {m}"
                                 for m in compare(parse_pgcl(source, syntax), result, simulation))
+    return problems
+
+
+def _names(results) -> List[str]:
+    """The variables and parameters of the results (and the variables every generated program has)."""
+    found = {name for result in results for key in ("variables", "parameters")
+             for name in (result.get("distribution") or {}).get(key) or []}
+    return sorted(found | {"x", "y", "z", "c"})
+
+
+def _substituted(text: str, names: List[str], values: Mapping[str, Fraction]) -> Optional[sympy.Expr]:
+    """The number ``text`` of a parametric result with the parameters replaced by ``values``, exactly."""
+    try:
+        expression = sympify_engine_string(text, names)
+    except (SyntaxError, TypeError, ValueError, sympy.SympifyError):
+        return None
+    symbols = {symbol: sympy.Rational(value.numerator, value.denominator) for symbol in expression.free_symbols
+               for name, value in values.items() if symbol.name == name}
+    return expression.xreplace(symbols)
+
+
+def _as_float(expression: Optional[sympy.Expr]) -> Optional[float]:
+    """A real constant as a float; None for anything else (a symbol left, a complex or undefined value)."""
+    if expression is None or expression.free_symbols:
+        return None
+    try:
+        value = complex(sympy.N(expression, 30))
+    except (TypeError, ValueError, ArithmeticError):
+        return None
+    if not math.isfinite(value.real) or abs(value.imag) > 1e-12 * max(1.0, abs(value.real)):
+        return None
+    return value.real
+
+
+def instantiate_result(result: Mapping[str, Any], values: Mapping[str, Fraction]) -> Dict[str, Any]:
+    """
+    The JSON result of a parametric program with the parameters replaced by ``values``: every float field the
+    simulator comparison reads (query values and bounds, marginal rows, the mass, the residual mass) is
+    computed from its exact counterpart, so that :func:`~prodigy.simulator.compare` can check the result
+    against a simulation of the instantiated program.
+    """
+    names = _names([result])
+    instantiated: Dict[str, Any] = copy.deepcopy(dict(result))
+
+    def fill(entry: Dict[str, Any], exact: str, number: str) -> None:
+        text = entry.get(exact)
+        if isinstance(text, str):
+            entry[number] = _as_float(_substituted(text, names, values))
+
+    for query in instantiated.get("queries", []):
+        for key in ("value", "lower", "upper"):
+            fill(query, key, f"{key}_float")
+    distribution = instantiated.get("distribution") or {}
+    fill(distribution, "mass", "mass_float")
+    for marginal in (distribution.get("marginals") or {}).values():
+        for row in marginal.get("rows", []):
+            fill(row, "prob", "p")
+    fill(instantiated.get("bounds") or {}, "residual_mass", "residual_mass_float")
+    return instantiated
+
+
+def check_parametric(source: str, instantiated: str, values: Mapping[str, Fraction], syntax: str = "ppy",
+                     decisions: Optional[Mapping[str, Any]] = None, *, setups=SETUPS, runs: int = 2000,
+                     seed: Any = 0) -> List[str]:
+    """
+    The checks of a parametric program ``source`` and the program ``instantiated``, the same program with the
+    parameters replaced by ``values`` (#453):
+
+    * engine-differential: :func:`check_program` of ``source`` (the simulator does not run parameters) and of
+      ``instantiated`` (with the simulator);
+    * instantiation commutes with the analysis: on each setup, every number of the parametric result with the
+      parameters replaced by ``values`` must not be provably different from the number of the instantiated
+      program (when both have status ``ok`` and the same kind of guarantee);
+    * simulator: every ``ok`` parametric result, instantiated (:func:`instantiate_result`), must meet the
+      confidence intervals of a simulation of ``instantiated``.
+    """
+    parametric: Dict[str, Any] = {}
+    constant: Dict[str, Any] = {}
+    problems = [f"parametric: {problem}"
+                for problem in check_program(source, syntax, decisions, setups=setups, runs=runs, seed=seed,
+                                             report=parametric)]
+    problems += [f"instantiated: {problem}"
+                 for problem in check_program(instantiated, syntax, decisions, setups=setups, runs=runs, seed=seed,
+                                              report=constant)]
+    ok = {name: result for name, result in parametric.items() if result["status"] == "ok"}
+    names = _names(list(ok.values()) + list(constant.values()))
+    for name, result in ok.items():
+        other = constant.get(name) or {}
+        if other.get("status") != "ok" or other["bounds"]["kind"] != result["bounds"]["kind"]:
+            continue
+        expected = _numbers(other)
+        for what, text in _numbers(result).items():
+            target = expected.get(what)
+            if text is None or target is None:
+                continue
+            value = _substituted(text, names, values)
+            try:
+                constant_value = sympify_engine_string(target, names)
+            except (SyntaxError, TypeError, ValueError, sympy.SympifyError):
+                continue
+            if value is not None and decide_equal(value, constant_value, use_simplify=False) is False:
+                problems.append(f"{name}: {what} with {dict(values)} is {value}, the instantiated program gives "
+                                f"{target}")
+    if not ok:
+        return problems
+    program = parse_pgcl(instantiated, syntax)
+    try:
+        simulation = simulate(program, runs, seed=seed)
+    except (UnsupportedConstruct, SimulationError):
+        return problems  # check_program of the instantiated program reports a failing run
+    for name, result in ok.items():
+        problems.extend(f"{name} (parametric, instantiated) vs. simulation: {m}"
+                        for m in compare(program, instantiate_result(result, values), simulation))
     return problems
 
 
