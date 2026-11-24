@@ -63,3 +63,16 @@ def require_single_valued(function: sympy.Expr, variable: str, operation: str) -
             f"single-valued in '{variable}' (built from rational functions and exp). The residue "
             f"classes modulo a number are extracted with complex roots of unity, which can pick the "
             f"wrong branch of roots or logarithms.")
+
+
+def root_of_unity(power: int, order: int) -> sympy.Expr:
+    """
+    The root of unity ``exp(2*pi*I*power/order)`` in one canonical form, ``cos(t) + I*sin(t)`` with
+    ``t = 2*pi*(power mod order)/order``: SymPy evaluates it to radicals where it can (orders 1-6, 8, 10,
+    12, ...), and two powers that denote the same root are the same expression. In the form ``exp(t*I)``,
+    SymPy rewrites products of roots into ``(-1)**(2/3)`` and other forms of the same root, which it does
+    not recognise as equal, so sums over roots of unity did not cancel and grew with every operation
+    (Prodigy#472).
+    """
+    angle = 2 * sympy.pi * sympy.Rational(power % order, order)
+    return sympy.expand(sympy.cos(angle) + sympy.I * sympy.sin(angle))

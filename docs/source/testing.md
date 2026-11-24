@@ -18,11 +18,14 @@ is used up; such a run counts as unfinished and widens the intervals.
 query `Pr[g]`, `Ex[e]`, the first rows of every marginal and the mass of the distribution. A value
 reported as exact, or the interval of a lower or upper bound, must meet the confidence interval of
 the simulation (exact Clopper-Pearson intervals for probabilities, normal intervals for expected values, `z = 5`).
+An expected value whose reported upper end is infinite is not compared: the expectation may be infinite (the
+St. Petersburg payout), and then the interval of the sample mean says nothing about it.
 
 `tests/simulation/test_examples.py` does this for every example in `pgfexamples/` that the
 simulator can run (all but those with parameters or `sample_pgf`); loops are unrolled, so the
 analysis gives a sound interval with the residual mass, or an exact result if the loop terminates
-during unrolling.
+during unrolling. A few examples whose state space grows quickly with the depth are unrolled less
+(`UNROLL_DEPTH`, with the reason); that only widens the intervals.
 
 **What this covers, and what it cannot.** The comparison is statistical, not a proof. With a fixed
 seed it is reproducible, and a correct result fails with a probability of about 6·10⁻⁷ per compared
@@ -37,12 +40,12 @@ reliable bound).
 
 `tests/fuzzing/programs.py` is a [Hypothesis](https://hypothesis.readthedocs.io/) strategy for small
 random programs: assignments, the built-in distributions, `if`, probabilistic choice, `observe`,
-`loop(n)`, bounded `while` loops, modulo and floor division, and queries. Every program can be
-rendered in `.ppy` and in `.pgcl`. For each program the tests check that
+`loop(n)`, bounded `while` loops, modulo and floor division, and queries, rendered in `.ppy`. For
+each program the tests check that
 
-- both syntaxes give the same program;
 - SymPy (with the simplification of the shown result on and off) and GiNaC give equal results, decided with
-  {func}`prodigy.distribution.equality.decide_equal_strings`, and the same kind of guarantee;
+  {func}`prodigy.distribution.equality.decide_equal_strings` (only a proven difference fails), and the same
+  kind of guarantee;
 - no result with status `ok` contains `nan`, `zoo` or `oo`;
 - the results agree with the simulation.
 

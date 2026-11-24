@@ -48,6 +48,15 @@ SKIPPED = {
 }
 """Examples that are not compared, with the reason."""
 
+UNROLL_DEPTH = {
+    # The state space grows with the depth (red + black balls after k draws, an inner loop over indices up
+    # to 2·(red + black)), the time about like k^5: 8 iterations need 30 s on SymPy, 12 need 30 s on GiNaC,
+    # 30 would need hours. 8 is the depth the example documents.
+    "inference/loopy/hard_distributions/d_finite/polya_urn_coins.ppy": 8,
+}
+"""Examples whose loops are unrolled fewer than :data:`UNROLL` times, with the reason. Every depth gives sound
+intervals; a smaller one only makes them wider."""
+
 SLOW = {
     # seconds for analysis and simulation (one run, Apple M-series)
     "independence/fuzzy_or.ppy": 6,
@@ -107,7 +116,7 @@ def _compare(name: str) -> str:
     except UnsupportedConstruct as reason:
         return f"skip: the simulator does not implement {reason}"
     session = AnalysisSession(program, source=source, syntax="ppy", config=ForwardAnalysisConfig(),
-                              decisions={"*": f"unroll:iterations={UNROLL}"}, capture_output=True,
+                              decisions={"*": f"unroll:iterations={UNROLL_DEPTH.get(name, UNROLL)}"}, capture_output=True,
                               coefficient_limit=12)
     result = session.run().to_json()
     if result["status"] == "error" and "observing a valid run is 0" in result["error"]["message"]:

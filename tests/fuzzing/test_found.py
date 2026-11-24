@@ -171,3 +171,39 @@ def test_observed_residue_class_of_a_poisson_draw_is_fast(engine):
 @pytest.mark.slow
 def test_observed_residue_class_of_a_poisson_draw_agrees_on_all_engines():
     assert not isolated(check_program, OBSERVE_RESIDUE_OF_POISSON, "ppy", {}, seconds=100, seed=0)
+
+
+# #472: the weekly fuzzing run of 2026-11-16 and 2026-11-23 took more than 60 s on these (residue classes of
+# Poisson draws, conditioned on another residue class): SymPy wrote one root of unity in several forms
+# (exp(4*pi*I/3), (-1)**(2/3)), so the sums over them never cancelled; the coefficient stream did not see the
+# exponentials in a denominator; and the value at 1 and the finiteness heuristic cancelled the large constants
+# when they did not need to.
+RESIDUES_OF_POISSON = [
+    """x: nat;
+y: nat;
+z: nat;
+loop(1) {
+    y = poisson(1);
+    observe(not (((y % 3) == 1)));
+}
+query Pr[((x % 3) == 0)];
+print;
+""",
+    """x: nat;
+y: nat;
+z: nat;
+x = poisson(1);
+observe(((x % 2) == 0));
+x = (x % 3);
+y = poisson(1/2);
+query Ex[z];
+query Pr[((z % 2) == 1)];
+print;
+""",
+]
+
+
+@pytest.mark.timeout(100)  # a few seconds (it was more than a minute); the bound leaves room for a slow runner
+@pytest.mark.parametrize("source", RESIDUES_OF_POISSON, ids=["observe-residue", "residue-after-observe"])
+def test_residue_classes_of_poisson_draws_agree_and_are_fast(source):
+    assert not isolated(check_program, source, "ppy", {}, seconds=90, seed=0)
