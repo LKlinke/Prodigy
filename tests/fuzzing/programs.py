@@ -17,6 +17,7 @@ its issue. A fuzzing run with a switch turned on finds programs of that class.
 """
 from __future__ import annotations
 
+import operator
 from dataclasses import dataclass, field, replace
 from fractions import Fraction
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple, Union
@@ -231,6 +232,9 @@ def _expr_parameters(expr: Expr) -> List[str]:
     return []
 
 
+_ARITHMETIC = {"+": operator.add, "-": operator.sub, "*": operator.mul, "/": operator.truediv}
+
+
 def _value(expr: Expr, values: Mapping[str, Fraction]) -> Fraction:
     """The value of a parametric probability (built from parameters, literals and arithmetic)."""
     if isinstance(expr, Param):
@@ -239,7 +243,7 @@ def _value(expr: Expr, values: Mapping[str, Fraction]) -> Fraction:
         return Fraction(str(expr.value) if isinstance(expr, Num) else expr.text)
     if isinstance(expr, Op) and expr.op in ("+", "-", "*", "/"):
         lhs, rhs = _value(expr.lhs, values), _value(expr.rhs, values)
-        return {"+": lhs + rhs, "-": lhs - rhs, "*": lhs * rhs, "/": lhs / rhs if rhs else Fraction(0)}[expr.op]
+        return _ARITHMETIC[expr.op](lhs, rhs)
     raise TypeError(expr)
 
 
@@ -478,7 +482,6 @@ def samples(features: Features = DEFAULT_FEATURES) -> st.SearchStrategy[Expr]:
 
 def _categorical(items: List[Tuple[int, Tuple[int, int]]]) -> Categorical:
     """Values with weights 1/n each; the last value takes the rest, so the probabilities sum to 1."""
-    from fractions import Fraction  # pylint: disable=import-outside-toplevel
     values: List[Tuple[int, str]] = []
     rest = Fraction(1)
     used = set()
