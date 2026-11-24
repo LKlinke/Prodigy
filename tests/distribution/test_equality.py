@@ -122,6 +122,16 @@ def test_decide_equal_never_refutes_with_irrational_constants():
     assert is_rational_over_q((x + sympy.Rational(1, 2)) / (1 - x) ** 2)
 
 
+def test_decide_equal_without_proving_equality():
+    # only proven differences count (the fuzzing oracle, Prodigy#472): irrational constants give None at once,
+    # rational differences are still decided
+    x = sympy.Symbol("x")
+    assert decide_equal((1 + sympy.sqrt(2)) ** 2 * x, (3 + 2 * sympy.sqrt(2)) * x, prove_equality=False) is None
+    assert decide_equal(x / (1 - x), x + x ** 2, prove_equality=False) is False
+    assert decide_equal(x ** 2 - 1, (x - 1) * (x + 1), prove_equality=False) is True
+    assert decide_equal_strings("x*sqrt(3)", "sqrt(3)*x", ["x"], prove_equality=False) is True  # identical
+
+
 def test_decide_equal_strings_keeps_names_as_symbols():
     # E, S and I would otherwise be Euler's number, SymPy's singleton registry and the imaginary unit
     assert decide_equal_strings("E + S*I", "I*S + E", ["E", "S", "I"]) is True

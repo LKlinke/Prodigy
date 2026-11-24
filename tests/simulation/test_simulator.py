@@ -132,6 +132,22 @@ def test_compare_finds_a_wrong_result():
     assert isinstance(mismatches[0], Mismatch) and "analysis 0.6" in str(mismatches[0])
 
 
+def test_compare_skips_expectations_that_may_be_infinite():
+    # St. Petersburg: the payout has infinite expectation, every sample mean is finite (Prodigy#472). An
+    # interval with an infinite upper end is not compared; a finite one still is.
+    program = parse_pgcl("y: nat = 1; s: nat = 0; while (s == 0) { {y = 2 * y;} [1/2] {s = 1;} } query Ex[y];",
+                         "ppy")
+    simulation = simulate(program, 3000, seed=2, loop_budget=1000)
+
+    def result(lower, upper):
+        return {"bounds": {"kind": "lower"},
+                "queries": [{"index": 0, "kind": "expectation", "expr": "y", "lower_float": lower,
+                             "upper_float": upper}]}
+
+    assert not compare(program, result(1000.0, math.inf), simulation)
+    assert [m.what for m in compare(program, result(1000.0, 2000.0), simulation)] == ["Ex[y]"]
+
+
 def test_query_block_conditions_locally():
     # Monty Hall: the host's door is drawn again until it shows neither the prize nor the player's
     # door; the runs are not rejected, so switching wins with 2/3 (global rejection would give 1/2)

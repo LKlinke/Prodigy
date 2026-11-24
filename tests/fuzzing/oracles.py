@@ -226,7 +226,7 @@ def check_program(source: str, syntax: str = "ppy", decisions: Optional[Mapping[
                 other = expected.get(what)
                 if value is None or other is None:
                     continue
-                if decide_equal_strings(value, other, names) is False:
+                if decide_equal_strings(value, other, names, prove_equality=False) is False:
                     problems.append(f"{what}: {name} gives {value}, {reference_name} gives {other}")
         try:
             simulation = simulate(parse_pgcl(source, syntax), runs, seed=seed)
