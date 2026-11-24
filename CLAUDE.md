@@ -11,10 +11,15 @@ Details on the layout and releases: `docs/source/development.md`.
   force-push or rewrite pushed history, never change authors. Ask before pushing unless the user
   said so in the session.
 - The repository is public: no unpublished research (titles, venues, results) anywhere.
-- PR texts end with "Found, not fixed here": every problem found but not fixed, and every
-  deviation from these rules, says whether it exists on `main`. A regression introduced by the PR
-  is fixed in it. Each item becomes an issue (priority and `area:`/`topic:` labels) or an item of
-  an open collection issue.
+- Fix small findings in place: a problem in the modules the PR already touches, fixable in well
+  under an hour without changing behaviour outside the PR's topic, is fixed in the same PR (its
+  own commit, listed under "Also fixed"). A regression introduced by the PR is always fixed in it.
+- PR texts end with "Found, not fixed here": every larger or out-of-scope problem, and every
+  deviation from these rules, says whether it exists on `main`. Each item becomes an issue
+  (priority and `area:`/`topic:` labels) or an item of an open collection issue.
+- Before a PR counts as done, check every point of the issue's "Done when" (and items folded into
+  it from other issues); name any that is left out. A removal or rename searches code, tests,
+  docs, messages, the frontend and vendored bundles for leftovers and states the search in the PR.
 - Milestones are releases (`v0.5.0`, …); the backlog has none. Themes are labels. Releases come
   from a tag `v*` (no version to bump); see `development.md`.
 
