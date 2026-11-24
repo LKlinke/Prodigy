@@ -15,7 +15,7 @@ import sympy
 # TODO Implement these checks in prodigy.pgcl
 from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
-from prodigy.distribution.distribution import Operand
+from prodigy.distribution.distribution import Operand, canonical_order
 from prodigy.distribution.equality import decide_equal, sympy_text
 from prodigy.distribution.exact_division import divide_exponents
 from prodigy.distribution.rational_series import rational_taylor_coefficients
@@ -794,20 +794,14 @@ class GeneratingFunction(Distribution):
                             state_condition({str(numerator): val_l, str(denominator): val_r})
                         )._function
                         if val_l % val_r != 0 and x != 0 and not provably_equal(x, sympy.Integer(0)):
-                            raise ValueError(
-                                f"Cannot assign {numerator} / {denominator} to {temp_var} " \
-                                "because it is not always an integer"
-                            )
+                            raise self._not_an_integer_quotient(numerator, denominator, temp_var)
                         result += _substitute_one(x, update_var) * update_var ** (val_l // val_r)
                 else:
                     val_l, val_r = state_l[str(numerator)], div_2
                     x = self.filter(
                         state_condition({str(numerator): val_l}))._function
                     if val_l % val_r != 0 and x != 0 and not provably_equal(x, sympy.Integer(0)):
-                        raise ValueError(
-                            f"Cannot assign {numerator} / {denominator} to {temp_var} " \
-                            "because it is not always an integer"
-                        )
+                        raise self._not_an_integer_quotient(numerator, denominator, temp_var)
                     result += _substitute_one(x, update_var) * update_var ** (val_l // val_r)
         else:
             if isinstance(marginal_r, Distribution):
@@ -816,16 +810,11 @@ class GeneratingFunction(Distribution):
                     x = self.filter(
                         state_condition({str(denominator): val_r}))._function
                     if val_l % val_r != 0 and x != 0 and not provably_equal(x, sympy.Integer(0)):
-                        raise ValueError(
-                            f"Cannot assign {numerator} / {denominator} to {temp_var} " \
-                            "because it is not always an integer"
-                        )
+                        raise self._not_an_integer_quotient(numerator, denominator, temp_var)
                     result += _substitute_one(x, update_var) * update_var ** (val_l // val_r)
             else:
                 if div_1 % div_2 != 0:
-                    raise ValueError(
-                        f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not always an integer"
-                    )
+                    raise self._not_an_integer_quotient(numerator, denominator, temp_var)
                 result = _substitute_one(self._function, update_var) * update_var ** (div_1 // div_2)
 
         return GeneratingFunction(
@@ -1252,32 +1241,26 @@ class GeneratingFunction(Distribution):
             return sympy_text(expected_value)
 
     def copy(self, deep: bool = True) -> GeneratingFunction:
-        res = GeneratingFunction(self._function,
-                                 *self._variables,
-                                 closed=self._is_closed_form,
-                                 finite=self._is_finite)
+        res = GeneratingFunction(self._function, *self._variables, closed=True, finite=True)
+        # set directly: the constructor reads no variables as "all symbols are variables", and it recomputes
+        # the flags that are False
+        res._variables = self._variables.copy()
         res._parameters = self._parameters.copy()
+        res._is_closed_form, res._is_finite = self._is_closed_form, self._is_finite
         return res
 
-    def set_variables(self, *variables: str) -> GeneratingFunction:
-        if not variables:
-            raise ValueError(
-                "The free-variables of a distribution cannot be empty!")
-        remove_dups = set(variables)
-        return GeneratingFunction(self._function,
-                                  *remove_dups,
-                                  closed=self._is_closed_form,
-                                  finite=self._is_finite).set_parameters(
-            *(self.get_parameters() - remove_dups))
-
-    def set_parameters(self, *parameters: str) -> GeneratingFunction:
-        remove_dups = set(parameters)
-        if self._variables.intersection(remove_dups):
-            raise ValueError(
-                "A indeterminate cannot be variable and parameter at the same time."
-            )
+    def _with_names(self, variables: Set[str], parameters: Set[str]) -> GeneratingFunction:
         result = self.copy()
-        result._parameters = set(_sympy_symbol(param) for param in remove_dups)
+        result._variables = {_sympy_symbol(name) for name in variables}
+        result._parameters = {_sympy_symbol(name) for name in parameters}
+        occurring, old = self.get_symbols(), self.get_variables()
+        if (variables - old) & occurring:
+            # a former parameter may make the function a closed form, or infinite (e.g. 1/(1 - p) for p)
+            result._is_closed_form = self._is_closed_form or not self._function.is_polynomial(*result._variables)
+            result._is_finite = _is_finite_function(self._function, frozenset(result._variables))
+        elif not self._is_finite and (old - variables) & occurring:
+            # a variable became a parameter: an infinite function may be a polynomial in the remaining ones
+            result._is_finite = _is_finite_function(self._function, frozenset(result._variables))
         return result
 
     def _arithmetic(self, other: Operand, op: Callable[[sympy.Expr, sympy.Expr], sympy.Expr]) -> GeneratingFunction:
@@ -1288,14 +1271,7 @@ class GeneratingFunction(Distribution):
 
         # other object is already a generating function.
         if isinstance(other, GeneratingFunction):
-            # Checking for naming clashes in variables and parameters:
-            if self._variables.intersection(
-                    other._parameters) or self._parameters.intersection(
-                other._variables):
-                raise ArithmeticError(
-                    "Name clash for parameters and variables in " \
-                    f"{self._variables=} {other._variables=} \t {self._parameters=} {other._parameters=}"
-                )
+            self._require_compatible_names(other)
 
             # collect the meta information.
             is_closed_form = self._is_closed_form and other._is_closed_form
@@ -1397,9 +1373,8 @@ class GeneratingFunction(Distribution):
             k-tuples, for which the coefficient might be zero (this we do not know upfront).
         """
         logger.debug("iterating over %s...", self)
-        return map(
-            lambda term: (str(term[0]), self._monomial_to_state(term[1])),
-            self._iter_expr_expr())
+        items = map(lambda term: (str(term[0]), self._monomial_to_state(term[1])), self._iter_expr_expr())
+        return iter(canonical_order(items)) if self._is_finite else items
 
     def _iter_expr_state(self) -> Iterator[Tuple[sympy.Expr, State]]:
         """Iterates over self and yields the (coefficient, state) pairs as a sympy expression and a `State`"""
@@ -1510,7 +1485,7 @@ class GeneratingFunction(Distribution):
         logger.debug("normalized() call")
         mass = self._coefficient_sum()
         if mass == 0:
-            raise ZeroDivisionError
+            raise ZeroDivisionError("Cannot normalize: the probability mass is 0")
         return GeneratingFunction(self._function / mass,
                                   *self._variables,
                                   closed=self._is_closed_form,
@@ -1552,14 +1527,6 @@ class GeneratingFunction(Distribution):
         logger.debug(
             "Creating marginal for variables %s and joint probability distribution %s",
             variables, self)
-
-        if len(variables) == 0:
-            raise ValueError("No variables where provided")
-        if not {_sympy_symbol(str(x))
-                for x in variables}.issubset(self._variables):
-            raise ValueError(
-                f"Unknown variable(s): { {_sympy_symbol(str(x)) for x in variables} - self._variables}"
-            )
 
         marginal_vars = set(
             map(_sympy_symbol, filter(lambda v: v != '', map(str, variables))))

@@ -156,6 +156,8 @@ param p: real;
   generating function.
 - `param p: real;` is an unknown symbol. Prodigy computes with it symbolically, e.g. for template
   and parameter synthesis.
+- A guard, observation or `Pr[…]` query whose condition contains a parameter (`x < p`, `p < 1/2`)
+  is "not implemented": its truth in a state depends on the unknown value of the parameter (#361).
 
 ### Conditionals
 
