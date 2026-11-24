@@ -305,6 +305,8 @@ def test_expected_value_errors(factory):
 
 def test_normalize(factory):
     assert factory.from_expr("x/3 + 1/3", "x").normalize() == factory.from_expr("x/2 + 1/2", "x")
+    # a declared parameter stays one, also if it does not occur (SymPy dropped it, #361)
+    assert _names(factory.from_expr("x/3 + 1/3", "x").set_parameters("q").normalize()) == ({"x"}, {"q"})
     with pytest.raises(ZeroDivisionError, match="Cannot normalize the zero distribution"):
         factory.zero("x").normalize()
 
@@ -429,6 +431,21 @@ def test_update(factory, function, variables, update, expected):
     result = dist.update(P(update))
     assert result == factory.from_expr(expected, *dist.get_variables()), str(result)
     assert _names(result) == _names(dist)
+
+
+@pytest.mark.parametrize("operation", [
+    lambda d: d.update(P("x == x + y")), lambda d: d.update(P("x == x * y")), lambda d: d.update(P("x == x - y")),
+    lambda d: d.update(P("x == x / 2")), lambda d: d.update(P("x == x % 3")), lambda d: d.update(P("x == y ** 2")),
+    lambda d: d.update(P("x == x // 2")), lambda d: d.update(P("x == 7")), lambda d: d.update(P("x == y")),
+    lambda d: d.filter(P("x < 3")), lambda d: d.filter(P("x % 2 == 0")), lambda d: d.filter(P("x < y")),
+    lambda d: d.update_iid(P("bernoulli(1/2)"), P("y"), "x"), lambda d: d.normalize(), lambda d: d.copy(),
+    lambda d: d + d, lambda d: d * d,
+], ids=["sum", "product", "monus", "division", "modulo", "power", "floor", "literal", "variable", "filter",
+        "residue", "comparison", "iid", "normalize", "copy", "add", "multiply"])
+def test_operations_keep_the_names(factory, operation):
+    # parameters that do not occur in the generating function stay parameters (#361)
+    dist = factory.from_expr("1/2*x^2*y + 1/2*x^4", "x", "y").set_parameters("q")
+    assert _names(operation(dist)) == ({"x", "y"}, {"q"})
 
 
 def test_update_keeps_the_parameters(factory):

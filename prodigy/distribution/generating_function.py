@@ -485,7 +485,7 @@ class GeneratingFunction(Distribution):
         return GeneratingFunction(result,
                                   *self._variables,
                                   closed=self._is_closed_form,
-                                  finite=self._is_finite)
+                                  finite=self._is_finite).set_parameters(*self.get_parameters())
 
     def _mult_term_generator(self) -> Iterator[Term]:
         """
@@ -1486,10 +1486,9 @@ class GeneratingFunction(Distribution):
         mass = self._coefficient_sum()
         if mass == 0:
             raise ZeroDivisionError("Cannot normalize: the probability mass is 0")
-        return GeneratingFunction(self._function / mass,
-                                  *self._variables,
-                                  closed=self._is_closed_form,
-                                  finite=self._is_finite)
+        result = self.copy()  # keeps the parameters, also those that do not occur (#361)
+        result._function = self._function / mass
+        return result
 
     def is_finite(self) -> bool:
         """
@@ -1578,7 +1577,7 @@ class GeneratingFunction(Distribution):
         return GeneratingFunction(res,
                                   *self._variables,
                                   closed=False,
-                                  finite=True)
+                                  finite=True).set_parameters(*self.get_parameters())
 
     def _find_symbols(self, expr: str) -> Set[str]:
         return {str(s) for s in _parse_to_sympy(expr).free_symbols}
