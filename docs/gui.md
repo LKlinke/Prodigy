@@ -18,15 +18,16 @@ Prodigy is tested with Python 3.11 and 3.14.
 
 ## What the GUI shows
 
-* **Program** (left): editor with highlighting for both syntaxes, syntax errors (and
+* **Program** (left): editor with `.ppy` highlighting, syntax errors (and
   type-checker warnings) as you type. Above each loop a pill shows its strategy and, after a
-  run, what it certified. After each query (`query Pr[…]`, `?Pr[…]`) the value appears inline.
-  The chip next to the title shows the syntax of the program; see [The `.pgcl` syntax](#the-pgcl-syntax).
+  run, what it certified. After each query (`query Pr[…]`) the value appears inline.
+  The chip next to the title shows the syntax of the program (always `.ppy`); for `.pgcl` files see
+  [The `.pgcl` syntax](#the-pgcl-syntax).
 * **Setup** (right): initial distribution (refused with a message unless it is proven to be a
   distribution, see the language reference), one strategy per loop with its parameters (see
   [Choosing a loop strategy](#choosing-a-loop-strategy)),
   analysis options (conditioning, simplification of the shown result, number of coefficients, time
-  limit, EVT synthesis strategy, solver, recording of intermediate distributions).
+  limit, EVT synthesis strategy, recording of intermediate distributions).
   *Simplify the shown result* (on by default; CLI: on unless `--no-simplification`) does not change
   the analysis (it always uses the same normal form: factored closed forms, expanded polynomials). Only the output distribution that is shown is rewritten: a bounded search tries cheap exact rewrites in the order of their cost
   (`together`, `cancel`, `factor`; GCD-based ones only below a size and degree threshold, never
@@ -101,8 +102,11 @@ Prodigy is tested with Python 3.11 and 3.14.
   The upper ends of single values are drawn only when at least one value has an upper end of its
   own (`upper_source: "certificate"`, #451). While every upper end is the lower end plus the same
   residual mass, drawing it at every bar would repeat one number and hide the distribution: then
-  only the "?" bar shows the residual, and a value's interval appears on hover (bar charts) or for
-  the selected bar (3D view). The lens, the choice of variable and view are
+  only the "?" bar shows the residual, and a value's interval appears on hover or for the selected
+  bar. Keyboard (#462): Tab focuses a bar chart, the left and right arrow keys and Home/End move
+  between its bars (Enter or Space selects the current one); the selected bar is outlined, and the
+  line below the chart gives its interval and where its upper end comes from (its own certificate,
+  or the lower end plus the mass not yet accounted for), like the heatmap's line. The lens, the choice of variable and view are
   kept when the program is analysed again; the timeline starts at the final result.
 * **Examples**: the programs in `pgfexamples/` (in `.ppy`), with a suggested setup derived from
   their first line (e.g. `check_equality` examples come with their invariant and open in Compare
@@ -292,7 +296,10 @@ its own, see `prodigy/analysis/joint_grid.py`), the browser only draws them. At 
 timeline other than the final result, the grid is that of the recorded step or iterate (the
 request names `step` and `iterate`; a closed form the trace kept only in part has no grid). The
 grid grows from its corner by total degree while it is computed; the cells not computed yet are
-hatched, and the status line says *Computing… n of m cells*.
+hatched, and the status line says *Computing… n of m cells*. The server keeps the cells it computed for
+each result and pair (#469, `prodigy/web/grid_cache.py`): a window shown before comes back at once,
+and a window whose cells are all known (zooming in) needs no expansion; for any other window the
+known cells are taken as they are.
 
 * **Pair**: the variables on the horizontal and the vertical axis (⇄ swaps them).
 * **Window**: the values *from*–*to* of each axis, at most 50 per axis and up to 1000; *Show
@@ -494,16 +501,18 @@ scripts; `prodigy analyze --json` has the exploration in the loop's certificate 
 ## The `.pgcl` syntax
 
 Programs are written in `.ppy`. The `.pgcl` syntax was removed in v0.6.0, together with
-*Convert to .ppy*: the server answers a `.pgcl` program with the error "The .pgcl syntax was
-removed in v0.6.0. Convert the program to .ppy with Prodigy v0.5.x (`prodigy convert
-program.pgcl`, or Convert to .ppy in its GUI)." **New** starts a `.ppy` program, and Save writes
-`.ppy`; a `.pgcl` file can still be opened, and its errors show in the editor.
+*Convert to .ppy*. **New** starts a `.ppy` program and Save writes `.ppy`. Open… still offers
+`.pgcl` files, but the GUI does not treat them specially: the text is loaded into the editor and
+read as `.ppy`, so the diagnostics are ordinary `.ppy` syntax errors (for example "Unexpected 'x',
+expected ',' or ':' or '='." at the declaration `nat x;`). Convert such a program with Prodigy
+v0.5.x (`prodigy convert program.pgcl`, or Convert to .ppy in its GUI). Only the API names the
+removal: it answers a request with `syntax` `pgcl` or a `file_name` ending in `.pgcl` with the
+error "The .pgcl syntax was removed in v0.6.0. …".
 
 Everything typed into the setup is read in the program's syntax: an invariant program of
 *Check invariant* is a loop-free program in that syntax. Generating functions (the initial
 distribution, EVT invariants and sub-invariants, candidates of *Suggest*) accept powers as `^`
-and `**` in both syntaxes; a candidate of the language model is shown with the program's power
-operator.
+and `**`; a candidate of the language model is shown with the program's power operator.
 
 ## Guarantees
 

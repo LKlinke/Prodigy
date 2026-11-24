@@ -20,18 +20,6 @@ from prodigy.distribution.rational_series import rational_taylor_coefficients, r
 from prodigy.web.jobs import _Sender, merge_stream
 
 
-def _ginac_factory():
-    pytest.importorskip("prodigy_ginac")
-    # pylint: disable=import-outside-toplevel
-    from prodigy.distribution.fast_generating_function import ProdigyPGF
-    return ProdigyPGF
-
-
-FACTORIES = [
-    pytest.param(lambda: SympyPGF, id="sympy"),
-    pytest.param(_ginac_factory, id="ginac"),
-]
-
 UNIVARIATE = [
     pytest.param("1/(3 - 2*x)", id="rational"),
     pytest.param("(1 - p)/(1 - p*x)", id="rational-parametric"),
@@ -61,11 +49,10 @@ def _same(left, right) -> bool:
     return difference == 0 or sympy.simplify(difference) == 0
 
 
-@pytest.mark.parametrize("factory", FACTORIES)
 @pytest.mark.parametrize("closed_form", UNIVARIATE)
 @pytest.mark.parametrize("incremental", [True, False], ids=["streamed", "at-once"])
 def test_streamed_coefficients_equal_the_existing_ones(factory, closed_form, incremental):
-    dist = factory().from_expr(closed_form, "x")
+    dist = factory.from_expr(closed_form, "x")
     streamed = list(marginal_stream(dist.marginal("x"), "x", LIMIT, incremental=incremental))
     reference = _reference(dist.marginal("x"), "x", LIMIT)
     assert len(streamed) == LIMIT
@@ -76,11 +63,10 @@ def test_streamed_coefficients_equal_the_existing_ones(factory, closed_form, inc
     assert all(_same(value, expected) for value, expected in zip(streamed, symbolic))
 
 
-@pytest.mark.parametrize("factory", FACTORIES)
 @pytest.mark.parametrize("closed_form", [UNIVARIATE[0], UNIVARIATE[3]])
 def test_streamed_rows_of_a_lower_bound_are_the_final_rows(factory, closed_form):
     # a coefficient of a lower bound with residual mass is a lower bound: it keeps "upper" while streaming
-    dist = factory().from_expr(f"9/10 * ({closed_form})", "x", "y")
+    dist = factory.from_expr(f"9/10 * ({closed_form})", "x", "y")
     events = []
     summary = describe_distribution(dist, limit=12, kind=Bound.LOWER, residual="1/10", stream=events.append,
                                     expectations=False)
@@ -108,14 +94,13 @@ def test_rows_arrive_in_batches_in_order():
     assert events[-1]["done"]
 
 
-@pytest.mark.parametrize("factory", FACTORIES)
 @pytest.mark.parametrize("closed_form", [
     pytest.param("1/((2 - x)*(3 - y))", id="rational"),
     pytest.param("exp(x - 1) / (2 - y)", id="exp"),
     pytest.param("(1 - sqrt(1 - x*y)) * (x + y)/2", id="algebraic"),
 ])
 def test_streamed_grid_equals_the_grid_and_grows_by_total_degree(factory, closed_form):
-    dist = factory().from_expr(closed_form, "x", "y")
+    dist = factory.from_expr(closed_form, "x", "y")
     events = []
     # as for the GUI's grid of an analysis result (run_joint): the algebraic closed form has radius 1 (#398)
     with known_convergent_series(True):

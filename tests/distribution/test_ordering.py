@@ -6,24 +6,7 @@ import pytest
 
 from prodigy.distribution import State, UndecidedComparisonError
 from prodigy.distribution.generating_function import SympyPGF
-
-
-def _ginac_factory():
-    pytest.importorskip("prodigy_ginac")
-    # pylint: disable=import-outside-toplevel
-    from prodigy.distribution.fast_generating_function import ProdigyPGF
-    return ProdigyPGF
-
-
-FACTORIES = [
-    pytest.param(lambda: SympyPGF, id="sympy"),
-    pytest.param(_ginac_factory, id="ginac"),
-]
-
-
-@pytest.fixture(name="factory", params=FACTORIES)
-def _factory(request):
-    return request.param()
+from tests.distribution.engines import ginac_factory
 
 
 def _pair(factory, lhs, rhs, variables=("x",), parameters=()):
@@ -129,6 +112,6 @@ def test_incomparable(factory):
 
 
 def test_engines_incomparable():
-    ginac = _ginac_factory()
+    ginac = ginac_factory()
     with pytest.raises(TypeError, match="Incomparable types"):
         assert SympyPGF.from_expr("x", "x") <= ginac.from_expr("x", "x")

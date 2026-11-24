@@ -127,6 +127,7 @@ If a proposed invariant is not certified, ``status`` is ``error`` and ``error.ve
 """
 from __future__ import annotations
 
+import functools
 import itertools
 import logging
 import math
@@ -230,6 +231,17 @@ def tidy(expr: sympy.Expr) -> sympy.Expr:
     rational ``q`` with a 90-bit denominator) does not finish. A rational function over the
     rationals is put over a common denominator instead (exact polynomial arithmetic); any other
     expression is returned as it is.
+
+    A small expression is simplified as a rational multiple ``q * P`` of its primitive part ``P``
+    (``as_content_primitive``: ``q`` a positive rational, ``P`` without rational content), and the
+    simplified form of ``P`` is kept (:func:`_simplified`). The cells of a joint grid and the rows of
+    a marginal are multiples of few primitive parts (#469): every coefficient of a Poisson factor is
+    ``q * exp(-λ)``, and for a fixed value of one variable the coefficients of a product form share
+    one polynomial in the parameters, so that one ``simplify`` serves them all. ``q * P == expr``, so
+    the value never changes. If the simplified ``P`` is a product or a power, ``q`` stays a factor in
+    front of it and the form is that of ``simplify(expr)``; if it is a sum, SymPy would distribute ``q``
+    over its terms, so ``expr`` itself is simplified (and kept). ``tests/analysis/test_result_display.py``
+    and ``tests/web/test_grid_cache.py`` compare the forms with ``simplify(expr)`` on generic values.
     """
     # pylint: disable=import-outside-toplevel
     from prodigy.distribution.equality import is_rational_over_q
@@ -239,10 +251,20 @@ def tidy(expr: sympy.Expr) -> sympy.Expr:
         abs(atom.p).bit_length() <= _TIDY_MAX_BITS and abs(atom.q).bit_length() <= _TIDY_MAX_BITS
         for atom in expr.atoms(sympy.Rational))
     if small and not expr.has(sympy.log):
-        return sympy.simplify(expr)
+        content, primitive = expr.as_content_primitive()
+        simplified = _simplified(primitive)
+        # q times a sum is distributed over its terms by SymPy, and simplify may write the multiple as a
+        # product instead: then simplify decides the form of the multiple itself
+        return _simplified(expr) if simplified.is_Add and content != 1 else content * simplified
     if is_rational_over_q(expr):
         return sympy.cancel(sympy.together(expr))
     return expr
+
+
+@functools.lru_cache(maxsize=1024)
+def _simplified(expr: sympy.Expr) -> sympy.Expr:
+    """``sympy.simplify(expr)``, kept for the next value with the same primitive part (see :func:`tidy`)."""
+    return sympy.simplify(expr)
 
 
 def to_float(expr: Any) -> Optional[float]:

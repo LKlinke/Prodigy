@@ -16,7 +16,8 @@ from prodigy.distribution.negative_values import can_be_negative, operand
 from prodigy.distribution.roots_of_unity import require_single_valued
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
-                                               MarginalType, NonFiniteMarginalError, Operand, State)
+                                               MarginalType, NonFiniteMarginalError, Operand, State,
+                                               canonical_order)
 from prodigy.pgcl import Binop, BinopExpr, Expr, FunctionCallExpr, NatLitExpr, VarExpr
 
 from prodigy.util.order import default_monomial_iterator
@@ -121,6 +122,7 @@ class FPS(Distribution):
                         set(prodigy_ginac.find_symbols(str(other))) -
                         self._variables)), self._variables, self._parameters)
         elif isinstance(other, FPS):
+            self._require_compatible_names(other)
             return FPS.from_dist(self._dist + other._dist,
                                  self._variables | other._variables,
                                  self._parameters | other._parameters)
@@ -137,6 +139,7 @@ class FPS(Distribution):
                         set(prodigy_ginac.find_symbols(str(other))) -
                         self._variables)), self._variables, self._parameters)
         elif isinstance(other, FPS):
+            self._require_compatible_names(other)
             return FPS.from_dist(self._dist - other._dist,
                                  self._variables | other._variables,
                                  self._parameters | other._parameters)
@@ -153,6 +156,7 @@ class FPS(Distribution):
                         set(prodigy_ginac.find_symbols(str(other))) -
                         self._variables)), self._variables, self._parameters)
         elif isinstance(other, FPS):
+            self._require_compatible_names(other)
             return FPS.from_dist(self._dist * other._dist,
                                  self._variables | other._variables,
                                  self._parameters | other._parameters)
@@ -165,6 +169,7 @@ class FPS(Distribution):
         if isinstance(other, str):
             other = FPS(other, *self._variables)
         if isinstance(other, FPS):
+            self._require_compatible_names(other)
             parameters = self._parameters | other._parameters
             return FPS.from_dist(self._dist * prodigy_ginac.Dist(f"1/({str(other)})", sorted(parameters)),
                                  self._variables | other._variables,
@@ -211,8 +216,7 @@ class FPS(Distribution):
         else:
             # one item per state with its full coefficient since prodigy-ppl-ginac 0.0.7 (#444)
             terms: List[Tuple[str, Dict[str, int]]] = self._dist.get_terms(self._variables)
-            for prob, vals in terms:        # type: ignore
-                yield prob, State(vals)     # type: ignore
+            yield from canonical_order((prob, State(vals)) for prob, vals in terms)  # type: ignore
 
     def native_coefficients(self, variable: str) -> Optional[Iterator[str]]:
         # the bindings expand the series themselves, one coefficient at a time (as `__iter__` does)
@@ -516,11 +520,16 @@ class FPS(Distribution):
                 if divided is not None:
                     return divided
             self._require_approximable(str(fixed), approximate, infinite)
-        return FPS.from_dist(
-            self._case_split(lambda: self._dist.update_division(temp_var, str(numerator), str(denominator),
-                                                                approximate),
-                             numerator, denominator),
-            self._variables, self._parameters)
+        try:
+            divided = self._case_split(lambda: self._dist.update_division(temp_var, str(numerator), str(denominator),
+                                                                          approximate),
+                                       numerator, denominator)
+        except ValueError as error:
+            if "not always divisible" not in str(error):
+                raise
+            # the bindings' words for the error of the shared contract (#361)
+            raise self._not_an_integer_quotient(numerator, denominator, temp_var) from error
+        return FPS.from_dist(divided, self._variables, self._parameters)
 
     def _sympy_function(self) -> Expr_:
         """This generating function as a SymPy expression (all symbols without assumptions)."""
@@ -660,30 +669,18 @@ class FPS(Distribution):
         return FPS.from_dist(result, self._variables - remove_vars[method],
                              self._parameters)
 
-    def set_variables(self, *variables: str) -> FPS:
-        new_variables = set(variables)
-        if new_variables.intersection(self._parameters):
-            raise ValueError(
-                f"Indeterminate(s) {new_variables.intersection(self._parameters)} cannot be parameters and"
-                f" variables at the same time.")
-        new_parameters = self._parameters | (self._variables - new_variables)
-        return FPS.from_dist(self._dist, new_variables, new_parameters,
-                             self._finite)
-
-    def set_parameters(self, *parameters: str) -> FPS:
-        new_parameters = set(parameters)
-        if new_parameters.intersection(self._variables):
-            raise ValueError(
-                f"Indeterminate(s) {new_parameters.intersection(self._variables)} cannot be parameters and"
-                f" variables at the same time.")
-        new_variables = self._variables | (self._parameters - new_parameters)
-        return FPS.from_dist(self._dist, new_variables, new_parameters,
-                             self._finite)
+    def _with_names(self, variables: Set[str], parameters: Set[str]) -> FPS:
+        dist = self._dist
+        if parameters != self._parameters:
+            # the bindings keep the parameters of a function: a name that changes sides is read anew
+            dist = prodigy_ginac.Dist(str(dist), sorted(parameters))
+        return FPS.from_dist(dist, variables, parameters)
 
     def approximate(
             self,
             threshold: Union[str, int]) -> Generator[Distribution, None, None]:
-        raise NotImplementedError(__name__)
+        raise NotImplementedError("Not implemented: approximate (the partial sums of the series) on the GiNaC "
+                                  "engine")
 
     def approximate_unilaterally(
             self, variable: str,

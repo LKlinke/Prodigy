@@ -162,6 +162,17 @@ export function probabilityText(bound, { prob = null, p = null, upper = null, up
   return exactText && exactText !== decimals ? `${exactText} (${decimals})` : decimals;
 }
 
+/**
+ * Where the upper end of a lower bound's interval comes from (#451), in words, or null: a value's
+ * own certificate, or its lower end plus the mass not yet accounted for.
+ */
+export function upperSourceText(bound, { upper_source = null } = {}) {
+  if (bound !== "lower") return null;
+  if (upper_source === "certificate") return "upper end from a certificate of its own";
+  if (upper_source === "residual") return "upper end = lower end + the mass not yet accounted for";
+  return null;
+}
+
 /** The guarantee of the coefficients in words (the interval notation is not left to imply it). */
 export const PROBABILITY_GUARANTEE = {
   exact: "Exact probabilities.",
@@ -172,7 +183,7 @@ export const PROBABILITY_GUARANTEE = {
 
 /** How a bar chart draws the intervals (charts.js: marginalChart). */
 export const BAR_LEGEND = {
-  lower: "Bars are solid up to the lower end; hover a bar for the dashed part up to its upper end. The hatched “?” bar is the mass not yet accounted for.",
+  lower: "Bars are solid up to the lower end; hover or select a bar for the dashed part up to its upper end. The hatched “?” bar is the mass not yet accounted for.",
   upper: "Hatched bars reach up to the upper end.",
 };
 

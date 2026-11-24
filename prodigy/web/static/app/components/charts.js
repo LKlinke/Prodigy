@@ -1,7 +1,7 @@
 // Charts of the result view: the interval bar of a query and the bar chart of a marginal.
 // Plain SVG; colours come from CSS custom properties, so light/dark/high contrast follow.
 import { h, s } from "./dom.js";
-import { PROBABILITY_GUARANTEE, formatNumber, formatValue, probabilityText } from "./format.js";
+import { PROBABILITY_GUARANTEE, formatNumber, formatValue, probabilityText, upperSourceText } from "./format.js";
 import { LOG_DECADES, niceMax, probabilityScale, scaleName, scaleTag } from "./plot-scale.js";
 
 export { LOG_DECADES, niceMax };
@@ -93,28 +93,38 @@ export function logAxis(values) {
  * for the values with an upper end of their own (ownUpperEnds) and on hover for the others; for an
  * upper bound the bar is hatched up to the upper end. `view` holds the view options (#452): the scale
  * (λ, plot-scale.js: probabilityScale), the colour map of the bars and whether the "?" bar is shown.
+ *
+ * The chart works from the keyboard like the joint heatmap (#462): it takes the focus, the arrow keys
+ * and Home/End move between the bars (Enter or Space selects the current one), and a live readout
+ * below it gives the selected bar's interval and the source of its upper end in text. The pointer
+ * selects too. `selection` is an object the caller keeps across redraws ({key, picked}), so that the
+ * selected bar stays selected when the chart is drawn anew (chartFocus keeps the focus).
+ * Returns an element with the SVG (class "marginal-chart") and the readout.
  */
-export function marginalChart(table, { residual = null, residualExact = null, variable = "x", bound = "exact", width: pixelWidth = 560, view = DEFAULT_VIEW, pending = 0 } = {}) {
+export function marginalChart(table, { residual = null, residualExact = null, variable = "x", bound = "exact", width: pixelWidth = 560,
+  view = DEFAULT_VIEW, pending = 0, selection = {} } = {}) {
   const rows = (table.rows || []).filter((row) => row.p !== null);
   const extras = [];
   if (table.truncated && table.tail_mass_float && table.tail_mass_float > 1e-12) {
     const next = rows.length ? rows[rows.length - 1].value + 1 : 0;
-    extras.push({ kind: "tail", label: `≥${next}`, p: table.tail_mass_float, exact: table.tail_mass,
+    extras.push({ kind: "tail", label: `≥${next}`, p: table.tail_mass_float, exact: table.tail_mass, key: "tail",
       title: `${variable} ≥ ${next}: ${formatValue(table.tail_mass, table.tail_mass_float)} (not shown individually)` });
   }
   if (residual && residual > 0 && view.unaccounted) {
-    extras.push({ kind: "residual", label: "?", p: residual, exact: residualExact,
+    extras.push({ kind: "residual", label: "?", p: residual, exact: residualExact, key: "residual",
       title: `Not yet accounted for: ${formatValue(residualExact, residual)} — may end up at any value, or never terminate` });
   }
   if (!rows.length && !extras.length && !pending) {
     return h("p", { class: "rv-muted" }, table.rows?.length ? "The probabilities depend on parameters; see the table." : "No values.");
   }
   const own = ownUpperEnds(rows);
-  const bars = [...rows.map((row) => ({ kind: "value", label: String(row.value), p: row.p, exact: row.prob,
+  const bars = [...rows.map((row) => ({ kind: "value", label: String(row.value), p: row.p, exact: row.prob, key: `v${row.value}`,
     // the upper end of the interval of a lower bound (capped at 1 by the server)
     up: bound === "lower" && Number.isFinite(row.upper_p) && row.upper_p > row.p ? row.upper_p : null,
     ownUp: row.upper_source === "certificate",
-    title: `${variable} = ${row.value}: ${probabilityText(bound, row)}` })),
+    title: `${variable} = ${row.value}: ${probabilityText(bound, row)}`,
+    // the readout adds where the upper end comes from (#451)
+    text: [`${variable} = ${row.value}: ${probabilityText(bound, row)}`, upperSourceText(bound, row)].filter(Boolean).join("; ") })),
   ...extras];
   // the scale reaches the upper ends that are drawn; the others show on hover and may reach above it
   const tops = bars.map((b) => Math.max(b.p, own && b.ownUp ? b.up ?? 0 : 0));
@@ -158,7 +168,7 @@ export function marginalChart(table, { residual = null, residualExact = null, va
     const hatched = bar.kind === "residual" || (bar.kind === "value" && bound === "upper");
     const extClass = own && bar.ownUp ? "mc-ext" : "mc-ext mc-ext-hover";
     // data-* keep the bar's own state, so that the analysis card can tween from one chart to the next (motion.js)
-    return s("g", { class: `mc-bar ${kindClass}`, "data-key": bar.kind === "value" ? `v${bar.label}` : bar.kind },
+    return s("g", { class: `mc-bar ${kindClass}`, "data-key": bar.key, "data-index": index },
       s("title", {}, bar.title),
       s("rect", { x: cx - barW / 2, y: top + plotH - barHeight, width: barW, height: barHeight, rx: Math.min(3, barW / 4),
         fill: hatched ? `url(#${id})` : null, "data-p": bar.p, "data-cx": cx, "data-w": barW }),
@@ -191,11 +201,72 @@ export function marginalChart(table, { residual = null, residualExact = null, va
     (pending > 0 ? `, ${pending} more still being computed` : "") +
     (extras.length ? `, plus ${extras.map((e) => e.kind === "tail" ? "the remaining tail" : "the mass not yet accounted for").join(" and ")}` : "") +
     (linear ? "" : `, ${scaleName(scale.lambda).toLowerCase()} scale from ${formatNumber(scale.min, 2)} to ${formatNumber(max, 2)}`) + ".";
-  return s("svg", { class: "marginal-chart", viewBox: `0 0 ${width} ${height}`, width, height, role: "img", "aria-label": summary,
+  // the selected bar: an outline over its whole slot, so that a bar of probability 0 shows it too
+  const marker = s("rect", { class: "mc-marker", y: top - 4, width: Math.max(4, Math.min(slot - 2, barW + 8)), height: plotH + 8, rx: 4,
+    "aria-hidden": "true" });
+  const svg = s("svg", { class: "marginal-chart", viewBox: `0 0 ${width} ${height}`, width, height, "aria-hidden": "true",
     "data-variable": variable, "data-max": max, "data-scale": linear ? "linear" : "power", "data-lambda": scale.lambda,
     "data-colours": view.colours, "data-intervals": view.intervals, "data-width": width, "data-top": top, "data-plot-h": plotH },
     s("defs", {}, ...defs), ...grid, ...pendingMarks, ...marks,
-    s("line", { class: "mc-axis", x1: left, x2: left + plotW, y1: top + plotH, y2: top + plotH }));
+    s("line", { class: "mc-axis", x1: left, x2: left + plotW, y1: top + plotH, y2: top + plotH }), marker);
+  if (!bars.length) return svgWithSummary(svg, summary);
+
+  const readout = h("p", { class: "jv-readout mc-readout mono", id: `mc-readout-${++patternCounter}`, "aria-live": "polite" });
+  const plot = h("div", { class: "jv-plot mc-plot", tabindex: "0", role: "application", "aria-roledescription": "bar chart",
+    "aria-label": `${summary} Left and right arrow keys move between the bars, Home and End go to the first and last bar.`,
+    "aria-describedby": readout.id, "data-variable": variable }, svg);
+  const select = (index, picked = true) => {
+    const i = Math.max(0, Math.min(bars.length - 1, index));
+    const bar = bars[i];
+    selection.key = bar.key;
+    if (picked) selection.picked = true;
+    plot.dataset.picked = String(Boolean(selection.picked));
+    for (const group of svg.querySelectorAll(":scope > .mc-bar.mc-active")) group.classList.remove("mc-active");
+    marks[i].classList.add("mc-active");
+    marker.setAttribute("x", String(left + slot * i + slot / 2 - Number(marker.getAttribute("width")) / 2));
+    readout.textContent = bar.text || bar.title;
+  };
+  const current = () => Math.max(0, bars.findIndex((bar) => bar.key === selection.key));
+  select(current(), false);
+  plot.addEventListener("keydown", (event) => {
+    const i = current();
+    const target = { ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: bars.length - 1, Enter: i, " ": i }[event.key];
+    if (target === undefined || event.altKey || event.ctrlKey || event.metaKey) return;
+    event.preventDefault();
+    select(target);
+  });
+  const fromPointer = (event) => {
+    const group = event.target.closest?.(".mc-bar[data-index]");
+    if (group) select(Number(group.dataset.index));
+  };
+  svg.addEventListener("pointermove", fromPointer);
+  svg.addEventListener("click", (event) => { fromPointer(event); plot.focus({ preventScroll: true }); });
+  return h("div", { class: "mc" }, plot, readout);
+}
+
+/** A chart without bars: the SVG itself is the image, with the summary as its name. */
+function svgWithSummary(svg, summary) {
+  svg.removeAttribute("aria-hidden");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", summary);
+  return svg;
+}
+
+/**
+ * Keeps the keyboard focus on a marginal chart across a redraw of `container` (#462): call it before
+ * the redraw, and the function it returns after; that focuses the new chart of the same variable if
+ * the old one had the focus.
+ */
+export function chartFocus(container) {
+  const plot = document.activeElement?.closest?.(".mc-plot");
+  if (!plot || !container?.contains(plot)) return () => {};
+  // the n-th chart of the same variable (several programs may share a variable's name)
+  const selector = `.mc-plot[data-variable="${CSS.escape(plot.dataset.variable)}"]`;
+  const nth = [...container.querySelectorAll(selector)].indexOf(plot);
+  return () => {
+    const plots = container.querySelectorAll(selector);
+    (plots[nth] || plots[0])?.focus({ preventScroll: true });
+  };
 }
 
 /** The exact form of a coefficient's interval: the value, [p, upper] or [lower or 0, p]. */

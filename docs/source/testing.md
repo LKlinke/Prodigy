@@ -54,6 +54,27 @@ compared. Hypothesis shrinks a failing program to a small one; it becomes an iss
 test in `tests/fuzzing/test_found.py`. Classes of programs with known open bugs are switched off in
 `Features` (each switch names its issue), so the test suite stays green until they are fixed.
 
+## Engine conformance (`tests/distribution/test_conformance.py`)
+
+Every engine implements the same `Distribution` interface, and the engines share their case
+analysis. The conformance suite tests the contract of this interface once for all
+engines: each test takes the fixture `factory` (`tests/distribution/conftest.py`), which runs it on
+SymPy and on GiNaC (skipped where the GiNaC wheel is missing). It covers `copy` and the setters of
+variables and parameters, equality and order (including undecidable comparisons, which raise or
+answer `None`, never a wrong answer), filters, marginals and queries, the updates, `iid` for every
+distribution of the language, iteration (finite distributions yield their states in the same graded
+order on every engine), unknown names and collisions of variables and parameters, and the error
+messages, which must be the same on every engine up to the names of temporary variables. Where the
+engines' operations overlap with the FLINT rational kernel (`prodigy.distribution.kernel`), the suite
+checks that they agree on rational generating functions.
+
+Results are compared as expressions, never as strings: GiNaC's order of terms changes between runs.
+An expected difference between the engines is a test named `test_declared_difference_…` that states
+what each engine does; nothing is skipped silently. A new engine adds one entry to
+`tests/distribution/engines.py` and must pass the suite. A test of a property of every engine goes
+into the suite (or takes the fixture `factory`), not into a file per engine; `tests/distribution/sympy`
+keeps the tests of SymPy internals.
+
 ## Running the tests
 
 The tests that take more than about 10 s on a CI runner (mostly equivalence checks and loop strategies)

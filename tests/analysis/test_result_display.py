@@ -1,5 +1,6 @@
 """The display forms in the result (marginal rows, tail mass, bounds) are bounded in effort and exact."""
 import math
+import random
 
 import pytest
 import sympy
@@ -37,6 +38,29 @@ def test_tidy_keeps_the_value():
     assert tidy(1 - large) == 1 - large  # with log: left as it is
     big = sum(x**k / 3**k for k in range(60))
     assert sympy.expand(tidy(big) - big) == 0
+
+
+def _random_polynomial(rng, symbols, degree):
+    return sum(sympy.Rational(rng.randint(-9, 9), rng.randint(1, 9)) * sympy.Mul(*(s**rng.randint(0, degree) for s in symbols))
+               for _ in range(rng.randint(1, 4)))
+
+
+def test_tidy_simplifies_rational_multiples_like_simplify():
+    """#469: a small value is simplified as q * P with the simplified primitive part P kept; the form is that of
+    sympy.simplify for generic multiples: of constants (Poisson factors exp(-λ), roots), of polynomials in
+    parameters (product forms) and of sums of both."""
+    rng = random.Random(469)
+    p, q = sympy.symbols("p q")
+    for _ in range(30):
+        factors = [sympy.exp(-sympy.Rational(rng.randint(1, 9), rng.randint(1, 4))),
+                   sympy.sqrt(rng.choice([2, 3, 5, 6])),
+                   _random_polynomial(rng, [p], 4), _random_polynomial(rng, [p, q], 2) * (1 - p) ** rng.randint(1, 3),
+                   sympy.exp(-2) + sympy.Rational(rng.randint(1, 9), 7)]
+        for factor in factors:
+            value = sympy.Rational(rng.randint(-10**6, 10**6) or 1, rng.randint(1, 10**6)) * factor
+            if sympy.count_ops(value) <= 40:
+                assert tidy(value) == sympy.simplify(value), value
+                assert tidy(value) == value or sympy.simplify(tidy(value) - value) == 0
 
 
 @pytest.mark.parametrize("engine", ENGINES, ids=lambda e: e.name.lower())

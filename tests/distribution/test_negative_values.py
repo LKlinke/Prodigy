@@ -8,23 +8,12 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.generating_function import SympyPGF
 from prodigy.distribution.negative_values import can_be_negative
 from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from tests.distribution.engines import ginac_factory
 
-
-def _ginac_factory():
-    pytest.importorskip("prodigy_ginac")
-    # pylint: disable=import-outside-toplevel
-    from prodigy.distribution.fast_generating_function import ProdigyPGF
-    return ProdigyPGF
-
-
-FACTORIES = [
-    pytest.param(lambda: SympyPGF, id="sympy"),
-    pytest.param(_ginac_factory, id="ginac"),
-]
 
 ENGINES = [
     pytest.param(ForwardAnalysisConfig.Engine.SYMPY, lambda: SympyPGF, id="sympy"),
-    pytest.param(ForwardAnalysisConfig.Engine.GINAC, _ginac_factory, id="ginac"),
+    pytest.param(ForwardAnalysisConfig.Engine.GINAC, ginac_factory, id="ginac"),
 ]
 
 X, Y, Z = sympy.symbols("x y z")
@@ -87,7 +76,6 @@ def test_can_be_negative_undecided(function, minuend, subtrahend):
     assert can_be_negative(sympy.S(function), {X, Y, Z}, minuend, sympy.S(subtrahend)) is None
 
 
-@pytest.mark.parametrize("factory", FACTORIES)
 @pytest.mark.parametrize("function, variables, parameters, assignment, expected", [
     # subtraction is truncated at 0 (monus, #220); signed coefficients (templates) are mapped linearly
     ("1 - y + x", ["x", "y"], [], "x == x - 1", "2 - y"),
@@ -106,14 +94,13 @@ def test_can_be_negative_undecided(function, minuend, subtrahend):
     ("1/((1-y)*(1-x/2))", ["x", "y"], [], "x == x - 1", "(1 + 1/(2 - x))/(1 - y)"),
 ])
 def test_negative_subtraction_is_truncated(factory, function, variables, parameters, assignment, expected):
-    dist = factory().from_expr(function, *variables)
+    dist = factory.from_expr(function, *variables)
     if parameters:
         dist = dist.set_parameters(*parameters)
     result = dist.update(parse_ppy_expr(assignment))
     assert sympy.simplify(sympy.S(str(result).replace("^", "**")) - sympy.S(expected.replace("^", "**"))) == 0
 
 
-@pytest.mark.parametrize("factory", FACTORIES)
 @pytest.mark.parametrize("function, variables, parameters, assignment, expected", [
     ("p - p*x + x*y", ["x", "y", "z"], ["p"], "z == x - y", "p - p*x*z + x*y"),
     ("1/(2 - x*y)", ["x", "y", "z"], [], "z == x - y", "1/(2 - x*y)"),
@@ -123,17 +110,16 @@ def test_negative_subtraction_is_truncated(factory, function, variables, paramet
     ("1/((1-y)*(1-x/2)) - 1/(1-y)", ["x", "y"], [], "x == x - 1", "1/((1-y)*(1-x/2)) / 2"),
 ])
 def test_safe_subtraction_is_accepted(factory, function, variables, parameters, assignment, expected):
-    dist = factory().from_expr(function, *variables)
+    dist = factory.from_expr(function, *variables)
     if parameters:
         dist = dist.set_parameters(*parameters)
     result = dist.update(parse_ppy_expr(assignment))
     assert sympy.simplify(sympy.S(str(result).replace("^", "**")) - sympy.S(expected)) == 0
 
 
-@pytest.mark.parametrize("factory", FACTORIES)
 def test_undecided_subtraction_is_not_implemented(factory):
     # `x` and `y` are Poisson distributed: the check cannot decide x - y >= 0, and x < y cannot be filtered
-    dist = factory().from_expr("exp(2*(y - 1) + x - 1)", "x", "y", "z")
+    dist = factory.from_expr("exp(2*(y - 1) + x - 1)", "x", "y", "z")
     with pytest.raises(NotImplementedError, match="truncated at 0"):
         dist.update(parse_ppy_expr("z == x - y"))
 
