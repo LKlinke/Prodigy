@@ -106,3 +106,22 @@ def test_guard_message_with_compound_terms_keeps_the_program_text():
               "if (x - 1 < y * y) { x = 1; } else { skip; }\n")
     message = _error_message(source, "SYMPY")
     assert not any(name in message for name in ("_0", "_1", "sym_"))
+
+
+@pytest.mark.timeout(60)
+@pytest.mark.parametrize("engine", ENGINES)
+@pytest.mark.parametrize("statement", ["if (x < p) { x = 5; } else { skip; }", "observe(x == p);"])
+def test_condition_with_a_parameter_is_not_implemented(engine, statement):
+    # SymPy read the parameter as 0 and reported an exact result, GiNaC did not terminate (#361)
+    source = f"param p: real;\nx: nat;\nx = bernoulli(1/2);\n{statement}\n"
+    message = _error_message(source, engine)
+    assert message.startswith("Not implemented: the condition")
+    assert "depends on the parameter(s) p" in message
+
+
+@pytest.mark.timeout(60)
+@pytest.mark.parametrize("engine", ENGINES)
+def test_division_that_is_not_an_integer_names_the_term(engine):
+    # SymPy named a temporary variable, GiNaC the values of a case split (#361)
+    source = "n: nat;\nm: nat;\no: nat;\nn = 2;\nm = 6;\no = n / m;\n"
+    assert _error_message(source, engine) == "Cannot compute n / m because it is not always an integer"

@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from fractions import Fraction
 from typing import (Callable, ContextManager, Dict, FrozenSet, Generator, ItemsView, Iterable, Iterator, List,
-                    Optional, Sequence, Set, Tuple, Type, Union)
+                    Optional, Self, Sequence, Set, Tuple, Type, Union)
 
 import sympy
 
@@ -182,6 +182,19 @@ def _variables_of(expression: Expr) -> Set[str]:
     return {node.val.var for node in walk_expr(Walk.DOWN, Mut.alloc(expression)) if isinstance(node.val, VarExpr)}
 
 
+def canonical_order(items: Iterable[Tuple[str, State]]) -> List[Tuple[str, State]]:
+    """
+    The (probability, state) pairs of a finite distribution in the order in which every engine iterates
+    them (#361): by the sum of the values, then by the values of the variables in the order of their names
+    (the graded lexicographic order). The order depends only on the states, not on how an engine stores
+    the terms.
+    """
+    def key(item: Tuple[str, State]) -> Tuple[int, Tuple[int, ...]]:
+        values = tuple(value for _, value in sorted(item[1].items()))
+        return sum(values), values
+    return sorted(items, key=key)
+
+
 class NonFiniteMarginalError(ArithmeticError):
     """
     A marginal that a computation needs as a distribution over finitely or infinitely many states is
@@ -219,6 +232,10 @@ def known_convergent_series(known: bool) -> Iterator[None]:
         yield
     finally:
         _KNOWN_CONVERGENT.reset(token)
+
+
+class NotAnIntegerError(ValueError):
+    """A division whose quotient is not a natural number in a state of positive probability."""
 
 
 class ZeroDivisorError(ValueError):
@@ -401,6 +418,16 @@ class Distribution(ABC):
     def factory() -> Type[CommonDistributionsFactory]:
         """Returns a factory for this subclass of distribution"""
 
+    def _require_compatible_names(self, other: Distribution) -> None:
+        """
+        Raises `ArithmeticError` if a name is a variable of one operand of an arithmetic operation and a
+        parameter of the other: the result would have to treat it as both (the same on all engines, #361).
+        """
+        clash = (self.get_variables() & other.get_parameters()) | (self.get_parameters() & other.get_variables())
+        if clash:
+            raise ArithmeticError(f"Name clash: {', '.join(sorted(clash))} is a variable of one distribution and a "
+                                  f"parameter of the other.")
+
     @abstractmethod
     def __add__(self, other: Operand) -> Distribution:
         """ The addition of two distributions. """
@@ -530,6 +557,9 @@ class Distribution(ABC):
         parameters, e.g. `1-p` for x = 0 in `p*x + (1-p)`). A finite distribution yields no state whose
         coefficient is zero; an infinite one may (it enumerates the monomials). Callers (case splits,
         filters, the result tables) take the yielded probability as Pr[state] and may rely on this.
+
+        A finite distribution yields its states in the order of :func:`canonical_order` on all engines
+        (#361); GiNaC's order of terms changed between runs (#418).
         """
 
     @abstractmethod
@@ -643,6 +673,9 @@ class Distribution(ABC):
         analysis (:func:`known_convergent_series`), raises `NonFiniteMarginalError` if it is not proven that
         this value is the sum of the series (#427).
         """
+        if self.is_zero_dist():
+            # SymPy raised a bare ZeroDivisionError, GiNaC its own division error (#361)
+            raise ZeroDivisionError("Cannot normalize the zero distribution: its probability mass is 0")
         self._require_convergent_evaluation(set(), "The normalization")
         return self._normalize()
 
@@ -704,6 +737,14 @@ class Distribution(ABC):
             raise SyntaxError(
                 f"We do not support filtering for {condition.operator} expressions."
             )
+
+        # A parameter is an unknown constant: whether `x < p` holds in a state depends on its value, which
+        # the generating function does not fix. The engines read it as 0 or did not terminate (#361).
+        parameters = sorted(_variables_of(condition) & self.get_parameters())
+        if parameters:
+            raise NotImplementedError(
+                f"Not implemented: the condition {_spelled(condition)} depends on the parameter(s) "
+                f"{', '.join(parameters)}, whose values are unknown, so it is not decided in any state.")
 
         # Floor divisions and subtractions (monus) are computed into fresh variables first, e.g.
         # x // 2 < 3 becomes t < 3 for t := x // 2 (an exact update); t is a function of the state,
@@ -1067,6 +1108,11 @@ class Distribution(ABC):
             raise ValueError(
                 f"Cannot assign {expression.rhs} to variable {variable} because {variable} does not exist"
             )
+        unknown = _variables_of(expression.rhs) - self.get_variables() - self.get_parameters()
+        if unknown:
+            # GiNaC read an unknown name as a variable with value 0 (#361)
+            raise ValueError(f"Cannot assign {expression.rhs} to variable {variable} because "
+                             f"{', '.join(sorted(unknown))} is neither a variable nor a parameter")
         if variable not in _variables_of(expression.rhs):
             # the old value is summed out, i.e. set to 1 (#427); an update that reads it substitutes instead
             self._require_convergent_evaluation(self.get_variables() - {variable},
@@ -1222,6 +1268,10 @@ class Distribution(ABC):
             if error.expression is not None:
                 raise
             raise ZeroDivisorError(error.reason, str(expression)) from error
+        except NotAnIntegerError as error:
+            # the engines named temporary variables (SymPy) or the values of a case split (GiNaC, #361)
+            raise NotAnIntegerError(f"Cannot compute {_spelled(expression)} because it is not always an "
+                                    f"integer") from error
 
     def _split_on_finite_support(self, update: Callable[[Distribution, str, str], Distribution],
                                  left: str, right: str) -> Distribution:
@@ -1516,6 +1566,14 @@ class Distribution(ABC):
         on multiples of the denominator (see :mod:`prodigy.distribution.exact_division`).
         """
 
+    @staticmethod
+    def _not_an_integer_quotient(numerator: str | int, denominator: str | int, temp_var: str) -> NotAnIntegerError:
+        """The error of a division `temp_var := numerator / denominator` whose quotient is not a natural number
+        in some state of positive probability, in the same words on all engines (#361). The operands are
+        the engine's: temporary names or the values of a case split; :meth:`update` names the program's term."""
+        return NotAnIntegerError(f"Cannot assign {numerator} / {denominator} to {temp_var} because it is not "
+                                 f"always an integer")
+
     def _update_floor_division(self, temp_var: str, numerator: str | int, divisor: str | int,
                                approximate: str | float | None, text: str | None = None) -> Distribution:
         """
@@ -1617,8 +1675,13 @@ class Distribution(ABC):
 
         :return: The marginal distribution.
         """
-        marginal = self._marginal(*variables, method=method)
         named = {str(var) for var in variables}
+        if not named:
+            raise ValueError("No variables were provided")
+        if not named <= self.get_variables():
+            # GiNaC returned the mass as the marginal of a name that is not a variable (#361)
+            raise ValueError(f"Unknown variable(s): {{{', '.join(sorted(named - self.get_variables()))}}}")
+        marginal = self._marginal(*variables, method=method)
         kept = named if method == MarginalType.INCLUDE else self.get_variables() - named
         self._require_convergent_evaluation(kept, f"The marginal of {', '.join(sorted(kept)) or 'no variable'}")
         return marginal
@@ -1741,25 +1804,38 @@ class Distribution(ABC):
         names = self.get_variables() | self.get_parameters()
         return "∞" in str(self) or bool((tokens & _NON_FINITE_NAMES) - names)
 
+    def set_variables(self, *variables: str) -> Self:
+        """
+        The distribution with the variables `variables`; the receiver is not changed.
+
+        The same on all engines (#361): every name that occurs in the generating function stays a
+        variable or a parameter. A parameter named in `variables` becomes a variable. A variable that
+        is not named becomes a parameter if it occurs, and is dropped otherwise. No variables at all is
+        allowed (the marginal that sums out every variable has none).
+        """
+        new_variables = set(variables)
+        dropped = (self.get_variables() - new_variables) & self.get_symbols()
+        return self._with_names(new_variables, (self.get_parameters() - new_variables) | dropped)
+
+    def set_parameters(self, *parameters: str) -> Self:
+        """
+        The distribution with the parameters `parameters`; the receiver is not changed.
+
+        The same on all engines (#361): raises `ValueError` if a name is a variable. A parameter
+        that is not named becomes a variable if it occurs, and is dropped otherwise.
+        """
+        new_parameters = set(parameters)
+        clash = new_parameters & self.get_variables()
+        if clash:
+            raise ValueError(f"Indeterminate(s) {', '.join(sorted(clash))} cannot be parameters and variables at "
+                             f"the same time.")
+        dropped = (self.get_parameters() - new_parameters) & self.get_symbols()
+        return self._with_names(self.get_variables() | dropped, new_parameters)
+
     @abstractmethod
-    def set_variables(self, *variables: str) -> Distribution:
-        """
-        Sets the free variables in a distribution.
-
-        :param variables: The variables.
-
-        :return: The distribution with free variables `variables`.
-        """
-
-    @abstractmethod
-    def set_parameters(self, *parameters: str) -> Distribution:
-        """
-        Sets the parameters in a distribution.
-
-        :param parameters: The parameters.
-
-        :return: The distribution with parameters `parameters`.
-        """
+    def _with_names(self, variables: Set[str], parameters: Set[str]) -> Self:
+        """Engine hook of :meth:`set_variables` and :meth:`set_parameters`: the same generating function with
+        exactly these (disjoint) variables and parameters."""
 
     @abstractmethod
     def approximate(
