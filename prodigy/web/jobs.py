@@ -21,6 +21,8 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, List, Optional
 
+from prodigy.web.grid_cache import GridCache
+
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 _MAX_LOG = 2_000_000
 
@@ -229,6 +231,8 @@ class Job:
     result: Optional[Dict[str, Any]] = None
     touched: float = field(default_factory=time.monotonic)
     """When a client last asked about the job."""
+    grid_request: Optional[Dict[str, Any]] = None
+    """The request of a grid job, whose grid goes to the :class:`GridCache` when it is done."""
 
     @property
     def auxiliary(self) -> bool:
@@ -278,6 +282,7 @@ class JobManager:
         self.keep_finished = keep_finished
         self._context = multiprocessing.get_context("spawn")
         self._jobs: "OrderedDict[str, Job]" = OrderedDict()
+        self.grids = GridCache()
         self._lock = threading.RLock()
         self._stop = threading.Event()
         self._watcher = threading.Thread(target=self._watch, name="prodigy-jobs", daemon=True)
@@ -287,6 +292,14 @@ class JobManager:
 
     def submit(self, request: Dict[str, Any], time_limit: Optional[float] = None, kind: str = "analysis") -> Job:
         limit = self.time_limit if time_limit is None else min(float(time_limit), self.time_limit)
+        grid_request = request if kind == "joint" else None
+        if kind == "joint":
+            # a window shown before needs no process; another one gets the cells computed before (#469)
+            grid = self.grids.grid(request)
+            if grid is not None:
+                return self._finished(kind, request, limit, {"status": "ok", "joint": grid})
+            request = {**request, "known_cells": self.grids.known_cells(request),
+                       "known_header": self.grids.header(request)}
         with self._lock:
             self._make_room(kind)
             receiver, sender = self._context.Pipe(duplex=False)
@@ -297,10 +310,23 @@ class JobManager:
             sender.close()
             job = Job(id=uuid.uuid4().hex[:12], process=process, conn=receiver, time_limit=limit,
                       summary={"kind": kind, "engine": request.get("engine"), "file_name": request.get("file_name"),
-                               "decisions": request.get("decisions")})
+                               "decisions": request.get("decisions")},
+                      grid_request=grid_request)
             self._jobs[job.id] = job
             self._prune()
             return job
+
+    def _finished(self, kind: str, request: Dict[str, Any], limit: float, result: Dict[str, Any]) -> Job:
+        """A job that is done when it is created (a grid from the cache)."""
+        now = time.monotonic()
+        job = Job(id=uuid.uuid4().hex[:12], process=None, conn=None, time_limit=limit,
+                  summary={"kind": kind, "engine": request.get("engine"), "file_name": None, "decisions": None,
+                           "cached": True},
+                  state="done", result=result, started=now, finished=now)
+        with self._lock:
+            self._jobs[job.id] = job
+            self._prune()
+        return job
 
     def get(self, job_id: str) -> Optional[Job]:
         with self._lock:
@@ -384,6 +410,8 @@ class JobManager:
                     job.result = payload
                     job.state = "done"
                     self._finish(job)
+                    if job.grid_request is not None and isinstance(payload, dict) and payload.get("status") == "ok":
+                        self.grids.store(job.grid_request, payload["joint"])
                     return
         except (EOFError, OSError):
             pass
