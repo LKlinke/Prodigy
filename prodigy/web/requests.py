@@ -633,12 +633,20 @@ def run_joint(request: Dict[str, Any], *, output: Optional[Callable[[str], None]
     """Computes the coefficient grid of a :func:`joint_request` (in a job process); the cells go to
     ``progress`` while they are computed (#405)."""
     # pylint: disable=import-outside-toplevel,unused-argument
-    from prodigy.analysis.joint_grid import GridError, joint_grid
+    from prodigy.analysis.joint_grid import GridError, grid_from_known, joint_grid
     from prodigy.util.integers import unlimited_int_digits
     from prodigy.distribution import known_convergent_series
     config = make_config({"engine": request["engine"]})
+    # cells computed before for the same result (prodigy/web/grid_cache.py, #469)
+    known = {(int(i), int(j)): cell for i, j, cell in request.get("known_cells") or []}
     # the closed form is that of the server's result of a program analysis, a finite measure (#398)
     with config.activate(), unlimited_int_digits(), known_convergent_series(True):
+        header, x_window, y_window = request.get("known_header"), request.get("x_window"), request.get("y_window")
+        if header and x_window and y_window:
+            grid = grid_from_known(header, x_window, y_window, known, kind=request["bound"],
+                                   residual=request.get("residual_mass") or 0)
+            if grid is not None:
+                return {"status": "ok", "joint": grid}
         try:
             dist = config.factory.from_expr(request["closed_form"], *request["variables"])
             upper = request.get("upper_closed_form")
@@ -646,7 +654,8 @@ def run_joint(request: Dict[str, Any], *, output: Optional[Callable[[str], None]
             upper_dist = config.factory.from_expr(upper, *request["variables"]) if upper else None
             grid = joint_grid(dist, request["x"], request["y"], x_window=request.get("x_window"),
                               y_window=request.get("y_window"), kind=request["bound"],
-                              residual=request.get("residual_mass") or 0, stream=progress, upper=upper_dist)
+                              residual=request.get("residual_mass") or 0, stream=progress, upper=upper_dist,
+                              known=known)
         except GridError as exc:
             return _error("request", str(exc))
         except Exception as exc:  # pylint: disable=broad-except

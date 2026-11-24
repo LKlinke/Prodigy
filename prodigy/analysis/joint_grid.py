@@ -20,10 +20,15 @@ which may still end up in any cell, outside the window, or nowhere); ``outside_m
 mass of the computed distribution outside the window. With a proven upper bound U on the exact distribution
 (``upper``, :mod:`prodigy.analysis.upper_track`), each cell's upper end is min(U, lower + residual, 1), and
 ``upper_source`` says which (:func:`~prodigy.analysis.result.upper_with_source`).
+
+Cells computed before (``known``, kept by the web server across window changes, #469) are taken as they
+are: a cell's JSON depends only on the distribution, its guarantee and the values ``(i, j)``. A window whose
+cells are all known needs no distribution at all (:func:`grid_from_known`): its shown mass is the sum of their
+exact values, and the rest of the grid does not depend on the window.
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence, Tuple, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, TypeVar
 
 import sympy
 
@@ -140,16 +145,22 @@ def _upper_cells(upper: Optional["Distribution"], x: str, y: str, x_window: Tupl
         return {}
 
 
+GRID_HEADER = ("x", "y", "variables", "finite_support", "support", "mass", "mass_float")
+"""The fields of a grid that do not depend on its window (:func:`grid_from_known`)."""
+
+
 def joint_grid(dist: "Distribution", x: str, y: str, *, x_window: Optional[Tuple[int, int]] = None,
                y_window: Optional[Tuple[int, int]] = None, kind: str = Bound.EXACT,
                residual: Any = 0, stream: Optional[Sink] = None,
-               upper: Optional["Distribution"] = None) -> Dict[str, Any]:
+               upper: Optional["Distribution"] = None,
+               known: Optional[Mapping[Tuple[int, int], Dict[str, Any]]] = None) -> Dict[str, Any]:
     """
     The exact coefficients Pr[x = i, y = j] of ``dist`` for the windows (default: the support of a
     finite distribution, else the first :data:`DEFAULT_AXIS` values), as JSON. ``cells[r][c]`` is
     the cell of ``y = y_values[r]`` and ``x = x_values[c]``. With ``stream``, the cells also go there in
     batches by growing total degree while they are computed (:mod:`prodigy.analysis.streaming`). ``upper`` is a
-    proven upper bound on the exact distribution, if one is known (see the module documentation).
+    proven upper bound on the exact distribution, if one is known (see the module documentation). ``known``
+    maps ``(i, j)`` to the cell of ``x = i, y = j`` computed before for the same arguments; it is taken as it is.
     """
     # pylint: disable=too-many-locals
     variables = sorted(dist.get_variables())
@@ -172,6 +183,7 @@ def joint_grid(dist: "Distribution", x: str, y: str, *, x_window: Optional[Tuple
     check_window([y_low, y_high], y)
 
     residual_expr = sym(residual) if residual is not None else sympy.Integer(0)
+    known = known or {}
     bounds = _upper_cells(upper if kind == Bound.LOWER and residual_expr != 0 else None, x, y,
                           (x_low, x_high), (y_low, y_high))
     x_values, y_values = list(range(x_low, x_high + 1)), list(range(y_low, y_high + 1))
@@ -189,7 +201,7 @@ def joint_grid(dist: "Distribution", x: str, y: str, *, x_window: Optional[Tuple
                                              incremental=stream is not None,
                                              on_wait=None if batcher is None else batcher.flush):
         shown += prob
-        rows[r][c] = _cell(prob, kind, residual_expr, bounds.get((r, c)))
+        rows[r][c] = known.get((x_values[c], y_values[r])) or _cell(prob, kind, residual_expr, bounds.get((r, c)))
         if batcher is not None:
             batcher.add([r, c, rows[r][c]])
     if batcher is not None:
@@ -197,21 +209,53 @@ def joint_grid(dist: "Distribution", x: str, y: str, *, x_window: Optional[Tuple
 
     mass = sym(marginal.get_probability_mass())
     mass_exact, mass_float = exact_and_float(tidy(mass))
+    header = {"x": x, "y": y, "variables": variables, "finite_support": finite, "support": support,
+              "mass": mass_exact, "mass_float": mass_float}
+    return _grid_json(header, mass, x_values, y_values, rows, shown, kind, residual_expr)
+
+
+def grid_from_known(header: Mapping[str, Any], x_window: Tuple[int, int], y_window: Tuple[int, int],
+                    known: Mapping[Tuple[int, int], Dict[str, Any]], *, kind: str = Bound.EXACT,
+                    residual: Any = 0) -> Optional[Dict[str, Any]]:
+    """
+    The grid of a window whose cells are all ``known`` (see :func:`joint_grid`), without the distribution:
+    ``header`` holds the fields :data:`GRID_HEADER` of a grid of the same arguments, which do not depend on
+    the window, and the shown mass is the sum of the exact values of the cells. None if a cell is missing or
+    a value cannot be read back; then the window is computed with :func:`joint_grid`.
+    """
+    x_values, y_values = list(range(x_window[0], x_window[1] + 1)), list(range(y_window[0], y_window[1] + 1))
+    if any(name not in header for name in GRID_HEADER) or any((i, j) not in known for i in x_values for j in y_values):
+        return None
+    rows: List[List[Optional[Dict[str, Any]]]] = [[known[(i, j)] for i in x_values] for j in y_values]
+    try:
+        shown = sympy.Add(*(sym(cell["prob"]) for row in rows for cell in row if cell is not None))
+        mass = sym(header["mass"])
+    except Exception:  # pylint: disable=broad-except  # computing the window is always possible
+        return None
+    residual_expr = sym(residual) if residual is not None else sympy.Integer(0)
+    return _grid_json(header, mass, x_values, y_values, rows, shown, kind, residual_expr)
+
+
+def _grid_json(header: Mapping[str, Any], mass: sympy.Expr, x_values: List[int], y_values: List[int],
+               rows: List[List[Optional[Dict[str, Any]]]], shown: sympy.Expr, kind: str,
+               residual: sympy.Expr) -> Dict[str, Any]:
+    """The JSON of a grid: the window-independent ``header`` (:data:`GRID_HEADER`), the cells and the masses."""
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
     shown_exact, shown_float = exact_and_float(tidy(shown))
     outside_exact, outside_float = exact_and_float(tidy(mass - shown))
-    residual_exact, residual_float = exact_and_float(tidy(residual_expr))
+    residual_exact, residual_float = exact_and_float(tidy(residual))
     return {
-        "x": x,
-        "y": y,
-        "variables": variables,
+        "x": header["x"],
+        "y": header["y"],
+        "variables": header["variables"],
         "x_values": x_values,
         "y_values": y_values,
         "cells": rows,
-        "finite_support": finite,
-        "support": support,
+        "finite_support": header["finite_support"],
+        "support": header["support"],
         "bound": kind,
-        "mass": mass_exact,
-        "mass_float": mass_float,
+        "mass": header["mass"],
+        "mass_float": header["mass_float"],
         "shown_mass": shown_exact,
         "shown_mass_float": shown_float,
         "outside_mass": outside_exact,

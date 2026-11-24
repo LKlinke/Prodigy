@@ -296,7 +296,10 @@ its own, see `prodigy/analysis/joint_grid.py`), the browser only draws them. At 
 timeline other than the final result, the grid is that of the recorded step or iterate (the
 request names `step` and `iterate`; a closed form the trace kept only in part has no grid). The
 grid grows from its corner by total degree while it is computed; the cells not computed yet are
-hatched, and the status line says *Computing… n of m cells*.
+hatched, and the status line says *Computing… n of m cells*. The server keeps the cells it computed for
+each result and pair (#469, `prodigy/web/grid_cache.py`): a window shown before comes back at once,
+and a window whose cells are all known (zooming in) needs no expansion; for any other window the
+known cells are taken as they are.
 
 * **Pair**: the variables on the horizontal and the vertical axis (⇄ swaps them).
 * **Window**: the values *from*–*to* of each axis, at most 50 per axis and up to 1000; *Show
