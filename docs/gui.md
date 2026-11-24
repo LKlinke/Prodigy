@@ -18,15 +18,16 @@ Prodigy is tested with Python 3.11 and 3.14.
 
 ## What the GUI shows
 
-* **Program** (left): editor with highlighting for both syntaxes, syntax errors (and
+* **Program** (left): editor with `.ppy` highlighting, syntax errors (and
   type-checker warnings) as you type. Above each loop a pill shows its strategy and, after a
-  run, what it certified. After each query (`query Pr[…]`, `?Pr[…]`) the value appears inline.
-  The chip next to the title shows the syntax of the program; see [The `.pgcl` syntax](#the-pgcl-syntax).
+  run, what it certified. After each query (`query Pr[…]`) the value appears inline.
+  The chip next to the title shows the syntax of the program (always `.ppy`); for `.pgcl` files see
+  [The `.pgcl` syntax](#the-pgcl-syntax).
 * **Setup** (right): initial distribution (refused with a message unless it is proven to be a
   distribution, see the language reference), one strategy per loop with its parameters (see
   [Choosing a loop strategy](#choosing-a-loop-strategy)),
   analysis options (conditioning, simplification of the shown result, number of coefficients, time
-  limit, EVT synthesis strategy, solver, recording of intermediate distributions).
+  limit, EVT synthesis strategy, recording of intermediate distributions).
   *Simplify the shown result* (on by default; CLI: on unless `--no-simplification`) does not change
   the analysis (it always uses the same normal form: factored closed forms, expanded polynomials). Only the output distribution that is shown is rewritten: a bounded search tries cheap exact rewrites in the order of their cost
   (`together`, `cancel`, `factor`; GCD-based ones only below a size and degree threshold, never
@@ -494,16 +495,18 @@ scripts; `prodigy analyze --json` has the exploration in the loop's certificate 
 ## The `.pgcl` syntax
 
 Programs are written in `.ppy`. The `.pgcl` syntax was removed in v0.6.0, together with
-*Convert to .ppy*: the server answers a `.pgcl` program with the error "The .pgcl syntax was
-removed in v0.6.0. Convert the program to .ppy with Prodigy v0.5.x (`prodigy convert
-program.pgcl`, or Convert to .ppy in its GUI)." **New** starts a `.ppy` program, and Save writes
-`.ppy`; a `.pgcl` file can still be opened, and its errors show in the editor.
+*Convert to .ppy*. **New** starts a `.ppy` program and Save writes `.ppy`. Open… still offers
+`.pgcl` files, but the GUI does not treat them specially: the text is loaded into the editor and
+read as `.ppy`, so the diagnostics are ordinary `.ppy` syntax errors (for example "Unexpected 'x',
+expected ',' or ':' or '='." at the declaration `nat x;`). Convert such a program with Prodigy
+v0.5.x (`prodigy convert program.pgcl`, or Convert to .ppy in its GUI). Only the API names the
+removal: it answers a request with `syntax` `pgcl` or a `file_name` ending in `.pgcl` with the
+error "The .pgcl syntax was removed in v0.6.0. …".
 
 Everything typed into the setup is read in the program's syntax: an invariant program of
 *Check invariant* is a loop-free program in that syntax. Generating functions (the initial
 distribution, EVT invariants and sub-invariants, candidates of *Suggest*) accept powers as `^`
-and `**` in both syntaxes; a candidate of the language model is shown with the program's power
-operator.
+and `**`; a candidate of the language model is shown with the program's power operator.
 
 ## Guarantees
 
