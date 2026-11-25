@@ -210,10 +210,6 @@ class Binop(Enum):
             Binop.EQ
         ]
 
-    def on_booleans(self) -> bool:
-        """Are the expected parameters of this operator booleans (e.g., `AND`; if not, they're numbers)?"""
-        return self in [Binop.OR, Binop.AND]
-
     def __repr__(self) -> str:
         # pylint: disable=no-member
         return f'Binop.{self._name_}'

@@ -23,10 +23,10 @@ ENGINES = [
 ]
 
 
-def _run(source: str, engine: ForwardAnalysisConfig.Engine):
+def _run(source: str, engine: ForwardAnalysisConfig.Engine, use_latex: bool = False):
     program = compile_pgcl(source)
     assert not isinstance(program, CheckFail), program
-    config = ForwardAnalysisConfig(engine=engine)
+    config = ForwardAnalysisConfig(engine=engine, use_latex=use_latex)
     result, error_prob = compute_discrete_distribution(
         program, config.factory.one(*program.variables.keys()), config)
     return result, error_prob, config.factory
@@ -65,6 +65,19 @@ def test_accepted_forms_are_exact(engine, source, expected):
     result, error_prob, factory = _run(source, engine)
     variables = [str(var) for var in result.get_variables()]
     assert result == factory.from_expr(expected, *variables)
+    assert error_prob.is_zero_dist()
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+@pytest.mark.parametrize("source, expected", [
+    ("x: nat;\nx = iid(1/2 * x + 1/2, 3);", "(1/2 + x/2)^3"),
+    ("x: nat;\nx = iid(1/(2 - x), 2);", "(1/(2 - x))^2"),
+])
+def test_generating_function_argument_does_not_depend_on_latex_output(engine, source, expected):
+    """The iid argument written as a generating function is read from the program text, not from a printed
+    engine expression, so LaTeX output does not change it."""
+    result, error_prob, factory = _run(source, engine, use_latex=True)
+    assert result == factory.from_expr(expected, "x")
     assert error_prob.is_zero_dist()
 
 

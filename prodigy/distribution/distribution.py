@@ -1042,20 +1042,6 @@ class Distribution(ABC):
                 condition.rhs, state)
         raise AssertionError(f"Unexpected condition type. {condition}")
 
-    def evaluate_expression(self,
-                            expression: Expr,
-                            new_var: str | None = None) -> Distribution:
-        """
-        Creates a new distribution with a single variable that represents all
-        possible results of the given expression.
-        """
-
-        if new_var is None:
-            new_var = self.get_fresh_variable()
-        extended = self.set_variables(*self.get_variables(), new_var).update(
-            BinopExpr(Binop.EQ, VarExpr(new_var), expression))
-        return extended._marginal(new_var)  # pylint: disable=protected-access
-
     @abstractmethod
     def is_zero_dist(self) -> bool:
         """ Returns whether the distribution encodes the 0 distribution."""
@@ -1146,7 +1132,6 @@ class Distribution(ABC):
                 # Get two fresh variables
                 xl = function.get_fresh_variable()
                 xr = function.get_fresh_variable({xl})
-                #print(xl, xr)
                 # Add variables to functions' variables
                 f = function.set_variables(*(function.get_variables()
                                              | {xl, xr}))
@@ -1194,8 +1179,6 @@ class Distribution(ABC):
 
                 # Marginalize the introduced variables as they are only present to prevent clashes
                 f = f._marginal(xl, xr, method=MarginalType.EXCLUDE)
-                #print(f"marginal: {f}")
-                #print(f.get_variables())
                 return f, temp_var
 
             if isinstance(expression, VarExpr):
@@ -1857,16 +1840,6 @@ class Distribution(ABC):
         Approximates the distribution in one variable via its series expansion, up until the specified probability
         mass is reached.
         """
-
-    def approximate_until_finite(
-            self, probability_mass: str | float) -> Distribution:
-        """Unilaterally approximates this distribution in only the variables that have an infinite marginal."""
-
-        res = self
-        for var in self.get_variables():
-            if not res._marginal(var).is_finite():  # pylint: disable=protected-access
-                res = res.approximate_unilaterally(var, probability_mass)
-        return res
 
     def get_state(self) -> Tuple[State, str]:
         """Returns a state of this distribution that has probability > 0, and its probability"""

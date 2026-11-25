@@ -181,8 +181,6 @@ class FPS(Distribution):
         if isinstance(other, str):
             other = FPS(other)
         if isinstance(other, FPS):
-            #print(self._variables, other._variables)
-            #print(self._parameters, other._parameters)
             if not self._variables == other._variables:
                 return False
             if not self._parameters == other._parameters:

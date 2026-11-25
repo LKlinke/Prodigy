@@ -49,13 +49,6 @@ class Mut(Generic[M]):
         return mut
 
     @staticmethod
-    def wrap(ref: Union["Mut[M]", M]) -> "Mut[M]":
-        """If ``ref`` isn' already a Mut, wrap it with :meth:`alloc`."""
-        if isinstance(ref, Mut):
-            return ref
-        return Mut.alloc(ref)
-
-    @staticmethod
     def list(values: List[M]) -> Iterable["Mut[M]"]:
         """
         Create a Mut for each element in the list.
@@ -160,7 +153,3 @@ class Mut(Generic[M]):
             # mypy can't yet infer the type of reference based on the isinstance check above
             res: "Mut[M]" = reference  # type:ignore
             yield res
-
-
-Ref = Union[Mut, M]
-"""A Ref is either a Mut or a value."""

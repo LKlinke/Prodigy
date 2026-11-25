@@ -46,10 +46,6 @@ def modulus_condition(expression: Expr) -> Optional[ModulusCondition]:
     return None
 
 
-def check_is_modulus_condition(expression: Expr) -> bool:
-    return modulus_condition(expression) is not None
-
-
 def check_is_constant_constraint(
         expression: Expr, params: Optional[Set[str]]) -> TypeGuard[BinopExpr]:
     if not isinstance(expression, BinopExpr) or expression.operator not in (

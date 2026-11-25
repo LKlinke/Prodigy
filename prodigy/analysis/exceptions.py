@@ -35,10 +35,6 @@ class ParameterSynthesisRequired(ForwardAnalysisError):
         self.details: Dict[str, Any] = details or {}
 
 
-class DistributionParameterError(ForwardAnalysisError):
-    """The Parameter of a Distribution does not typematch"""
-
-
 class VerificationError(Exception):
     """A check could not establish what it was asked to. ``details`` holds the evidence, if any (e.g. the
     negative coefficient that refutes a sub-invariant)."""
