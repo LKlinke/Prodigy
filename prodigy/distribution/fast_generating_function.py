@@ -627,14 +627,15 @@ class FPS(Distribution):
             symbolic_param = prodigy_ginac.find_symbols(engine_text_of(param))
             result = self._dist.updateIid(
                 engine_text_of(variable),
-                prodigy_ginac.Dist(engine_format("{param} * {variable} + (1-{param})", param=param, variable=variable),
+                prodigy_ginac.Dist(engine_format("({param}) * {variable} + (1-({param}))",
+                                                 param=param, variable=variable),
                                    symbolic_param), engine_text_of(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
         if sampling_dist.function == "poisson":
             result = self._dist.updateIid(
                 engine_text_of(variable),
-                prodigy_ginac.Dist(engine_format("exp({param} * ({variable} - 1))", param=param, variable=variable),
+                prodigy_ginac.Dist(engine_format("exp(({param}) * ({variable} - 1))", param=param, variable=variable),
                                    list(self._parameters)),
                 engine_text_of(count))
             return FPS.from_dist(result, self._variables, self._parameters)
@@ -713,8 +714,8 @@ class ProdigyPGF(CommonDistributionsFactory):
     @staticmethod
     def uniform(var: Union[str, VarExpr], lower: DistributionParam,
                 upper: DistributionParam) -> FPS:
-        function = engine_format("1/({upper} - {lower} + 1) * ({var}^{lower}) "
-                                 "* (({var}^({upper} - {lower} + 1) - 1)/({var} - 1))",
+        function = engine_format("1/(({upper}) - ({lower}) + 1) * ({var}^({lower})) "
+                                 "* (({var}^(({upper}) - ({lower}) + 1) - 1)/({var} - 1))",
                                  upper=upper, lower=lower, var=var)
         return FPS(function, engine_text_of(var), finite=True)
 

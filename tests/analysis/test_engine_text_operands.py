@@ -2,8 +2,8 @@
 Compound operands reach the engines intact (P5a, T6). Engine text writes every compound operand in parentheses,
 also a rational literal: ``(1/2) / (3/4)`` was written as ``1/2 / 3/4``, which the engines read as
 ``((1/2)/3)/4 = 1/24``, so the probability of a choice was wrong on both engines. The generating functions of
-the GiNaC engine's sampling put a compound parameter in parentheses: ``bernoulli(1/2 - p)`` gave
-``1/2 - p * x + (1 - 1/2 - p)``.
+the GiNaC engine's sampling put every parameter in parentheses: for ``unif(1 - 1, 3 - 2)`` the template
+``1/({upper} - {lower} + 1)`` gave ``1/(3 - 2 - 1 - 1 + 1)`` instead of ``1/2``.
 """
 import pytest
 import sympy
@@ -45,6 +45,8 @@ def test_rational_literals_as_operands(engine, probability, expected):
     ("bernoulli(1/2 - p)", sympy.Rational(1, 2) - p),
     ("bernoulli(p * (1 - p))", p * (1 - p)),
     ("poisson(1/2 + p)", (sympy.Rational(1, 2) + p) * sympy.exp(-(sympy.Rational(1, 2) + p))),
+    ("unif(1 - 1, 3 - 2)", sympy.Rational(1, 2)),
+    ("unif(1 * 1, 2 + 1)", sympy.Rational(1, 3)),
 ])
 def test_compound_parameters_of_sampled_distributions(engine, sampling, expected):
     source = f"x: nat;\nparam p: real;\nx = {sampling};\nquery Pr[x == 1];\n"
