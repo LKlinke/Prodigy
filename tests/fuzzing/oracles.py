@@ -121,8 +121,8 @@ def isolated(function: Callable[..., Any], *args: Any, seconds: float, memory: i
         with time_budget(seconds):
             return function(*args)
     context = multiprocessing.get_context("forkserver")
-    # the server imports Prodigy once; every child is a cheap fork of it
-    context.set_forkserver_preload([__name__])
+    # the server imports Prodigy and runs a tiny program once; every child is a cheap fork of it, already warm
+    context.set_forkserver_preload([__name__, f"{__package__}.forkserver_warm_up"])
     receiver, sender = context.Pipe(duplex=False)
     process = context.Process(target=_run_child, args=(sender, function, args, memory, seed), daemon=True)
     process.start()

@@ -93,27 +93,36 @@ def test_generic_members_match_the_series_expansion(seed):
     assert all(_same(a, b) for a, b in zip(computed, expanded))
 
 
-@pytest.mark.parametrize("seed", range(10))
+@pytest.mark.parametrize("seed", range(12))
 def test_exponentials_in_a_denominator(seed):
-    # R·exp(g) written with exp(-g) as a common factor of a denominator, as a normalisation writes it
-    # (Prodigy#472): the same member of the class
+    # members of the class written as a normalisation writes them (Prodigy#472): R·exp(g) with exp(-g) a common
+    # factor of a denominator, also with the constants inside the exponentials (exp(x - 1/2) + exp(x + 3/2)),
+    # and a sum of exponentials over c·exp(g) (the odd part of a Poisson draw, sinh(x)/sinh(1))
     rng = random.Random(200 + seed)
     g = _random_polynomial(rng, x, rng.randint(1, 2), (p,))
     split = [sympy.exp(-part) for part in sympy.Add.make_args(g)]
     constants = [sympy.Rational(rng.randint(1, 5), rng.randint(1, 4)), sympy.exp(-1), sympy.sqrt(3) * sympy.I]
     chosen = constants[:rng.randint(2, 3)]
     numerator = _random_polynomial(rng, x, rng.randint(0, 2))
-    if rng.random() < 0.5:
+    form = seed % 3
+    if form == 0:
         function = numerator / sympy.Add(*(c * sympy.Mul(*split) for c in chosen))
-    else:  # the constants inside the exponentials, exp(-g + k), as the engine writes exp(x - 1/2)
+        usual = numerator * sympy.exp(g) / sympy.Add(*chosen)
+    elif form == 1:
         function = numerator / sympy.Add(*(sympy.exp(-g + k) for k in range(len(chosen))))
-        chosen = [sympy.exp(k) for k in range(len(chosen))]
-    assert function.is_Mul and not any(isinstance(f, sympy.exp) for f in sympy.Mul.make_args(function))
+        usual = numerator * sympy.exp(g) / sympy.Add(*(sympy.exp(k) for k in range(len(chosen))))
+    else:
+        weights = [sympy.Rational(rng.randint(1, 5), rng.randint(1, 4)) for _ in range(3)]
+        function = sympy.Add(*(w * sympy.exp(k * g + k) for k, w in enumerate(weights))) \
+            / (chosen[0] * sympy.exp(g - 1) + chosen[1] * sympy.exp(g + 1))
+        usual = sympy.Add(*(w * sympy.exp((k - 1) * g + k) for k, w in enumerate(weights))) \
+            / (chosen[0] * sympy.exp(-1) + chosen[1] * sympy.exp(1))
+    assert not any(isinstance(f, sympy.exp) for f in sympy.Mul.make_args(function))
     stream = exp_polynomial_taylor_stream(function, x)
     assert stream is not None
     computed = list(itertools.islice(stream, 5))
     # the expansion of the same function in the usual form (SymPy expands the other one very slowly)
-    expanded = series_prefix(numerator * sympy.exp(g) / sympy.Add(*chosen), x, 5)
+    expanded = series_prefix(usual, x, 5)
     assert all(_same(a, b) for a, b in zip(computed, expanded))
 
 

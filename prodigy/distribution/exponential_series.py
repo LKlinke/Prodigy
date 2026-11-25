@@ -126,10 +126,12 @@ def _prepare(function: sympy.Expr, variables: Tuple[sympy.Symbol, ...]) -> Optio
     """``function`` as terms of the class in the kernel, or None if it is not in the class (module docstring)."""
     replacements: Dict[sympy.Expr, sympy.Dummy] = {}
     rationals: List[Tuple[sympy.Expr, sympy.Expr]] = []
-    for summand in sympy.Add.make_args(sympy.sympify(function)):
+    summands = [term for summand in sympy.Add.make_args(sympy.sympify(function))
+                for term in _exponential_terms(summand, variables)]
+    for summand in summands:
         factors: List[sympy.Expr] = []
         exponent: sympy.Expr = sympy.Integer(0)
-        for factor in sympy.Mul.make_args(_exponentials_out(summand, variables)):
+        for factor in sympy.Mul.make_args(summand):
             power = _exponent(factor, variables)
             if power is None:
                 factors.append(factor)
@@ -160,19 +162,21 @@ def _prepare(function: sympy.Expr, variables: Tuple[sympy.Symbol, ...]) -> Optio
     return _Prepared(terms, symbols, back, variables)
 
 
-def _exponentials_out(summand: sympy.Expr, variables: Tuple[sympy.Symbol, ...]) -> sympy.Expr:
+def _exponential_terms(summand: sympy.Expr, variables: Tuple[sympy.Symbol, ...]) -> List[sympy.Expr]:
     """
-    ``summand`` with the exponentials of the expanded variables that are common factors of a sum (typically of a
-    denominator, ``1/(a·exp(y) + b·exp(y))`` or ``1/(exp(y - 1) + exp(y + 1))``) pulled out of it
-    (``exp(-y)/(a + b)``), so that each becomes a factor of the summand. An identity: the exponentials of sums are
-    split into products (:func:`sympy.expand_power_exp`), then the common factors are pulled out
-    (:func:`sympy.factor_terms`). Applied only if such an exponential is not already a factor, as the common case
-    needs no rewriting (Prodigy#472).
+    ``summand`` as a sum of terms in which each exponential of an expanded variable is a factor, if it is not
+    one already: exponentials that are common factors of a denominator (``1/(a·exp(y) + b·exp(y))``,
+    ``1/(exp(y - 1) + exp(y + 1))``) are pulled out of it, and a numerator that is a sum of exponentials is
+    multiplied out (``(exp(2*x) - 1)/(c·exp(x))`` gives ``exp(x)/c - exp(-x)/c``). Identities: the exponentials of
+    sums are split into products (:func:`sympy.expand_power_exp`), the common factors are pulled out
+    (:func:`sympy.factor_terms`), and the result is expanded into terms. The common case needs no rewriting
+    (Prodigy#472).
     """
     if all(_exponent(factor, variables) is not None or not _has_exponential(factor, variables)
            for factor in sympy.Mul.make_args(summand)):
-        return summand
-    return sympy.factor_terms(sympy.expand_power_exp(summand))
+        return [summand]
+    split = sympy.factor_terms(sympy.expand_power_exp(summand))
+    return [sympy.factor_terms(term) for term in sympy.Add.make_args(sympy.expand(split))]
 
 
 def _has_exponential(expression: sympy.Expr, variables: Tuple[sympy.Symbol, ...]) -> bool:
