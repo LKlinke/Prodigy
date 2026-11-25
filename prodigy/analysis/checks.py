@@ -10,16 +10,19 @@ source.
 """
 from __future__ import annotations
 
-from typing import Iterator, List, Optional
+import copy
+from typing import Any, Dict, Iterator, List, Optional
 
 from prodigy.distribution.finite_measure import check_probability_generating_function
-from prodigy.language import CategoricalExpr, Expr, FunctionCallExpr, Instr, NatType, Program, SampleExpr, VarExpr
+from prodigy.language import (CategoricalExpr, Expr, FunctionCallExpr, Instr, NatType, Program, SampleExpr, VarExpr,
+                              substitute)
 from prodigy.language.ast.walk import Walk, walk_expr, walk_instr_exprs, walk_instrs
-from prodigy.language.check import CheckFail
+from prodigy.language.check import CheckFail, check_program
+from prodigy.language.diagnostics import check_failure_diagnostic
 from prodigy.language.ppy_printer import spell
 from prodigy.language.util.ref import Mut
 
-__all__ = ["refute_sampling_pgfs"]
+__all__ = ["first_failure", "refute_sampling_pgfs", "type_error"]
 
 
 def _calls(instructions: List[Instr], returns: Optional[Expr] = None) -> Iterator[FunctionCallExpr]:
@@ -81,3 +84,18 @@ def _refute_call(program: Program, expr: FunctionCallExpr) -> Optional[CheckFail
                          f"{spell(expr)} needs a probability generating function (non-negative coefficients, "
                          f"mass 1), but {spell(generating_function)} is not one: {reason}.")
     return None
+
+
+def type_error(program: Any, source: str) -> Optional[Dict[str, Any]]:
+    """The diagnostic (:mod:`prodigy.language.diagnostics`) of the first failure of ``program`` (:func:`first_failure`,
+    after substituting the constants), or None; the session, the CLI and the GUI report it."""
+    checked_program = copy.deepcopy(program)
+    substitute.substitute_constants(checked_program)
+    failure = first_failure(checked_program)
+    return check_failure_diagnostic(source, failure) if isinstance(failure, CheckFail) else None
+
+
+def first_failure(checked_program: Any) -> Optional[CheckFail]:
+    """The type checker's first failure, else the first refuted generating function of ``sample_pgf``/``iid``
+    (:func:`~prodigy.analysis.checks.refute_sampling_pgfs`)."""
+    return check_program(checked_program) or refute_sampling_pgfs(checked_program)

@@ -1,179 +1,30 @@
 """
 Diagnostics for editors: parses and type-checks a ``.ppy`` program and reports
-problems with positions, plus an outline of the program (variables, loops with their ids,
-queries).
+problems with positions (:mod:`prodigy.language.diagnostics`, :mod:`prodigy.analysis.checks`), plus an
+outline of the program (variables, loops with their ids, queries).
 
 Used by the web GUI; a language server can use it as well.
 """
 from __future__ import annotations
 
-import re
 import threading
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List
 
 import copy
 
 from prodigy.language import parse_program, substitute
-from prodigy.language.ast import Expr, Instr
-from prodigy.language.check import CheckFail, check_program
+from prodigy.language.check import CheckFail
+from prodigy.language.diagnostics import (check_failure_diagnostic, diagnostic, end_of_source,
+                                          language_warning_diagnostics, parse_error_diagnostic)
 from prodigy.language.outline import outline as outline_of
-from prodigy.language.language_warnings import LanguageWarning, language_warnings
 from prodigy.language.positions import span_of
-from prodigy.language.ppy_printer import spell
 
-from prodigy.analysis.checks import refute_sampling_pgfs
+from prodigy.analysis.checks import first_failure
 
 _CACHE: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
 _CACHE_SIZE = 64
 _LOCK = threading.Lock()
-
-
-def _sentence(text: str) -> str:
-    return text if text.endswith(("…", ".")) else text + "."
-
-
-def _position(source: str, offset: int) -> Tuple[int, int]:
-    line = source.count("\n", 0, offset) + 1
-    column = offset - (source.rfind("\n", 0, offset) + 1) + 1
-    return line, column
-
-
-def _end_of_source(source: str) -> Tuple[int, int]:
-    stripped = source.rstrip()
-    return _position(source, len(stripped))
-
-
-def _locate_compact(source: str, text: str) -> Optional[Tuple[int, int, int, int]]:
-    """Finds ``text`` in ``source`` ignoring all whitespace; returns 1-based start/end."""
-    needle = re.sub(r"\s+", "", text)
-    if not needle:
-        return None
-    compact_chars, offsets = [], []
-    for index, char in enumerate(source):
-        if not char.isspace():
-            compact_chars.append(char)
-            offsets.append(index)
-    found = "".join(compact_chars).find(needle)
-    if found < 0:
-        return None
-    start = offsets[found]
-    end = offsets[found + len(needle) - 1] + 1
-    return (*_position(source, start), *_position(source, end))
-
-
-def _locate_name(source: str, name: str) -> Optional[Tuple[int, int, int, int]]:
-    match = re.search(rf"(?<![\w]){re.escape(name)}(?![\w])", _blank_comments(source))
-    if match is None:
-        return None
-    return (*_position(source, match.start()), *_position(source, match.end()))
-
-
-def _blank_comments(source: str) -> str:
-    # '//' is floor division; comments are '#' and '/* … */' (keep their line breaks)
-    return re.sub(r"#.*$|/\*[\s\S]*?\*/", lambda m: re.sub(r"[^\n]", " ", m.group(0)), source, flags=re.M)
-
-
-def _diagnostic(severity: str, message: str, where: Optional[Tuple[int, int, int, int]],
-                source: str, hint: str = "") -> Dict[str, Any]:
-    if where is None:
-        where = (1, 1, 1, max(2, len(source.split("\n", 1)[0]) + 1))
-    line, column, end_line, end_column = where
-    return {"severity": severity, "message": message, "hint": hint, "line": line, "column": column,
-            "end_line": end_line, "end_column": end_column}
-
-
-def _parse_error(source: str, exc: Exception) -> Dict[str, Any]:
-    name = type(exc).__name__
-    if name in ("PpySyntaxError", "ProgramSyntaxError", "ProgramTypeError"):
-        line, column = getattr(exc, "line", None), getattr(exc, "column", None)
-        message = _sentence(getattr(exc, "message", str(exc)))
-        if line is None:
-            return _diagnostic("error", message, None, source)
-        return _diagnostic("error", message, (line, column or 1, line, (column or 1) + 1), source)
-    message = str(exc) or name
-    where = None
-    match = re.search(r":\s*(\w+)\s*$", message)
-    if match:
-        where = _locate_name(source, match.group(1))
-    return _diagnostic("error", message, where, source)
-
-
-def _check_failure(source: str, failure: CheckFail) -> Dict[str, Any]:
-    message = failure.message.replace("NatType(bounds=None)", "nat").replace("BoolType()", "bool") \
-        .replace("RealType()", "real")
-    blanked = _blank_comments(source)
-    assignment = r"=(?!=)"
-    where = None
-    location = failure.location
-    if location is not None:
-        lhs = getattr(location, "lhs", None)
-        if type(location).__name__ == "AsgnInstr" and isinstance(lhs, str):
-            match = re.search(rf"(?<![\w]){re.escape(lhs)}\s*{assignment}", blanked)
-            if match:
-                where = (*_position(source, match.start()), *_position(source, match.start() + len(lhs)))
-        if where is None:
-            var = getattr(location, "var", None)
-            if isinstance(var, str):
-                where = _locate_name(source, var)
-        if where is None:
-            where = _locate_compact(blanked, spell(cast(Union[Expr, Instr], location)))
-    if where is None:
-        match = re.match(r"(\w+) is not", failure.message)
-        if match:
-            where = _locate_name(source, match.group(1))
-    return _diagnostic("warning", message, where, source,
-                       hint="Reported by the type checker; Prodigy may still be able to analyse the program.")
-
-
-_LANGUAGE_HINTS = {
-    "monus": "The program is valid and keeps its meaning; `-` on `nat` is truncated subtraction (monus).",
-    "cast": "The program is valid and keeps its meaning; write `if (…) { x = 1 } else { x = 0 }` to make it explicit.",
-}
-
-
-def _locate_in_instruction(source: str, warning: LanguageWarning) -> Optional[Tuple[int, int, int, int]]:
-    """The place of the warning's expression: inside the instruction's source text if the expression is found
-    as printed, otherwise the whole instruction (expressions carry no spans of their own)."""
-    span = span_of(warning.instr)
-    if span is None:
-        return _locate_compact(_blank_comments(source), spell(warning.expr))
-    lines = source.split("\n")
-    start = sum(len(line) + 1 for line in lines[:span.line - 1]) + span.column - 1
-    end = sum(len(line) + 1 for line in lines[:span.end_line - 1]) + span.end_column - 1
-    segment = _blank_comments(source)[start:end]
-    found = _locate_compact(segment, spell(warning.expr))
-    if found is None:
-        return (span.line, span.column, span.end_line, span.end_column)
-    first_line, first_column, last_line, last_column = found
-    base_line, base_column = _position(source, start)
-    return (base_line + first_line - 1, first_column + (base_column - 1 if first_line == 1 else 0),
-            base_line + last_line - 1, last_column + (base_column - 1 if last_line == 1 else 0))
-
-
-def language_warning_diagnostics(program: Any, source: str) -> List[Dict[str, Any]]:
-    """Warnings for valid programs that are likely to surprise (monus, implicit casts), as diagnostics
-    with the position of the expression; also used by the CLI."""
-    try:
-        warnings = language_warnings(program)
-    except Exception:  # pylint: disable=broad-except  # a heuristic check must never hide the real diagnostics
-        return []
-    return [_diagnostic("warning", warning.message, _locate_in_instruction(source, warning), source,
-                        hint=_LANGUAGE_HINTS[warning.kind]) for warning in warnings]
-
-
-def type_error(program: Any, source: str) -> Optional[Dict[str, Any]]:
-    """The GUI's diagnostic for the first type error of ``program`` (None if it type checks); also used by the CLI."""
-    checked_program = copy.deepcopy(program)
-    substitute.substitute_constants(checked_program)
-    failure = _first_failure(checked_program)
-    return _check_failure(source, failure) if isinstance(failure, CheckFail) else None
-
-
-def _first_failure(checked_program: Any) -> Optional[CheckFail]:
-    """The type checker's first failure, else the first refuted generating function of ``sample_pgf``/``iid``
-    (:func:`~prodigy.analysis.checks.refute_sampling_pgfs`)."""
-    return check_program(checked_program) or refute_sampling_pgfs(checked_program)
 
 
 def check_source(source: str) -> Dict[str, Any]:
@@ -217,7 +68,7 @@ def _nested_inference_limits(program: Any, source: str) -> List[Dict[str, Any]]:
                 continue
             span = span_of(loop)
             where = (span.line, span.column, span.line, span.column + 5) if span else None
-            found.append(_diagnostic(
+            found.append(diagnostic(
                 "warning", f"The loop assigns the dist variable {assigned[0]}; dist values in the state "
                 "of a loop are not implemented yet.", where, source,
                 hint="The program is valid, but the analysis will stop here. Assign it before the loop."))
@@ -229,28 +80,28 @@ def _check(source: str) -> Dict[str, Any]:
     try:
         program = parse_program(source)
     except Exception as exc:  # pylint: disable=broad-except
-        diagnostics.append(_parse_error(source, exc))
+        diagnostics.append(parse_error_diagnostic(source, exc))
         return {"ok": False, "diagnostics": diagnostics, "outline": None}
     try:
         outline = outline_of(program).to_json()
     except Exception as exc:  # pylint: disable=broad-except
         outline = None
-        diagnostics.append(_diagnostic("warning", f"Could not outline the program: {exc}", None, source))
+        diagnostics.append(diagnostic("warning", f"Could not outline the program: {exc}", None, source))
     try:
         # same as prodigy.language.compiler.compile_program, without parsing a second time
         checked_program = copy.deepcopy(program)
         substitute.substitute_constants(checked_program)
-        checked = _first_failure(checked_program)
+        checked = first_failure(checked_program)
         if isinstance(checked, CheckFail):
-            diagnostics.append(_check_failure(source, checked))
+            diagnostics.append(check_failure_diagnostic(source, checked))
     except Exception as exc:  # pylint: disable=broad-except
-        diagnostics.append(_diagnostic("warning", f"Type check failed: {exc}", None, source,
+        diagnostics.append(diagnostic("warning", f"Type check failed: {exc}", None, source,
                                        hint="Reported by the type checker; Prodigy may still be "
                                             "able to analyse the program."))
     diagnostics.extend(language_warning_diagnostics(program, source))
     diagnostics.extend(_nested_inference_limits(program, source))
     if outline is not None and not outline["queries"]:
-        line, _ = _end_of_source(source)
+        line, _ = end_of_source(source)
         diagnostics.append({"severity": "info", "line": line, "column": 1, "end_line": line, "end_column": 1,
                             "message": "No queries: add query Pr[...], Ex[...], Var[...] or Cov[...] to get "
                                        "values with bounds.",

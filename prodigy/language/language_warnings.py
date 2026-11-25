@@ -6,7 +6,7 @@ module reports programs that are accepted and keep their meaning, but where the 
 something else. Every warning carries the instruction it stands in (whose source span the caller
 can use) and the expression it is about. The messages spell expressions in
 ``.ppy``. The CLI prints the warnings on stderr; the GUI shows them as editor hints
-(:mod:`prodigy.web.diagnostics`).
+(:mod:`prodigy.language.diagnostics`).
 
 Two checks exist:
 

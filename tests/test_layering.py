@@ -93,8 +93,7 @@ FRONT_ENDS = ("prodigy.cli", "prodigy.web", "prodigy.plotting")
     ("prodigy.distribution", ("prodigy.analysis", "prodigy.simulator") + FRONT_ENDS),
     ("prodigy.simulator", ("prodigy.distribution", "prodigy.analysis") + FRONT_ENDS),
     pytest.param("prodigy.analysis", FRONT_ENDS,
-                 marks=_expected("T2/T7 (result imports web.diagnostics, query_handler imports plotting)",
-                                 "P5a and P7")),
+                 marks=_expected("T7 (query_handler imports plotting)", "P7")),
 ])
 def test_lower_layers_do_not_import_higher_ones(package, forbidden):
     violations = _violations((package,), forbidden)
@@ -213,9 +212,8 @@ _API = "prodigy.analysis."
 # The violations behind the expected failures above, as of #493. They may only shrink: a new violation of a rule
 # that is still an expected failure fails here instead of hiding behind the xfail.
 KNOWN_VIOLATIONS: Dict[str, FrozenSet[str]] = {
-    "T2/T7 analysis imports front ends": frozenset({
-        "prodigy/analysis/instructionhandler/query_handler.py -> prodigy.plotting.plotter",
-        "prodigy/analysis/result.py -> prodigy.web.diagnostics"}),
+    "T7 analysis imports front ends": frozenset({
+        "prodigy/analysis/instructionhandler/query_handler.py -> prodigy.plotting.plotter"}),
     "T6 analysis imports an engine": frozenset({
         "prodigy/analysis/values.py -> prodigy.distribution.generating_function"}),
     "T8 web imports the bindings": frozenset({"prodigy/web/app.py -> prodigy_ginac"}),
@@ -246,7 +244,7 @@ KNOWN_VIOLATIONS: Dict[str, FrozenSet[str]] = {
 
 def _current_violations(rule: str) -> Set[str]:
     current = {
-        "T2/T7 analysis imports front ends": lambda: _no_lines(_violations(("prodigy.analysis",), FRONT_ENDS)),
+        "T7 analysis imports front ends": lambda: _no_lines(_violations(("prodigy.analysis",), FRONT_ENDS)),
         "T6 analysis imports an engine": lambda: {
             v for v in _no_lines(_violations(("prodigy.analysis",), ENGINES))
             if not any(v.startswith(choice.replace(".", "/")) for choice in ENGINE_CHOICE)},

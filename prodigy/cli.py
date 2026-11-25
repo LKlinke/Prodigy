@@ -170,7 +170,8 @@ def _require_type_correct(program_file: IO, program: Program, source: str) -> No
     """Ends with the GUI's message if the type checker rejects the program (#334); prints its warnings on
     stderr."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.web.diagnostics import language_warning_diagnostics, type_error
+    from prodigy.analysis.checks import type_error
+    from prodigy.language.diagnostics import language_warning_diagnostics
     diagnostic = type_error(program, source)
     name = getattr(program_file, "name", "<program>")
     if diagnostic is not None:

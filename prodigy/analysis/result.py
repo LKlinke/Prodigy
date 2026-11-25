@@ -306,7 +306,7 @@ def _require_type_correct(program: Program, source: Optional[str]) -> None:
     """Rejects a program that the type checker rejects, with the GUI's message (#351)."""
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.exceptions import ForwardAnalysisError
-    from prodigy.web.diagnostics import type_error
+    from prodigy.analysis.checks import type_error
     diagnostic = type_error(program, source or "")
     if diagnostic is not None:
         raise ForwardAnalysisError(f"Type error: {diagnostic['message']}")
@@ -430,6 +430,6 @@ def _language_warnings(session: Any) -> List[str]:
     if session.program is None or session.source is None or session.silent:
         return []
     # pylint: disable=import-outside-toplevel
-    from prodigy.web.diagnostics import language_warning_diagnostics
+    from prodigy.language.diagnostics import language_warning_diagnostics
     found = language_warning_diagnostics(session.program, session.source)
     return [f"line {d['line']}, column {d['column']}: {d['message']}" for d in found]
