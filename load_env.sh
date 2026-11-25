@@ -26,7 +26,7 @@ echo -e "#     \t     \033[97m*\033[0m \033[33mcheck_equality\033[0m [OPTIONS] P
 echo -e "#     \t     \033[97m*\033[0m \033[33mmain\033[0m           [OPTIONS] PROGRAM_FILE [INPUT_DIST]                                    #";
 echo "#                                                                                                    #";
 echo -e "#        \033[95mcheck_equality\033[0m: just performs the equivalence check described in the paper.                 #";
-echo -e "#        \033[95mmain\033[0m: computes the final distribution after termination of a given pGCL program.            #";
+echo -e "#        \033[95mmain\033[0m: computes the final distribution after termination of a given .ppy program.            #";
 echo -e "#           When no input distribution is specified it assumes all variables to be                   #";
 echo -e "#           initialized with 0, i.e., implicitly assumes the input distribution '1'.                 #";
 echo "#                                                                                                    #";
