@@ -1012,49 +1012,6 @@ def _check_program(program: Program,
                          predefined_functions=predefined_functions)
 
 
-def check_expression(
-    program: Program,
-    expr: Expr,
-    predefined_functions: Mapping[Var,
-                               List[VarDecl]] = sample_predefined_functions
-) -> Optional[CheckFail]:
-    """
-    Check an expression for type-safety.
-
-    .. doctest::
-
-        >>> program = Program(list(), dict(), dict(), dict(), dict(), list())
-        >>> check_expression(program, RealLitExpr("1.0"))
-        CheckFail(location=..., message='A program expression may not return a probability.')
-    """
-    expr_type = get_type(program,
-                         expr,
-                         check=True,
-                         predefined_functions=predefined_functions)
-    if isinstance(expr_type, CheckFail):
-        return expr_type
-    if isinstance(expr_type, RealType):
-        return CheckFail(expr,
-                         "A program expression may not return a probability.")
-    return None
-
-
-def check_expectation(
-    program: Program,
-    expr: Expr,
-    predefined_functions: Mapping[Var,
-                               List[VarDecl]] = sample_predefined_functions
-) -> Optional[CheckFail]:
-    """Check an expectation for type-safety."""
-    expr_type = get_type(program,
-                         expr,
-                         check=True,
-                         predefined_functions=predefined_functions)
-    if isinstance(expr_type, CheckFail):
-        return expr_type
-    return None
-
-
 def check_function(
     function: Function,
     context: Program,

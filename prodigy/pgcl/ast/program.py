@@ -1,7 +1,6 @@
 # pylint: disable=line-too-long  # style as taken over from probably
 from __future__ import annotations
 
-import copy
 from typing import Dict, List, Set
 
 import attr
@@ -113,25 +112,6 @@ class Program:
         assert var not in self.variables, f"variable {var} is already declared in program"
         self.declarations.append(VarDecl(var, typ))
         self.variables[var] = typ
-
-    def to_skeleton(self) -> Program:
-        """
-        Return a (shallow) copy of this program with just the declarations, but
-        without any instructions.
-
-        .. doctest::
-
-            >>> from prodigy.pgcl.parser import parse_pgcl
-            >>> program = parse_pgcl("x: nat; y: nat; while (x < 2) { }")
-            >>> program.to_skeleton()
-            Program(variables={'x': NatType(bounds=None), 'y': NatType(bounds=None)}, constants={}, parameters={}, functions={}, instructions=[])
-        """
-        return Program(declarations=copy.copy(self.declarations),
-                       parameters=copy.copy(self.parameters),
-                       variables=copy.copy(self.variables),
-                       constants=copy.copy(self.constants),
-                       functions=copy.copy(self.functions),
-                       instructions=[])
 
     def __str__(self) -> str:
         """

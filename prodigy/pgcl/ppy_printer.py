@@ -317,11 +317,6 @@ def instr_to_ppy(instr: Instr) -> str:
     return _PRINTER.instr(instr)
 
 
-def decl_to_ppy(decl: Decl) -> str:
-    """Print a declaration in the ``.ppy`` syntax."""
-    return _PRINTER.decl(decl)
-
-
 def program_to_ppy(program: Program) -> str:
     """Print a program in the ``.ppy`` syntax, declarations first."""
     return _PRINTER.program(program)

@@ -21,10 +21,6 @@ class ProgramInfo():
     program: Program
     so_vars: frozenset[Var] = frozenset()
     """Variables that are to be considered second order variables, used in the equivalence check"""
-    independents_vars: frozenset[frozenset[Var]] = frozenset()
-    """Pairs of variables that are independent from each other; see 
-    `prodigy.analysis.static.independence.independent_vars`.
-    """
     dist_bindings: Mapping[Var, Any] = field(default_factory=frozendict)
     """``dist`` variables with a fixed value while a loop runs (variable -> closed
     :class:`~prodigy.analysis.nested_inference.DistSite`); they are not part of the distribution

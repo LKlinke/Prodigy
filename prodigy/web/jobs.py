@@ -219,7 +219,6 @@ class Job:
     conn: Any
     time_limit: float
     summary: Dict[str, Any]
-    created: float = field(default_factory=time.time)
     started: float = field(default_factory=time.monotonic)
     finished: Optional[float] = None
     state: str = "starting"
@@ -351,10 +350,6 @@ class JobManager:
             for job in self._jobs.values():
                 if job.running:
                     self._stop_process(job, "cancelled")
-
-    def running_count(self) -> int:
-        with self._lock:
-            return sum(1 for job in self._jobs.values() if job.running)
 
     def running(self, auxiliary: Optional[bool] = None) -> List[Dict[str, Any]]:
         """The running jobs (oldest first, :meth:`Job.listing`); ``auxiliary`` selects one group."""

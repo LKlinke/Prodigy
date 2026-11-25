@@ -19,14 +19,6 @@ from .oracles import (SETUPS, ProgramCrash, ProgramError, ProgramTimeout, analys
 ENGINES = {setup.name: setup for setup in SETUPS}
 
 
-def _ginac_xfail(issue):
-    return pytest.mark.xfail(strict=True, reason=f"open issue #{issue}")
-
-
-def _per_engine(issue_engines, issue):
-    return [pytest.param(name, marks=_ginac_xfail(issue)) if name in issue_engines else name for name in ENGINES]
-
-
 # #232: GiNaC moved the old distribution of y onto x
 VARIABLE_COPY = "x: nat;\ny: nat;\ny = unif(0, 2);\ny = x;\nprint;\n"
 

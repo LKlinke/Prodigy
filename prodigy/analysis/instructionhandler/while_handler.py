@@ -1237,49 +1237,6 @@ class WhileHandler(InstructionHandler):
             outcome = session.run_loop(task)
         return outcome.distribution, outcome.error_prob
 
-    # The historic entry points, kept for callers that use them directly.
-
-    @staticmethod
-    def _analyze_with_invariant(instruction: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,
-                                error_prob: Distribution, config: ForwardAnalysisConfig,
-                                analyzer: Analyzer) -> Tuple[Distribution, Distribution]:
-        return WhileHandler._run("invariant", instruction, prog_info, distribution, error_prob, config,
-                                 analyzer)
-
-    @staticmethod
-    def _compute_iterations(instruction: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,
-                            error_prob: Distribution, config: ForwardAnalysisConfig,
-                            analyzer: Analyzer) -> Tuple[Distribution, Distribution]:
-        return WhileHandler._run("unroll", instruction, prog_info, distribution, error_prob, config, analyzer)
-
-    @staticmethod
-    def _compute_until_threshold(instruction: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,
-                                 error_prob: Distribution, config: ForwardAnalysisConfig,
-                                 analyzer: Analyzer) -> Tuple[Distribution, Distribution]:
-        return WhileHandler._run("mass_threshold", instruction, prog_info, distribution, error_prob, config,
-                                 analyzer)
-
-    @staticmethod
-    def _approx_expected_visiting_times(instruction: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,
-                                        error_prob: Distribution, config: ForwardAnalysisConfig,
-                                        analyzer: Analyzer) -> Tuple[Distribution, Distribution]:
-        return WhileHandler._run("evt_iterate", instruction, prog_info, distribution, error_prob, config,
-                                 analyzer)
-
-    @staticmethod
-    def _evt_invariant(instruction: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,
-                       error_prob: Distribution, config: ForwardAnalysisConfig,
-                       analyzer: Analyzer) -> Tuple[Distribution, Distribution]:
-        return WhileHandler._run("evt_invariant", instruction, prog_info, distribution, error_prob, config,
-                                 analyzer)
-
-    @staticmethod
-    def _evt_invariant_synthesis(instruction: WhileInstr, prog_info: ProgramInfo, distribution: Distribution,
-                                 error_prob: Distribution, config: ForwardAnalysisConfig,
-                                 analyzer: Analyzer) -> Tuple[Distribution, Distribution]:
-        return WhileHandler._run("evt_synthesis", instruction, prog_info, distribution, error_prob, config,
-                                 analyzer)
-
     @staticmethod
     def compute(
             instruction: Union[Instr, Sequence[Instr]],

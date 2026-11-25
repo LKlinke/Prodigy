@@ -7,7 +7,7 @@ Walking ASTs
 Utilities to traverse ("walk") an AST, i.e. visiting each node in the AST.
 There are two directions (bottom-up and top-down) which you can select using :class:`Walk`.
 
-We also have :data:`prodigy.pgcl.util.ref.Ref` and :class:`prodigy.pgcl.util.ref.Mut` to represent mutable references to values.
+We also have :class:`prodigy.pgcl.util.ref.Mut` to represent mutable references to values.
 These allow a walk of an AST while modifying it.
 E.g. constant folding can be implemented as a bottom-up walk where each callback simplifies the current node.
 

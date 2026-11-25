@@ -334,13 +334,6 @@ def entire_exp_polynomial(expr: sympy.Expr, variables: Sequence[str]) -> bool:
     return _polynomial_parts(expr, variables) is not None
 
 
-def _falling(m: int, j: int) -> int:
-    result = 1
-    for i in range(j):
-        result *= m - i
-    return result
-
-
 def _coefficient(a: Dict[int, Fraction], b: Dict[int, Fraction], c: Fraction, m: int) -> Fraction:
     """The coefficient of ``k^m`` in ``A(k)·exp(c k) + B(k)``."""
     value = b.get(m, Fraction(0))

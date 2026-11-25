@@ -23,8 +23,8 @@ from __future__ import annotations
 from fractions import Fraction
 from typing import List, Mapping, Sequence, Tuple, Union
 
-from prodigy.pgcl import (AbortInstr, AsgnInstr, Binop, BinopExpr, BoolLitExpr, ChoiceInstr, ExpectationInstr,
-                           Expr, FunctionCallExpr, IfInstr, Instr, NatLitExpr, ObserveInstr, ProbabilityQueryInstr,
+from prodigy.pgcl import (AbortInstr, AsgnInstr, Binop, BinopExpr, BoolLitExpr, ChoiceInstr, Expr,
+                           FunctionCallExpr, IfInstr, Instr, NatLitExpr, ObserveInstr,
                            Program, RealLitExpr, SkipInstr, Unop, UnopExpr, VarExpr, WhileInstr)
 
 IR = tuple
@@ -109,17 +109,6 @@ def split_program(program: Program) -> Tuple[List[Instr], WhileInstr, List[Instr
     loop = program.instructions[k]
     assert isinstance(loop, WhileInstr)
     return list(program.instructions[:k]), loop, list(program.instructions[k + 1:])
-
-
-def queries_of(instructions: Sequence[Instr]) -> List[Tuple[str, IR, str]]:
-    """The ``?Pr[...]`` and ``?Ex[...]`` queries among the given instructions as (kind, expression, text)."""
-    out = []
-    for ins in instructions:
-        if isinstance(ins, ProbabilityQueryInstr):
-            out.append(("?Pr", expr_to_ir(ins.expr), str(ins.expr)))
-        elif isinstance(ins, ExpectationInstr):
-            out.append(("?Ex", expr_to_ir(ins.expr), str(ins.expr)))
-    return out
 
 
 def eval_expr(e: IR, state: Mapping[str, int]) -> Scalar:
