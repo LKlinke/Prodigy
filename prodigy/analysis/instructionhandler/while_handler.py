@@ -37,7 +37,7 @@ from prodigy.analysis.exceptions import (ForwardAnalysisError, HeuristicsError, 
                                               SolveError, VerificationError)
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
-from prodigy.distribution.equality import sympify_distribution, sympify_engine_string
+from prodigy.distribution.equality import parse_engine_text, sympify_distribution, sympify_engine_string
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.loops import witness as witnesses
 from prodigy.analysis.loops.witness import show_valuation
@@ -1125,7 +1125,8 @@ def _upper_query_bounds(task: LoopTask, upper: Distribution) -> Dict[QueryKey, T
                     continue
                 value = upper.get_expected_value_of(ins.expr)
                 kind = "?Ex"
-            value = sympy.sympify(str(value))
+            if not isinstance(value, sympy.Basic):
+                value = parse_engine_text(str(value), upper.get_variables() | upper.get_parameters())
             if value.is_finite is not True or value.is_real is not True or value < 0:
                 continue
         except Exception:  # pylint: disable=broad-except  # the bound is optional

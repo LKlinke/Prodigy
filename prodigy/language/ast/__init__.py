@@ -113,15 +113,9 @@ Otherwise use corresponding Union types instead.
 .. autoclass:: TypeClass
 .. autoclass:: DeclClass
 
-    .. automethod:: __str__
-
 .. autoclass:: ExprClass
 
-    .. automethod:: __str__
-
 .. autoclass:: InstrClass
-
-    .. automethod:: __str__
 
 .. autoclass:: Node
 """

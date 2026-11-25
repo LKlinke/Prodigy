@@ -198,7 +198,7 @@ def sympify_distribution_string(dist: Distribution) -> sympy.Expr:
     The SymPy expression of a distribution whose engine has no SymPy expression, parsed from its string form,
     see :func:`sympify_engine_string`. Only for engines whose ``str`` is a plain expression (#445).
     """
-    return sympify_engine_string(str(dist), dist.get_variables() | dist.get_parameters())
+    return sympify_engine_string(engine_text(dist), dist.get_variables() | dist.get_parameters())
 
 
 def decide_equal_strings(lhs: str, rhs: str, names: Iterable[str], *,
