@@ -89,9 +89,8 @@ def evt_subinvariant_verification(loop: WhileInstr, prog_info: ProgramInfo, dist
     ``details``, if given, receives ``mass`` (``|nu|``), ``gap`` (``|Phi(nu)| - |nu|``, which bounds the mass that the
     lower bound misses), ``exit_mass`` and how non-negativity was established (``nonneg_nu``, ``nonneg_gap``)."""
     print(f"{Style.YELLOW}Sub-invariant verification (lower induction) initiated...{Style.RESET}")
-    from prodigy.analysis.lowerbounds.ir import instr_to_ir
-    from prodigy.analysis.lowerbounds.problem import _contains
-    if _contains(instr_to_ir(loop.body), "observe"):
+    from prodigy.analysis.lowerbounds.ir import contains, instr_to_ir
+    if contains(instr_to_ir(loop.body), "observe"):
         raise VerificationError("observe in the loop body is not supported by lower induction: conditioning has to be "
                                 "distinguished from non-termination, which this mode does not do yet.")
     variables = [str(v) for v in prog_info.program.variables.keys()]

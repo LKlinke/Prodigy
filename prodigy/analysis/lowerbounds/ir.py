@@ -143,3 +143,17 @@ def eval_expr(e: IR, state: Mapping[str, int]) -> Scalar:
             return Fraction(a) / b
         return a % b
     raise UnsupportedProgram(f"cannot evaluate {e}")
+
+
+def contains(stmt: IR, tag: str) -> bool:
+    """Whether the IR statement ``stmt`` contains a statement tagged ``tag`` (e.g. ``"observe"``)."""
+    if not isinstance(stmt, tuple) or not stmt:
+        return False
+    if stmt[0] == tag:
+        return True
+    for sub in stmt[1:]:
+        if isinstance(sub, tuple) and contains(sub, tag):
+            return True
+        if isinstance(sub, list) and any(contains(s, tag) for s in sub):
+            return True
+    return False

@@ -62,3 +62,34 @@ def test_type_errors_spell_expressions_in_the_syntax_of_the_program():
     failure = compile_program(ppy, syntax="ppy")
     assert "y * 2" in failure.message and "iid(1/2, y * 2)" in failure.message
     assert "(y) * (2)" not in failure.message
+
+
+# a refuted generating function (#424) is rejected by the check of the analysis that every entry path runs after
+# the type checker (T3 of docs/source/architecture.md), in the program and in a function
+REFUTED_PGF = ["x: nat;\nx = sample_pgf(2*x, x);\n",
+               "def f() -> nat {\n  y: nat;\n  y = sample_pgf(2*y, y);\n  return y;\n}\nx: nat;\nx = f();\n"]
+REFUTED_MESSAGE = "needs a probability generating function"
+
+
+@pytest.mark.parametrize("source", REFUTED_PGF)
+@pytest.mark.parametrize("command", ["outline", "main", "analyze"])
+def test_cli_commands_reject_refuted_generating_functions(tmp_path, source, command):
+    path = tmp_path / "bad.ppy"
+    path.write_text(source)
+    result = CliRunner().invoke(cli, [command, str(path)])
+    assert result.exit_code != 0, command
+    assert "type error" in result.output and REFUTED_MESSAGE in result.output, result.output
+
+
+@pytest.mark.parametrize("source", REFUTED_PGF)
+def test_session_rejects_refuted_generating_functions(source):
+    result = AnalysisSession(parse_program(source), source=source).run()
+    assert result.status == "error"
+    assert "Type error" in result.error["message"] and REFUTED_MESSAGE in result.error["message"]
+
+
+@pytest.mark.parametrize("source", REFUTED_PGF)
+def test_gui_check_rejects_refuted_generating_functions(source):
+    from prodigy.web.diagnostics import check_source  # pylint: disable=import-outside-toplevel
+    diagnostics = check_source(source)["diagnostics"]
+    assert any(REFUTED_MESSAGE in d["message"] for d in diagnostics), diagnostics

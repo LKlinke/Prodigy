@@ -43,7 +43,6 @@ from prodigy.analysis.loops.api import (Bound, LoopDecision, LoopOutcome, LoopSt
 from prodigy.analysis.session import current_session
 from prodigy.distribution import Distribution, State, known_convergent_series
 from prodigy.distribution.distribution import NonFiniteMarginalError
-from prodigy.distribution.generating_function import SympyPGF
 from prodigy.language.operations import cav_phi
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
@@ -417,8 +416,9 @@ def _strategy_unroll(task: LoopTask) -> LoopOutcome:
         iterated_part, error_prob = analyzer(instruction.body, prog_info, sat_part, error_prob, config)
         iterated_sat = iterated_part.filter(instruction.cond)
         iterated_non_sat = iterated_part - iterated_sat
-        if iterated_non_sat == SympyPGF.zero(
-        ) and iterated_sat == sat_part:
+        # config.factory.zero() has no variables, so this is False whenever iterated_non_sat has some (as with
+        # SympyPGF.zero() before, T5 of the architecture page)
+        if iterated_non_sat == config.factory.zero() and iterated_sat == sat_part:
             print(
                 f"\n{Style.OKGREEN}Terminated already after {i + 1} step(s)!{Style.RESET}"
             )

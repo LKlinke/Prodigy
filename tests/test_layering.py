@@ -89,8 +89,7 @@ FRONT_ENDS = ("prodigy.cli", "prodigy.web", "prodigy.plotting")
 
 @pytest.mark.parametrize("package, forbidden", [
     ("prodigy.util", ("prodigy.language", "prodigy.distribution", "prodigy.analysis", "prodigy.simulator") + FRONT_ENDS),
-    pytest.param("prodigy.language", ("prodigy.distribution", "prodigy.analysis", "prodigy.simulator") + FRONT_ENDS,
-                 marks=_expected("T3 (the type checker imports a proof rule)", "P5a")),
+    ("prodigy.language", ("prodigy.distribution", "prodigy.analysis", "prodigy.simulator") + FRONT_ENDS),
     ("prodigy.distribution", ("prodigy.analysis", "prodigy.simulator") + FRONT_ENDS),
     ("prodigy.simulator", ("prodigy.distribution", "prodigy.analysis") + FRONT_ENDS),
     pytest.param("prodigy.analysis", FRONT_ENDS,
@@ -159,8 +158,8 @@ ENGINE_CHOICE = ("prodigy.analysis.config",)
 
 
 @pytest.mark.parametrize("package", [
-    pytest.param("prodigy.analysis", marks=_expected("T5/T6 (while_handler uses SympyPGF, result.sym the SymPy "
-                                                     "engine's parser)", "P5a and #479")),
+    pytest.param("prodigy.analysis", marks=_expected("T6 (values.sym uses the SymPy engine's parser)",
+                                                     "P5a PR 2 and #479")),
     "prodigy.cli",
     "prodigy.web",
     "prodigy.plotting",
@@ -182,7 +181,7 @@ def test_only_the_engine_imports_the_bindings(package):
 
 
 # The front-end API of the analysis (architecture page, "Interfaces between the layers").
-FRONT_END_API = ("prodigy.analysis", "prodigy.analysis.session", "prodigy.analysis.result",
+FRONT_END_API = ("prodigy.analysis", "prodigy.analysis.session", "prodigy.analysis.checks", "prodigy.analysis.result",
                  "prodigy.analysis.trace", "prodigy.analysis.config", "prodigy.analysis.loop_strategies",
                  "prodigy.analysis.loops.api", "prodigy.analysis.values",
                  "prodigy.analysis.exceptions", "prodigy.analysis.deprecations", "prodigy.analysis.equivalence")
@@ -214,13 +213,10 @@ _API = "prodigy.analysis."
 # The violations behind the expected failures above, as of #493. They may only shrink: a new violation of a rule
 # that is still an expected failure fails here instead of hiding behind the xfail.
 KNOWN_VIOLATIONS: Dict[str, FrozenSet[str]] = {
-    "T3 language imports a proof rule": frozenset({
-        "prodigy/language/check.py -> prodigy.distribution.finite_measure"}),
     "T2/T7 analysis imports front ends": frozenset({
         "prodigy/analysis/instructionhandler/query_handler.py -> prodigy.plotting.plotter",
         "prodigy/analysis/result.py -> prodigy.web.diagnostics"}),
-    "T5/T6 analysis imports an engine": frozenset({
-        "prodigy/analysis/instructionhandler/while_handler.py -> prodigy.distribution.generating_function",
+    "T6 analysis imports an engine": frozenset({
         "prodigy/analysis/values.py -> prodigy.distribution.generating_function"}),
     "T8 web imports the bindings": frozenset({"prodigy/web/app.py -> prodigy_ginac"}),
     "T8 CLI uses analysis internals": frozenset(f"prodigy/cli.py -> {_API}{module}" for module in (
@@ -249,11 +245,9 @@ KNOWN_VIOLATIONS: Dict[str, FrozenSet[str]] = {
 
 
 def _current_violations(rule: str) -> Set[str]:
-    language = ("prodigy.distribution", "prodigy.analysis", "prodigy.simulator") + FRONT_ENDS
     current = {
-        "T3 language imports a proof rule": lambda: _no_lines(_violations(("prodigy.language",), language)),
         "T2/T7 analysis imports front ends": lambda: _no_lines(_violations(("prodigy.analysis",), FRONT_ENDS)),
-        "T5/T6 analysis imports an engine": lambda: {
+        "T6 analysis imports an engine": lambda: {
             v for v in _no_lines(_violations(("prodigy.analysis",), ENGINES))
             if not any(v.startswith(choice.replace(".", "/")) for choice in ENGINE_CHOICE)},
         "T8 web imports the bindings": lambda: _no_lines(_violations(("prodigy.web",), ("prodigy_ginac",))),

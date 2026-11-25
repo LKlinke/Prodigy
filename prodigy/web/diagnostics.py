@@ -21,6 +21,7 @@ from prodigy.language.language_warnings import LanguageWarning, language_warning
 from prodigy.language.positions import span_of
 from prodigy.language.ppy_printer import spell
 
+from prodigy.analysis.checks import refute_sampling_pgfs
 from prodigy.analysis.result import outline_program
 
 _CACHE: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
@@ -165,8 +166,14 @@ def type_error(program: Any, source: str) -> Optional[Dict[str, Any]]:
     """The GUI's diagnostic for the first type error of ``program`` (None if it type checks); also used by the CLI."""
     checked_program = copy.deepcopy(program)
     substitute.substitute_constants(checked_program)
-    failure = check_program(checked_program)
+    failure = _first_failure(checked_program)
     return _check_failure(source, failure) if isinstance(failure, CheckFail) else None
+
+
+def _first_failure(checked_program: Any) -> Optional[CheckFail]:
+    """The type checker's first failure, else the first refuted generating function of ``sample_pgf``/``iid``
+    (:func:`~prodigy.analysis.checks.refute_sampling_pgfs`)."""
+    return check_program(checked_program) or refute_sampling_pgfs(checked_program)
 
 
 def check_source(source: str) -> Dict[str, Any]:
@@ -233,7 +240,7 @@ def _check(source: str) -> Dict[str, Any]:
         # same as prodigy.language.compiler.compile_program, without parsing a second time
         checked_program = copy.deepcopy(program)
         substitute.substitute_constants(checked_program)
-        checked = check_program(checked_program)
+        checked = _first_failure(checked_program)
         if isinstance(checked, CheckFail):
             diagnostics.append(_check_failure(source, checked))
     except Exception as exc:  # pylint: disable=broad-except
