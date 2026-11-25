@@ -150,7 +150,7 @@ def queries_after(program: Program, loop: WhileInstr) -> List[Query]:
 def problem_from_loop(loop: WhileInstr, variables: List[str], init_expr: str) -> LoopProblem:
     """A :class:`LoopProblem` for a loop whose input distribution is given as a generating function (used by the
     interactive modes of the while handler)."""
-    from prodigy.analysis.lowerbounds.subinvariant import to_product_form
+    from prodigy.distribution.product_form import to_product_form
     form = to_product_form(init_expr, variables)
     if form is None:
         raise UnsupportedProgram(f"the input distribution {init_expr} is not a rational generating function with "

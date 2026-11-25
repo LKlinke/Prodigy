@@ -49,7 +49,9 @@ html_theme_options = {
 
 autosummary_generate = True
 autosummary_imported_members = False
-autodoc_default_options = {'members': True, 'undoc-members': True, 'show-inheritance': True}
+# a package's __all__ re-exports names that its modules document; document each name once, in its module
+autodoc_default_options = {'members': True, 'undoc-members': True, 'show-inheritance': True,
+                           'ignore-module-all': True}
 autodoc_member_order = 'bysource'
 add_module_names = False
 always_document_param_types = True

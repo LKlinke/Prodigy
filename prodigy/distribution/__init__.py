@@ -50,3 +50,7 @@ from .distribution import (CommonDistributionsFactory, Distribution,
                            DistributionParam, MarginalType, NonFiniteMarginalError, ZeroDivisorError,
                            State, known_convergent_series)
 from .ordering import UndecidedComparisonError
+
+# the API of the package (#379, step 1)
+__all__ = ["CommonDistributionsFactory", "Distribution", "DistributionParam", "MarginalType", "NonFiniteMarginalError",
+           "ZeroDivisorError", "State", "known_convergent_series", "UndecidedComparisonError"]

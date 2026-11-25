@@ -1,6 +1,7 @@
 # pylint: disable=protected-access
 from __future__ import annotations
 
+import logging
 import contextlib
 import functools
 import math
@@ -28,7 +29,7 @@ from prodigy.language import (Binop, BinopExpr, Expr, FunctionCallExpr,
 from prodigy.language.ppy_parser import parse_ppy_expr
 from prodigy.language.checks import has_variable
 from prodigy.language.operations import state_condition
-from prodigy.util.logger import log_setup, logging
+from prodigy.util.logger import log_setup
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 

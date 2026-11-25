@@ -16,8 +16,8 @@ from itertools import combinations
 from typing import IO, Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar, TYPE_CHECKING
 
 import click
-from prodigy.language import Instr, Program, Var, compiler, WhileInstr
-from prodigy.language.parser import check_syntax
+from prodigy.language import Instr, Program, Var, WhileInstr
+from prodigy.language.parser import check_syntax, parse_program
 from prodigy.language.syntax_errors import ProgramSyntaxError
 
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
@@ -160,7 +160,7 @@ def _read_program(program_file: IO, syntax: Optional[str]) -> Tuple[str, Program
     except ValueError as exc:
         raise click.ClickException(f"{name}: {exc}") from exc
     try:
-        program = compiler.parse_program(source)
+        program = parse_program(source)
     except ProgramSyntaxError as exc:
         raise click.ClickException(_with_source_line(f"{name}: {exc}", source, exc.line, exc.column)) from exc
     return source, program

@@ -169,7 +169,7 @@ def _exp_polynomial_positivity(variables: Sequence[str], invariant: InvariantLik
 
 def _positivity(config: ForwardAnalysisConfig, variables: Sequence[str], invariant: InvariantLike) -> Optional[bool]:
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.lowerbounds.subinvariant import nonneg_by_construction
+    from prodigy.distribution.coefficient_signs import nonneg_by_construction
     # Sound criterion first: it covers polynomials and P / prod (c - R), for which the heuristic fails on
     # several variables (SymPy has no multivariate partial fraction decomposition).
     if nonneg_by_construction(str(invariant), [str(v) for v in variables]):
