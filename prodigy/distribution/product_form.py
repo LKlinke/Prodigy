@@ -102,7 +102,7 @@ def pmul(p1: Num, p2: Num) -> Num:
     out: Num = {}
     for e1, c1 in p1.items():
         for e2, c2 in p2.items():
-            e = tuple(a + b for a, b in zip(e1, e2))
+            e = tuple(a + b for a, b in zip(e1, e2, strict=True))
             out[e] = out.get(e, 0) + c1 * c2
     return {e: c for e, c in out.items() if c != 0}
 
@@ -279,7 +279,7 @@ class ProductFormSeries:
         """``P / D`` as an expression string in the program variables (parsable by Prodigy's factories)."""
         def mono(e: Sequence[int], c: Fraction) -> str:
             parts = []
-            for v, k in zip(self.vars, e):
+            for v, k in zip(self.vars, e, strict=True):
                 if k == 1:
                     parts.append(v)
                 elif k > 1:
@@ -288,7 +288,7 @@ class ProductFormSeries:
             return "*".join([coeff] + parts) if parts else coeff
         num = " + ".join(mono(e, c) for e, c in sorted(poly.items())) if poly else "0"
         dens = [f"(1 - ({r})*{v}^{p})" if p > 1 else f"(1 - ({r})*{v})"
-                for v, r, p in zip(self.vars, self.den.r, self.den.p) if r != 0]
+                for v, r, p in zip(self.vars, self.den.r, self.den.p, strict=True) if r != 0]
         if not dens:
             return f"({num})"
         return f"({num}) / ({'*'.join(dens)})"

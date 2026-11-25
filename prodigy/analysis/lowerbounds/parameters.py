@@ -49,7 +49,7 @@ class TemplateShape:
 
     def size(self) -> int:
         return int(np.prod([(b + p) if r != 0 else (b + 1)
-                            for r, p, b in zip(self.rates, self.periods, self.tail_start)]))
+                            for r, p, b in zip(self.rates, self.periods, self.tail_start, strict=True)]))
 
     def describe(self) -> str:
         return f"rates={[str(r) for r in self.rates]}, periods={self.periods}, tail starts={self.tail_start}"
@@ -291,7 +291,7 @@ def tail_kernel(guard: IR, body: IR, variables: Sequence[str], profiles: List[Va
             continue
         index[ph] = len(index)
         st = state_of(ph)
-        env = dict(zip(variables, st))
+        env = dict(zip(variables, st, strict=True))
         if not eval_expr(guard, env):
             continue                       # exit phase: no outgoing transitions
         out: Dict[tuple, float] = {}
@@ -344,7 +344,7 @@ def upper_tail_rates(kernel: TailKernel, profiles: List[VariableProfile], slack:
                 best = res.x
     if best is None:
         return None
-    rates = {i: float(math.exp(t)) for i, t in zip(unb, full(best))}
+    rates = {i: float(math.exp(t)) for i, t in zip(unb, full(best), strict=True)}
     return {i: (fixed[i] if i in fixed else 1.0 if abs(s - 1.0) < 5e-3 else s) for i, s in rates.items()}
 
 
@@ -358,7 +358,7 @@ def _reach_count(init_states: Iterable[State], guard: IR, body: IR, variables: S
     if full > cap:
         return full
     reach = reachable(init_states, guard, body, variables, shape.reach_box)
-    hi = [b + p - 1 if r != 0 else b for r, p, b in zip(shape.rates, shape.periods, shape.tail_start)]
+    hi = [b + p - 1 if r != 0 else b for r, p, b in zip(shape.rates, shape.periods, shape.tail_start, strict=True)]
     return sum(1 for s in reach if all(s[i] <= hi[i] for i in range(len(hi))))
 
 

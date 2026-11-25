@@ -63,7 +63,7 @@ def _engine_info(default_engine: str) -> List[Dict[str, Any]]:
         available, reason = True, None
         if name == "ginac":
             try:
-                import prodigy_ginac  # type: ignore  # pylint: disable=import-outside-toplevel,unused-import
+                import prodigy_ginac  # pylint: disable=import-outside-toplevel,unused-import
             except ImportError:
                 available = False
                 reason = "Not installed: install prodigy-ppl-ginac (the extra ginac) to use GiNaC."

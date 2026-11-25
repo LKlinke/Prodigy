@@ -92,7 +92,7 @@ class Program:
                 calls.
         """
         return Program(
-            function.declarations.copy(),  # type: ignore
+            function.declarations.copy(),  # type: ignore[arg-type]
             {decl.var: decl.typ for decl in function.declarations},
             {} if context is None else context.constants.copy(),
             {} if context is None else context.parameters.copy(),

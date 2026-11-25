@@ -95,7 +95,7 @@ def exp_polynomial_taylor_stream(function: sympy.Expr, variable: sympy.Symbol) -
     if prepared is None or all(variable.name not in g.free_names() for _, g in prepared.terms):
         return None
     streams = [_coefficients(term, variable.name) for term in prepared.terms]
-    return (prepared.value(parts) for parts in zip(*streams))
+    return (prepared.value(parts) for parts in zip(*streams, strict=True))
 
 
 def exp_polynomial_columns(function: sympy.Expr, first: sympy.Symbol, second: sympy.Symbol,
@@ -110,14 +110,14 @@ def exp_polynomial_columns(function: sympy.Expr, first: sympy.Symbol, second: sy
     prepared = _prepare(function, (first, second))
     if prepared is None:
         return None
-    outer = zip(*(_coefficients(term, first.name) for term in prepared.terms))
+    outer = zip(*(_coefficients(term, first.name) for term in prepared.terms), strict=True)
     return (_column(prepared, parts, second.name, second_window)
             for parts in itertools.islice(outer, first_window[0], first_window[1] + 1))
 
 
 def _column(prepared: _Prepared, parts: Sequence[KernelTerm], name: str, window: Window) -> Iterator[sympy.Expr]:
     """The cells of a column (:func:`exp_polynomial_columns`), computed when the column is iterated."""
-    inner = zip(*(_coefficients(term, name) for term in parts))
+    inner = zip(*(_coefficients(term, name) for term in parts), strict=True)
     for cells in itertools.islice(inner, window[0], window[1] + 1):
         yield prepared.value(cells)
 

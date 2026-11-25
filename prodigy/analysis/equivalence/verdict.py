@@ -39,8 +39,9 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Mapping, Optional, 
 
 import sympy
 
-from prodigy.analysis.equivalence.equivalence_check import (  # pylint: disable=unused-import
-    DifferentVariablesError, different_variables)
+# re-exported: the web reads both from the verdict (`as` makes the re-export explicit, #379)
+from prodigy.analysis.equivalence.equivalence_check import (  # pylint: disable=unused-import,useless-import-alias
+    DifferentVariablesError as DifferentVariablesError, different_variables as different_variables)
 from prodigy.analysis.loop_strategies import Bound
 
 if TYPE_CHECKING:  # pragma: no cover

@@ -128,7 +128,7 @@ class Mut(Generic[M]):
 
             def setter(new_value: M, ii: int = i) -> None:
                 # this always raises an exception, which is what we want here
-                values[ii] = new_value  # type: ignore
+                values[ii] = new_value  # type: ignore[index]
 
             yield Mut(getter, setter)
 
@@ -151,5 +151,5 @@ class Mut(Generic[M]):
             yield from Mut.list(reference.val)
         else:
             # mypy can't yet infer the type of reference based on the isinstance check above
-            res: "Mut[M]" = reference  # type:ignore
+            res: "Mut[M]" = reference  # type: ignore[assignment]
             yield res

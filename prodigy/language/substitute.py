@@ -199,7 +199,7 @@ class _Subst:
         if var in self._symbolic:
             return self._mk_subst_expr(var_expr)
         elif var in self._subst:
-            return self._subst[var]  # type:ignore
+            return self._subst[var]  # type: ignore[return-value]
         else:
             return var_expr
 
@@ -209,7 +209,7 @@ class _Subst:
         Used for symbolic variables.
         """
         # cheating with types here a bit
-        subst_cast: Dict[Var, Expr] = self._subst  # type:ignore
+        subst_cast: Dict[Var, Expr] = self._subst  # type: ignore[assignment]
         return SubstExpr(subst_cast, expr)
 
     def copy(self) -> "_Subst":
@@ -263,7 +263,7 @@ def _bind_substs(binder: _Binder, subst: _Subst, expr_ref: Mut[Expr]) -> None:
             subst.add_bound(binder, var, subst_expr)
 
         # as a safety guard, invalidate the consumed SubstExpr
-        expr.subst = None  # type: ignore
+        expr.subst = None  # type: ignore[assignment]
 
         # replace this SubstExpr by its body
         expr_ref.val = expr.expr

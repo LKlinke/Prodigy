@@ -23,7 +23,7 @@ class ExprClass(Node):
     """
     def cast(self) -> Expr:
         """Cast to Expr. This is sometimes necessary to satisfy the type checker."""
-        return self  # type: ignore
+        return self  # type: ignore[return-value]
 
     @abstractmethod
     def __str__(self) -> str:

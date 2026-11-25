@@ -32,7 +32,7 @@ def run_state(stmt: IR, state: Mapping[str, int], w: Any, out: Measure, variable
         for sub in stmt[1]:
             nxt: Measure = {}
             for key, ww in cur.items():
-                run_state(sub, dict(zip(variables, key)), ww, nxt, variables, geo_cut)
+                run_state(sub, dict(zip(variables, key, strict=True)), ww, nxt, variables, geo_cut)
             cur = nxt
         for key, ww in cur.items():
             out[key] = out.get(key, 0) + ww
@@ -98,7 +98,7 @@ def apply(stmt: IR, measure: Measure, variables: Sequence[str], geo_cut: int = 4
     """Forward semantics of a loop-free statement on an explicit measure."""
     out: Measure = {}
     for key, w in measure.items():
-        run_state(stmt, dict(zip(variables, key)), w, out, variables, geo_cut)
+        run_state(stmt, dict(zip(variables, key, strict=True)), w, out, variables, geo_cut)
     return {k: w for k, w in out.items() if w != 0}
 
 
@@ -114,7 +114,7 @@ class Kernel:
     def step(self, s: State) -> Optional[List[Tuple[State, Weight]]]:
         if s in self.cache:
             return self.cache[s]
-        st = dict(zip(self.vars, s))
+        st = dict(zip(self.vars, s, strict=True))
         if not eval_expr(self.guard, st):
             res = None
         else:

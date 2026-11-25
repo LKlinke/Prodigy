@@ -187,8 +187,8 @@ class RationalGF:
 
     def free_names(self) -> Tuple[str, ...]:
         """The names of the ring variables that occur in the function, sorted."""
-        degrees = [max(n, d) for n, d in zip(self.numerator.degrees(), self.denominator.degrees())]
-        return tuple(name for name, degree in zip(self.names, degrees) if degree > 0)
+        degrees = [max(n, d) for n, d in zip(self.numerator.degrees(), self.denominator.degrees(), strict=True)]
+        return tuple(name for name, degree in zip(self.names, degrees, strict=True) if degree > 0)
 
     def is_zero(self) -> bool:
         """Whether the function is 0."""
@@ -416,7 +416,7 @@ def _poly_to_sympy(poly: Polynomial, gens: List[sympy.Symbol]) -> sympy.Expr:
     """A polynomial as an expanded SymPy expression in `gens` (one per ring variable)."""
     terms = []
     for exponents, coefficient in poly.to_dict().items():
-        factors = [sympy.Pow(gen, int(e)) for gen, e in zip(gens, exponents) if e]
+        factors = [sympy.Pow(gen, int(e)) for gen, e in zip(gens, exponents, strict=True) if e]
         terms.append(sympy.Mul(sympy.Rational(int(coefficient.p), int(coefficient.q)), *factors))
     return sympy.Add(*terms)
 

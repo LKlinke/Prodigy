@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple, Union
 import matplotlib.pyplot as plt
 import sympy
 from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
 from prodigy.language import VarExpr
 
 from prodigy.distribution.distribution import Distribution
@@ -107,7 +108,7 @@ class Plotter:
             axis = plt.subplot()
             my_cmap = plt.get_cmap("Blues")
             scalar_mappable = ScalarMappable(cmap=my_cmap,
-                                             norm=plt.Normalize(0, max(data)))
+                                             norm=Normalize(0, max(data)))
             scalar_mappable.set_array([])
             axis.bar(ind,
                      data,

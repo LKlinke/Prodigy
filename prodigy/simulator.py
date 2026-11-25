@@ -164,7 +164,7 @@ def proportion_interval(hits: int, n: int, z: float) -> Tuple[float, float]:
     rare events with only a few hits.
     """
     # pylint: disable=import-outside-toplevel
-    from scipy.stats import beta  # type: ignore[import-untyped]
+    from scipy.stats import beta
     alpha = math.erfc(z / math.sqrt(2))
     lower = 0.0 if hits == 0 else float(beta.ppf(alpha / 2, hits, n - hits + 1))
     upper = 1.0 if hits >= n else float(beta.ppf(1 - alpha / 2, hits + 1, n - hits))

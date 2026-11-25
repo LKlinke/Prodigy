@@ -214,6 +214,6 @@ def _roots_outside_unit_disc(coefficients: Sequence[sympy.Expr]) -> bool:
             return False
         # f* has the coefficients of f reversed and conjugated
         star = [sympy.conjugate(c) for c in reversed(f)]
-        combined = [sympy.expand(sympy.conjugate(lead) * a - constant * b) for a, b in zip(f, star)]
+        combined = [sympy.expand(sympy.conjugate(lead) * a - constant * b) for a, b in zip(f, star, strict=True)]
         f = combined[:-1]  # the constant coefficient is 0: divide by z
     return True

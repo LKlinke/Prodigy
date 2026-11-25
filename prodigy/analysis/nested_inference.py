@@ -302,7 +302,7 @@ def _split(distribution: Distribution, variables: Sequence[str],
         return
     for value in values:
         conditions = [BinopExpr(Binop.EQ, VarExpr(var), NatLitExpr(val))
-                      for var, val in zip(variables, value)]
+                      for var, val in zip(variables, value, strict=True)]
         yield value, distribution.filter(BinopExpr.reduce(Binop.AND, conditions))
 
 
@@ -590,7 +590,7 @@ def _infer_nat_arguments(instr: AsgnInstr, function: Function, given: Tuple[str,
     if values is not None:
         parts = []
         for arg_values, part in _split(extended, temp_vars, values):
-            site = make_site({**fixed, **dict(zip(temps.keys(), arg_values))})
+            site = make_site({**fixed, **dict(zip(temps.keys(), arg_values, strict=True))})
             if _sym(part.get_probability_mass()) == 0:
                 continue
             closed_form(site, prog_info, config, run)

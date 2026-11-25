@@ -381,7 +381,7 @@ def filter_by_cases(dist: Distribution, condition: Expr) -> Distribution:
             if any(case is None for case in cases):
                 break
             total: Optional[Distribution] = None
-            for value, case in zip(values, cases):
+            for value, case in zip(values, cases, strict=True):
                 assert case is not None
                 part = dist.filter(BinopExpr(Binop.EQ, VarExpr(name), NatLitExpr(value)))
                 filtered = filter_by_cases(part, case)

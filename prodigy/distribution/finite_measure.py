@@ -223,7 +223,7 @@ def _parameter_hint(value: sympy.Expr, syms: List[sympy.Symbol]) -> str:
 
 
 def _monomial_text(monomial: Sequence[int], syms: List[sympy.Symbol]) -> str:
-    term = sympy.Mul(*(s ** k for s, k in zip(syms, monomial)))
+    term = sympy.Mul(*(s ** k for s, k in zip(syms, monomial, strict=True)))
     return str(term).replace("**", "^")
 
 
@@ -261,7 +261,7 @@ def _check_rational(expr: sympy.Expr, syms: List[sympy.Symbol]) -> Verdict:
         numerator, product = form
         negative = ProductFormSeries(variables, product).first_negative(numerator)
         if negative is not None:
-            state = ", ".join(f"{v} = {k}" for v, k in zip(variables, negative[0]))
+            state = ", ".join(f"{v} = {k}" for v, k in zip(variables, negative[0], strict=True))
             return False, f"the coefficient at {state} is {negative[1]}, which is negative"
     elif not nonneg_by_construction(reduced, variables):
         pole = _check_dominant_pole(reduced, syms)

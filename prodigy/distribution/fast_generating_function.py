@@ -6,7 +6,7 @@ import re
 from typing import (Any, Callable, Dict, FrozenSet, Generator, Iterator, List, Optional, Set, Tuple,
                     Type, Union)
 
-import prodigy_ginac  # type: ignore
+import prodigy_ginac
 from sympy import Expr as Expr_, Symbol, parse_expr
 from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
@@ -210,11 +210,11 @@ class FPS(Distribution):
                 for vals in default_monomial_iterator(len(variables)):
                     mass = coefficients.of(tuple(vals))
                     if mass is not None:
-                        yield mass, State(dict(zip(variables, vals)))
+                        yield mass, State(dict(zip(variables, vals, strict=True)))
         else:
             # one item per state with its full coefficient since prodigy-ppl-ginac 0.0.7 (#444)
             terms: List[Tuple[str, Dict[str, int]]] = self._dist.get_terms(self._variables)
-            yield from canonical_order((prob, State(vals)) for prob, vals in terms)  # type: ignore
+            yield from canonical_order((prob, State(vals)) for prob, vals in terms)
 
     def native_coefficients(self, variable: str) -> Optional[Iterator[str]]:
         # the bindings expand the series themselves, one coefficient at a time (as `__iter__` does)

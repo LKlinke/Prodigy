@@ -34,7 +34,27 @@ The most important modules:
 The syntax is described in :ref:`ppy_reference`.
 """
 
-from .ast import *
-from .ast.walk import *
-from .check import *
+from .ast import (Node, Var, ConstDecl, Decl, Function, FunctionDecl, ParameterDecl, VarDecl, Binop, BinopExpr,
+                  BoolLitExpr, CategoricalExpr, Expr, ExpectationExpr, ExprClass, FunctionCallExpr, InferExpr,
+                  NatLitExpr, ProbabilityExpr, RealLitExpr, SampleExpr, SubstExpr, Unop, UnopExpr, VarExpr,
+                  expr_str_parens, AsgnInstr, ChoiceInstr, CovarianceInstr, VarianceInstr, ExpectationInstr, IfInstr,
+                  Instr, InstrClass, LocalDeclInstr, LoopInstr, ObserveInstr, OptimizationQuery, OptimizationType,
+                  PlotInstr, PrintInstr, ProbabilityQueryInstr, Query, QueryInstr, SkipInstr, WhileInstr, AbortInstr,
+                  Program, BoolType, Bounds, NatType, RealType, Type, Walk, mut_expr_children, walk_expr,
+                  walk_instrs, instr_exprs, mut_instr_exprs, walk_instr_exprs)
+from .check import (CheckFail, sample_predefined_functions, get_type, mentions_dist, is_compatible, check_instr,
+                    check_program, check_function, type_name, non_bool_guard)
 from .parser import parse_program
+
+# the API of the package (#379, step 1)
+__all__ = ["Node", "Var", "ConstDecl", "Decl", "Function", "FunctionDecl", "ParameterDecl", "VarDecl", "Binop",
+           "BinopExpr", "BoolLitExpr", "CategoricalExpr", "Expr", "ExpectationExpr", "ExprClass", "FunctionCallExpr",
+           "InferExpr", "NatLitExpr", "ProbabilityExpr", "RealLitExpr", "SampleExpr", "SubstExpr", "Unop", "UnopExpr",
+           "VarExpr", "expr_str_parens", "AsgnInstr", "ChoiceInstr", "CovarianceInstr", "VarianceInstr",
+           "ExpectationInstr", "IfInstr", "Instr", "InstrClass", "LocalDeclInstr", "LoopInstr", "ObserveInstr",
+           "OptimizationQuery", "OptimizationType", "PlotInstr", "PrintInstr", "ProbabilityQueryInstr", "Query",
+           "QueryInstr", "SkipInstr", "WhileInstr", "AbortInstr", "Program", "BoolType", "Bounds", "NatType",
+           "RealType", "Type", "Walk", "mut_expr_children", "walk_expr", "walk_instrs", "instr_exprs",
+           "mut_instr_exprs", "walk_instr_exprs", "CheckFail", "sample_predefined_functions", "get_type",
+           "mentions_dist", "is_compatible", "check_instr", "check_program", "check_function", "type_name",
+           "non_bool_guard", "parse_program"]

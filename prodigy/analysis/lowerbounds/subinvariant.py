@@ -53,7 +53,7 @@ def decide_nonneg(expr_str: str, variables: Sequence[str], config: ForwardAnalys
         neg = calc.first_negative(numer)
         if neg is None:
             return True, "exact (finite positivity check)"
-        state = dict(zip(variables, neg[0]))
+        state = dict(zip(variables, neg[0], strict=True))
         if negative is not None:
             negative.update(coefficient=str(neg[1]), at=state)
         return False, f"exact: coefficient {neg[1]} at {state}"

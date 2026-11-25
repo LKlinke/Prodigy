@@ -150,7 +150,7 @@ def queries_after(program: Program, loop: WhileInstr) -> List[Query]:
 def problem_from_loop(loop: WhileInstr, variables: List[str], init_expr: str) -> LoopProblem:
     """A :class:`LoopProblem` for a loop whose input distribution is given as a generating function (used by the
     interactive modes of the while handler)."""
-    from prodigy.analysis.lowerbounds.subinvariant import to_product_form
+    from prodigy.distribution.product_form import to_product_form
     form = to_product_form(init_expr, variables)
     if form is None:
         raise UnsupportedProgram(f"the input distribution {init_expr} is not a rational generating function with "
@@ -163,6 +163,6 @@ def problem_from_loop(loop: WhileInstr, variables: List[str], init_expr: str) ->
         raise UnsupportedProgram("observe is not supported by the lower-bound modes: conditioning has to be "
                                  "distinguished from non-termination (Klinkenberg et al., OOPSLA 2024), which these "
                                  "modes do not do yet")
-    forced = {v: (r, p) for v, r, p in zip(variables, den.r, den.p) if r != 0}
+    forced = {v: (r, p) for v, r, p in zip(variables, den.r, den.p, strict=True) if r != 0}
     return LoopProblem(variables=list(variables), prefix=("seq", []), guard=expr_to_ir(loop.cond), body=body_ir,
                        epilogue=("seq", []), queries=[], forced_rates=forced, init_form=(numer, den))
