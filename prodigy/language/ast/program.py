@@ -5,7 +5,7 @@ from typing import Dict, List, Set
 
 import attr
 
-from .ast import Var
+from .ast import Var, printed
 from .declarations import (ConstDecl, Decl, Function, FunctionDecl,
                            ParameterDecl, VarDecl)
 from .expressions import Expr
@@ -115,19 +115,15 @@ class Program:
 
     def __str__(self) -> str:
         """
-        The program as the internal text of its parts (like :meth:`Expr.__str__ <prodigy.language.ast.Expr>`);
-        :func:`prodigy.language.ppy_printer.program_to_ppy` prints it as ``.ppy``. (Printing ``.ppy`` here would
-        make the AST import its printer, an import cycle that ``tests/test_layering.py`` forbids.)
+        The program in the ``.ppy`` syntax, declarations first (the printer :mod:`prodigy.language` installs, see
+        :meth:`Node.__str__ <prodigy.language.ast.ast.Node.__str__>`).
 
         .. doctest::
 
             >>> from prodigy.language.parser import parse_program
-            >>> program = parse_program("x: nat; y: nat; while (x < 2) { }")
-            >>> print(program)
-            nat x;
-            nat y;
+            >>> print(parse_program("x: nat; y: nat; while (x < 2) { }"))
+            x: nat;
+            y: nat;
             while (x < 2) { }
         """
-        instrs: List[object] = list(self.declarations)
-        instrs.extend(self.instructions)
-        return "\n".join(map(str, instrs))
+        return printed(self)

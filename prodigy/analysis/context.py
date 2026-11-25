@@ -145,10 +145,10 @@ class AnalysisContext(Protocol):  # pylint: disable=too-many-public-methods
                      residual: Any = None, kind: str = "lower") -> None:
         """Reports an iterate of a loop for the step trace."""
 
-    def loop_query_bounds(self, kind: str, expression: str) -> Optional[Tuple[Any, Any]]:
+    def loop_query_bounds(self, kind: str, expression: "Expr") -> Optional[Tuple[Any, Any]]:
         """Bounds of a query directly after a loop that its strategy computed."""
 
-    def loop_query_value(self, kind: str, expression: str, distribution: Any) -> Optional[Any]:
+    def loop_query_value(self, kind: str, expression: "Expr", distribution: Any) -> Optional[Any]:
         """The exact value of a query directly after a loop, if its strategy knows it."""
 
     def note(self, task: "LoopTask", message: str) -> None:

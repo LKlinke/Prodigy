@@ -1,8 +1,9 @@
 """
 Compares two benchmark results (the JSON of ``benchmarks/run.py --output``) and prints a Markdown table.
 
-A case on an engine is slower if it takes more than ``--factor`` times the base time and more than
-``--min-seconds`` (shorter times are noise). Cases that exist on one side only, and cases whose status
+A case on an engine is slower if its analysis time (``seconds``) or its total time (``total``: analysis, result
+summary and coefficient tables, where both runs have it) takes more than ``--factor`` times the base time and
+more than ``--min-seconds`` (shorter times are noise). Cases that exist on one side only, and cases whose status
 changed (e.g. a time-out), are listed but never counted as slower, except that a status change to a
 non-``ok`` status is reported as a problem. The script always exits with 0 unless ``--fail-on-slower`` is
 given, so it can be used in a report-only CI job.
@@ -38,11 +39,18 @@ def classify(base: Optional[Entry], head: Optional[Entry], factor: float, min_se
         return "ok", f"{base['status']} → ok"
     if base["seconds"] is None or head["seconds"] is None:
         return "n/a", "-"
-    ratio = head["seconds"] / base["seconds"] if base["seconds"] > 0 else float("inf")
-    text = f"{base['seconds']:.2f} → {head['seconds']:.2f} ({ratio:.1f}×)"
-    if head["seconds"] > max(factor * base["seconds"], min_seconds):
-        return "slower", text
-    return "ok", text
+    slower, text = _measure(base["seconds"], head["seconds"], factor, min_seconds)
+    if base.get("total") is not None and head.get("total") is not None:
+        total_slower, total_text = _measure(base["total"], head["total"], factor, min_seconds)
+        slower = slower or total_slower
+        text += f"; total {total_text}"
+    return ("slower" if slower else "ok"), text
+
+
+def _measure(base: float, head: float, factor: float, min_seconds: float) -> Tuple[bool, str]:
+    """Whether ``head`` is slower than ``base`` (see the module documentation), and both as text."""
+    ratio = head / base if base > 0 else float("inf")
+    return head > max(factor * base, min_seconds), f"{base:.2f} → {head:.2f} ({ratio:.1f}×)"
 
 
 def compare(base: Dict[str, Any], head: Dict[str, Any], factor: float = 2.0,
@@ -57,7 +65,8 @@ def compare(base: Dict[str, Any], head: Dict[str, Any], factor: float = 2.0,
             engines += [engine for engine in per_engine if engine not in engines]
     problems: List[Tuple[str, str, str]] = []
     lines = ["## Benchmarks against the base", "",
-             f"Analysis time in seconds, base → head (ratio). Slower means more than {factor:g}× the base time "
+             f"Analysis time in seconds, base → head (ratio), and the total time with the result summary where both "
+             f"runs have it. Slower means either more than {factor:g}× the base time "
              f"and more than {min_seconds:g} s. Both runs were measured on the same runner, "
              f"but shared runners are noisy: a single flagged case is a hint, not a proof.", "",
              "| Program | " + " | ".join(engines) + " |", "|---|" + "---|" * len(engines)]

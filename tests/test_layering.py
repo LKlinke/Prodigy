@@ -157,8 +157,7 @@ ENGINE_CHOICE = ("prodigy.analysis.config",)
 
 
 @pytest.mark.parametrize("package", [
-    pytest.param("prodigy.analysis", marks=_expected("T6 (values.sym uses the SymPy engine's parser)",
-                                                     "P5a PR 2 and #479")),
+    "prodigy.analysis",
     "prodigy.cli",
     "prodigy.web",
     "prodigy.plotting",
@@ -214,8 +213,6 @@ _API = "prodigy.analysis."
 KNOWN_VIOLATIONS: Dict[str, FrozenSet[str]] = {
     "T7 analysis imports front ends": frozenset({
         "prodigy/analysis/instructionhandler/query_handler.py -> prodigy.plotting.plotter"}),
-    "T6 analysis imports an engine": frozenset({
-        "prodigy/analysis/values.py -> prodigy.distribution.generating_function"}),
     "T8 web imports the bindings": frozenset({"prodigy/web/app.py -> prodigy_ginac"}),
     "T8 CLI uses analysis internals": frozenset(f"prodigy/cli.py -> {_API}{module}" for module in (
         "analyzer", "equivalence.verdict", "evtinvariants.heuristics.positivity.heuristics_factory",
@@ -238,9 +235,6 @@ KNOWN_VIOLATIONS: Dict[str, FrozenSet[str]] = {
 def _current_violations(rule: str) -> Set[str]:
     current = {
         "T7 analysis imports front ends": lambda: _no_lines(_violations(("prodigy.analysis",), FRONT_ENDS)),
-        "T6 analysis imports an engine": lambda: {
-            v for v in _no_lines(_violations(("prodigy.analysis",), ENGINES))
-            if not any(v.startswith(choice.replace(".", "/")) for choice in ENGINE_CHOICE)},
         "T8 web imports the bindings": lambda: _no_lines(_violations(("prodigy.web",), ("prodigy_ginac",))),
         "T8 CLI uses analysis internals": lambda: _no_lines(_front_end_violations("prodigy.cli")),
         "T8 web uses analysis internals": lambda: _no_lines(_front_end_violations("prodigy.web")),

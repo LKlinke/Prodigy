@@ -527,7 +527,7 @@ def test_design_example():
     result = compile_program(ppy, syntax="ppy")
     assert not isinstance(result, CheckFail), result
     assert "c" in result.variables
-    assert str(result.instructions[0].body[-1]) == "c := 0;"
+    assert str(result.instructions[0].body[-1]) == "c = 0;"
 
 
 # --- syntax errors ------------------------------------------------------------

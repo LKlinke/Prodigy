@@ -205,7 +205,7 @@ query Cov[x, y + 1];
 """)
     assert old.instructions == program.instructions
     assert parse_ppy(program_to_ppy(old)) == program
-    assert str(var) == "?Var[x];" and str(cov) == "?Cov[x, y + 1];"
+    assert str(var) == "query Var[x];" and str(cov) == "query Cov[x, y + 1];"
 
 
 @pytest.mark.parametrize("text, message", [

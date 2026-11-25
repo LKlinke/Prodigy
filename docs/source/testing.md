@@ -184,9 +184,10 @@ make bench-compare BASE=base.json HEAD=head.json
 make bench-compare BASE=base.json HEAD=head.json ARGS="--factor 3 --min-seconds 1"
 ```
 
-The script prints a Markdown table (program × engine, base → head seconds and the ratio) and lists the
-cases that are slower: more than `--factor` times the base time (default 2) and more than
-`--min-seconds` (default 0.5), so that the noise of short runs is ignored. Cases that exist on one
+The script prints a Markdown table (program × engine, base → head seconds and the ratio, and the same for
+the total time `timing.total` with the result summary where both runs have it) and lists the cases that
+are slower in either: more than `--factor` times the base time (default 2) and more than `--min-seconds`
+(default 0.5), so that the noise of short runs is ignored. Cases that exist on one
 side only are marked `new` or `removed`; a status that changes to something other than `ok` (e.g. a
 time-out) is flagged too. The exit code is 0 unless `--fail-on-slower` is given, 2 if a file cannot be
 read. In the CI the comparison is written to the job summary; its steps are `continue-on-error`, so

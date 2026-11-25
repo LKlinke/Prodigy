@@ -8,6 +8,7 @@ from typing import Callable, Dict, List, Sequence, Set, Tuple, Union
 from prodigy.language.ast.types import NatType
 from prodigy.language import (Instr, AsgnInstr, ChoiceInstr, Expr, FunctionCallExpr, NatLitExpr, Var, VarExpr,
                           sample_predefined_functions as distr_functions)
+from prodigy.language.engine_text import engine_text_of
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
@@ -191,7 +192,7 @@ def _check_generating_functions(call: FunctionCallExpr, assigned: Var, prog_info
     for sampling, generating_function, variable in _generating_functions(call, assigned):
         names = expression_variables([generating_function])
         variables = tuple(sorted((names - set(parameters)) | {str(variable)}))
-        verdict, reason = check_probability_generating_function(str(generating_function), variables, natural)
+        verdict, reason = check_probability_generating_function(engine_text_of(generating_function), variables, natural)
         if verdict is True:
             continue
         text, construct = session.spell(generating_function), session.spell(sampling)

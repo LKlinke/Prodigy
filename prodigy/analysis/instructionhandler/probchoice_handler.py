@@ -4,6 +4,7 @@ import logging
 from typing import Callable, Union, Sequence
 
 from prodigy.language import Instr, ChoiceInstr
+from prodigy.language.engine_text import engine_text_of
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
@@ -47,9 +48,9 @@ class PChoiceHandler(InstructionHandler):
             lhs_block, lhs_error_prob = analyzer(instruction.lhs, prog_info, distribution, error_prob, config)
             rhs_block, rhs_error_prob = analyzer(instruction.rhs, prog_info, distribution, error_prob, config)
             logger.info("Combining PChoice branches.\n%s", instruction)
-            new_prob = lhs_error_prob * str(instruction.prob) + rhs_error_prob * f"1-({instruction.prob})"
-            return lhs_block * str(
-                instruction.prob) + rhs_block * f"1-({instruction.prob})", new_prob
+            prob = engine_text_of(instruction.prob)
+            new_prob = lhs_error_prob * prob + rhs_error_prob * f"1-({prob})"
+            return lhs_block * prob + rhs_block * f"1-({prob})", new_prob
 
         operator = counter_probability(instruction.prob, variables)
         ratio = ratio_probability(instruction.prob, variables)
@@ -69,7 +70,7 @@ class PChoiceHandler(InstructionHandler):
             for part in split_states(distribution, variables, construct):
                 probability = instantiate(instruction.prob, part.state)
                 checked_probability(probability, construct, part)
-                left += part.distribution * str(probability)
+                left += part.distribution * engine_text_of(probability)
             right = distribution - left
         zero = error_prob * "0"
         lhs_block, lhs_error_prob = analyzer(instruction.lhs, prog_info, left, zero, config)

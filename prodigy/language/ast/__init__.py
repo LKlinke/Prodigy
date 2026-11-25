@@ -113,15 +113,9 @@ Otherwise use corresponding Union types instead.
 .. autoclass:: TypeClass
 .. autoclass:: DeclClass
 
-    .. automethod:: __str__
-
 .. autoclass:: ExprClass
 
-    .. automethod:: __str__
-
 .. autoclass:: InstrClass
-
-    .. automethod:: __str__
 
 .. autoclass:: Node
 """
@@ -133,7 +127,7 @@ from .expressions import (Binop, BinopExpr, BoolLitExpr, CategoricalExpr, Expr,
                           ExpectationExpr, ExprClass, FunctionCallExpr,
                           InferExpr, NatLitExpr, ProbabilityExpr,
                           RealLitExpr, SampleExpr, SubstExpr, Unop,
-                          UnopExpr, VarExpr, expr_str_parens)
+                          UnopExpr, VarExpr)
 from .instructions import (AsgnInstr, ChoiceInstr, CovarianceInstr, VarianceInstr, ExpectationInstr, IfInstr,
                            Instr, InstrClass, LocalDeclInstr, LoopInstr,
                            ObserveInstr,
@@ -148,7 +142,7 @@ from .walk import (Walk, mut_expr_children, walk_expr, walk_instrs, instr_exprs,
 __all__ = ["Node", "Var", "ConstDecl", "Decl", "Function", "FunctionDecl", "ParameterDecl", "VarDecl", "Binop",
            "BinopExpr", "BoolLitExpr", "CategoricalExpr", "Expr", "ExpectationExpr", "ExprClass", "FunctionCallExpr",
            "InferExpr", "NatLitExpr", "ProbabilityExpr", "RealLitExpr", "SampleExpr", "SubstExpr", "Unop", "UnopExpr",
-           "VarExpr", "expr_str_parens", "AsgnInstr", "ChoiceInstr", "CovarianceInstr", "VarianceInstr",
+           "VarExpr", "AsgnInstr", "ChoiceInstr", "CovarianceInstr", "VarianceInstr",
            "ExpectationInstr", "IfInstr", "Instr", "InstrClass", "LocalDeclInstr", "LoopInstr", "ObserveInstr",
            "OptimizationQuery", "OptimizationType", "PlotInstr", "PrintInstr", "ProbabilityQueryInstr", "Query",
            "QueryInstr", "SkipInstr", "WhileInstr", "AbortInstr", "Program", "BoolType", "Bounds", "NatType",

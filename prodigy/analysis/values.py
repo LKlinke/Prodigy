@@ -26,7 +26,7 @@ from prodigy.analysis.loops.api import Bound
 from prodigy.analysis.streaming import Batcher, Sink
 from prodigy.distribution.coefficient_stream import marginal_stream
 from prodigy.distribution.display import display_form
-from prodigy.distribution.equality import sympy_text
+from prodigy.distribution.engine_text import parse_engine_text, sympy_text
 from prodigy.util.logger import log_setup
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -57,8 +57,6 @@ def error_type(exc: BaseException) -> str:
 
 def sym(value: Any) -> sympy.Expr:
     """Parses Prodigy's string notation (``1/3``, ``p^2``, ``\\infty``) into sympy."""
-    # pylint: disable=import-outside-toplevel
-    from prodigy.distribution.generating_function import _parse_to_sympy
     if isinstance(value, sympy.Basic):
         return value
     if isinstance(value, (int, float)) and not isinstance(value, bool):
@@ -66,7 +64,12 @@ def sym(value: Any) -> sympy.Expr:
     text = str(value).strip()
     if text in _INFINITY_SPELLINGS:
         return sympy.oo
-    return _parse_to_sympy(text)
+    return parse_engine_text(text, rational=True, symbol=_real_symbol)
+
+
+def _real_symbol(name: str) -> sympy.Symbol:
+    # the symbols of the SymPy engine, so that values compare with its expressions
+    return sympy.Symbol(name, real=True)
 
 _TIDY_MAX_OPS = 40
 

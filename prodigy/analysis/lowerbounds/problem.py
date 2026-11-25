@@ -13,6 +13,7 @@ from typing import Dict, List, Optional, Tuple
 from prodigy.language import (ExpectationInstr, PlotInstr, PrintInstr, ProbabilityQueryInstr, Program, VarExpr,
                           WhileInstr)
 
+from prodigy.analysis.loops.api import QueryKey, query_key
 from prodigy.analysis.lowerbounds import explicit
 from prodigy.analysis.lowerbounds.ir import (IR, UnsupportedProgram, contains, eval_number, expr_to_ir, instr_to_ir,
                                              split_program)
@@ -22,7 +23,8 @@ from prodigy.analysis.lowerbounds.ir import (IR, UnsupportedProgram, contains, e
 class Query:
     kind: str          # "?Pr" or "?Ex"
     expr: IR
-    text: str
+    text: str          # for output
+    key: QueryKey      # loops.api.query_key, how the query handler finds it
 
 
 @dataclass
@@ -87,9 +89,9 @@ def load_problem(program: Program) -> LoopProblem:
     queries, epi = [], []
     for ins in rest:
         if isinstance(ins, ProbabilityQueryInstr):
-            queries.append(Query("?Pr", expr_to_ir(ins.expr), str(ins.expr)))
+            queries.append(Query("?Pr", expr_to_ir(ins.expr), str(ins.expr), query_key("?Pr", ins.expr)))
         elif isinstance(ins, ExpectationInstr):
-            queries.append(Query("?Ex", expr_to_ir(ins.expr), str(ins.expr)))
+            queries.append(Query("?Ex", expr_to_ir(ins.expr), str(ins.expr), query_key("?Ex", ins.expr)))
         elif isinstance(ins, WhileInstr):
             raise UnsupportedProgram("only programs with a single loop are supported")
         elif isinstance(ins, (PlotInstr, PrintInstr)):
@@ -128,7 +130,7 @@ def queries_after(program: Program, loop: WhileInstr) -> List[Query]:
         if kind == "?Pr" and isinstance(ins.expr, VarExpr):
             continue
         try:
-            queries.append(Query(kind, expr_to_ir(ins.expr), str(ins.expr)))
+            queries.append(Query(kind, expr_to_ir(ins.expr), str(ins.expr), query_key(kind, ins.expr)))
         except UnsupportedProgram:
             continue
     return queries

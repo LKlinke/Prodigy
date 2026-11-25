@@ -12,6 +12,13 @@ from typing import TYPE_CHECKING, Iterable, Optional, Union
 import re
 import sympy
 
+# the printers of engine text are re-exported here for their callers; the one parser is parse_engine_text
+from prodigy.distribution.engine_text import engine_text, parse_engine_text, sympy_text
+
+__all__ = ["decide_equal", "decide_equal_strings", "engine_text", "is_rational_over_q", "parse_engine_text",
+           "sympify_distribution", "sympify_distribution_string", "sympify_engine_string", "sympify_symbolic_string",
+           "sympy_text"]
+
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.distribution.distribution import Distribution
 
@@ -146,42 +153,16 @@ def decide_equal(lhs: sympy.Expr, rhs: sympy.Expr, use_simplify: bool = True, *,
     return None
 
 
-class _EngineStrPrinter(sympy.printing.str.StrPrinter):
-    """SymPy's string form, but Euler's number as ``exp(1)``: Prodigy reads ``E`` back as a symbol (a variable or
-    parameter may be called E), so ``E - 2`` would lose its value."""
-
-    def _print_Exp1(self, expr: sympy.Basic) -> str:  # pylint: disable=invalid-name,unused-argument
-        return "exp(1)"
-
-
-def sympy_text(expr: sympy.Basic) -> str:
-    """The string form of a SymPy expression as Prodigy reads it back (:class:`_EngineStrPrinter`)."""
-    return _EngineStrPrinter().doprint(expr)
-
-
-def engine_text(value: Union[str, sympy.Basic, Distribution]) -> str:
-    """
-    The string form of an engine's value as Prodigy reads it back: a string stays, a SymPy expression goes
-    through :func:`sympy_text`, a distribution through its engine's SymPy expression (its ``str`` is LaTeX while
-    ``latex_output`` is active, #445, #465). Use it instead of ``str(value)`` where the text is parsed again.
-    """
-    if isinstance(value, str):
-        return value
-    if isinstance(value, sympy.Basic):
-        return sympy_text(value)
-    return sympy_text(value._series_expression())  # pylint: disable=protected-access
-
-
 def sympify_engine_string(text: str, names: Iterable[str]) -> sympy.Expr:
     """
-    The SymPy expression of an engine's string form ``text`` (``^`` or ``**`` for powers). ``names`` are the
-    variables and parameters; they are parsed as plain symbols, so names of Python builtins or SymPy objects
-    (e.g. a variable ``sum``, ``max`` or ``S``) stay symbols instead of becoming functions (#321).
+    The SymPy expression of an engine's string form ``text`` (``^`` or ``**`` for powers): shorthand for
+    :func:`~prodigy.distribution.engine_text.parse_engine_text` with ``names``, the variables and parameters, as
+    plain symbols, so names of Python builtins or SymPy objects (e.g. a variable ``sum``, ``max`` or ``S``) stay
+    symbols instead of becoming functions (#321).
 
     The string must come from an engine, not from the user: SymPy's parser evaluates Python code.
     """
-    local_dict = {name: sympy.Symbol(name) for name in names}
-    return sympy.sympify(text.replace("^", "**"), locals=local_dict)
+    return parse_engine_text(text, names)
 
 
 _IDENTIFIER = re.compile(r"\b[A-Za-z_]\w*\b(?!\s*\()")
@@ -217,7 +198,7 @@ def sympify_distribution_string(dist: Distribution) -> sympy.Expr:
     The SymPy expression of a distribution whose engine has no SymPy expression, parsed from its string form,
     see :func:`sympify_engine_string`. Only for engines whose ``str`` is a plain expression (#445).
     """
-    return sympify_engine_string(str(dist), dist.get_variables() | dist.get_parameters())
+    return sympify_engine_string(engine_text(dist), dist.get_variables() | dist.get_parameters())
 
 
 def decide_equal_strings(lhs: str, rhs: str, names: Iterable[str], *,
@@ -230,12 +211,10 @@ def decide_equal_strings(lhs: str, rhs: str, names: Iterable[str], *,
 
     The strings must come from an engine, not from the user: SymPy's parser evaluates Python code.
     """
-    local_dict = {name: sympy.Symbol(name) for name in names}
-    transformations = sympy.parsing.sympy_parser.standard_transformations \
-        + (sympy.parsing.sympy_parser.convert_xor,)
+    names = list(names)
     try:
-        lhs_expr = sympy.parse_expr(lhs, local_dict=local_dict, transformations=transformations)
-        rhs_expr = sympy.parse_expr(rhs, local_dict=local_dict, transformations=transformations)
+        lhs_expr = parse_engine_text(lhs, names)
+        rhs_expr = parse_engine_text(rhs, names)
     except (SyntaxError, TypeError, ValueError, sympy.SympifyError):
         return None
     if not isinstance(lhs_expr, sympy.Expr) or not isinstance(rhs_expr, sympy.Expr):

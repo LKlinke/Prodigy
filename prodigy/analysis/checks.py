@@ -21,6 +21,7 @@ from prodigy.language.check import CheckFail, check_program
 from prodigy.language.diagnostics import check_failure_diagnostic
 from prodigy.language.ppy_printer import spell
 from prodigy.language.util.ref import Mut
+from prodigy.language.engine_text import engine_text_of
 
 __all__ = ["first_failure", "refute_sampling_pgfs", "type_error"]
 
@@ -76,7 +77,7 @@ def _refute_call(program: Program, expr: FunctionCallExpr) -> Optional[CheckFail
     natural = tuple(sorted(name for name, typ in parameters.items() if isinstance(typ, NatType)))
     try:
         verdict, reason = check_probability_generating_function(
-            str(generating_function), tuple(sorted(names - set(parameters))), natural)
+            engine_text_of(generating_function), tuple(sorted(names - set(parameters))), natural)
     except Exception:  # pylint: disable=broad-except
         return None  # the analysis checks it again and reports what goes wrong
     if verdict is False:

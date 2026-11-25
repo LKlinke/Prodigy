@@ -158,7 +158,7 @@ def test_sandwich_rw_counter_query_bounds():
     lower = [TemplateShape([Fraction(0), Fraction(17, 20)], [1, 2], [16, 32], reach_box=[16, 35])]
     upper = [TemplateShape([Fraction(1, 2), Fraction(9, 10)], [2, 2], [8, 16])]
     res = evt_sandwich(pb, lower_shapes=lower, upper_shapes=upper, verbose=False)
-    truth = {"c >= 20": None, "c = 11": Fraction(42) * Fraction(2, 3) ** 6 * Fraction(1, 3) ** 5, "c": Fraction(3)}
+    truth = {"c >= 20": None, "c == 11": Fraction(42) * Fraction(2, 3) ** 6 * Fraction(1, 3) ** 5, "c": Fraction(3)}
     for b in res.bounds:
         t = truth[b.query.text]
         if t is not None:

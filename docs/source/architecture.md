@@ -73,7 +73,8 @@ the comparison verdict, the exceptions.
 `AnalysisSession`). Positions of loops and queries come from the parser (`language/outline.py`), not from regular
 expressions over the source. Expressions from users or language models are parsed by the
 language parser or an allowlist before SymPy sees them, and only once (watches: three times today, review §2.3).
-Engine text is turned into SymPy by one public function of the distribution layer (#479).
+Engine text is written by `language/engine_text.py` and turned into SymPy by one public function of the
+distribution layer, `parse_engine_text` (#479); `str()` of the AST is `.ppy` and never reaches an engine.
 
 **Where text is spelled.** An AST by the language printer; a distribution by `distribution.display` (and
 `formula-box.js` in the GUI); diagnostics are built from the language's structured diagnostics, the front end
@@ -204,7 +205,7 @@ Measured on `main` at `0bba880` with an `ast` walk over `prodigy` (all imports, 
 | T3 | Removed: the type checker imported a proof rule (`distribution.finite_measure`) to refute sampling PGFs; the refutation is `analysis.checks.refute_sampling_pgfs`, run after the type check on every entry path (CLI, session, GUI) | the PGF refutation is a check of the analysis, run before the session | P5a (#497) |
 | T4 | Removed: no cycle `lowerbounds.problem` ↔ `lowerbounds.subinvariant` was left (neither the ast walk nor pylint finds one); the private `_contains` shared by both is the public `contains` of `lowerbounds/ir.py` | shared types in one module | P5a (#497) |
 | T5 | Removed: `while_handler` used `SympyPGF.zero()`; it uses `config.factory.zero()` (the zero test of the unrolling is still never true for programs with variables, see the PR) | `factory.zero()` / `is_zero_dist()` | P5a (#497) |
-| T6 | `result.sym` uses the engine's private `_parse_to_sympy` | one public parser of engine text | #479 (else P5a) |
+| T6 | Removed: `result.sym` used the engine's private `_parse_to_sympy`, and `str()` of `Expr`, `Instr` and `Program` was undocumented pGCL-like text that the engines parsed back. Now `str()` of every node is `.ppy` (a printer installed from outside the AST); expressions reach the engines only as documented engine text (`language/engine_text.py`, `language-design.md`), read by the one parser `distribution/engine_text.py::parse_engine_text`; loop queries and loops are looked up by structure, not by text | one engine text format, one printer and one parser | P5a (#497, #479) |
 | T7 | `query_handler` imports `plotting` (matplotlib in the analysis) | plot data in the result, rendering in the front ends | P7 |
 | T8 | Front ends import 18 analysis modules outside the front-end API (CLI: `analyzer`, `lowerbounds.*`, `evtinvariants.*`, `program_info`, `independence`, …; web: `analyzer`, `nested_inference`, `ai_candidates`, `joint_grid`, option enums); `web/app.py` imports `prodigy_ginac` | the front-end API, exported with `__all__` | P3, P7 |
 | T9 | Case analysis of `_update_iid`, `_update_division`/`_modulo`/`_power`, `_filter_constant_condition` duplicated in both engines, in different orders | case analysis in `PGF`, CAS hooks per engine | P4b–d (#488) |

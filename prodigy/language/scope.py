@@ -36,13 +36,13 @@ Rules (checked here, so that ``.ppy`` reports them with the position of the decl
     >>> from prodigy.language.ppy_parser import parse_ppy
     >>> program = lower_block_scope(parse_ppy("n: nat = 3; while (n > 0) { c: nat = n % 2; n = n - 1 - c; }"))
     >>> print(program)
-    nat n;
-    nat c;
-    n := 3;
+    n: nat;
+    c: nat;
+    n = 3;
     while (n > 0) {
-        c := n % 2;
-        n := (n - 1) - c;
-        c := 0;
+        c = n % 2;
+        n = n - 1 - c;
+        c = 0;
     }
 """
 from __future__ import annotations

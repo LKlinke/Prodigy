@@ -104,7 +104,7 @@ def test_normalized_guards():
     assert str(normalize_guard(parse_ppy_expr("1/2 * x < 2"), variables)) == "x < 4"
     assert str(normalize_guard(parse_ppy_expr("2 < 1/2 * x"), variables)) == "x > 4"
     assert str(normalize_guard(parse_ppy_expr("x == 3/2"), variables)) == "false"
-    assert str(normalize_guard(parse_ppy_expr("1/2 * x + 1/3 * y < 1"), variables)) == "((3 * x) + (2 * y)) < 6"
+    assert str(normalize_guard(parse_ppy_expr("1/2 * x + 1/3 * y < 1"), variables)) == "3 * x + 2 * y < 6"
     # nothing to do for guards with natural numbers and several variables, or non-linear ones
     assert normalize_guard(parse_ppy_expr("x + 1 < y"), variables) is None
     assert normalize_guard(parse_ppy_expr("x % 2 == 0"), variables) is None

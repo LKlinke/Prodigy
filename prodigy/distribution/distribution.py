@@ -17,6 +17,7 @@ import sympy
 from prodigy.language import (Binop, BinopExpr, BoolLitExpr, Expr, FunctionCallExpr, NatLitExpr,
                            RealLitExpr, Unop, UnopExpr, VarExpr)
 from prodigy.language.ast.walk import Walk, walk_expr
+from prodigy.language.engine_text import engine_text_of
 from prodigy.language.ppy_parser import parse_ppy_expr
 from prodigy.language.syntax_errors import ProgramSyntaxError
 from prodigy.language.ppy_printer import spell
@@ -355,8 +356,8 @@ def _in_programs_terms(error: Exception, names: Dict[str, str]) -> Exception:
     """
     if not names:
         return error
-    message = _with_terms(str(error), names)
-    if message == str(error):
+    message = _with_terms(engine_text_of(error), names)
+    if message == engine_text_of(error):
         return error
     if isinstance(error, ComparisonNotImplemented):
         return ComparisonNotImplemented(_with_terms(error.condition, names), error.reason)
@@ -449,7 +450,7 @@ class Distribution(ABC):
         if not isinstance(other, Distribution):
             return None
         names = self.get_variables() | self.get_parameters() | other.get_variables() | other.get_parameters()
-        return decide_equal_strings(str(self), str(other), names)
+        return decide_equal_strings(engine_text_of(self), engine_text_of(other), names)
 
     def _series_expression(self) -> sympy.Expr:
         """
@@ -463,7 +464,7 @@ class Distribution(ABC):
         The engine's expression as text that its ``from_expr`` reads back, independent of the printing flags
         (``str`` of a SymPy generating function is LaTeX while ``latex_output`` is active, #445).
         """
-        return str(self)
+        return engine_text_of(self)
 
     def _require_comparable(self, other: object) -> Distribution:
         if not isinstance(other, Distribution) or type(other) is not type(self):
@@ -759,7 +760,7 @@ class Distribution(ABC):
                 BoolLitExpr(self.evaluate_condition(condition, State())))
 
         if isinstance(condition, BinopExpr) and not self._find_symbols(
-                str(condition.lhs)) | self._find_symbols(str(
+                engine_text_of(condition.lhs)) | self._find_symbols(engine_text_of(
             condition.rhs)) <= (self.get_variables()
                                 | self.get_parameters()):
             raise ValueError(
@@ -770,8 +771,8 @@ class Distribution(ABC):
         modulus = modulus_condition(condition)
         if modulus is not None:
             return self._arithmetic_progression(
-                str(modulus.variable),
-                str(modulus.modulus))[modulus.remainder.value]
+                engine_text_of(modulus.variable),
+                engine_text_of(modulus.modulus))[modulus.remainder.value]
 
         # Constant expressions
         if check_is_constant_constraint(condition, self.get_parameters()):
@@ -808,18 +809,18 @@ class Distribution(ABC):
         if comparison is None:
             if isinstance(error, NotImplementedError) and isinstance(condition, BinopExpr) \
                     and len(_variables_of(condition) & self.get_variables()) >= 2:
-                raise ComparisonNotImplemented(str(condition), NOT_A_DIFFERENCE) from error
+                raise ComparisonNotImplemented(engine_text_of(condition), NOT_A_DIFFERENCE) from error
             raise error
         function = self._sympy_expression()
         arguments = (comparison.x, comparison.y, comparison.relation, comparison.shift)
         try:
-            filtered = self._from_sympy_expression(filter_difference(function, *arguments, str(condition)))
+            filtered = self._from_sympy_expression(filter_difference(function, *arguments, engine_text_of(condition)))
         except ComparisonNotImplemented as not_independent:
             if not_independent.reason != DEPENDENT:
                 raise
             # dependent variables: the residue method, whose result may be algebraic (not rational)
             filtered = self._from_sympy_expression(filter_difference_algebraic(
-                function, *arguments, self.get_variables(), str(condition)))
+                function, *arguments, self.get_variables(), engine_text_of(condition)))
         return self - filtered if comparison.complement else filtered
 
     @abstractmethod
@@ -860,7 +861,7 @@ class Distribution(ABC):
                     BinopExpr(Binop.EQ, VarExpr(name), term))
                 fresh.append(name)
                 # a term inside this one was replaced before: name it as written, too
-                names[name] = str(_in_programs_terms(ValueError(_spelled(term)), names))
+                names[name] = engine_text_of(_in_programs_terms(ValueError(_spelled(term)), names))
                 replacement = VarExpr(name)
             expression = _replace_term(expression, term, replacement)
             term = _computed_term(expression, dist.get_variables())
@@ -905,7 +906,7 @@ class Distribution(ABC):
         # and in the marginal of a signed measure the mass of a value can cancel to 0.
         marginal: Optional[Distribution] = None
         for left_side_original, side in ((True, condition.rhs), (False, condition.lhs)):
-            expr: str = str(side)
+            expr: str = engine_text_of(side)
             syms = self._find_symbols(expr)
             if not syms:
                 continue
@@ -914,7 +915,7 @@ class Distribution(ABC):
                 break
         if marginal is None:
             for side in (condition.rhs, condition.lhs):
-                syms = self._find_symbols(str(side))
+                syms = self._find_symbols(engine_text_of(side))
                 if syms:
                     # raises NonFiniteMarginalError on a measure with infinite mass; nothing is computed
                     # from the marginal, so one that is only not proven to converge (#393) does not keep
@@ -977,7 +978,7 @@ class Distribution(ABC):
         Returns all symbols that occur in this distribution (a subset of `self.get_variables() |
         self.get_parameters()`).
         """
-        return self._find_symbols(str(self))
+        return self._find_symbols(engine_text_of(self))
 
     @staticmethod
     @abstractmethod
@@ -1007,7 +1008,8 @@ class Distribution(ABC):
             if left is not None and right is not None:
                 lhs, rhs = left, right
             else:
-                lhs, rhs = cls.evaluate(str(condition.lhs), state), cls.evaluate(str(condition.rhs), state)
+                lhs = cls.evaluate(engine_text_of(condition.lhs), state)
+                rhs = cls.evaluate(engine_text_of(condition.rhs), state)
             if op == Binop.EQ:
                 return lhs == rhs
             if op == Binop.LEQ:
@@ -1097,7 +1099,7 @@ class Distribution(ABC):
             # Subexpressions without variables are computed directly, e.g. 9/2*2 becomes 9
             constant = constant_value(expression) if isinstance(expression, BinopExpr) else None
             if constant is not None:
-                return function, str(constant)
+                return function, engine_text_of(constant)
 
             # Constants that are not natural numbers are rewritten, e.g. 1/2*x becomes (1*x)/2
             if isinstance(expression, BinopExpr):
@@ -1135,7 +1137,7 @@ class Distribution(ABC):
                             t_1, t_2)
                     except (ValueError, NotImplementedError, NonFiniteMarginalError) as error:
                         raise _in_programs_terms(
-                            error, {str(t_1): _spelled(expression.lhs), str(t_2): _spelled(expression.rhs)}
+                            error, {str(t_1): _spelled(expression.lhs), engine_text_of(t_2): _spelled(expression.rhs)}
                         ) from error
                 elif expression.operator == Binop.MINUS:
                     try:
@@ -1154,7 +1156,7 @@ class Distribution(ABC):
                             t_1, t_2)
                     except (ValueError, NotImplementedError, NonFiniteMarginalError) as error:
                         raise _in_programs_terms(
-                            error, {str(t_1): _spelled(expression.lhs), str(t_2): _spelled(expression.rhs)}
+                            error, {str(t_1): _spelled(expression.lhs), engine_text_of(t_2): _spelled(expression.rhs)}
                         ) from error
                 elif expression.operator == Binop.FLOOR_DIVIDE:
                     f = f._update_floor_division(temp_var, t_1, t_2, approximate, _spelled(expression))
@@ -1171,11 +1173,11 @@ class Distribution(ABC):
                 return f, temp_var
 
             if isinstance(expression, (NatLitExpr, RealLitExpr)):
-                return function, str(expression.value)
+                return function, engine_text_of(expression.value)
 
             if isinstance(expression, BoolLitExpr):
                 # booleans are the values 1 (true) and 0 (false) of the generating function (#283)
-                return function, str(int(expression.value))
+                return function, engine_text_of(int(expression.value))
 
             else:
                 raise ValueError(
@@ -1235,7 +1237,7 @@ class Distribution(ABC):
         except ZeroDivisorError as error:
             if error.expression is not None:
                 raise
-            raise ZeroDivisorError(error.reason, str(expression)) from error
+            raise ZeroDivisorError(error.reason, engine_text_of(expression)) from error
         except NotAnIntegerError as error:
             # the engines named temporary variables (SymPy) or the values of a case split (GiNaC, #361)
             raise NotAnIntegerError(f"Cannot compute {_spelled(expression)} because it is not always an "
@@ -1271,7 +1273,7 @@ class Distribution(ABC):
         """
         variables = self.get_variables()
         supports = {name: self.finite_support(name)
-                    for name in dict.fromkeys(str(name) for name in names) if name in variables}
+                    for name in dict.fromkeys(engine_text_of(name) for name in names) if name in variables}
         fixed = [name for name, support in supports.items() if support is not None]
         if not fixed:
             return None
@@ -1282,9 +1284,10 @@ class Distribution(ABC):
             values = state.valuations
             section = self.filter_state(State({name: values.get(name, 0) for name in fixed}))
             try:
+                left_text, right_text = engine_text_of(left), engine_text_of(right)
                 part = update(section,
-                              str(values.get(str(left), 0)) if str(left) in fixed else str(left),
-                              str(values.get(str(right), 0)) if str(right) in fixed else str(right))
+                              str(values.get(left_text, 0)) if left_text in fixed else left_text,
+                              str(values.get(right_text, 0)) if right_text in fixed else right_text)
             except ValueError:
                 # a value without mass (coefficient not simplified to 0), see is_provably_zero
                 if section.is_provably_zero():
@@ -1380,7 +1383,7 @@ class Distribution(ABC):
         bare division by zero, #273). On an infinite distribution, the case split over the values of a
         variable `right` passes each value as a literal, so the value 0 is caught there.
         """
-        text = str(right).strip()
+        text = engine_text_of(right).strip()
         if text == "0":
             zero = True
         elif text in self.get_variables() and self.is_finite():
@@ -1408,7 +1411,7 @@ class Distribution(ABC):
         that the engine does not simplify to zero adds a state without mass, which is harmless for a
         case split over the states.
         """
-        names = [str(var) for var in variables]
+        names = [engine_text_of(var) for var in variables]
         support = self.factory().from_expr(self._engine_text(), *names)
         return support if support.is_finite() else None
 
@@ -1462,7 +1465,7 @@ class Distribution(ABC):
         variables = self.get_variables()
         operands: List[Expr] = []
         for operand in (minuend, subtrahend):
-            text = str(operand).strip()
+            text = engine_text_of(operand).strip()
             if text in variables:
                 operands.append(VarExpr(text))
             elif text.isdigit():
@@ -1477,9 +1480,9 @@ class Distribution(ABC):
         if isinstance(left, VarExpr) and isinstance(right, VarExpr) and left.var == right.var:
             return self._update_var(temp_var, 0)
         if isinstance(right, NatLitExpr) and right.value == 0:
-            return self._update_var(temp_var, str(minuend))
+            return self._update_var(temp_var, engine_text_of(minuend))
         if isinstance(left, VarExpr) and isinstance(right, VarExpr) \
-                and self._subtraction_never_negative(str(minuend), str(subtrahend)):
+                and self._subtraction_never_negative(engine_text_of(minuend), engine_text_of(subtrahend)):
             return self._update_subtraction(temp_var, minuend, subtrahend)
         below = self.filter(BinopExpr(Binop.LT, left, right))
         if below.is_zero_dist() is True:
@@ -1555,27 +1558,27 @@ class Distribution(ABC):
         approximation), this raises an error.
         """
         text = text or f"{numerator} // {divisor}"  # the program's expression, not the temporary names
-        if not str(divisor).isdigit() or int(str(divisor)) < 1:
+        if not engine_text_of(divisor).isdigit() or int(engine_text_of(divisor)) < 1:
             raise ValueError(f"Cannot compute {text}: the divisor must be a positive natural "
                              f"constant (not implemented otherwise).")
-        q = int(str(divisor))
-        if str(numerator) not in self.get_variables():
-            value = Fraction(str(numerator))
+        q = int(engine_text_of(divisor))
+        if engine_text_of(numerator) not in self.get_variables():
+            value = Fraction(engine_text_of(numerator))
             if value.denominator != 1:
                 raise ValueError(f"Cannot compute {text}: not a natural number")
             return self._update_var(temp_var, value.numerator // q)
         if q == 1:
-            return self._update_var(temp_var, str(numerator))
+            return self._update_var(temp_var, engine_text_of(numerator))
         shifted = self.get_fresh_variable({temp_var})
         result: Distribution | None = None
         # pylint: disable=protected-access
-        for remainder, section in enumerate(self._arithmetic_progression(str(numerator), str(q))):
+        for remainder, section in enumerate(self._arithmetic_progression(engine_text_of(numerator), engine_text_of(q))):
             if section.is_zero_dist():
                 continue
             part = section.set_variables(*section.get_variables(), shifted)
-            part = part._update_subtraction(shifted, str(numerator), str(remainder))
+            part = part._update_subtraction(shifted, engine_text_of(numerator), engine_text_of(remainder))
             try:
-                part = part._update_division(temp_var, shifted, str(q), approximate)
+                part = part._update_division(temp_var, shifted, engine_text_of(q), approximate)
             except ValueError as exc:
                 raise ValueError(
                     f"Cannot compute the floor division by {q} exactly: it is implemented for a dividend with "
@@ -1606,7 +1609,7 @@ class Distribution(ABC):
         absolutely at 1. Outside an analysis (:func:`known_convergent_series`), raises `NonFiniteMarginalError`
         if this is not proven (#427).
         """
-        name = str(variable)
+        name = engine_text_of(variable)
         if isinstance(sampling_dist, FunctionCallExpr) and sampling_dist.function == "sample_pgf":
             # iid(sample_pgf(G, y), n): the summands have the generating function G in y; the engines
             # handle G like the generating function given to iid directly
@@ -1671,7 +1674,7 @@ class Distribution(ABC):
         not proven that the closed form is the sum of the series (#393); without, only a non-finite
         value is detected, for callers that use the marginal only to choose their error.
         """
-        names = ", ".join(str(var) for var in variables)
+        names = ", ".join(engine_text_of(var) for var in variables)
         try:
             marginal = self._marginal(*variables)
         except ZeroDivisionError as exc:
@@ -1679,7 +1682,7 @@ class Distribution(ABC):
                 f"The marginal of {names} is undefined (division by zero) in {self}") from exc
         except ValueError as exc:
             # e.g. GiNaC: power::eval(): division by zero
-            if "division by zero" not in str(exc):
+            if "division by zero" not in engine_text_of(exc):
                 raise
             raise NonFiniteMarginalError(
                 f"The marginal of {names} is undefined (division by zero) in {self}") from exc
@@ -1691,7 +1694,7 @@ class Distribution(ABC):
     def _require_finite_values(self, marginal: Distribution, *variables: Union[str, VarExpr]) -> None:
         """Raises `NonFiniteMarginalError` if `marginal`, the marginal of `variables`, is not finite."""
         if marginal.has_non_finite_value():
-            names = ", ".join(str(var) for var in variables)
+            names = ", ".join(engine_text_of(var) for var in variables)
             raise NonFiniteMarginalError(
                 f"The marginal of {names} is {marginal}, not a finite measure: {self} has infinite "
                 f"mass, so a case split over the values of {names} is not computable.")
@@ -1710,7 +1713,7 @@ class Distribution(ABC):
         kept = {str(var) for var in variables}
         obstacle = self._convergence_obstacle(kept)
         if obstacle is not None:
-            names = ", ".join(str(var) for var in variables)
+            names = ", ".join(engine_text_of(var) for var in variables)
             summed = ", ".join(sorted(self.get_variables() - kept))
             raise NonFiniteMarginalError(
                 f"The marginal of {names} is not proven to be a finite measure: summing out "
@@ -1758,7 +1761,7 @@ class Distribution(ABC):
     def _is_proven_finite_measure(self) -> bool:
         """Whether this is proven to be a power series with non-negative coefficients and finite mass, by the
         check of input distributions (:func:`~prodigy.distribution.finite_measure.check_input_expression`)."""
-        text = str(self._sympy_expression()).replace("**", "^")
+        text = engine_text_of(self._sympy_expression()).replace("**", "^")
         verdict, _ = check_input_expression(text, sorted(self.get_variables()))
         return verdict is True
 
@@ -1768,9 +1771,9 @@ class Distribution(ABC):
         unevaluated limit. Engines override this with a check on their expression; this default scans
         the string form (program variables and parameters are never taken for such a value).
         """
-        tokens = set(re.findall(r"[A-Za-z_]\w*", str(self)))
+        tokens = set(re.findall(r"[A-Za-z_]\w*", engine_text_of(self)))
         names = self.get_variables() | self.get_parameters()
-        return "∞" in str(self) or bool((tokens & _NON_FINITE_NAMES) - names)
+        return "∞" in engine_text_of(self) or bool((tokens & _NON_FINITE_NAMES) - names)
 
     def set_variables(self, *variables: str) -> Self:
         """

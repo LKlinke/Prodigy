@@ -491,6 +491,38 @@ plot(x, y);
 Queries are statements at the end of the program, introduced by keywords instead of the prefixes
 `?` and `!`. No other statement may follow a query.
 
+## Engine text
+
+The engines (SymPy and GiNaC) read expressions of a program as strings in one format, *engine text*. It is
+internal: users and language models never write it, and `str()` of an expression, instruction or program is its
+`.ppy` form. Only expressions are written as engine text; instructions and programs never reach an engine as
+text. There is one printer, `prodigy.language.engine_text.to_engine_text` (with `engine_text_of` for operands and
+`engine_format` for templates such as `({p}) * {var} + 1 - ({p})`), and one parser,
+`prodigy.distribution.engine_text.parse_engine_text`, which turns engine text (also the generating functions,
+masses and coefficients an engine gives back) into SymPy.
+
+| Construct | Engine text | `.ppy` |
+|---|---|---|
+| variable, parameter | its name | its name |
+| natural number | `3` | `3` |
+| rational literal | `1/3` as an operand in parentheses, `(1/3)` | `1/3` |
+| decimal literal | `0.25` (exact: the parser reads it as `1/4` where the engine needs exact values) | `0.25` |
+| power | `(x) ^ (2)` | `x ** 2` |
+| `+ - * / %` | the same, compound operands in parentheses: `(x + 1) * y` | precedence rules |
+| unary minus | `-x`, `-(x + 1)` | `-x` |
+| comparison | `<`, `<=`, `>`, `>=`, `=` | `==` for `=` |
+| `and`, `or`, `not` | `&`, `\|\|`, `not` | `and`, `or`, `not` |
+| function call | `exp(x)`, `binomial(n, p)`, named arguments `f(a := 1)` | `f(a = 1)` |
+| substitution (internal) | `(e)[x/1]` | none |
+
+Every compound operand is in parentheses, so the text does not depend on the precedence rules of the engines'
+parsers; a rational or negative literal counts as compound (`x / (1/2)` is `x / (1/2)`, not `x / 1/2`). Names are read back
+in one of two ways (`parse_engine_text`): either exactly the given variables and parameters are symbols and
+every other name has its SymPy meaning (`E`, `pi`, `exp`), or every name that is not called is a symbol and a
+called name is a function; Euler's number is written `exp(1)` for that reason. SymPy's parser evaluates Python
+code, so text from users or language models is validated by the `.ppy` parser or an allowlist first and never
+parsed as engine text.
+
 ## Example side by side
 
 `.pgcl`:
