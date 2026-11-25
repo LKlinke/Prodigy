@@ -38,7 +38,7 @@ ENGINES = [
 
 def _run(path: Path, decision: str, engine) -> dict:
     source = path.read_text(encoding="utf-8")
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, capture_output=True,
                               decisions={"0": decision}, config=ForwardAnalysisConfig(engine=engine))
     return session.run().to_json()
 

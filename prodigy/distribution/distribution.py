@@ -341,24 +341,9 @@ def _is_true(variable: VarExpr) -> Expr:
     """The condition that the ``bool`` variable ``variable`` holds: ``not (variable = 0)``."""
     return UnopExpr(Unop.NEG, BinopExpr(Binop.EQ, variable, NatLitExpr(0)))
 
-_OUTPUT_SYNTAX: ContextVar[str] = ContextVar("prodigy_output_syntax", default="pgcl")
-
-
-@contextlib.contextmanager
-def output_syntax(syntax: str) -> Iterator[None]:
-    """Messages of the distributions write program expressions in ``syntax`` (``pgcl`` or ``ppy``) inside this
-    context; an analysis session enters it with the syntax of its program (#423: the distributions do not look up
-    the session of the analysis)."""
-    token = _OUTPUT_SYNTAX.set(syntax)
-    try:
-        yield
-    finally:
-        _OUTPUT_SYNTAX.reset(token)
-
-
 def _spelled(expression: Expr) -> str:
-    """The expression in the syntax of :func:`output_syntax` (pGCL outside of it)."""
-    return spell(expression, _OUTPUT_SYNTAX.get())
+    """The expression as ``.ppy`` text for a message, inside an analysis or not (#489)."""
+    return spell(expression)
 
 
 def _in_programs_terms(error: Exception, names: Dict[str, str]) -> Exception:

@@ -6,8 +6,7 @@ new programs and of the examples in `pgfexamples/`, which were converted with `p
 `.pgcl` was removed in v0.6.0. The language is described in {doc}`language`; this page keeps
 the reasons for the design. Parser and pretty printer: `prodigy/language/ppy_parser.py`,
 `prodigy/language/ppy_printer.py`. The CLI (see {doc}`cli`) and the GUI
-(see {doc}`gui`) read `.ppy`, and results write expressions in the syntax of the
-program. Nested inference (`infer`, `sample`, see below) is analysed since
+(see {doc}`gui`) read `.ppy`, and results and messages write expressions in `.ppy`. Nested inference (`infer`, `sample`, see below) is analysed since
 [#104](https://github.com/LKlinke/Prodigy/issues/104).
 
 ## Goals
@@ -22,7 +21,7 @@ program. Nested inference (`infer`, `sample`, see below) is analysed since
 
 ## Overview
 
-| Construct | `.pgcl` today | `.ppy` |
+| Construct | `.pgcl` (removed in v0.6.0) | `.ppy` |
 |---|---|---|
 | Blocks | `{ … }` | `{ … }`, unchanged |
 | Comments | `# …`, `// …` | `# …` to the end of the line, `/* … */` (not nested, may span lines) |

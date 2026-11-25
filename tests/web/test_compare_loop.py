@@ -61,12 +61,12 @@ def fixture_client():
 # ---- the loop as a program of its own -------------------------------------------------------------
 
 def test_a_loop_that_is_the_whole_program_stays_as_it_is():
-    isolated = loop_program(GEOMETRIC, "ppy", 0)
+    isolated = loop_program(GEOMETRIC, 0)
     assert isolated == {"program": GEOMETRIC, "loop": 0, "declarations": "x: nat;\nc: nat;\n", "whole": True}
 
 
 def test_a_loop_inside_a_program_keeps_only_the_declarations():
-    isolated = loop_program(SURROUNDED, "ppy", 0)
+    isolated = loop_program(SURROUNDED, 0)
     assert not isolated["whole"] and isolated["loop"] == 0
     program = parse_program(isolated["program"], "ppy")
     # the declarations and the loop: the code before it does not matter, the comparison holds for every input
@@ -84,11 +84,11 @@ x: nat;
 x = f(3);
 """
     with pytest.raises(ValueError, match="inside the function f"):
-        loop_program(source, "ppy", 0)
+        loop_program(source, 0)
     with pytest.raises(ValueError, match="no loop 3"):
-        loop_program(GEOMETRIC, "ppy", 3)
+        loop_program(GEOMETRIC, 3)
     with pytest.raises(ValueError, match="does not parse"):
-        loop_program("x: nat;\nwhile (", "ppy", 0)
+        loop_program("x: nat;\nwhile (", 0)
 
 
 def test_isolate_loop_keeps_the_loop_id_of_the_second_loop():
@@ -97,7 +97,7 @@ def test_isolate_loop_keeps_the_loop_id_of_the_second_loop():
     registry = LoopRegistry(program)
     second = registry.instruction(1)
     assert second is not None and registry.instruction(2) is None
-    isolated = isolate_loop(program, second, "ppy", source)
+    isolated = isolate_loop(program, second, source)
     assert isolated is not None and isolated.loop == 0 and not isolated.whole
     assert "c > 5" in isolated.program and "x == 1" not in isolated.program
 
@@ -116,7 +116,7 @@ def test_the_endpoint(client):
 def test_compare_this_loop_then_continue_with_an_upper_bound():
     """The loop of SURROUNDED against its closed form: Park's lemma proves A ⪯ B, and Analyze continues
     after the loop with B (the strategy ``invariant``), an upper bound."""
-    isolated = loop_program(SURROUNDED, "ppy", 0)
+    isolated = loop_program(SURROUNDED, 0)
     decision = {"strategy": "invariant", "params": {"invariant": CLOSED_FORM}}
     result = compare(isolated["program"], CLOSED_FORM, decisions={str(isolated["loop"]): decision})
     assert result["equivalence"]["relation"] == "first_below_second"

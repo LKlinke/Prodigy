@@ -4,7 +4,7 @@ GUI fields, CLI options) or proposed by a language model (:mod:`prodigy.analysis
 
 SymPy's parser evaluates Python code, so such a text reaches a computer algebra system only after
 :func:`admissible_expression` accepted it: numbers, names, ``+ - * /``, powers, parentheses and calls of a few
-mathematical functions, and it must parse as an expression of the program's syntax (pGCL or ``.ppy``).
+mathematical functions, and it must parse as a ``.ppy`` expression.
 """
 from __future__ import annotations
 
@@ -31,29 +31,27 @@ _BOOLEAN_WORDS = frozenset({"and", "or", "not", "true", "false", "True", "False"
 """Words both parsers read as Boolean operators or constants; a generating function has none."""
 
 
-def to_syntax(expression: str, syntax: str) -> str:
-    """``expression`` with the power operator of ``syntax`` (``^`` in pGCL, ``**`` in ``.ppy``)."""
-    return expression.replace("^", "**") if syntax == "ppy" else expression.replace("**", "^")
+def to_ppy(expression: str) -> str:
+    """``expression`` (engine text, powers as ``^``) with the power operator of ``.ppy`` (``**``)."""
+    return expression.replace("^", "**")
 
 
-def admissible_expression(text: str, names: Optional[Sequence[str]] = None, syntax: str = "ppy",
+def admissible_expression(text: str, names: Optional[Sequence[str]] = None,
                           functions: AbstractSet[str] = FUNCTIONS) -> str:
     """Checks that ``text`` is a generating function that is safe to give to a computer algebra
     system and returns it in the engines' spelling (powers as ``^``).
 
     ``text`` must consist of numbers, names, ``+ - * /``, powers (``^`` or ``**``), parentheses and
-    calls of ``functions``, and parse as a ``.ppy`` expression (``syntax`` is the program's, always
-    ``ppy`` since the ``.pgcl`` syntax was removed, #433). With ``names``, every other name is rejected
+    calls of ``functions``, and parse as a ``.ppy`` expression. With ``names``, every other name is rejected
     as well.
 
     Raises :class:`InadmissibleExpression` otherwise."""
-    del syntax  # every expression is read as .ppy
-    text = to_syntax(text, "ppy")
+    text = to_ppy(text)
     if not _ALLOWED.fullmatch(text):
         raise InadmissibleExpression(f"{text!r} contains characters other than numbers, names, "
                              "+ - * / ** and parentheses.")
     if "//" in text:
-        # floor division in .ppy and Python, a comment in pGCL: neither belongs into a generating function
+        # floor division in .ppy and Python: it does not belong into a generating function
         raise InadmissibleExpression(f"{text!r} contains '//', which is not an operation on generating functions.")
     called = sorted({match.group(1) for match in _CALL.finditer(text)} - set(functions))
     if called:

@@ -103,7 +103,7 @@ def _parse_text(raw: Any) -> str:
     return text
 
 
-def _parse_expression(raw: Any, syntax: str = "ppy") -> str:
+def _parse_expression(raw: Any) -> str:
     """A generating function given from outside (CLI, decisions, GUI), checked before any engine
     sees it: SymPy's parser evaluates Python code. Returns it in the engines' spelling (powers as
     ``^``, which GiNaC needs); raises ``ValueError`` (a
@@ -111,7 +111,7 @@ def _parse_expression(raw: Any, syntax: str = "ppy") -> str:
     (:func:`~prodigy.language.expression_allowlist.admissible_expression`)."""
     # pylint: disable=import-outside-toplevel
     from prodigy.language.expression_allowlist import MATH_FUNCTIONS, admissible_expression
-    return admissible_expression(_parse_text(raw).strip(), syntax=syntax, functions=MATH_FUNCTIONS)
+    return admissible_expression(_parse_text(raw).strip(), functions=MATH_FUNCTIONS)
 
 
 _PARSERS: Dict[str, Callable[[Any], Any]] = {
@@ -161,10 +161,10 @@ class ParamSpec:
     """Optional parameters are never asked for; if missing, :attr:`default` (or ``None``)
     is used."""
 
-    def parse(self, raw: Any, syntax: str = "ppy") -> Any:
+    def parse(self, raw: Any) -> Any:
         """The value of ``raw``; raises ``ValueError`` if it is not admissible. ``expression``
-        parameters must be generating functions of the program's ``syntax`` (``pgcl`` or ``ppy``)."""
-        value: Any = _parse_expression(raw, syntax) if self.kind == "expression" else _PARSERS[self.kind](raw)
+        parameters must be generating functions written as ``.ppy`` expressions."""
+        value: Any = _parse_expression(raw) if self.kind == "expression" else _PARSERS[self.kind](raw)
         if self.kind == "int" and self.minimum is not None and value < self.minimum:
             raise ValueError(f"{self.label} must be at least {self.minimum}")
         if self.kind == "choice" and self.choices and value not in self.choices:
@@ -245,7 +245,7 @@ class LoopTask:
         raw = self.decision.params.get(name)
         if not _missing(raw):
             try:
-                return spec.parse(raw, self.session.syntax)
+                return spec.parse(raw)
             except ValueError as exc:
                 where = self.loop.describe() if self.loop is not None else "a loop"
                 raise ValueError(f"{where}: parameter {name!r} of strategy {self.strategy.name} "
@@ -255,7 +255,7 @@ class LoopTask:
             if alias.alias_of == name and not _missing(self.decision.params.get(alias.name)):
                 return self.session.resolve_alias(self, alias, self.decision.params[alias.name])
         if spec.optional:
-            return spec.parse(spec.default, self.session.syntax) if spec.default is not None else None
+            return spec.parse(spec.default) if spec.default is not None else None
         return self.session.ask_param(self, spec)
 
     def progress(self, done: int, total: Optional[int], message: str = "") -> None:

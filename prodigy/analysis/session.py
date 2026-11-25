@@ -38,6 +38,7 @@ import re
 import sys
 import tempfile
 import time
+import warnings
 from dataclasses import dataclass, field
 from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple,
                     Union)
@@ -50,7 +51,7 @@ from prodigy.language import (ChoiceInstr, CovarianceInstr, ExpectationInstr, Va
 
 from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
                                               get_loop_strategy, loop_strategies)
-from prodigy.distribution import known_convergent_series, output_syntax
+from prodigy.distribution import known_convergent_series
 from prodigy.language.ppy_printer import spell
 from prodigy.util.logger import log_setup, print_progress_bar
 
@@ -69,25 +70,22 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 # Program outline: loops and queries with source positions
 # ---------------------------------------------------------------------------------------
 
-_COMMENT_RE = re.compile(r"(#|//).*$", re.M)
 # '//' is floor division in .ppy; block comments /* … */ may span lines
 _PPY_COMMENT_RE = re.compile(r"#.*$|/\*[\s\S]*?\*/", re.M)
 _WHILE_RE = re.compile(r"\bwhile\b")
-_QUERY_RE = re.compile(r"\?Pr\b|\?Ex\b|\?Var\b|\?Cov\b|\?Opt\b|!Print\b|!Plot\b")
 _PPY_QUERY_RE = re.compile(r"\bquery\s+(?:Pr|Ex|Var|Cov)\b|\bprint\s*;|\bplot\s*\(|\boptimize\s*\(")
 _QUERY_INSTRS = (CovarianceInstr, VarianceInstr, ExpectationInstr, OptimizationQuery, PlotInstr, PrintInstr,
                  ProbabilityQueryInstr, QueryInstr)
 
 
-def _blank_comments(source: str, syntax: str = "ppy") -> str:
+def _blank_comments(source: str) -> str:
     """Replaces comments by spaces (keeping line breaks) so that offsets stay valid."""
-    pattern = _PPY_COMMENT_RE if syntax == "ppy" else _COMMENT_RE
-    return pattern.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), source)
+    return _PPY_COMMENT_RE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), source)
 
 
-def token_positions(source: str, pattern: "re.Pattern[str]", syntax: str = "ppy") -> List[Tuple[int, int]]:
+def token_positions(source: str, pattern: "re.Pattern[str]") -> List[Tuple[int, int]]:
     """1-based (line, column) of every match of ``pattern`` outside of comments."""
-    text = _blank_comments(source, syntax)
+    text = _blank_comments(source)
     positions = []
     for match in pattern.finditer(text):
         line = text.count("\n", 0, match.start()) + 1
@@ -107,7 +105,7 @@ def _ppy_while_positions(source: str, functions: List[str]) -> List[Tuple[int, i
     the loops of the functions (in the order of ``functions``), then those of the program.
     In ``.ppy`` a ``def`` may follow statements, so the textual order can differ.
     """
-    text = _blank_comments(source, "ppy")
+    text = _blank_comments(source)
     spans: Dict[str, Tuple[int, int]] = {}
     for match in re.finditer(r"\bdef\s+(\w+)", text):
         start = text.find("{", match.end())
@@ -127,9 +125,9 @@ def _ppy_while_positions(source: str, functions: List[str]) -> List[Tuple[int, i
     return [_offset_position(text, offset) for offset in ordered]
 
 
-def query_positions(source: str, syntax: str = "ppy") -> List[Tuple[int, int]]:
-    """1-based (line, column) of the queries (``?Pr``, ``query Pr``, ...) of a program in ``syntax``."""
-    return token_positions(source, _PPY_QUERY_RE if syntax == "ppy" else _QUERY_RE, syntax)
+def query_positions(source: str) -> List[Tuple[int, int]]:
+    """1-based (line, column) of the queries (``query Pr``, ``print;``, ...) of a program."""
+    return token_positions(source, _PPY_QUERY_RE)
 
 
 @dataclass(frozen=True)
@@ -139,7 +137,7 @@ class LoopInfo:
     id: int  # pylint: disable=invalid-name
     """Index of the loop in textual order (0-based); the key for decisions."""
     cond: str
-    """The loop guard as text in the program's syntax."""
+    """The loop guard as ``.ppy`` text."""
     depth: int
     """Number of enclosing while loops."""
     function: Optional[str] = None
@@ -192,7 +190,7 @@ def _collect_loops(instrs: List[Instr], depth: int, function: Optional[str],
 class LoopRegistry:
     """Assigns stable ids to the while loops of a program (textual pre-order)."""
 
-    def __init__(self, program: Optional[Program], source: Optional[str] = None, syntax: str = "ppy"):
+    def __init__(self, program: Optional[Program], source: Optional[str] = None):
         self.loops: List[LoopInfo] = []
         self._by_identity: Dict[int, LoopInfo] = {}
         self._by_text: Dict[str, List[LoopInfo]] = {}
@@ -203,17 +201,12 @@ class LoopRegistry:
         for name, function in program.functions.items():
             _collect_loops(function.instructions, 0, name, found)
         _collect_loops(program.instructions, 0, None, found)
-        if source is None:
-            positions: List[Tuple[int, int]] = []
-        elif syntax == "ppy":
-            positions = _ppy_while_positions(source, list(program.functions))
-        else:
-            positions = token_positions(source, _WHILE_RE)
+        positions = [] if source is None else _ppy_while_positions(source, list(program.functions))
         if len(positions) != len(found):
             positions = []
         for index, (instr, depth, function_name) in enumerate(found):
             line, column = positions[index] if positions else (None, None)
-            info = LoopInfo(id=index, cond=spell(instr.cond, syntax), depth=depth, function=function_name,
+            info = LoopInfo(id=index, cond=spell(instr.cond), depth=depth, function=function_name,
                             line=line, column=column)
             self.loops.append(info)
             self._instructions.append(instr)
@@ -256,7 +249,7 @@ class IsolatedLoop:
     """A loop of a program as a program of its own (:func:`isolate_loop`)."""
 
     program: str
-    """The program text, in the syntax of the program."""
+    """The program text (``.ppy``)."""
     loop: int
     """The id of the loop in :attr:`program`."""
     declarations: str
@@ -265,19 +258,19 @@ class IsolatedLoop:
     """Whether :attr:`program` is the original source (the loop is all the program does)."""
 
 
-def isolate_loop(program: Program, instruction: WhileInstr, syntax: str,
+def isolate_loop(program: Program, instruction: WhileInstr,
                  source: Optional[str] = None) -> Optional[IsolatedLoop]:
     """The loop ``instruction`` of ``program`` as a program to compare with a loop-free program (#154,
     #399): the program itself (``source``) if the loop is all it does apart from queries, else its
     declarations and the loop. The code before the loop is left out on purpose: a comparison holds for
     every input, so it covers whatever that code produces. ``None`` if the program cannot be printed in
-    ``syntax``."""
+    ``.ppy``."""
     # pylint: disable=import-outside-toplevel
     from prodigy.language.ppy_printer import PpyPrintError, program_to_ppy
 
     def text(instructions: List[Instr]) -> str:
         part = attr.evolve(program, instructions=instructions)
-        return program_to_ppy(part) if syntax == "ppy" else str(part)
+        return program_to_ppy(part)
 
     rest = [instr for instr in program.instructions
             if instr is not instruction and type(instr).__name__ not in QUERY_INSTRUCTIONS]
@@ -312,7 +305,7 @@ class LoopDecision:
     def parse_spec(spec: str) -> "LoopDecision":
         """Parses the command-line form ``STRATEGY[:name=value,name=value]``.
 
-        Example: ``unroll:iterations=100`` or ``invariant:invariant_file=inv.pgcl``.
+        Example: ``unroll:iterations=100`` or ``invariant:invariant_file=inv.ppy``.
         """
         name, _, rest = spec.partition(":")
         params: Dict[str, Any] = {}
@@ -361,9 +354,9 @@ def parse_decisions(data: Optional[Mapping[Any, Any]]) -> Dict[Union[int, str], 
 
 
 def validate_decisions(decisions: Mapping[Union[int, str], LoopDecision],
-                       loops: Optional[LoopRegistry] = None, syntax: str = "ppy") -> List[str]:
+                       loops: Optional[LoopRegistry] = None) -> List[str]:
     """Problems with ``decisions`` (unknown strategies, unknown loops, bad parameters, generating
-    functions that are not expressions of ``syntax``)."""
+    functions that are not ``.ppy`` expressions)."""
     problems: List[str] = []
     known_ids = {loop.id for loop in loops} if loops is not None else None
     for key, decision in decisions.items():
@@ -383,7 +376,7 @@ def validate_decisions(decisions: Mapping[Union[int, str], LoopDecision],
             if raw is None or (isinstance(raw, str) and raw.strip() == ""):
                 continue
             try:
-                strategy.param(name).parse(raw, syntax)
+                strategy.param(name).parse(raw)
             except (ValueError, TypeError) as exc:
                 problems.append(f"{where}: {strategy.param(name).label}: {exc}")
     return problems
@@ -513,7 +506,7 @@ class InteractiveDecisions(DecisionProvider):
                 return session.resolve_alias(task, alias, path)
             raw = input(spec.prompt or f"{spec.label}: ")
             try:
-                return spec.parse(raw, session.syntax)
+                return spec.parse(raw)
             except (ValueError, TypeError) as exc:
                 print(f"Invalid input: {exc}")
 
@@ -540,7 +533,7 @@ class FixedDecisions(DecisionProvider):
 
     def ask_param(self, session: AnalysisSession, task: LoopTask, spec: ParamSpec) -> Any:
         if spec.default is not None:
-            return spec.parse(spec.default, session.syntax)
+            return spec.parse(spec.default)
         where = task.loop.describe() if task.loop is not None else "a loop"
         raise DecisionRequired(
             f"Strategy '{task.strategy.title}' for {where} needs a value for '{spec.label}'",
@@ -686,7 +679,7 @@ class AnalysisSession:
                  program: Optional[Program],
                  *,
                  source: Optional[str] = None,
-                 syntax: str = "ppy",
+                 syntax: Optional[str] = None,
                  config: Optional[ForwardAnalysisConfig] = None,
                  provider: Optional[DecisionProvider] = None,
                  decisions: Optional[Mapping[Any, Any]] = None,
@@ -705,10 +698,13 @@ class AnalysisSession:
         # pylint: disable=import-outside-toplevel
         from prodigy.analysis.config import ForwardAnalysisConfig
         from prodigy.analysis.trace import Tracer, parse_watch
+        from prodigy.language.parser import check_syntax
+        if syntax is not None:
+            warnings.warn("AnalysisSession(syntax=...) is deprecated: programs are always .ppy (#489); the "
+                          "argument is removed in v0.8.0", DeprecationWarning, stacklevel=2)
+            check_syntax(syntax)
         self.program = program
         self.source = source
-        self.syntax = syntax
-        """Syntax of the program (``pgcl`` or ``ppy``); invariants given as program text use it too."""
         self.config = config if config is not None else ForwardAnalysisConfig()
         if provider is None:
             provider = FixedDecisions(parse_decisions(decisions))
@@ -731,18 +727,19 @@ class AnalysisSession:
         ``prodigy check_equality``), ``refuse`` (the GUI's Analyze mode: it is a comparison) or ``hint``
         (the command line: go on as before, but point to ``check_equality``)."""
 
-        self.loops = LoopRegistry(program, source, syntax)
-        self.query_positions = query_positions(source, syntax) if source is not None else []
+        self.loops = LoopRegistry(program, source)
+        self.query_positions = query_positions(source) if source is not None else []
         self.loop_records: Dict[Any, LoopRecord] = {}
         # the values of the dist variables at the end (prodigy.analysis.nested_inference.DistValue)
         self.dist_values: List[Any] = []
         self.queries: List[Any] = []
         self.tracer: Optional[Tracer] = None
         """Records the step trace (:mod:`prodigy.analysis.trace`) if ``record_steps`` is set."""
+        names = None if program is None else list(program.variables) + list(program.parameters)
+        # raises InvalidWatchError (a ValueError): the CLI and the GUI report it
+        parsed_watches = [parse_watch(text, names) for text in watches]
         if record_steps:
-            names = None if program is None else list(program.variables) + list(program.parameters)
-            self.tracer = Tracer(self, trace_limits,
-                                 [parse_watch(text, syntax, names) for text in watches], on_step=on_step)
+            self.tracer = Tracer(self, trace_limits, parsed_watches, on_step=on_step)
         self.warnings: List[str] = []
         self.unproven_conditions: List[str] = []
         # bounds of a loop strategy for the queries right after its loop (LoopOutcome.query_bounds)
@@ -757,17 +754,17 @@ class AnalysisSession:
         self._query_index = 0
         self.detached_session = False
 
-    def spell(self, node: Union[Expr, Instr]) -> str:
-        """``node`` as text in the syntax of the program (see :func:`spell`)."""
-        return spell(node, self.syntax)
+    @staticmethod
+    def spell(node: Union[Expr, Instr]) -> str:
+        """``node`` as ``.ppy`` text (see :func:`prodigy.language.ppy_printer.spell`)."""
+        return spell(node)
 
     # -- construction helpers ------------------------------------------------------------
 
     @classmethod
-    def detached(cls, syntax: str = "ppy") -> "AnalysisSession":
-        """Session for code that runs handlers without setting up a session. Activate one with
-        ``syntax="ppy"`` to have invariant programs read and queries printed in ``.ppy``."""
-        session = cls(None, syntax=syntax, provider=InteractiveDecisions())
+    def detached(cls) -> "AnalysisSession":
+        """Session for code that runs handlers without setting up a session."""
+        session = cls(None, provider=InteractiveDecisions())
         session.detached_session = True
         return session
 
@@ -785,8 +782,7 @@ class AnalysisSession:
         """Makes this the current session (see :func:`current_session`)."""
         token = _CURRENT.set(self)
         try:
-            with output_syntax(self.syntax):
-                yield self
+            yield self
         finally:
             _CURRENT.reset(token)
 
@@ -808,7 +804,7 @@ class AnalysisSession:
             with open(str(raw), "r", encoding="utf-8") as handle:
                 return handle.read()
         assert alias.alias_of is not None
-        return task.strategy.param(alias.alias_of).parse(raw, self.syntax)
+        return task.strategy.param(alias.alias_of).parse(raw)
 
     # -- scopes and bounds ---------------------------------------------------------------
 
@@ -861,12 +857,12 @@ class AnalysisSession:
 
     @contextlib.contextmanager
     def other_program(self, program: Program, decisions: Optional[Mapping[Any, Any]] = None, *,
-                      source: Optional[str] = None, syntax: Optional[str] = None) -> Iterator[None]:
+                      source: Optional[str] = None) -> Iterator[None]:
         """Decides the loops of ``program``, another program than the session's (the second program of a
         comparison), by their own ids and ``decisions`` while it runs, instead of looking them up among
         the loops of the session's program. Their records are kept apart (keyed ``("other", id)``)."""
         loops, presets, records = self.loops, self.provider.decisions, self.loop_records
-        self.loops = LoopRegistry(program, source, syntax or self.syntax)
+        self.loops = LoopRegistry(program, source)
         self.provider.decisions = parse_decisions(decisions)
         self.loop_records = {}
         try:

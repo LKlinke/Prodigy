@@ -47,7 +47,7 @@ def _distribution(source: str, engine):
 
 def _session(source: str, engine):
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, config=config,
                               decisions={}, capture_output=True)
     return session.run().to_json()
 

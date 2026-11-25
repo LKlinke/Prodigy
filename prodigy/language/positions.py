@@ -1,7 +1,7 @@
 """
 Source positions of instructions.
 
-Both parsers (pGCL and ``.ppy``) attach to every instruction and query the span of its source
+The parser attaches to every instruction and query the span of its source
 text: :func:`span_of` returns a :class:`SourceSpan` with 1-based line and column of its start and
 end (the end column is the one after the last character, as in Lark). The span is kept outside of
 the AST's attributes, so it never takes part in equality, ``repr`` or ``str``; ``copy.deepcopy``

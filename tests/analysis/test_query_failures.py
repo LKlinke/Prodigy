@@ -24,7 +24,7 @@ def _engine(name):
 
 def _run(source, syntax, engine):
     config = ForwardAnalysisConfig(engine=_engine(engine))
-    session = AnalysisSession(parse_program(source, syntax), source=source, syntax=syntax, config=config,
+    session = AnalysisSession(parse_program(source, syntax), source=source, config=config,
                               decisions={}, capture_output=True)
     return session.run().to_json()
 

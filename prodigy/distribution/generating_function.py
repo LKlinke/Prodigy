@@ -236,7 +236,7 @@ Term = Tuple[sympy.Expr, sympy.Expr]
 """A term of a power series: its coefficient and its monomial."""
 
 SympyInput = Union[str, int, float, Fraction, Expr, sympy.Basic]
-"""What :func:`_parse_to_sympy` reads: text, a number, a pGCL expression or a SymPy object (returned as it is)."""
+"""What :func:`_parse_to_sympy` reads: text, a number, a program expression or a SymPy object (returned as it is)."""
 
 
 def _term_generator(function: sympy.Poly) -> Iterator[Term]:
@@ -252,8 +252,8 @@ def _term_generator(function: sympy.Poly) -> Iterator[Term]:
 
 def _parse_to_sympy(expr: SympyInput, real: bool = True, **kwargs: bool) -> sympy.Expr:
     """
-    Parses something (`float`s, `bool`s, `Fraction`s, pGCL `Expr`s, anything that can be converted to a valid
-    string) to a sympy expression. Can convert a pGCL expression faster than passing it as a string to sympy.
+    Parses something (`float`s, `bool`s, `Fraction`s, program `Expr`s, anything that can be converted to a valid
+    string) to a sympy expression. Can convert a program expression faster than passing it as a string to sympy.
     Also will correctly determine if something is a symbol or a function (e.g., if we have a variable called `exp` or
     `log`). All symbols are given the assumptions that they are real unless specified otherwise.
     """

@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from prodigy.language import parse_program
+from prodigy.language.expression_allowlist import to_ppy
 
 _CATEGORY_TITLES = {
     "inference": "Inference",
@@ -124,17 +125,17 @@ class ExampleLibrary:
         unknown example."""
         path = self._resolve(example_id)
         source = path.read_text(encoding="utf-8")
-        file_syntax = "ppy"
         example = next((e for e in self.examples if e.id == example_id), None)
-        suggestion = self._suggest(path, source, example, file_syntax)
-        data: Dict[str, Any] = {"id": example_id, "syntax": file_syntax, "source": source,
+        suggestion = self._suggest(path, source, example)
+        # "syntax" stays in the response for compatibility: every example is .ppy
+        data: Dict[str, Any] = {"id": example_id, "syntax": "ppy", "source": source,
                                 "example": example.to_json() if example else None, "suggestion": suggestion,
                                 "file_name": path.name}
         other = self._other_program(example)
         if other is not None:
             data["other"] = other
-        if data["syntax"] == "ppy" and suggestion["input_distribution"]:
-            suggestion["input_distribution"] = _to_ppy_expression(suggestion["input_distribution"])
+        if suggestion["input_distribution"]:
+            suggestion["input_distribution"] = to_ppy(suggestion["input_distribution"])
         return data
 
     def _other_program(self, example: Optional[Example]) -> Optional[Dict[str, Any]]:
@@ -166,13 +167,12 @@ class ExampleLibrary:
         files = [path.parent / "invariants" / f"{path.stem}_invariant{k}{path.suffix}" for k in range(1, loops + 1)]
         return files if all(f.is_file() for f in files) else []
 
-    def _suggest(self, path: Path, source: str, example: Optional[Example],
-                 syntax: str = "ppy") -> Dict[str, Any]:
+    def _suggest(self, path: Path, source: str, example: Optional[Example]) -> Dict[str, Any]:
         suggestion: Dict[str, Any] = {"decisions": {}, "input_distribution": None, "note": ""}
         if example is None:
             return suggestion
         try:
-            loops = _count_loops(source, syntax)
+            loops = _count_loops(source)
         except Exception:  # pylint: disable=broad-except
             loops = 0
         numbered = self._numbered_invariants(path, loops) if example.command == "check_equality" else []
@@ -233,11 +233,7 @@ def _command_words(first_line: str) -> List[str]:
         return text.split()
 
 
-def _count_loops(source: str, syntax: str) -> int:
+def _count_loops(source: str) -> int:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.session import LoopRegistry
-    return len(LoopRegistry(parse_program(source, syntax), source, syntax))
-
-
-def _to_ppy_expression(expression: str) -> str:
-    return expression.replace("^", "**")
+    return len(LoopRegistry(parse_program(source), source))

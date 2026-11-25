@@ -6,10 +6,8 @@ Type Checking
 """
 from __future__ import annotations
 
-import contextlib
-import contextvars
 from fractions import Fraction
-from typing import Callable, Dict, Iterator, Iterable, List, Mapping, Optional, Set, TypeVar, Union
+from typing import Dict, Iterable, List, Mapping, Optional, Set, TypeVar, Union, cast
 
 import attr
 # mypy complains here, but this isn't actually wrong
@@ -37,24 +35,11 @@ from .ast.walk import Walk, walk_expr, walk_instrs
 
 _T = TypeVar('_T')
 
-Spelling = Callable[[Node], str]
-"""How an expression or instruction is written in a message (see :func:`check_program`)."""
-
-_SPELLING: contextvars.ContextVar[Spelling] = contextvars.ContextVar("check_spelling", default=str)
-
-
 def _sp(node: Node) -> str:
-    """``node`` as text in a message, in the syntax chosen by :func:`check_program`."""
-    return _SPELLING.get()(node)
-
-
-@contextlib.contextmanager
-def _spelling(spell: Optional[Spelling]) -> Iterator[None]:
-    token = _SPELLING.set(spell or str)
-    try:
-        yield
-    finally:
-        _SPELLING.reset(token)
+    """``node`` as ``.ppy`` text in a message."""
+    # pylint: disable=import-outside-toplevel  # the printer imports the parser, which is built on import
+    from prodigy.language.ppy_printer import spell
+    return spell(cast(Union[Expr, Instr], node))
 
 
 @attr.s
@@ -548,7 +533,7 @@ def is_compatible(lhs: Type, rhs: Type) -> bool:
     """
     Check if the right-hand side type is compatible with the left-hand side type.
 
-    This function essentially defines the implicit type coercions of the pGCL language.
+    This function essentially defines the implicit type coercions of the language.
     Compatibility is not only important for which values can be used as the right-hand side of an assignment, but compatibility
     rules are also checked when operators are used.
 
@@ -990,13 +975,10 @@ def check_instr(
 def check_program(
     program: Program,
     predefined_functions: Mapping[Var,
-                               List[VarDecl]] = sample_predefined_functions,
-    spell: Optional[Spelling] = None
+                               List[VarDecl]] = sample_predefined_functions
 ) -> Optional[CheckFail]:
-    """Check a program for type-safety. Messages write expressions with ``spell`` (default: the
-    pGCL spelling); pass the spelling of the program's syntax, e.g. ``session.spell`` (#425)."""
-    with _spelling(spell):
-        return _check_program(program, predefined_functions)
+    """Check a program for type-safety. Messages write expressions in ``.ppy`` (#425, #489)."""
+    return _check_program(program, predefined_functions)
 
 
 def _check_program(program: Program,

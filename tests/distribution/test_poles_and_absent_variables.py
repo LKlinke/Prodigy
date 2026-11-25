@@ -85,7 +85,7 @@ def test_infinite_expectation_is_infinity(engine):
     decisions = {"0": {"strategy": "evt_invariant",
                        "params": {"invariant": "(1-(1-c^2)^(1/2)+c*x)/(c+(1-c^2)^(1/2)*x-x)"}}}
     config = ForwardAnalysisConfig(engine=_engine(engine))
-    session = AnalysisSession(parse_program(RANDOM_WALK, "ppy"), source=RANDOM_WALK, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(RANDOM_WALK, "ppy"), source=RANDOM_WALK, config=config,
                               decisions=decisions, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]

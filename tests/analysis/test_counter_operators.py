@@ -35,7 +35,7 @@ def _run(source, engine, decisions=None):
     if engine == ForwardAnalysisConfig.Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, config=config,
                               decisions=decisions or {}, capture_output=True)
     return session.run().to_json()
 
@@ -385,7 +385,7 @@ def test_counter_operators_do_not_parse_latex_output():
     # engine's expression instead (#445)
     source = "k: nat = poisson(1);\nx: nat = bernoulli(1/(k + 1));\nquery Pr[x == 1];\n"
     config = ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.SYMPY, use_latex=True)
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, config=config,
                               decisions={}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result.get("error")

@@ -29,8 +29,7 @@ def _run(source, engine):
     if engine == Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
     source = HEADER + source
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy",
-                              config=ForwardAnalysisConfig(engine=engine), decisions={}, capture_output=True)
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, config=ForwardAnalysisConfig(engine=engine), decisions={}, capture_output=True)
     return session.run().to_json()
 
 

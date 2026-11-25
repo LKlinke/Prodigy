@@ -55,14 +55,13 @@ REQUIREMENT = ("Prodigy accepts an input distribution only when it can prove tha
                "in the program variables with non-negative coefficients and finite mass.")
 
 
-def input_distribution_from_text(config: ForwardAnalysisConfig, text: str, program: Program,
-                                 syntax: str = "ppy") -> Distribution:
+def input_distribution_from_text(config: ForwardAnalysisConfig, text: str, program: Program) -> Distribution:
     """The distribution of the closed form ``text`` for ``program``, after checking that ``text``
     is a generating function that is safe to give to the engines (SymPy evaluates Python code)
     and that it is a distribution (:func:`validate_input_distribution`)."""
     names = [str(v) for v in program.variables] + [str(p) for p in program.parameters]
     try:
-        spelled = admissible_expression(text, names=names, syntax=syntax, functions=MATH_FUNCTIONS)
+        spelled = admissible_expression(text, names=names, functions=MATH_FUNCTIONS)
     except InadmissibleExpression as exc:
         raise InputDistributionError(f"The input distribution is refused: {exc}",
                                      details={"type": "input_distribution", "proof": "refuted",

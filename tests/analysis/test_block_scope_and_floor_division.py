@@ -159,7 +159,7 @@ def test_floor_division_of_non_rational_function_is_rejected(engine):
 def analyse(source, decisions, engine=Engine.SYMPY):
     _ginac(engine)
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, config=config,
                               decisions=decisions, capture_output=True)
     return session.run().to_json()
 

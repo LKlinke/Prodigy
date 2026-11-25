@@ -171,7 +171,7 @@ if (x) {
 }""", "ppy", id="ppy"),
 ])
 def test_gui_reports_the_type_error_as_error(source, syntax):
-    result = check_source(source, syntax)
+    result = check_source(source)
     assert not result["ok"]
     error = result["diagnostics"][0]
     assert (error["severity"], error["line"], error["column"]) == ("error", 2, 1)

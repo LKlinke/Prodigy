@@ -65,6 +65,7 @@ from prodigy.language.ast.expressions import (ExpectationExpr, InferExpr,
                                           ProbabilityExpr, SampleExpr)
 from prodigy.language.ast.types import DistributionType
 from prodigy.language.checks import recursion
+from prodigy.language.ppy_printer import spell
 from prodigy.language.ast.walk import (Walk, mut_expr_children, walk_expr,
                                    walk_instr_exprs, walk_instrs)
 from prodigy.language.util.ref import Mut
@@ -107,27 +108,20 @@ class DistSite:
                      for var, value in self.args)
         return DistSite(self.function, args, self.given)
 
-    def describe(self, syntax: Optional[str] = None) -> str:
-        """``infer(f, a = 2, d = infer(g))`` in ``.ppy``, ``infer { f(a := 2) }`` in pGCL (the
-        syntax of the running analysis by default); a slot is shown as ``…``."""
-        if syntax is None:
-            from prodigy.analysis.session import current_session  # pylint: disable=import-outside-toplevel
-            syntax = current_session().syntax
+    def describe(self) -> str:
+        """``infer(f, a = 2, d = infer(g))`` (``.ppy``); a slot is shown as ``…``."""
         values = dict(self.args)
-        assign = " = " if syntax == "ppy" else " := "
         arguments = []
         for var in self.given:
             value = values.get(var, 0)
             if isinstance(value, DistSite):
-                text = value.describe(syntax)
+                text = value.describe()
             elif isinstance(value, Slot):
                 text = "…"
             else:
                 text = str(value)
-            arguments.append(f"{var}{assign}{text}")
-        if syntax == "ppy":
-            return f"infer({', '.join([self.function] + arguments)})"
-        return f"infer {{ {self.function}({', '.join(arguments)}) }}"
+            arguments.append(f"{var} = {text}")
+        return f"infer({', '.join([self.function] + arguments)})"
 
 
 @dataclass
@@ -370,9 +364,8 @@ def _sum(parts: List[Tuple[Distribution, Distribution]], distribution: Distribut
 
 
 def _spell(node: Any) -> str:
-    """``node`` in the syntax of the program."""
-    from prodigy.analysis.session import current_session  # pylint: disable=import-outside-toplevel
-    return current_session().spell(node)
+    """``node`` as ``.ppy`` text."""
+    return spell(node)
 
 
 def _unassigned(var: str, construct: str) -> UndefinedDistributionError:
@@ -1109,7 +1102,7 @@ def dist_values(distribution: Distribution, prog_info: ProgramInfo) -> List[Dist
     return found
 
 
-def _value_json(value: DistValue, syntax: str, limit: int) -> Dict[str, Any]:
+def _value_json(value: DistValue, limit: int) -> Dict[str, Any]:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import exact_and_float, to_latex, univariate_table
     probability, probability_float = exact_and_float(value.probability)
@@ -1117,10 +1110,10 @@ def _value_json(value: DistValue, syntax: str, limit: int) -> Dict[str, Any]:
     entry: Dict[str, Any] = {
         "probability": probability,
         "probability_float": probability_float,
-        "infer": site.describe(syntax) if site is not None else None,
+        "infer": site.describe() if site is not None else None,
         "function": site.function if site is not None else None,
         "arguments": {} if site is None else {
-            var: (arg.describe(syntax) if isinstance(arg, DistSite) else
+            var: (arg.describe() if isinstance(arg, DistSite) else
                   None if isinstance(arg, Slot) else str(arg))
             for var, arg in site.args if var in site.given},
         "closed": value.closed is not None,
@@ -1157,14 +1150,14 @@ def _value_json(value: DistValue, syntax: str, limit: int) -> Dict[str, Any]:
     return entry
 
 
-def dist_values_json(values: List[DistValue], syntax: str, limit: int) -> List[Dict[str, Any]]:
+def dist_values_json(values: List[DistValue], limit: int) -> List[Dict[str, Any]]:
     """The ``distributions`` section of the result JSON (see :mod:`prodigy.analysis.result`)."""
     result: List[Dict[str, Any]] = []
     by_variable: Dict[str, List[DistValue]] = {}
     for value in values:
         by_variable.setdefault(value.variable, []).append(value)
     for variable, found in by_variable.items():
-        entries = [_value_json(value, syntax, limit) for value in found]
+        entries = [_value_json(value, limit) for value in found]
         result.append({
             "variable": variable,
             "depends_on_state": len(found) > 1 or any(value.site is not None and value.closed is None
@@ -1174,7 +1167,7 @@ def dist_values_json(values: List[DistValue], syntax: str, limit: int) -> List[D
     return result
 
 
-def for_trace(distribution: Distribution, program: Optional[Program], syntax: str
+def for_trace(distribution: Distribution, program: Optional[Program]
               ) -> Tuple[Distribution, List[Dict[str, Any]]]:
     """A step of the trace shows the program state without the encoding of the ``dist``
     variables, and their values next to it (variable, probability, ``infer`` text, closed form and
@@ -1194,7 +1187,7 @@ def for_trace(distribution: Distribution, program: Optional[Program], syntax: st
             shown.append({
                 "variable": value.variable,
                 "probability": str(value.probability),
-                "infer": value.site.describe(syntax) if value.site is not None else None,
+                "infer": value.site.describe() if value.site is not None else None,
                 "closed_form": closed,
                 # rendered with KaTeX like the result's closed forms (#217); short ones only
                 "latex": to_latex(renamed) if renamed is not None and len(closed or "") <= 600 else None,

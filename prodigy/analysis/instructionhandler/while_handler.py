@@ -248,13 +248,10 @@ def _evt_outcome_kind(scope_kind: str, positive: Optional[bool], finite: Optiona
 def _strategy_invariant(task: LoopTask) -> LoopOutcome:
     instruction, prog_info, config = task.instruction, task.prog_info, task.config
     inv_src = task.param("invariant")
-    # an invariant is written in the syntax of the program
-    syntax = task.session.syntax
     try:
-        inv_prog = parse_program(inv_src, syntax)
+        inv_prog = parse_program(inv_src)
     except (SyntaxError, LarkError) as exc:
-        raise ValueError(f"The invariant is not a valid program in the {syntax} syntax "
-                         f"(an invariant uses the syntax of the program): {exc}") from exc
+        raise ValueError(f"The invariant is not a valid .ppy program: {exc}") from exc
 
     prog = Program(declarations=[],
                    variables=prog_info.variables,
@@ -393,13 +390,13 @@ def _synthesis_required(task: LoopTask, inv_src: str, template: List[str],
 
 def _loop_program(task: LoopTask) -> Dict[str, Any]:
     """The program to compare with the invariant: the program itself if the loop is all it does, else its
-    declarations and the loop (``program``, in the program's syntax), and the id of the loop in it."""
+    declarations and the loop (``program``, ``.ppy``), and the id of the loop in it."""
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.session import isolate_loop
     session = task.session
     if session.program is None:
         return {"program": None, "program_loop": None}
-    isolated = isolate_loop(session.program, task.instruction, session.syntax, session.source)
+    isolated = isolate_loop(session.program, task.instruction, session.source)
     if isolated is None:
         return {"program": None, "program_loop": None}
     return {"program": isolated.program, "program_loop": isolated.loop}
@@ -535,7 +532,7 @@ def _strategy_evt_iterate(task: LoopTask) -> LoopOutcome:
     if kept:
         try:
             certificate["exploration"] = evt_exploration.exploration(
-                kept, [str(v) for v in prog_info.program.variables.keys()], task.session.syntax, recent)
+                kept, [str(v) for v in prog_info.program.variables.keys()], recent)
         except Exception as exc:  # pylint: disable=broad-except  # the exploration is optional
             logger.debug("EVT exploration failed: %s", exc)
     if scope.kind not in (Bound.EXACT, Bound.LOWER):
@@ -990,7 +987,7 @@ def _strategy_ai_invariant(task: LoopTask) -> LoopOutcome:
             proven = ai_candidates.Proven(best.entry["candidate"], str(best.mass), str(best.outcome.residual))
         task.progress(attempt - 1, attempts, f"Asking {provider.model}"
                       + (" for a larger sub-invariant" if proven else ""))
-        request = ai_candidates.prompt(form, str(program), str(task.instruction), variables, parameters,
+        request = ai_candidates.prompt(form, str(program), task.session.spell(task.instruction), variables, parameters,
                                        str(task.distribution), earlier, proven)
         try:
             answer = provider.ask(ai_candidates.SYSTEM_PROMPT, request)

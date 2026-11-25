@@ -23,7 +23,9 @@ class InstrClass(Node):
     @abstractmethod
     def __str__(self) -> str:
         """
-        Convert this instruction to corresponding source code in pGCL.
+        This instruction as the internal text (``&``/``||`` for ``and``/``or``, ``=`` for ``==``,
+        ``^`` for ``**``, ``:=``), which the engines and logs read; messages use
+        :func:`prodigy.language.ppy_printer.spell` (``.ppy``).
 
         .. doctest::
 
@@ -78,7 +80,7 @@ class IfInstr(InstrClass):
     false: List[Instr] = attr.ib()
 
     def __str__(self) -> str:
-        # the pGCL grammar needs both blocks, so an empty false branch is printed as "else { }" (#207)
+        # the internal text always has both blocks, so an empty false branch is printed as "else { }" (#207)
         return f"if ({self.cond}) {_str_block(self.true)} else {_str_block(self.false)}"
 
 
@@ -130,7 +132,7 @@ class ObserveInstr(InstrClass):
 @attr.s
 class ExpectationInstr(InstrClass):
     """
-    Allows for expectation queries inside of a pGCL program.
+    Allows for expectation queries inside of a program.
     """
     expr: Expr = attr.ib()
 
@@ -141,7 +143,7 @@ class ExpectationInstr(InstrClass):
 @attr.s
 class VarianceInstr(InstrClass):
     """
-    The variance ``Var[e]`` of an expression, a query inside of a pGCL program.
+    The variance ``Var[e]`` of an expression, a query inside of a program.
     """
     expr: Expr = attr.ib()
 
@@ -152,7 +154,7 @@ class VarianceInstr(InstrClass):
 @attr.s
 class CovarianceInstr(InstrClass):
     """
-    The covariance ``Cov[lhs, rhs]`` of two expressions, a query inside of a pGCL program.
+    The covariance ``Cov[lhs, rhs]`` of two expressions, a query inside of a program.
     """
     lhs: Expr = attr.ib()
     rhs: Expr = attr.ib()

@@ -17,7 +17,7 @@ def _error_message(source, engine):
     if engine == "GINAC":
         pytest.importorskip("prodigy_ginac")
     config = ForwardAnalysisConfig(engine=getattr(ForwardAnalysisConfig.Engine, engine))
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, config=config,
                               capture_output=True, coefficient_limit=0)
     result = session.run().to_json()
     assert result["status"] == "error"
@@ -51,7 +51,7 @@ def test_iid_of_sample_pgf_is_the_iid_sum_of_the_generating_function(engine):
 
     def distribution(rhs):
         source = f"x: nat;\ny: nat;\nx = 2;\ny = {rhs};\n"
-        session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
+        session = AnalysisSession(parse_program(source, "ppy"), source=source, config=config,
                                   capture_output=True)
         result = session.run().to_json()
         assert result["status"] == "ok", result

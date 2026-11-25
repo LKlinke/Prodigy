@@ -185,7 +185,7 @@ def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
     # The analysis asks for every loop: strategy 1 (invariant), then the invariant file, which is
     # read in the syntax of the program (as by `prodigy check_equality`).
     inputs = iter([answer for invariant in invariants for answer in ("1", invariant)])
-    with monkeypatch.context() as m, AnalysisSession.detached("ppy").activate():
+    with monkeypatch.context() as m, AnalysisSession.detached().activate():
         m.setattr("builtins.input", lambda _: next(inputs))
         res, subs = check_equivalence(prog1, prog2, ForwardAnalysisConfig(engine=engine), compute_semantics)
 

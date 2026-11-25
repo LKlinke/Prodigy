@@ -11,9 +11,10 @@ in the ``.ppy`` syntax (see :doc:`language`), whatever the file extension.
 .. note::
 
    The ``.pgcl`` syntax was **removed in v0.6.0**, together with ``prodigy convert``. A file ending
-   in ``.pgcl`` or ``--syntax pgcl`` ends with the error "The .pgcl syntax was removed in v0.6.0.
-   Convert the program to .ppy with Prodigy v0.5.x (`prodigy convert program.pgcl`, or Convert to
-   .ppy in its GUI)."
+   in ``.pgcl`` or ``--syntax pgcl`` ends with the error "The .pgcl syntax was removed in v0.6.0;
+   programs are written in .ppy. Convert a .pgcl program with Prodigy v0.5.x (`prodigy convert
+   program.pgcl`, or Convert to .ppy in its GUI)." ``--syntax`` accepts only ``ppy`` and is kept for
+   compatibility.
 
    The Z3 solver is being rebuilt (#474): ``--solver z3`` ends with the error "the Z3 solver is being
    rebuilt (#474); use sympy". Use ``--solver sympy`` (the default).
@@ -23,13 +24,13 @@ in the ``.ppy`` syntax (see :doc:`language`), whatever the file extension.
    reference, the default) or ``--engine ginac`` (the fast one); any other name is an error as well.
 
 An invariant given as program text, with ``--loop ID=invariant:invariant=...`` or
-``invariant_file=...``, is read in the syntax of the program. Generating functions (``--invariant``
-of ``invariant_synthesis`` and ``evt_lower_bound``, the EVT strategies) are not program text and
-keep their own syntax.
+``invariant_file=...``, is a loop-free ``.ppy`` program. Generating functions (``--invariant``
+of ``invariant_synthesis`` and ``evt_lower_bound``, the EVT strategies, ``--watch``) are ``.ppy``
+expressions (powers as ``**`` or ``^``).
 
-Output speaks the syntax of the program: queries, loop guards and certificates are written as
-``x == 1 and y < 3``, in the summary of ``analyze``, the output of ``main`` and the JSON result
-(whose key ``syntax`` states the syntax).
+Output is ``.ppy``: queries, loop guards and certificates are written as ``x == 1 and y < 3``, in the
+summary of ``analyze``, the output of ``main``, messages and the JSON result (whose key ``syntax`` is
+always ``ppy``).
 
 Syntax errors in ``.ppy`` programs are reported with line and column, the source line and a hint
 for constructs of the old syntax, e.g.:
@@ -131,7 +132,7 @@ the step where most of the time goes.
 
 Without ``--json`` the steps are printed one per instruction; with ``--json`` they are the keys
 ``steps`` and ``trace`` of the JSON result, for front ends such as the timeline of the GUI's analysis card.
-``--watch 'Pr[x == 3]'`` (repeatable, in the program's syntax) evaluates a query after every
+``--watch 'Pr[x == 3]'`` (repeatable, a ``.ppy`` query) evaluates a query after every
 top-level step, as if it stood right after that instruction, with the same sound intervals as the
 program's queries:
 

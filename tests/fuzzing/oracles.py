@@ -165,7 +165,7 @@ def analyse(source: str, syntax: str, setup: Setup, decisions: Mapping[str, Any]
     """The JSON result of analysing ``source`` with ``setup``."""
     program = parse_program(source, syntax)
     config = ForwardAnalysisConfig(engine=setup.engine, use_simplification=setup.simplification)
-    session = AnalysisSession(program, source=source, syntax=syntax, config=config, decisions=dict(decisions),
+    session = AnalysisSession(program, source=source, config=config, decisions=dict(decisions),
                               capture_output=True, coefficient_limit=12)
     return session.run().to_json()
 

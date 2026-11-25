@@ -32,7 +32,7 @@ x: nat = sample(d);
 
 
 def run(source, **kwargs):
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", **kwargs)
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, **kwargs)
     return session.run().to_json()
 
 
@@ -85,7 +85,7 @@ def test_trace_shows_dist_values_apart():
 def test_diagnostics_warn_about_dist_in_a_loop_state():
     source = "def f(n: nat) -> nat {\n    return n;\n}\nd: dist;\nc: nat = 2;\nwhile (c > 0) {\n" \
              "    d = infer(f, c);\n    c = c - 1;\n}\n"
-    result = check_source(source, "ppy")
+    result = check_source(source)
     warning = next(d for d in result["diagnostics"] if d["severity"] == "warning")
     assert "dist values in the state of a loop are not implemented" in warning["message"]
     assert warning["line"] == 6

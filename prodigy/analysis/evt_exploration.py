@@ -166,13 +166,13 @@ def _closed_form(dist: "Distribution") -> Tuple[str, bool]:
     return (text[:MAX_CLOSED_FORM], True) if len(text) > MAX_CLOSED_FORM else (text, False)
 
 
-def exploration(iterates: Sequence[Tuple[int, "Distribution"]], variables: Sequence[str], syntax: str = "ppy",
+def exploration(iterates: Sequence[Tuple[int, "Distribution"]], variables: Sequence[str],
                 last: Sequence["Distribution"] = ()) -> Dict[str, Any]:
     """Data for front ends: the kept iterates (N, closed form), the coefficients of the first states per
     iterate, and a candidate EVT invariant (a rational fit, or None). ``last`` are the last three consecutive
     iterates, for extrapolating the coefficients to N → ∞."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.language.expression_allowlist import to_syntax
+    from prodigy.language.expression_allowlist import to_ppy
     variables = [str(v) for v in variables]
     tables = []
     truncated_terms = False
@@ -185,12 +185,12 @@ def exploration(iterates: Sequence[Tuple[int, "Distribution"]], variables: Seque
     for state in states[:MAX_STATES]:
         exact = [table.get(state, "0") for table in tables]
         rows.append({"state": dict(zip(variables, state)),
-                     "values": [to_syntax(v, syntax) for v in exact],
+                     "values": [to_ppy(v) for v in exact],
                      "floats": [_float(v) for v in exact]})
     forms = []
     for (n, dist) in iterates:
         text, cut = _closed_form(dist)
-        forms.append({"n": n, "closed_form": to_syntax(text, syntax), "truncated": cut})
+        forms.append({"n": n, "closed_form": to_ppy(text), "truncated": cut})
     guess = None
     try:
         fit = None
@@ -201,7 +201,7 @@ def exploration(iterates: Sequence[Tuple[int, "Distribution"]], variables: Seque
     except Exception:  # pylint: disable=broad-except  # a guess is optional
         fit = None
     if fit is not None:
-        guess = {"candidate": to_syntax(str(fit), syntax), "method": "rational_fit"}
+        guess = {"candidate": to_ppy(str(fit)), "method": "rational_fit"}
     return {
         "variables": variables,
         "iterates": forms,

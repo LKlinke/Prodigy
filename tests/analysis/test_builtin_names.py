@@ -40,7 +40,7 @@ query Ex[NAME];
 
 
 def _run(source: str, decision: str, engine) -> dict:
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, capture_output=True,
                               decisions={"0": decision}, config=ForwardAnalysisConfig(engine=engine))
     return session.run().to_json()
 

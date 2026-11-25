@@ -12,25 +12,14 @@ Variable/constant substituion is implemented in :mod:`prodigy.language.substitut
 """
 
 import os
-from typing import List, Mapping, Optional, Union, cast
+from typing import List, Mapping, Optional, Union
 
 from prodigy.language import substitute
 
-from .ast import Expr, Instr, Node, Program, Var, VarDecl
+from .ast import Program, Var, VarDecl
 from .check import CheckFail, check_program, sample_predefined_functions
 from .parser import parse_program
 
-
-def _ppy_spelling(node: Node) -> str:
-    """``node`` in ``.ppy`` syntax (the pGCL spelling if it has no ``.ppy`` form), for messages."""
-    # pylint: disable=import-outside-toplevel
-    from .ppy_printer import PpyPrintError, expr_to_ppy, instr_to_ppy
-    try:
-        if type(node).__name__.endswith("Expr"):
-            return expr_to_ppy(cast(Expr, node))
-        return instr_to_ppy(cast(Instr, node))
-    except PpyPrintError:
-        return str(node)
 
 
 def compile_program(
@@ -62,7 +51,7 @@ def compile_program(
     program = parse_program(code, syntax, path=path)
     if substitute_constants:
         substitute.substitute_constants(program)
-    check_result = check_program(program, predefined_functions, spell=_ppy_spelling)
+    check_result = check_program(program, predefined_functions)
     if check_result is not None:
         return check_result
     return program

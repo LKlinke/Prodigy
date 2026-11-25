@@ -100,13 +100,13 @@ def test_untrusted_generating_functions_are_rejected():
         assert problems and "EVT invariant" in problems[0], text
     assert validate_request({"source": "x: nat;", "input_distribution": "exp(x - 1) + sin(x)^2"}) == []
     with pytest.raises(CandidateError, match="calls sqrt"):
-        admissible_expression("sqrt(x) ^ 2", syntax="ppy", functions=frozenset())
+        admissible_expression("sqrt(x) ^ 2", functions=frozenset())
     with pytest.raises(CandidateError, match="well-formed"):
-        admissible_expression("x + * 2", syntax="ppy")
+        admissible_expression("x + * 2")
 
 
 def test_candidates_in_the_program_syntax():
-    assert candidate_from_answer("ANSWER: x^2 + sqrt(1 - c)", ["x", "c"], "ppy") == "x**2 + sqrt(1 - c)"
+    assert candidate_from_answer("ANSWER: x^2 + sqrt(1 - c)", ["x", "c"]) == "x**2 + sqrt(1 - c)"
 
 
 def test_suggestion_for_a_ppy_program(monkeypatch):

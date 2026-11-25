@@ -3,7 +3,7 @@
 Pretty printer for .ppy
 ------------------------
 
-Prints a pGCL AST in the ``.ppy`` syntax, with the canonical spelling ``and``,
+Prints an AST in the ``.ppy`` syntax, with the canonical spelling ``and``,
 ``or`` and ``not``. Parsing the output with :func:`prodigy.language.ppy_parser.parse_ppy`
 gives back an equal AST. Comments are not part of the AST.
 
@@ -323,14 +323,12 @@ def program_to_ppy(program: Program) -> str:
     return _PRINTER.program(program)
 
 
-def spell(node: Union[Expr, Instr], syntax: str) -> str:
-    """An expression or instruction as text in ``syntax`` (``pgcl`` or ``ppy``), for output to
-    the user. Falls back to the pGCL spelling if ``node`` has no ``.ppy`` form."""
-    if syntax == "ppy":
-        try:
-            if isinstance(node, get_args(Expr)):
-                return expr_to_ppy(cast(Expr, node))
-            return instr_to_ppy(cast(Instr, node))
-        except PpyPrintError:
-            pass
-    return str(node)
+def spell(node: Union[Expr, Instr]) -> str:
+    """An expression or instruction as ``.ppy`` text, for output to the user. A node without a ``.ppy`` form
+    (an internal one, such as a substitution) falls back to :func:`str`."""
+    try:
+        if isinstance(node, get_args(Expr)):
+            return expr_to_ppy(cast(Expr, node))
+        return instr_to_ppy(cast(Instr, node))
+    except PpyPrintError:
+        return str(node)

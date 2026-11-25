@@ -17,11 +17,11 @@ from typing import IO, Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar,
 
 import click
 from prodigy.language import Instr, Program, Var, compiler, WhileInstr
+from prodigy.language.parser import check_syntax
 from prodigy.language.syntax_errors import ProgramSyntaxError
 
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.deprecations import program_syntax as _program_syntax
 from prodigy.analysis.exceptions import (ConfigurationError, HeuristicsError, InvalidProbabilityError,
                                          UndefinedDistributionError, UnsupportedFeatureError, VerificationError)
 from prodigy.analysis.equivalence.verdict import Comparison, compare, show_valuation
@@ -131,15 +131,16 @@ def cli(ctx: click.Context,
 # pylint: enable-msg=too-many-arguments
 
 
-_SYNTAX_HELP = ("Syntax of the program files: ppy (the default; .pgcl was removed in v0.6.0, "
-                "convert such programs with Prodigy v0.5.x).")
+_SYNTAX_HELP = ("Syntax of the program files: ppy, the only one (kept for compatibility; the .pgcl syntax "
+                "was removed in v0.6.0, convert such programs with Prodigy v0.5.x).")
 
 
 _Command = TypeVar("_Command", bound=Callable[..., Any])  # a click command function
 
 
 def _syntax_option(command: _Command) -> _Command:
-    return click.option('--syntax', type=click.Choice(("ppy", "pgcl")), default=None, help=_SYNTAX_HELP)(command)
+    # no Choice: a removed syntax is answered with the removal message (check_syntax), not with click's error
+    return click.option('--syntax', metavar="ppy", default=None, help=_SYNTAX_HELP)(command)
 
 
 def _with_source_line(message: str, source: str, line: Optional[int], column: Optional[int]) -> str:
@@ -149,33 +150,34 @@ def _with_source_line(message: str, source: str, line: Optional[int], column: Op
     return f"{message}\n    {lines[line - 1]}\n    {' ' * (column - 1)}^"
 
 
-def _read_program(program_file: IO, syntax: Optional[str]) -> Tuple[str, Program, str]:
-    """Read and parse a program file; the syntax is chosen by ``syntax`` or the file extension."""
+def _read_program(program_file: IO, syntax: Optional[str]) -> Tuple[str, Program]:
+    """Read and parse a ``.ppy`` program file; ``--syntax`` and the file extension are only checked (the
+    boundary of the CLI, :func:`prodigy.language.parser.check_syntax`)."""
     source = program_file.read()
     name = getattr(program_file, "name", "<program>")
     try:
-        chosen = _program_syntax(syntax, name)
+        check_syntax(syntax, name)
     except ValueError as exc:
         raise click.ClickException(f"{name}: {exc}") from exc
     try:
-        program = compiler.parse_program(source, chosen)
+        program = compiler.parse_program(source)
     except ProgramSyntaxError as exc:
         raise click.ClickException(_with_source_line(f"{name}: {exc}", source, exc.line, exc.column)) from exc
-    return source, program, chosen
+    return source, program
 
 
-def _require_type_correct(program_file: IO, program: Program, source: str, syntax: str) -> None:
+def _require_type_correct(program_file: IO, program: Program, source: str) -> None:
     """Ends with the GUI's message if the type checker rejects the program (#334); prints its warnings on
     stderr."""
     # pylint: disable=import-outside-toplevel
     from prodigy.web.diagnostics import language_warning_diagnostics, type_error
-    diagnostic = type_error(program, source, syntax)
+    diagnostic = type_error(program, source)
     name = getattr(program_file, "name", "<program>")
     if diagnostic is not None:
         raise click.ClickException(_with_source_line(f"{name}: type error: {diagnostic['message']}", source,
                                                      diagnostic["line"], diagnostic["column"]))
     # warnings go to stderr, so that --json stays clean (#377, #335)
-    for warning in language_warning_diagnostics(program, source, syntax):
+    for warning in language_warning_diagnostics(program, source):
         print(f"{name}:{warning['line']}:{warning['column']}: {Style.YELLOW}warning:{Style.RESET} "
               f"{warning['message']}", file=sys.stderr)
 
@@ -205,14 +207,14 @@ def _collect_decisions(loop_specs: Tuple[str, ...], decisions_file: Optional[IO]
     return decisions
 
 
-def _checked_decisions(decisions: _RawDecisions, program: Program, source: str, syntax: str) -> _RawDecisions:
+def _checked_decisions(decisions: _RawDecisions, program: Program, source: str) -> _RawDecisions:
     """``decisions`` (from ``--loop``/``--decisions``) after checking them, in particular their generating
     functions, before any engine sees them; exits with the problems otherwise."""
     try:
         parsed = parse_decisions(decisions)
     except ValueError as exc:
         raise click.BadParameter(str(exc), param_hint="'--loop' / '--decisions'") from exc
-    problems = validate_decisions(parsed, LoopRegistry(program, source, syntax), syntax)
+    problems = validate_decisions(parsed, LoopRegistry(program, source))
     if problems:
         for problem in problems:
             print(f"{Style.OKRED}Error:{Style.RESET} {problem}", file=sys.stderr)
@@ -220,16 +222,16 @@ def _checked_decisions(decisions: _RawDecisions, program: Program, source: str, 
     return decisions
 
 
-def _expression_option(text: str, option: str, program: Program, syntax: str) -> str:
+def _expression_option(text: str, option: str, program: Program) -> str:
     """The generating function ``text`` of the command-line option ``option``, checked before any engine
-    sees it (SymPy's parser evaluates Python code): an expression of ``syntax`` over numbers, the
+    sees it (SymPy's parser evaluates Python code): a ``.ppy`` expression over numbers, the
     program's variables and parameters and the functions of
     :data:`~prodigy.language.expression_allowlist.MATH_FUNCTIONS`. Returned in the engines' spelling."""
     # pylint: disable=import-outside-toplevel
     from prodigy.language.expression_allowlist import MATH_FUNCTIONS, InadmissibleExpression, admissible_expression
     names = [str(v) for v in program.variables] + [str(p) for p in program.parameters]
     try:
-        return admissible_expression(text.strip(), names=names, syntax=syntax, functions=MATH_FUNCTIONS)
+        return admissible_expression(text.strip(), names=names, functions=MATH_FUNCTIONS)
     except InadmissibleExpression as exc:
         raise click.BadParameter(str(exc), param_hint=f"'{option}'") from exc
 
@@ -256,8 +258,8 @@ def main(ctx: click.Context, program_file: IO, input_dist: str,  # pylint: disab
     # Parse and the input and do typechecking.
     logger.debug("Read file %s", program_file.name)
     logger.debug("Input distribution: %s", input_dist)
-    program_source, program, syntax = _read_program(program_file, syntax)
-    _require_type_correct(program_file, program, program_source, syntax)
+    program_source, program = _read_program(program_file, syntax)
+    _require_type_correct(program_file, program, program_source)
 
     if show_input_program:
         print("Program source:")
@@ -267,11 +269,11 @@ def main(ctx: click.Context, program_file: IO, input_dist: str,  # pylint: disab
     if input_dist is None:
         dist = config.factory.one(*program.variables.keys())
     else:
-        dist = input_distribution_from_text(config, input_dist, program, syntax)
+        dist = input_distribution_from_text(config, input_dist, program)
 
     logger.debug("Start analysis.")
-    decisions = _checked_decisions(_collect_decisions(loop_specs, None), program, program_source, syntax)
-    session = AnalysisSession.interactive(program, source=program_source, syntax=syntax, config=config,
+    decisions = _checked_decisions(_collect_decisions(loop_specs, None), program, program_source)
+    session = AnalysisSession.interactive(program, source=program_source, config=config,
                                           decisions=decisions)
     start = time.perf_counter()
     with session.activate():
@@ -306,8 +308,8 @@ _VERDICT_EXIT = {"equivalent": EXIT_EQUIVALENT, "not_equivalent": EXIT_NOT_EQUIV
 def check_equality(ctx: click.Context, program_file: IO, other_program_file: IO, syntax: Optional[str]) -> None:
     """
     Checks whether two programs are equivalent, i.e. have the same output distribution for every input,
-    e.g. a while loop and a loop-free invariant program. Each file is read in the syntax of its extension,
-    unless --syntax is given. Loops are decided interactively, as in `prodigy main`.
+    e.g. a while loop and a loop-free invariant program, both .ppy. Loops are decided interactively, as in
+    `prodigy main`.
 
     The verdict is sound: "equivalent" only if the check proves equality and both analyses are exact,
     "not equivalent" only with a witness (an output state whose probabilities provably differ on one
@@ -316,15 +318,14 @@ def check_equality(ctx: click.Context, program_file: IO, other_program_file: IO,
 
     Exit codes: 0 equivalent, 3 not equivalent, 4 undecided; 1 and 2 are errors (e.g. a syntax error).
     """
-    source, prog, program_syntax = _read_program(program_file, syntax)
-    _require_type_correct(program_file, prog, source, program_syntax)
-    other_source, other_prog, other_syntax = _read_program(other_program_file, syntax)
-    _require_type_correct(other_program_file, other_prog, other_source, other_syntax)
+    source, prog = _read_program(program_file, syntax)
+    _require_type_correct(program_file, prog, source)
+    other_source, other_prog = _read_program(other_program_file, syntax)
+    _require_type_correct(other_program_file, other_prog, other_source)
 
     start = time.perf_counter()
-    # invariant files asked for on the terminal are read in the syntax of the program; the witness search
-    # analyses the programs again and takes the answers given for the check
-    session = AnalysisSession(None, syntax=program_syntax, config=ctx.obj['CONFIG'],
+    # the witness search analyses the programs again and takes the answers given for the check
+    session = AnalysisSession(None, config=ctx.obj['CONFIG'],
                               provider=InteractiveDecisions(remember=True), parameter_synthesis="allow")
     session.detached_session = True
     with session.activate():
@@ -384,8 +385,8 @@ def independent_vars(ctx: click.Context, program_file: IO, compute_exact: bool,
     :param compute_exact: if True, also compute and return the actual stochastic independencies
     :return: under-approximation or the actual relation
     """
-    source, prog, program_syntax = _read_program(program_file, syntax)
-    _require_type_correct(program_file, prog, source, program_syntax)
+    source, prog = _read_program(program_file, syntax)
+    _require_type_correct(program_file, prog, source)
 
     start = time.perf_counter()
     indep_rel: Set[frozenset[Var]] = get_independent_vars_of(prog) #, program_file, compute_exact)
@@ -443,19 +444,19 @@ def invariant_synthesis(ctx: click.Context,  # pylint: disable=too-many-argument
     """
 
     # read the program source file and parse it into a program object.
-    source, prog, syntax = _read_program(program_file, syntax)
-    _require_type_correct(program_file, prog, source, syntax)
+    source, prog = _read_program(program_file, syntax)
+    _require_type_correct(program_file, prog, source)
     if invariant:
-        invariant = _expression_option(invariant, "--invariant", prog, syntax)
-    with AnalysisSession.detached(syntax).activate():
+        invariant = _expression_option(invariant, "--invariant", prog)
+    with AnalysisSession.detached().activate():
         _invariant_synthesis(ctx.obj["CONFIG"], prog, invariant, input_dist, max_degree, time_limit,
-                             template_time_limit, syntax)
+                             template_time_limit)
 
 
 def _invariant_synthesis(config: ForwardAnalysisConfig, prog: Program,  # pylint: disable=too-many-arguments
                          invariant: str, input_dist: str,
                          max_degree: int = DEFAULT_MAX_DEGREE, time_limit: int = DEFAULT_SYNTHESIS_TIME_LIMIT,
-                         template_time_limit: int = DEFAULT_TEMPLATE_TIME_LIMIT, syntax: str = "ppy") -> None:
+                         template_time_limit: int = DEFAULT_TEMPLATE_TIME_LIMIT) -> None:
 
     # isolate the initial distribution description from the actual while loop.
     loops = [1 if isinstance(instr, WhileInstr) else 0 for instr in prog.instructions]
@@ -465,7 +466,7 @@ def _invariant_synthesis(config: ForwardAnalysisConfig, prog: Program,  # pylint
     # compute the initial distribution with respect to the user specified configuration
     dist = config.factory.one(*prog.variables.keys())
     if input_dist is not None:
-        dist = input_distribution_from_text(config, input_dist, prog, syntax)
+        dist = input_distribution_from_text(config, input_dist, prog)
     dist, _ = compute_semantics(prog.instructions[:loops.index(1)],
                                   ProgramInfo(prog),
                                   dist,
@@ -516,16 +517,16 @@ def evt_lower_bound(ctx: click.Context, program_file: IO, invariant: str, input_
     """
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.lowerbounds.subinvariant import evt_subinvariant_verification
-    source, prog, syntax = _read_program(program_file, syntax)
-    _require_type_correct(program_file, prog, source, syntax)
+    source, prog = _read_program(program_file, syntax)
+    _require_type_correct(program_file, prog, source)
     prefix, loop, rest = _loop_parts(prog)
-    invariant = _expression_option(invariant, "--invariant", prog, syntax)
+    invariant = _expression_option(invariant, "--invariant", prog)
     config = ctx.obj["CONFIG"]
     variables = list(prog.variables.keys())
     dist = config.factory.one(*variables) if input_dist is None \
-        else input_distribution_from_text(config, input_dist, prog, syntax)
+        else input_distribution_from_text(config, input_dist, prog)
     zero = config.factory.from_expr("0", *variables)
-    with AnalysisSession.detached(syntax).activate():
+    with AnalysisSession.detached().activate():
         dist, err = compute_semantics(prefix, ProgramInfo(prog), dist, zero, config)
         start = time.perf_counter()
         subinvariant = config.factory.from_expr(invariant, *variables)
@@ -580,8 +581,8 @@ def evt_sandwich(  # pylint: disable=too-many-arguments
     """
     from prodigy.analysis.lowerbounds.problem import load_problem
     from prodigy.analysis.lowerbounds.sandwich import evt_sandwich as run_sandwich, print_result, write_json
-    source, prog, program_syntax = _read_program(program_file, syntax)
-    _require_type_correct(program_file, prog, source, program_syntax)
+    source, prog = _read_program(program_file, syntax)
+    _require_type_correct(program_file, prog, source)
     problem = load_problem(prog)
     lower = [_parse_shape(s) for s in lower_specs] or None
     upper = [_parse_shape(s) for s in upper_specs] or None
@@ -695,7 +696,7 @@ def _print_summary(result: Dict[str, Any]) -> None:  # the JSON result, see prod
                    "of their certificates. Printed as text, or in the JSON result under 'steps' and 'trace'.")
 @click.option('--watch', 'watches', multiple=True, metavar="QUERY",
               help="With --steps: evaluate this query after every top-level step, e.g. 'Pr[x == 3]' or 'Ex[x]' "
-                   "(in the program's syntax; repeatable).")
+                   "(a .ppy expression; repeatable).")
 @click.option('--step-iterations', type=click.IntRange(min=1), default=40, show_default=True,
               help="With --steps: iterates kept per loop (spread evenly over the iterations).")
 @click.option('--output', type=click.File('w'), required=False, help="Write the JSON result to this file.")
@@ -708,25 +709,22 @@ def analyze(  # pylint: disable=too-many-arguments
     Analyse a program without asking questions: every loop needs a strategy (--loop or
     --decisions). Queries are answered with sound intervals.
     """
-    program_source, program, syntax = _read_program(program_file, syntax)
-    _require_type_correct(program_file, program, program_source, syntax)
+    program_source, program = _read_program(program_file, syntax)
+    _require_type_correct(program_file, program, program_source)
     config: ForwardAnalysisConfig = ctx.obj['CONFIG']
     decisions = parse_decisions(_checked_decisions(_collect_decisions(loop_specs, decisions_file), program,
-                                                   program_source, syntax))
+                                                   program_source))
     if watches and not steps:
         raise click.UsageError("--watch needs --steps.")
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.trace import TraceLimits, describe_step, parse_watch
-    names = list(program.variables) + list(program.parameters)
-    for watch in watches:
-        try:
-            parse_watch(watch, syntax, names)
-        except ValueError as exc:
-            raise click.BadParameter(str(exc), param_hint="--watch") from exc
-    session = AnalysisSession(program, source=program_source, syntax=syntax, config=config, decisions=decisions,
-                              input_distribution=input_dist, capture_output=True,
-                              record_steps=steps, coefficient_limit=coefficients,
-                              trace_limits=TraceLimits(iterates=step_iterations), watches=watches)
+    from prodigy.analysis.trace import InvalidWatchError, TraceLimits, describe_step
+    try:
+        session = AnalysisSession(program, source=program_source, config=config, decisions=decisions,
+                                  input_distribution=input_dist, capture_output=True,
+                                  record_steps=steps, coefficient_limit=coefficients,
+                                  trace_limits=TraceLimits(iterates=step_iterations), watches=watches)
+    except InvalidWatchError as exc:
+        raise click.BadParameter(str(exc), param_hint="--watch") from exc
     result = session.run().to_json()
     if steps and not as_json:
         for step in result["steps"]:
@@ -755,9 +753,9 @@ def outline(program_file: IO, as_json: bool, syntax: Optional[str]) -> None:
     """
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.result import outline_program
-    source, program, syntax = _read_program(program_file, syntax)
-    _require_type_correct(program_file, program, source, syntax)
-    info = outline_program(program, source, syntax)
+    source, program = _read_program(program_file, syntax)
+    _require_type_correct(program_file, program, source)
+    info = outline_program(program, source)
     if as_json:
         print(json.dumps(info, indent=2))
         return

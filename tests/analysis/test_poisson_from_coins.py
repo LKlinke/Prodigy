@@ -19,7 +19,7 @@ EXAMPLE = Path(__file__).parents[2] / "pgfexamples" / "inference" / "loopy" / "c
 @pytest.mark.slow
 def test_unrolled_intervals_contain_poisson():
     source = EXAMPLE.read_text()
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, capture_output=True,
                               decisions={0: "unroll:iterations=8", 1: "unroll:iterations=30"})
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]

@@ -40,7 +40,7 @@ if (x >= 1) {
 def _session(answers: List[str], monkeypatch: pytest.MonkeyPatch, syntax: str = "ppy") -> AnalysisSession:
     replies = iter(answers)
     monkeypatch.setattr(builtins, "input", lambda _=None: next(replies))
-    return AnalysisSession(None, syntax=syntax, config=ForwardAnalysisConfig(),
+    return AnalysisSession(None, config=ForwardAnalysisConfig(),
                            provider=InteractiveDecisions(remember=True), parameter_synthesis="allow")
 
 

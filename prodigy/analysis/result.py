@@ -36,8 +36,8 @@ that do not know the key read the result of the first program as before.
 
 Exact values are strings in Prodigy's notation; every exact value that is a number also
 comes as ``..._float``. Expressions taken from the program (query expressions, loop guards,
-the instructions of ``steps``) are written in the program's syntax, which ``syntax`` states
-(``ppy`` or ``pgcl``): ``x == 1 and y ** 2 < 3`` for ``.ppy``, ``(x = 1) & (y^2 < 3)`` for ``.pgcl``.
+the instructions of ``steps``) are written in ``.ppy``, e.g. ``x == 1 and y ** 2 < 3``; ``syntax`` is always
+``ppy`` (kept for compatibility; the ``.pgcl`` syntax was removed in v0.6.0).
 
 The shown form
 --------------
@@ -824,20 +824,20 @@ def failure_bounds(status: str) -> Dict[str, Any]:
 # Program outline
 # ---------------------------------------------------------------------------------------
 
-def outline_program(program: Program, source: Optional[str] = None, syntax: str = "ppy") -> Dict[str, Any]:
+def outline_program(program: Program, source: Optional[str] = None) -> Dict[str, Any]:
     """Variables, parameters, loops and queries of ``program`` (for editors and forms)."""
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.session import LoopRegistry, query_instructions, query_positions
-    loops = LoopRegistry(program, source, syntax)
-    positions = query_positions(source, syntax) if source is not None else []
+    loops = LoopRegistry(program, source)
+    positions = query_positions(source) if source is not None else []
     queries = []
     for index, instr in enumerate(query_instructions(program)):
         line, column = positions[index] if index < len(positions) else (None, None)
-        queries.append({"index": index, "kind": _query_kind(instr), "text": _query_text(instr, syntax),
+        queries.append({"index": index, "kind": _query_kind(instr), "text": _query_text(instr),
                         "line": line, "column": column})
     return {
-        "variables": {name: type_name(typ, syntax) for name, typ in program.variables.items()},
-        "parameters": {name: type_name(typ, syntax) for name, typ in program.parameters.items()},
+        "variables": {name: type_name(typ) for name, typ in program.variables.items()},
+        "parameters": {name: type_name(typ) for name, typ in program.parameters.items()},
         "constants": {name: str(value) for name, value in program.constants.items()},
         "functions": list(program.functions.keys()),
         "loops": [loop.to_json() for loop in loops],
@@ -845,20 +845,19 @@ def outline_program(program: Program, source: Optional[str] = None, syntax: str 
     }
 
 
-def _query_text(instr: Any, syntax: str) -> str:
+def _query_text(instr: Any) -> str:
     from prodigy.language.ppy_printer import spell  # pylint: disable=import-outside-toplevel
-    return spell(instr, syntax)
+    return spell(instr)
 
 
-def type_name(typ: Any, syntax: str = "ppy") -> str:
-    """Spelling of a declared type in ``syntax`` (``nat``, ``nat [0, 5]`` or ``nat[0, 5]`` in
-    ``.ppy``, ``bool``, ``real``, ...)."""
+def type_name(typ: Any) -> str:
+    """Spelling of a declared type in ``.ppy`` (``nat``, ``nat[0, 5]``, ``bool``, ``real``, ...)."""
     name = type(typ).__name__
     if name == "NatType":
         bounds = getattr(typ, "bounds", None)
         if bounds is None:
             return "nat"
-        return f"nat{'' if syntax == 'ppy' else ' '}[{bounds.lower}, {bounds.upper}]"
+        return f"nat[{bounds.lower}, {bounds.upper}]"
     return {"BoolType": "bool", "RealType": "real", "DistributionType": "dist"}.get(name, str(typ))
 
 
@@ -887,8 +886,6 @@ def _query_kind(instr: Any) -> str:
 class AnalysisResult:
     status: str = "ok"
     """``ok``, ``needs_decision``, ``error``; front ends add ``timeout`` and ``cancelled``."""
-    syntax: str = "ppy"
-    """Syntax of the program (``pgcl`` or ``ppy``); expressions from the program use it."""
     error: Optional[Dict[str, Any]] = None
     program: Optional[Dict[str, Any]] = None
     input: Dict[str, Any] = field(default_factory=dict)
@@ -919,7 +916,8 @@ class AnalysisResult:
             "prodigy_version": prodigy_version(),
             "status": self.status,
             "error": self.error,
-            "syntax": self.syntax,
+            # kept in the schema for compatibility: programs and the expressions from them are .ppy
+            "syntax": "ppy",
             "program": self.program,
             "input": self.input,
             "distribution": distribution,
@@ -947,12 +945,12 @@ def build_result(session: "AnalysisSession") -> AnalysisResult:
         return _build_result(session)
 
 
-def _require_type_correct(program: Program, source: Optional[str], syntax: str) -> None:
+def _require_type_correct(program: Program, source: Optional[str]) -> None:
     """Rejects a program that the type checker rejects, with the GUI's message (#351)."""
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.exceptions import ForwardAnalysisError
     from prodigy.web.diagnostics import type_error
-    diagnostic = type_error(program, source or "", syntax)
+    diagnostic = type_error(program, source or "")
     if diagnostic is not None:
         raise ForwardAnalysisError(f"Type error: {diagnostic['message']}")
 
@@ -964,7 +962,7 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
     from prodigy.analysis.input_distribution import input_distribution_from_text
     from prodigy.analysis.session import DecisionRequired
 
-    result = AnalysisResult(syntax=session.syntax)
+    result = AnalysisResult()
     config = session.config
     started = time.perf_counter()
     decisions = {str(k): v.to_json() for k, v in session.provider.decisions.items()}
@@ -975,7 +973,7 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
         "decisions": decisions,
     }
     if session.program is not None:
-        result.program = outline_program(session.program, session.source, session.syntax)
+        result.program = outline_program(session.program, session.source)
 
     analysis_time = 0.0
     final: Optional["Distribution"] = None
@@ -986,11 +984,11 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
         try:
             program = session.program
             assert program is not None
-            _require_type_correct(program, session.source, session.syntax)
+            _require_type_correct(program, session.source)
             if session.input_distribution is None:
                 dist = config.factory.one(*program.variables.keys())
             elif isinstance(session.input_distribution, str):
-                dist = input_distribution_from_text(config, session.input_distribution, program, session.syntax)
+                dist = input_distribution_from_text(config, session.input_distribution, program)
             else:
                 dist = session.input_distribution
             analysis_start = time.perf_counter()
@@ -1016,7 +1014,7 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
             if session.dist_values:
                 # pylint: disable=import-outside-toplevel
                 from prodigy.analysis.nested_inference import dist_values_json
-                result.distributions = dist_values_json(session.dist_values, session.syntax,
+                result.distributions = dist_values_json(session.dist_values,
                                                         session.coefficient_limit)
             result.timing["summary"] = round(time.perf_counter() - summary_start, 6)
             result.error_probability, result.error_probability_float = \
@@ -1076,7 +1074,7 @@ def _language_warnings(session: Any) -> List[str]:
         return []
     # pylint: disable=import-outside-toplevel
     from prodigy.web.diagnostics import language_warning_diagnostics
-    found = language_warning_diagnostics(session.program, session.source, session.syntax)
+    found = language_warning_diagnostics(session.program, session.source)
     return [f"line {d['line']}, column {d['column']}: {d['message']}" for d in found]
 
 

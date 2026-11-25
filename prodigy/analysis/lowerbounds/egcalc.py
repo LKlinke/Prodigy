@@ -11,7 +11,7 @@ and ``P`` is a polynomial with rational coefficients, stored as a dict mapping e
 :class:`fractions.Fraction`.  The coefficients of ``P / D`` are *eventually geometric*: along variable ``i`` they
 satisfy ``c_{n + p_i e_i} = r_i c_n`` as soon as ``n_i`` exceeds the degree of ``P`` in ``X_i``.
 
-All loop-free pGCL statements of the supported fragment map numerators over ``D`` to numerators over the same
+All loop-free statements of the supported fragment map numerators over ``D`` to numerators over the same
 ``D``: guards and observations comparing a single variable with a constant (or testing it modulo ``m`` with
 ``m | p_i``), increments and decrements (monus) by constants, constant assignments, sampling from ``unif``,
 ``bernoulli`` and ``binomial`` (and from ``geometric(q)`` if ``r_i = 1 - q`` and ``p_i = 1``), probabilistic choice,

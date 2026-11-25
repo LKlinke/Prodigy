@@ -56,16 +56,14 @@ def _assert_untouched(tmp_path):
     assert not (tmp_path / "pwned").exists(), "a malicious expression was evaluated"
 
 
-@pytest.mark.parametrize("syntax", ["ppy"])
-def test_expression_parameters_refuse_malicious_text(tmp_path, syntax):
+def test_expression_parameters_refuse_malicious_text(tmp_path):
     spec = get_loop_strategy("evt_invariant").param("invariant")
     for text in _malicious(tmp_path):
         with pytest.raises(ValueError):
-            spec.parse(text, syntax)
+            spec.parse(text)
     _assert_untouched(tmp_path)
 
 
-@pytest.mark.parametrize("syntax", ["ppy"])
 @pytest.mark.parametrize("text, spelled", [
     ("(x + 1/2)/(1 - c/2)", "(x + 1/2)/(1 - c/2)"),
     ("x**2/2 + 1/2", "x^2/2 + 1/2"),
@@ -73,28 +71,27 @@ def test_expression_parameters_refuse_malicious_text(tmp_path, syntax):
     ("exp(x - 1)", "exp(x - 1)"),
     (" sqrt(1/4)*x + 0.5 ", "sqrt(1/4)*x + 0.5"),
 ])
-def test_expression_parameters_accept_generating_functions(syntax, text, spelled):
-    assert get_loop_strategy("evt_subinvariant").param("subinvariant").parse(text, syntax) == spelled
+def test_expression_parameters_accept_generating_functions(text, spelled):
+    assert get_loop_strategy("evt_subinvariant").param("subinvariant").parse(text) == spelled
 
 
 def test_boolean_words_are_not_generating_functions():
     for text in ["not x", "x and c", "x or c", "true", "False*x"]:
-        for syntax in ("ppy", "ppy"):
-            with pytest.raises(CandidateError, match="Boolean"):
-                admissible_expression(text, syntax=syntax, functions=MATH_FUNCTIONS)
+        with pytest.raises(CandidateError, match="Boolean"):
+            admissible_expression(text, functions=MATH_FUNCTIONS)
 
 
 def test_validate_decisions_reports_malicious_expressions(tmp_path):
     for text in _malicious(tmp_path):
         decisions = parse_decisions({"0": {"strategy": "evt_invariant", "params": {"invariant": text}},
                                      "*": {"strategy": "evt_subinvariant", "params": {"subinvariant": text}}})
-        problems = validate_decisions(decisions, syntax="ppy")
+        problems = validate_decisions(decisions)
         assert len(problems) == 2, problems
         assert problems[0].startswith("loop 0: EVT invariant I: ")
         assert problems[1].startswith("default decision: EVT sub-invariant nu: ")
     _assert_untouched(tmp_path)
     good = parse_decisions({"0": {"strategy": "evt_invariant", "params": {"invariant": "x**2"}}})
-    assert validate_decisions(good, syntax="ppy") == []
+    assert validate_decisions(good) == []
 
 
 @pytest.mark.parametrize("engine", list(ForwardAnalysisConfig.Engine), ids=lambda e: e.name.lower())

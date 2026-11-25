@@ -4,7 +4,7 @@ r"""
 AST
 ---
 
-All data types to represent a pGCL program.
+All data types to represent a program.
 
 .. note::
 
