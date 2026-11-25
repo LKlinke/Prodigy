@@ -1,18 +1,22 @@
 """
-The engine text of expressions (P5a, T6): :func:`~prodigy.language.engine_text.to_engine_text` writes exactly the
-text the engines read before ``str()`` of the AST became ``.ppy`` (:func:`_legacy_text`, a frozen copy of the old
-``__str__`` methods).
+The engine text of expressions (P5a, T6). :func:`~prodigy.language.engine_text.to_engine_text` writes the text the
+engines read before ``str()`` of the AST became ``.ppy`` (:func:`_legacy_text`, a frozen copy of the old
+``__str__`` methods), except that a fraction or negative literal as an operand is now in parentheses: the old text
+``1/2 / 3/4`` meant ``((1/2)/3)/4``. The engines read engine text as the expression it writes
+(:func:`_sympy_of` builds the expression from the tree directly).
 """
 from decimal import Decimal
 from fractions import Fraction
 
 import pytest
+import sympy
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from prodigy.language import (Binop, BinopExpr, BoolLitExpr, CategoricalExpr, ExpectationExpr, FunctionCallExpr,
                               InferExpr, NatLitExpr, ProbabilityExpr, RealLitExpr, SampleExpr, SubstExpr, Unop,
                               UnopExpr, VarExpr)
+from prodigy.distribution.engine_text import parse_engine_text
 from prodigy.language.engine_text import to_engine_text
 
 pytestmark = pytest.mark.fuzz
@@ -62,9 +66,9 @@ def _legacy_text(expr) -> str:
 
 _NAMES = st.sampled_from(["x", "y", "n", "p", "E", "S", "pi"])
 _NATS = st.integers(min_value=0, max_value=50).map(NatLitExpr)
+_DECIMALS = st.decimals(min_value=Decimal("0"), max_value=Decimal("9.99"), places=2).map(lambda d: RealLitExpr(str(d)))
 _REALS = st.one_of(
-    st.fractions(min_value=Fraction(-5), max_value=Fraction(5), max_denominator=12).map(RealLitExpr),
-    st.decimals(min_value=Decimal("0"), max_value=Decimal("9.99"), places=2).map(lambda d: RealLitExpr(str(d))))
+    st.fractions(min_value=Fraction(-5), max_value=Fraction(5), max_denominator=12).map(RealLitExpr), _DECIMALS)
 _ARITHMETIC_OPS = st.sampled_from([Binop.PLUS, Binop.MINUS, Binop.TIMES, Binop.DIVIDE, Binop.POWER])
 _ALL_OPS = st.sampled_from(list(_OPERATORS))
 
@@ -79,7 +83,8 @@ def _arithmetic():
 
 
 def _any_expr():
-    leaves = st.one_of(_NAMES.map(VarExpr), _NATS, _REALS, st.booleans().map(BoolLitExpr))
+    """Expressions of every kind whose literals are naturals and unsigned decimals (the text is unchanged)."""
+    leaves = st.one_of(_NAMES.map(VarExpr), _NATS, _DECIMALS, st.booleans().map(BoolLitExpr))
     return st.recursive(leaves, lambda inner: st.one_of(
         st.builds(BinopExpr, _ALL_OPS, inner, inner),
         st.builds(UnopExpr, st.sampled_from([Unop.NEG, Unop.MINUS]), inner),
@@ -90,11 +95,40 @@ def _any_expr():
         st.just(ExpectationExpr(VarExpr("d"))),
         st.just(SampleExpr("d")),
         st.builds(lambda args: InferExpr(FunctionCallExpr("f", (args, {}))), st.lists(inner, max_size=2)),
-        st.builds(lambda a, b: CategoricalExpr([(a, RealLitExpr("1/3")), (b, RealLitExpr("2/3"))]), inner, inner),
+        st.builds(lambda a, b: CategoricalExpr([(a, RealLitExpr("0.25")), (b, RealLitExpr("0.75"))]), inner, inner),
     ), max_leaves=10)
 
 
 @settings(max_examples=400, deadline=None)
 @given(_any_expr())
 def test_engine_text_is_the_text_the_engines_read(expr):
-    assert to_engine_text(expr) == _legacy_text(expr) == str(expr)
+    assert to_engine_text(expr) == _legacy_text(expr)
+
+
+def _sympy_of(expr) -> sympy.Expr:
+    """The arithmetic expression ``expr`` as SymPy builds it from the tree, without any text."""
+    if isinstance(expr, VarExpr):
+        return sympy.Symbol(expr.var, real=True)
+    if isinstance(expr, (NatLitExpr, RealLitExpr)):
+        return sympy.Rational(str(expr.value))
+    if isinstance(expr, UnopExpr):
+        return -_sympy_of(expr.expr)
+    if isinstance(expr, FunctionCallExpr):
+        return getattr(sympy, expr.function)(*map(_sympy_of, expr.params[0]))
+    operations = {Binop.PLUS: lambda a, b: a + b, Binop.MINUS: lambda a, b: a - b, Binop.TIMES: lambda a, b: a * b,
+                  Binop.DIVIDE: lambda a, b: a / b, Binop.POWER: lambda a, b: a ** b}
+    return operations[expr.operator](_sympy_of(expr.lhs), _sympy_of(expr.rhs))
+
+
+@settings(max_examples=300, deadline=None)
+@given(_arithmetic())
+def test_engines_read_engine_text_as_the_expression(expr):
+    """The engine text of an arithmetic expression, with fraction and negative literals as operands, parses to the
+    expression itself (``parse(to_engine_text(e)) == e``)."""
+    try:
+        expected = _sympy_of(expr)
+    except (ZeroDivisionError, OverflowError, ValueError):
+        return
+    parsed = parse_engine_text(to_engine_text(expr), rational=True,
+                               symbol=lambda name: sympy.Symbol(name, real=True))
+    assert parsed == expected or sympy.simplify(parsed - expected) == 0

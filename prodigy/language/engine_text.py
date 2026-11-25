@@ -17,6 +17,8 @@ This module knows nothing of SymPy or the engines; it only writes the text.
     >>> from prodigy.language.ppy_parser import parse_ppy_expr
     >>> to_engine_text(parse_ppy_expr("x ** 2 + 3 * y"))
     '((x) ^ (2)) + (3 * y)'
+    >>> to_engine_text(parse_ppy_expr("(1/2) / (3/4)"))
+    '(1/2) / (3/4)'
     >>> to_engine_text(parse_ppy_expr("x < 2 and not true"))
     '(x < 2) & not true'
 """
@@ -47,13 +49,18 @@ ENGINE_OPERATORS = {
 }
 """The spelling of each binary operator in engine text."""
 
-_SIMPLE = (VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr, ProbabilityExpr, ExpectationExpr)
+_SIMPLE = (VarExpr, BoolLitExpr, NatLitExpr, UnopExpr, ProbabilityExpr, ExpectationExpr)
 
 
 def _operand(expr: Expr) -> str:
-    """An operand: in parentheses unless it is a name, a literal, a unary operation or ``Pr``/``Ex``."""
+    """
+    An operand: in parentheses unless it is a name, a natural or unsigned decimal literal, a unary operation or
+    ``Pr``/``Ex``. A fraction (``1/2``) or a negative literal is compound text, so ``(1/2) / (3/4)`` is not written
+    as ``1/2 / 3/4`` (which reads as ``((1/2)/3)/4``).
+    """
     text = to_engine_text(expr)
-    return text if isinstance(expr, _SIMPLE) else f"({text})"
+    simple = isinstance(expr, _SIMPLE) or (isinstance(expr, RealLitExpr) and text.replace(".", "", 1).isdigit())
+    return text if simple else f"({text})"
 
 
 # pylint: disable=too-many-return-statements

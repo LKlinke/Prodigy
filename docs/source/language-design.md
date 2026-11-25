@@ -516,7 +516,7 @@ masses and coefficients an engine gives back) into SymPy.
 | substitution (internal) | `(e)[x/1]` | none |
 
 Every compound operand is in parentheses, so the text does not depend on the precedence rules of the engines'
-parsers; a rational literal counts as compound (`x / (1/2)` is `x / (1/2)`, not `x / 1/2`). Names are read back
+parsers; a rational or negative literal counts as compound (`x / (1/2)` is `x / (1/2)`, not `x / 1/2`). Names are read back
 in one of two ways (`parse_engine_text`): either exactly the given variables and parameters are symbols and
 every other name has its SymPy meaning (`E`, `pi`, `exp`), or every name that is not called is a symbol and a
 called name is a function; Euler's number is written `exp(1)` for that reason. SymPy's parser evaluates Python
