@@ -81,7 +81,7 @@ def _with_forced(shape: TemplateShape, problem: LoopProblem) -> TemplateShape:
         rates[i], periods[i] = Fraction(r), p
     box = shape.reach_box
     if box is not None:
-        box = [max(b, t + p + 1) if r != 0 else b for b, t, r, p in zip(box, tail, rates, periods)]
+        box = [max(b, t + p + 1) if r != 0 else b for b, t, r, p in zip(box, tail, rates, periods, strict=True)]
     return TemplateShape(rates, periods, tail, box, shape.group)
 
 
@@ -91,14 +91,14 @@ def _upper_support(problem: LoopProblem, shape: TemplateShape, rounds: int = 6) 
     beyond the box, and the mass of these copies flows back into the box.  We therefore close the reachable states
     under these copies and under the transitions of the body, within a box twice as large."""
     assert shape.reach_box is not None
-    halo = [2 * b + 2 if r != 0 else b for b, r in zip(shape.reach_box, shape.rates)]
+    halo = [2 * b + 2 if r != 0 else b for b, r in zip(shape.reach_box, shape.rates, strict=True)]
     seeds = set(problem.initial_measure().keys())
     reach: set = set()
     for _ in range(rounds):
         reach = explicit.reachable(list(seeds), problem.guard, problem.body, problem.variables, halo)
         copies = set()
         for st in reach:
-            for i, (r, p, t) in enumerate(zip(shape.rates, shape.periods, shape.tail_start)):
+            for i, (r, p, t) in enumerate(zip(shape.rates, shape.periods, shape.tail_start, strict=True)):
                 if r != 0 and t <= st[i] < t + p:
                     v = st[i] + p
                     while v <= halo[i]:
@@ -127,7 +127,7 @@ def _initial_numerator(calc: GFCalculus, problem: LoopProblem) -> Num:
     start = problem.initial_state or tuple([0] * problem.d)
     one = {}
     for e, c in calc.den.poly().items():
-        one[tuple(a + b for a, b in zip(e, start))] = c
+        one[tuple(a + b for a, b in zip(e, start, strict=True))] = c
     return calc.run(problem.prefix, one)
 
 
@@ -211,7 +211,7 @@ def upper_objective(lp: TemplateLP, problem: LoopProblem, objective: str) -> Lis
             aff = _affine(q.expr)
             if aff is not None and aff[1] is not None:
                 mom = lp.exit_functional(moment=lp.calc.idx[aff[1]])
-                total = [t + m for t, m in zip(total, mom)]
+                total = [t + m for t, m in zip(total, mom, strict=True)]
     return total
 
 
@@ -247,7 +247,7 @@ def synthesize_upper(problem: LoopProblem, shapes: Sequence[TemplateShape], obje
             done_groups.add(shape.group)
             cert = lp.certificate(h, "upper")
             cert.extra["lp"] = lp
-            score = sum(o * v for o, v in zip(obj, h))
+            score = sum(o * v for o, v in zip(obj, h, strict=True))
             rec["exit_mass"] = directed_decimal(cert.verified_exit_mass(), True)
             if best is None or best_score is None or score < best_score:
                 best, best_score = cert, score

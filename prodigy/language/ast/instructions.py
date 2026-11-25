@@ -18,7 +18,7 @@ class InstrClass(Node):
     """Superclass for all instructions. See :obj:`Instr`."""
     def cast(self) -> Instr:
         """Cast to Instr. This is sometimes necessary to satisfy the type checker."""
-        return self  # type: ignore
+        return self  # type: ignore[return-value]
 
     @abstractmethod
     def __str__(self) -> str:

@@ -239,7 +239,8 @@ def _check_function_call(
         return CheckFail(expr, "Too many parameters")
 
     covered_names: Set[Var] = set()
-    for decl, param_expr in zip(param_list, expr.params[0]):
+    # the positional arguments; the parameters after them may be given by name (below)
+    for decl, param_expr in zip(param_list, expr.params[0], strict=False):
         typ = get_type(program, param_expr, True, predefined_functions)
         if isinstance(typ, CheckFail):
             return typ

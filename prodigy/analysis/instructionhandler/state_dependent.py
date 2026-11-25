@@ -106,7 +106,7 @@ def nonzero_state(distribution: Distribution, fixed: Optional[State] = None,
     free = sorted(distribution.get_variables() - given.keys())
     candidates = itertools.islice(default_monomial_iterator(len(free)), limit) if free else iter([[]])
     for values in candidates:
-        state = State({**given, **dict(zip(free, values))})
+        state = State({**given, **dict(zip(free, values, strict=True))})
         try:
             coefficient = distribution.filter_state(state).get_probability_mass()
         except (ArithmeticError, ValueError, NotImplementedError):

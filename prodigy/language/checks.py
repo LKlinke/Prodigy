@@ -103,4 +103,4 @@ def recursion(program: Program, name: str) -> Optional[str]:
     path = cycle([name])
     if path is None:
         return None
-    return ", ".join(f"{caller} calls {callee}" for caller, callee in zip(path, path[1:] + [name]))
+    return ", ".join(f"{caller} calls {callee}" for caller, callee in zip(path, path[1:] + [name], strict=True))

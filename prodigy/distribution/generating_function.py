@@ -247,7 +247,7 @@ def _term_generator(function: sympy.Poly) -> Iterator[Term]:
     for monomial, coefficient in reversed(function.terms()):
         if coefficient == 0:
             continue
-        yield coefficient, sympy.Mul(*(gen ** power for gen, power in zip(function.gens, monomial)))
+        yield coefficient, sympy.Mul(*(gen ** power for gen, power in zip(function.gens, monomial, strict=True)))
 
 
 def _parse_to_sympy(expr: SympyInput, real: bool = True, **kwargs: bool) -> sympy.Expr:
@@ -498,7 +498,7 @@ class GeneratingFunction(Distribution):
 
         # Set variables and parameters
         self._variables: Set[
-            sympy.Symbol] = self._function.free_symbols  # type: ignore
+            sympy.Symbol] = self._function.free_symbols
         self._parameters: Set[sympy.Symbol] = set()
         if variables:
             self._variables = self._variables.union(
@@ -714,8 +714,9 @@ class GeneratingFunction(Distribution):
                     return GeneratingFunction(s_g * s_f.subs(var, 0), var)
                 g_deg = s_g.as_poly(var).degree()
                 f_series = s_f.series(var, n=g_deg + 1).removeO().as_poly(var)
+                # coefficients from degree 0 up; beyond the shorter list one factor is 0
                 result = sympy.polys.Poly(reversed([cf * cg for cf, cg in zip(reversed(f_series.all_coeffs()), reversed(
-                    s_g.as_poly(var).all_coeffs()))]), var)
+                    s_g.as_poly(var).all_coeffs()), strict=False)]), var)
                 return GeneratingFunction(result.as_expr(), var)
 
             _, s_f_denom = s_f.as_numer_denom()
@@ -734,9 +735,10 @@ class GeneratingFunction(Distribution):
             logger.debug("Denominator: %s", s_result_denom)
             logger.debug("Comparing %i terms", f_degree * g_degree)
 
+            # as above: zip stops at the shorter list, whose missing coefficients are 0
             result = sympy.polys.Poly(reversed([cf * cg for cf, cg in zip(reversed(
                 s_f.series(var, n=f_degree * g_degree).removeO().as_poly(var).all_coeffs()), reversed(
-                s_g.series(var, n=f_degree * g_degree).removeO().as_poly(var).all_coeffs()))]), var)
+                s_g.series(var, n=f_degree * g_degree).removeO().as_poly(var).all_coeffs()), strict=False)]), var)
             result *= s_result_denom
             s_num = result.as_expr().series(var, n=f_degree * g_degree).removeO()
 

@@ -104,7 +104,8 @@ def rational_sections(function: sympy.Expr, variable: sympy.Symbol, modulus: int
             sections.append(sympy.Integer(0))
             continue
         section = sympy.Poly.from_dict(part, *gens, domain=product.domain)
-        common, section_numerator, section_denominator = section.cancel(norm)
+        # Poly.from_dict returns a Poly; pylint infers the Basic of its classmethod machinery
+        common, section_numerator, section_denominator = section.cancel(norm)  # pylint: disable=no-member
         expression = common * section_numerator.as_expr() / section_denominator.as_expr()
         sections.append(expression.xreplace(back) if back else expression)
     return sections

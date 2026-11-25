@@ -1229,7 +1229,7 @@ class _TeeWriter(io.TextIOBase):
         self._buffer = buffer
         self._callback = callback
 
-    def write(self, text: str) -> int:  # type: ignore[override]
+    def write(self, text: str) -> int:
         self._buffer.write(text)
         if self._callback is not None and text:
             try:

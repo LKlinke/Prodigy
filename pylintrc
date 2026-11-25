@@ -10,7 +10,6 @@ disable=
     too-few-public-methods,
     no-else-return,
     too-many-return-statements,
-    no-member,
     fixme,
     too-many-locals,
     too-many-lines,

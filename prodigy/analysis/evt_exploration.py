@@ -104,9 +104,9 @@ def extrapolate(last: Sequence[Dict[State, str]]) -> Dict[State, sympy.Expr]:
         x0, x1 = first.get(state, zero), second.get(state, zero)
         step, curvature = x2 - x1, (x2 - x1) - (x1 - x0)  # type: ignore[operator]
         if step == 0 or curvature == 0 or x0 == 0:
-            limits[state] = x2  # type: ignore[assignment]
+            limits[state] = x2
         else:
-            limits[state] = x2 - step ** 2 / curvature  # type: ignore[operator]
+            limits[state] = x2 - step ** 2 / curvature
     return limits
 
 
@@ -129,7 +129,7 @@ def rational_guess(table: Dict[State, Any], variables: Sequence[str]) -> Optiona
         slices: Dict[State, Dict[int, sympy.Expr]] = {}
         for state, value in values.items():
             rest = state[:axis] + state[axis + 1:]
-            slices.setdefault(rest, {})[state[axis]] = value  # type: ignore[assignment]
+            slices.setdefault(rest, {})[state[axis]] = value
         if len(slices) > MAX_GUESS_SLICES:
             continue
         guess = _guess_slices(slices, axis, symbols)
@@ -156,7 +156,7 @@ def _guess_slices(slices: Dict[State, Dict[int, sympy.Expr]], axis: int, symbols
             part = guess_generating_function_rational(sequence, X=variable)
             if part is None:
                 return None
-        monomial = sympy.Mul(*(s ** e for s, e in zip(others, rest)))
+        monomial = sympy.Mul(*(s ** e for s, e in zip(others, rest, strict=True)))
         total += monomial * part
     return sympy.factor(sympy.together(total))
 
@@ -184,7 +184,7 @@ def exploration(iterates: Sequence[Tuple[int, "Distribution"]], variables: Seque
     rows = []
     for state in states[:MAX_STATES]:
         exact = [table.get(state, "0") for table in tables]
-        rows.append({"state": dict(zip(variables, state)),
+        rows.append({"state": dict(zip(variables, state, strict=True)),
                      "values": [to_ppy(v) for v in exact],
                      "floats": [_float(v) for v in exact]})
     forms = []

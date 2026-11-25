@@ -548,7 +548,7 @@ def _parse_shape(spec: str) -> "TemplateShape":
     rates = [Fraction(x) for x in parts[0].split(",")]
     periods = [int(x) for x in parts[1].split(",")]
     tails = [int(x) for x in parts[2].split(",")]
-    box = [t + p + 1 if r != 0 else t for r, p, t in zip(rates, periods, tails)]
+    box = [t + p + 1 if r != 0 else t for r, p, t in zip(rates, periods, tails, strict=True)]
     return TemplateShape(rates, periods, tails, reach_box=box)
 
 

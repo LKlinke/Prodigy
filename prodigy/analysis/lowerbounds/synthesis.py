@@ -152,7 +152,7 @@ class TemplateLP:
             residuals.append(padd(image, pscale(num, -1)))
         deg = [0] * d
         for poly in residuals + [init]:
-            deg = [max(a, b) for a, b in zip(deg, degrees(poly, d))]
+            deg = [max(a, b) for a, b in zip(deg, degrees(poly, d), strict=True)]
         self.box = [deg[i] + (den.p[i] - 1 if den.r[i] != 0 else 0) for i in range(d)]
         mat, fmat, scale = scaled_expansion(calc, residuals + [init], self.box)
         self.A, self.b = mat[:, :-1], mat[:, -1]
@@ -169,7 +169,7 @@ class TemplateLP:
     # ------------------------------------------------------------------ objectives
     def numerator(self, h: Sequence[Fraction]) -> Num:
         out: Num = {}
-        for hv, num in zip(h, self.basis_num):
+        for hv, num in zip(h, self.basis_num, strict=True):
             if hv != 0:
                 for e, c in num.items():
                     out[e] = out.get(e, 0) + hv * c
@@ -189,7 +189,8 @@ class TemplateLP:
     def exit_box_functional(self, query: Optional[IR] = None) -> List:
         """Like :meth:`exit_functional`, but only counting the exit mass inside the fundamental box (finite even if
         the template has rates >= 1)."""
-        hi = [t + p - 1 if r != 0 else t for t, r, p in zip(self.tail_start, self.calc.den.r, self.calc.den.p)]
+        hi = [t + p - 1 if r != 0 else t
+              for t, r, p in zip(self.tail_start, self.calc.den.r, self.calc.den.p, strict=True)]
         out = []
         for num in self.basis_num:
             ex = self.calc.restrict(num, ("not", self.guard))
@@ -257,7 +258,7 @@ class TemplateLP:
                 if res.status != 0:
                     continue
                 target = [Fraction(float(mg * nv)) * (1 if kind == "lower" else -1) * self.row_scale[r]
-                          for nv, r in zip(norm, rows)]
+                          for nv, r in zip(norm, rows, strict=True)]
                 h = self._exact_vertex(res.x, a_s, b_s - mg, rows, kind, target)
                 if h is not None:
                     self.time_lp = time.perf_counter() - t0

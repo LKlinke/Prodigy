@@ -139,7 +139,9 @@ def _check_arguments(call: FunctionCallExpr) -> None:
             _check_arguments(dist)
         return
     values: List[Fraction] = []
-    for arg, (name, admissible, description) in zip(call.params[0], _ADMISSIBLE.get(call.function, [])):
+    # only the arguments that _ADMISSIBLE describes are checked (none for a function it does not list)
+    rules = _ADMISSIBLE.get(call.function, [])
+    for arg, (name, admissible, description) in zip(call.params[0], rules, strict=False):
         if expression_variables([arg]):
             continue
         value = constant_value(arg)

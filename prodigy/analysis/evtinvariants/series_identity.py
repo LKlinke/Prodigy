@@ -124,9 +124,8 @@ def _formal_guard(cond: Expr, variables: Collection[str]) -> bool:
     if cond.operator in (Binop.AND, Binop.OR):
         return _formal_guard(cond.lhs, variables) and _formal_guard(cond.rhs, variables)
     if cond.operator in _COMPARISONS:
-        sides = (cond.lhs, cond.rhs)
         return any(isinstance(a, VarExpr) and a.var in variables and isinstance(b, NatLitExpr)
-                   for a, b in (sides, sides[::-1]))
+                   for a, b in ((cond.lhs, cond.rhs), (cond.rhs, cond.lhs)))
     return False
 
 

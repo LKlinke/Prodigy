@@ -163,6 +163,6 @@ def problem_from_loop(loop: WhileInstr, variables: List[str], init_expr: str) ->
         raise UnsupportedProgram("observe is not supported by the lower-bound modes: conditioning has to be "
                                  "distinguished from non-termination (Klinkenberg et al., OOPSLA 2024), which these "
                                  "modes do not do yet")
-    forced = {v: (r, p) for v, r, p in zip(variables, den.r, den.p) if r != 0}
+    forced = {v: (r, p) for v, r, p in zip(variables, den.r, den.p, strict=True) if r != 0}
     return LoopProblem(variables=list(variables), prefix=("seq", []), guard=expr_to_ir(loop.cond), body=body_ir,
                        epilogue=("seq", []), queries=[], forced_rates=forced, init_form=(numer, den))

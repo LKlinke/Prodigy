@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, Iterable, List, Set, Tuple
 
-import networkx as nx  # type: ignore
+import networkx as nx
 from prodigy.language import (AsgnInstr, Expr, Instr, Var,
                            VarExpr, Walk, WhileInstr, mut_expr_children,
                            walk_instrs)

@@ -188,7 +188,7 @@ def _decide(p: flint.fmpq_poly, q: flint.fmpq_poly) -> PoleVerdict:
     if d == 0:
         index = 0
     else:
-        t = _deflated([r - amplitude * s for r, s in zip(r_arb, q1)], rho, d)
+        t = _deflated([r - amplitude * s for r, s in zip(r_arb, q1, strict=True)], rho, d)
         k = sum((abs(c) * sigma ** i for i, c in enumerate(t)), flint.arb(0)) / abs(_arb(q[0]))
         k_upper = k.upper()
         index = 0 if k_upper == 0 else _bound_index(rho, sigma, d, abs(amplitude).lower() / k_upper)
