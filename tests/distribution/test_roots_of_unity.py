@@ -10,7 +10,7 @@ import sympy
 from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.result import sym
+from prodigy.analysis.values import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.fast_generating_function import FPS
 from prodigy.distribution.generating_function import GeneratingFunction

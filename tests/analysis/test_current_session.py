@@ -2,7 +2,7 @@
 `current_session()` without an active session (#195): every call gives a new detached session, so the entry
 points of an analysis activate one session for the whole run, and all parts of the run share it.
 """
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession, current_session, has_current_session
 from prodigy.language import parse_program

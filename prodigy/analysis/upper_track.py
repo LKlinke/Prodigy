@@ -4,7 +4,7 @@ Proven upper bounds per state (#451)
 ------------------------------------
 
 A loop strategy may prove a coefficient-wise upper bound U on the output of its loop
-(:attr:`~prodigy.analysis.loop_strategies.LoopOutcome.upper`; the EVT sandwich gives ``[not guard]·I`` for a
+(:attr:`~prodigy.analysis.loops.api.LoopOutcome.upper`; the EVT sandwich gives ``[not guard]·I`` for a
 super-invariant I, Park induction). A bound that has been proven is never discarded: this module carries U
 through the rest of the program as a second track next to the lower bound L and its residual mass r, so that
 every coefficient, marginal and query gets the upper end ``min(U, L + r, 1)`` instead of only ``min(L + r, 1)``
@@ -53,13 +53,13 @@ from typing import TYPE_CHECKING, Callable, Optional, Sequence, Tuple, Union
 
 import sympy
 
-from prodigy.analysis.loop_strategies import Bound
+from prodigy.analysis.loops.api import Bound
 from prodigy.util.logger import log_setup
 
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-    from prodigy.analysis.session import AnalysisSession
+    from prodigy.analysis.context import AnalysisContext
     from prodigy.distribution import Distribution
     from prodigy.language import Instr
 
@@ -93,7 +93,7 @@ class UpperTrack:
 def start(upper: "Distribution", error_prob: "Distribution", kind_before: str, origin: str
           ) -> Optional[UpperTrack]:
     """The track that starts with a loop's proven upper bound ``upper`` (a finite measure with non-negative
-    coefficients, see :attr:`~prodigy.analysis.loop_strategies.LoopOutcome.upper`), or ``None`` if the
+    coefficients, see :attr:`~prodigy.analysis.loops.api.LoopOutcome.upper`), or ``None`` if the
     certificate does not bound the program's exact state: the loop's incoming distribution was not exact
     (``kind_before``), or the loop added violation mass."""
     if kind_before != Bound.EXACT:
@@ -106,7 +106,7 @@ def start(upper: "Distribution", error_prob: "Distribution", kind_before: str, o
 
 
 def replay(track: UpperTrack, instruction: "Instr", prog_info: "ProgramInfo", config: "ForwardAnalysisConfig",
-           analyzer: Analyzer, session: "AnalysisSession") -> Optional[UpperTrack]:
+           analyzer: Analyzer, session: "AnalysisContext") -> Optional[UpperTrack]:
     """``track`` after the loop-free top-level ``instruction`` (a positive linear map, see the module
     documentation), or ``None`` if the track ends there: a loop, a query block, or a replay that fails or is
     not exact. The replay is a silent sub-analysis: it records no queries, steps or residual mass."""
@@ -135,7 +135,7 @@ def normalized(track: UpperTrack, lower_error: object, residual: object) -> Opti
     (ε_L) and its residual mass before rescaling is ``residual`` (r): divided by 1 − min(ε_U, ε_L + r), with its
     violation mass reset, or ``None`` if min(ε_U, ε_L + r) < 1 is not proven (see the module documentation)."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.result import sym
+    from prodigy.analysis.values import sym
     try:
         error = sym(track.error_prob.get_probability_mass())
         alternative = sym(lower_error) + sym(residual)

@@ -9,7 +9,8 @@ A choice ``{…} [x/n] {…}`` whose probability is the ratio of two program var
 import pytest
 import sympy
 
-from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
+from prodigy.analysis.analyzer import compute_semantics
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants import exp_polynomial

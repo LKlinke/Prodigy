@@ -4,7 +4,7 @@ Validation of input distributions given in closed form (#296).
 An input distribution is a generating function typed in by a person: the CLI argument of
 ``prodigy analyze`` (and ``main``, ``invariant_synthesis``, ``evt_lower_bound``), the field of the
 GUI's Setup, the ``input_distribution`` of an :class:`~prodigy.analysis.session.AnalysisSession`,
-or the distribution passed to :func:`~prodigy.analysis.analyzer.compute_discrete_distribution`.
+or the distribution passed to :func:`~prodigy.analysis.session.compute_discrete_distribution`.
 The analysis treats it as a (sub-)probability distribution: residual masses and lower bounds
 assume non-negative coefficients, and masses are read off the closed form at 1. So an input is
 accepted only when Prodigy *proves* that it is

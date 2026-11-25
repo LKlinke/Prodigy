@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 import sympy
 
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.result import sym
+from prodigy.analysis.values import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.generating_function import SympyPGF
 from prodigy.language import FunctionCallExpr, NatLitExpr, RealLitExpr, parse_program

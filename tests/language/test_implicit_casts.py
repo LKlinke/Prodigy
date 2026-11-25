@@ -6,7 +6,7 @@ import glob
 
 import pytest
 
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.language.ast import Program
 from prodigy.language.check import CheckFail

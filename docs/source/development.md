@@ -33,12 +33,17 @@ Parsers, AST, type checker and compiler. The package was called `prodigy/pgcl` u
 
 ### `prodigy/analysis` — the forward analysis
 
+- The vocabulary layer imports nothing above it (`architecture.md`): `loops/api.py` (`Bound`, the
+  strategy API and registry, `LoopDecision`), `values.py` (values, intervals and coefficient tables
+  of a result), `context.py` (`AnalysisContext`, which the handlers reach with `current_context()`).
 - `analyzer.py` dispatches instructions to `instructionhandler/`.
-- `session.py`: `AnalysisSession`, one decision per loop.
-- `loop_strategies.py`: the strategy registry; strategies are registered in
-  `instructionhandler/while_handler.py` and appear in the CLI menu, `prodigy analyze --loop` and
-  the GUI automatically.
-- `result.py`: the JSON result `prodigy/analysis-result@1`.
+- `session.py`: `AnalysisSession`, one decision per loop; it runs an analysis
+  (`compute_discrete_distribution`, `AnalysisSession.run`).
+- `loop_strategies.py`: the strategy registry for the front ends; the built-in strategies are
+  defined in `instructionhandler/while_handler.py`, registered by `loops/builtin.py` and appear in
+  the CLI menu, `prodigy analyze --loop` and the GUI automatically.
+- `checks.py`: the checks before a run (type check, refuted sampling PGFs).
+- `result.py`: the JSON result `prodigy/analysis-result@1`, assembled from a finished session.
 - `upper_track.py`: a loop's proven upper bound (the EVT sandwich's super-invariant), carried through
   the rest of the program; it tightens the upper ends of coefficients and queries (#451).
 - `equivalence/`: the equivalence check of two programs and its three-valued verdict.

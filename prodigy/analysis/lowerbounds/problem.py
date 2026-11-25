@@ -14,7 +14,7 @@ from prodigy.language import (ExpectationInstr, PlotInstr, PrintInstr, Probabili
                           WhileInstr)
 
 from prodigy.analysis.lowerbounds import explicit
-from prodigy.analysis.lowerbounds.ir import (IR, UnsupportedProgram, eval_number, expr_to_ir, instr_to_ir,
+from prodigy.analysis.lowerbounds.ir import (IR, UnsupportedProgram, contains, eval_number, expr_to_ir, instr_to_ir,
                                              split_program)
 
 
@@ -61,19 +61,6 @@ class LoopProblem:
         return f"while {self.guard} with {len(self.queries)} queries over {self.variables}"
 
 
-def _contains(stmt: IR, tag: str) -> bool:
-    if not isinstance(stmt, tuple) or not stmt:
-        return False
-    if stmt[0] == tag:
-        return True
-    for sub in stmt[1:]:
-        if isinstance(sub, tuple) and _contains(sub, tag):
-            return True
-        if isinstance(sub, list) and any(_contains(s, tag) for s in sub):
-            return True
-    return False
-
-
 def _geometric_samples(stmt: IR, acc: Dict[str, Tuple[Fraction, int]]) -> Dict[str, Tuple[Fraction, int]]:
     if not isinstance(stmt, tuple) or not stmt:
         return acc
@@ -115,7 +102,7 @@ def load_problem(program: Program) -> LoopProblem:
     forced = _geometric_samples(prefix_ir, {})
     if _geometric_samples(body_ir, {}) or _geometric_samples(epi_ir, {}):
         raise UnsupportedProgram("geometric sampling is only supported before the loop")
-    if any(_contains(s, "observe") for s in (prefix_ir, body_ir, epi_ir)):
+    if any(contains(s, "observe") for s in (prefix_ir, body_ir, epi_ir)):
         raise UnsupportedProgram("observe is not supported by the lower-bound modes: conditioning has to be "
                                  "distinguished from non-termination (Klinkenberg et al., OOPSLA 2024), which these "
                                  "modes do not do yet")
@@ -159,7 +146,7 @@ def problem_from_loop(loop: WhileInstr, variables: List[str], init_expr: str) ->
     body_ir = instr_to_ir(loop.body)
     if _geometric_samples(body_ir, {}):
         raise UnsupportedProgram("geometric sampling is only supported before the loop")
-    if _contains(body_ir, "observe"):
+    if contains(body_ir, "observe"):
         raise UnsupportedProgram("observe is not supported by the lower-bound modes: conditioning has to be "
                                  "distinguished from non-termination (Klinkenberg et al., OOPSLA 2024), which these "
                                  "modes do not do yet")

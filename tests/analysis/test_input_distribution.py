@@ -5,7 +5,7 @@ import time
 import pytest
 from click.testing import CliRunner
 
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.input_distribution import InputDistributionError, input_distribution_from_text, \
     validate_input_distribution

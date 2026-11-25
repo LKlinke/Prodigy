@@ -9,8 +9,8 @@ from prodigy.language import parse_program
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler.while_handler import finite_mass
 from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.session import (AnalysisSession, LoopDecision, LoopRegistry, parse_decisions,
-                                      validate_decisions)
+from prodigy.analysis.session import AnalysisSession, LoopRegistry, parse_decisions, validate_decisions
+from prodigy.analysis.loops.api import LoopDecision
 
 GEOMETRIC = """x: nat;
 c: nat;
@@ -86,7 +86,7 @@ while (x > 0) {
     }
 }
 """
-    loops = list(LoopRegistry(parse_program(source), source))
+    loops = list(LoopRegistry(parse_program(source)))
     assert [(l.id, l.line, l.depth, l.function) for l in loops] == \
            [(0, 4, 0, "f"), (1, 9, 0, None), (2, 12, 1, None)]
     assert loops[1].cond == "x > 0"
@@ -213,7 +213,7 @@ x = 0;
 def test_invariant_without_a_witness_is_not_proven_instead_of_refuted(monkeypatch):
     # Issue #403: the raw "different" of the check may come from approximated loops in the body; the
     # invariant is refuted only with a witness
-    monkeypatch.setattr("prodigy.analysis.equivalence.verdict.search_witness", lambda *args, **kwargs: None)
+    monkeypatch.setattr("prodigy.analysis.loops.witness.search_witness", lambda *args, **kwargs: None)
     invariant = """x: nat;
 c: nat;
 x = 0;
@@ -253,7 +253,7 @@ def test_interactive_session_keeps_historic_prompts(monkeypatch):
 def test_decision_parsing_and_validation():
     assert LoopDecision.parse_spec("unroll:iterations=7") == LoopDecision("unroll", {"iterations": "7"})
     decisions = parse_decisions({"0": "unroll:iterations=x", "1": "nonsense", "*": {"strategy": "evt_synthesis"}})
-    problems = validate_decisions(decisions, LoopRegistry(parse_program(GEOMETRIC), GEOMETRIC))
+    problems = validate_decisions(decisions, LoopRegistry(parse_program(GEOMETRIC)))
     assert any("Iterations" in p for p in problems)
     assert any("Unknown loop strategy 'nonsense'" in p for p in problems)
     assert any("no loop with this id" in p for p in problems)

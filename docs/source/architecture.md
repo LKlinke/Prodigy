@@ -62,15 +62,16 @@ no handler, strategy or session; the semantics imports no session; nothing impor
 
 ## Interfaces between the layers
 
-**Types that cross.** Language → everything: `Program`, `Expr`, `Instr`, `Type`, and the outline (`LoopInfo`
-moves there from `session.py`). Distribution → analysis: `Distribution` and its factory, and the proof-rule
+**Types that cross.** Language → everything: `Program`, `Expr`, `Instr`, `Type`, and the outline (`language/outline.py`:
+`LoopInfo`, `QueryInfo`, `ProgramOutline`). Distribution → analysis: `Distribution` and its factory, and the proof-rule
 functions with three-valued verdicts (`True`, `False` with a witness, `None`). Analysis → front ends:
 `AnalysisSession`, `ForwardAnalysisConfig` with its option enums, the loop registry, the result object and its
-JSON (typed with #379/P9), the trace, the comparison verdict, the exceptions.
+JSON (typed with #379/P9), the value helpers (`values.py`), the checks before a run (`checks.py`), the trace,
+the comparison verdict, the exceptions.
 
 **Where text is parsed.** Program text is parsed once by the language layer, where it enters (front end or
-`AnalysisSession`). Positions of loops and queries come from the parser, not from regular expressions over the
-source (`session._ppy_while_positions` today). Expressions from users or language models are parsed by the
+`AnalysisSession`). Positions of loops and queries come from the parser (`language/outline.py`), not from regular
+expressions over the source. Expressions from users or language models are parsed by the
 language parser or an allowlist before SymPy sees them, and only once (watches: three times today, review §2.3).
 Engine text is turned into SymPy by one public function of the distribution layer (#479).
 
@@ -82,8 +83,9 @@ adds wording and envelope.
 module or `prodigy_ginac`; the engines' availability is a function of the configuration.
 
 **Dependencies are passed, not fetched.** Instruction handlers receive an `AnalysisContext` (program info,
-configuration, the session's services: spelling, loop decisions, trace) instead of calling `current_session()`.
-The context variable remains only as the session's own implementation detail.
+configuration, the session's services: spelling, loop decisions, trace). Today (P5a) they reach it with
+`analysis.context.current_context()`, so they no longer import the session; passing it explicitly is P5b (T11),
+after which the context variable remains only as the session's own implementation detail.
 
 ## Distributions: interface, generating functions, engines, kernel
 
@@ -197,18 +199,18 @@ Measured on `main` at `0bba880` with an `ast` walk over `prodigy` (all imports, 
 
 | # | Current state | Target | Removed by |
 |---|---|---|---|
-| T1 | A cycle of 17 modules (imports at run time, also inside functions): `session`, `result`, `trace`, `upper_track`, `nested_inference`, `analyzer`, all instruction handlers, `loop_strategies`, `equivalence.verdict`, `evt_exploration`, `series_identity`, `web.diagnostics`. Handlers import `session` for `current_session` and value types; `loop_strategies` imports `while_handler` to register the built-ins; `result` runs the analysis and nested inference | the vocabulary layer (`Bound`, `loops/api.py`) imports nothing above it; handlers get an `AnalysisContext`; the registry does not import strategies (they register from their own package); the result is assembled from data | **P5a** (layer cuts) |
-| T2 | `analysis.result` imports `web.diagnostics` | structured diagnostics in the language layer | P5a |
-| T3 | The type checker imports a proof rule (`distribution.finite_measure`) to refute sampling PGFs: no module cycle, but the two packages depend on each other | the PGF refutation is a check of the analysis, run before the session (the sample handler already checks every executed sampling) | P5a |
-| T4 | A second cycle `lowerbounds.problem` ↔ `lowerbounds.subinvariant` | shared types in one module | P5a |
-| T5 | `while_handler` uses `SympyPGF.zero()` | `factory.zero()` / `is_zero_dist()` | P5a |
+| T1 | Removed: a cycle of 17 modules (`session`, `result`, `trace`, `upper_track`, `nested_inference`, `analyzer`, all instruction handlers, `loop_strategies`, `equivalence.verdict`, `evt_exploration`, `series_identity`, `web.diagnostics`) through handlers importing `session`, the registry importing `while_handler` and `result` running the analysis. Now the vocabulary layer (`Bound` and the strategy API in `loops/api.py`, values in `values.py`, `AnalysisContext` in `context.py`) imports nothing above it; handlers reach the run with `current_context()`; `loops/builtin.py` registers the built-in strategies; the session runs the analysis and `result.py` only assembles | no module cycle (ast walk and pylint) | P5a (#497) |
+| T2 | Removed: `analysis.result` imported `web.diagnostics`; the structured diagnostics are in `language/diagnostics.py`, the first failure of a program in `analysis/checks.py` | structured diagnostics in the language layer | P5a (#497) |
+| T3 | Removed: the type checker imported a proof rule (`distribution.finite_measure`) to refute sampling PGFs; the refutation is `analysis.checks.refute_sampling_pgfs`, run after the type check on every entry path (CLI, session, GUI) | the PGF refutation is a check of the analysis, run before the session | P5a (#497) |
+| T4 | Removed: no cycle `lowerbounds.problem` ↔ `lowerbounds.subinvariant` was left (neither the ast walk nor pylint finds one); the private `_contains` shared by both is the public `contains` of `lowerbounds/ir.py` | shared types in one module | P5a (#497) |
+| T5 | Removed: `while_handler` used `SympyPGF.zero()`; it uses `config.factory.zero()` (the zero test of the unrolling is still never true for programs with variables, see the PR) | `factory.zero()` / `is_zero_dist()` | P5a (#497) |
 | T6 | `result.sym` uses the engine's private `_parse_to_sympy` | one public parser of engine text | #479 (else P5a) |
 | T7 | `query_handler` imports `plotting` (matplotlib in the analysis) | plot data in the result, rendering in the front ends | P7 |
 | T8 | Front ends import 18 analysis modules outside the front-end API (CLI: `analyzer`, `lowerbounds.*`, `evtinvariants.*`, `program_info`, `independence`, …; web: `analyzer`, `nested_inference`, `ai_candidates`, `joint_grid`, option enums); `web/app.py` imports `prodigy_ginac` | the front-end API, exported with `__all__` | P3, P7 |
 | T9 | Case analysis of `_update_iid`, `_update_division`/`_modulo`/`_power`, `_filter_constant_condition` duplicated in both engines, in different orders | case analysis in `PGF`, CAS hooks per engine | P4b–d (#488) |
 | T10 | `distribution.py` (1 943 lines) mixes the interface, the shared GF logic and value types; the proof rules lie flat beside the engines | `Distribution` interface, `PGF` with `pgf/rules/`, engines `SympyPGF`/`GinacPGF` | P4a |
 | T11 | Instruction handlers share a 6-argument positional signature (48 of pylint's `too-many-*arguments`) and fetch the session globally | `AnalysisContext`, dispatch table | P5b |
-| T12 | `session.py` (1 253 lines) finds loops with regular expressions over the source and holds `LoopInfo`, `LoopDecision`, decision providers, records and the session | outline in the language (from the parser), strategy API in `loops/api.py`, session module(s) below 800 lines | P5a (outline, API), P5b (split) |
+| T12 | `session.py` holds decision providers, records and the session (the regular expressions over the source are gone: the outline with `LoopInfo` and positions from the parser is `language/outline.py`; `LoopDecision` and `DecisionRequired` are in `loops/api.py`) | session module(s) below 800 lines | P5a (outline, API, done), P5b (split) |
 | T13 | Loop proof rules spread over `while_handler.py` (registry + all strategies), `evtinvariants/`, `lowerbounds/`; the invariant check reaches into the compare mode | `analysis/loops/` as above; strategies declare their goals | P5b |
 | T14 | `lowerbounds` has its own tuple IR and, with `product_form`, its own `Fraction` arithmetic and statement semantics | typed AST with a fragment check (P5b); kernel polynomials and the shared semantics (#417, measured) | P5b, #417 |
 | T15 | `syntax` threaded through 30 files although only `.ppy` exists | rejected once at the boundary | P2 |
@@ -236,7 +238,7 @@ Each package PR leaves its own package clean for the checks it is responsible fo
 
 | Check (disabled in `pylintrc`) | Hits today | Made clean by |
 |---|---|---|
-| `cyclic-import` | 19 cycles reported by pylint, all inside T1 and T4 | P5a |
+| `cyclic-import` | 0 (19 before P5a, all inside T1) | P5a (#497) |
 | `no-member` | 2 | P3 |
 | `duplicate-code` | 5 blocks in `prodigy` | P4 (engines), P2 (watch validation), P5b (three-valued `all`), P6 (name walk) |
 | `too-many-arguments`, `too-many-positional-arguments` | 75, 72 | P5b (handler context, loops), P7 (CLI), rest in P4/P6 |

@@ -1,7 +1,8 @@
 """A ``?Pr`` query interval of a lower bound is capped at 1 like the table rows (``upper_end``); #468."""
 import sympy
 
-from prodigy.analysis.result import Bound, make_interval
+from prodigy.analysis.result import Bound
+from prodigy.analysis.values import make_interval
 
 
 def test_probability_interval_is_capped_at_one():

@@ -7,7 +7,8 @@ the analysis; an argument that is not proven gives a warning, and without parame
 import pytest
 from click.testing import CliRunner
 
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
+from prodigy.analysis.checks import refute_sampling_pgfs
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.finite_measure import check_probability_generating_function
 from prodigy.analysis.session import AnalysisSession
@@ -73,8 +74,11 @@ def test_check_probability_generating_function(text, variables, verdict, reason)
     # a refutation holds for every value of a parameter
     ("param p: real;\ny: nat;\ny = sample_pgf(p*y - y*y + 1, y);", "y"),
 ])
-def test_refuted_generating_functions_are_type_errors(source, expression):
-    result = compile_program(source, syntax="ppy")
+def test_refuted_generating_functions_are_rejected_before_the_run(source, expression):
+    """The type checker accepts the program (it imports no proof rule, T3 of the architecture page); the check
+    of the analysis that every entry path runs after it rejects it."""
+    assert not isinstance(compile_program(source, syntax="ppy"), CheckFail)
+    result = refute_sampling_pgfs(parse_program(source))
     assert isinstance(result, CheckFail), result
     assert "needs a probability generating function" in result.message
     assert "is not one" in result.message and expression in result.message

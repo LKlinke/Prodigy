@@ -385,7 +385,7 @@ class Distribution(ABC):
     def declare_finite_measure(self) -> Distribution:
         """
         Declares that this object is a power series with non-negative coefficients and finite mass, e.g. an
-        output of :func:`~prodigy.analysis.analyzer.compute_discrete_distribution` (from a validated input), and
+        output of :func:`~prodigy.analysis.session.compute_discrete_distribution` (from a validated input), and
         returns it. Its evaluations at 1 (:meth:`marginal`, :meth:`get_probability_mass`,
         :meth:`get_probability_of`, :meth:`get_expected_value_of`) then skip the convergence proof, as inside an
         analysis (:func:`known_convergent_series`). The declaration belongs to this object only: distributions

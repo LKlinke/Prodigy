@@ -10,9 +10,9 @@ import pytest
 import sympy
 from click.testing import CliRunner
 
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.result import sym
+from prodigy.analysis.values import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.language import Program, parse_program
 from prodigy.language.compiler import compile_program

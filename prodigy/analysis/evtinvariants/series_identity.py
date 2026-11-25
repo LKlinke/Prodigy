@@ -70,10 +70,9 @@ def converges_on_unit_polydisc(invariant: Any, variables: Sequence[str]) -> Opti
     forms, q(0) = 0).
     """
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.result import sym
-    from prodigy.analysis.evtinvariants.exp_polynomial import entire_exp_polynomial
+    from prodigy.analysis.values import sym
+    from prodigy.analysis.evtinvariants.exp_polynomial import entire_exp_polynomial, independent_factors
     from prodigy.analysis.evtinvariants.log_polynomial import is_log_form
-    from prodigy.analysis.evtinvariants.exp_polynomial import independent_factors
     try:
         expr = sym(invariant)
         factors = independent_factors(expr, list(variables))

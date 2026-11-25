@@ -8,7 +8,7 @@ from click.testing import CliRunner
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.result import sym
+from prodigy.analysis.values import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.analysis.trace import (MARGINALS_OUT_OF_TIME, MARGINALS_TOO_LARGE, MARGINALS_TURNED_OFF, TraceLimits,
                                     InvalidWatchError, Tracer, _LoopFrame, certificate_checks,

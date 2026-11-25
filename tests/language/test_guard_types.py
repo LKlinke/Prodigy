@@ -5,7 +5,7 @@ position, in both syntaxes and in function bodies. A ``bool`` variable is a guar
 """
 import pytest
 
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.language import Program
 from prodigy.language.compiler import compile_program

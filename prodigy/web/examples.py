@@ -235,5 +235,5 @@ def _command_words(first_line: str) -> List[str]:
 
 def _count_loops(source: str) -> int:
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.session import LoopRegistry
-    return len(LoopRegistry(parse_program(source), source))
+    from prodigy.language.outline import outline
+    return len(outline(parse_program(source)).loops)

@@ -99,8 +99,8 @@ def prepare_request(request: Dict[str, Any]) -> Dict[str, Any]:
 def validate_request(request: Dict[str, Any]) -> List[str]:
     """Problems that can be found without running the analysis."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.evtinvariants.heuristics.strategies import SELECTABLE_POSITIVITY_HEURISTICS
-    from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
+    from prodigy.analysis.evtinvariants.heuristics.strategies import (SELECTABLE_POSITIVITY_HEURISTICS,
+                                                                      SynthesisStrategies)
     from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
     from prodigy.language.expression_allowlist import MATH_FUNCTIONS, InadmissibleExpression, admissible_expression
     from prodigy.analysis.session import parse_decisions, validate_decisions
@@ -309,10 +309,11 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
 def loop_program(source: str, loop_id: int) -> Dict[str, Any]:
     """A loop of a program as a program of its own, for "Compare this loop" (#399): ``program`` (the
     program itself if the loop is all it does, else its declarations and the loop, see
-    :func:`prodigy.analysis.session.isolate_loop`), ``loop`` (its id there), ``declarations`` (to start
+    :func:`prodigy.analysis.loops.api.isolate_loop`), ``loop`` (its id there), ``declarations`` (to start
     program B from) and ``whole``. Raises ``ValueError`` with a message for the person otherwise."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.session import LoopRegistry, isolate_loop
+    from prodigy.analysis.session import LoopRegistry
+    from prodigy.analysis.loops.api import isolate_loop
     from prodigy.language import parse_program
 
     try:
@@ -723,7 +724,7 @@ def _stopping_session(target: int, **kwargs: Any) -> Any:
 
 def _error_type(exc: BaseException) -> str:
     """The error type as in the analysis result (:func:`prodigy.analysis.result.error_type`)."""
-    from prodigy.analysis.result import error_type  # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.values import error_type  # pylint: disable=import-outside-toplevel
     return error_type(exc)
 
 
@@ -743,7 +744,7 @@ def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], 
     checked when the user runs the analysis with it."""
     # pylint: disable=import-outside-toplevel,too-many-locals
     from prodigy.analysis import ai_candidates
-    from prodigy.analysis.analyzer import compute_discrete_distribution
+    from prodigy.analysis.session import compute_discrete_distribution
     from prodigy.analysis.input_distribution import input_distribution_from_text
     from prodigy.language import parse_program
 

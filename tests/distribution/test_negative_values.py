@@ -3,7 +3,7 @@ import pytest
 import sympy
 
 import prodigy.language as language
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.generating_function import SympyPGF
 from prodigy.distribution.negative_values import can_be_negative

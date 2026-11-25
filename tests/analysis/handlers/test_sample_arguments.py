@@ -5,7 +5,7 @@ checker instead of crashing the analysis or giving a wrong result.
 """
 import pytest
 
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.language.check import CheckFail
 from prodigy.language.compiler import compile_program

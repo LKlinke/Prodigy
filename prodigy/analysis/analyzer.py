@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import contextlib
 import functools
 import logging
 import time
-from typing import Any, Callable, Dict, Iterable, Iterator, Optional, Union, Sequence, cast, get_args
+from typing import Callable, Iterable, Optional, Union, Sequence, cast, get_args
 
 import sympy
 
@@ -16,7 +15,6 @@ from prodigy.language.draws import find_draw
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import ObserveZeroEventError
-from prodigy.analysis.input_distribution import validate_input_distribution
 from prodigy.analysis.instructionhandler.assignment_handler import AssignmentHandler
 from prodigy.analysis.instructionhandler.ite_handler import ITEHandler
 from prodigy.analysis.instructionhandler.loop_handler import LoopHandler
@@ -27,8 +25,8 @@ from prodigy.analysis.instructionhandler.query_handler import QueryHandler
 from prodigy.analysis.instructionhandler.queryblock_handler import QueryBlockHandler
 from prodigy.analysis.instructionhandler.while_handler import WhileHandler
 from prodigy.analysis import nested_inference
-from prodigy.analysis.session import AnalysisSession, current_session, has_current_session
-from prodigy.distribution import Distribution, MarginalType, known_convergent_series
+from prodigy.analysis.context import current_context
+from prodigy.distribution import Distribution, MarginalType
 from prodigy.distribution.equality import engine_text, sympify_engine_string
 from prodigy.util.logger import log_setup
 
@@ -45,7 +43,7 @@ def condition_distribution(
         dist: Distribution, error_prob: Distribution,
         config: ForwardAnalysisConfig) -> tuple[Distribution, Distribution]:
     # lets the session rescale the residual mass of approximated loops
-    current_session().on_normalize(error_prob)
+    current_context().on_normalize(error_prob)
     one = config.factory.one(*error_prob.get_variables())
     valid = one - error_prob
     if dist.is_provably_zero():
@@ -73,82 +71,15 @@ def _provably_positive(mass: Union[str, sympy.Basic, Distribution], parameters: 
         return False
 
 
-def compute_discrete_distribution(
-        program: Program | ProgramInfo, dist: Distribution,
-        config: ForwardAnalysisConfig,
-        step_callback: Optional[Callable[[Instr, Distribution, Distribution], None]] = None
-) -> tuple[Distribution, Distribution]:
-    """
-    Computes the output distribution of ``program`` for the input ``dist``.
-
-    ``dist`` must be proven to be a power series at 0 with non-negative coefficients and finite
-    mass; otherwise :class:`~prodigy.analysis.input_distribution.InputDistributionError` is raised
-    (:func:`~prodigy.analysis.input_distribution.validate_input_distribution`).
-
-    The two returned distributions are declared finite measures
-    (:meth:`~prodigy.distribution.distribution.Distribution.declare_finite_measure`): their marginals, ``Pr`` and
-    ``Ex`` are evaluated at 1 without a convergence proof, as inside the analysis (#398).
-
-    :param step_callback: if given, called with (instruction, distribution, error_prob) after each
-        top-level instruction.
-
-    With ``config.show_intermediate_steps`` (or ``config.step_wise``) every step of the trace
-    (:mod:`prodigy.analysis.trace`) is printed when it is done, with its line (and the analysis
-    waits for Enter after each step); a session that records steps itself is left alone.
-    """
-    # the input must be proven to be a distribution, else the guarantees of the result mean nothing (#296)
-    validate_input_distribution(dist, program)
-    # the input is a finite measure, so are all distributions of the program's analysis; candidate checks
-    # inside it clear this again (AnalysisSession.sub_analysis, #393)
-    with config.activate(), _active_session(), nested_inference.analysis_registry(), _printed_steps(config), \
-            known_convergent_series(True):
-        result, error_prob = _compute_discrete_distribution(program, dist, config, step_callback)
-    # so that the Python API evaluates them at 1 without a convergence proof, as the analysis does (#398)
-    return result.declare_finite_measure(), error_prob.declare_finite_measure()
-
-
-@contextlib.contextmanager
-def _active_session() -> Iterator[None]:
-    """Without a running session, the analysis gets a detached one of its own, so that all its
-    parts (e.g. the exactness of a function's analysis for ``infer``) are booked in one place."""
-    if has_current_session():
-        yield
-        return
-    with AnalysisSession.detached().activate():
-        yield
-
-
-@contextlib.contextmanager
-def _printed_steps(config: ForwardAnalysisConfig) -> Iterator[None]:
-    """Prints the steps of the trace while the analysis runs (``--intermediate-results``, ``--stepwise``)."""
-    if not (config.show_intermediate_steps or config.step_wise):
-        yield
-        return
-    # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.trace import TraceLimits, Tracer, print_step
-    session = current_session()
-    if session.tracer is not None:
-        yield
-        return
-
-    def on_step(step: Dict[str, Any]) -> None:
-        print_step(step)
-        if config.step_wise:
-            session.provider.next_step()
-
-    session.tracer = Tracer(session, TraceLimits(coefficients=0), on_step=on_step)
-    try:
-        with session.activate():
-            yield
-    finally:
-        session.tracer = None
-
-
-def _compute_discrete_distribution(
+def compute_program(
         program: Program | ProgramInfo, dist: Distribution,
         config: ForwardAnalysisConfig,
         step_callback: Optional[Callable[[Instr, Distribution, Distribution], None]]
 ) -> tuple[Distribution, Distribution]:
+    """The forward analysis of a whole program in the current context (:mod:`prodigy.analysis.context`): its
+    instructions, the upper track, the conditioning on the observations, the values of dist variables. The
+    entry point is :func:`~prodigy.analysis.session.compute_discrete_distribution`, which activates a context
+    and validates the input."""
     logger.debug("Compute the distribution for\n%s\nand distribution %s", str(program), dist)
 
     # Inject the context from the parsed program into the initial distribution.
@@ -163,7 +94,7 @@ def _compute_discrete_distribution(
         if var in dist.get_variables():
             initial_dist = initial_dist.update(BinopExpr(Binop.EQ, VarExpr(var), NatLitExpr(0)))
     error_prob = config.factory.one(*variables) * 0
-    session = current_session()
+    session = current_context()
     session.start_upper()
     dist = initial_dist
     for instr in prog_info.instructions:
@@ -173,7 +104,7 @@ def _compute_discrete_distribution(
         if step_callback is not None:
             step_callback(instr, dist, error_prob)
     if config.normalize:
-        tracer = current_session().tracer
+        tracer = current_context().tracer
         started = time.perf_counter()
         before, error_before = dist, error_prob
         dist, error_prob = condition_distribution(dist, error_prob, config)
@@ -186,7 +117,7 @@ def _compute_discrete_distribution(
         session.restrict_upper(block_variables)
     if nested_inference.dist_variables(prog_info):
         # the values of dist variables are reported apart from the program state
-        current_session().dist_values = nested_inference.dist_values(dist, prog_info)
+        current_context().dist_values = nested_inference.dist_values(dist, prog_info)
         dist = nested_inference.strip_dist_variables(dist, prog_info)
         error_prob = nested_inference.strip_dist_variables(error_prob, prog_info)
     return dist, error_prob
@@ -200,14 +131,14 @@ def compute_semantics(
         config: ForwardAnalysisConfig = ForwardAnalysisConfig()
 ) -> tuple[Distribution, Distribution]:
     """The semantics of ``instruction`` (or a list of instructions) applied to ``distribution``.
-    Every single instruction passes the session (:meth:`AnalysisSession.on_instruction`) and its
-    step trace, if one is recorded (:mod:`prodigy.analysis.trace`)."""
+    Every single instruction passes the context (:meth:`~prodigy.analysis.context.AnalysisContext.on_instruction`)
+    and its step trace, if one is recorded (:mod:`prodigy.analysis.trace`)."""
     if isinstance(instruction, list):
         return functools.reduce(
             lambda state, instr: compute_semantics(instr, prog_info, state[0], state[1], config),
             instruction, (distribution, error_prob))
 
-    session = current_session()
+    session = current_context()
     session.on_instruction(instruction)
     tracer = session.tracer
     token = tracer.begin(instruction, distribution, error_prob) if tracer is not None else None
@@ -275,7 +206,7 @@ def _semantics(
                 config)  # evaluate queries on conditioned distribution
             if unconditioned:
                 # dividing by one does not change the measure
-                current_session().same_measure(distribution, conditioned)
+                current_context().same_measure(distribution, conditioned)
             distribution = conditioned
             error_prob *= "0"
         if nested_inference.dist_variables(prog_info):
@@ -317,7 +248,7 @@ def _check_no_draw_in_condition(instruction: Instr) -> None:
     for condition in conditions:
         draw = find_draw(condition)
         if draw is not None:
-            session = current_session()
+            session = current_context()
             raise NotImplementedError(
                 f"Sampling inside {where} ({session.spell(draw)} in {session.spell(condition)}) is not "
                 f"implemented. Draw the value into a variable first and use the variable there.")

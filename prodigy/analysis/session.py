@@ -5,7 +5,7 @@ Analysis sessions
 
 An :class:`AnalysisSession` bundles everything a single analysis run needs to know up
 front: the program, the input distribution, the configuration and one *decision* per
-``while`` loop (which :mod:`loop strategy <prodigy.analysis.loop_strategies>` to use, with
+``while`` loop (which :mod:`loop strategy <prodigy.analysis.loops.api>` to use, with
 which parameters). Instruction handlers no longer call :func:`input` themselves; they ask
 the session's :class:`DecisionProvider`:
 
@@ -22,43 +22,55 @@ warnings, progress and optionally the step trace (:mod:`prodigy.analysis.trace`)
 whose :meth:`~prodigy.analysis.result.AnalysisResult.to_json` is the exchange format for
 front ends.
 
-Code that calls :func:`~prodigy.analysis.analyzer.compute_discrete_distribution` or the
+Code that calls :func:`~prodigy.analysis.session.compute_discrete_distribution` or the
 handlers directly (tests, scripts, older code) does not need a session: if none is active,
-:func:`current_session` hands out a detached interactive one, which reproduces the old
-behaviour.
+:func:`~prodigy.analysis.context.current_context` (and :func:`current_session`) hands out a
+detached interactive one, which reproduces the old behaviour. The session runs the analysis and
+collects what it recorded; :mod:`prodigy.analysis.result` only assembles the result from it.
 """
 from __future__ import annotations
 
 import contextlib
-import contextvars
 import io
 import logging
 import os
-import re
 import sys
 import tempfile
 import time
+import traceback
 import warnings
 from dataclasses import dataclass, field
-from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple,
-                    Union)
+from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, Union,
+                    cast)
 
-import attr
+from prodigy.language import (CovarianceInstr, ExpectationInstr, Expr, Instr, OptimizationQuery, PlotInstr, PrintInstr,
+                              ProbabilityQueryInstr, Program, QueryInstr, VarianceInstr, WhileInstr)
 
-from prodigy.language import (ChoiceInstr, CovarianceInstr, ExpectationInstr, VarianceInstr,
-                          Expr, IfInstr, Instr, LoopInstr, OptimizationQuery, PlotInstr,
-                          PrintInstr, ProbabilityQueryInstr, Program, QueryInstr, WhileInstr)
-
-from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
-                                              get_loop_strategy, loop_strategies)
+from prodigy.analysis import nested_inference
+from prodigy.analysis.analyzer import compute_program
+from prodigy.analysis.checks import type_error
+from prodigy.analysis.config import ForwardAnalysisConfig
+from prodigy.analysis.context import (Scope, current_context, has_current_context, register_detached_context,
+                                      reset_context, use_context)
+from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
+from prodigy.analysis.input_distribution import input_distribution_from_text, validate_input_distribution
+from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+from prodigy.analysis.result import (ANSI, AnalysisResult, engine_name, failure_bounds, language_warnings,
+                                     non_finite_parts)
+# registers the built-in strategies
+import prodigy.analysis.loops.builtin  # pylint: disable=unused-import
+from prodigy.analysis.loops.api import (Bound, DecisionRequired, LoopDecision, LoopOutcome, LoopStrategy, LoopTask,
+                                        ParamSpec, get_loop_strategy, loop_strategies)
 from prodigy.distribution import known_convergent_series
+from prodigy.language.outline import LoopInfo, outline
+from prodigy.language.positions import span_of
 from prodigy.language.ppy_printer import spell
+from prodigy.analysis.values import _safe, bounds_explanation, describe_distribution, error_type, exact_and_float
+from prodigy.util.integers import unlimited_int_digits
 from prodigy.util.logger import log_setup, print_progress_bar
 
 if TYPE_CHECKING:  # pragma: no cover
-    from prodigy.analysis.config import ForwardAnalysisConfig
-    from prodigy.analysis.result import AnalysisResult, QueryResult
-    from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+    from prodigy.analysis.values import QueryResult
     from prodigy.analysis.trace import TraceLimits
     from prodigy.analysis.upper_track import Analyzer, UpperTrack
     from prodigy.distribution import Distribution
@@ -67,156 +79,44 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
 # ---------------------------------------------------------------------------------------
-# Program outline: loops and queries with source positions
+# Loops of the analysed program
 # ---------------------------------------------------------------------------------------
 
-# '//' is floor division in .ppy; block comments /* … */ may span lines
-_PPY_COMMENT_RE = re.compile(r"#.*$|/\*[\s\S]*?\*/", re.M)
-_WHILE_RE = re.compile(r"\bwhile\b")
-_PPY_QUERY_RE = re.compile(r"\bquery\s+(?:Pr|Ex|Var|Cov)\b|\bprint\s*;|\bplot\s*\(|\boptimize\s*\(")
 _QUERY_INSTRS = (CovarianceInstr, VarianceInstr, ExpectationInstr, OptimizationQuery, PlotInstr, PrintInstr,
                  ProbabilityQueryInstr, QueryInstr)
 
 
-def _blank_comments(source: str) -> str:
-    """Replaces comments by spaces (keeping line breaks) so that offsets stay valid."""
-    return _PPY_COMMENT_RE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), source)
-
-
-def token_positions(source: str, pattern: "re.Pattern[str]") -> List[Tuple[int, int]]:
-    """1-based (line, column) of every match of ``pattern`` outside of comments."""
-    text = _blank_comments(source)
-    positions = []
-    for match in pattern.finditer(text):
-        line = text.count("\n", 0, match.start()) + 1
-        column = match.start() - (text.rfind("\n", 0, match.start()) + 1) + 1
-        positions.append((line, column))
-    return positions
-
-
-def _offset_position(text: str, offset: int) -> Tuple[int, int]:
-    line = text.count("\n", 0, offset) + 1
-    return line, offset - (text.rfind("\n", 0, offset) + 1) + 1
-
-
-def _ppy_while_positions(source: str, functions: List[str]) -> List[Tuple[int, int]]:
-    """
-    Positions of the while loops of a ``.ppy`` program in the order of :class:`LoopRegistry`:
-    the loops of the functions (in the order of ``functions``), then those of the program.
-    In ``.ppy`` a ``def`` may follow statements, so the textual order can differ.
-    """
-    text = _blank_comments(source)
-    spans: Dict[str, Tuple[int, int]] = {}
-    for match in re.finditer(r"\bdef\s+(\w+)", text):
-        start = text.find("{", match.end())
-        depth, end = 0, len(text)
-        for index in range(max(start, 0), len(text)):
-            depth += {"{": 1, "}": -1}.get(text[index], 0)
-            if depth == 0:
-                end = index
-                break
-        spans[match.group(1)] = (match.start(), end)
-    loops = [match.start() for match in _WHILE_RE.finditer(text)]
-    ordered: List[int] = []
-    for name in functions:
-        first, last = spans.get(name, (0, -1))
-        ordered.extend(offset for offset in loops if first <= offset <= last)
-    ordered.extend(offset for offset in loops if not any(a <= offset <= b for a, b in spans.values()))
-    return [_offset_position(text, offset) for offset in ordered]
-
-
-def query_positions(source: str) -> List[Tuple[int, int]]:
-    """1-based (line, column) of the queries (``query Pr``, ``print;``, ...) of a program."""
-    return token_positions(source, _PPY_QUERY_RE)
-
-
-@dataclass(frozen=True)
-class LoopInfo:
-    """A while loop of the analysed program, identified by its position in the text."""
-
-    id: int  # pylint: disable=invalid-name
-    """Index of the loop in textual order (0-based); the key for decisions."""
-    cond: str
-    """The loop guard as ``.ppy`` text."""
-    depth: int
-    """Number of enclosing while loops."""
-    function: Optional[str] = None
-    """Name of the enclosing function declaration, if any."""
-    line: Optional[int] = None
-    column: Optional[int] = None
-
-    def describe(self) -> str:
-        where = f" (line {self.line})" if self.line else ""
-        return f"loop {self.id}{where}: while ({self.cond})"
-
-    def to_json(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "cond": self.cond,
-            "depth": self.depth,
-            "function": self.function,
-            "line": self.line,
-            "column": self.column,
-        }
-
-
-def _children(instr: Instr) -> List[List[Instr]]:
-    if isinstance(instr, WhileInstr):
-        return [instr.body]
-    if isinstance(instr, IfInstr):
-        return [instr.true or [], instr.false or []]
-    if isinstance(instr, ChoiceInstr):
-        return [instr.lhs, instr.rhs]
-    if isinstance(instr, LoopInstr):
-        return [instr.body]
-    if isinstance(instr, QueryInstr):
-        return [instr.instrs]
-    return []
-
-
-def _collect_loops(instrs: List[Instr], depth: int, function: Optional[str],
-                   out: List[Tuple[WhileInstr, int, Optional[str]]]) -> None:
-    for instr in instrs:
-        if isinstance(instr, WhileInstr):
-            out.append((instr, depth, function))
-            _collect_loops(instr.body, depth + 1, function, out)
-        else:
-            for block in _children(instr):
-                _collect_loops(block, depth, function, out)
-
-
-
-
 class LoopRegistry:
-    """Assigns stable ids to the while loops of a program (textual pre-order)."""
+    """The loops of the analysed program with their ids (:func:`~prodigy.language.outline.outline`); finds the
+    :class:`LoopInfo` of a loop instruction, also of a copy of it."""
 
-    def __init__(self, program: Optional[Program], source: Optional[str] = None):
+    def __init__(self, program: Optional[Program]):
         self.loops: List[LoopInfo] = []
         self._by_identity: Dict[int, LoopInfo] = {}
+        self._by_position: Dict[Tuple[int, int], LoopInfo] = {}
         self._by_text: Dict[str, List[LoopInfo]] = {}
         self._instructions: List[WhileInstr] = []
         if program is None:
             return
-        found: List[Tuple[WhileInstr, int, Optional[str]]] = []
-        for name, function in program.functions.items():
-            _collect_loops(function.instructions, 0, name, found)
-        _collect_loops(program.instructions, 0, None, found)
-        positions = [] if source is None else _ppy_while_positions(source, list(program.functions))
-        if len(positions) != len(found):
-            positions = []
-        for index, (instr, depth, function_name) in enumerate(found):
-            line, column = positions[index] if positions else (None, None)
-            info = LoopInfo(id=index, cond=spell(instr.cond), depth=depth, function=function_name,
-                            line=line, column=column)
+        found = outline(program)
+        for info, instr in zip(found.loops, found.loop_instructions, strict=True):
             self.loops.append(info)
             self._instructions.append(instr)
             self._by_identity[id(instr)] = info
+            if info.line is not None and info.column is not None:
+                self._by_position[(info.line, info.column)] = info
             self._by_text.setdefault(str(instr), []).append(info)
 
     def lookup(self, instr: WhileInstr) -> Optional[LoopInfo]:
+        """The loop ``instr``, or the loop it is a copy of: found by identity, else by its source position (a
+        deep copy keeps it, :mod:`prodigy.language.positions`), else by its text if that is unique (a copy
+        without position, e.g. of a program built in Python)."""
         info = self._by_identity.get(id(instr))
         if info is not None:
             return info
+        span = span_of(instr)
+        if span is not None and (span.line, span.column) in self._by_position:
+            return self._by_position[(span.line, span.column)]
         candidates = self._by_text.get(str(instr), [])
         return candidates[0] if len(candidates) == 1 else None
 
@@ -240,96 +140,9 @@ class LoopRegistry:
         return len(self.loops)
 
 
-QUERY_INSTRUCTIONS = ("ExpectationInstr", "VarianceInstr", "CovarianceInstr", "ProbabilityQueryInstr",
-                      "PrintInstr", "PlotInstr", "OptimizationQuery")
-
-
-@dataclass
-class IsolatedLoop:
-    """A loop of a program as a program of its own (:func:`isolate_loop`)."""
-
-    program: str
-    """The program text (``.ppy``)."""
-    loop: int
-    """The id of the loop in :attr:`program`."""
-    declarations: str
-    """The declarations alone (a loop-free program to start from)."""
-    whole: bool
-    """Whether :attr:`program` is the original source (the loop is all the program does)."""
-
-
-def isolate_loop(program: Program, instruction: WhileInstr,
-                 source: Optional[str] = None) -> Optional[IsolatedLoop]:
-    """The loop ``instruction`` of ``program`` as a program to compare with a loop-free program (#154,
-    #399): the program itself (``source``) if the loop is all it does apart from queries, else its
-    declarations and the loop. The code before the loop is left out on purpose: a comparison holds for
-    every input, so it covers whatever that code produces. ``None`` if the program cannot be printed in
-    ``.ppy``."""
-    # pylint: disable=import-outside-toplevel
-    from prodigy.language.ppy_printer import PpyPrintError, program_to_ppy
-
-    def text(instructions: List[Instr]) -> str:
-        part = attr.evolve(program, instructions=instructions)
-        return program_to_ppy(part)
-
-    rest = [instr for instr in program.instructions
-            if instr is not instruction and type(instr).__name__ not in QUERY_INSTRUCTIONS]
-    try:
-        declarations = text([])
-        if not rest and source is not None and any(instr is instruction for instr in program.instructions):
-            info = LoopRegistry(program).lookup(instruction)
-            return IsolatedLoop(source, info.id if info is not None else 0, declarations, True)
-        loop_program = attr.evolve(program, instructions=[instruction])
-        info = LoopRegistry(loop_program).lookup(instruction)
-        return IsolatedLoop(text([instruction]), info.id if info is not None else 0, declarations, False)
-    except PpyPrintError:
-        return None
-
-
-def query_instructions(program: Program) -> List[Instr]:
-    return [instr for instr in program.instructions if type(instr).__name__ in QUERY_INSTRUCTIONS]
-
-
 # ---------------------------------------------------------------------------------------
 # Decisions
 # ---------------------------------------------------------------------------------------
-
-@dataclass
-class LoopDecision:
-    """Which strategy to use for a loop, and its parameters (raw, not yet parsed)."""
-
-    strategy: str
-    params: Dict[str, Any] = field(default_factory=dict)
-
-    @staticmethod
-    def parse_spec(spec: str) -> "LoopDecision":
-        """Parses the command-line form ``STRATEGY[:name=value,name=value]``.
-
-        Example: ``unroll:iterations=100`` or ``invariant:invariant_file=inv.ppy``.
-        """
-        name, _, rest = spec.partition(":")
-        params: Dict[str, Any] = {}
-        if rest.strip():
-            for item in rest.split(","):
-                key, sep, value = item.partition("=")
-                if not sep:
-                    raise ValueError(f"Expected name=value in {item!r} (decision {spec!r})")
-                params[key.strip()] = value.strip()
-        return LoopDecision(name.strip(), params)
-
-    @staticmethod
-    def from_json(data: Union[str, Mapping[str, Any], "LoopDecision"]) -> "LoopDecision":
-        if isinstance(data, LoopDecision):
-            return data
-        if isinstance(data, str):
-            return LoopDecision.parse_spec(data)
-        if "strategy" not in data:
-            raise ValueError(f"A loop decision needs a 'strategy': {data!r}")
-        params = dict(data.get("params") or {})
-        return LoopDecision(str(data["strategy"]), params)
-
-    def to_json(self) -> Dict[str, Any]:
-        return {"strategy": self.strategy, "params": dict(self.params)}
 
 
 DEFAULT_KEY = "*"
@@ -380,25 +193,6 @@ def validate_decisions(decisions: Mapping[Union[int, str], LoopDecision],
             except (ValueError, TypeError) as exc:
                 problems.append(f"{where}: {strategy.param(name).label}: {exc}")
     return problems
-
-
-class DecisionRequired(Exception):
-    """A non-interactive analysis reached a choice that was not decided up front."""
-
-    def __init__(self, message: str, *, loop: Optional[LoopInfo] = None,
-                 strategy: Optional[str] = None, param: Optional[str] = None):
-        super().__init__(message)
-        self.loop = loop
-        self.strategy = strategy
-        self.param = param
-
-    def to_json(self) -> Dict[str, Any]:
-        return {
-            "message": str(self),
-            "loop": self.loop.to_json() if self.loop else None,
-            "strategy": self.strategy,
-            "param": self.param,
-        }
 
 
 class DecisionProvider:
@@ -607,7 +401,6 @@ class LoopRecord:
         return summary + "."
 
     def to_json(self) -> Dict[str, Any]:
-        from prodigy.analysis.result import exact_and_float  # pylint: disable=import-outside-toplevel
         residual, residual_float = exact_and_float(self.residual)
         return {
             "id": self.loop.id if self.loop else None,
@@ -629,43 +422,96 @@ class LoopRecord:
         }
 
 
-@dataclass
-class _Scope:
-    silent: bool
-    reason: str = ""
-    kind: str = Bound.EXACT
-    residual: Any = 0
-    upper: Optional["UpperTrack"] = None
-    """The proven upper bound on the exact state (:mod:`prodigy.analysis.upper_track`), if one is carried."""
-
-
 ProgressCallback = Callable[[Dict[str, Any]], None]
-
-
-_CURRENT: contextvars.ContextVar[Optional["AnalysisSession"]] = \
-    contextvars.ContextVar("prodigy_analysis_session", default=None)
 
 
 def has_current_session() -> bool:
     """Whether a session is active (otherwise :func:`current_session` makes a detached one)."""
-    return _CURRENT.get() is not None
+    return has_current_context()
 
 
 def current_session() -> "AnalysisSession":
     """
-    The session of the running analysis (the innermost :meth:`AnalysisSession.activate`).
-
-    Without an active session, every call returns a new detached interactive session (#195): nothing it
-    records (decisions, loop records, steps, queries) outlives the call. This is only for code that runs
-    handlers directly, e.g. tests. Every entry point of an analysis activates one session for the whole run,
-    so that all its parts share the decisions and the records: :func:`~prodigy.analysis.analyzer.
-    compute_discrete_distribution` (a detached one if none is active), :meth:`AnalysisSession.run`, the CLI
-    commands and the GUI's jobs. Use :func:`has_current_session` to tell the two cases apart.
+    The session of the running analysis (the innermost :meth:`AnalysisSession.activate`); without an active
+    session, a new detached interactive one (#195, :func:`~prodigy.analysis.context.current_context`). The parts
+    of the analysis use :func:`~prodigy.analysis.context.current_context`; this is for the front ends and tests.
     """
-    session = _CURRENT.get()
-    if session is None:
-        return AnalysisSession.detached()
-    return session
+    return cast(AnalysisSession, current_context())
+
+
+# ---------------------------------------------------------------------------------------
+# An analysis without a session of its own
+# ---------------------------------------------------------------------------------------
+
+def compute_discrete_distribution(
+        program: Program | ProgramInfo, dist: Distribution,
+        config: ForwardAnalysisConfig,
+        step_callback: Optional[Callable[[Instr, Distribution, Distribution], None]] = None
+) -> tuple[Distribution, Distribution]:
+    """
+    Computes the output distribution of ``program`` for the input ``dist``.
+
+    ``dist`` must be proven to be a power series at 0 with non-negative coefficients and finite
+    mass; otherwise :class:`~prodigy.analysis.input_distribution.InputDistributionError` is raised
+    (:func:`~prodigy.analysis.input_distribution.validate_input_distribution`).
+
+    The two returned distributions are declared finite measures
+    (:meth:`~prodigy.distribution.distribution.Distribution.declare_finite_measure`): their marginals, ``Pr`` and
+    ``Ex`` are evaluated at 1 without a convergence proof, as inside the analysis (#398).
+
+    :param step_callback: if given, called with (instruction, distribution, error_prob) after each
+        top-level instruction.
+
+    With ``config.show_intermediate_steps`` (or ``config.step_wise``) every step of the trace
+    (:mod:`prodigy.analysis.trace`) is printed when it is done, with its line (and the analysis
+    waits for Enter after each step); a session that records steps itself is left alone.
+    """
+    # the input must be proven to be a distribution, else the guarantees of the result mean nothing (#296)
+    validate_input_distribution(dist, program)
+    # the input is a finite measure, so are all distributions of the program's analysis; candidate checks
+    # inside it clear this again (AnalysisSession.sub_analysis, #393)
+    with config.activate(), _active_session(), nested_inference.analysis_registry(), _printed_steps(config), \
+            known_convergent_series(True):
+        result, error_prob = compute_program(program, dist, config, step_callback)
+    # so that the Python API evaluates them at 1 without a convergence proof, as the analysis does (#398)
+    return result.declare_finite_measure(), error_prob.declare_finite_measure()
+
+
+@contextlib.contextmanager
+def _active_session() -> Iterator[None]:
+    """Without a running session, the analysis gets a detached one of its own, so that all its
+    parts (e.g. the exactness of a function's analysis for ``infer``) are booked in one place."""
+    if has_current_session():
+        yield
+        return
+    with AnalysisSession.detached().activate():
+        yield
+
+
+@contextlib.contextmanager
+def _printed_steps(config: ForwardAnalysisConfig) -> Iterator[None]:
+    """Prints the steps of the trace while the analysis runs (``--intermediate-results``, ``--stepwise``)."""
+    if not (config.show_intermediate_steps or config.step_wise):
+        yield
+        return
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.trace import TraceLimits, Tracer, print_step
+    session = current_session()
+    if session.tracer is not None:
+        yield
+        return
+
+    def on_step(step: Dict[str, Any]) -> None:
+        print_step(step)
+        if config.step_wise:
+            session.provider.next_step()
+
+    session.tracer = Tracer(session, TraceLimits(coefficients=0), on_step=on_step)
+    try:
+        with session.activate():
+            yield
+    finally:
+        session.tracer = None
 
 
 # ---------------------------------------------------------------------------------------
@@ -696,7 +542,6 @@ class AnalysisSession:
                  parameter_synthesis: str = "hint",
                  stream_coefficients: bool = False):
         # pylint: disable=import-outside-toplevel
-        from prodigy.analysis.config import ForwardAnalysisConfig
         from prodigy.analysis.trace import Tracer, parse_watch
         from prodigy.language.parser import check_syntax
         if syntax is not None:
@@ -727,8 +572,8 @@ class AnalysisSession:
         ``prodigy check_equality``), ``refuse`` (the GUI's Analyze mode: it is a comparison) or ``hint``
         (the command line: go on as before, but point to ``check_equality``)."""
 
-        self.loops = LoopRegistry(program, source)
-        self.query_positions = query_positions(source) if source is not None else []
+        self.loops = LoopRegistry(program)
+        self.query_positions = outline(program).query_positions if program is not None else []
         self.loop_records: Dict[Any, LoopRecord] = {}
         # the values of the dist variables at the end (prodigy.analysis.nested_inference.DistValue)
         self.dist_values: List[Any] = []
@@ -750,7 +595,7 @@ class AnalysisSession:
         self._loop_upper: Tuple[Optional[WhileInstr], Optional["UpperTrack"]] = (None, None)
         self._replaying_upper = False
         self.log = io.StringIO()
-        self._scopes: List[_Scope] = [_Scope(silent=False)]
+        self._scopes: List[Scope] = [Scope(silent=False)]
         self._query_index = 0
         self.detached_session = False
 
@@ -780,11 +625,11 @@ class AnalysisSession:
     @contextlib.contextmanager
     def activate(self) -> Iterator["AnalysisSession"]:
         """Makes this the current session (see :func:`current_session`)."""
-        token = _CURRENT.set(self)
+        token = use_context(self)
         try:
             yield self
         finally:
-            _CURRENT.reset(token)
+            reset_context(token)
 
     # -- questions -----------------------------------------------------------------------
 
@@ -809,7 +654,7 @@ class AnalysisSession:
     # -- scopes and bounds ---------------------------------------------------------------
 
     @property
-    def scope(self) -> _Scope:
+    def scope(self) -> Scope:
         return self._scopes[-1]
 
     @property
@@ -817,12 +662,12 @@ class AnalysisSession:
         return any(scope.silent for scope in self._scopes)
 
     @contextlib.contextmanager
-    def sub_analysis(self, reason: str) -> Iterator[_Scope]:
+    def sub_analysis(self, reason: str) -> Iterator[Scope]:
         """Runs nested analyses whose distributions are not the program's (second-order
         test distributions, invariant candidates, ...). Their loops are still decided as
         usual, but neither their queries nor their residual mass count for the program.
         The yielded scope tells afterwards whether everything in it was exact."""
-        scope = _Scope(silent=True, reason=reason)
+        scope = Scope(silent=True, reason=reason)
         self._scopes.append(scope)
         try:
             # their measures need not converge at 1: marginals are proven to be the sums of the series (#393)
@@ -834,11 +679,11 @@ class AnalysisSession:
             self._scopes.pop()
 
     @contextlib.contextmanager
-    def nested_inference(self, reason: str) -> Iterator[_Scope]:
+    def nested_inference(self, reason: str) -> Iterator[Scope]:
         """Runs the analysis of a function for ``infer``. Its loops and residual mass are booked
         in a scope of its own, which tells afterwards whether the analysis was exact: only an
         exact output distribution can be normalised."""
-        scope = _Scope(silent=self.silent, reason=reason)
+        scope = Scope(silent=self.silent, reason=reason)
         self._scopes.append(scope)
         try:
             yield scope
@@ -856,13 +701,12 @@ class AnalysisSession:
             self.loops.unalias(copy)
 
     @contextlib.contextmanager
-    def other_program(self, program: Program, decisions: Optional[Mapping[Any, Any]] = None, *,
-                      source: Optional[str] = None) -> Iterator[None]:
+    def other_program(self, program: Program, decisions: Optional[Mapping[Any, Any]] = None) -> Iterator[None]:
         """Decides the loops of ``program``, another program than the session's (the second program of a
         comparison), by their own ids and ``decisions`` while it runs, instead of looking them up among
         the loops of the session's program. Their records are kept apart (keyed ``("other", id)``)."""
         loops, presets, records = self.loops, self.provider.decisions, self.loop_records
-        self.loops = LoopRegistry(program, source)
+        self.loops = LoopRegistry(program)
         self.provider.decisions = parse_decisions(decisions)
         self.loop_records = {}
         try:
@@ -881,7 +725,7 @@ class AnalysisSession:
         if scope.kind != Bound.LOWER:
             return
         # pylint: disable=import-outside-toplevel
-        from prodigy.analysis.result import sym
+        from prodigy.analysis.values import sym
         from prodigy.analysis.upper_track import normalized
         try:
             error_mass = sym(error_prob.get_probability_mass())
@@ -970,7 +814,7 @@ class AnalysisSession:
         scope.upper = replace(scope.upper, distribution=marginal)
 
     @contextlib.contextmanager
-    def upper_replay(self) -> Iterator[_Scope]:
+    def upper_replay(self) -> Iterator[Scope]:
         """The silent sub-analysis in which an instruction is replayed on the upper track; a loop met there
         ends the track (:class:`~prodigy.analysis.upper_track.UpperTrackEnded`)."""
         replaying = self._replaying_upper
@@ -1051,7 +895,7 @@ class AnalysisSession:
             self._loop_upper = (task.instruction, self._upper_track(task, outcome, scope.kind))
         scope.kind = Bound.combine(scope.kind, outcome.kind)
         if outcome.kind == Bound.LOWER and not self.silent:
-            from prodigy.analysis.result import sym  # pylint: disable=import-outside-toplevel
+            from prodigy.analysis.values import sym  # pylint: disable=import-outside-toplevel
             residual = sym(outcome.residual)
             record.residual = sym(record.residual) + residual
             scope.residual = sym(scope.residual) + residual
@@ -1178,8 +1022,131 @@ class AnalysisSession:
 
     def run(self) -> AnalysisResult:
         """Runs the analysis; never raises for analysis errors (they end up in the result)."""
-        from prodigy.analysis.result import build_result  # pylint: disable=import-outside-toplevel
         return build_result(self)
+
+
+
+def build_result(session: "AnalysisSession") -> AnalysisResult:
+    """Runs ``session`` and collects the result; analysis errors end up in the result."""
+    # The checks after the analysis print the distribution again, exact coefficients can have
+    # more digits than Python converts by default (#235).
+    with unlimited_int_digits():
+        return _build_result(session)
+
+
+def _require_type_correct(program: Program, source: Optional[str]) -> None:
+    """Rejects a program that the type checker rejects, with the GUI's message (#351)."""
+    diagnostic = type_error(program, source or "")
+    if diagnostic is not None:
+        raise ForwardAnalysisError(f"Type error: {diagnostic['message']}")
+
+
+def _build_result(session: "AnalysisSession") -> AnalysisResult:
+    result = AnalysisResult()
+    config = session.config
+    started = time.perf_counter()
+    decisions = {str(k): v.to_json() for k, v in session.provider.decisions.items()}
+    result.input = {
+        "distribution": str(session.input_distribution) if session.input_distribution is not None else None,
+        "engine": engine_name(config),
+        "normalize": config.normalize,
+        "decisions": decisions,
+    }
+    if session.program is not None:
+        result.program = outline(session.program).to_json()
+
+    analysis_time = 0.0
+    final: Optional["Distribution"] = None
+    # the output of the program's analysis is a finite measure (validated input, #300), also when the summary
+    # evaluates it at 1 after the analysis (#398)
+    output = session._output()  # pylint: disable=protected-access
+    with session.activate(), config.activate(), known_convergent_series(True), output:
+        try:
+            program = session.program
+            assert program is not None
+            _require_type_correct(program, session.source)
+            if session.input_distribution is None:
+                dist = config.factory.one(*program.variables.keys())
+            elif isinstance(session.input_distribution, str):
+                dist = input_distribution_from_text(config, session.input_distribution, program)
+            else:
+                dist = session.input_distribution
+            analysis_start = time.perf_counter()
+            final, error_prob = compute_discrete_distribution(program, dist, config)
+            analysis_time = time.perf_counter() - analysis_start
+            residual, residual_float = exact_and_float(session.residual)
+            track = session.upper
+            result.bounds = {
+                "kind": session.bound_kind,
+                "residual_mass": residual,
+                "residual_mass_float": residual_float,
+                "explanation": bounds_explanation(session.bound_kind, residual, track is not None),
+                "upper": None if track is None else {"closed_form": str(track.distribution),
+                                                     "origin": track.origin},
+            }
+            summary_start = time.perf_counter()
+            stream = session.progress_callback if session.stream_coefficients else None
+            result.distribution = describe_distribution(final, limit=session.coefficient_limit,
+                                                        kind=session.bound_kind,
+                                                        residual=session.residual, stream=stream,
+                                                        simplify=config.use_simplification,
+                                                        upper=session.upper_distribution)
+            if session.dist_values:
+                result.distributions = nested_inference.dist_values_json(session.dist_values,
+                                                        session.coefficient_limit)
+            result.timing["summary"] = round(time.perf_counter() - summary_start, 6)
+            result.error_probability, result.error_probability_float = \
+                exact_and_float(_safe(error_prob.get_probability_mass))
+        except DecisionRequired as exc:
+            analysis_time = time.perf_counter() - started
+            result.status = "needs_decision"
+            result.error = {"type": "decision", **exc.to_json()}
+        except (VerificationError, ForwardAnalysisError) as exc:
+            analysis_time = time.perf_counter() - started
+            result.status = "error"
+            details = getattr(exc, "details", None)
+            result.error = {"type": type(exc).__name__, "message": str(exc), "details": details}
+            verdict = details.get("verdict") if isinstance(details, dict) else None
+            if verdict in ("refuted", "unknown"):
+                result.error["verdict"] = verdict
+        except Exception as exc:  # pylint: disable=broad-except
+            analysis_time = time.perf_counter() - started
+            result.status = "error"
+            result.error = {"type": error_type(exc), "message": str(exc) or type(exc).__name__,
+                            "traceback": traceback.format_exc()}
+
+    result.queries = list(session.queries)
+    undefined_queries: List[str] = []
+    if result.status == "ok" and final is not None:
+        parts = non_finite_parts(result, final)
+        # an undefined query value loses its interval but does not fail the analysis (#316): the distribution and
+        # the other queries are not affected
+        undefined_queries = [part for part in parts if part.startswith("the query")]
+        if len(undefined_queries) < len(parts):
+            result.status = "error"
+            result.error = {
+                "type": "NonFiniteResult",
+                "message": f"Undefined value (nan or ∞) in {', '.join(parts)}; the result has no guarantee.",
+                "details": {"parts": parts},
+            }
+    if result.status != "ok":
+        result.bounds = failure_bounds(result.status)
+
+    result.loops = [record.to_json() for record in session.loop_records.values()]
+    result.loops.sort(key=lambda r: (r["id"] is None, r["id"] if r["id"] is not None else 0))
+    result.steps = session.steps
+    result.trace = session.tracer.to_json() if session.tracer is not None else None
+    result.warnings = language_warnings(session) + list(session.warnings) + [
+        f"Undefined value (nan or ∞) in {part}; it has no guarantee. The distribution and the other queries "
+        "are not affected." for part in undefined_queries]
+    result.log = ANSI.sub("", session.log.getvalue())
+    result.timing["analysis"] = round(analysis_time, 6)
+    result.timing["total"] = round(time.perf_counter() - started, 6)
+    return result
+
+
+# without an active session, the parts of the analysis get a detached one (current_context, #195)
+register_detached_context(AnalysisSession.detached)
 
 
 def _flush_c_stdio() -> None:
@@ -1240,10 +1207,3 @@ class _TeeWriter(io.TextIOBase):
 
     def flush(self) -> None:
         pass
-
-
-def _safe(function: Callable[[], Any]) -> Any:
-    try:
-        return function()
-    except Exception:  # pylint: disable=broad-except
-        return None

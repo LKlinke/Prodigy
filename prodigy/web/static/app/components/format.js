@@ -131,7 +131,7 @@ function shortExactText(exact, number) {
 }
 
 /**
- * The interval of a coefficient of a result with guarantee `bound` (prodigy/analysis/result.py:
+ * The interval of a coefficient of a result with guarantee `bound` (prodigy/analysis/values.py:
  * rows of univariate_table, cells of joint_grid):
  *   exact    a single value: "1/4 (0.25)"
  *   lower    [p, min(1, p + r)] from the row's `upper` (the residual mass r included, capped at 1)

@@ -10,7 +10,7 @@ import pytest
 import sympy
 
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.result import sym
+from prodigy.analysis.values import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.language import parse_program
 from prodigy.web.diagnostics import check_source

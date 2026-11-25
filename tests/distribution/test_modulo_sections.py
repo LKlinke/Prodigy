@@ -112,7 +112,7 @@ def test_rational_sections_rejects_functions_that_are_not_rational():
 def test_roots_of_unity_constants_are_not_parameters():
     """After a modulo guard on a variable with infinite support, I and pi are constants, not parameters (#342)."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.analyzer import compute_discrete_distribution
+    from prodigy.analysis.session import compute_discrete_distribution
     from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.language import parse_program
     program = parse_program("x: nat;\ny: nat;\nx = poisson(2);\nif (x % 3 == 1) {\n    y = 1;\n}\nquery Ex[x];\n", "ppy")

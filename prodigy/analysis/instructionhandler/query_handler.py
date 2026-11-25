@@ -13,15 +13,14 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.result import (QueryResult, describe_distribution, error_type, finish_query,
-                                     is_non_finite, is_monotone_nonnegative, joint_table, show, sym, tidy,
-                                     univariate_table, with_upper)
-from prodigy.analysis.session import AnalysisSession, current_session
+from prodigy.analysis.loops.api import Bound
+from prodigy.analysis.values import (QueryResult, describe_distribution, error_type, finish_query, is_non_finite,
+                                     is_monotone_nonnegative, joint_table, show, sym, tidy, univariate_table,
+                                     with_upper)
+from prodigy.analysis.context import AnalysisContext, current_context
 from prodigy.distribution import Distribution, MarginalType
 from prodigy.distribution.distribution import NonFiniteMarginalError
 from prodigy.util.logger import log_setup
-from prodigy.plotting.plotter import Plotter
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
@@ -42,7 +41,7 @@ class QueryHandler(InstructionHandler):
     ) -> tuple[Distribution, Distribution]:
         _assume(instruction, get_args(Query), 'QueryHandler')
         assert isinstance(instruction, get_args(Query))
-        session = current_session()
+        session = current_context()
         recorded = len(session.queries)
         try:
             return QueryHandler.__answer(instruction, prog_info, distribution, error_prob, config, session)
@@ -56,7 +55,7 @@ class QueryHandler(InstructionHandler):
             return distribution, error_prob
 
     @staticmethod
-    def __record_failure(instruction: Instr, exc: Exception, session: AnalysisSession) -> None:
+    def __record_failure(instruction: Instr, exc: Exception, session: AnalysisContext) -> None:
         message = str(exc) or type(exc).__name__
         if isinstance(instruction, ExpectationInstr):
             kind, expr = "expectation", session.spell(instruction.expr)
@@ -85,7 +84,7 @@ class QueryHandler(InstructionHandler):
     @staticmethod
     def __answer(instruction: Instr, prog_info: ProgramInfo, distribution: Distribution,
                  error_prob: Distribution, config: ForwardAnalysisConfig,
-                 session: AnalysisSession) -> tuple[Distribution, Distribution]:
+                 session: AnalysisContext) -> tuple[Distribution, Distribution]:
         # User wants to compute an expected value of an expression
         if isinstance(instruction, ExpectationInstr):
             expression = instruction.expr
@@ -149,7 +148,7 @@ class QueryHandler(InstructionHandler):
 
     @staticmethod
     def __query_spread(instr: Union[VarianceInstr, CovarianceInstr], dist: Distribution,
-                       session: AnalysisSession) -> None:
+                       session: AnalysisContext) -> None:
         """``Var[e]`` = ``Ex[e * e] - Ex[e]^2`` and ``Cov[a, b]`` = ``Ex[a * b] - Ex[a] * Ex[b]``,
         each ``Ex`` an exact derivative of the generating function. Only reported for a distribution
         that is exact and has mass 1: a variance of a lower or upper bound is not a bound, and the
@@ -201,7 +200,7 @@ class QueryHandler(InstructionHandler):
 
     @staticmethod
     def __query_optimization(instr: OptimizationQuery, dist: Distribution,
-                             config: ForwardAnalysisConfig, session: AnalysisSession) -> Distribution:
+                             config: ForwardAnalysisConfig, session: AnalysisContext) -> Distribution:
         logger.debug(
             "Computing the optimal value for parameter %s in order to %s the distribution %s with respect to %s",
             instr.parameter, 'maximize' \
@@ -229,7 +228,7 @@ class QueryHandler(InstructionHandler):
         return dist
 
     @staticmethod
-    def __query_plot(instr: PlotInstr, dist: Distribution, session: AnalysisSession) -> Distribution:
+    def __query_plot(instr: PlotInstr, dist: Distribution, session: AnalysisContext) -> Distribution:
         # Gather the variables to plot.
         variables = [instr.var_1.var]
         variables += [instr.var_2.var] if instr.var_2 else []
@@ -239,6 +238,9 @@ class QueryHandler(InstructionHandler):
             session.record_query(QueryHandler.__plot_data(instr, variables, dist, session))
             return dist
 
+        # matplotlib is loaded only when the terminal plots (importing the analysis must not load it; T7 moves
+        # the rendering to the front ends)
+        from prodigy.plotting.plotter import Plotter  # pylint: disable=import-outside-toplevel
         # User can specify either a probability threshold or a number of terms which are shown in the histogram.
         if instr.prob:
             # User chose a probability or oo (meaning, try to compute the whole histogram).
@@ -263,7 +265,7 @@ class QueryHandler(InstructionHandler):
 
     @staticmethod
     def __plot_data(instr: PlotInstr, variables: Sequence[str], dist: Distribution,
-                    session: AnalysisSession) -> QueryResult:
+                    session: AnalysisContext) -> QueryResult:
         limit = session.coefficient_limit
         threshold = None
         if instr.term_count:
@@ -295,7 +297,7 @@ class QueryHandler(InstructionHandler):
 
     @staticmethod
     def __query_probability_of(expression: Expr,
-                               dist: Distribution, session: AnalysisSession) -> Distribution:
+                               dist: Distribution, session: AnalysisContext) -> Distribution:
         # Marginal computation
         if isinstance(expression, VarExpr):
             marginal = dist.marginal(expression, method=MarginalType.INCLUDE)
@@ -335,12 +337,12 @@ def _probability(dist: Distribution, condition: Expr) -> str:
         return filter_by_cases(dist.query_marginal(condition, error), condition).get_probability_mass()
 
 
-def _upper_value(session: AnalysisSession, evaluate: Callable[[Distribution], str]) -> Optional[sympy.Expr]:
+def _upper_value(session: AnalysisContext, evaluate: Callable[[Distribution], str]) -> Optional[sympy.Expr]:
     """A monotone query (a probability, or the expectation of a non-negative expression) evaluated on the
     session's proven upper bound (:mod:`prodigy.analysis.upper_track`): an upper bound of its exact value, since
     the query is a positive linear functional. ``None`` without an upper track, or if the value is not a finite
     non-negative number (the bound is only an addition). Callers skip it for a query that the loop right before
-    already bounds from above (:meth:`AnalysisSession.loop_query_bounds`): that bound comes from the same
+    already bounds from above (:meth:`AnalysisContext.loop_query_bounds`): that bound comes from the same
     certificate, evaluated exactly on its template, and evaluating the closed form again can be expensive."""
     upper = session.upper_distribution
     if upper is None:

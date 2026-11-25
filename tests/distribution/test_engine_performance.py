@@ -14,7 +14,7 @@ import sympy
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.result import sym
+from prodigy.analysis.values import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.generating_function import (GeneratingFunction, _limit_at_one,
                                                       _polynomial_coefficients)

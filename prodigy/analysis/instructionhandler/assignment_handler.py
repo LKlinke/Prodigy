@@ -16,6 +16,7 @@ from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.function_handler import FunctionHandler
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+from prodigy.analysis.context import current_context
 from prodigy.distribution import Distribution
 from prodigy.util.logger import log_setup
 
@@ -99,7 +100,6 @@ def _with_helpers(
     """
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.nested_inference import without
-    from prodigy.analysis.session import current_session
     logger.info("Lower the draws of %s into %s", instruction, ", ".join(name for name, _ in helpers))
     names = [name for name, _ in helpers]
     program = copy.copy(prog_info.program)
@@ -116,7 +116,7 @@ def _with_helpers(
         if len(exc.args) == 1 and isinstance(exc.args[0], str):
             message = exc.args[0]
             for name, draw in helpers:
-                message = _replace_name(message, name, current_session().spell(draw))
+                message = _replace_name(message, name, current_context().spell(draw))
             exc.args = (message,)
         raise
     return without(distribution, names), without(error_prob, names)
