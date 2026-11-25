@@ -271,7 +271,7 @@ def test_known_violations_do_not_grow(rule):
 
 
 def test_the_import_walk_sees_every_layer():
-    """The rules above are vacuous for a package the walk does not see (as ``prodigy.ppy`` was, T13)."""
+    """The rules above are vacuous for a package the walk does not see (as ``prodigy.ppy`` was, T17)."""
     sources: FrozenSet[str] = frozenset(imp.source.split(".")[1] for imp in _imports() if "." in imp.source)
     assert {"util", "pgcl", "distribution", "analysis", "web", "cli", "plotting", "simulator"} <= sources
 
