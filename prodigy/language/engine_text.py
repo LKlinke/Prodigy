@@ -23,10 +23,11 @@ This module knows nothing of SymPy or the engines; it only writes the text.
 from __future__ import annotations
 
 from prodigy.language.ast.expressions import (Binop, BinopExpr, BoolLitExpr, CategoricalExpr, ExpectationExpr, Expr,
+                                              ExprClass,
                                               FunctionCallExpr, InferExpr, NatLitExpr, ProbabilityExpr, RealLitExpr,
                                               SampleExpr, SubstExpr, Unop, UnopExpr, VarExpr)
 
-__all__ = ["to_engine_text", "ENGINE_OPERATORS"]
+__all__ = ["ENGINE_OPERATORS", "engine_format", "engine_text_of", "to_engine_text"]
 
 ENGINE_OPERATORS = {
     Binop.OR: "||",
@@ -96,3 +97,20 @@ def to_engine_text(expr: Expr) -> str:
     if isinstance(expr, ExpectationExpr):
         return f"Ex[{to_engine_text(expr.expr)}]"
     raise TypeError(f"{type(expr).__name__} is not an expression")
+
+
+def engine_text_of(value: object) -> str:
+    """The engine text of an operand that an engine reads: an expression through :func:`to_engine_text`, anything
+    else (a variable name, a number, an engine's own value) through :func:`str`."""
+    if isinstance(value, ExprClass):
+        return to_engine_text(value)  # type: ignore[arg-type]
+    return str(value)
+
+
+def engine_format(template: str, **operands: object) -> str:
+    """
+    ``template`` with every ``{name}`` replaced by the engine text of the operand ``name`` (:func:`engine_text_of`),
+    e.g. ``engine_format("({p}) * {var} + 1 - ({p})", p=p, var=var)`` for a generating function that an engine
+    parses.
+    """
+    return template.format(**{name: engine_text_of(value) for name, value in operands.items()})

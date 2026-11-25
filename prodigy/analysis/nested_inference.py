@@ -821,7 +821,7 @@ def query_value(node: Union[ProbabilityExpr, ExpectationExpr], var: str,
                 run: Runner) -> Any:
     """The value of ``Pr[d …]`` or ``Ex[d]`` for the closed value ``site`` of ``d`` (sympy)."""
     closed = closed_form(site, prog_info, config, run)
-    key = str(node)
+    key = repr(node)  # the structure of the query, not its spelling
     if key in closed.values:
         return closed.values[key]
     value_var = VarExpr(VALUE_VARIABLE)

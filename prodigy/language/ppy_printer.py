@@ -40,7 +40,10 @@ from prodigy.language.ast import (AbortInstr, AsgnInstr, Binop, BinopExpr,
                               RealLitExpr, RealType, SampleExpr, SkipInstr,
                               Type, Unop, UnopExpr, VarDecl,
                               VarExpr, WhileInstr)
+from prodigy.language.ast.declarations import DeclClass
+from prodigy.language.ast.instructions import InstrClass
 from prodigy.language.ast.types import DistributionType
+from prodigy.language.engine_text import to_engine_text
 from prodigy.language.ppy_parser import PPY_KEYWORDS
 
 _INDENT = "    "
@@ -221,6 +224,10 @@ class PpyPrinter:
     :meth:`decl`; blocks and function bodies are printed through them.
     """
 
+    def expr(self, expr: Expr) -> str:
+        """Print an expression."""
+        return expr_to_ppy(expr)
+
     def instr(self, instr: Instr) -> str:
         """Print an instruction (or query)."""
         return self._instr(instr)
@@ -258,44 +265,44 @@ class PpyPrinter:
         if isinstance(instr, AbortInstr):
             return "abort;"
         if isinstance(instr, AsgnInstr):
-            return f"{_name(instr.lhs)} = {expr_to_ppy(instr.rhs)};"
+            return f"{_name(instr.lhs)} = {self.expr(instr.rhs)};"
         if isinstance(instr, WhileInstr):
-            return f"while ({expr_to_ppy(instr.cond)}) {self.block(instr.body)}"
+            return f"while ({self.expr(instr.cond)}) {self.block(instr.body)}"
         if isinstance(instr, IfInstr):
-            return f"if ({expr_to_ppy(instr.cond)}) {self.block(instr.true)}{self._else(instr.false)}"
+            return f"if ({self.expr(instr.cond)}) {self.block(instr.true)}{self._else(instr.false)}"
         if isinstance(instr, ChoiceInstr):
-            return f"{self.block(instr.lhs)} [{expr_to_ppy(instr.prob)}] {self.block(instr.rhs)}"
+            return f"{self.block(instr.lhs)} [{self.expr(instr.prob)}] {self.block(instr.rhs)}"
         if isinstance(instr, LoopInstr):
             return f"loop({instr.iterations.value}) {self.block(instr.body)}"
         if isinstance(instr, ObserveInstr):
-            return f"observe({expr_to_ppy(instr.cond)});"
+            return f"observe({self.expr(instr.cond)});"
         if isinstance(instr, QueryInstr):
             return f"query {self.block(instr.instrs)}"
         if isinstance(instr, LocalDeclInstr):
-            value = "" if instr.value is None else f" = {expr_to_ppy(instr.value)}"
+            value = "" if instr.value is None else f" = {self.expr(instr.value)}"
             return f"{_name(instr.decl.var)}: {_type(instr.decl.typ)}{value};"
         if isinstance(instr, ProbabilityQueryInstr):
-            return f"query Pr[{expr_to_ppy(instr.expr)}];"
+            return f"query Pr[{self.expr(instr.expr)}];"
         if isinstance(instr, ExpectationInstr):
-            return f"query Ex[{expr_to_ppy(instr.expr)}];"
+            return f"query Ex[{self.expr(instr.expr)}];"
         if isinstance(instr, VarianceInstr):
-            return f"query Var[{expr_to_ppy(instr.expr)}];"
+            return f"query Var[{self.expr(instr.expr)}];"
         if isinstance(instr, CovarianceInstr):
-            return f"query Cov[{expr_to_ppy(instr.lhs)}, {expr_to_ppy(instr.rhs)}];"
+            return f"query Cov[{self.expr(instr.lhs)}, {self.expr(instr.rhs)}];"
         if isinstance(instr, PrintInstr):
             return "print;"
         if isinstance(instr, PlotInstr):
             return _plot(instr)
         if isinstance(instr, OptimizationQuery):
             mode = "MAX" if instr.type == OptimizationType.MAXIMIZE else "MIN"
-            return f"optimize({expr_to_ppy(instr.expr)}, {_name(instr.parameter)}, {mode});"
+            return f"optimize({self.expr(instr.expr)}, {_name(instr.parameter)}, {mode});"
         raise PpyPrintError(f"{type(instr).__name__} has no .ppy syntax.")
 
     def _decl(self, decl: Decl) -> str:
         if isinstance(decl, VarDecl):
             return f"{_name(decl.var)}: {_type(decl.typ)};"
         if isinstance(decl, ConstDecl):
-            return f"const {_name(decl.var)}{_constant_type(decl.value)} = {expr_to_ppy(decl.value)};"
+            return f"const {_name(decl.var)}{_constant_type(decl.value)} = {self.expr(decl.value)};"
         if isinstance(decl, ParameterDecl):
             if isinstance(decl.typ, NatType) and decl.typ.bounds is not None:
                 raise PpyPrintError("A parameter with bounds has no .ppy syntax.")
@@ -305,7 +312,7 @@ class PpyPrinter:
             # all declarations of a function are its parameters in the old syntax
             params = ", ".join(f"{_name(var.var)}: {_type(var.typ)}" for var in function.declarations)
             body = [self.instr(instr) for instr in function.instructions]
-            body.append(f"return {expr_to_ppy(function.returns)};")
+            body.append(f"return {self.expr(function.returns)};")
             return f"def {_name(decl.var)}({params}) -> nat {{\n{_indent(chr(10).join(body))}\n}}"
         raise PpyPrintError(f"{type(decl).__name__} has no .ppy syntax.")
 
@@ -323,12 +330,41 @@ def program_to_ppy(program: Program) -> str:
     return _PRINTER.program(program)
 
 
-def spell(node: Union[Expr, Instr]) -> str:
-    """An expression or instruction as ``.ppy`` text, for output to the user. A node without a ``.ppy`` form
-    (an internal one, such as a substitution) falls back to :func:`str`."""
+class _LenientPrinter(PpyPrinter):
+    """The ``.ppy`` printer for messages: an expression without a ``.ppy`` form (an internal one, such as a
+    substitution or a negative literal) is written as engine text."""
+
+    def expr(self, expr: Expr) -> str:
+        try:
+            return expr_to_ppy(expr)
+        except PpyPrintError:
+            return to_engine_text(expr)
+
+
+_LENIENT = _LenientPrinter()
+
+
+def node_to_ppy(node: object) -> str:
+    """
+    ``str()`` of every node of the AST (installed by :mod:`prodigy.language`): an expression, instruction,
+    declaration or program in the ``.ppy`` syntax. Expressions without a ``.ppy`` form are written as engine text
+    (:class:`_LenientPrinter`); a node that has none at all (a name that is a ``.ppy`` keyword, a type) gives its
+    ``repr``.
+    """
     try:
         if isinstance(node, get_args(Expr)):
-            return expr_to_ppy(cast(Expr, node))
-        return instr_to_ppy(cast(Instr, node))
+            return _LENIENT.expr(cast(Expr, node))
+        if isinstance(node, InstrClass):
+            return _LENIENT.instr(cast(Instr, node))
+        if isinstance(node, DeclClass):
+            return _LENIENT.decl(cast(Decl, node))
+        if isinstance(node, Program):
+            return _LENIENT.program(node).rstrip("\n")
     except PpyPrintError:
-        return str(node)
+        pass
+    return repr(node)
+
+
+def spell(node: Union[Expr, Instr]) -> str:
+    """An expression or instruction as ``.ppy`` text, for output to the user (the same as :func:`str`)."""
+    return node_to_ppy(node)

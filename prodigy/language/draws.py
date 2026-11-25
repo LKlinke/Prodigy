@@ -27,7 +27,7 @@ choice are evaluated in their own branch, so draws inside them are lowered there
     >>> helpers, expr = lower_draws(parse_ppy_expr("geometric(1/2) + geometric(1/2) * 2"), set(),
     ...                             lambda: next(names))
     >>> [(name, str(draw)) for name, draw in helpers], str(expr)
-    ([('h0', 'geometric(1/2)'), ('h1', 'geometric(1/2)')], 'h0 + (h1 * 2)')
+    ([('h0', 'geometric(1/2)'), ('h1', 'geometric(1/2)')], 'h0 + h1 * 2')
     >>> lower_draws(parse_ppy_expr("x + 1"), set(), lambda: "h")
     ([], BinopExpr(operator=Binop.PLUS, lhs=VarExpr('x'), rhs=NatLitExpr(1)))
 """

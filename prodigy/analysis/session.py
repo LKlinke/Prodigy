@@ -60,7 +60,7 @@ from prodigy.analysis.result import (ANSI, AnalysisResult, engine_name, failure_
 # registers the built-in strategies
 import prodigy.analysis.loops.builtin  # pylint: disable=unused-import
 from prodigy.analysis.loops.api import (Bound, DecisionRequired, LoopDecision, LoopOutcome, LoopStrategy, LoopTask,
-                                        ParamSpec, get_loop_strategy, loop_strategies)
+                                        ParamSpec, QueryKey, get_loop_strategy, loop_strategies, query_key)
 from prodigy.distribution import known_convergent_series
 from prodigy.language.outline import LoopInfo, outline
 from prodigy.language.positions import span_of
@@ -94,7 +94,7 @@ class LoopRegistry:
         self.loops: List[LoopInfo] = []
         self._by_identity: Dict[int, LoopInfo] = {}
         self._by_position: Dict[Tuple[int, int], LoopInfo] = {}
-        self._by_text: Dict[str, List[LoopInfo]] = {}
+        self._by_structure: Dict[str, List[LoopInfo]] = {}
         self._instructions: List[WhileInstr] = []
         if program is None:
             return
@@ -105,19 +105,19 @@ class LoopRegistry:
             self._by_identity[id(instr)] = info
             if info.line is not None and info.column is not None:
                 self._by_position[(info.line, info.column)] = info
-            self._by_text.setdefault(str(instr), []).append(info)
+            self._by_structure.setdefault(repr(instr), []).append(info)
 
     def lookup(self, instr: WhileInstr) -> Optional[LoopInfo]:
         """The loop ``instr``, or the loop it is a copy of: found by identity, else by its source position (a
-        deep copy keeps it, :mod:`prodigy.language.positions`), else by its text if that is unique (a copy
-        without position, e.g. of a program built in Python)."""
+        deep copy keeps it, :mod:`prodigy.language.positions`), else by its structure (the ``repr`` of the tree) if
+        that is unique (a copy without position, e.g. of a program built in Python)."""
         info = self._by_identity.get(id(instr))
         if info is not None:
             return info
         span = span_of(instr)
         if span is not None and (span.line, span.column) in self._by_position:
             return self._by_position[(span.line, span.column)]
-        candidates = self._by_text.get(str(instr), [])
+        candidates = self._by_structure.get(repr(instr), [])
         return candidates[0] if len(candidates) == 1 else None
 
     def instruction(self, loop_id: int) -> Optional[WhileInstr]:
@@ -588,9 +588,9 @@ class AnalysisSession:
         self.warnings: List[str] = []
         self.unproven_conditions: List[str] = []
         # bounds of a loop strategy for the queries right after its loop (LoopOutcome.query_bounds)
-        self._loop_query_bounds: Dict[Tuple[str, str], Tuple[Any, Any]] = {}
+        self._loop_query_bounds: Dict[QueryKey, Tuple[Any, Any]] = {}
         # exact query values on the distribution the loop returned (LoopOutcome.query_values)
-        self._loop_query_values: Tuple[Any, Dict[Tuple[str, str], Any]] = (None, {})
+        self._loop_query_values: Tuple[Any, Dict[QueryKey, Any]] = (None, {})
         # the upper track that the loop booked last starts (its instruction and the track), see advance_upper
         self._loop_upper: Tuple[Optional[WhileInstr], Optional["UpperTrack"]] = (None, None)
         self._replaying_upper = False
@@ -928,9 +928,9 @@ class AnalysisSession:
             self._loop_query_bounds = {}
             self._loop_query_values = (None, {})
 
-    def loop_query_bounds(self, kind: str, expression: str) -> Optional[Tuple[Any, Any]]:
+    def loop_query_bounds(self, kind: str, expression: "Expr") -> Optional[Tuple[Any, Any]]:
         """Bounds that the strategy of the loop right before this query computed for it."""
-        return self._loop_query_bounds.get((kind, expression))
+        return self._loop_query_bounds.get(query_key(kind, expression))
 
     def same_measure(self, before: Any, after: Any) -> None:
         """Notes that ``after`` is the same measure as ``before`` (e.g. ``before`` divided by one), so
@@ -939,13 +939,13 @@ class AnalysisSession:
         if returned is not None and before is returned:
             self._loop_query_values = (after, values)
 
-    def loop_query_value(self, kind: str, expression: str, distribution: Any) -> Optional[Any]:
+    def loop_query_value(self, kind: str, expression: "Expr", distribution: Any) -> Optional[Any]:
         """The exact value of a query that the strategy of the loop right before it computed, if
         ``distribution`` is the very distribution that loop returned (``None`` otherwise)."""
         returned, values = self._loop_query_values
         if returned is None or distribution is not returned:
             return None
-        return values.get((kind, expression))
+        return values.get(query_key(kind, expression))
 
     def note(self, task: LoopTask, message: str) -> None:
         record = task.record

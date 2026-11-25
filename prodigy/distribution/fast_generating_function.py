@@ -21,16 +21,17 @@ from prodigy.distribution.distribution import (CommonDistributionsFactory,
 from prodigy.language import Binop, BinopExpr, Expr, FunctionCallExpr, NatLitExpr, VarExpr
 
 from prodigy.util.order import default_monomial_iterator
+from prodigy.language.engine_text import engine_format, engine_text_of
 
 
 def _is_division_by_zero(error: ValueError) -> bool:
     """Whether the bindings raised `error` because they evaluated an expression at a pole."""
-    return "division by zero" in str(error)
+    return "division by zero" in engine_text_of(error)
 
 
 def _is_singular_at_one(error: ValueError) -> bool:
     """Whether the bindings failed to evaluate a moment at 1 because of a pole or a logarithmic singularity (#371)."""
-    return _is_division_by_zero(error) or "log(0)" in str(error)
+    return _is_division_by_zero(error) or "log(0)" in engine_text_of(error)
 
 
 class _PrefixCoefficients:
@@ -63,14 +64,14 @@ class _PrefixCoefficients:
             self._expansions[head] = (parent.coefficient_iterator(variable), [])
         iterator, seen = self._expansions[head]
         while len(seen) <= prefix[-1]:
-            coefficient = prodigy_ginac.Dist(str(iterator.next()), self._parameters)
+            coefficient = prodigy_ginac.Dist(engine_text_of(iterator.next()), self._parameters)
             seen.append(None if coefficient.is_zero() == prodigy_ginac.troolean.true else coefficient)
         return seen[prefix[-1]]
 
     def of(self, state: Tuple[int, ...]) -> Optional[str]:
         """The probability of ``state`` (one value per variable), None if it is 0."""
         coefficient = self._coefficient(state)
-        return None if coefficient is None else str(coefficient)
+        return None if coefficient is None else engine_text_of(coefficient)
 
 
 class FPS(Distribution):
@@ -84,7 +85,7 @@ class FPS(Distribution):
                  expression: str,
                  *variables: str | VarExpr,
                  finite: bool | None = None):
-        self._variables = set(str(var) for var in variables if str(var) != "")
+        self._variables = set(engine_text_of(var) for var in variables if engine_text_of(var) != "")
         self._parameters = set()
         for var in prodigy_ginac.find_symbols(expression):
             if var not in self._variables:
@@ -117,9 +118,9 @@ class FPS(Distribution):
         if isinstance(other, (str, int)):
             return FPS.from_dist(
                 self._dist + prodigy_ginac.Dist(
-                    str(other),
+                    engine_text_of(other),
                     list(
-                        set(prodigy_ginac.find_symbols(str(other))) -
+                        set(prodigy_ginac.find_symbols(engine_text_of(other))) -
                         self._variables)), self._variables, self._parameters)
         elif isinstance(other, FPS):
             self._require_compatible_names(other)
@@ -134,9 +135,9 @@ class FPS(Distribution):
         if isinstance(other, (str, int)):
             return FPS.from_dist(
                 self._dist - prodigy_ginac.Dist(
-                    str(other),
+                    engine_text_of(other),
                     list(
-                        set(prodigy_ginac.find_symbols(str(other))) -
+                        set(prodigy_ginac.find_symbols(engine_text_of(other))) -
                         self._variables)), self._variables, self._parameters)
         elif isinstance(other, FPS):
             self._require_compatible_names(other)
@@ -151,9 +152,9 @@ class FPS(Distribution):
         if isinstance(other, (str, int)):
             return FPS.from_dist(
                 self._dist * prodigy_ginac.Dist(
-                    str(other),
+                    engine_text_of(other),
                     list(
-                        set(prodigy_ginac.find_symbols(str(other))) -
+                        set(prodigy_ginac.find_symbols(engine_text_of(other))) -
                         self._variables)), self._variables, self._parameters)
         elif isinstance(other, FPS):
             self._require_compatible_names(other)
@@ -190,7 +191,7 @@ class FPS(Distribution):
             return False
 
     def __str__(self) -> str:
-        return str(self._dist)
+        return engine_text_of(self._dist)
 
     def __repr__(self) -> str:
         return self._dist.__repr__()
@@ -202,7 +203,7 @@ class FPS(Distribution):
                 it = self._dist.coefficient_iterator(variable)
                 i = 0
                 while True:
-                    yield str(it.next()), State({variable: i})
+                    yield engine_text_of(it.next()), State({variable: i})
                     i += 1
             else:
                 variables = sorted(self.get_variables())  # deterministic, independent of the hash seed
@@ -221,7 +222,7 @@ class FPS(Distribution):
         if self._finite or self._variables != {variable}:
             return None
         iterator = self._dist.coefficient_iterator(variable)
-        return (str(iterator.next()) for _ in itertools.count())
+        return (engine_text_of(iterator.next()) for _ in itertools.count())
 
     def copy(self, deep: bool = True) -> Distribution:
         return FPS.from_dist(self._dist, self._variables, self._parameters,
@@ -242,15 +243,15 @@ class FPS(Distribution):
     def _expected_value_of(self, expression: Union[Expr, str]) -> str:
         # Symbols that are neither variables nor parameters have no value: reject them, as the SymPy engine
         # does (the bindings reject them as well since prodigy-ppl-ginac 0.0.5).
-        symbols = self._find_symbols(str(expression))
+        symbols = self._find_symbols(engine_text_of(expression))
         if not symbols & self._variables:
-            return str(expression)
+            return engine_text_of(expression)
         if not symbols <= self._variables | self._parameters:
             raise ValueError(f"Cannot compute expected value of {expression} because it contains unknown symbols")
         # A variable that does not occur in the generating function is 0 in every state, but the bindings
         # do not know it as a variable; substitute its value.
         absent = (symbols & self._variables) - set(self._dist.get_symbols())
-        text = str(expression)
+        text = engine_text_of(expression)
         if absent:
             text = re.sub(r"\b(" + "|".join(sorted(map(re.escape, absent))) + r")\b", "0", text)
         try:
@@ -262,7 +263,7 @@ class FPS(Distribution):
         # generating function (#371), e.g. an infinite expected value.
         # The SymPy engine computes the limit from below, which is the value of the series (Abel's theorem).
         # The other symbols of the function are its parameters.
-        sympy_engine = GeneratingFunction(str(self._dist), *self._variables)
+        sympy_engine = GeneratingFunction(engine_text_of(self._dist), *self._variables)
         return sympy_engine._expected_value_of(text)  # pylint: disable=protected-access
 
     def _normalize(self) -> FPS:
@@ -313,7 +314,7 @@ class FPS(Distribution):
         # is normalized conditional
         if isinstance(condition.lhs, VarExpr) and condition.operator in (
                 Binop.EQ, Binop.LT, Binop.LEQ, Binop.GT, Binop.GEQ):
-            variable, bound = str(condition.lhs), str(condition.rhs)
+            variable, bound = engine_text_of(condition.lhs), engine_text_of(condition.rhs)
             filters = {
                 Binop.EQ: self._dist.filterEq,
                 Binop.LT: self._dist.filterLess,
@@ -361,20 +362,20 @@ class FPS(Distribution):
         return res
 
     def _update_var(self, updated_var: str, assign_var: str | int) -> FPS:
-        if str(assign_var) in self._parameters:
+        if engine_text_of(assign_var) in self._parameters:
             raise ValueError("Not implemented: a parameter cannot be the source of an assignment "
                              f"({updated_var} = {assign_var}); parameters are unknown constants, "
                              "not values a program variable can take")
         # A variable that does not occur in the generating function is 0 (prodigy-ppl-ginac >= 0.0.6, #232).
         return FPS.from_dist(
-            self._dist.update_var(updated_var, str(assign_var)),
+            self._dist.update_var(updated_var, engine_text_of(assign_var)),
             self._variables, self._parameters, self._finite)
 
     def _update_sum(self, temp_var: str, first_summand: str | int,
                     second_summand: str | int) -> FPS:
         return FPS.from_dist(
-            self._dist.update_sum(temp_var, str(first_summand),
-                                  str(second_summand)), self._variables,
+            self._dist.update_sum(temp_var, engine_text_of(first_summand),
+                                  engine_text_of(second_summand)), self._variables,
             self._parameters)
 
     def _case_split(self, update: Callable[[], prodigy_ginac.Dist], *operands: str | int) -> prodigy_ginac.Dist:
@@ -390,7 +391,7 @@ class FPS(Distribution):
         except ValueError as error:
             if not _is_division_by_zero(error):
                 raise
-            for name in dict.fromkeys(str(operand) for operand in operands):
+            for name in dict.fromkeys(engine_text_of(operand) for operand in operands):
                 if name in self._variables:
                     self.checked_marginal(name)
             raise
@@ -446,7 +447,7 @@ class FPS(Distribution):
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> Distribution:
-        res = self._dist.update_subtraction(temp_var, str(sub_from), str(sub))
+        res = self._dist.update_subtraction(temp_var, engine_text_of(sub_from), engine_text_of(sub))
         return FPS.from_dist(res, self._variables, self._parameters)
 
     def _subtraction_never_negative(self, minuend: str, subtrahend: str) -> bool:
@@ -461,29 +462,30 @@ class FPS(Distribution):
         variables = self._variables
         # On a polynomial, the bindings compute the remainder term by term. Else they would split over
         # the marginal of an operand (#256): the operands with a finite support are fixed instead.
-        if not self._finite and str(right) in variables:
+        if not self._finite and engine_text_of(right) in variables:
             split = self._split_operands(
                 lambda part, l, r: part._update_modulo(temp_var, l, r, approximate),  # pylint: disable=protected-access
                 left, right, right)
             if split is not None:
                 return split
             self._require_approximable(
-                str(right), approximate, f'Cannot perform modulo operation with infinite right hand side {right}')
-        elif not self._finite and str(left) in variables:
+                engine_text_of(right), approximate,
+                f'Cannot perform modulo operation with infinite right hand side {right}')
+        elif not self._finite and engine_text_of(left) in variables:
             split = self._split_operands(
                 lambda part, l, r: part._update_modulo(temp_var, l, r, approximate),  # pylint: disable=protected-access
                 left, right, left)
             if split is not None:
                 return split
-            if str(right).isdigit():
+            if engine_text_of(right).isdigit():
                 # the residue classes modulo a constant are exact for every measure (#249)
-                return self._modulo_by_progression(temp_var, str(left), str(right))
-        if not self._finite and str(left) in variables:
+                return self._modulo_by_progression(temp_var, engine_text_of(left), engine_text_of(right))
+        if not self._finite and engine_text_of(left) in variables:
             # With an infinite marginal of `left`, GiNaC extracts the residue classes of `left` with
             # roots of unity.
-            require_single_valued(self._sympy_function(), str(left), f"{left} % {right}")
+            require_single_valued(self._sympy_function(), engine_text_of(left), f"{left} % {right}")
         return FPS.from_dist(
-            self._case_split(lambda: self._dist.update_modulo(temp_var, str(left), str(right),
+            self._case_split(lambda: self._dist.update_modulo(temp_var, engine_text_of(left), engine_text_of(right),
                                                               self._variables, self._finite, approximate),
                              left, right),
             self._variables, self._parameters)
@@ -491,7 +493,7 @@ class FPS(Distribution):
     def _modulo_by_progression(self, temp_var: str, left: str, right: str) -> FPS:
         """`temp_var := left % right` for a constant `right`, from the residue classes of `left`."""
         result: Distribution | None = None
-        for remainder, section in enumerate(self._arithmetic_progression(str(left), str(right))):
+        for remainder, section in enumerate(self._arithmetic_progression(engine_text_of(left), engine_text_of(right))):
             part = section._update_var(temp_var, remainder)  # pylint: disable=protected-access
             result = part if result is None else result + part
         assert isinstance(result, FPS)
@@ -506,24 +508,25 @@ class FPS(Distribution):
         # operands with a finite support are fixed instead.
         infinite = f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'
         for fixed in (denominator, numerator):
-            if str(fixed) not in self._variables:
+            if engine_text_of(fixed) not in self._variables:
                 continue
             split = self._split_operands(
                 lambda part, l, r: part._update_division(temp_var, l, r, approximate),  # pylint: disable=protected-access
                 numerator, denominator, fixed)
             if split is not None:
                 return split
-            if fixed == numerator and str(denominator).isdigit():
-                divided = self._divide_exponents(temp_var, str(numerator), int(str(denominator)))
+            if fixed == numerator and engine_text_of(denominator).isdigit():
+                divided = self._divide_exponents(temp_var, engine_text_of(numerator), int(engine_text_of(denominator)))
                 if divided is not None:
                     return divided
-            self._require_approximable(str(fixed), approximate, infinite)
+            self._require_approximable(engine_text_of(fixed), approximate, infinite)
         try:
-            divided = self._case_split(lambda: self._dist.update_division(temp_var, str(numerator), str(denominator),
+            numerator_text, denominator_text = engine_text_of(numerator), engine_text_of(denominator)
+            divided = self._case_split(lambda: self._dist.update_division(temp_var, numerator_text, denominator_text,
                                                                           approximate),
                                        numerator, denominator)
         except ValueError as error:
-            if "not always divisible" not in str(error):
+            if "not always divisible" not in engine_text_of(error):
                 raise
             # the bindings' words for the error of the shared contract (#361)
             raise self._not_an_integer_quotient(numerator, denominator, temp_var) from error
@@ -531,7 +534,7 @@ class FPS(Distribution):
 
     def _sympy_function(self) -> Expr_:
         """This generating function as a SymPy expression (all symbols without assumptions)."""
-        text = str(self._dist)
+        text = engine_text_of(self._dist)
         symbols = {name: Symbol(name) for name in prodigy_ginac.find_symbols(text)}
         return parse_expr(text, local_dict=symbols,
                           transformations=standard_transformations + (convert_xor,))
@@ -540,7 +543,7 @@ class FPS(Distribution):
         return self._sympy_function()
 
     def _from_sympy_expression(self, expression: Expr_) -> FPS:
-        dist = prodigy_ginac.Dist(str(expression).replace('**', '^'), list(self._parameters))
+        dist = prodigy_ginac.Dist(engine_text_of(expression).replace('**', '^'), list(self._parameters))
         return FPS.from_dist(dist, set(self._variables), set(self._parameters))
 
     def _divide_exponents(self, temp_var: str, numerator: str, divisor: int) -> FPS | None:
@@ -552,7 +555,7 @@ class FPS(Distribution):
         divided = divide_exponents(self._sympy_function(), numerator, temp_var, divisor)
         if divided is None:
             return None
-        return FPS(str(divided).replace('**', '^'), *self._variables, finite=False)
+        return FPS(engine_text_of(divided).replace('**', '^'), *self._variables, finite=False)
 
     def _update_power(self, temp_var: str, base: str | int, exp: str | int,
                       approximate: str | float | None) -> Distribution:
@@ -564,9 +567,9 @@ class FPS(Distribution):
         if split is not None:
             return split
         for operand_ in (base, exp):
-            if str(operand_) in self._variables:
+            if engine_text_of(operand_) in self._variables:
                 self._require_approximable(
-                    str(operand_), approximate,
+                    engine_text_of(operand_), approximate,
                     "Can only perform exponentiation if the base and the exponent have a finite marginal")
         return FPS.from_dist(
             self._case_split(lambda: self._dist.update_power(temp_var, base, exp, approximate), base, exp),
@@ -576,9 +579,9 @@ class FPS(Distribution):
                     variable: Union[str, VarExpr]) -> FPS:
         if not isinstance(sampling_dist, FunctionCallExpr):
             result = FPS.from_dist(
-                self._dist.updateIid(str(variable),
-                                     prodigy_ginac.Dist(str(sampling_dist), list(self._parameters)),
-                                     str(count)), self._variables,
+                self._dist.updateIid(engine_text_of(variable),
+                                     prodigy_ginac.Dist(engine_text_of(sampling_dist), list(self._parameters)),
+                                     engine_text_of(count)), self._variables,
                 self._parameters)
             return result
 
@@ -586,56 +589,64 @@ class FPS(Distribution):
             [start, end] = sampling_dist.params[0]
             # Note: add parameters in constructor call of prodigy_ginac.Dist
             result = self._dist.updateIid(
-                str(variable),
+                engine_text_of(variable),
                 prodigy_ginac.Dist(
-                    f"1/(({end}) - ({start}) + 1) * test^({start}) "
-                    f"* (test^(({end}) - ({start}) + 1) - 1) / (test - 1)", list(self._parameters)),
-                str(count))
+                    engine_format("1/(({end}) - ({start}) + 1) * test^({start}) "
+                                  "* (test^(({end}) - ({start}) + 1) - 1) / (test - 1)", end=end, start=start),
+                    list(self._parameters)),
+                engine_text_of(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
         if sampling_dist.function == "binomial":
             [n, p] = sampling_dist.params[0]
             # Note: add parameters in constructor call of prodigy_ginac.Dist
             result = self._dist.updateIid(
-                str(variable),
-                prodigy_ginac.Dist(f'(1 - ({p}) + ({p}) * {variable})^({n})', list(self._parameters)),
-                str(count))
+                engine_text_of(variable),
+                prodigy_ginac.Dist(engine_format('(1 - ({p}) + ({p}) * {variable})^({n})', p=p, variable=variable, n=n),
+                                   list(self._parameters)),
+                engine_text_of(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
         if sampling_dist.function == "negative_binomial":
             [r, p] = sampling_dist.params[0]
             result = self._dist.updateIid(
-                str(variable),
-                prodigy_ginac.Dist(f'(({p}) / (1 - (1 - ({p})) * {variable}))^({r})', list(self._parameters)),
-                str(count))
+                engine_text_of(variable),
+                prodigy_ginac.Dist(engine_format('(({p}) / (1 - (1 - ({p})) * {variable}))^({r})',
+                                                 p=p, variable=variable, r=r), list(self._parameters)),
+                engine_text_of(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
         [param] = sampling_dist.params[0]
         if sampling_dist.function == "geometric":
             result = self._dist.updateIid(
-                str(variable), prodigy_ginac.geometric(str(variable), str(param)),
-                str(count))
+                engine_text_of(variable), prodigy_ginac.geometric(engine_text_of(variable), engine_text_of(param)),
+                engine_text_of(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
         if sampling_dist.function == "bernoulli":
-            symbolic_param = prodigy_ginac.find_symbols(str(param))
+            symbolic_param = prodigy_ginac.find_symbols(engine_text_of(param))
             result = self._dist.updateIid(
-                str(variable),
-                prodigy_ginac.Dist(f"{param} * {variable} + (1-{param})", symbolic_param), str(count))
+                engine_text_of(variable),
+                prodigy_ginac.Dist(engine_format("{param} * {variable} + (1-{param})", param=param, variable=variable),
+                                   symbolic_param), engine_text_of(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
         if sampling_dist.function == "poisson":
             result = self._dist.updateIid(
-                str(variable), prodigy_ginac.Dist(f"exp({param} * ({variable} - 1))", list(self._parameters)),
-                str(count))
+                engine_text_of(variable),
+                prodigy_ginac.Dist(engine_format("exp({param} * ({variable} - 1))", param=param, variable=variable),
+                                   list(self._parameters)),
+                engine_text_of(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
         if sampling_dist.function == 'logdist':
             result = self._dist.updateIid(
-                str(variable),
+                engine_text_of(variable),
                 prodigy_ginac.Dist(
-                    f'log(1 - ({param}) * {variable}) / log(1 - ({param}))', list(self._parameters)),
-                str(count))
+                    engine_format('log(1 - ({param}) * {variable}) / log(1 - ({param}))',
+                                  param=param, variable=variable),
+                    list(self._parameters)),
+                engine_text_of(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
         raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
@@ -653,7 +664,7 @@ class FPS(Distribution):
         }
         for var in remove_vars[method]:
             try:
-                result = result.update_var(str(var), "0")
+                result = result.update_var(engine_text_of(var), "0")
             except ValueError as error:
                 if not _is_division_by_zero(error):
                     raise
@@ -671,7 +682,7 @@ class FPS(Distribution):
         dist = self._dist
         if parameters != self._parameters:
             # the bindings keep the parameters of a function: a name that changes sides is read anew
-            dist = prodigy_ginac.Dist(str(dist), sorted(parameters))
+            dist = prodigy_ginac.Dist(engine_text_of(dist), sorted(parameters))
         return FPS.from_dist(dist, variables, parameters)
 
     def approximate(
@@ -685,7 +696,7 @@ class FPS(Distribution):
             probability_mass: str | float) -> Distribution:
         return FPS.from_dist(
             self._dist.approximate_unilaterally(variable,
-                                                str(probability_mass)),
+                                                engine_text_of(probability_mass)),
             self._variables, self._parameters)
 
 
@@ -696,41 +707,43 @@ class ProdigyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def geometric(var: Union[str, VarExpr], p: DistributionParam) -> FPS:
-        return FPS.from_dist(prodigy_ginac.geometric(var, str(p)), {str(var)},
-                             {*prodigy_ginac.find_symbols(str(p))})
+        return FPS.from_dist(prodigy_ginac.geometric(var, engine_text_of(p)), {str(var)},
+                             {*prodigy_ginac.find_symbols(engine_text_of(p))})
 
     @staticmethod
     def uniform(var: Union[str, VarExpr], lower: DistributionParam,
                 upper: DistributionParam) -> FPS:
-        function = f"1/({upper} - {lower} + 1) * ({var}^{lower}) * (({var}^({upper} - {lower} + 1) - 1)/({var} - 1))"
-        return FPS(function, str(var), finite=True)
+        function = engine_format("1/({upper} - {lower} + 1) * ({var}^{lower}) "
+                                 "* (({var}^({upper} - {lower} + 1) - 1)/({var} - 1))",
+                                 upper=upper, lower=lower, var=var)
+        return FPS(function, engine_text_of(var), finite=True)
 
     @staticmethod
     def bernoulli(var: Union[str, VarExpr], p: DistributionParam) -> FPS:
-        function = f"({p}) * {var} + 1-({p})"
-        return FPS(function, str(var), finite=True)
+        function = engine_format("({p}) * {var} + 1-({p})", p=p, var=var)
+        return FPS(function, engine_text_of(var), finite=True)
 
     @staticmethod
     def poisson(var: Union[str, VarExpr], lam: DistributionParam) -> FPS:
-        function = f"exp(({lam}) * ({var} - 1))"
-        return FPS(function, str(var))
+        function = engine_format("exp(({lam}) * ({var} - 1))", lam=lam, var=var)
+        return FPS(function, engine_text_of(var))
 
     @staticmethod
     def log(var: Union[str, VarExpr], p: DistributionParam) -> FPS:
-        function = f"log(1-({p})*{var})/log(1-({p}))"
-        return FPS(function, str(var))
+        function = engine_format("log(1-({p})*{var})/log(1-({p}))", p=p, var=var)
+        return FPS(function, engine_text_of(var))
 
     @staticmethod
     def binomial(var: Union[str, VarExpr], n: DistributionParam,
                  p: DistributionParam) -> FPS:
-        function = f"(({p})*{var} + (1-({p})))^({n})"
-        return FPS(function, str(var))
+        function = engine_format("(({p})*{var} + (1-({p})))^({n})", p=p, var=var, n=n)
+        return FPS(function, engine_text_of(var))
 
     @staticmethod
     def negative_binomial(var: Union[str, VarExpr], r: DistributionParam,
                           p: DistributionParam) -> FPS:
-        function = f"(({p}) / (1 - (1-({p})) * {var}))^({r})"
-        return FPS(function, str(var))
+        function = engine_format("(({p}) / (1 - (1-({p})) * {var}))^({r})", p=p, var=var, r=r)
+        return FPS(function, engine_text_of(var))
 
     @staticmethod
     def one(*variables: Union[str, VarExpr]) -> FPS:
@@ -738,7 +751,7 @@ class ProdigyPGF(CommonDistributionsFactory):
 
     @staticmethod
     def from_expr(expression: Union[str, Expr], *variables: Union[str, VarExpr], **kwargs: Optional[bool]) -> FPS:
-        return FPS(str(expression), *variables)
+        return FPS(engine_text_of(expression), *variables)
 
     @staticmethod
     def zero(*variables: Union[str, VarExpr]) -> FPS:

@@ -88,7 +88,7 @@ def test_substitute_constants_categorical():
 x: nat;
 x = categorical({c: 0.25, c + 1: 0.75});""")
     substitute_constants(program)
-    assert str(program.instructions[0]) == "x := 3 : 0.25 + (3 + 1) : 0.75;"
+    assert str(program.instructions[0]) == "x = categorical({3: 0.25, 3 + 1: 0.75});"
 
 
 def test_mut_expr_children_categorical_pairs():

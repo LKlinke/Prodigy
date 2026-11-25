@@ -96,14 +96,14 @@ class QueryHandler(InstructionHandler):
                       or (isinstance(expression, UnopExpr) and expression.operator == Unop.NEG)):
                 raise SyntaxError("Expression has wrong format.")
             # the loop strategy right before may know the exact value already (e.g. from its certificate)
-            result = session.loop_query_value("?Ex", str(expression), distribution)
+            result = session.loop_query_value("?Ex", expression, distribution)
             if result is None:
                 # floor divisions and subtractions (monus) are computed exactly as in an assignment
                 result = distribution.get_expected_value_of(expression)
 
             print(f"Expected value: {result}")
             monotone = is_monotone_nonnegative(expression, prog_info.program)
-            known = session.loop_query_bounds("?Ex", str(expression))
+            known = session.loop_query_bounds("?Ex", expression)
             if monotone and (known is None or known[1] is None):
                 known = with_upper(known, _upper_value(session, lambda upper: upper.get_expected_value_of(expression)))
             session.record_query(finish_query(
@@ -312,7 +312,7 @@ class QueryHandler(InstructionHandler):
         # Probability of condition computation.
         else:
             # the loop strategy right before may know the exact value already (e.g. from its certificate)
-            prob = session.loop_query_value("?Pr", str(expression), dist)
+            prob = session.loop_query_value("?Pr", expression, dist)
             if prob is None:
                 try:
                     prob = filter_by_cases(dist, expression).get_probability_mass()
@@ -321,7 +321,7 @@ class QueryHandler(InstructionHandler):
                     prob = filter_by_cases(dist.query_marginal(expression, error), expression).get_probability_mass()
             text = session.spell(expression)
             print(f"Probability of {text}: {prob}")
-            known = session.loop_query_bounds("?Pr", str(expression))
+            known = session.loop_query_bounds("?Pr", expression)
             if known is None or known[1] is None:
                 known = with_upper(known, _upper_value(session, lambda upper: _probability(upper, expression)))
             session.record_query(finish_query(session, QueryResult("probability", text, value=prob),

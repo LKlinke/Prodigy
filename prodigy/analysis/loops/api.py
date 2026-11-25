@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, 
 
 import attr
 
-from prodigy.language import Instr, Program, WhileInstr
+from prodigy.language import Expr, Instr, Program, WhileInstr
 from prodigy.language.outline import LoopInfo, is_query, outline
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -188,6 +188,19 @@ class ParamSpec:
         }
 
 
+QueryKey = Tuple[str, str]
+"""The key of a query directly after a loop in :attr:`LoopOutcome.query_bounds` and ``query_values``."""
+
+
+def query_key(kind: str, expression: "Expr") -> QueryKey:
+    """
+    The key of the query ``kind`` (``"?Pr"`` or ``"?Ex"``) of ``expression``: its kind and the structure of the
+    expression tree (the ``repr`` that ``attrs`` derives from the fields), so that the strategy and the query
+    handler find the same query whatever ``str()`` or a printer writes.
+    """
+    return kind, repr(expression)
+
+
 @dataclass
 class LoopOutcome:
     """Result of running a loop strategy once."""
@@ -200,12 +213,12 @@ class LoopOutcome:
     the incoming distribution (i.e. before any later normalisation)."""
     certificate: Dict[str, Any] = field(default_factory=dict)
     messages: List[str] = field(default_factory=list)
-    query_bounds: Dict[Tuple[str, str], Tuple[Any, Any]] = field(default_factory=dict)
+    query_bounds: Dict["QueryKey", Tuple[Any, Any]] = field(default_factory=dict)
     """Bounds that the strategy computed itself for the queries directly after the loop, as
-    ``(kind, expression) -> (lower, upper)`` with kind ``"?Pr"`` or ``"?Ex"`` and ``None`` for an
+    ``query_key(kind, expression) -> (lower, upper)`` with kind ``"?Pr"`` or ``"?Ex"`` and ``None`` for an
     unknown side. They refer to the incoming distribution of the loop and tighten the intervals of
     exactly these queries (e.g. the upper bounds of an EVT super-invariant)."""
-    query_values: Dict[Tuple[str, str], Any] = field(default_factory=dict)
+    query_values: Dict["QueryKey", Any] = field(default_factory=dict)
     """Exact values of the queries directly after the loop on ``distribution`` itself, keyed like
     ``query_bounds``, if the strategy knows them anyway (e.g. from its certificate). They must be
     exactly what evaluating the query on ``distribution`` gives; the query handler then skips that

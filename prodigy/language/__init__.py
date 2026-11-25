@@ -37,7 +37,7 @@ The syntax is described in :ref:`ppy_reference`.
 from .ast import (Node, Var, ConstDecl, Decl, Function, FunctionDecl, ParameterDecl, VarDecl, Binop, BinopExpr,
                   BoolLitExpr, CategoricalExpr, Expr, ExpectationExpr, ExprClass, FunctionCallExpr, InferExpr,
                   NatLitExpr, ProbabilityExpr, RealLitExpr, SampleExpr, SubstExpr, Unop, UnopExpr, VarExpr,
-                  expr_str_parens, AsgnInstr, ChoiceInstr, CovarianceInstr, VarianceInstr, ExpectationInstr, IfInstr,
+                  AsgnInstr, ChoiceInstr, CovarianceInstr, VarianceInstr, ExpectationInstr, IfInstr,
                   Instr, InstrClass, LocalDeclInstr, LoopInstr, ObserveInstr, OptimizationQuery, OptimizationType,
                   PlotInstr, PrintInstr, ProbabilityQueryInstr, Query, QueryInstr, SkipInstr, WhileInstr, AbortInstr,
                   Program, BoolType, Bounds, NatType, RealType, Type, Walk, mut_expr_children, walk_expr,
@@ -45,12 +45,17 @@ from .ast import (Node, Var, ConstDecl, Decl, Function, FunctionDecl, ParameterD
 from .check import (CheckFail, sample_predefined_functions, get_type, mentions_dist, is_compatible, check_instr,
                     check_program, check_function, type_name, non_bool_guard)
 from .parser import parse_program
+from .ast.ast import install_printer as _install_printer
+from .ppy_printer import node_to_ppy as _node_to_ppy
+
+# str() of every node is its .ppy form; the AST imports no printer (tests/test_layering.py)
+_install_printer(_node_to_ppy)
 
 # the API of the package (#379, step 1)
 __all__ = ["Node", "Var", "ConstDecl", "Decl", "Function", "FunctionDecl", "ParameterDecl", "VarDecl", "Binop",
            "BinopExpr", "BoolLitExpr", "CategoricalExpr", "Expr", "ExpectationExpr", "ExprClass", "FunctionCallExpr",
            "InferExpr", "NatLitExpr", "ProbabilityExpr", "RealLitExpr", "SampleExpr", "SubstExpr", "Unop", "UnopExpr",
-           "VarExpr", "expr_str_parens", "AsgnInstr", "ChoiceInstr", "CovarianceInstr", "VarianceInstr",
+           "VarExpr", "AsgnInstr", "ChoiceInstr", "CovarianceInstr", "VarianceInstr",
            "ExpectationInstr", "IfInstr", "Instr", "InstrClass", "LocalDeclInstr", "LoopInstr", "ObserveInstr",
            "OptimizationQuery", "OptimizationType", "PlotInstr", "PrintInstr", "ProbabilityQueryInstr", "Query",
            "QueryInstr", "SkipInstr", "WhileInstr", "AbortInstr", "Program", "BoolType", "Bounds", "NatType",

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import itertools
-from abc import abstractmethod
 from decimal import Decimal
 from enum import Enum, auto
 from fractions import Fraction
@@ -25,20 +24,6 @@ class ExprClass(Node):
         """Cast to Expr. This is sometimes necessary to satisfy the type checker."""
         return self  # type: ignore[return-value]
 
-    @abstractmethod
-    def __str__(self) -> str:
-        """
-        This expression as the internal text (``&``/``||`` for ``and``/``or``, ``=`` for ``==``,
-        ``^`` for ``**``, ``:=``), which the engines and logs read; messages use
-        :func:`prodigy.language.ppy_printer.spell` (``.ppy``).
-
-        .. doctest::
-
-            >>> from prodigy.language.ppy_parser import parse_ppy_expr
-            >>> str(parse_ppy_expr("x < 2 and not true"))
-            '(x < 2) & not true'
-        """
-
 
 @attr.s(repr=False)
 class VarExpr(ExprClass):
@@ -47,9 +32,6 @@ class VarExpr(ExprClass):
 
     def __attrs_post_init__(self) -> None:
         assert self.var not in {'true', 'false'}
-
-    def __str__(self) -> str:
-        return self.var
 
     def __repr__(self) -> str:
         return f'VarExpr({repr(self.var)})'
@@ -60,9 +42,6 @@ class BoolLitExpr(ExprClass):
     """A bool literal is an expression."""
     value: bool = attr.ib()
 
-    def __str__(self) -> str:
-        return str(self.value).lower()
-
     def __repr__(self) -> str:
         return f'BoolLitExpr({self.value})'
 
@@ -71,9 +50,6 @@ class BoolLitExpr(ExprClass):
 class NatLitExpr(ExprClass):
     """A natural number is an expression."""
     value: int = attr.ib()
-
-    def __str__(self) -> str:
-        return str(self.value)
 
     def __repr__(self) -> str:
         return f'NatLitExpr({self.value})'
@@ -152,9 +128,6 @@ class RealLitExpr(ExprClass):
             return self.value
         return Fraction(self.value)
 
-    def __str__(self) -> str:
-        return str(self.value)
-
     def __repr__(self) -> str:
         return f'RealLitExpr("{str(self.value)}")'
 
@@ -174,13 +147,6 @@ class UnopExpr(ExprClass):
     """A unary operator is an expression."""
     operator: Unop = attr.ib()
     expr: Expr = attr.ib()
-
-    def __str__(self) -> str:
-        if self.operator == Unop.NEG:
-            return f'not {expr_str_parens(self.expr)}'
-        elif self.operator == Unop.MINUS:
-            return f'-{expr_str_parens(self.expr)}'
-        raise Exception("Invalid Unop operator")
 
 
 class Binop(Enum):
@@ -287,11 +253,6 @@ class BinopExpr(ExprClass):
 
         return flatten_expr(self)
 
-    def __str__(self) -> str:
-        if self.operator == Binop.POWER:
-            return f'({self.lhs}) {self.operator} ({self.rhs})'
-        return f'{expr_str_parens(self.lhs)} {self.operator} {expr_str_parens(self.rhs)}'
-
 
 def _check_categorical_exprs(_self: CategoricalExpr, _attribute: object,
                              value: List[Tuple[Expr, RealLitExpr]]) -> None:
@@ -322,10 +283,6 @@ class CategoricalExpr(ExprClass):
         """
         return [(prob, expr) for expr, prob in self.exprs]
 
-    def __str__(self) -> str:
-        return " + ".join((f"{expr_str_parens(expr)} : {expr_str_parens(prob)}"
-                           for expr, prob in self.exprs))
-
 
 @attr.s
 class SubstExpr(ExprClass):
@@ -347,11 +304,6 @@ class SubstExpr(ExprClass):
     subst: Dict[Var, Expr] = attr.ib()
     expr: Expr = attr.ib()
 
-    def __str__(self) -> str:
-        substs = ", ".join(
-            (f'{key}/{value}' for key, value in self.subst.items()))
-        return f'({self.expr})[{substs}]'
-
 
 @attr.s
 class FunctionCallExpr(ExprClass):
@@ -369,27 +321,18 @@ class FunctionCallExpr(ExprClass):
     The parameters of the function call. First come the positional parameters,
     then the named ones.
     """
-    def __str__(self) -> str:
-        params = ', '.join(
-            [str(p) for p in self.params[0]] +
-            [f'{var} := {expr}' for var, expr in self.params[1].items()])
-        return f"{self.function}({params})"
 
 
 @attr.s
 class InferExpr(ExprClass):
     function: FunctionCallExpr = attr.ib()
     """The function call to infer a distribution from"""
-    def __str__(self) -> str:
-        return f"infer {{ {self.function} }}"
 
 
 @attr.s
 class SampleExpr(ExprClass):
     dist: Var = attr.ib()
     """The distribution from which to sample a value"""
-    def __str__(self) -> str:
-        return f"sample {{ {self.dist} }}"
 
 
 @attr.s
@@ -402,8 +345,6 @@ class ProbabilityExpr(ExprClass):
     """
     cond: Expr = attr.ib()
     """The condition, e.g. ``d = 3``"""
-    def __str__(self) -> str:
-        return f"Pr[{self.cond}]"
 
 
 @attr.s
@@ -414,18 +355,7 @@ class ExpectationExpr(ExprClass):
     """
     expr: Expr = attr.ib()
     """The ``dist`` variable as a :class:`VarExpr`"""
-    def __str__(self) -> str:
-        return f"Ex[{self.expr}]"
 
-
-def expr_str_parens(expr: ExprClass) -> str:
-    """Wrap parentheses around an expression, but not for simple expressions."""
-    if isinstance(expr,
-                  (VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr,
-                   ProbabilityExpr, ExpectationExpr)):
-        return str(expr)
-    else:
-        return f'({expr})'
 
 
 Expr = Union[VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr,

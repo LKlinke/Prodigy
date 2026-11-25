@@ -41,8 +41,8 @@ from prodigy.distribution.equality import sympify_distribution, sympify_engine_s
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.loops import witness as witnesses
 from prodigy.analysis.loops.witness import show_valuation
-from prodigy.analysis.loops.api import (Bound, LoopDecision, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
-                                        get_loop_strategy, register_loop_strategy)
+from prodigy.analysis.loops.api import (Bound, LoopDecision, LoopOutcome, LoopStrategy, LoopTask, ParamSpec, QueryKey,
+                                        get_loop_strategy, query_key, register_loop_strategy)
 from prodigy.distribution import Distribution, State, known_convergent_series
 from prodigy.distribution.distribution import NonFiniteMarginalError
 from prodigy.language.operations import cav_phi
@@ -888,12 +888,12 @@ def _strategy_evt_sandwich(task: LoopTask) -> LoopOutcome:
             summary["exit_mass_rounded"] = directed_decimal(cert.verified_exit_mass(), name == "upper")
             summary["check"] = cert.extra.get("check")
         certificate[name] = summary
-    query_bounds = {(bound.query.kind, bound.query.text): (_exact(bound.lower), _exact(bound.upper))
+    query_bounds = {bound.query.key: (_exact(bound.lower), _exact(bound.upper))
                     for bound in result.bounds}
     # the values on the lower bound itself, computed from the certificate (no epilogue: `lower` is its exit part)
     query_values = {}
     if problem.epilogue == ("seq", []):
-        query_values = {(bound.query.kind, bound.query.text): _exact(bound.value)
+        query_values = {bound.query.key: _exact(bound.value)
                         for bound in result.bounds if bound.value is not None}
     # Park: the output lies coefficient-wise below [not guard]·I. The certificate checked I >= 0, so this is a
     # power series with non-negative coefficients; it is kept (LoopOutcome.upper) if its mass is finite.
@@ -1096,7 +1096,7 @@ AUTO_TIME_LIMIT = 5
 AUTO_TEMPLATE_TIME_LIMIT = 2
 
 
-def _upper_query_bounds(task: LoopTask, upper: Distribution) -> Dict[Tuple[str, str], Tuple[Any, Any]]:
+def _upper_query_bounds(task: LoopTask, upper: Distribution) -> Dict[QueryKey, Tuple[Any, Any]]:
     """Upper bounds on the ``?Pr`` and ``?Ex`` queries directly after the loop, evaluated on ``upper``, an
     upper bound of the loop's result (#336). The queries are monotone in the measure (an expectation only if its
     expression is non-negative), so each value bounds the query of the exact result. A query that cannot be
@@ -1108,7 +1108,7 @@ def _upper_query_bounds(task: LoopTask, upper: Distribution) -> Dict[Tuple[str, 
     program = task.prog_info.program
     instructions = list(program.instructions)
     index = next((i for i, ins in enumerate(instructions) if ins is task.instruction), None)
-    bounds: Dict[Tuple[str, str], Tuple[Any, Any]] = {}
+    bounds: Dict[QueryKey, Tuple[Any, Any]] = {}
     for ins in instructions[index + 1:] if index is not None else []:
         if isinstance(ins, (PlotInstr, PrintInstr)):
             continue
@@ -1130,7 +1130,7 @@ def _upper_query_bounds(task: LoopTask, upper: Distribution) -> Dict[Tuple[str, 
                 continue
         except Exception:  # pylint: disable=broad-except  # the bound is optional
             continue
-        bounds[(kind, str(ins.expr))] = (None, value)
+        bounds[query_key(kind, ins.expr)] = (None, value)
     return bounds
 
 
