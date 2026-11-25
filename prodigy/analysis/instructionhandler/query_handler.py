@@ -21,7 +21,6 @@ from prodigy.analysis.context import AnalysisContext, current_context
 from prodigy.distribution import Distribution, MarginalType
 from prodigy.distribution.distribution import NonFiniteMarginalError
 from prodigy.util.logger import log_setup
-from prodigy.plotting.plotter import Plotter
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
@@ -239,6 +238,9 @@ class QueryHandler(InstructionHandler):
             session.record_query(QueryHandler.__plot_data(instr, variables, dist, session))
             return dist
 
+        # matplotlib is loaded only when the terminal plots (importing the analysis must not load it; T7 moves
+        # the rendering to the front ends)
+        from prodigy.plotting.plotter import Plotter  # pylint: disable=import-outside-toplevel
         # User can specify either a probability threshold or a number of terms which are shown in the histogram.
         if instr.prob:
             # User chose a probability or oo (meaning, try to compute the whole histogram).
