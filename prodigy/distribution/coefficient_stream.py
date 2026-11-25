@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Callable, Iterator, List, Optional, Sequence, 
 
 import sympy
 
+from prodigy.distribution.engine_text import engine_text, parse_engine_text
 from prodigy.distribution.exponential_series import Window, exp_polynomial_columns, exp_polynomial_taylor_stream
 from prodigy.distribution.rational_series import rational_taylor_stream
 
@@ -146,13 +147,12 @@ def taylor_window(expr: sympy.Expr, first: sympy.Symbol, second: sympy.Symbol, f
 
 def sympy_form(dist: "Distribution") -> Optional[sympy.Expr]:
     """The generating function of ``dist`` as a SymPy expression, or None if it cannot be read."""
-    # pylint: disable=import-outside-toplevel
-    from prodigy.distribution.generating_function import _parse_to_sympy
     function = getattr(dist, "_function", None)
     if isinstance(function, sympy.Basic):
         return function
     try:
-        return _parse_to_sympy(str(dist))
+        # as the SymPy engine reads it: real symbols, exact rationals
+        return parse_engine_text(engine_text(dist), rational=True, symbol=lambda name: sympy.Symbol(name, real=True))
     except Exception:  # pylint: disable=broad-except
         return None
 

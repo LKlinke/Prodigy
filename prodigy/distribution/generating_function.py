@@ -18,7 +18,8 @@ import sympy
 from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
 from prodigy.distribution.distribution import Operand, canonical_order
-from prodigy.distribution.equality import decide_equal, sympy_text
+from prodigy.distribution.engine_text import parse_engine_text, sympy_text
+from prodigy.distribution.equality import decide_equal
 from prodigy.distribution.exact_division import divide_exponents
 from prodigy.distribution.rational_series import rational_taylor_coefficients
 from prodigy.distribution.negative_values import can_be_negative
@@ -316,19 +317,7 @@ def _parse_to_sympy(expr: SympyInput, real: bool = True, **kwargs: bool) -> symp
         s = probably_to_sympy(expr)
 
     else:
-        s = sympy.parse_expr(
-            str(expr),
-            transformations=sympy.parsing.sympy_parser.standard_transformations
-                            + (sympy.parsing.sympy_parser.convert_xor,
-                               sympy.parsing.sympy_parser.rationalize),
-            global_dict={
-                'Symbol': lambda x: _sympy_symbol(x, real, **kwargs),
-                'Function': get_function,
-                'Integer': sympy.Integer,
-                'Float': sympy.Float,
-                'Rational': sympy.Rational
-            })
-
+        s = parse_engine_text(str(expr), rational=True, symbol=lambda name: _sympy_symbol(name, real, **kwargs))
     return s
 
 
