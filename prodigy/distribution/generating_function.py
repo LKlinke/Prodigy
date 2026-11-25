@@ -28,7 +28,6 @@ from prodigy.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
 from prodigy.pgcl.ppy_parser import parse_ppy_expr
 from prodigy.pgcl.pgcl_checks import has_variable
 from prodigy.pgcl.pgcl_operations import state_condition
-from prodigy.pgcl.util.ref import Mut
 from prodigy.util.logger import log_setup, logging
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
@@ -1275,15 +1274,7 @@ class GeneratingFunction(Distribution):
 
         if not isinstance(sampling_dist, FunctionCallExpr):
             # create distribution in correct variable:
-            expr = Mut.alloc(sampling_dist)
-            # for ref in walk_expr(Walk.DOWN, expr):
-            #    if isinstance(ref.val, VarExpr) and _sympy_symbol(ref.val.var) not in self._parameters:
-            #        ref.val.var = variable
-            #    elif isinstance(ref.val, FunctionCallExpr):
-            #        raise ValueError(
-            #            "Cannot handle nested user-defined functions in iid parameters"
-            #        )
-            dist_gf = _parse_to_sympy(str(expr.val))
+            dist_gf = _parse_to_sympy(str(sampling_dist))
             return subs(dist_gf, subst_var, variable)
 
         if sampling_dist.function == "binomial":
