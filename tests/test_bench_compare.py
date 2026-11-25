@@ -10,9 +10,9 @@ bench_compare = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(bench_compare)
 
 
-def entry(seconds, status="ok"):
+def entry(seconds, status="ok", total=None):
     """One measurement."""
-    return {"status": status, "seconds": seconds, "wall": seconds}
+    return {"status": status, "seconds": seconds, "total": total, "wall": seconds}
 
 
 def run(**cases):
@@ -66,3 +66,12 @@ def test_main_writes_summary_and_exit_codes(tmp_path):
     assert "**slower**" in summary.read_text(encoding="utf-8")
     assert bench_compare.main([str(base), str(head), "--fail-on-slower"]) == 1
     assert bench_compare.main([str(base), str(tmp_path / "missing.json")]) == 2
+
+
+def test_total_time_is_compared_where_both_runs_have_it():
+    # the analysis is as fast as before, but the result summary (in the total time) got slower (#479)
+    base = run(a=entry(1.0, total=1.5), b=entry(1.0, total=1.5), c=entry(1.0))
+    head = run(a=entry(1.0, total=4.0), b=entry(1.0, total=2.0), c=entry(1.0, total=9.0))
+    assert problems(base, head) == ["a"]
+    table, _ = bench_compare.compare(base, head)
+    assert "total 1.50 → 4.00 (2.7×)" in table
