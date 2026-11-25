@@ -13,10 +13,10 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.result import (QueryResult, describe_distribution, error_type, finish_query,
-                                     is_non_finite, is_monotone_nonnegative, joint_table, show, sym, tidy,
-                                     univariate_table, with_upper)
+from prodigy.analysis.loops.api import Bound
+from prodigy.analysis.values import (QueryResult, describe_distribution, error_type, finish_query, is_non_finite,
+                                     is_monotone_nonnegative, joint_table, show, sym, tidy, univariate_table,
+                                     with_upper)
 from prodigy.analysis.session import AnalysisSession, current_session
 from prodigy.distribution import Distribution, MarginalType
 from prodigy.distribution.distribution import NonFiniteMarginalError

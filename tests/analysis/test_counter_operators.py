@@ -17,7 +17,7 @@ from prodigy.analysis.evtinvariants.exp_polynomial import (analytic_at_zero, ent
 from prodigy.analysis.evtinvariants.log_polynomial import log_form_mass, log_form_nonneg
 from prodigy.analysis.instructionhandler.counter_operators import CounterProbability, counter_probability
 from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.result import sym
+from prodigy.analysis.values import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.equality import decide_equal, sympy_text
 from prodigy.language import parse_program

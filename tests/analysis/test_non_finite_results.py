@@ -7,7 +7,7 @@ import sympy
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.result import QueryResult, is_non_finite, sym
+from prodigy.analysis.values import QueryResult, is_non_finite, sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.generating_function import GeneratingFunction, _continuous_at_one, _substitute_one
 from prodigy.language import parse_program

@@ -8,7 +8,7 @@ from click.testing import CliRunner
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.result import sym
+from prodigy.analysis.values import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
 from prodigy.language import parse_program

@@ -8,7 +8,7 @@ import pytest
 import sympy
 
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.result import describe_distribution
+from prodigy.analysis.values import describe_distribution
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution import display
 from prodigy.distribution.display import display_form

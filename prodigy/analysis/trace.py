@@ -65,10 +65,10 @@ from prodigy.language import (AbortInstr, AsgnInstr, ChoiceInstr, Expr, IfInstr,
                           QueryInstr, SkipInstr, VarExpr, WhileInstr)
 from prodigy.language.positions import span_of
 
-from prodigy.analysis.loop_strategies import Bound
+from prodigy.analysis.loops.api import Bound
 
 if TYPE_CHECKING:  # pragma: no cover
-    from prodigy.analysis.loop_strategies import LoopOutcome, LoopTask
+    from prodigy.analysis.loops.api import LoopOutcome, LoopTask
     from prodigy.analysis.session import AnalysisSession
     from prodigy.distribution import Distribution
 
@@ -415,7 +415,7 @@ class Tracer:
         """The bounded summary of a distribution that the trace stores (with its guarantee)."""
         # pylint: disable=import-outside-toplevel
         from prodigy.analysis.nested_inference import for_trace
-        from prodigy.analysis.result import exact_and_float, sym, to_latex, univariate_table
+        from prodigy.analysis.values import exact_and_float, sym, to_latex, univariate_table
         start = time.perf_counter()
         limits = self.limits
         dist, dist_values = for_trace(dist, self.session.program)
@@ -548,7 +548,7 @@ class Tracer:
 
     def finish(self, token: _Open, dist: "Distribution", error_prob: "Distribution") -> None:
         # pylint: disable=import-outside-toplevel
-        from prodigy.analysis.result import exact_and_float
+        from prodigy.analysis.values import exact_and_float
         self._close(token)
         step = token.step
         kind, residual = self._guarantee()
@@ -599,8 +599,7 @@ class Tracer:
     def _evaluate(self, watch: Watch, dist: "Distribution", error_prob: "Distribution", kind: str,
                   residual: Any) -> Dict[str, Any]:
         # pylint: disable=import-outside-toplevel
-        from prodigy.analysis.result import (QueryResult, exact_and_float, is_monotone_nonnegative, make_interval,
-                                             sym)
+        from prodigy.analysis.values import QueryResult, exact_and_float, is_monotone_nonnegative, make_interval, sym
         entry: Dict[str, Any] = {"text": watch.text, "kind": watch.kind}
         start = time.perf_counter()
         try:
@@ -681,7 +680,7 @@ class Tracer:
     def _record_iterate(self, frame: _LoopFrame, iteration: int, terminated: Any, inside: Any, residual: Any,
                         kind: str) -> None:
         # pylint: disable=import-outside-toplevel
-        from prodigy.analysis.result import exact_and_float, sym
+        from prodigy.analysis.values import exact_and_float, sym
         dist = terminated() if callable(terminated) else terminated
         start = time.perf_counter()
         try:

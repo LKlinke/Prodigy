@@ -2,7 +2,7 @@
 While loops.
 
 The handler asks the current :class:`~prodigy.analysis.session.AnalysisSession` which
-:mod:`loop strategy <prodigy.analysis.loop_strategies>` to use for a loop and runs it.
+:mod:`loop strategy <prodigy.analysis.loops.api>` to use for a loop and runs it.
 The six historic strategies are implemented and registered here; in the interactive CLI
 they show up in the same menu, with the same prompts, as before.
 """
@@ -38,9 +38,9 @@ from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.distribution.equality import sympify_distribution, sympify_engine_string
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
-                                              get_loop_strategy, register_loop_strategy)
-from prodigy.analysis.session import LoopDecision, current_session
+from prodigy.analysis.loops.api import (Bound, LoopDecision, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
+                                        get_loop_strategy, register_loop_strategy)
+from prodigy.analysis.session import current_session
 from prodigy.distribution import Distribution, State, known_convergent_series
 from prodigy.distribution.distribution import NonFiniteMarginalError
 from prodigy.distribution.generating_function import SympyPGF
@@ -77,7 +77,7 @@ class InvariantRefutedError(VerificationError):
 
 def _mass(dist: Distribution) -> sympy.Expr:
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.result import sym
+    from prodigy.analysis.values import sym
     return sym(dist.get_probability_mass())
 
 
@@ -122,7 +122,7 @@ def finite_mass(invariant: InvariantLike, variables: Sequence[str]) -> Tuple[Opt
     other forms).
     """
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.result import sym
+    from prodigy.analysis.values import sym
     try:
         expr = sym(invariant)
         factors = independent_factors(_names_as_symbols(invariant, variables), list(variables))
@@ -158,7 +158,7 @@ def finite_mass(invariant: InvariantLike, variables: Sequence[str]) -> Tuple[Opt
 
 def _exp_polynomial_positivity(variables: Sequence[str], invariant: InvariantLike) -> Optional[bool]:
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.result import sym
+    from prodigy.analysis.values import sym
     try:
         expr, names = sym(invariant), [str(v) for v in variables]
         verdict = exp_polynomial_nonneg(expr, names)
@@ -1103,7 +1103,7 @@ def _upper_query_bounds(task: LoopTask, upper: Distribution) -> Dict[Tuple[str, 
     evaluated, or whose value is not finite, is left out: the bound is only an addition."""
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.instructionhandler.query_handler import filter_by_cases
-    from prodigy.analysis.result import is_monotone_nonnegative
+    from prodigy.analysis.values import is_monotone_nonnegative
     from prodigy.language import ExpectationInstr, PlotInstr, PrintInstr, ProbabilityQueryInstr, VarExpr
     program = task.prog_info.program
     instructions = list(program.instructions)

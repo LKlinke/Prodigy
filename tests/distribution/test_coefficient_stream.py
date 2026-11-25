@@ -11,7 +11,7 @@ import sympy
 
 from prodigy.analysis.joint_grid import joint_grid
 from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.result import describe_distribution, sym, tidy, univariate_table
+from prodigy.analysis.values import describe_distribution, sym, tidy, univariate_table
 from prodigy.analysis.streaming import Batcher
 from prodigy.distribution import known_convergent_series
 from prodigy.distribution.coefficient_stream import doubling, marginal_stream, taylor_stream

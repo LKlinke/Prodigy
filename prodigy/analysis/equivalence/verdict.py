@@ -42,7 +42,7 @@ import sympy
 # re-exported: the web reads both from the verdict (`as` makes the re-export explicit, #379)
 from prodigy.analysis.equivalence.equivalence_check import (  # pylint: disable=unused-import,useless-import-alias
     DifferentVariablesError as DifferentVariablesError, different_variables as different_variables)
-from prodigy.analysis.loop_strategies import Bound
+from prodigy.analysis.loops.api import Bound
 
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.config import ForwardAnalysisConfig
@@ -101,8 +101,8 @@ def show_valuation(valuation: Mapping[str, Any], empty: str = "every variable 0"
 
 def _failure(exc: BaseException) -> Dict[str, Any]:
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.result import error_type
-    from prodigy.analysis.session import DecisionRequired
+    from prodigy.analysis.values import error_type
+    from prodigy.analysis.loops.api import DecisionRequired
     # a NonFiniteMarginalError of the check arrives as CheckNotImplemented, a NotImplementedError
     error: Dict[str, Any] = {"type": error_type(exc), "message": str(exc) or type(exc).__name__}
     if isinstance(exc, DifferentVariablesError):
@@ -189,7 +189,7 @@ class Side:
     def interval(self, state: Any) -> Optional[Tuple[sympy.Expr, sympy.Expr]]:
         """The sound interval of the probability of ``state`` (None without a guarantee)."""
         # pylint: disable=import-outside-toplevel
-        from prodigy.analysis.result import sym
+        from prodigy.analysis.values import sym
         if self.kind == Bound.UNKNOWN:
             return None
         value = sym(self.distribution.filter_state(state).get_probability_mass())
@@ -218,7 +218,7 @@ def find_witness(first: Side, second: Side, *, limit: int = WITNESS_TERMS) -> Op
     candidates (examined in the engine's order, at most ``limit`` terms each). None if there is none
     among them, or if the difference depends on parameters."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.result import show, to_float
+    from prodigy.analysis.values import show, to_float
 
     def side(interval: Tuple[sympy.Expr, sympy.Expr], kind: str) -> Dict[str, Any]:
         return {"lower": show(interval[0]), "lower_float": to_float(interval[0]),
@@ -363,7 +363,7 @@ def analyse_on_input(program: "Program", state: Dict[str, int], session: "Analys
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.analyzer import compute_semantics
     from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-    from prodigy.analysis.result import sym
+    from prodigy.analysis.values import sym
     from prodigy.distribution.distribution import known_convergent_series
     config = session.config
     start = point_input(program, state, config)

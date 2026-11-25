@@ -184,6 +184,7 @@ def test_only_the_engine_imports_the_bindings(package):
 # The front-end API of the analysis (architecture page, "Interfaces between the layers").
 FRONT_END_API = ("prodigy.analysis", "prodigy.analysis.session", "prodigy.analysis.result",
                  "prodigy.analysis.trace", "prodigy.analysis.config", "prodigy.analysis.loop_strategies",
+                 "prodigy.analysis.loops.api", "prodigy.analysis.values",
                  "prodigy.analysis.exceptions", "prodigy.analysis.deprecations", "prodigy.analysis.equivalence")
 
 
@@ -220,7 +221,7 @@ KNOWN_VIOLATIONS: Dict[str, FrozenSet[str]] = {
         "prodigy/analysis/result.py -> prodigy.web.diagnostics"}),
     "T5/T6 analysis imports an engine": frozenset({
         "prodigy/analysis/instructionhandler/while_handler.py -> prodigy.distribution.generating_function",
-        "prodigy/analysis/result.py -> prodigy.distribution.generating_function"}),
+        "prodigy/analysis/values.py -> prodigy.distribution.generating_function"}),
     "T8 web imports the bindings": frozenset({"prodigy/web/app.py -> prodigy_ginac"}),
     "T8 CLI uses analysis internals": frozenset(f"prodigy/cli.py -> {_API}{module}" for module in (
         "analyzer", "equivalence.verdict", "evtinvariants.heuristics.positivity.heuristics_factory",
@@ -241,9 +242,9 @@ KNOWN_VIOLATIONS: Dict[str, FrozenSet[str]] = {
         "analyzer", "equivalence.verdict", "evt_exploration", "evtinvariants.series_identity",
         "instructionhandler.assignment_handler", "instructionhandler.function_handler",
         "instructionhandler.query_handler", "instructionhandler.queryblock_handler",
-        "instructionhandler.sample_handler", "instructionhandler.while_handler", "loop_strategies",
+        "instructionhandler.sample_handler", "instructionhandler.while_handler", "loops.api",
         "lowerbounds.problem", "lowerbounds.subinvariant", "nested_inference", "result", "session", "trace",
-        "upper_track")) | {"prodigy.web.diagnostics"},
+        "upper_track", "values")) | {"prodigy.web.diagnostics"},
 }
 
 

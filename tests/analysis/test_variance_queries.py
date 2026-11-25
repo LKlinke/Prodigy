@@ -5,7 +5,7 @@ import sympy
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.result import sym
+from prodigy.analysis.values import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.distribution import NonFiniteMarginalError
 from prodigy.language import CovarianceInstr, VarianceInstr, parse_program

@@ -379,7 +379,7 @@ def _unassigned(var: str, construct: str) -> UndefinedDistributionError:
 # ---------------------------------------------------------------------------------------
 
 def _sym(value: Any) -> Any:
-    from prodigy.analysis.result import sym  # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.values import sym  # pylint: disable=import-outside-toplevel
     return sym(value)
 
 
@@ -434,7 +434,7 @@ def closed_form(site: DistSite, prog_info: ProgramInfo, config: ForwardAnalysisC
                 run: Runner) -> ClosedDist:
     """The normalised distribution of the closed ``site``, computed exactly (once)."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.loop_strategies import Bound
+    from prodigy.analysis.loops.api import Bound
     from prodigy.analysis.session import current_session
     reg = registry()
     if reg.has_closed(site):
@@ -629,7 +629,7 @@ def _prove_almost_sure_termination(site: DistSite, arguments: Distribution, temp
                                    run: Runner, describe: str) -> None:
     """Proves Z(a) = 1 for every value a of the arguments: running the function on the
     distribution of the arguments keeps the mass of every argument value."""
-    from prodigy.analysis.loop_strategies import Bound  # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.loops.api import Bound  # pylint: disable=import-outside-toplevel
     from prodigy.analysis.session import current_session  # pylint: disable=import-outside-toplevel
     reg = registry()
     function = reg.functions[site.function]
@@ -1104,7 +1104,7 @@ def dist_values(distribution: Distribution, prog_info: ProgramInfo) -> List[Dist
 
 def _value_json(value: DistValue, limit: int) -> Dict[str, Any]:
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.result import exact_and_float, to_latex, univariate_table
+    from prodigy.analysis.values import exact_and_float, to_latex, univariate_table
     probability, probability_float = exact_and_float(value.probability)
     site = value.site
     entry: Dict[str, Any] = {
@@ -1173,7 +1173,7 @@ def for_trace(distribution: Distribution, program: Optional[Program]
     variables, and their values next to it (variable, probability, ``infer`` text, closed form and
     its LaTeX)."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.result import to_latex
+    from prodigy.analysis.values import to_latex
     if program is None:
         return distribution, []
     prog_info = ProgramInfo(program)

@@ -5,7 +5,7 @@ Analysis sessions
 
 An :class:`AnalysisSession` bundles everything a single analysis run needs to know up
 front: the program, the input distribution, the configuration and one *decision* per
-``while`` loop (which :mod:`loop strategy <prodigy.analysis.loop_strategies>` to use, with
+``while`` loop (which :mod:`loop strategy <prodigy.analysis.loops.api>` to use, with
 which parameters). Instruction handlers no longer call :func:`input` themselves; they ask
 the session's :class:`DecisionProvider`:
 
@@ -45,19 +45,20 @@ from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Mapping,
 
 import attr
 
-from prodigy.language import (ChoiceInstr, CovarianceInstr, ExpectationInstr, VarianceInstr,
-                          Expr, IfInstr, Instr, LoopInstr, OptimizationQuery, PlotInstr,
-                          PrintInstr, ProbabilityQueryInstr, Program, QueryInstr, WhileInstr)
+from prodigy.language import (ChoiceInstr, CovarianceInstr, ExpectationInstr, Expr, IfInstr, Instr, LoopInstr,
+                              OptimizationQuery, PlotInstr, PrintInstr, ProbabilityQueryInstr, Program, QueryInstr,
+                              VarianceInstr, WhileInstr)
 
-from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
-                                              get_loop_strategy, loop_strategies)
+from prodigy.analysis.loops.api import (Bound, DecisionRequired, LoopDecision, LoopOutcome, LoopStrategy, LoopTask,
+                                        ParamSpec, get_loop_strategy, loop_strategies)
 from prodigy.distribution import known_convergent_series
 from prodigy.language.ppy_printer import spell
 from prodigy.util.logger import log_setup, print_progress_bar
 
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.config import ForwardAnalysisConfig
-    from prodigy.analysis.result import AnalysisResult, QueryResult
+    from prodigy.analysis.result import AnalysisResult
+    from prodigy.analysis.values import QueryResult
     from prodigy.analysis.instructionhandler.program_info import ProgramInfo
     from prodigy.analysis.trace import TraceLimits
     from prodigy.analysis.upper_track import Analyzer, UpperTrack
@@ -185,8 +186,6 @@ def _collect_loops(instrs: List[Instr], depth: int, function: Optional[str],
                 _collect_loops(block, depth, function, out)
 
 
-
-
 class LoopRegistry:
     """Assigns stable ids to the while loops of a program (textual pre-order)."""
 
@@ -294,43 +293,6 @@ def query_instructions(program: Program) -> List[Instr]:
 # Decisions
 # ---------------------------------------------------------------------------------------
 
-@dataclass
-class LoopDecision:
-    """Which strategy to use for a loop, and its parameters (raw, not yet parsed)."""
-
-    strategy: str
-    params: Dict[str, Any] = field(default_factory=dict)
-
-    @staticmethod
-    def parse_spec(spec: str) -> "LoopDecision":
-        """Parses the command-line form ``STRATEGY[:name=value,name=value]``.
-
-        Example: ``unroll:iterations=100`` or ``invariant:invariant_file=inv.ppy``.
-        """
-        name, _, rest = spec.partition(":")
-        params: Dict[str, Any] = {}
-        if rest.strip():
-            for item in rest.split(","):
-                key, sep, value = item.partition("=")
-                if not sep:
-                    raise ValueError(f"Expected name=value in {item!r} (decision {spec!r})")
-                params[key.strip()] = value.strip()
-        return LoopDecision(name.strip(), params)
-
-    @staticmethod
-    def from_json(data: Union[str, Mapping[str, Any], "LoopDecision"]) -> "LoopDecision":
-        if isinstance(data, LoopDecision):
-            return data
-        if isinstance(data, str):
-            return LoopDecision.parse_spec(data)
-        if "strategy" not in data:
-            raise ValueError(f"A loop decision needs a 'strategy': {data!r}")
-        params = dict(data.get("params") or {})
-        return LoopDecision(str(data["strategy"]), params)
-
-    def to_json(self) -> Dict[str, Any]:
-        return {"strategy": self.strategy, "params": dict(self.params)}
-
 
 DEFAULT_KEY = "*"
 """Key for the decision that applies to every loop without an own decision."""
@@ -380,25 +342,6 @@ def validate_decisions(decisions: Mapping[Union[int, str], LoopDecision],
             except (ValueError, TypeError) as exc:
                 problems.append(f"{where}: {strategy.param(name).label}: {exc}")
     return problems
-
-
-class DecisionRequired(Exception):
-    """A non-interactive analysis reached a choice that was not decided up front."""
-
-    def __init__(self, message: str, *, loop: Optional[LoopInfo] = None,
-                 strategy: Optional[str] = None, param: Optional[str] = None):
-        super().__init__(message)
-        self.loop = loop
-        self.strategy = strategy
-        self.param = param
-
-    def to_json(self) -> Dict[str, Any]:
-        return {
-            "message": str(self),
-            "loop": self.loop.to_json() if self.loop else None,
-            "strategy": self.strategy,
-            "param": self.param,
-        }
 
 
 class DecisionProvider:
@@ -607,7 +550,7 @@ class LoopRecord:
         return summary + "."
 
     def to_json(self) -> Dict[str, Any]:
-        from prodigy.analysis.result import exact_and_float  # pylint: disable=import-outside-toplevel
+        from prodigy.analysis.values import exact_and_float  # pylint: disable=import-outside-toplevel
         residual, residual_float = exact_and_float(self.residual)
         return {
             "id": self.loop.id if self.loop else None,
@@ -881,7 +824,7 @@ class AnalysisSession:
         if scope.kind != Bound.LOWER:
             return
         # pylint: disable=import-outside-toplevel
-        from prodigy.analysis.result import sym
+        from prodigy.analysis.values import sym
         from prodigy.analysis.upper_track import normalized
         try:
             error_mass = sym(error_prob.get_probability_mass())
@@ -1051,7 +994,7 @@ class AnalysisSession:
             self._loop_upper = (task.instruction, self._upper_track(task, outcome, scope.kind))
         scope.kind = Bound.combine(scope.kind, outcome.kind)
         if outcome.kind == Bound.LOWER and not self.silent:
-            from prodigy.analysis.result import sym  # pylint: disable=import-outside-toplevel
+            from prodigy.analysis.values import sym  # pylint: disable=import-outside-toplevel
             residual = sym(outcome.residual)
             record.residual = sym(record.residual) + residual
             scope.residual = sym(scope.residual) + residual

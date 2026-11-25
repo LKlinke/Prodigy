@@ -32,8 +32,8 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Mapping, Optional, 
 
 import sympy
 
-from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.result import exact_and_float, sym, tidy, to_sympy, upper_with_source
+from prodigy.analysis.loops.api import Bound
+from prodigy.analysis.values import exact_and_float, sym, tidy, to_sympy, upper_with_source
 from prodigy.analysis.streaming import Batcher, Sink
 from prodigy.distribution.coefficient_stream import Waiting, taylor_window
 

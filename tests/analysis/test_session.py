@@ -9,8 +9,8 @@ from prodigy.language import parse_program
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler.while_handler import finite_mass
 from prodigy.analysis.loop_strategies import Bound
-from prodigy.analysis.session import (AnalysisSession, LoopDecision, LoopRegistry, parse_decisions,
-                                      validate_decisions)
+from prodigy.analysis.session import AnalysisSession, LoopRegistry, parse_decisions, validate_decisions
+from prodigy.analysis.loops.api import LoopDecision
 
 GEOMETRIC = """x: nat;
 c: nat;

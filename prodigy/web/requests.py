@@ -99,8 +99,8 @@ def prepare_request(request: Dict[str, Any]) -> Dict[str, Any]:
 def validate_request(request: Dict[str, Any]) -> List[str]:
     """Problems that can be found without running the analysis."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.evtinvariants.heuristics.strategies import SELECTABLE_POSITIVITY_HEURISTICS
-    from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
+    from prodigy.analysis.evtinvariants.heuristics.strategies import (SELECTABLE_POSITIVITY_HEURISTICS,
+                                                                      SynthesisStrategies)
     from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
     from prodigy.language.expression_allowlist import MATH_FUNCTIONS, InadmissibleExpression, admissible_expression
     from prodigy.analysis.session import parse_decisions, validate_decisions
@@ -723,7 +723,7 @@ def _stopping_session(target: int, **kwargs: Any) -> Any:
 
 def _error_type(exc: BaseException) -> str:
     """The error type as in the analysis result (:func:`prodigy.analysis.result.error_type`)."""
-    from prodigy.analysis.result import error_type  # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.values import error_type  # pylint: disable=import-outside-toplevel
     return error_type(exc)
 
 

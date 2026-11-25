@@ -12,7 +12,7 @@ from prodigy.analysis.joint_grid import joint_grid
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.lowerbounds.parameters import TemplateShape
 from prodigy.analysis.lowerbounds.sandwich import evt_sandwich
-from prodigy.analysis.result import CERTIFICATE, RESIDUAL, upper_with_source, with_upper
+from prodigy.analysis.values import CERTIFICATE, RESIDUAL, upper_with_source, with_upper
 from prodigy.analysis.session import AnalysisSession
 from prodigy.analysis.upper_track import UpperTrack, normalized
 from prodigy.distribution import known_convergent_series

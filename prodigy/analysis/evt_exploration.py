@@ -69,7 +69,7 @@ def coefficients(dist: "Distribution", variables: Sequence[str], limit: int = MA
 
 def _parse(text: str) -> Optional[sympy.Expr]:
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.result import sym
+    from prodigy.analysis.values import sym
     try:
         return sym(text)
     except Exception:  # pylint: disable=broad-except
