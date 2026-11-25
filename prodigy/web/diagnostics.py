@@ -17,12 +17,12 @@ import copy
 from prodigy.language import parse_program, substitute
 from prodigy.language.ast import Expr, Instr
 from prodigy.language.check import CheckFail, check_program
+from prodigy.language.outline import outline as outline_of
 from prodigy.language.language_warnings import LanguageWarning, language_warnings
 from prodigy.language.positions import span_of
 from prodigy.language.ppy_printer import spell
 
 from prodigy.analysis.checks import refute_sampling_pgfs
-from prodigy.analysis.result import outline_program
 
 _CACHE: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
 _CACHE_SIZE = 64
@@ -232,7 +232,7 @@ def _check(source: str) -> Dict[str, Any]:
         diagnostics.append(_parse_error(source, exc))
         return {"ok": False, "diagnostics": diagnostics, "outline": None}
     try:
-        outline = outline_program(program, source)
+        outline = outline_of(program).to_json()
     except Exception as exc:  # pylint: disable=broad-except
         outline = None
         diagnostics.append(_diagnostic("warning", f"Could not outline the program: {exc}", None, source))

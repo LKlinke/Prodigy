@@ -86,7 +86,7 @@ while (x > 0) {
     }
 }
 """
-    loops = list(LoopRegistry(parse_program(source), source))
+    loops = list(LoopRegistry(parse_program(source)))
     assert [(l.id, l.line, l.depth, l.function) for l in loops] == \
            [(0, 4, 0, "f"), (1, 9, 0, None), (2, 12, 1, None)]
     assert loops[1].cond == "x > 0"
@@ -253,7 +253,7 @@ def test_interactive_session_keeps_historic_prompts(monkeypatch):
 def test_decision_parsing_and_validation():
     assert LoopDecision.parse_spec("unroll:iterations=7") == LoopDecision("unroll", {"iterations": "7"})
     decisions = parse_decisions({"0": "unroll:iterations=x", "1": "nonsense", "*": {"strategy": "evt_synthesis"}})
-    problems = validate_decisions(decisions, LoopRegistry(parse_program(GEOMETRIC), GEOMETRIC))
+    problems = validate_decisions(decisions, LoopRegistry(parse_program(GEOMETRIC)))
     assert any("Iterations" in p for p in problems)
     assert any("Unknown loop strategy 'nonsense'" in p for p in problems)
     assert any("no loop with this id" in p for p in problems)

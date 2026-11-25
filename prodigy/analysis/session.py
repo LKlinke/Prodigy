@@ -34,7 +34,6 @@ import contextvars
 import io
 import logging
 import os
-import re
 import sys
 import tempfile
 import time
@@ -45,13 +44,14 @@ from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Mapping,
 
 import attr
 
-from prodigy.language import (ChoiceInstr, CovarianceInstr, ExpectationInstr, Expr, IfInstr, Instr, LoopInstr,
-                              OptimizationQuery, PlotInstr, PrintInstr, ProbabilityQueryInstr, Program, QueryInstr,
-                              VarianceInstr, WhileInstr)
+from prodigy.language import (CovarianceInstr, ExpectationInstr, Expr, Instr, OptimizationQuery, PlotInstr, PrintInstr,
+                              ProbabilityQueryInstr, Program, QueryInstr, VarianceInstr, WhileInstr)
 
 from prodigy.analysis.loops.api import (Bound, DecisionRequired, LoopDecision, LoopOutcome, LoopStrategy, LoopTask,
                                         ParamSpec, get_loop_strategy, loop_strategies)
 from prodigy.distribution import known_convergent_series
+from prodigy.language.outline import LoopInfo, is_query, outline
+from prodigy.language.positions import span_of
 from prodigy.language.ppy_printer import spell
 from prodigy.util.logger import log_setup, print_progress_bar
 
@@ -68,154 +68,44 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
 # ---------------------------------------------------------------------------------------
-# Program outline: loops and queries with source positions
+# Loops of the analysed program
 # ---------------------------------------------------------------------------------------
 
-# '//' is floor division in .ppy; block comments /* … */ may span lines
-_PPY_COMMENT_RE = re.compile(r"#.*$|/\*[\s\S]*?\*/", re.M)
-_WHILE_RE = re.compile(r"\bwhile\b")
-_PPY_QUERY_RE = re.compile(r"\bquery\s+(?:Pr|Ex|Var|Cov)\b|\bprint\s*;|\bplot\s*\(|\boptimize\s*\(")
 _QUERY_INSTRS = (CovarianceInstr, VarianceInstr, ExpectationInstr, OptimizationQuery, PlotInstr, PrintInstr,
                  ProbabilityQueryInstr, QueryInstr)
 
 
-def _blank_comments(source: str) -> str:
-    """Replaces comments by spaces (keeping line breaks) so that offsets stay valid."""
-    return _PPY_COMMENT_RE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), source)
-
-
-def token_positions(source: str, pattern: "re.Pattern[str]") -> List[Tuple[int, int]]:
-    """1-based (line, column) of every match of ``pattern`` outside of comments."""
-    text = _blank_comments(source)
-    positions = []
-    for match in pattern.finditer(text):
-        line = text.count("\n", 0, match.start()) + 1
-        column = match.start() - (text.rfind("\n", 0, match.start()) + 1) + 1
-        positions.append((line, column))
-    return positions
-
-
-def _offset_position(text: str, offset: int) -> Tuple[int, int]:
-    line = text.count("\n", 0, offset) + 1
-    return line, offset - (text.rfind("\n", 0, offset) + 1) + 1
-
-
-def _ppy_while_positions(source: str, functions: List[str]) -> List[Tuple[int, int]]:
-    """
-    Positions of the while loops of a ``.ppy`` program in the order of :class:`LoopRegistry`:
-    the loops of the functions (in the order of ``functions``), then those of the program.
-    In ``.ppy`` a ``def`` may follow statements, so the textual order can differ.
-    """
-    text = _blank_comments(source)
-    spans: Dict[str, Tuple[int, int]] = {}
-    for match in re.finditer(r"\bdef\s+(\w+)", text):
-        start = text.find("{", match.end())
-        depth, end = 0, len(text)
-        for index in range(max(start, 0), len(text)):
-            depth += {"{": 1, "}": -1}.get(text[index], 0)
-            if depth == 0:
-                end = index
-                break
-        spans[match.group(1)] = (match.start(), end)
-    loops = [match.start() for match in _WHILE_RE.finditer(text)]
-    ordered: List[int] = []
-    for name in functions:
-        first, last = spans.get(name, (0, -1))
-        ordered.extend(offset for offset in loops if first <= offset <= last)
-    ordered.extend(offset for offset in loops if not any(a <= offset <= b for a, b in spans.values()))
-    return [_offset_position(text, offset) for offset in ordered]
-
-
-def query_positions(source: str) -> List[Tuple[int, int]]:
-    """1-based (line, column) of the queries (``query Pr``, ``print;``, ...) of a program."""
-    return token_positions(source, _PPY_QUERY_RE)
-
-
-@dataclass(frozen=True)
-class LoopInfo:
-    """A while loop of the analysed program, identified by its position in the text."""
-
-    id: int  # pylint: disable=invalid-name
-    """Index of the loop in textual order (0-based); the key for decisions."""
-    cond: str
-    """The loop guard as ``.ppy`` text."""
-    depth: int
-    """Number of enclosing while loops."""
-    function: Optional[str] = None
-    """Name of the enclosing function declaration, if any."""
-    line: Optional[int] = None
-    column: Optional[int] = None
-
-    def describe(self) -> str:
-        where = f" (line {self.line})" if self.line else ""
-        return f"loop {self.id}{where}: while ({self.cond})"
-
-    def to_json(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "cond": self.cond,
-            "depth": self.depth,
-            "function": self.function,
-            "line": self.line,
-            "column": self.column,
-        }
-
-
-def _children(instr: Instr) -> List[List[Instr]]:
-    if isinstance(instr, WhileInstr):
-        return [instr.body]
-    if isinstance(instr, IfInstr):
-        return [instr.true or [], instr.false or []]
-    if isinstance(instr, ChoiceInstr):
-        return [instr.lhs, instr.rhs]
-    if isinstance(instr, LoopInstr):
-        return [instr.body]
-    if isinstance(instr, QueryInstr):
-        return [instr.instrs]
-    return []
-
-
-def _collect_loops(instrs: List[Instr], depth: int, function: Optional[str],
-                   out: List[Tuple[WhileInstr, int, Optional[str]]]) -> None:
-    for instr in instrs:
-        if isinstance(instr, WhileInstr):
-            out.append((instr, depth, function))
-            _collect_loops(instr.body, depth + 1, function, out)
-        else:
-            for block in _children(instr):
-                _collect_loops(block, depth, function, out)
-
-
 class LoopRegistry:
-    """Assigns stable ids to the while loops of a program (textual pre-order)."""
+    """The loops of the analysed program with their ids (:func:`~prodigy.language.outline.outline`); finds the
+    :class:`LoopInfo` of a loop instruction, also of a copy of it."""
 
-    def __init__(self, program: Optional[Program], source: Optional[str] = None):
+    def __init__(self, program: Optional[Program]):
         self.loops: List[LoopInfo] = []
         self._by_identity: Dict[int, LoopInfo] = {}
+        self._by_position: Dict[Tuple[int, int], LoopInfo] = {}
         self._by_text: Dict[str, List[LoopInfo]] = {}
         self._instructions: List[WhileInstr] = []
         if program is None:
             return
-        found: List[Tuple[WhileInstr, int, Optional[str]]] = []
-        for name, function in program.functions.items():
-            _collect_loops(function.instructions, 0, name, found)
-        _collect_loops(program.instructions, 0, None, found)
-        positions = [] if source is None else _ppy_while_positions(source, list(program.functions))
-        if len(positions) != len(found):
-            positions = []
-        for index, (instr, depth, function_name) in enumerate(found):
-            line, column = positions[index] if positions else (None, None)
-            info = LoopInfo(id=index, cond=spell(instr.cond), depth=depth, function=function_name,
-                            line=line, column=column)
+        found = outline(program)
+        for info, instr in zip(found.loops, found.loop_instructions, strict=True):
             self.loops.append(info)
             self._instructions.append(instr)
             self._by_identity[id(instr)] = info
+            if info.line is not None and info.column is not None:
+                self._by_position[(info.line, info.column)] = info
             self._by_text.setdefault(str(instr), []).append(info)
 
     def lookup(self, instr: WhileInstr) -> Optional[LoopInfo]:
+        """The loop ``instr``, or the loop it is a copy of: found by identity, else by its source position (a
+        deep copy keeps it, :mod:`prodigy.language.positions`), else by its text if that is unique (a copy
+        without position, e.g. of a program built in Python)."""
         info = self._by_identity.get(id(instr))
         if info is not None:
             return info
+        span = span_of(instr)
+        if span is not None and (span.line, span.column) in self._by_position:
+            return self._by_position[(span.line, span.column)]
         candidates = self._by_text.get(str(instr), [])
         return candidates[0] if len(candidates) == 1 else None
 
@@ -237,10 +127,6 @@ class LoopRegistry:
 
     def __len__(self) -> int:
         return len(self.loops)
-
-
-QUERY_INSTRUCTIONS = ("ExpectationInstr", "VarianceInstr", "CovarianceInstr", "ProbabilityQueryInstr",
-                      "PrintInstr", "PlotInstr", "OptimizationQuery")
 
 
 @dataclass
@@ -272,7 +158,7 @@ def isolate_loop(program: Program, instruction: WhileInstr,
         return program_to_ppy(part)
 
     rest = [instr for instr in program.instructions
-            if instr is not instruction and type(instr).__name__ not in QUERY_INSTRUCTIONS]
+            if instr is not instruction and not is_query(instr)]
     try:
         declarations = text([])
         if not rest and source is not None and any(instr is instruction for instr in program.instructions):
@@ -283,10 +169,6 @@ def isolate_loop(program: Program, instruction: WhileInstr,
         return IsolatedLoop(text([instruction]), info.id if info is not None else 0, declarations, False)
     except PpyPrintError:
         return None
-
-
-def query_instructions(program: Program) -> List[Instr]:
-    return [instr for instr in program.instructions if type(instr).__name__ in QUERY_INSTRUCTIONS]
 
 
 # ---------------------------------------------------------------------------------------
@@ -670,8 +552,8 @@ class AnalysisSession:
         ``prodigy check_equality``), ``refuse`` (the GUI's Analyze mode: it is a comparison) or ``hint``
         (the command line: go on as before, but point to ``check_equality``)."""
 
-        self.loops = LoopRegistry(program, source)
-        self.query_positions = query_positions(source) if source is not None else []
+        self.loops = LoopRegistry(program)
+        self.query_positions = outline(program).query_positions if program is not None else []
         self.loop_records: Dict[Any, LoopRecord] = {}
         # the values of the dist variables at the end (prodigy.analysis.nested_inference.DistValue)
         self.dist_values: List[Any] = []
@@ -799,13 +681,12 @@ class AnalysisSession:
             self.loops.unalias(copy)
 
     @contextlib.contextmanager
-    def other_program(self, program: Program, decisions: Optional[Mapping[Any, Any]] = None, *,
-                      source: Optional[str] = None) -> Iterator[None]:
+    def other_program(self, program: Program, decisions: Optional[Mapping[Any, Any]] = None) -> Iterator[None]:
         """Decides the loops of ``program``, another program than the session's (the second program of a
         comparison), by their own ids and ``decisions`` while it runs, instead of looking them up among
         the loops of the session's program. Their records are kept apart (keyed ``("other", id)``)."""
         loops, presets, records = self.loops, self.provider.decisions, self.loop_records
-        self.loops = LoopRegistry(program, source)
+        self.loops = LoopRegistry(program)
         self.provider.decisions = parse_decisions(decisions)
         self.loop_records = {}
         try:

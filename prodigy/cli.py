@@ -207,14 +207,14 @@ def _collect_decisions(loop_specs: Tuple[str, ...], decisions_file: Optional[IO]
     return decisions
 
 
-def _checked_decisions(decisions: _RawDecisions, program: Program, source: str) -> _RawDecisions:
+def _checked_decisions(decisions: _RawDecisions, program: Program) -> _RawDecisions:
     """``decisions`` (from ``--loop``/``--decisions``) after checking them, in particular their generating
     functions, before any engine sees them; exits with the problems otherwise."""
     try:
         parsed = parse_decisions(decisions)
     except ValueError as exc:
         raise click.BadParameter(str(exc), param_hint="'--loop' / '--decisions'") from exc
-    problems = validate_decisions(parsed, LoopRegistry(program, source))
+    problems = validate_decisions(parsed, LoopRegistry(program))
     if problems:
         for problem in problems:
             print(f"{Style.OKRED}Error:{Style.RESET} {problem}", file=sys.stderr)
@@ -272,7 +272,7 @@ def main(ctx: click.Context, program_file: IO, input_dist: str,  # pylint: disab
         dist = input_distribution_from_text(config, input_dist, program)
 
     logger.debug("Start analysis.")
-    decisions = _checked_decisions(_collect_decisions(loop_specs, None), program, program_source)
+    decisions = _checked_decisions(_collect_decisions(loop_specs, None), program)
     session = AnalysisSession.interactive(program, source=program_source, config=config,
                                           decisions=decisions)
     start = time.perf_counter()
@@ -712,8 +712,7 @@ def analyze(  # pylint: disable=too-many-arguments
     program_source, program = _read_program(program_file, syntax)
     _require_type_correct(program_file, program, program_source)
     config: ForwardAnalysisConfig = ctx.obj['CONFIG']
-    decisions = parse_decisions(_checked_decisions(_collect_decisions(loop_specs, decisions_file), program,
-                                                   program_source))
+    decisions = parse_decisions(_checked_decisions(_collect_decisions(loop_specs, decisions_file), program))
     if watches and not steps:
         raise click.UsageError("--watch needs --steps.")
     # pylint: disable=import-outside-toplevel
@@ -752,10 +751,10 @@ def outline(program_file: IO, as_json: bool, syntax: Optional[str]) -> None:
     List the loops (with the ids used by --loop) and queries of a program.
     """
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.result import outline_program
+    from prodigy.language.outline import outline as outline_of
     source, program = _read_program(program_file, syntax)
     _require_type_correct(program_file, program, source)
-    info = outline_program(program, source)
+    info = outline_of(program).to_json()
     if as_json:
         print(json.dumps(info, indent=2))
         return

@@ -34,7 +34,8 @@ if TYPE_CHECKING:  # pragma: no cover
 
     from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-    from prodigy.analysis.session import AnalysisSession, LoopInfo
+    from prodigy.analysis.session import AnalysisSession
+    from prodigy.language.outline import LoopInfo
     from prodigy.distribution import Distribution
 
 

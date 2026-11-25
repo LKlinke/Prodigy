@@ -134,7 +134,8 @@ import traceback
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from prodigy.language import Program, VarExpr
+from prodigy.language import Program
+from prodigy.language.outline import outline
 
 from prodigy.analysis.loops.api import Bound
 from prodigy.analysis.values import (QueryResult, _safe, bounds_explanation, describe_distribution, error_type,
@@ -235,64 +236,6 @@ def failure_bounds(status: str) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------------------
-# Program outline
-# ---------------------------------------------------------------------------------------
-
-def outline_program(program: Program, source: Optional[str] = None) -> Dict[str, Any]:
-    """Variables, parameters, loops and queries of ``program`` (for editors and forms)."""
-    # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.session import LoopRegistry, query_instructions, query_positions
-    loops = LoopRegistry(program, source)
-    positions = query_positions(source) if source is not None else []
-    queries = []
-    for index, instr in enumerate(query_instructions(program)):
-        line, column = positions[index] if index < len(positions) else (None, None)
-        queries.append({"index": index, "kind": _query_kind(instr), "text": _query_text(instr),
-                        "line": line, "column": column})
-    return {
-        "variables": {name: type_name(typ) for name, typ in program.variables.items()},
-        "parameters": {name: type_name(typ) for name, typ in program.parameters.items()},
-        "constants": {name: str(value) for name, value in program.constants.items()},
-        "functions": list(program.functions.keys()),
-        "loops": [loop.to_json() for loop in loops],
-        "queries": queries,
-    }
-
-
-def _query_text(instr: Any) -> str:
-    from prodigy.language.ppy_printer import spell  # pylint: disable=import-outside-toplevel
-    return spell(instr)
-
-
-def type_name(typ: Any) -> str:
-    """Spelling of a declared type in ``.ppy`` (``nat``, ``nat[0, 5]``, ``bool``, ``real``, ...)."""
-    name = type(typ).__name__
-    if name == "NatType":
-        bounds = getattr(typ, "bounds", None)
-        if bounds is None:
-            return "nat"
-        return f"nat[{bounds.lower}, {bounds.upper}]"
-    return {"BoolType": "bool", "RealType": "real", "DistributionType": "dist"}.get(name, str(typ))
-
-
-def _query_kind(instr: Any) -> str:
-    name = type(instr).__name__
-    if name == "ExpectationInstr":
-        return "expectation"
-    if name == "VarianceInstr":
-        return "variance"
-    if name == "CovarianceInstr":
-        return "covariance"
-    if name == "ProbabilityQueryInstr":
-        return "marginal" if isinstance(instr.expr, VarExpr) else "probability"
-    if name == "PrintInstr":
-        return "print"
-    if name == "PlotInstr":
-        return "plot"
-    return "optimization"
-
-
-# ---------------------------------------------------------------------------------------
 # The result
 # ---------------------------------------------------------------------------------------
 
@@ -387,7 +330,7 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
         "decisions": decisions,
     }
     if session.program is not None:
-        result.program = outline_program(session.program, session.source)
+        result.program = outline(session.program).to_json()
 
     analysis_time = 0.0
     final: Optional["Distribution"] = None
