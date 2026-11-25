@@ -671,10 +671,10 @@ The while handler no longer asks questions itself. An `AnalysisSession`
 their index in textual order (`prodigy outline FILE` lists them).
 
 ```python
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 from prodigy.analysis.session import AnalysisSession
 
-session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy",
+session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy",
                           decisions={"0": {"strategy": "unroll", "params": {"iterations": 50}}},
                           capture_output=True)
 result = session.run().to_json()      # schema "prodigy/analysis-result@1"

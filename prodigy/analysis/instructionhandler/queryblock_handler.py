@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Union, Sequence, Callable
 
-from prodigy.pgcl import Instr, QueryInstr, AsgnInstr, ObserveInstr
+from prodigy.language import Instr, QueryInstr, AsgnInstr, ObserveInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume

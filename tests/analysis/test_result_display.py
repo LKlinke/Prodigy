@@ -8,7 +8,7 @@ import sympy
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.result import sym, tidy
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 ENGINES = list(ForwardAnalysisConfig.Engine)
 
@@ -19,7 +19,7 @@ ENGINES = list(ForwardAnalysisConfig.Engine)
 def test_tail_mass_of_a_logarithmic_distribution_is_computed_quickly(engine, p):
     # #252, found by the fuzzing (#183): simplify's logcombine did not finish on the tail mass
     source = f"z: nat;\nz = logdist({p});\nprint;\n"
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy",
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy",
                               config=ForwardAnalysisConfig(engine=engine), capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok"
@@ -67,7 +67,7 @@ def test_tidy_simplifies_rational_multiples_like_simplify():
 def test_marginal_lists_the_mass_it_shows(engine):
     # #288: the mass line of the Result tab names the mass shown and the mass beyond it
     source = "y: nat;\ny = geometric(1/3);\n"
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy",
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy",
                               config=ForwardAnalysisConfig(engine=engine), capture_output=True)
     marginal = session.run().to_json()["distribution"]["marginals"]["y"]
     assert marginal["truncated"]

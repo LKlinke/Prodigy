@@ -1,5 +1,5 @@
 import pytest
-from prodigy.pgcl.compiler import compile_pgcl
+from prodigy.language.compiler import compile_program
 
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -11,7 +11,7 @@ from prodigy.distribution.generating_function import SympyPGF
                          [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
                           (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_basic_function(engine, factory):
-    prog = compile_pgcl("""
+    prog = compile_program("""
 def f(y: nat) -> nat {
     y = 42;
     return y;
@@ -27,7 +27,7 @@ x = f(y = 5);""")
                          [(ForwardAnalysisConfig.Engine.SYMPY, SympyPGF),
                           (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_parameter(engine, factory):
-    prog = compile_pgcl("""
+    prog = compile_program("""
 def f(y: nat) -> nat {
     y = geometric(p);
     return y;

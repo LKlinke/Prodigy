@@ -30,7 +30,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
-from prodigy.pgcl.expression_allowlist import InadmissibleExpression, admissible_expression, to_syntax
+from prodigy.language.expression_allowlist import InadmissibleExpression, admissible_expression, to_syntax
 
 DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5-5"
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"

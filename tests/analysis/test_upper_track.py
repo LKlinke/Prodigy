@@ -16,7 +16,7 @@ from prodigy.analysis.result import CERTIFICATE, RESIDUAL, upper_with_source, wi
 from prodigy.analysis.session import AnalysisSession
 from prodigy.analysis.upper_track import UpperTrack, normalized
 from prodigy.distribution import known_convergent_series
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 SANDWICH = Path(__file__).resolve().parents[2] / "pgfexamples" / "lower_bounds" / "sandwich"
 # the biased walk with a step counter c; its output is known exactly (see exact_c)
@@ -42,7 +42,7 @@ def exact_c(k):
 def analyse(source, decisions, monkeypatch=None, engine=ForwardAnalysisConfig.Engine.SYMPY, coefficients=12):
     if monkeypatch is not None:
         monkeypatch.setattr(sandwich_module, "evt_sandwich", _fixed_sandwich)
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy",
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy",
                               config=ForwardAnalysisConfig(engine=engine), decisions=decisions,
                               capture_output=True, coefficient_limit=coefficients)
     result = session.run().to_json()

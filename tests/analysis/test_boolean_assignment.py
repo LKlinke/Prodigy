@@ -6,7 +6,7 @@ import sympy
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 ENGINES = ["SYMPY", "GINAC"]
 
@@ -15,7 +15,7 @@ def _run(source, syntax, engine):
     if engine == "GINAC":
         pytest.importorskip("prodigy_ginac")
     config = ForwardAnalysisConfig(engine=getattr(ForwardAnalysisConfig.Engine, engine))
-    session = AnalysisSession(parse_pgcl(source, syntax), source=source, syntax=syntax, config=config,
+    session = AnalysisSession(parse_program(source, syntax), source=source, syntax=syntax, config=config,
                               decisions={}, capture_output=True)
     return session.run().to_json()
 

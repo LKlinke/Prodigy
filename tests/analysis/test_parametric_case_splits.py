@@ -13,7 +13,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.equality import decide_equal
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 Engine = ForwardAnalysisConfig.Engine
 ENGINES = [Engine.SYMPY, Engine.GINAC]
@@ -29,7 +29,7 @@ def _run(source, engine):
     if engine == Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
     source = HEADER + source
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy",
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy",
                               config=ForwardAnalysisConfig(engine=engine), decisions={}, capture_output=True)
     return session.run().to_json()
 

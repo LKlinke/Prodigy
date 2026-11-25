@@ -138,7 +138,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Literal, Optional, Tuple, TypeVar
 
 import sympy
-from prodigy.pgcl import (Binop, BinopExpr, BoolType, Expr, NatLitExpr, NatType, RealLitExpr,
+from prodigy.language import (Binop, BinopExpr, BoolType, Expr, NatLitExpr, NatType, RealLitExpr,
                            Program, UnopExpr, VarExpr)
 
 from prodigy.analysis.loop_strategies import Bound
@@ -846,7 +846,7 @@ def outline_program(program: Program, source: Optional[str] = None, syntax: str 
 
 
 def _query_text(instr: Any, syntax: str) -> str:
-    from prodigy.pgcl.ppy_printer import spell  # pylint: disable=import-outside-toplevel
+    from prodigy.language.ppy_printer import spell  # pylint: disable=import-outside-toplevel
     return spell(instr, syntax)
 
 
@@ -1070,7 +1070,7 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
 
 
 def _language_warnings(session: Any) -> List[str]:
-    """The language warnings of the program (monus, implicit cast; see :mod:`prodigy.pgcl.language_warnings`) as
+    """The language warnings of the program (monus, implicit cast; see :mod:`prodigy.language.language_warnings`) as
     ``"line L, column C: message"``; the entries of ``warnings`` are strings, so the position is part of the text."""
     if session.program is None or session.source is None or session.silent:
         return []

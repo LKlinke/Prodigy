@@ -1,0 +1,248 @@
+from __future__ import annotations
+
+from abc import abstractmethod
+from enum import Enum, auto
+from textwrap import indent
+from typing import TYPE_CHECKING, List, Optional, Union
+
+import attr
+
+from .ast import Node, Var
+from .expressions import Expr, NatLitExpr, RealLitExpr, VarExpr
+
+if TYPE_CHECKING:
+    from .declarations import VarDecl
+
+
+class InstrClass(Node):
+    """Superclass for all instructions. See :obj:`Instr`."""
+    def cast(self) -> Instr:
+        """Cast to Instr. This is sometimes necessary to satisfy the type checker."""
+        return self  # type: ignore
+
+    @abstractmethod
+    def __str__(self) -> str:
+        """
+        Convert this instruction to corresponding source code in pGCL.
+
+        .. doctest::
+
+            >>> print(SkipInstr())
+            skip;
+            >>> from .expressions import BoolLitExpr
+            >>> print(WhileInstr(BoolLitExpr(True), [SkipInstr()]))
+            while (true) {
+                skip;
+            }
+            >>> print(IfInstr(BoolLitExpr(False), [SkipInstr()], []))
+            if (false) {
+                skip;
+            } else { }
+        """
+
+
+def _str_block(instrs: List[Instr]) -> str:
+    if len(instrs) == 0:
+        return "{ }"
+    lines = indent("\n".join(map(str, instrs)), "    ")
+    return "{\n" + lines + "\n}"
+
+
+@attr.s
+class SkipInstr(InstrClass):
+    """The skip instruction does nothing."""
+    def __str__(self) -> str:
+        return "skip;"
+
+@attr.s
+class AbortInstr(InstrClass):
+    """The abort instruction is syntactic sugar for non-termination."""
+    def __str__(self) -> str:
+        return "abort;"
+
+@attr.s
+class WhileInstr(InstrClass):
+    """A while loop with a condition and a body."""
+    cond: Expr = attr.ib()
+    body: List[Instr] = attr.ib()
+
+    def __str__(self) -> str:
+        return f"while ({self.cond}) {_str_block(self.body)}"
+
+
+@attr.s
+class IfInstr(InstrClass):
+    """A conditional expression with two branches."""
+    cond: Expr = attr.ib()
+    true: List[Instr] = attr.ib()
+    false: List[Instr] = attr.ib()
+
+    def __str__(self) -> str:
+        # the pGCL grammar needs both blocks, so an empty false branch is printed as "else { }" (#207)
+        return f"if ({self.cond}) {_str_block(self.true)} else {_str_block(self.false)}"
+
+
+@attr.s
+class AsgnInstr(InstrClass):
+    """An assignment instruction with a left- and right-hand side."""
+    lhs: Var = attr.ib()
+    rhs: Expr = attr.ib()
+
+    def __str__(self) -> str:
+        return f'{self.lhs} := {self.rhs};'
+
+
+@attr.s
+class ChoiceInstr(InstrClass):
+    """A probabilistic choice instruction with a probability expression and two branches."""
+    prob: Expr = attr.ib()
+    lhs: List[Instr] = attr.ib()
+    rhs: List[Instr] = attr.ib()
+
+    def __str__(self) -> str:
+        return f"{_str_block(self.lhs)} [{self.prob}] {_str_block(self.rhs)}"
+
+
+@attr.s
+class LoopInstr(InstrClass):
+    """Iterating a block a constant amount of times."""
+    iterations: NatLitExpr = attr.ib()
+    body: List[Instr] = attr.ib()
+
+    def __str__(self) -> str:
+        return f"loop({self.iterations}){_str_block(self.body)}"
+
+
+@attr.s
+class ObserveInstr(InstrClass):
+    """
+    Updates the current distribution according to the observation (forward analysis only).
+    May result in an error if the observed condition has probability zero.
+
+    The type of ``cond`` must be :class:`BoolType`.
+    """
+    cond: Expr = attr.ib()
+
+    def __str__(self) -> str:
+        return f"observe({self.cond});"
+
+
+@attr.s
+class ExpectationInstr(InstrClass):
+    """
+    Allows for expectation queries inside of a pGCL program.
+    """
+    expr: Expr = attr.ib()
+
+    def __str__(self) -> str:
+        return f"?Ex[{self.expr}];"
+
+
+@attr.s
+class VarianceInstr(InstrClass):
+    """
+    The variance ``Var[e]`` of an expression, a query inside of a pGCL program.
+    """
+    expr: Expr = attr.ib()
+
+    def __str__(self) -> str:
+        return f"?Var[{self.expr}];"
+
+
+@attr.s
+class CovarianceInstr(InstrClass):
+    """
+    The covariance ``Cov[lhs, rhs]`` of two expressions, a query inside of a pGCL program.
+    """
+    lhs: Expr = attr.ib()
+    rhs: Expr = attr.ib()
+
+    def __str__(self) -> str:
+        return f"?Cov[{self.lhs}, {self.rhs}];"
+
+
+class OptimizationType(Enum):
+    MAXIMIZE = auto()
+    MINIMIZE = auto()
+
+
+@attr.s
+class OptimizationQuery(InstrClass):
+    expr: Expr = attr.ib()
+    parameter: Var = attr.ib()
+    type: OptimizationType = attr.ib()
+
+    def __str__(self) -> str:
+        return f"?Opt[{self.expr}, {self.parameter}, {'MAX' if self.type == OptimizationType.MAXIMIZE else 'MIN'}];"
+
+
+@attr.s
+class ProbabilityQueryInstr(InstrClass):
+    expr: Expr = attr.ib()
+
+    def __str__(self) -> str:
+        return f"?Pr[{self.expr}];"
+
+
+@attr.s
+class PrintInstr(InstrClass):
+    def __str__(self) -> str:
+        return "!Print;"
+
+
+@attr.s
+class PlotInstr(InstrClass):
+    var_1: VarExpr = attr.ib()
+    var_2: VarExpr = attr.ib(default=None)
+    prob: RealLitExpr = attr.ib(default=None)
+    term_count: NatLitExpr = attr.ib(default=None)
+
+    def __str__(self) -> str:
+        output = str(self.var_1)
+        if self.var_2:
+            output += f", {str(self.var_2)}"
+        if self.prob:
+            output += f", {str(self.prob)}"
+        if self.term_count:
+            output += f", {str(self.term_count)}"
+        return f"!Plot[{output}]"
+
+
+@attr.s
+class QueryInstr(InstrClass):
+    instrs: List[Instr] = attr.ib()
+
+    def __str__(self) -> str:
+        newline = "\n"
+        return f"query {{{newline}{f';{newline}'.join(map(str, self.instrs))}{newline}}}"
+
+
+@attr.s
+class LocalDeclInstr(InstrClass):
+    """
+    A declaration inside a block (``.ppy`` syntax only), visible until the end of
+    the enclosing block, with an optional initial value. Without a value the
+    variable starts at 0. At the end of the block the variable is marginalised
+    out.
+
+    :func:`prodigy.language.scope.lower_block_scope` lowers it into plain
+    assignments (done by :func:`prodigy.language.parser.parse_program`); the type
+    checker and the analysis never see it.
+    """
+    decl: VarDecl = attr.ib()
+    value: Optional[Expr] = attr.ib(default=None)
+
+    def __str__(self) -> str:
+        # The old syntax has no block-scoped declarations; show the .ppy form.
+        value = "" if self.value is None else f" = {self.value}"
+        return f"local {str(self.decl)[:-1]}{value};"
+
+
+Query = Union[ProbabilityQueryInstr, ExpectationInstr, VarianceInstr, CovarianceInstr, PlotInstr, PrintInstr,
+              OptimizationQuery]
+"""Union type for all query objects. See :class:`QueryInstr` for use with isinstance."""
+
+Instr = Union[SkipInstr, AbortInstr, WhileInstr, IfInstr, AsgnInstr, ChoiceInstr,
+              LoopInstr, ObserveInstr, QueryInstr, LocalDeclInstr,
+              Query]
+"""Union type for all instruction objects. See :class:`InstrClass` for use with isinstance."""

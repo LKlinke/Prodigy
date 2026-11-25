@@ -1,6 +1,6 @@
 # Prodigy — notes for Claude
 
-Prodigy analyses probabilistic programs (`.ppy`; `.pgcl` is deprecated) with probability
+Prodigy analyses probabilistic programs (`.ppy`; `.pgcl` was removed in v0.6.0) with probability
 generating functions. Results are exact or a proven lower/upper bound; otherwise `unknown`.
 Details on the layout and releases: `docs/source/development.md`.
 
@@ -47,12 +47,12 @@ uv run pytest tests/analysis/test_session.py -q   # one file
   `LKlinke/prodigy-ginac-bindings`; Prodigy only adds guards at its interface.
 
 ## Layout
-- `prodigy/pgcl` (renamed to `prodigy/language` after the `.pgcl` removal, #446): the `.ppy`
-  parser and printer (`ppy_parser.py`, `ppy_printer.py`), type checker, AST.
+- `prodigy/language` (`prodigy.pgcl` until v0.7.0, #446): the `.ppy` parser and printer
+  (`ppy_parser.py`, `ppy_printer.py`), type checker, AST.
 - `prodigy/distribution`: the `Distribution` interface, the engines (SymPy default, GiNaC) and
   the proof rules on closed forms.
   `prodigy/analysis`: the forward analysis. `prodigy/web`: the GUI (Flask, one process per job).
-- Layering: `prodigy/distribution` and `prodigy/pgcl` import nothing from `prodigy/analysis`
+- Layering: `prodigy/distribution` and `prodigy/language` import nothing from `prodigy/analysis`
   (`tests/test_layering.py`).
 - Loop strategies are registered in `analysis/instructionhandler/while_handler.py`; they appear
   in the CLI, `prodigy analyze --loop` and the GUI automatically.

@@ -61,7 +61,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.instructionhandler.program_info import ProgramInfo
     from prodigy.analysis.session import AnalysisSession
     from prodigy.distribution import Distribution
-    from prodigy.pgcl import Instr
+    from prodigy.language import Instr
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
@@ -112,7 +112,7 @@ def replay(track: UpperTrack, instruction: "Instr", prog_info: "ProgramInfo", co
     not exact. The replay is a silent sub-analysis: it records no queries, steps or residual mass."""
     # pylint: disable=import-outside-toplevel
     from prodigy.distribution import known_convergent_series
-    from prodigy.pgcl import QueryInstr
+    from prodigy.language import QueryInstr
     if isinstance(instruction, QueryInstr):
         return None  # a query block normalises inside, which is not linear
     try:

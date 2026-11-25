@@ -21,7 +21,7 @@ from prodigy.analysis.evtinvariants.heuristics.templates.rational_function impor
 from prodigy.analysis.evtinvariants import invariant_synthesis
 from prodigy.analysis.evtinvariants.template_solver import solve_template
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import
@@ -41,7 +41,7 @@ n0, n1, d1, d2 = sympy.symbols("n_0 n_1 d_1 d_2")
 
 def _run(source: str, decision: str = "evt_synthesis", engine=ForwardAnalysisConfig.Engine.SYMPY,
          strategy=SynthesisStrategies.DEFAULT) -> dict:
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", capture_output=True,
                               decisions={"0": decision}, config=ForwardAnalysisConfig(engine=engine,
                                                                                       strategy=strategy))
     return session.run().to_json()
@@ -154,7 +154,7 @@ def test_thirds_geometric_is_found(engine):
 def test_loop_never_entered_has_the_invariant_zero():
     source = ("x: nat; y: nat;\nwhile (x > 0) {\n    y = 1;\n    while (y == 1) { { y = 0; } [1/2] { x = x + 1; } }\n"
               "    x = x - 1;\n}\n")
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", capture_output=True,
                               decisions={"*": "evt_synthesis"})
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]

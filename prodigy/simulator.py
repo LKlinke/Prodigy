@@ -1,7 +1,7 @@
 """
 A Monte-Carlo simulator for programs: an independent oracle for the analysis.
 
-The simulator runs a parsed program (:class:`~prodigy.pgcl.ast.Program`) many times on concrete
+The simulator runs a parsed program (:class:`~prodigy.language.ast.Program`) many times on concrete
 states with a seeded random number generator. It shares only the parser with the analysis, none of
 the engines' code, so a wrong generating function, a wrong filter or a wrong normalisation in an
 engine shows up as a difference between an exact result and the simulation. The tests use it in two
@@ -43,13 +43,13 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
-from prodigy.pgcl.ast import (AbortInstr, AsgnInstr, Binop, BinopExpr, BoolLitExpr, CategoricalExpr,
+from prodigy.language.ast import (AbortInstr, AsgnInstr, Binop, BinopExpr, BoolLitExpr, CategoricalExpr,
                               ChoiceInstr, ExpectationExpr, ExpectationInstr, Expr, FunctionCallExpr,
                               IfInstr, InferExpr, Instr, LoopInstr, NatLitExpr, ObserveInstr,
                               PlotInstr, PrintInstr, ProbabilityExpr, ProbabilityQueryInstr, Program,
                               RealLitExpr, SampleExpr, SkipInstr, Unop, UnopExpr, VarExpr, WhileInstr)
-from prodigy.pgcl.ast.instructions import OptimizationQuery, QueryInstr
-from prodigy.pgcl.ast.types import BoolType, DistributionType
+from prodigy.language.ast.instructions import OptimizationQuery, QueryInstr
+from prodigy.language.ast.types import BoolType, DistributionType
 
 Number = Union[int, Fraction]
 Value = Union[int, Fraction, bool, "DistValue"]

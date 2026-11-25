@@ -1,5 +1,5 @@
 import pytest
-from prodigy import pgcl as pgcl
+from prodigy import language
 
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -12,7 +12,7 @@ from prodigy.distribution.generating_function import SympyPGF
                           (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_ite_statement(engine, factory):
     result, error_prob = compute_discrete_distribution(
-        pgcl.parse_pgcl("""
+        language.parse_program("""
 x: nat;
 y: nat;
 

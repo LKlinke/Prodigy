@@ -10,7 +10,7 @@ from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import QueryResult, is_non_finite, sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.generating_function import GeneratingFunction, _continuous_at_one, _substitute_one
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 ROOT = Path(__file__).resolve().parents[2]
 MONTY_HALL = [
@@ -49,7 +49,7 @@ def test_monty_hall_nested_is_exact(path, engine, simplification):
     source = path.read_text(encoding="utf-8")
     syntax = "ppy"
     config = ForwardAnalysisConfig(engine=_engine(engine), use_simplification=simplification)
-    session = AnalysisSession(parse_pgcl(source, syntax), source=source, syntax=syntax, config=config,
+    session = AnalysisSession(parse_program(source, syntax), source=source, syntax=syntax, config=config,
                               decisions={}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]
@@ -72,7 +72,7 @@ SIMPLIFIED = "(x + x^2 + x^3)/3*y"
                                         "y = x % 2"])
 def test_assignment_at_removable_singularity(engine, simplification, assignment):
     config = ForwardAnalysisConfig(engine=_engine(engine), use_simplification=simplification)
-    program = parse_pgcl(f"x: nat;\ny: nat;\n{assignment};\n", "ppy")
+    program = parse_program(f"x: nat;\ny: nat;\n{assignment};\n", "ppy")
     results = []
     with config.activate():
         for function in (UNSIMPLIFIED, SIMPLIFIED):
@@ -87,7 +87,7 @@ def test_assignment_at_removable_singularity(engine, simplification, assignment)
 def test_assignment_at_removable_singularity_in_a_session(engine):
     source = "x: nat;\ny: nat;\nx = y;\nquery Pr[x == 1];\n"
     config = ForwardAnalysisConfig(engine=_engine(engine))
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
                               decisions={}, input_distribution=UNSIMPLIFIED, capture_output=True)
     result = session.run().to_json()
     # all engines, GiNaC since prodigy-ppl-ginac 0.0.5, cancel the removable singularity
@@ -146,7 +146,7 @@ OBSERVE_AFTER_UNIF = [
 @pytest.mark.parametrize("simplification", SIMPLIFICATION)
 def test_observe_after_unif_is_fast(program, variable, engine, simplification):
     config = ForwardAnalysisConfig(engine=_engine(engine), use_simplification=simplification)
-    session = AnalysisSession(parse_pgcl(program, "ppy"), source=program, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(program, "ppy"), source=program, syntax="ppy", config=config,
                               decisions={}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]
@@ -181,7 +181,7 @@ PROGRAM = "x: nat;\nx = unif(1, 3);\nquery Pr[x == 1];\nquery Ex[x];\n"
 def _run_with(monkeypatch, function, queries):
     """Runs a session whose analysis yields the SymPy distribution ``function`` and ``queries``."""
     config = ForwardAnalysisConfig()
-    session = AnalysisSession(parse_pgcl(PROGRAM, "ppy"), source=PROGRAM, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(PROGRAM, "ppy"), source=PROGRAM, syntax="ppy", config=config,
                               decisions={}, capture_output=True)
 
     def fake(*_args, **_kwargs):

@@ -31,13 +31,13 @@ import sympy
 
 from prodigy.analysis.exceptions import ForwardAnalysisError
 from prodigy.distribution.finite_measure import check_input_expression
-from prodigy.pgcl.expression_allowlist import MATH_FUNCTIONS, InadmissibleExpression, admissible_expression
+from prodigy.language.expression_allowlist import MATH_FUNCTIONS, InadmissibleExpression, admissible_expression
 
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.distribution import Distribution
     from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-    from prodigy.pgcl import Program
+    from prodigy.language import Program
 
 
 class InputDistributionError(ForwardAnalysisError):

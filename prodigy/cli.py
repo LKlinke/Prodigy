@@ -16,8 +16,8 @@ from itertools import combinations
 from typing import IO, Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar, TYPE_CHECKING
 
 import click
-from prodigy.pgcl import Instr, Program, Var, compiler, WhileInstr
-from prodigy.pgcl.syntax_errors import ProgramSyntaxError
+from prodigy.language import Instr, Program, Var, compiler, WhileInstr
+from prodigy.language.syntax_errors import ProgramSyntaxError
 
 from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -158,7 +158,7 @@ def _read_program(program_file: IO, syntax: Optional[str]) -> Tuple[str, Program
     except ValueError as exc:
         raise click.ClickException(f"{name}: {exc}") from exc
     try:
-        program = compiler.parse_pgcl(source, chosen)
+        program = compiler.parse_program(source, chosen)
     except ProgramSyntaxError as exc:
         raise click.ClickException(_with_source_line(f"{name}: {exc}", source, exc.line, exc.column)) from exc
     return source, program, chosen
@@ -224,9 +224,9 @@ def _expression_option(text: str, option: str, program: Program, syntax: str) ->
     """The generating function ``text`` of the command-line option ``option``, checked before any engine
     sees it (SymPy's parser evaluates Python code): an expression of ``syntax`` over numbers, the
     program's variables and parameters and the functions of
-    :data:`~prodigy.pgcl.expression_allowlist.MATH_FUNCTIONS`. Returned in the engines' spelling."""
+    :data:`~prodigy.language.expression_allowlist.MATH_FUNCTIONS`. Returned in the engines' spelling."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.pgcl.expression_allowlist import MATH_FUNCTIONS, InadmissibleExpression, admissible_expression
+    from prodigy.language.expression_allowlist import MATH_FUNCTIONS, InadmissibleExpression, admissible_expression
     names = [str(v) for v in program.variables] + [str(p) for p in program.parameters]
     try:
         return admissible_expression(text.strip(), names=names, syntax=syntax, functions=MATH_FUNCTIONS)

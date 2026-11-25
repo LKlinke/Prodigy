@@ -11,7 +11,7 @@ import pytest
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import
@@ -24,7 +24,7 @@ EXAMPLES = Path(__file__).parents[2] / "pgfexamples" / "inference" / "loopy" / "
 
 def _queries(name: str, decisions: dict, config=None) -> list:
     source = (EXAMPLES / name).read_text(encoding="utf-8")
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", capture_output=True,
                               decisions=decisions, config=config)
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]

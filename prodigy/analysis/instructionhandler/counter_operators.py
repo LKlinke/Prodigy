@@ -44,7 +44,7 @@ from typing import NamedTuple, Optional, Set, Tuple
 
 import sympy
 
-from prodigy.pgcl import Binop, BinopExpr, Expr, NatLitExpr, RealLitExpr, VarExpr
+from prodigy.language import Binop, BinopExpr, Expr, NatLitExpr, RealLitExpr, VarExpr
 
 from prodigy.analysis.evtinvariants.exp_polynomial import eventually_nonneg, integral_from_zero
 from prodigy.analysis.instructionhandler.state_dependent import (StatePart, checked_probability, instantiate,

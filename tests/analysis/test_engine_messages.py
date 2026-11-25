@@ -4,7 +4,7 @@ import pytest
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import
@@ -23,7 +23,7 @@ OBSERVE_ZERO = "x: nat;\ny: nat;\nx = poisson(2);\ny = x % 3;\nobserve(y == 5);\
 
 
 def _message(source: str, engine) -> str:
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", capture_output=True,
                               config=ForwardAnalysisConfig(engine=engine))
     result = session.run().to_json()
     assert result["status"] == "error", result
@@ -58,7 +58,7 @@ def test_real_floor_division_passes_the_type_check_and_is_not_implemented(source
 
 def test_variable_divisor_is_named_as_written_by_the_engine():
     config = ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.SYMPY)
-    program = parse_pgcl(VARIABLE_DIVISOR, "ppy")
+    program = parse_program(VARIABLE_DIVISOR, "ppy")
     with AnalysisSession(program, source=VARIABLE_DIVISOR, syntax="ppy", config=config).activate(), \
             config.activate(), pytest.raises(Exception, match="Cannot compute b // a:"):
         compute_discrete_distribution(program, config.factory.one(*program.variables), config)

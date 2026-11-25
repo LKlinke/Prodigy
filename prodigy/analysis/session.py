@@ -44,14 +44,14 @@ from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Mapping,
 
 import attr
 
-from prodigy.pgcl import (ChoiceInstr, CovarianceInstr, ExpectationInstr, VarianceInstr,
+from prodigy.language import (ChoiceInstr, CovarianceInstr, ExpectationInstr, VarianceInstr,
                           Expr, IfInstr, Instr, LoopInstr, OptimizationQuery, PlotInstr,
                           PrintInstr, ProbabilityQueryInstr, Program, QueryInstr, WhileInstr)
 
 from prodigy.analysis.loop_strategies import (Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
                                               get_loop_strategy, loop_strategies)
 from prodigy.distribution import known_convergent_series, output_syntax
-from prodigy.pgcl.ppy_printer import spell
+from prodigy.language.ppy_printer import spell
 from prodigy.util.logger import log_setup, print_progress_bar
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -273,7 +273,7 @@ def isolate_loop(program: Program, instruction: WhileInstr, syntax: str,
     every input, so it covers whatever that code produces. ``None`` if the program cannot be printed in
     ``syntax``."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.pgcl.ppy_printer import PpyPrintError, program_to_ppy
+    from prodigy.language.ppy_printer import PpyPrintError, program_to_ppy
 
     def text(instructions: List[Instr]) -> str:
         part = attr.evolve(program, instructions=instructions)

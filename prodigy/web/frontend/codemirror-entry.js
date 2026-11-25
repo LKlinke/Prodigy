@@ -28,7 +28,7 @@ const PPY_TYPES = new Set(["nat", "bool", "real", "dist"]);
 
 export const PPY_WORDS = { keywords: [...PPY_KEYWORDS], types: [...PPY_TYPES], builtins: [...BUILTINS] };
 
-/** The Python-like .ppy syntax (prodigy/pgcl/ppy_parser.py): comments are '#' to the end of the
+/** The Python-like .ppy syntax (prodigy/language/ppy_parser.py): comments are '#' to the end of the
  * line and '/* … *\/' (not nested, may span lines), since '//' is floor division; declarations are
  * 'x, y: nat'; queries are 'query Pr[…]'. */
 export const ppy = StreamLanguage.define({

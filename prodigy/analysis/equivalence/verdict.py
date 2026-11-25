@@ -47,7 +47,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.analysis.session import AnalysisSession
     from prodigy.distribution import Distribution
-    from prodigy.pgcl import Program
+    from prodigy.language import Program
 
 EQUIVALENT = "equivalent"
 NOT_EQUIVALENT = "not_equivalent"
@@ -345,7 +345,7 @@ class Comparison:
 def point_input(program: "Program", state: Dict[str, int], config: "ForwardAnalysisConfig") -> "Distribution":
     """The distribution that is ``state`` with probability 1 (absent variables are 0)."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.pgcl import Binop, BinopExpr, BoolLitExpr, BoolType, NatLitExpr, VarExpr
+    from prodigy.language import Binop, BinopExpr, BoolLitExpr, BoolType, NatLitExpr, VarExpr
     dist = config.factory.one(*program.variables)
     for name, value in sorted(state.items()):
         if value:

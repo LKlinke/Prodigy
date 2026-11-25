@@ -5,21 +5,21 @@ from os.path import isfile
 
 import pytest
 import sympy
-from prodigy.pgcl.ast import Program
-from prodigy.pgcl.compiler import compile_pgcl
+from prodigy.language.ast import Program
+from prodigy.language.compiler import compile_program
 
 from prodigy.analysis.analyzer import compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl.pgcl_operations import cav_phi
+from prodigy.language.operations import cav_phi
 
 
 @pytest.mark.parametrize(
     'engine',
     [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY])
 def test_equivalence_check_geometric_sampler(engine):
-    prog = compile_pgcl("""
+    prog = compile_program("""
 x: nat;
 c: nat;
 temp: nat;
@@ -34,7 +34,7 @@ while (x >= 1) {
 }""")
     assert isinstance(prog, Program)
 
-    inv = compile_pgcl("""
+    inv = compile_program("""
 x: nat;
 c: nat;
 temp: nat;
@@ -59,7 +59,7 @@ if (x >= 1) {
     'engine',
     [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY])
 def test_equivalence_check_parameter(engine):
-    prog = compile_pgcl("""
+    prog = compile_program("""
 x: nat;
 c: nat;
 temp: nat;
@@ -75,7 +75,7 @@ while (x >= 1) {
 }""")
     assert isinstance(prog, Program)
 
-    inv = compile_pgcl("""
+    inv = compile_program("""
 x: nat;
 c: nat;
 temp: nat;
@@ -116,8 +116,8 @@ def test_equivalence_loop_free_benchmarks(engine, file_path):
         inv = "\n".join(f.readlines())
 
     # Compile them to a program object
-    prog1 = compile_pgcl(file, path=file_path)
-    prog2 = compile_pgcl(inv, path=file2_path)
+    prog1 = compile_program(file, path=file_path)
+    prog2 = compile_program(inv, path=file2_path)
 
     assert (isinstance(prog1, Program))
     assert (isinstance(prog2, Program))
@@ -177,8 +177,8 @@ def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
     with open(counterpart, "r", encoding="utf-8") as f:
         other_source = f.read()
 
-    prog1 = compile_pgcl(source, syntax="ppy")
-    prog2 = compile_pgcl(other_source, syntax="ppy")
+    prog1 = compile_program(source, syntax="ppy")
+    prog2 = compile_program(other_source, syntax="ppy")
     assert isinstance(prog1, Program)
     assert isinstance(prog2, Program)
 
@@ -199,11 +199,11 @@ def test_equivalence_loopy_benchmarks(monkeypatch, engine, file_path):
     [ForwardAnalysisConfig.Engine.GINAC, ForwardAnalysisConfig.Engine.SYMPY]
 )
 def test_equivalence_fail(engine):
-    prog1 = compile_pgcl("""
+    prog1 = compile_program("""
 x: nat;
 x = geometric(1/2);""")
 
-    prog2 = compile_pgcl("""
+    prog2 = compile_program("""
 x: nat;
 x = unif(1, 6);""")
 
@@ -222,7 +222,7 @@ def test_equivalence_check_decrement_under_guard(engine):
     # so the check for negative values of `n := n-1` has to be decided on the joint function.
     if engine == ForwardAnalysisConfig.Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
-    prog = compile_pgcl("""
+    prog = compile_program("""
 n: nat;
 
 m: nat;
@@ -236,7 +236,7 @@ while (0 < n) {
 }""")
     assert isinstance(prog, Program)
 
-    inv = compile_pgcl("""
+    inv = compile_program("""
 n: nat;
 
 m: nat;
@@ -304,7 +304,7 @@ def test_equivalence_check_compares_two_variables_formally(engine, loop, invaria
     # Issue #366: x < n on the second-order generating function is filtered as a formal power series
     if engine == ForwardAnalysisConfig.Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
-    prog, inv = compile_pgcl(loop), compile_pgcl(invariant)
+    prog, inv = compile_program(loop), compile_program(invariant)
     assert isinstance(prog, Program) and isinstance(inv, Program)
     res, _ = check_equivalence(cav_phi(prog, inv), inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
     assert res is expected
@@ -333,8 +333,8 @@ def test_equivalence_check_gambler_with_the_probability_x_over_n(engine, branche
     # θ_x followed by 1/θ_n on the second-order generating function
     if engine == ForwardAnalysisConfig.Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
-    prog = compile_pgcl(GAMBLER)
-    inv = compile_pgcl(f"x: nat; n: nat; if (n > 0 and x < n) {{ {branches} }} else {{ skip; }}")
+    prog = compile_program(GAMBLER)
+    inv = compile_program(f"x: nat; n: nat; if (n > 0 and x < n) {{ {branches} }} else {{ skip; }}")
     assert isinstance(prog, Program) and isinstance(inv, Program)
     res, subs = check_equivalence(cav_phi(prog, inv), inv, ForwardAnalysisConfig(engine=engine), compute_semantics)
     assert res is expected

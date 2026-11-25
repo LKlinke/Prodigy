@@ -5,7 +5,7 @@ import logging
 from typing import Dict, List, Literal, Tuple, Callable, Sequence, Union
 
 import sympy
-from prodigy.pgcl import (BoolType, Program, VarExpr,
+from prodigy.language import (BoolType, Program, VarExpr,
                            Instr)
 
 from prodigy.analysis.config import ForwardAnalysisConfig

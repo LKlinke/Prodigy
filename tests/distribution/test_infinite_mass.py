@@ -13,8 +13,8 @@ import sympy
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution import Distribution, NonFiniteMarginalError, known_convergent_series
-from prodigy.pgcl import Binop, BinopExpr, VarExpr
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language import Binop, BinopExpr, VarExpr
+from prodigy.language.ppy_parser import parse_ppy_expr
 
 ENGINES = [ForwardAnalysisConfig.Engine.SYMPY]
 ALL_ENGINES = [*ENGINES, ForwardAnalysisConfig.Engine.GINAC]

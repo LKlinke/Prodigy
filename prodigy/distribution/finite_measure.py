@@ -26,7 +26,7 @@ if proven, ``(False, reason)`` if refuted and ``(None, reason)`` if not proven. 
   ``f`` is then certified (or refuted) with ``G``. Anything else is not proven.
 
 The text of a closed form is checked with the allowlist of
-:func:`~prodigy.pgcl.expression_allowlist.admissible_expression` before SymPy reads it.
+:func:`~prodigy.language.expression_allowlist.admissible_expression` before SymPy reads it.
 """
 from __future__ import annotations
 
@@ -40,8 +40,9 @@ from prodigy.distribution.coefficient_signs import nonneg_by_construction
 from prodigy.distribution.dominant_pole import dominant_pole_verdict
 from prodigy.distribution.product_form import ProductFormSeries, rational_mass, to_product_form
 from prodigy.distribution.series_transforms import low_coefficients_vanish, monomial_substitution, shift
-from prodigy.pgcl.ast.types import NatType, Type
-from prodigy.pgcl.expression_allowlist import IDENTIFIER, MATH_FUNCTIONS, InadmissibleExpression, admissible_expression
+from prodigy.language.ast.types import NatType, Type
+from prodigy.language.expression_allowlist import (IDENTIFIER, MATH_FUNCTIONS, InadmissibleExpression,
+                                                   admissible_expression)
 
 Verdict = Tuple[Optional[bool], str]
 """True (proven), False (refuted) or None (not proven), with the reason if not proven."""

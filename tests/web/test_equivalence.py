@@ -97,8 +97,8 @@ def test_witness_needs_disjoint_intervals():
 
 
 def test_different_variables_are_not_compared():
-    from prodigy.pgcl import parse_pgcl
-    reason = eq.different_variables(parse_pgcl("x: nat;\n", "ppy"), parse_pgcl("y: nat;\n", "ppy"))
+    from prodigy.language import parse_program
+    reason = eq.different_variables(parse_program("x: nat;\n", "ppy"), parse_program("y: nat;\n", "ppy"))
     assert "only program A declares x" in reason and "only program B declares y" in reason
     result = compare("x: nat;\nx = 1;\n", "y: nat;\ny = 1;\n")
     assert result["equivalence"]["verdict"] == eq.UNKNOWN
@@ -360,9 +360,9 @@ def test_a_concrete_invariant_stays_an_analysis_step():
 def test_the_command_line_hints_at_check_equality():
     """The command line keeps going with a parametric invariant, but says that it is parameter synthesis."""
     from prodigy.analysis.session import AnalysisSession
-    from prodigy.pgcl import parse_pgcl
+    from prodigy.language import parse_program
     source, _, decisions = _synthesis_pair()
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", decisions=decisions,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", decisions=decisions,
                               capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok"

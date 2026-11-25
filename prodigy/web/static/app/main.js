@@ -1176,7 +1176,7 @@ async function run() {
     editor.revealLine(errors[0].line);
     return;
   }
-  const problems = setupProblems(state.outline, state.setup, state.strategies, editor.getSyntax());
+  const problems = setupProblems(state.outline, state.setup, state.strategies);
   if (problems.length) {
     showRunMessage(state.mode === "compare" ? `Program A: ${problems[0].message}` : problems[0].message);
     showLoop(problems[0].loop, { field: Boolean(problems[0].param) });
@@ -1199,8 +1199,7 @@ async function run() {
       otherEditor.revealLine(otherErrors[0].line);
       return;
     }
-    const otherProblems = setupProblems(state.compare.outline, { decisions: state.compare.decisions }, state.strategies,
-      otherEditor.getSyntax());
+    const otherProblems = setupProblems(state.compare.outline, { decisions: state.compare.decisions }, state.strategies);
     if (otherProblems.length) {
       showRunMessage(`Program B: ${otherProblems[0].message}`);
       showLoop(`b-${otherProblems[0].loop}`, { field: Boolean(otherProblems[0].param) });

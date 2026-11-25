@@ -10,7 +10,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.evtinvariants.series_identity import converges_on_unit_polydisc, formal_loop
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINAC]
 
@@ -73,7 +73,7 @@ def _run(source, decision, engine):
     if engine == ForwardAnalysisConfig.Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_pgcl(source), source=source, config=config, decisions={"0": decision},
+    session = AnalysisSession(parse_program(source), source=source, config=config, decisions={"0": decision},
                               capture_output=True)
     return session.run().to_json()
 
@@ -252,6 +252,6 @@ while (x > 0) {
 }""", False),
 ])
 def test_formal_loop(source, expected):
-    program = parse_pgcl(source)
+    program = parse_program(source)
     loop = next(instr for instr in program.instructions if type(instr).__name__ == "WhileInstr")
     assert formal_loop(loop, program.variables.keys()) is expected

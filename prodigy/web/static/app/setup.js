@@ -184,11 +184,9 @@ let placeholders = PLACEHOLDERS.ppy;
 function paramField(param, value, onInput, suggest = null) {
   const id = nextId(`param-${param.name}`);
   const errorId = `${id}-error`;
-  // an invariant program is written in the syntax of the program
-  const text = placeholders === PLACEHOLDERS.ppy ? param.label.replace("pGCL program", ".ppy program") : param.label;
-  const label = h("label", { for: id }, text, param.optional ? h("span", { class: "optional" }, " (optional)") : null);
+  const label = h("label", { for: id }, param.label, param.optional ? h("span", { class: "optional" }, " (optional)") : null);
   let control;
-  if (param.kind === "pgcl") {
+  if (param.kind === "program") {
     control = h("textarea", { id, class: "mono", rows: "7", spellcheck: "false", placeholder: placeholders.program });
   } else if (param.kind === "choice") {
     control = h("select", { id }, ...param.choices.map((choice) => h("option", { value: choice }, choice)));
@@ -463,7 +461,7 @@ function loopCard(loop, ctx) {
         onValue?.();
         onChange();
       }, canSuggest(ctx, strategy, param) ? (control) => suggestAction(ctx, loop, strategy, param, control)
-        : param.kind === "pgcl" && ctx.programB ? (control) => programBAction(ctx, control) : null);
+        : param.kind === "program" && ctx.programB ? (control) => programBAction(ctx, control) : null);
     }
 
     // parameters with defaults: behind a disclosure whose summary shows their values (progressive disclosure)
@@ -710,8 +708,8 @@ export function focusLoopCard(container, loopId, { field = false } = {}) {
 }
 
 /** Problems that prevent running (shown next to the Analyze button): {loop, message, param} (`param` names the
- * parameter whose value is missing or wrong). `syntax` is the syntax of the program (for the labels). */
-export function setupProblems(outline, setup, strategies, syntax = "ppy") {
+ * parameter whose value is missing or wrong). */
+export function setupProblems(outline, setup, strategies) {
   const byName = Object.fromEntries(strategies.map((s) => [s.name, s]));
   const problems = [];
   for (const loop of outline?.loops || []) {
@@ -723,8 +721,7 @@ export function setupProblems(outline, setup, strategies, syntax = "ppy") {
     }
     for (const param of strategy.params.filter((p) => p.kind !== "file")) {
       const problem = validateParam(param, decision.params[param.name]);
-      const label = syntax === "ppy" ? param.label.replace("pGCL program", ".ppy program") : param.label;
-      if (problem) problems.push({ loop: loop.id, param: param.name, message: `Loop ${loop.id}: ${label}: ${problem}` });
+      if (problem) problems.push({ loop: loop.id, param: param.name, message: `Loop ${loop.id}: ${param.label}: ${problem}` });
     }
   }
   return problems;

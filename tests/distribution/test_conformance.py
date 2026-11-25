@@ -26,7 +26,7 @@ from prodigy.distribution import known_convergent_series
 from prodigy.distribution.distribution import (MarginalType, NonFiniteMarginalError, State,
                                                UndecidedComparisonError, ZeroDivisorError)
 from prodigy.distribution.kernel.rational import RationalGF
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language.ppy_parser import parse_ppy_expr
 from tests.distribution.engines import ENGINES, in_common_words, same, symbolic
 
 P = parse_ppy_expr  # pylint: disable=invalid-name

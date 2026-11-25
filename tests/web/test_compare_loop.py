@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from prodigy.analysis.session import LoopRegistry, isolate_loop
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 from prodigy.web.app import create_app
 from prodigy.web.requests import loop_program, run_analysis
 
@@ -68,7 +68,7 @@ def test_a_loop_that_is_the_whole_program_stays_as_it_is():
 def test_a_loop_inside_a_program_keeps_only_the_declarations():
     isolated = loop_program(SURROUNDED, "ppy", 0)
     assert not isolated["whole"] and isolated["loop"] == 0
-    program = parse_pgcl(isolated["program"], "ppy")
+    program = parse_program(isolated["program"], "ppy")
     # the declarations and the loop: the code before it does not matter, the comparison holds for every input
     assert list(program.variables) == ["x", "c"] and len(program.instructions) == 1
     assert type(program.instructions[0]).__name__ == "WhileInstr"
@@ -93,7 +93,7 @@ x = f(3);
 
 def test_isolate_loop_keeps_the_loop_id_of_the_second_loop():
     source = GEOMETRIC.replace("query Ex[c];\n", "") + "while (c > 5) { c = c - 1; }\n"
-    program = parse_pgcl(source, "ppy")
+    program = parse_program(source, "ppy")
     registry = LoopRegistry(program)
     second = registry.instruction(1)
     assert second is not None and registry.instruction(2) is None

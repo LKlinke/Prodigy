@@ -4,13 +4,13 @@ from fractions import Fraction
 
 import pytest
 
-from prodigy.pgcl.parser import parse_pgcl
+from prodigy.language.parser import parse_program
 from prodigy.simulator import (Estimate, Mismatch, SimulationError, UnsupportedConstruct, compare, simulate,
                                proportion_interval)
 
 
 def run(source, runs=4000, **kwargs):
-    return simulate(parse_pgcl(source, "ppy"), runs, seed=1, **kwargs)
+    return simulate(parse_program(source, "ppy"), runs, seed=1, **kwargs)
 
 
 def frequency(simulation, var, value):
@@ -101,7 +101,7 @@ def test_unsupported(source):
 
 
 def test_seeded_runs_are_reproducible():
-    program = parse_pgcl("x: nat; x = geometric(1/3);", "ppy")
+    program = parse_program("x: nat; x = geometric(1/3);", "ppy")
     assert simulate(program, 200, seed=5).samples == simulate(program, 200, seed=5).samples
 
 
@@ -118,7 +118,7 @@ def test_intervals():
 
 
 def test_compare_finds_a_wrong_result():
-    program = parse_pgcl("x: nat; x = bernoulli(1/2); query Pr[x == 1]; query Ex[x];", "ppy")
+    program = parse_program("x: nat; x = bernoulli(1/2); query Pr[x == 1]; query Ex[x];", "ppy")
     simulation = simulate(program, 4000, seed=2)
     good = {"bounds": {"kind": "exact"},
             "queries": [{"index": 0, "kind": "probability", "expr": "x == 1", "value_float": 0.5},
@@ -135,7 +135,7 @@ def test_compare_finds_a_wrong_result():
 def test_compare_skips_expectations_that_may_be_infinite():
     # St. Petersburg: the payout has infinite expectation, every sample mean is finite (Prodigy#472). An
     # interval with an infinite upper end is not compared; a finite one still is.
-    program = parse_pgcl("y: nat = 1; s: nat = 0; while (s == 0) { {y = 2 * y;} [1/2] {s = 1;} } query Ex[y];",
+    program = parse_program("y: nat = 1; s: nat = 0; while (s == 0) { {y = 2 * y;} [1/2] {s = 1;} } query Ex[y];",
                          "ppy")
     simulation = simulate(program, 3000, seed=2, loop_budget=1000)
 

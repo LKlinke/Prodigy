@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import Dict, List, Optional, Tuple
 
-from prodigy.pgcl import (ExpectationInstr, PlotInstr, PrintInstr, ProbabilityQueryInstr, Program, VarExpr,
+from prodigy.language import (ExpectationInstr, PlotInstr, PrintInstr, ProbabilityQueryInstr, Program, VarExpr,
                           WhileInstr)
 
 from prodigy.analysis.lowerbounds import explicit

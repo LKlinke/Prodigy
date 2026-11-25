@@ -14,7 +14,7 @@ from prodigy.distribution import display
 from prodigy.distribution.display import display_form
 from prodigy.distribution.equality import decide_equal_strings
 from prodigy.distribution.generating_function import GeneratingFunction
-from prodigy.pgcl.compiler import parse_pgcl
+from prodigy.language.compiler import parse_program
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import
@@ -155,7 +155,7 @@ y: nat;
 def test_the_option_changes_only_the_shown_form(engine):
     results = []
     for simplification in (False, True):
-        session = AnalysisSession(parse_pgcl(SOURCE), source=SOURCE, capture_output=True,
+        session = AnalysisSession(parse_program(SOURCE), source=SOURCE, capture_output=True,
                                   config=ForwardAnalysisConfig(engine=engine, use_simplification=simplification))
         results.append(session.run().to_json())
     plain, simplified = (result["distribution"] for result in results)

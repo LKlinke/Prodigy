@@ -9,7 +9,7 @@ import sympy
 
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.session import AnalysisSession, LoopRecord
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 YULE_SIMON = Path(__file__).parents[2] / "pgfexamples" / "inference" / "loopy" / "hard_distributions" / \
     "d_finite" / "yule_simon_coins.ppy"
@@ -50,7 +50,7 @@ def test_differing_messages_of_several_executions_become_one_summary():
 @pytest.mark.slow
 def test_inner_loop_of_yule_simon_reports_one_summary():
     source = YULE_SIMON.read_text(encoding="utf-8")
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", capture_output=True,
                               decisions={"0": "unroll:iterations=8", "1": "unroll:iterations=30"})
     result = session.run().to_json()
     inner = next(loop for loop in result["loops"] if str(loop["id"]) == "1")

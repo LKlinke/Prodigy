@@ -12,8 +12,8 @@ from prodigy.analysis.lowerbounds.parameters import TemplateShape
 from prodigy.analysis.lowerbounds.problem import load_problem, queries_after
 from prodigy.analysis.lowerbounds.sandwich import evt_sandwich
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl import parse_pgcl
-from prodigy.pgcl.ast import ExpectationInstr, ProbabilityQueryInstr, WhileInstr
+from prodigy.language import parse_program
+from prodigy.language.ast import ExpectationInstr, ProbabilityQueryInstr, WhileInstr
 
 LOOP = (Path(__file__).resolve().parents[2] / "pgfexamples" / "lower_bounds" / "sandwich"
         / "rw_counter_23.ppy").read_text().split("query Pr", 1)[0]
@@ -41,7 +41,7 @@ def _fixed_sandwich(problem, **kwargs):
 
 @pytest.fixture(name="result", scope="module")
 def fixture_result():
-    program = parse_pgcl(SOURCE + AFFINE, "ppy")
+    program = parse_program(SOURCE + AFFINE, "ppy")
     problem = load_problem(program)
     assert problem.epilogue == ("seq", [])
     loop = next(ins for ins in program.instructions if isinstance(ins, WhileInstr))
@@ -53,7 +53,7 @@ def fixture_result():
 def test_query_values_equal_the_values_on_the_lower_bound(engine, result):
     config = ForwardAnalysisConfig(engine=engine)
     lower = config.factory.from_expr(result.lower.calc.to_expr(result.lower.exit_numerator), "x", "c")
-    program = parse_pgcl(SOURCE + AFFINE, "ppy")
+    program = parse_program(SOURCE + AFFINE, "ppy")
     queries = [ins for ins in program.instructions if isinstance(ins, (ProbabilityQueryInstr, ExpectationInstr))]
     by_text = {(b.query.kind, b.query.text): b for b in result.bounds}
     checked = 0
@@ -90,7 +90,7 @@ def _session_queries(monkeypatch, engine, *, shortcut: bool):
         used.append(value is not None)
         return value
     monkeypatch.setattr(AnalysisSession, "loop_query_value", spy)
-    session = AnalysisSession(parse_pgcl(SOURCE, "ppy"), source=SOURCE, syntax="ppy", config=ForwardAnalysisConfig(engine=engine),
+    session = AnalysisSession(parse_program(SOURCE, "ppy"), source=SOURCE, syntax="ppy", config=ForwardAnalysisConfig(engine=engine),
                               decisions={"0": "evt_sandwich"}, capture_output=True)
     out = session.run().to_json()
     assert out["status"] == "ok", out.get("error")
@@ -136,7 +136,7 @@ def test_values_end_at_the_next_instruction(monkeypatch):
         used.append(value is not None)
         return value
     monkeypatch.setattr(AnalysisSession, "loop_query_value", spy)
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=ForwardAnalysisConfig(),
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=ForwardAnalysisConfig(),
                               decisions={"0": "evt_sandwich"}, capture_output=True)
     assert session.run().to_json()["status"] == "ok"
     assert used == [False] * 6

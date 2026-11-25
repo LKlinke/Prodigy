@@ -51,6 +51,9 @@ def test_page_and_meta(client):
     unroll = next(s for s in meta["strategies"] if s["name"] == "unroll")
     assert unroll["params"][0]["name"] == "iterations"
     assert all(p["kind"] != "file" for s in meta["strategies"] for p in s["params"])
+    invariant = next(s for s in meta["strategies"] if s["name"] == "invariant")
+    assert (invariant["params"][0]["kind"], invariant["params"][0]["label"]) == \
+           ("program", "Invariant (loop-free .ppy program)")
     engines = {e["name"]: e for e in meta["engines"]}
     assert list(engines) == ["sympy", "ginac"]
     assert all(e["available"] == (e["reason"] is None) for e in engines.values())

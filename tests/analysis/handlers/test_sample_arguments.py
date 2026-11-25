@@ -7,8 +7,8 @@ import pytest
 
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.pgcl.check import CheckFail
-from prodigy.pgcl.compiler import compile_pgcl
+from prodigy.language.check import CheckFail
+from prodigy.language.compiler import compile_program
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import
@@ -24,7 +24,7 @@ ENGINES = [
 
 
 def _run(source: str, engine: ForwardAnalysisConfig.Engine, use_latex: bool = False):
-    program = compile_pgcl(source)
+    program = compile_program(source)
     assert not isinstance(program, CheckFail), program
     config = ForwardAnalysisConfig(engine=engine, use_latex=use_latex)
     result, error_prob = compute_discrete_distribution(
@@ -119,6 +119,6 @@ x = sample_pgf(1/2);""", "Too few parameters"),
 x = geometric();""", "Too few parameters"),
 ])
 def test_rejected_forms(source, message):
-    result = compile_pgcl(source)
+    result = compile_program(source)
     assert isinstance(result, CheckFail)
     assert message in result.message

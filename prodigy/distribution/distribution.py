@@ -14,13 +14,13 @@ from typing import (Callable, ContextManager, Dict, FrozenSet, Generator, ItemsV
 import sympy
 
 
-from prodigy.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, FunctionCallExpr, NatLitExpr,
+from prodigy.language import (Binop, BinopExpr, BoolLitExpr, Expr, FunctionCallExpr, NatLitExpr,
                            RealLitExpr, Unop, UnopExpr, VarExpr)
-from prodigy.pgcl.ast.walk import Walk, walk_expr
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
-from prodigy.pgcl.syntax_errors import ProgramSyntaxError
-from prodigy.pgcl.ppy_printer import spell
-from prodigy.pgcl.util.ref import Mut
+from prodigy.language.ast.walk import Walk, walk_expr
+from prodigy.language.ppy_parser import parse_ppy_expr
+from prodigy.language.syntax_errors import ProgramSyntaxError
+from prodigy.language.ppy_printer import spell
+from prodigy.language.util.ref import Mut
 from prodigy.distribution.convergence import marginal_obstacle
 from prodigy.distribution.equality import decide_equal_strings, sympify_distribution_string
 from prodigy.distribution.finite_measure import check_input_expression
@@ -30,9 +30,9 @@ from prodigy.distribution.independent_comparison import (DEPENDENT, NOT_A_DIFFER
                                                           filter_difference)
 from prodigy.distribution.linear_guards import difference_comparison, normalize_guard
 
-from prodigy.pgcl.pgcl_checks import (check_is_constant_constraint,
+from prodigy.language.checks import (check_is_constant_constraint,
                                       has_variable, modulus_condition)
-from prodigy.pgcl.pgcl_operations import state_to_equality_expression
+from prodigy.language.operations import state_to_equality_expression
 
 
 def constant_value(expression: Expr) -> Fraction | None:

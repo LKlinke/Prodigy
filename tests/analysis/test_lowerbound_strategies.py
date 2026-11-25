@@ -6,13 +6,13 @@ import pytest
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 EXAMPLES = Path(__file__).resolve().parents[2] / "pgfexamples" / "lower_bounds"
 
 
 def analyse(source, decision, syntax="ppy"):
-    session = AnalysisSession(parse_pgcl(source, syntax), source=source, syntax=syntax, config=ForwardAnalysisConfig(),
+    session = AnalysisSession(parse_program(source, syntax), source=source, syntax=syntax, config=ForwardAnalysisConfig(),
                               decisions={"0": decision}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result.get("error")
@@ -76,7 +76,7 @@ while (x > 0) {
 }
 query Pr[true];
 """
-    session = AnalysisSession(parse_pgcl(source), source=source, config=ForwardAnalysisConfig(),
+    session = AnalysisSession(parse_program(source), source=source, config=ForwardAnalysisConfig(),
                               decisions={"0": "evt_sandwich"}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] != "ok"
@@ -100,7 +100,7 @@ def test_subinvariant_below_the_occupation_measure_gives_intervals():
 
 
 def test_subinvariant_that_is_too_large_is_refuted():
-    session = AnalysisSession(parse_pgcl((EXAMPLES / "exact" / "lossy_retransmission.ppy").read_text(), "ppy"),
+    session = AnalysisSession(parse_program((EXAMPLES / "exact" / "lossy_retransmission.ppy").read_text(), "ppy"),
                               config=ForwardAnalysisConfig(),
                               decisions={"0": "evt_subinvariant:subinvariant=2 * (1 + d/3) / (1 - 3/5*c)"},
                               capture_output=True)

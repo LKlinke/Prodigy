@@ -5,15 +5,15 @@ changes (branches, pull requests, tests, principles) are in `CLAUDE.md` at the r
 
 ## Layout
 
-### `prodigy/pgcl` — the language
+### `prodigy/language` — the language
 
-Parsers, AST, type checker and compiler. The package will be renamed to `prodigy/language` after
-the `.pgcl` syntax is removed (#433, #446).
+Parsers, AST, type checker and compiler. The package was called `prodigy/pgcl` until v0.7.0 (#446);
+`prodigy.pgcl` still imports, with a `DeprecationWarning`, until v0.8.0.
 
 - `ppy_parser.py`, `ppy_printer.py`: the `.ppy` syntax (the default, `language.md`).
-- `parser.py`: `parse_pgcl`, the entry point that reads a `.ppy` program (the `.pgcl` syntax and its
-  parser, taken over from probably, were removed in v0.6.0, #433; see `prodigy/pgcl/NOTICE`).
-- `check.py`: the type checker; `pgcl_checks.py`, `pgcl_operations.py`: further checks and AST
+- `parser.py`: `parse_program`, the entry point that reads a `.ppy` program (the `.pgcl` syntax and its
+  parser, taken over from probably, were removed in v0.6.0, #433; see `prodigy/language/NOTICE`).
+- `check.py`: the type checker; `checks.py`, `operations.py`: further checks and AST
   operations.
 - `scope.py`: block scope, lowered to assignments and marginalisation.
 - `positions.py`: source positions for messages and the editor.
@@ -28,7 +28,7 @@ the `.pgcl` syntax is removed (#433, #446).
   `series_transforms.py` (monomial substitution, shift), `dominant_pole.py` (univariate rational
   functions with a unique dominant simple pole, Arb bounds), `convergence.py` (convergence at 1),
   `ordering.py` (`<=` on distributions).
-- `prodigy/distribution` and `prodigy/pgcl` import nothing from `prodigy/analysis`
+- `prodigy/distribution` and `prodigy/language` import nothing from `prodigy/analysis`
   (`tests/test_layering.py`).
 
 ### `prodigy/analysis` — the forward analysis

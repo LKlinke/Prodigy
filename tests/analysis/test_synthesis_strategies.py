@@ -1,7 +1,7 @@
 """Tests for the synthesis strategies, in particular FROM_HEURISTICS (issue #67)."""
 import pytest
 from click.testing import CliRunner
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
@@ -129,7 +129,7 @@ def test_session_synthesises_with_the_chosen_heuristics():
     config = ForwardAnalysisConfig(use_simplification=True, strategy=SynthesisStrategies.FROM_HEURISTICS,
                                    templ_heuristic=TemplateHeuristics.POLY,
                                    positivity_heuristic=PositivityHeuristics.POLYNOMIAL)
-    session = AnalysisSession(parse_pgcl(GEOMETRIC), source=GEOMETRIC, config=config,
+    session = AnalysisSession(parse_program(GEOMETRIC), source=GEOMETRIC, config=config,
                               decisions={"0": "evt_synthesis"}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok" and result["loops"][0]["kind"] == "exact"

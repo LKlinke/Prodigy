@@ -4,8 +4,8 @@ from click.testing import CliRunner
 
 from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
-from prodigy.pgcl import parse_pgcl
-from prodigy.pgcl.compiler import compile_pgcl
+from prodigy.language import parse_program
+from prodigy.language.compiler import compile_program
 
 # `y` is no declared variable
 BAD = """x: nat;
@@ -35,7 +35,7 @@ x = 1;
 
 
 def test_session_reports_type_errors_in_the_result():
-    result = AnalysisSession(parse_pgcl(BAD), source=BAD).run()
+    result = AnalysisSession(parse_program(BAD), source=BAD).run()
     assert result.status == "error"
     assert "Type error" in result.error["message"]
 
@@ -59,6 +59,6 @@ def test_invalid_choice_probability_is_a_message_not_a_traceback(tmp_path, engin
 
 def test_type_errors_spell_expressions_in_the_syntax_of_the_program():
     ppy = "x: nat;\ny: nat;\nx = iid(1/2, y * 2);\n"
-    failure = compile_pgcl(ppy, syntax="ppy")
+    failure = compile_program(ppy, syntax="ppy")
     assert "y * 2" in failure.message and "iid(1/2, y * 2)" in failure.message
     assert "(y) * (2)" not in failure.message

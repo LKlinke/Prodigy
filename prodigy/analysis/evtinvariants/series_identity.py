@@ -51,7 +51,7 @@ from typing import Any, Collection, Optional, Sequence
 
 import sympy
 
-from prodigy.pgcl import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, ChoiceInstr, Expr, IfInstr, Instr,
+from prodigy.language import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, ChoiceInstr, Expr, IfInstr, Instr,
                           LoopInstr, NatLitExpr, RealLitExpr, SkipInstr, Unop, UnopExpr, VarExpr, WhileInstr)
 
 _COMPARISONS = (Binop.LT, Binop.LEQ, Binop.GT, Binop.GEQ, Binop.EQ)

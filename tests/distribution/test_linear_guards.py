@@ -9,13 +9,13 @@ import pytest
 import sympy
 from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
-import prodigy.pgcl as pgcl
+import prodigy.language as language
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.fast_generating_function import FPS
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.distribution.linear_guards import normalize_guard
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language.ppy_parser import parse_ppy_expr
 
 ENGINES = [GeneratingFunction, FPS]
 X, Y = sympy.Symbol('x'), sympy.Symbol('y')
@@ -113,7 +113,7 @@ def test_normalized_guards():
 
 @pytest.mark.parametrize('engine', list(ForwardAnalysisConfig.Engine))
 def test_program_from_issue(engine):
-    program = pgcl.parse_pgcl("""
+    program = language.parse_program("""
 x: nat;
 x = geometric(1/2);
 if (1/2 * x < 2) {

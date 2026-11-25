@@ -24,7 +24,7 @@ from prodigy.analysis.exceptions import VerificationError
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.lowerbounds import subinvariant
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINAC]
 VARIABLES = ["x", "y", "t"]
@@ -234,7 +234,7 @@ def test_parameter_invariant_is_undecided_not_refuted(engine, strategy):
     if engine == ForwardAnalysisConfig.Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
     config = ForwardAnalysisConfig(engine=engine, strategy=strategy)
-    session = AnalysisSession(parse_pgcl(GEOMETRIC_PARAMETER), source=GEOMETRIC_PARAMETER, config=config,
+    session = AnalysisSession(parse_program(GEOMETRIC_PARAMETER), source=GEOMETRIC_PARAMETER, config=config,
                               decisions={"0": {"strategy": "evt_invariant",
                                                "params": {"invariant": "(1 + (1 - p)*t)/(1 - p*x)"}}},
                               capture_output=True)

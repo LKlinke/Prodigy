@@ -11,7 +11,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
 from prodigy.distribution.generating_function import GeneratingFunction, GeneratingFunctionSettings
-from prodigy.pgcl.compiler import parse_pgcl
+from prodigy.language.compiler import parse_program
 
 DEFAULTS = GeneratingFunctionSettings()
 
@@ -25,7 +25,7 @@ y: nat;
 
 
 def analyse(config):
-    program = parse_pgcl(PROGRAM)
+    program = parse_program(PROGRAM)
     dist, _ = compute_discrete_distribution(
         program, config.factory.from_expr("1/((2-x)*(2-y))", "x", "y"), config)
     return repr(dist), GeneratingFunction.settings()
@@ -71,7 +71,7 @@ def test_session_result_uses_its_own_settings():
     source = """x: nat;
 x = 1;"""
     for use_latex in (True, False, True):
-        session = AnalysisSession(parse_pgcl(source), source=source,
+        session = AnalysisSession(parse_program(source), source=source,
                                   config=ForwardAnalysisConfig(use_latex=use_latex), capture_output=True)
         assert session.run().to_json()["status"] == "ok"
         assert GeneratingFunction.settings() == DEFAULTS

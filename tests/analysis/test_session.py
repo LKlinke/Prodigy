@@ -4,7 +4,7 @@ from fractions import Fraction
 
 import pytest
 from click.testing import CliRunner
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler.while_handler import finite_mass
@@ -56,7 +56,7 @@ query Pr[c == 0];
 
 def analyse(source, decisions, **kwargs):
     config = ForwardAnalysisConfig(use_simplification=True)
-    session = AnalysisSession(parse_pgcl(source, kwargs.get("syntax")), source=source, config=config,
+    session = AnalysisSession(parse_program(source, kwargs.get("syntax")), source=source, config=config,
                               decisions=decisions, capture_output=True, **kwargs)
     return session.run().to_json()
 
@@ -86,7 +86,7 @@ while (x > 0) {
     }
 }
 """
-    loops = list(LoopRegistry(parse_pgcl(source), source))
+    loops = list(LoopRegistry(parse_program(source), source))
     assert [(l.id, l.line, l.depth, l.function) for l in loops] == \
            [(0, 4, 0, "f"), (1, 9, 0, None), (2, 12, 1, None)]
     assert loops[1].cond == "x > 0"
@@ -235,7 +235,7 @@ def test_interactive_session_keeps_historic_prompts(monkeypatch):
         return next(answers)
 
     monkeypatch.setattr("builtins.input", fake_input)
-    program = parse_pgcl(GEOMETRIC)
+    program = parse_program(GEOMETRIC)
     session = AnalysisSession.interactive(program, source=GEOMETRIC, capture_output=True)
     result = session.run().to_json()
     assert prompts[0].startswith("While Instruction has only limited support. Choose an option:\n[1]: ")
@@ -253,7 +253,7 @@ def test_interactive_session_keeps_historic_prompts(monkeypatch):
 def test_decision_parsing_and_validation():
     assert LoopDecision.parse_spec("unroll:iterations=7") == LoopDecision("unroll", {"iterations": "7"})
     decisions = parse_decisions({"0": "unroll:iterations=x", "1": "nonsense", "*": {"strategy": "evt_synthesis"}})
-    problems = validate_decisions(decisions, LoopRegistry(parse_pgcl(GEOMETRIC), GEOMETRIC))
+    problems = validate_decisions(decisions, LoopRegistry(parse_program(GEOMETRIC), GEOMETRIC))
     assert any("Iterations" in p for p in problems)
     assert any("Unknown loop strategy 'nonsense'" in p for p in problems)
     assert any("no loop with this id" in p for p in problems)
@@ -335,7 +335,7 @@ def test_refuted_invariant_carries_no_guarantee(engine, invariant):
     config = ForwardAnalysisConfig(engine=getattr(ForwardAnalysisConfig.Engine, engine),
                                    use_simplification=True)
     decisions = {"0": {"strategy": "evt_invariant", "params": {"invariant": invariant}}}
-    session = AnalysisSession(parse_pgcl(GEOMETRIC), source=GEOMETRIC, config=config,
+    session = AnalysisSession(parse_program(GEOMETRIC), source=GEOMETRIC, config=config,
                               decisions=decisions, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "error"

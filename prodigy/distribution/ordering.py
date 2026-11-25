@@ -27,7 +27,7 @@ import sympy
 
 from prodigy.distribution.coefficient_signs import nonneg_by_construction, series_form, sign
 from prodigy.distribution.finite_measure import check_series
-from prodigy.pgcl.pgcl_operations import state_to_equality_expression
+from prodigy.language.operations import state_to_equality_expression
 
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.distribution.distribution import Distribution, State

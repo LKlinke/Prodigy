@@ -13,9 +13,9 @@ from prodigy.analysis.session import AnalysisSession
 from prodigy.analysis.trace import (MARGINALS_OUT_OF_TIME, MARGINALS_TOO_LARGE, MARGINALS_TURNED_OFF, TraceLimits,
                                     Tracer, _LoopFrame, certificate_checks, parse_watch)
 from prodigy.cli import cli
-from prodigy.pgcl import parse_pgcl
-from prodigy.pgcl.ast.walk import Walk, walk_instrs
-from prodigy.pgcl.positions import span_of
+from prodigy.language import parse_program
+from prodigy.language.ast.walk import Walk, walk_instrs
+from prodigy.language.positions import span_of
 
 Engine = ForwardAnalysisConfig.Engine
 ENGINES = [Engine.SYMPY, Engine.GINAC]
@@ -62,7 +62,7 @@ PGCL_LINES = [4, 5, 8, 9, 11, 13, 14]
 
 def _run(source, syntax, engine=Engine.SYMPY, decision="unroll:iterations=6", **kwargs):
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_pgcl(source, syntax), source=source, syntax=syntax, config=config,
+    session = AnalysisSession(parse_program(source, syntax), source=source, syntax=syntax, config=config,
                               decisions={"0": decision}, record_steps=True, capture_output=True, **kwargs)
     return session.run().to_json()
 
@@ -71,7 +71,7 @@ def _run(source, syntax, engine=Engine.SYMPY, decision="unroll:iterations=6", **
 
 def test_every_parsed_instruction_has_a_span_in_both_syntaxes():
     for source, syntax in ((PPY, "ppy"), (PGCL, "ppy")):
-        program = parse_pgcl(source, syntax)
+        program = parse_program(source, syntax)
         lines = source.split("\n")
         for ref in walk_instrs(Walk.DOWN, program.instructions):
             span = span_of(ref.val)
@@ -84,7 +84,7 @@ def test_every_parsed_instruction_has_a_span_in_both_syntaxes():
 def test_spans_survive_block_lowering_and_switch():
     source = "n: nat = 3;\nwhile (n > 0) {\n    c: nat = n % 2;\n    n = n - 1 - c;\n}\n" \
              "switch (n) { case 0: { n = 1; } default: { skip; } }\n"
-    program = parse_pgcl(source, "ppy")
+    program = parse_program(source, "ppy")
     loop = program.instructions[1]
     assert (span_of(loop).line, span_of(loop).end_line) == (2, 5)
     assert [span_of(i).line if span_of(i) else None for i in loop.body] == [3, 4, None]  # c := 0 is generated
@@ -92,8 +92,8 @@ def test_spans_survive_block_lowering_and_switch():
 
 
 def test_equality_and_printing_ignore_spans():
-    first, second = parse_pgcl("""x: nat;
-x = 1;""", "ppy"), parse_pgcl("""x: nat;
+    first, second = parse_program("""x: nat;
+x = 1;""", "ppy"), parse_program("""x: nat;
 
 x = 1;""", "ppy")
     assert span_of(first.instructions[0]).line != span_of(second.instructions[0]).line
@@ -254,7 +254,7 @@ if (x == 1) {
 
 
 def test_iterate_after_an_upper_bound_has_no_guarantee():
-    session = AnalysisSession(parse_pgcl("x: nat;", "ppy"), record_steps=True)
+    session = AnalysisSession(parse_program("x: nat;", "ppy"), record_steps=True)
     tracer = session.tracer
     dist = ForwardAnalysisConfig().factory.from_expr("x/2", "x")
     frame = _LoopFrame(task=None, entry={}, kind_before=Bound.UPPER, residual_before=0)
@@ -330,7 +330,7 @@ def test_variables_beyond_the_limit_are_marked_not_recorded():
 
 
 def test_without_record_steps_there_is_no_trace():
-    session = AnalysisSession(parse_pgcl(PPY, "ppy"), source=PPY, syntax="ppy", decisions={"0": "unroll"})
+    session = AnalysisSession(parse_program(PPY, "ppy"), source=PPY, syntax="ppy", decisions={"0": "unroll"})
     result = session.run().to_json()
     assert result["steps"] == [] and result["trace"] is None and session.tracer is None
 
@@ -368,7 +368,7 @@ def test_certificate_checks_never_claim_unproven_facts():
 
 
 def test_tracer_ignores_silent_scopes():
-    session = AnalysisSession(parse_pgcl("x: nat;", "ppy"), record_steps=True)
+    session = AnalysisSession(parse_program("x: nat;", "ppy"), record_steps=True)
     with session.sub_analysis("check"):
         assert not session.tracer.wants(None)
     assert isinstance(session.tracer, Tracer) and session.tracer.wants(None)
@@ -420,7 +420,7 @@ def test_long_closed_forms_have_latex_too():
     """The formula box bounds what is shown, so the LaTeX is not limited to 600 characters (#322)."""
     terms = " + ".join(f"({k + 1}/{k + 20}) * x^{k}*y^{k % 3}" for k in range(60))
     source = "x: nat;\ny: nat;\ny = y + 1;\n"
-    result = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", record_steps=True,
+    result = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", record_steps=True,
                              input_distribution=f"({terms}) / 60", capture_output=True).run().to_json()
     after = result["steps"][0]["after"]
     assert after["size"] > 600 and after["latex"]

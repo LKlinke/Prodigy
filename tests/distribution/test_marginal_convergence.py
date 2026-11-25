@@ -14,7 +14,7 @@ import sympy
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution import NonFiniteMarginalError, known_convergent_series
 from prodigy.distribution.convergence import _roots_outside_unit_disc, marginal_obstacle
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language.ppy_parser import parse_ppy_expr
 
 Engine = ForwardAnalysisConfig.Engine
 ENGINES = [Engine.SYMPY, Engine.GINAC]

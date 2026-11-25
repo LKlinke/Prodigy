@@ -11,8 +11,8 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.distribution import MarginalType, NonFiniteMarginalError, known_convergent_series
 from prodigy.distribution.generating_function import SympyPGF
-from prodigy.pgcl import parse_pgcl
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language import parse_program
+from prodigy.language.ppy_parser import parse_ppy_expr
 from tests.distribution.engines import ginac_factory
 
 
@@ -85,7 +85,7 @@ def test_infinite_expectation_is_infinity(engine):
     decisions = {"0": {"strategy": "evt_invariant",
                        "params": {"invariant": "(1-(1-c^2)^(1/2)+c*x)/(c+(1-c^2)^(1/2)*x-x)"}}}
     config = ForwardAnalysisConfig(engine=_engine(engine))
-    session = AnalysisSession(parse_pgcl(RANDOM_WALK, "ppy"), source=RANDOM_WALK, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(RANDOM_WALK, "ppy"), source=RANDOM_WALK, syntax="ppy", config=config,
                               decisions=decisions, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]

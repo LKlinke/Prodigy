@@ -10,7 +10,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution import NonFiniteMarginalError, known_convergent_series
 from prodigy.distribution.algebraic_comparison import filter_difference_algebraic
 from prodigy.distribution.independent_comparison import ComparisonNotImplemented, filter_difference
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language.ppy_parser import parse_ppy_expr
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import

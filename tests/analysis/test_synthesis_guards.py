@@ -16,7 +16,7 @@ from prodigy.analysis.evtinvariants.heuristics.templates.rational_function impor
 from prodigy.analysis.evtinvariants.invariant_synthesis import DEFAULT_TEMPLATE_TIME_LIMIT
 from prodigy.analysis.loop_strategies import get_loop_strategy
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import
@@ -38,7 +38,7 @@ def _geometric(guard: str) -> str:
 
 
 def _run(source: str, decision: str, engine) -> dict:
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", capture_output=True,
                               decisions={"0": decision}, config=ForwardAnalysisConfig(engine=engine))
     return session.run().to_json()
 

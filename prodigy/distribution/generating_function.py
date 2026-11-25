@@ -13,7 +13,7 @@ from typing import (Callable, Dict, FrozenSet, Generator, Iterator, List, Option
 
 import sympy
 
-# TODO Implement these checks in prodigy.pgcl
+# TODO Implement these checks in prodigy.language
 from prodigy.distribution import (CommonDistributionsFactory, Distribution,
                                   DistributionParam, MarginalType, State)
 from prodigy.distribution.distribution import Operand, canonical_order
@@ -23,11 +23,11 @@ from prodigy.distribution.rational_series import rational_taylor_coefficients
 from prodigy.distribution.negative_values import can_be_negative
 from prodigy.distribution.multisection import rational_sections
 from prodigy.distribution.roots_of_unity import require_single_valued, root_of_unity
-from prodigy.pgcl import (Binop, BinopExpr, Expr, FunctionCallExpr,
+from prodigy.language import (Binop, BinopExpr, Expr, FunctionCallExpr,
                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
-from prodigy.pgcl.pgcl_checks import has_variable
-from prodigy.pgcl.pgcl_operations import state_condition
+from prodigy.language.ppy_parser import parse_ppy_expr
+from prodigy.language.checks import has_variable
+from prodigy.language.operations import state_condition
 from prodigy.util.logger import log_setup, logging
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)

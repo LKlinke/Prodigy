@@ -1,11 +1,11 @@
-from prodigy.pgcl.ast import Program
-from prodigy.pgcl.compiler import compile_pgcl
+from prodigy.language.ast import Program
+from prodigy.language.compiler import compile_program
 
 from prodigy.analysis.independence import independent_vars
 
 
 def test_independence_fully_isolated():
-    prog = compile_pgcl("""
+    prog = compile_program("""
 x: nat;
 y: nat;
 
@@ -18,7 +18,7 @@ y = 0;""")
 
 
 def test_independence_tri_copy():
-    prog = compile_pgcl("""
+    prog = compile_program("""
 x: nat;
 y: nat;
 z: nat;
@@ -33,7 +33,7 @@ z = 2 * x;""")
 
 
 def test_independence_dist_param():
-    prog = compile_pgcl("""
+    prog = compile_program("""
 x: nat;
 y: nat;
 

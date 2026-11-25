@@ -1,7 +1,7 @@
 # pylint: disable=invalid-name
 # Names follow the mathematics (H, Phi, A, b, ...); scipy and FLINT are imported where they are needed.
 """
-Translation of pGCL programs (the AST of prodigy.pgcl) into the small intermediate representation used by the
+Translation of pGCL programs (the AST of prodigy.language) into the small intermediate representation used by the
 exact generating-function calculus of :mod:`prodigy.analysis.lowerbounds.egcalc`.
 
 Statements::
@@ -23,7 +23,7 @@ from __future__ import annotations
 from fractions import Fraction
 from typing import List, Mapping, Sequence, Tuple, Union
 
-from prodigy.pgcl import (AbortInstr, AsgnInstr, Binop, BinopExpr, BoolLitExpr, ChoiceInstr, Expr,
+from prodigy.language import (AbortInstr, AsgnInstr, Binop, BinopExpr, BoolLitExpr, ChoiceInstr, Expr,
                            FunctionCallExpr, IfInstr, Instr, NatLitExpr, ObserveInstr,
                            Program, RealLitExpr, SkipInstr, Unop, UnopExpr, VarExpr, WhileInstr)
 

@@ -17,8 +17,8 @@ from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl import Program, parse_pgcl
-from prodigy.pgcl.compiler import compile_pgcl
+from prodigy.language import Program, parse_program
+from prodigy.language.compiler import compile_program
 
 Engine = ForwardAnalysisConfig.Engine
 
@@ -33,7 +33,7 @@ ENGINES = [Engine.SYMPY, Engine.GINAC]
 
 def run(source, engine, initial="1"):
     _ginac(engine)
-    program = compile_pgcl(source, syntax="ppy")
+    program = compile_program(source, syntax="ppy")
     assert isinstance(program, Program), program
     config = ForwardAnalysisConfig(engine=engine)
     return compute_discrete_distribution(program, config.factory.from_expr(initial), config)
@@ -139,7 +139,7 @@ def test_floor_division_in_guards(engine):
 def test_floor_division_rounds_alike_in_guards_and_assignments(engine):
     dist, _ = run("x, y, z: nat; x = unif(0, 11); y = x // 4; if (y == x // 4 and not (x // 4 < y)) "
                   "{ z = 1; }", engine)
-    assert dist.filter(parse_pgcl("""z: nat;
+    assert dist.filter(parse_program("""z: nat;
 query Pr[z == 1];""").instructions[0].expr).get_probability_mass() in (1, "1")
 
 
@@ -159,7 +159,7 @@ def test_floor_division_of_non_rational_function_is_rejected(engine):
 def analyse(source, decisions, engine=Engine.SYMPY):
     _ginac(engine)
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
                               decisions=decisions, capture_output=True)
     return session.run().to_json()
 

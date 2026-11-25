@@ -2,12 +2,12 @@
 import pytest
 import sympy
 
-import prodigy.pgcl as pgcl
+import prodigy.language as language
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.generating_function import SympyPGF
 from prodigy.distribution.negative_values import can_be_negative
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language.ppy_parser import parse_ppy_expr
 from tests.distribution.engines import ginac_factory
 
 
@@ -167,7 +167,7 @@ if (x > 0) {
 }""", "p + p*(1 - p)/(1 - (1 - p)*x)"),
 ])
 def test_subtraction_in_programs(engine, factory, program, expected):
-    prog = pgcl.parse_pgcl(program)
+    prog = language.parse_program(program)
     config = ForwardAnalysisConfig(engine=engine)
     result, _ = compute_discrete_distribution(prog, factory().from_expr("1"), config)
     assert sympy.simplify(sympy.S(str(result).replace("^", "**")) - sympy.S(expected.replace("^", "**"))) == 0

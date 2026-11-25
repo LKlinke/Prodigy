@@ -5,7 +5,7 @@ points of an analysis activate one session for the whole run, and all parts of t
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession, current_session, has_current_session
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 PROGRAM = """
 x: nat;
@@ -50,7 +50,7 @@ def test_one_session_for_a_whole_run_without_an_active_session(monkeypatch):
 
     monkeypatch.setattr(AnalysisSession, "on_normalize", on_normalize)
     config = ForwardAnalysisConfig()
-    program = parse_pgcl(PROGRAM, "ppy")
+    program = parse_program(PROGRAM, "ppy")
     compute_discrete_distribution(program, config.factory.one(*program.variables), config)
     assert len(seen) >= 2
     assert all(session is seen[0] for session in seen)
@@ -60,7 +60,7 @@ def test_one_session_for_a_whole_run_without_an_active_session(monkeypatch):
 
 def test_an_active_session_is_used_for_the_run():
     config = ForwardAnalysisConfig()
-    program = parse_pgcl(PROGRAM, "ppy")
+    program = parse_program(PROGRAM, "ppy")
     session = AnalysisSession.detached("ppy")
     with session.activate():
         compute_discrete_distribution(program, config.factory.one(*program.variables), config)

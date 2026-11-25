@@ -8,7 +8,7 @@ from prodigy.analysis.ai_candidates import (AIConfigurationError, AIRequestError
                                             candidate_from_answer, describe_rejection, get_provider)
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 GEOMETRIC = """x: nat;
 c: nat;
@@ -37,7 +37,7 @@ def fake_provider(monkeypatch, answers):
 
 
 def analyse(decision):
-    session = AnalysisSession(parse_pgcl(GEOMETRIC), source=GEOMETRIC, config=ForwardAnalysisConfig(),
+    session = AnalysisSession(parse_program(GEOMETRIC), source=GEOMETRIC, config=ForwardAnalysisConfig(),
                               decisions={"0": decision}, capture_output=True)
     return session.run().to_json()
 

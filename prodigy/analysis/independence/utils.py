@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import Dict, Iterable, List, Set, Tuple
 
 import networkx as nx  # type: ignore
-from prodigy.pgcl import (AsgnInstr, Expr, Instr, Var,
+from prodigy.language import (AsgnInstr, Expr, Instr, Var,
                            VarExpr, Walk, WhileInstr, mut_expr_children,
                            walk_instrs)
-from prodigy.pgcl.util.ref import Mut
+from prodigy.language.util.ref import Mut
 
 
 def _vars_of_expr(expr: Expr) -> List[Var]:

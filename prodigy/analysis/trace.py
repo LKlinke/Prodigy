@@ -61,9 +61,9 @@ import time
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Sequence, Union
 
-from prodigy.pgcl import (AbortInstr, AsgnInstr, ChoiceInstr, Expr, IfInstr, Instr, LoopInstr, ObserveInstr,
+from prodigy.language import (AbortInstr, AsgnInstr, ChoiceInstr, Expr, IfInstr, Instr, LoopInstr, ObserveInstr,
                           QueryInstr, SkipInstr, VarExpr, WhileInstr)
-from prodigy.pgcl.positions import span_of
+from prodigy.language.positions import span_of
 
 from prodigy.analysis.loop_strategies import Bound
 
@@ -124,9 +124,9 @@ def parse_watch(text: str, syntax: str, names: Optional[Sequence[str]] = None) -
     accepted too) with the expression parser of ``syntax``; untrusted text never reaches SymPy.
     With ``names``, the expression may only use these names. Raises ``ValueError``."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.pgcl.ast.walk import Walk, walk_expr
-    from prodigy.pgcl.ppy_parser import parse_ppy_expr
-    from prodigy.pgcl.util.ref import Mut
+    from prodigy.language.ast.walk import Walk, walk_expr
+    from prodigy.language.ppy_parser import parse_ppy_expr
+    from prodigy.language.util.ref import Mut
     original = text
     text = text.strip().rstrip(";").strip()
     for prefix, replacement in _WATCH_PREFIXES:

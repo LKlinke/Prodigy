@@ -17,7 +17,7 @@ from prodigy.analysis.equivalence.equivalence_check import (CheckNotImplemented,
 from prodigy.analysis.session import AnalysisSession, InteractiveDecisions
 from prodigy.cli import EXIT_EQUIVALENT, EXIT_NOT_EQUIVALENT, EXIT_UNDECIDED, cli
 from prodigy.distribution.distribution import NonFiniteMarginalError
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 from tests.analysis.equivalence.test_equivalence_check import _loopy_invariants
 
@@ -45,7 +45,7 @@ def _session(answers: List[str], monkeypatch: pytest.MonkeyPatch, syntax: str = 
 
 
 def _compare(first: str, second: str, session: AnalysisSession, syntax: str = "ppy") -> eq.Comparison:
-    program, other = parse_pgcl(first, syntax), parse_pgcl(second, syntax)
+    program, other = parse_program(first, syntax), parse_program(second, syntax)
     with session.activate(), session.config.activate():
         return eq.compare(program, other, session)
 
@@ -99,7 +99,7 @@ x = 1;
 ])
 def test_different_variables_are_no_refutation(first, second, monkeypatch, tmp_path):
     # both directions: before #395 only variables of the first program were noticed, as "not equivalent"
-    program, other = parse_pgcl(first), parse_pgcl(second)
+    program, other = parse_program(first), parse_program(second)
     with AnalysisSession.detached().activate(), pytest.raises(DifferentVariablesError, match="different variables"):
         check_equivalence(program, other, ForwardAnalysisConfig(), compute_semantics)
     comparison = _compare(first, second, _session([], monkeypatch))
@@ -123,7 +123,7 @@ class _Solver:
 
 def test_constraints_without_a_common_solution_are_no_refutation(monkeypatch):
     monkeypatch.setattr(equivalence_check.SolverType, "make", lambda *_: _Solver())
-    program = parse_pgcl("""x: nat;
+    program = parse_program("""x: nat;
 param p: real;
 {
     x = 1;
@@ -196,7 +196,7 @@ def test_a_non_finite_marginal_is_a_limitation_of_the_check(monkeypatch):
     def analyzer(*_):
         raise NonFiniteMarginalError("the marginal of x diverges")
 
-    program = parse_pgcl("""x: nat;
+    program = parse_program("""x: nat;
 x = 1;
 """)
     with AnalysisSession.detached().activate(), pytest.raises(CheckNotImplemented, match="infinite mass"):

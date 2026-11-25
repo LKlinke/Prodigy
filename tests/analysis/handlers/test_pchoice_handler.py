@@ -1,5 +1,5 @@
 import pytest
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 from prodigy.analysis.analyzer import compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -21,7 +21,7 @@ def test_probabilistic_choice(engine, factory):
     x = 5;
 }"""
 
-    program = parse_pgcl(pgcl)
+    program = parse_program(pgcl)
     dist = factory.one(*program.variables)
     error = factory.zero()
 
@@ -46,7 +46,7 @@ def test_probabilistic_choice(engine, factory):
     x = 5;
 }"""
 
-        program = parse_pgcl(pgcl)
+        program = parse_program(pgcl)
         dist = factory.one("x", "y") * "1/2"
         error = factory.from_expr("1/2")
 

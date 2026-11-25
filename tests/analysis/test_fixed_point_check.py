@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 import sympy
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.evtinvariants import invariant_synthesis, invariant_verification
@@ -32,7 +32,7 @@ ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINA
 
 def analyse(decision, engine=ForwardAnalysisConfig.Engine.SYMPY):
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_pgcl(GEOMETRIC), source=GEOMETRIC, config=config,
+    session = AnalysisSession(parse_program(GEOMETRIC), source=GEOMETRIC, config=config,
                               decisions={"0": decision}, capture_output=True)
     return session.run().to_json()
 

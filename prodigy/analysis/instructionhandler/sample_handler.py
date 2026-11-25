@@ -5,8 +5,8 @@ from abc import abstractmethod
 from fractions import Fraction
 from typing import Callable, Dict, List, Sequence, Set, Tuple, Union
 
-from prodigy.pgcl.ast.types import NatType
-from prodigy.pgcl import (Instr, AsgnInstr, ChoiceInstr, Expr, FunctionCallExpr, NatLitExpr, Var, VarExpr,
+from prodigy.language.ast.types import NatType
+from prodigy.language import (Instr, AsgnInstr, ChoiceInstr, Expr, FunctionCallExpr, NatLitExpr, Var, VarExpr,
                           sample_predefined_functions as distr_functions)
 
 from prodigy.analysis.config import ForwardAnalysisConfig
