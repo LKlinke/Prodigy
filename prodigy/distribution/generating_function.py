@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import contextlib
 import functools
+import math
 import operator
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -63,18 +64,19 @@ def _has_radical(function: sympy.Expr) -> bool:
 @functools.lru_cache(maxsize=1024)
 def _is_finite_function(function: sympy.Expr, variables: FrozenSet[sympy.Symbol]) -> bool:
     """The finiteness heuristic of the constructor: ``function`` is a polynomial in ``variables``
-    once ratsimp has cancelled what it can. ratsimp is expensive on large closed forms, and the
-    analysis builds many distributions with the same function (every ``copy`` repeats the
-    heuristic for a flag that is False), so the result is cached; it depends only on the arguments.
+    once cancelled. Cancelling is expensive on large closed forms, and the analysis builds many
+    distributions with the same function (every ``copy`` repeats the heuristic for a flag that is False),
+    so the result is cached; it depends only on the arguments.
 
-    The function is cancelled to ``f/g`` in lowest terms. If ``g`` contains a variable, ``g`` does not
-    divide ``f``, so the function is no polynomial; else it is ``f/g`` with a constant ``g``, a polynomial
-    iff ``f`` is one (this is what ratsimp, used before, decided after a second, expensive cancellation).
+    The function is cancelled to ``f/g`` in lowest terms (:func:`_cancel`). If ``g`` contains a variable,
+    ``g`` does not divide ``f``, so the function is no polynomial; else it is ``f/g`` with a constant ``g``,
+    a polynomial iff ``f`` is one (this is what ratsimp, used before, decided after a second, expensive
+    cancellation).
 
-    The subexpressions without a variable that are not rational (``I``, ``sqrt(3)``, ``exp(1/2)``, the
-    constants of a roots-of-unity filter) are replaced by fresh symbols first, so that the cancellation
-    works over the integers instead of an algebraic or transcendental extension, which can take minutes
-    (Prodigy#472). A polynomial in the variables with symbolic constants stays one when the constants are
+    The subexpressions that are not rational (``I``, ``sqrt(3)``, ``exp(1/2)``, the constants of a
+    roots-of-unity filter) are replaced by fresh symbols first, so that the cancellation works over the
+    rationals instead of an algebraic or transcendental extension, which can take minutes (Prodigy#472).
+    A polynomial in the variables with symbolic constants stays one when the constants are
     substituted back, so the answer True is exact; the relations between the constants (``I**2 = -1``) are
     not used, so a function that is a polynomial only because of them may be reported as not finite, the
     conservative answer of this heuristic.
@@ -92,10 +94,58 @@ def _is_finite_function(function: sympy.Expr, variables: FrozenSet[sympy.Symbol]
         # exp(5*x - 5) is split into exp(5*x)*exp(-5), so that equal exponentials cancel in products and quotients
         split = sympy.expand_power_exp(function)
         return bool(split.is_polynomial(*variables))
-    numerator, denominator = sympy.cancel(_constants_as_symbols(function, variables, {})).as_numer_denom()
+    numerator, denominator = _cancel(function).as_numer_denom()
     if denominator.free_symbols & variables:
         return False
     return bool(numerator.is_polynomial(*variables))
+
+
+def _cancel(function: sympy.Expr) -> sympy.Expr:
+    """``function`` as one fraction in lowest terms, like ``sympy.cancel``, but much faster on long sums of
+    fractions with many irrational constants (normalised residue classes of Poisson draws, #472, #486).
+
+    Every subexpression that is not built from symbols and rationals by ``+``, ``*`` and integer powers is
+    replaced by a fresh symbol (:func:`_constants_as_symbols`), after the exponentials of rationals became
+    powers of one symbol (:func:`_exponentials_as_powers`). The summands are added one by one in the field of
+    rational functions over the rationals (sparse arithmetic, already in lowest terms), and the replacements
+    are substituted back. Cancelling is an identity of rational functions, so it holds for every value of the
+    symbols where the function is defined; relations between the replaced parts are not used, as by
+    ``cancel``, which treats them as independent generators too. ``sympy.cancel`` if the field cannot hold
+    a summand."""
+    rewritten, back = _exponentials_as_powers(function)
+    replacements: Dict[sympy.Expr, sympy.Dummy] = {}
+    frozen = _constants_as_symbols(rewritten, frozenset(), replacements)
+    generators = sorted(frozen.free_symbols, key=sympy.default_sort_key)
+    if not generators:
+        return sympy.cancel(function)
+    try:
+        field = sympy.polys.fields.FracField(generators, sympy.QQ)
+        lowest = sum((field.from_expr(term) for term in sympy.Add.make_args(frozen)), field.zero)
+    except (sympy.polys.polyerrors.CoercionFailed, sympy.polys.polyerrors.PolynomialError):
+        return sympy.cancel(function)
+    back.update({symbol: expression for expression, symbol in replacements.items()})
+    return lowest.as_expr().xreplace(back)
+
+
+def _exponentials_as_powers(expression: sympy.Expr) -> Tuple[sympy.Expr, Dict[sympy.Expr, sympy.Expr]]:
+    """``expression``, and the substitution back, with ``exp(r)`` for rational ``r`` (``E`` included)
+    written as the power ``t**(r*L)`` of one fresh symbol ``t`` standing for ``exp(1/L)``, ``L`` the least
+    common denominator of the ``r``.
+
+    Equal as functions, since ``exp(r) = exp(1/L)**(r*L)`` with an integer exponent; a cancellation then
+    sees one generator instead of one per constant (sums of many exponential constants come from normalising
+    Poisson draws, #486)."""
+    exponents = {power.args[0] for power in expression.atoms(sympy.exp) if power.args[0].is_Rational}
+    if expression.has(sympy.E):
+        exponents.add(sympy.Integer(1))
+    if not exponents:
+        return expression, {}
+    common = math.lcm(*(int(exponent.q) for exponent in exponents))
+    base = sympy.Dummy("t")
+    replacements: Dict[sympy.Expr, sympy.Expr] = {sympy.exp(exponent): base ** int(exponent * common)
+                                                  for exponent in exponents}
+    replacements[sympy.E] = base ** common
+    return expression.xreplace(replacements), {base: sympy.exp(sympy.Rational(1, common))}
 
 
 def _constants_as_symbols(expression: sympy.Expr, variables: FrozenSet[sympy.Symbol],
@@ -133,12 +183,42 @@ def _limit_at_one(function: sympy.Expr, variable: sympy.Symbol) -> sympy.Expr:
         return function
     if not _denominator_vanishes_at_ones(function):
         return function.limit(variable, 1, "-")
-    cancelled = sympy.cancel(function)
+    if _regular_in_at_one(function, variable) and _continuous_at_one(function, variable):
+        value = function.subs(variable, 1)
+        if not value.has(*_UNDEFINED_VALUES):
+            return value
+    cancelled = _cancel(function)
     if not _denominator_vanishes_at_ones(cancelled) and _continuous_at_one(cancelled, variable):
         value = cancelled.subs(variable, 1)
         if not value.has(*_UNDEFINED_VALUES):
             return value
     return function.limit(variable, 1, "-")
+
+
+def _regular_in_at_one(function: sympy.Expr, variable: sympy.Symbol) -> bool:
+    """True only if every denominator of `function` that depends on `variable` is a product whose factors
+    with `variable` are provably nonzero when every symbol is 1.
+
+    The other factors do not depend on `variable`: they divide the function for every value of `variable`, so
+    they cannot make it singular in `variable` (where they are zero, the function is undefined for every
+    value of `variable`). This is the class of closed forms that are singular at 1 only in other variables,
+    e.g. a normalised `unif` or observation in another variable, multiplied by exponentials of the
+    marginalised one. For them the limit in `variable` is the substitution (with
+    :func:`_continuous_at_one`), without cancelling the whole function first, which takes minutes on sums of
+    many exponential constants (#486)."""
+    ones: Dict[sympy.Symbol, int] = {}
+    for power in function.atoms(sympy.Pow):
+        base, exponent = power.args
+        if not exponent.is_negative or variable not in base.free_symbols:
+            continue
+        for factor in sympy.Mul.make_args(sympy.factor_terms(base)):
+            if variable not in factor.free_symbols:
+                continue
+            for symbol in factor.free_symbols:
+                ones.setdefault(symbol, 1)
+            if factor.subs(ones).is_zero is not False:
+                return False
+    return True
 
 
 def _denominator_vanishes_at_ones(function: sympy.Expr) -> bool:
@@ -289,7 +369,7 @@ def _cheap_value_at_one(function: sympy.Expr, variable: sympy.Symbol) -> sympy.E
     if variable not in function.free_symbols:
         return function
     # the cancelled form only if the function itself fails: cancelling is the expensive part (Prodigy#472)
-    for form in (lambda: function, lambda: sympy.cancel(function)):
+    for form in (lambda: function, lambda: _cancel(function)):
         candidate = form()
         if _continuous_at_one(candidate, variable):
             value = candidate.subs(variable, 1)
@@ -1419,8 +1499,8 @@ class GeneratingFunction(Distribution):
 
         if self._is_finite:
             if self._is_closed_form:
-                func = self._function.expand().ratsimp().as_poly(
-                    *self._variables)
+                # finite: the cancelled form is a polynomial over a constant denominator
+                func = _cancel(self._function).expand().as_poly(*self._variables)
             else:
                 if not self._variables:
                     logger.warning(

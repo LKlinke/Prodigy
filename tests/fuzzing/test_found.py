@@ -231,3 +231,53 @@ print;
                               "odd-poisson"])
 def test_residue_classes_of_poisson_draws_agree_and_are_fast(source):
     assert not isolated(check_program, source, "ppy", {}, seconds=90, seed=0)
+
+
+
+# found by a local nightly run (#472): observations normalise Poisson draws, so the closed form is a long sum of
+# fractions over sums of exponential constants; marginalising and the finiteness check cancelled it as a whole
+# (more than a minute on SymPy)
+NORMALISED_POISSON_LOOPS = """x: nat;
+y: nat;
+z: nat;
+c: nat;
+loop(2) {
+    {
+        x = 1;
+        z = (1 - y);
+    } [1/2] {
+        observe(((y % 2) == 0));
+        y = poisson(1/2);
+    }
+    c = 0;
+    while ((c < 1)) {
+        z = unif(0, 2);
+        c = (c + 1);
+    }
+}
+x = y;
+z = (3 * x);
+loop(2) {
+    {
+        observe(not ((z <= 1)));
+        z = (1 - 1);
+    } [1/5] {
+        observe(((y % 2) == 0));
+        y = poisson(1/2);
+    }
+    c = 0;
+    while ((c < 1)) {
+        z = unif(0, 2);
+        c = (c + 1);
+    }
+}
+query Ex[(z + z)];
+query Ex[x];
+print;
+"""
+
+
+@pytest.mark.timeout(100)  # a few seconds (it was more than a minute); the bound leaves room for a slow runner
+def test_marginals_of_normalised_poisson_draws_agree_and_are_fast():
+    decisions = {"*": "unroll:iterations=2"}
+    assert not isolated(check_program, NORMALISED_POISSON_LOOPS, "ppy", decisions, seconds=90, seed=0)
