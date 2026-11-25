@@ -20,5 +20,6 @@ The sources, installation instructions and issue tracker are on
    language-design
    testing
    development
+   architecture
    kernel
    api
