@@ -274,28 +274,6 @@ class ProductFormSeries:
         # X F'(X) at 1 for F = N / (1 - r X^p):  N'(1)/(1-r) + N(1) r p / (1-r)^2
         return num_der / (1 - r) + num_val * r * p / (1 - r) ** 2
 
-    def defect_mass(self, poly: Num, sign: int = 1) -> Union[Fraction, float]:
-        """``sum_n max(sign * coeff_n(P/D), 0)`` over all states (exact; ``inf`` if a growing tail is positive)."""
-        if not poly:
-            return ZERO
-        deg = degrees(poly, self.d)
-        box = [deg[i] + (self.den.p[i] if self.den.r[i] != 0 else 0) for i in range(self.d)]
-        arr = self.expand(poly, box)
-        total = ZERO
-        for idx in np.ndindex(*arr.shape):
-            val = sign * arr[idx]
-            if val <= 0:
-                continue
-            weight = ONE
-            for i in range(self.d):
-                r = self.den.r[i]
-                if r != 0 and idx[i] > deg[i]:
-                    if r >= 1:
-                        return math.inf
-                    weight /= 1 - r
-            total += val * weight
-        return total
-
     # ---------------------------------------------------------------- printing
     def to_expr(self, poly: Num) -> str:
         """``P / D`` as an expression string in the program variables (parsable by Prodigy's factories)."""
