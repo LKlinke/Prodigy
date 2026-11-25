@@ -7,7 +7,7 @@ the analysis; an argument that is not proven gives a warning, and without parame
 import pytest
 from click.testing import CliRunner
 
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.checks import refute_sampling_pgfs
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.finite_measure import check_probability_generating_function

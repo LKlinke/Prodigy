@@ -29,13 +29,15 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
-if TYPE_CHECKING:  # pragma: no cover
-    from prodigy.language import Instr, WhileInstr
+import attr
 
+from prodigy.language import Instr, Program, WhileInstr
+from prodigy.language.outline import LoopInfo, is_query, outline
+
+if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.config import ForwardAnalysisConfig
+    from prodigy.analysis.context import AnalysisContext
     from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-    from prodigy.analysis.session import AnalysisSession
-    from prodigy.language.outline import LoopInfo
     from prodigy.distribution import Distribution
 
 
@@ -231,7 +233,7 @@ class LoopTask:
          "ForwardAnalysisConfig"],
         Tuple["Distribution", "Distribution"]
     ]
-    session: "AnalysisSession"
+    session: "AnalysisContext"
     loop: Optional["LoopInfo"]
     decision: "LoopDecision"
     strategy: "LoopStrategy"
@@ -466,3 +468,51 @@ class DecisionRequired(Exception):
             "strategy": self.strategy,
             "param": self.param,
         }
+
+
+@dataclass
+class IsolatedLoop:
+    """A loop of a program as a program of its own (:func:`isolate_loop`)."""
+
+    program: str
+    """The program text (``.ppy``)."""
+    loop: int
+    """The id of the loop in :attr:`program`."""
+    declarations: str
+    """The declarations alone (a loop-free program to start from)."""
+    whole: bool
+    """Whether :attr:`program` is the original source (the loop is all the program does)."""
+
+
+def _loop_id(program: Program, instruction: WhileInstr) -> int:
+    """The id of the loop ``instruction`` of ``program`` (:func:`~prodigy.language.outline.outline`), 0 if it is
+    none."""
+    found = outline(program)
+    return next((info.id for info, instr in zip(found.loops, found.loop_instructions, strict=True)
+                 if instr is instruction), 0)
+
+
+def isolate_loop(program: Program, instruction: WhileInstr,
+                 source: Optional[str] = None) -> Optional[IsolatedLoop]:
+    """The loop ``instruction`` of ``program`` as a program to compare with a loop-free program (#154,
+    #399): the program itself (``source``) if the loop is all it does apart from queries, else its
+    declarations and the loop. The code before the loop is left out on purpose: a comparison holds for
+    every input, so it covers whatever that code produces. ``None`` if the program cannot be printed in
+    ``.ppy``."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.language.ppy_printer import PpyPrintError, program_to_ppy
+
+    def text(instructions: List[Instr]) -> str:
+        part = attr.evolve(program, instructions=instructions)
+        return program_to_ppy(part)
+
+    rest = [instr for instr in program.instructions
+            if instr is not instruction and not is_query(instr)]
+    try:
+        declarations = text([])
+        if not rest and source is not None and any(instr is instruction for instr in program.instructions):
+            return IsolatedLoop(source, _loop_id(program, instruction), declarations, True)
+        loop_program = attr.evolve(program, instructions=[instruction])
+        return IsolatedLoop(text([instruction]), _loop_id(loop_program, instruction), declarations, False)
+    except PpyPrintError:
+        return None

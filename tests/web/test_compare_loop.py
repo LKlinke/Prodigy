@@ -8,7 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from prodigy.analysis.session import LoopRegistry, isolate_loop
+from prodigy.analysis.session import LoopRegistry
+from prodigy.analysis.loops.api import isolate_loop
 from prodigy.language import parse_program
 from prodigy.web.app import create_app
 from prodigy.web.requests import loop_program, run_analysis

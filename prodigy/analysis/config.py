@@ -121,7 +121,7 @@ class ForwardAnalysisConfig:
         Applies ``use_latex`` within a ``with`` block only, and lifts
         Python's limit on the digits of integer strings (exact coefficients can be longer, #235).
 
-        :func:`~prodigy.analysis.analyzer.compute_discrete_distribution` and
+        :func:`~prodigy.analysis.session.compute_discrete_distribution` and
         :meth:`~prodigy.analysis.session.AnalysisSession.run` do this themselves; code that works
         with the distributions outside of them (e.g. printing a result) enters it as well.
         """

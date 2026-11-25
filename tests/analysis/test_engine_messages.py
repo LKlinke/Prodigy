@@ -1,7 +1,7 @@
 """Engines report the same error message, in terms of the program (#349)."""
 import pytest
 
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
 from prodigy.language import parse_program

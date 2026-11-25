@@ -213,7 +213,7 @@ x = 0;
 def test_invariant_without_a_witness_is_not_proven_instead_of_refuted(monkeypatch):
     # Issue #403: the raw "different" of the check may come from approximated loops in the body; the
     # invariant is refuted only with a witness
-    monkeypatch.setattr("prodigy.analysis.equivalence.verdict.search_witness", lambda *args, **kwargs: None)
+    monkeypatch.setattr("prodigy.analysis.loops.witness.search_witness", lambda *args, **kwargs: None)
     invariant = """x: nat;
 c: nat;
 x = 0;

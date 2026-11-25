@@ -4,7 +4,7 @@ A variable named like a constant (issue #204): `e` is a variable, not Euler's nu
 import pytest
 import sympy
 
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.language.compiler import parse_program
 

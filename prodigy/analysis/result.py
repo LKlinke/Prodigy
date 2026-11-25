@@ -314,7 +314,7 @@ def _require_type_correct(program: Program, source: Optional[str]) -> None:
 
 def _build_result(session: "AnalysisSession") -> AnalysisResult:
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.analyzer import compute_discrete_distribution
+    from prodigy.analysis.session import compute_discrete_distribution
     from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
     from prodigy.analysis.input_distribution import input_distribution_from_text
     from prodigy.analysis.loops.api import DecisionRequired

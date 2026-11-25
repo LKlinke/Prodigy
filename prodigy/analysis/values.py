@@ -30,7 +30,7 @@ from prodigy.distribution.equality import sympy_text
 from prodigy.util.logger import log_setup
 
 if TYPE_CHECKING:  # pragma: no cover
-    from prodigy.analysis.session import AnalysisSession
+    from prodigy.analysis.context import AnalysisContext
     from prodigy.distribution import Distribution
 
 T = TypeVar("T")
@@ -514,7 +514,7 @@ def with_upper(known: Optional[Tuple[Any, Any]], upper: Any) -> Optional[Tuple[A
         return known
 
 
-def finish_query(session: "AnalysisSession", query: QueryResult, *, monotone: bool,
+def finish_query(session: "AnalysisContext", query: QueryResult, *, monotone: bool,
                  probability: bool, known: Optional[Tuple[Any, Any]] = None) -> QueryResult:
     """Fills value_float and the interval of ``query`` from the session's bound state, intersected
     with ``known`` bounds (e.g. from the strategy of the loop right before the query, or from the upper track,

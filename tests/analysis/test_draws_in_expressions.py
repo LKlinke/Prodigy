@@ -7,7 +7,7 @@ functions are computed by hand. A draw inside a guard, an observation or a query
 """
 import pytest
 
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.language import Program
 from prodigy.language.compiler import compile_program

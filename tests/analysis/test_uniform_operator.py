@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 import sympy
 
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler.counter_operators import uniform_up_to
 from prodigy.analysis.values import sym

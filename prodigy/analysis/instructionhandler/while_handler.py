@@ -1,7 +1,7 @@
 """
 While loops.
 
-The handler asks the current :class:`~prodigy.analysis.session.AnalysisSession` which
+The handler asks the current :class:`~prodigy.analysis.context.AnalysisContext` which
 :mod:`loop strategy <prodigy.analysis.loops.api>` to use for a loop and runs it.
 The six historic strategies are implemented and registered here; in the interactive CLI
 they show up in the same menu, with the same prompts, as before.
@@ -22,6 +22,7 @@ from prodigy.language import Expr, Instr, parse_program, Program, WhileInstr
 
 from prodigy.analysis import evt_exploration
 from prodigy.analysis.config import ForwardAnalysisConfig
+from prodigy.analysis.context import current_context
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.strategies import (DEFAULT_MAX_DEGREE, SynthesisStrategy,
                                                                   SynthesisStrategies)
@@ -38,9 +39,10 @@ from prodigy.analysis.instructionhandler import _assume
 from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.distribution.equality import sympify_distribution, sympify_engine_string
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+from prodigy.analysis.loops import witness as witnesses
+from prodigy.analysis.loops.witness import show_valuation
 from prodigy.analysis.loops.api import (Bound, LoopDecision, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
                                         get_loop_strategy, register_loop_strategy)
-from prodigy.analysis.session import current_session
 from prodigy.distribution import Distribution, State, known_convergent_series
 from prodigy.distribution.distribution import NonFiniteMarginalError
 from prodigy.language.operations import cav_phi
@@ -337,14 +339,12 @@ def _refutation(task: LoopTask, inv_prog: Program, phi_inv: Program, counterexam
     """The error for a raw "different" of the check Φ(I) = I. The raw answer is no proof: the solver may
     fail to find parameter values, and loops inside the body may have been approximated during the check
     (#403). So the invariant counts as ``refuted`` only with a witness, an output state whose probabilities
-    under I and Φ(I) provably differ on the input of the counterexample (as in
-    :mod:`prodigy.analysis.equivalence.verdict`); otherwise the verdict is ``unknown``."""
-    # pylint: disable=import-outside-toplevel  # verdict imports the analysis
-    from prodigy.analysis.equivalence.verdict import search_witness, show_valuation
+    under I and Φ(I) provably differ on the input of the counterexample (:mod:`prodigy.analysis.loops.witness`,
+    as in :mod:`prodigy.analysis.equivalence.verdict`); otherwise the verdict is ``unknown``."""
     state = {str(k): int(v) for k, v in counterexample.valuations.items()}
     shown = show_valuation(state)
     certificate["counterexample"] = state
-    witness = search_witness(inv_prog, phi_inv, task.session, state)
+    witness = witnesses.search_witness(inv_prog, phi_inv, task.session, state, task.analyzer)
     if witness is not None:
         output = show_valuation(witness["state"], "the empty state")
         print(f"{Style.OKRED}Invariant refuted.{Style.RESET} On the input {shown}, I and Φ(I) give provably "
@@ -391,7 +391,7 @@ def _loop_program(task: LoopTask) -> Dict[str, Any]:
     """The program to compare with the invariant: the program itself if the loop is all it does, else its
     declarations and the loop (``program``, ``.ppy``), and the id of the loop in it."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.session import isolate_loop
+    from prodigy.analysis.loops.api import isolate_loop
     session = task.session
     if session.program is None:
         return {"program": None, "program_loop": None}
@@ -1222,7 +1222,7 @@ class WhileHandler(InstructionHandler):
     def _run(strategy_name: Optional[str], instruction: WhileInstr, prog_info: ProgramInfo,
              distribution: Distribution, error_prob: Distribution, config: ForwardAnalysisConfig,
              analyzer: Analyzer) -> Tuple[Distribution, Distribution]:
-        session = current_session()
+        session = current_context()
         with session.activate():
             loop = session.loops.lookup(instruction)
             decision = session.decide_loop(loop, instruction) if strategy_name is None \

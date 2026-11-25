@@ -59,7 +59,7 @@ from prodigy.util.logger import log_setup
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-    from prodigy.analysis.session import AnalysisSession
+    from prodigy.analysis.context import AnalysisContext
     from prodigy.distribution import Distribution
     from prodigy.language import Instr
 
@@ -106,7 +106,7 @@ def start(upper: "Distribution", error_prob: "Distribution", kind_before: str, o
 
 
 def replay(track: UpperTrack, instruction: "Instr", prog_info: "ProgramInfo", config: "ForwardAnalysisConfig",
-           analyzer: Analyzer, session: "AnalysisSession") -> Optional[UpperTrack]:
+           analyzer: Analyzer, session: "AnalysisContext") -> Optional[UpperTrack]:
     """``track`` after the loop-free top-level ``instruction`` (a positive linear map, see the module
     documentation), or ``None`` if the track ends there: a loop, a query block, or a replay that fails or is
     not exact. The replay is a silent sub-analysis: it records no queries, steps or residual mass."""

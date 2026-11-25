@@ -69,7 +69,7 @@ from prodigy.analysis.loops.api import Bound
 
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.loops.api import LoopOutcome, LoopTask
-    from prodigy.analysis.session import AnalysisSession
+    from prodigy.analysis.context import AnalysisContext
     from prodigy.distribution import Distribution
 
 
@@ -392,7 +392,7 @@ def _first_line(text: str) -> str:
 class Tracer:
     """Records the trace of one analysis (see the module documentation)."""
 
-    def __init__(self, session: "AnalysisSession", limits: Optional[TraceLimits] = None,
+    def __init__(self, session: "AnalysisContext", limits: Optional[TraceLimits] = None,
                  watches: Sequence[Watch] = (), on_step: Optional[Callable[[Dict[str, Any]], None]] = None):
         self.session = session
         self.limits = limits or TraceLimits()
@@ -633,7 +633,7 @@ class Tracer:
     # -- loops -----------------------------------------------------------------------
 
     def loop_started(self, task: "LoopTask") -> Optional[_LoopFrame]:
-        """Called by :meth:`AnalysisSession.run_loop`; opens the loop entry of the running ``while`` step."""
+        """Called by :meth:`AnalysisContext.run_loop`; opens the loop entry of the running ``while`` step."""
         nested = self._loop_depth > 0
         self._loop_depth += 1
         if nested or self.session.silent or not self._open or self._open[-1].instr is not task.instruction:

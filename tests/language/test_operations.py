@@ -3,7 +3,7 @@ Direct tests for :mod:`prodigy.language.operations`, independent of the equivale
 """
 import pytest
 
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.language.ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, IfInstr, NatLitExpr,
                               Node, Program, SkipInstr, VarExpr, WhileInstr)

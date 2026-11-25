@@ -54,6 +54,8 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import (UndefinedDistributionError,
                                          UnsupportedFeatureError)
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+from prodigy.analysis.context import current_context
+from prodigy.analysis.loops.api import Bound
 from prodigy.distribution import Distribution, MarginalType
 from prodigy.distribution.distribution import constant_value
 from prodigy.language import (AsgnInstr, Binop, BinopExpr, BoolLitExpr,
@@ -434,8 +436,6 @@ def closed_form(site: DistSite, prog_info: ProgramInfo, config: ForwardAnalysisC
                 run: Runner) -> ClosedDist:
     """The normalised distribution of the closed ``site``, computed exactly (once)."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.loops.api import Bound
-    from prodigy.analysis.session import current_session
     reg = registry()
     if reg.has_closed(site):
         return reg.closed(site)
@@ -449,7 +449,7 @@ def closed_form(site: DistSite, prog_info: ProgramInfo, config: ForwardAnalysisC
         assert isinstance(value, int)
         start = _assign(start, var, value)
     sub_info = function_program_info(prog_info, function)
-    session = current_session()
+    session = current_context()
     zero = factory.from_expr("0")
     with session.nested_inference(site.describe()) as scope:
         result, error = run(function.instructions, sub_info, start, zero, config)
@@ -629,8 +629,6 @@ def _prove_almost_sure_termination(site: DistSite, arguments: Distribution, temp
                                    run: Runner, describe: str) -> None:
     """Proves Z(a) = 1 for every value a of the arguments: running the function on the
     distribution of the arguments keeps the mass of every argument value."""
-    from prodigy.analysis.loops.api import Bound  # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.session import current_session  # pylint: disable=import-outside-toplevel
     reg = registry()
     function = reg.functions[site.function]
     assignments: Dict[str, Expr] = {}
@@ -642,7 +640,7 @@ def _prove_almost_sure_termination(site: DistSite, arguments: Distribution, temp
         else:
             assignments[var] = NatLitExpr(value)
     result_var = arguments.get_fresh_variable()
-    with current_session().nested_inference(site.describe()) as scope:
+    with current_context().nested_inference(site.describe()) as scope:
         result, _ = call_in_joint(function, assignments, {}, result_var, prog_info,
                                   _add_variables(arguments, result_var), arguments * "0", config, run)
     proven = scope.kind == Bound.EXACT and result.marginal(*temps.values()) == arguments
@@ -992,9 +990,8 @@ def _nodes(expr: Expr) -> List[Expr]:
 def _run_shell(shell: Instr, original: Instr, prog_info: ProgramInfo, distribution: Distribution,
                error_prob: Distribution, config: ForwardAnalysisConfig, run: Runner
                ) -> Tuple[Distribution, Distribution]:
-    from prodigy.analysis.session import current_session  # pylint: disable=import-outside-toplevel
     if isinstance(shell, WhileInstr) and isinstance(original, WhileInstr):
-        with current_session().loop_alias(shell, original):
+        with current_context().loop_alias(shell, original):
             return run(shell, prog_info, distribution, error_prob, config)
     return run(shell, prog_info, distribution, error_prob, config)
 

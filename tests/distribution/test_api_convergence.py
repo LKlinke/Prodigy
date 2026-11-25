@@ -134,7 +134,7 @@ x = geometric(p);
 def test_analysis_outputs_are_declared_finite_measures(engine):
     # compute_discrete_distribution declares its outputs, so the API queries them as the analysis does
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.analyzer import compute_discrete_distribution
+    from prodigy.analysis.session import compute_discrete_distribution
     factory = _factory(engine)
     source = """param p: real;
 x: nat;

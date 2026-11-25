@@ -32,20 +32,21 @@ every engine.
 from __future__ import annotations
 
 import contextlib
-import itertools
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Mapping, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
 
-import sympy
 
 # re-exported: the web reads both from the verdict (`as` makes the re-export explicit, #379)
 from prodigy.analysis.equivalence.equivalence_check import (  # pylint: disable=unused-import,useless-import-alias
     DifferentVariablesError as DifferentVariablesError, different_variables as different_variables)
+from prodigy.analysis.loops import witness as witnesses
 from prodigy.analysis.loops.api import Bound
+# re-exported: the front ends read them from the verdict (`as` makes the re-export explicit, #379)
+from prodigy.analysis.loops.witness import (  # pylint: disable=unused-import,useless-import-alias
+    WITNESS_TERMS as WITNESS_TERMS, Side as Side, find_witness as find_witness, show_valuation as show_valuation)
 
 if TYPE_CHECKING:  # pragma: no cover
-    from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.analysis.session import AnalysisSession
     from prodigy.distribution import Distribution
     from prodigy.language import Program
@@ -57,9 +58,6 @@ VERDICTS = (EQUIVALENT, NOT_EQUIVALENT, UNKNOWN)
 
 FIRST_BELOW_SECOND = "first_below_second"
 SECOND_BELOW_FIRST = "second_below_first"
-
-WITNESS_TERMS = 64
-"""How many terms of each output distribution :func:`find_witness` examines."""
 
 
 @dataclass
@@ -91,12 +89,6 @@ class CheckOutcome:
             "error": self.error,
             "time": round(self.time, 6),
         }
-
-
-def show_valuation(valuation: Mapping[str, Any], empty: str = "every variable 0") -> str:
-    """A state or input as text in the style of the programs, ``x = 1, n = 3`` (``empty`` if there is
-    no variable)."""
-    return ", ".join(f"{name} = {value}" for name, value in valuation.items()) or empty
 
 
 def _failure(exc: BaseException) -> Dict[str, Any]:
@@ -178,68 +170,18 @@ def run_check(program: "Program", other: "Program", session: "AnalysisSession",
 # Witnesses
 # ---------------------------------------------------------------------------------------
 
-@dataclass
-class Side:
-    """One program's output on the shown input, with its guarantee (from its analysis result)."""
 
-    distribution: "Distribution"
-    kind: str
-    residual: Any = 0
-
-    def interval(self, state: Any) -> Optional[Tuple[sympy.Expr, sympy.Expr]]:
-        """The sound interval of the probability of ``state`` (None without a guarantee)."""
-        # pylint: disable=import-outside-toplevel
-        from prodigy.analysis.values import sym
-        if self.kind == Bound.UNKNOWN:
-            return None
-        value = sym(self.distribution.filter_state(state).get_probability_mass())
-        if self.kind == Bound.EXACT:
-            return value, value
-        if self.kind == Bound.LOWER:
-            return value, value + sym(self.residual or 0)
-        return sympy.Integer(0), value  # upper bound (Park's lemma)
-
-    def support(self, limit: int) -> Iterator[Any]:
-        """States with a positive lower bound, in the order the engine lists them."""
-        if self.kind not in (Bound.EXACT, Bound.LOWER):
-            return iter(())
-        terms = itertools.islice(iter(self.distribution), limit)
-        return (state for probability, state in terms if probability != "0")
+def analyse_on_input(program: "Program", state: Dict[str, int], session: "AnalysisSession") -> Side:
+    """:func:`~prodigy.analysis.loops.witness.analyse_on_input` with the forward analysis."""
+    from prodigy.analysis.analyzer import compute_semantics  # pylint: disable=import-outside-toplevel
+    return witnesses.analyse_on_input(program, state, session, compute_semantics)
 
 
-def _provably_positive(value: sympy.Expr) -> bool:
-    return bool(sympy.nsimplify(value).is_positive is True)
-
-
-def find_witness(first: Side, second: Side, *, limit: int = WITNESS_TERMS) -> Optional[Dict[str, Any]]:
-    """The first output state whose probabilities provably differ between the two programs: the
-    sound intervals of the two (exact value, lower bound plus residual mass, or Park upper bound)
-    are disjoint. Only states that one of the programs reaches with a positive lower bound are
-    candidates (examined in the engine's order, at most ``limit`` terms each). None if there is none
-    among them, or if the difference depends on parameters."""
-    # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.values import show, to_float
-
-    def side(interval: Tuple[sympy.Expr, sympy.Expr], kind: str) -> Dict[str, Any]:
-        return {"lower": show(interval[0]), "lower_float": to_float(interval[0]),
-                "upper": show(interval[1]), "upper_float": to_float(interval[1]), "kind": kind}
-
-    seen = set()
-    for state in itertools.chain(first.support(limit), second.support(limit)):
-        key = tuple(sorted(state.valuations.items()))
-        if key in seen:
-            continue
-        seen.add(key)
-        one, two = first.interval(state), second.interval(state)
-        if one is None or two is None:
-            return None
-        if _provably_positive(one[0] - two[1]) or _provably_positive(two[0] - one[1]):
-            return {
-                "state": {str(k): int(v) for k, v in state.valuations.items()},
-                "first": side(one, first.kind),
-                "second": side(two, second.kind),
-            }
-    return None
+def search_witness(program: "Program", other: "Program", session: "AnalysisSession",
+                   state: Dict[str, int]) -> Optional[Dict[str, Any]]:
+    """:func:`~prodigy.analysis.loops.witness.search_witness` with the forward analysis."""
+    from prodigy.analysis.analyzer import compute_semantics  # pylint: disable=import-outside-toplevel
+    return witnesses.search_witness(program, other, session, state, compute_semantics)
 
 
 # ---------------------------------------------------------------------------------------
@@ -341,51 +283,6 @@ class Comparison:
     witness: Optional[Dict[str, Any]]
     verdict: Dict[str, Any]
     input: Dict[str, int] = field(default_factory=dict)
-
-
-def point_input(program: "Program", state: Dict[str, int], config: "ForwardAnalysisConfig") -> "Distribution":
-    """The distribution that is ``state`` with probability 1 (absent variables are 0)."""
-    # pylint: disable=import-outside-toplevel
-    from prodigy.language import Binop, BinopExpr, BoolLitExpr, BoolType, NatLitExpr, VarExpr
-    dist = config.factory.one(*program.variables)
-    for name, value in sorted(state.items()):
-        if value:
-            literal = BoolLitExpr(True) if isinstance(program.variables.get(name), BoolType) \
-                else NatLitExpr(int(value))
-            dist = dist.update(BinopExpr(Binop.EQ, VarExpr(name), literal))
-    return dist
-
-
-def analyse_on_input(program: "Program", state: Dict[str, int], session: "AnalysisSession") -> Side:
-    """The output of ``program`` on the input ``state``, before conditioning on observations (as in the
-    check), with the guarantee of its analysis. Its loops are decided in ``session`` as usual; the
-    analysis does not count for the session's own result (a sub-analysis)."""
-    # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.analyzer import compute_semantics
-    from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-    from prodigy.analysis.values import sym
-    from prodigy.distribution.distribution import known_convergent_series
-    config = session.config
-    start = point_input(program, state, config)
-    zero = config.factory.one(*program.variables) * 0
-    # the input is a point distribution, a finite measure: the marginals of the analysis are sums of series
-    with session.sub_analysis("witness search") as scope, known_convergent_series(True):
-        dist, error = compute_semantics(program.instructions, ProgramInfo(program), start, zero, config)
-    residual: sympy.Expr = sympy.Integer(0)
-    if scope.kind == Bound.LOWER:
-        # every output state misses at most the mass the analysis did not account for (the input has mass 1)
-        residual = 1 - sym(dist.get_probability_mass()) - sym(error.get_probability_mass())
-    return Side(dist, scope.kind, residual)
-
-
-def search_witness(program: "Program", other: "Program", session: "AnalysisSession",
-                   state: Dict[str, int]) -> Optional[Dict[str, Any]]:
-    """A witness (:func:`find_witness`) on the input ``state``, from fresh analyses of both programs, or
-    None (also if an analysis fails: a missing witness only leaves the verdict open)."""
-    try:
-        return find_witness(analyse_on_input(program, state, session), analyse_on_input(other, state, session))
-    except Exception:  # pylint: disable=broad-except
-        return None
 
 
 def compare(program: "Program", other: "Program", session: "AnalysisSession") -> Comparison:

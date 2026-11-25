@@ -1,7 +1,7 @@
 import prodigy.language as language
 import pytest
 
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.fast_generating_function import ProdigyPGF
 from prodigy.distribution.generating_function import SympyPGF

@@ -9,7 +9,8 @@ from fractions import Fraction
 import pytest
 import sympy
 
-from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
+from prodigy.analysis.analyzer import compute_semantics
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.lowerbounds.egcalc import Denominator, GFCalculus

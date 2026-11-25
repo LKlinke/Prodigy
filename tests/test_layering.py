@@ -236,7 +236,7 @@ KNOWN_VIOLATIONS: Dict[str, FrozenSet[str]] = {
         "analyzer", "equivalence.verdict", "evt_exploration", "evtinvariants.series_identity",
         "instructionhandler.assignment_handler", "instructionhandler.function_handler",
         "instructionhandler.query_handler", "instructionhandler.queryblock_handler",
-        "instructionhandler.sample_handler", "instructionhandler.while_handler", "loops.api",
+        "instructionhandler.sample_handler", "instructionhandler.while_handler", "loops.api", "loops.witness",
         "lowerbounds.problem", "lowerbounds.subinvariant", "nested_inference", "result", "session", "trace",
         "upper_track", "values")) | {"prodigy.web.diagnostics"},
 }

@@ -20,7 +20,8 @@ from prodigy.language import Instr, Program, Var, WhileInstr
 from prodigy.language.parser import check_syntax, parse_program
 from prodigy.language.syntax_errors import ProgramSyntaxError
 
-from prodigy.analysis.analyzer import compute_discrete_distribution, compute_semantics
+from prodigy.analysis.analyzer import compute_semantics
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import (ConfigurationError, HeuristicsError, InvalidProbabilityError,
                                          UndefinedDistributionError, UnsupportedFeatureError, VerificationError)

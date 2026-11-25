@@ -17,6 +17,7 @@ from prodigy.analysis.instructionhandler.counter_operators import (counter_proba
                                                                    uniform_up_to)
 from prodigy.analysis.instructionhandler.state_dependent import (expression_variables, instantiate,
                                                                  split_states, state_variables)
+from prodigy.analysis.context import current_context
 from prodigy.distribution import Distribution, MarginalType
 from prodigy.distribution.distribution import State, constant_value
 from prodigy.util.logger import log_setup
@@ -180,12 +181,11 @@ def _check_generating_functions(call: FunctionCallExpr, assigned: Var, prog_info
     parameters, the result is a formula in them that holds for the parameter values for which it is a
     probability generating function, as for parametric arguments of the other distributions (e.g.
     ``geometric(p)``), and a warning says so; otherwise the result has no guarantee
-    (:meth:`~prodigy.analysis.session.AnalysisSession.unproven`).
+    (:meth:`~prodigy.analysis.context.AnalysisContext.unproven`).
     """
     # pylint: disable=import-outside-toplevel
     from prodigy.distribution.finite_measure import check_probability_generating_function
-    from prodigy.analysis.session import current_session
-    session = current_session()
+    session = current_context()
     parameters = {str(name): typ for name, typ in prog_info.parameters.items()}
     natural = tuple(sorted(name for name, typ in parameters.items() if isinstance(typ, NatType)))
     for sampling, generating_function, variable in _generating_functions(call, assigned):

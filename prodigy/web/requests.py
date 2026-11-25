@@ -309,10 +309,11 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
 def loop_program(source: str, loop_id: int) -> Dict[str, Any]:
     """A loop of a program as a program of its own, for "Compare this loop" (#399): ``program`` (the
     program itself if the loop is all it does, else its declarations and the loop, see
-    :func:`prodigy.analysis.session.isolate_loop`), ``loop`` (its id there), ``declarations`` (to start
+    :func:`prodigy.analysis.loops.api.isolate_loop`), ``loop`` (its id there), ``declarations`` (to start
     program B from) and ``whole``. Raises ``ValueError`` with a message for the person otherwise."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.session import LoopRegistry, isolate_loop
+    from prodigy.analysis.session import LoopRegistry
+    from prodigy.analysis.loops.api import isolate_loop
     from prodigy.language import parse_program
 
     try:
@@ -743,7 +744,7 @@ def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], 
     checked when the user runs the analysis with it."""
     # pylint: disable=import-outside-toplevel,too-many-locals
     from prodigy.analysis import ai_candidates
-    from prodigy.analysis.analyzer import compute_discrete_distribution
+    from prodigy.analysis.session import compute_discrete_distribution
     from prodigy.analysis.input_distribution import input_distribution_from_text
     from prodigy.language import parse_program
 

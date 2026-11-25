@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 import sympy
 
-from prodigy.analysis.analyzer import compute_discrete_distribution
+from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.values import QueryResult, is_non_finite, sym
@@ -188,7 +188,7 @@ def _run_with(monkeypatch, function, queries):
         session.queries.extend(queries)
         return GeneratingFunction(function, "x"), GeneratingFunction("0", "x")
 
-    monkeypatch.setattr("prodigy.analysis.analyzer.compute_discrete_distribution", fake)
+    monkeypatch.setattr("prodigy.analysis.session.compute_discrete_distribution", fake)
     return session.run().to_json()
 
 
