@@ -21,7 +21,7 @@ SOURCE = "x: nat;\n{x = 1;} [1/2 ** 15000] {x = 2;}\nquery Pr[x == 1];\n"
 def test_probability_with_more_than_4300_digits(engine, simplification):
     previous = sys.get_int_max_str_digits()
     config = ForwardAnalysisConfig(engine=engine, use_simplification=simplification)
-    session = AnalysisSession(parse_program(SOURCE, "ppy"), source=SOURCE, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(SOURCE, "ppy"), source=SOURCE, config=config,
                               capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]

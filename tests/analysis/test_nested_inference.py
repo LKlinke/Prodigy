@@ -29,7 +29,7 @@ def analyse(source, engine=Engine.SYMPY, syntax="ppy", decisions=None):
     program = compile_program(source, syntax=syntax)
     assert isinstance(program, Program), program
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_program(source, syntax), source=source, syntax=syntax, config=config,
+    session = AnalysisSession(parse_program(source, syntax), source=source, config=config,
                               decisions=decisions, capture_output=True)
     return session.run().to_json(), session
 
@@ -493,7 +493,7 @@ def test_gui_request_and_check():
     result = run_analysis({"source": source, "syntax": "ppy"})
     assert result["status"] == "ok", result["error"]
     assert result["queries"][0]["value"] == "4/3"
-    assert check_source(source, "ppy")["ok"]
+    assert check_source(source)["ok"]
 
 
 @pytest.mark.parametrize("args", [["main"], ["analyze", "--json"]])

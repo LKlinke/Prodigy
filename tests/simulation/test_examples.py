@@ -115,7 +115,7 @@ def _compare(name: str) -> str:
         simulation = simulate(program, RUNS, seed=name, loop_budget=LOOP_BUDGET)
     except UnsupportedConstruct as reason:
         return f"skip: the simulator does not implement {reason}"
-    session = AnalysisSession(program, source=source, syntax="ppy", config=ForwardAnalysisConfig(),
+    session = AnalysisSession(program, source=source, config=ForwardAnalysisConfig(),
                               decisions={"*": f"unroll:iterations={UNROLL_DEPTH.get(name, UNROLL)}"}, capture_output=True,
                               coefficient_limit=12)
     result = session.run().to_json()

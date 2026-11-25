@@ -16,7 +16,9 @@ class DeclClass(Node):
     @abstractmethod
     def __str__(self) -> str:
         """
-        Convert this declaration to corresponding source code in pGCL.
+        This declaration as the internal text (``&``/``||`` for ``and``/``or``, ``=`` for ``==``,
+        ``^`` for ``**``, ``:=``), which the engines and logs read; messages use
+        :func:`prodigy.language.ppy_printer.spell` (``.ppy``).
 
         .. doctest::
 

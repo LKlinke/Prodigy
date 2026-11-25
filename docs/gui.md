@@ -395,8 +395,7 @@ whatever the position.
   violated observations; at a step: mass and size), the values of the `dist` variables (at the end
   of the program: *Inferred distributions* with their `infer(…)`, normalised generating function,
   expected value, normalising constant Z and coefficients; at a step: their closed forms, also with
-  KaTeX), and **Queries after every step**: a query such as `Pr[x == 3]` or `Ex[x]` (in the
-  program's syntax) is evaluated after every top-level step, as if it stood right after that
+  KaTeX), and **Queries after every step**: a query such as `Pr[x == 3]` or `Ex[x]` (in `.ppy`) is evaluated after every top-level step, as if it stood right after that
   instruction, with the same sound intervals as the program's queries; adding or removing one
   analyses again (recording the steps).
 * **Size**: the length of the closed form in characters (the same measure on every engine) per
@@ -507,12 +506,12 @@ read as `.ppy`, so the diagnostics are ordinary `.ppy` syntax errors (for exampl
 expected ',' or ':' or '='." at the declaration `nat x;`). Convert such a program with Prodigy
 v0.5.x (`prodigy convert program.pgcl`, or Convert to .ppy in its GUI). Only the API names the
 removal: it answers a request with `syntax` `pgcl` or a `file_name` ending in `.pgcl` with the
-error "The .pgcl syntax was removed in v0.6.0. …".
+error "The .pgcl syntax was removed in v0.6.0; programs are written in .ppy. …".
 
-Everything typed into the setup is read in the program's syntax: an invariant program of
-*Check invariant* is a loop-free program in that syntax. Generating functions (the initial
-distribution, EVT invariants and sub-invariants, candidates of *Suggest*) accept powers as `^`
-and `**`; a candidate of the language model is shown with the program's power operator.
+Everything typed into the setup is `.ppy`: an invariant program of *Check invariant* is a loop-free
+`.ppy` program. Generating functions (the initial distribution, EVT invariants and sub-invariants,
+candidates of *Suggest*) accept powers as `^` and `**`; a candidate of the language model is shown
+with `**`.
 
 ## Guarantees
 
@@ -649,7 +648,7 @@ export PRODIGY_AI_BASE_URL=http://localhost:11434/v1 PRODIGY_AI_MODEL=<model>
 `OPENAI_API_KEY` for OpenAI's API; `PRODIGY_AI_PROVIDER` (`anthropic` or `openai`) chooses if
 both are configured. Answers are untrusted input: a candidate may only contain numbers, the
 program's variables and parameters, `+ - * / ^` (or `**`), parentheses, `sqrt` and `exp`, and
-must parse as an expression of the program's syntax, before any computer algebra system sees it.
+must parse as a `.ppy` expression, before any computer algebra system sees it.
 
 ### The Suggest button
 
@@ -674,14 +673,14 @@ their index in textual order (`prodigy outline FILE` lists them).
 from prodigy.language import parse_program
 from prodigy.analysis.session import AnalysisSession
 
-session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy",
+session = AnalysisSession(parse_program(source), source=source,
                           decisions={"0": {"strategy": "unroll", "params": {"iterations": 50}}},
                           capture_output=True)
 result = session.run().to_json()      # schema "prodigy/analysis-result@1"
 ```
 
-`result["syntax"]` is the syntax of the program; query expressions, loop guards and the
-instructions of `steps` are written in it (`x == 1` in `.ppy`, `x = 1` in pGCL).
+Query expressions, loop guards and the instructions of `steps` are written in `.ppy` (`x == 1`);
+`result["syntax"]` is always `ppy` (kept for compatibility).
 
 `result["bounds"]["kind"]` (`exact`, `lower`, `upper`, `unknown`) is the guarantee of the
 result. It holds only for `result["status"] == "ok"`; a result that failed or stopped
@@ -737,7 +736,7 @@ in the GUI's strategy pop-up in the section of its `group` (`automatic`, `exact`
 | `GET /api/jobs/<id>?log_offset=n` | state (`running`, `done`, `timeout`, `cancelled`, `crashed`), new console output, progress per loop, result; while it runs, `stream`: the coefficients computed so far (`variables`, `limit`, `bound`, `residual_mass`, `marginals: {x: {rows, done}}`, or for a grid job `grid` with `cells[r][c]` null while pending; `prodigy/web/jobs.py: merge_stream`) |
 | `DELETE /api/jobs/<id>` | cancels the analysis |
 | `POST /api/jobs/<id>/joint` `{x, y, x_window, y_window}` | starts a job for the exact coefficient grid of two variables of the finished analysis `<id>` (not of a comparison, which has no distributions); the windows `[from, to]` are optional (default: the support of a finite distribution, else 0–15) with at most 50 values per axis (`limits.max_joint_axis` in `GET /api/meta`) and values up to 1000. The distribution, the engine and the guarantee come from the result the server keeps, never from the request. The job's result is `{status: "ok", joint: {x, y, x_values, y_values, cells, bound, mass, shown_mass, outside_mass, residual_mass, finite_support, support}}`: `cells[r][c]` is `{prob, p}` (exact and float; for a lower bound also `upper`, `upper_p`) for `y = y_values[r]`, `x = x_values[c]`. 400 for an unknown variable, the same variable twice or a window beyond the limits, 404 for an unknown or pruned analysis (analyze again), 409 while it runs |
-| `POST /api/equivalence` | checks whether program A and program B are equivalent for every input: `source`, `syntax`, `decisions`, `engine`, `time_limit` and the EVT synthesis options of program A, plus `other_source`, `other_syntax` (default: `syntax`) and `other_decisions` (the strategies of B's loops, keyed by B's own loop ids; B never takes A's decisions) for program B. There is no initial distribution: a request with `input_distribution` is refused (400). Returns a job id; the job streams no coefficients. Its result is `{schema: "prodigy/equivalence-result@1", prodigy_version, status, error, syntax, loops, other_loops, log, timing, equivalence}`, where `loops` and `other_loops` are the loop records of programs A and B in the check (as in an analysis result) and `equivalence` is `{verdict: equivalent \| not_equivalent \| unknown, reason, relation: null \| first_below_second \| second_below_first, constraints: [{param: value}], witness: null \| {input, state, first, second}, witness_search: null \| timeout, check: {answer: equal \| different \| undecided \| failed, first, second, constraints, counterexample, difference, error, time}}`. `input` and `state` of the witness are variable values (every variable of the input; the output state as the engine lists it); `first`/`second` of the witness are `{lower, lower_float, upper, upper_float, kind}`; `check.first`/`check.second` are the guarantees (`exact`, `lower`, `upper`, `unknown`) of the two analyses inside the check. The rules are in `prodigy/analysis/equivalence/verdict.py`. Earlier versions returned the analysis result of program A on one input, with `equivalence.input` and `equivalence.other` (program B's analysis result); both are gone, and a comparison has no grids. |
+| `POST /api/equivalence` | checks whether program A and program B are equivalent for every input: `source`, `syntax`, `decisions`, `engine`, `time_limit` and the EVT synthesis options of program A, plus `other_source`, `other_syntax` (checked like `syntax`) and `other_decisions` (the strategies of B's loops, keyed by B's own loop ids; B never takes A's decisions) for program B. There is no initial distribution: a request with `input_distribution` is refused (400). Returns a job id; the job streams no coefficients. Its result is `{schema: "prodigy/equivalence-result@1", prodigy_version, status, error, syntax, loops, other_loops, log, timing, equivalence}`, where `loops` and `other_loops` are the loop records of programs A and B in the check (as in an analysis result) and `equivalence` is `{verdict: equivalent \| not_equivalent \| unknown, reason, relation: null \| first_below_second \| second_below_first, constraints: [{param: value}], witness: null \| {input, state, first, second}, witness_search: null \| timeout, check: {answer: equal \| different \| undecided \| failed, first, second, constraints, counterexample, difference, error, time}}`. `input` and `state` of the witness are variable values (every variable of the input; the output state as the engine lists it); `first`/`second` of the witness are `{lower, lower_float, upper, upper_float, kind}`; `check.first`/`check.second` are the guarantees (`exact`, `lower`, `upper`, `unknown`) of the two analyses inside the check. The rules are in `prodigy/analysis/equivalence/verdict.py`. Earlier versions returned the analysis result of program A on one input, with `equivalence.input` and `equivalence.other` (program B's analysis result); both are gone, and a comparison has no grids. |
 | `POST /api/suggest` | asks the language model for one candidate for a loop: an analysis request without `coefficients` and `record_steps`, plus `loop` (id) and `form` (`evt_invariant` or `evt_subinvariant`), `time_limit` optional (default: the server's); returns a job id. The job's result is `{status: "ok", suggestion: {candidate, param, answer, model, provider, entering, loop, form}}` or an error (the model's answer in `error.suggestion` if it held no admissible candidate). `GET /api/meta` says under `ai` whether a model is configured. |
 | `GET /api/examples`, `GET /api/examples/<path>` | example library (`.ppy` files); source, `syntax` (`ppy`; the parameter `syntax=pgcl` gives 400), `file_name` and suggested setup; a `check_equality` example also has `other: {id, source, syntax, file_name}`, its second program |
 
@@ -751,8 +750,8 @@ The server binds to localhost. API requests must be JSON and come from the page 
 
 Prodigy parses distributions and invariants with SymPy, whose parser evaluates Python code.
 The server admits a generating function from the setup only if it consists of numbers, names,
-`+ - * / ^ **`, parentheses and the functions `sqrt exp log sin cos tan`, and parses as an
-expression of the program's syntax. Still, **do not expose the server to untrusted users without a sandbox** (container without
+`+ - * / ^ **`, parentheses and the functions `sqrt exp log sin cos tan`, and parses as a
+`.ppy` expression. Still, **do not expose the server to untrusted users without a sandbox** (container without
 network and file system access, resource limits). For a hosted teaching instance:
 `--host 0.0.0.0 --allowed-host prodigy.example.org --max-jobs 4 --max-background-jobs 4 --time-limit 60
 --memory-limit 2048` behind a reverse proxy, inside such a container.

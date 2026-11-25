@@ -11,7 +11,8 @@ from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.analysis.trace import (MARGINALS_OUT_OF_TIME, MARGINALS_TOO_LARGE, MARGINALS_TURNED_OFF, TraceLimits,
-                                    Tracer, _LoopFrame, certificate_checks, parse_watch)
+                                    InvalidWatchError, Tracer, _LoopFrame, certificate_checks,
+                                    parse_watch)
 from prodigy.cli import cli
 from prodigy.language import parse_program
 from prodigy.language.ast.walk import Walk, walk_instrs
@@ -62,7 +63,7 @@ PGCL_LINES = [4, 5, 8, 9, 11, 13, 14]
 
 def _run(source, syntax, engine=Engine.SYMPY, decision="unroll:iterations=6", **kwargs):
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_program(source, syntax), source=source, syntax=syntax, config=config,
+    session = AnalysisSession(parse_program(source, syntax), source=source, config=config,
                               decisions={"0": decision}, record_steps=True, capture_output=True, **kwargs)
     return session.run().to_json()
 
@@ -330,7 +331,7 @@ def test_variables_beyond_the_limit_are_marked_not_recorded():
 
 
 def test_without_record_steps_there_is_no_trace():
-    session = AnalysisSession(parse_program(PPY, "ppy"), source=PPY, syntax="ppy", decisions={"0": "unroll"})
+    session = AnalysisSession(parse_program(PPY, "ppy"), source=PPY, decisions={"0": "unroll"})
     result = session.run().to_json()
     assert result["steps"] == [] and result["trace"] is None and session.tracer is None
 
@@ -345,15 +346,15 @@ def test_normalisation_at_the_end_is_a_step():
 # ---- watches and checks --------------------------------------------------------------------
 
 def test_parse_watch():
-    assert parse_watch("Pr[x == 3]", "ppy").kind == "probability"
-    assert parse_watch("query Ex[x + 1];", "ppy").kind == "expectation"
-    assert parse_watch("query Pr[x == 3];", "ppy").kind == "probability"
-    assert parse_watch("E[x]", "ppy").kind == "expectation"
+    assert parse_watch("Pr[x == 3]").kind == "probability"
+    assert parse_watch("query Ex[x + 1];").kind == "expectation"
+    assert parse_watch("query Pr[x == 3];").kind == "probability"
+    assert parse_watch("E[x]").kind == "expectation"
     for text in ("Pr[x", "Foo[x]", "Pr[]", "Pr[__import__('os').system('true')]", "Pr[x = = 3]"):
         with pytest.raises(ValueError):
-            parse_watch(text, "ppy")
+            parse_watch(text)
     with pytest.raises(ValueError, match="not a variable"):
-        parse_watch("Pr[y == 1]", "ppy", ["x"])
+        parse_watch("Pr[y == 1]", ["x"])
 
 
 def test_certificate_checks_never_claim_unproven_facts():
@@ -420,7 +421,15 @@ def test_long_closed_forms_have_latex_too():
     """The formula box bounds what is shown, so the LaTeX is not limited to 600 characters (#322)."""
     terms = " + ".join(f"({k + 1}/{k + 20}) * x^{k}*y^{k % 3}" for k in range(60))
     source = "x: nat;\ny: nat;\ny = y + 1;\n"
-    result = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", record_steps=True,
+    result = AnalysisSession(parse_program(source, "ppy"), source=source, record_steps=True,
                              input_distribution=f"({terms}) / 60", capture_output=True).run().to_json()
     after = result["steps"][0]["after"]
     assert after["size"] > 600 and after["latex"]
+
+
+def test_session_rejects_bad_watches():
+    program = parse_program(PPY)
+    with pytest.raises(InvalidWatchError, match="not a variable"):
+        AnalysisSession(program, source=PPY, watches=["Pr[nope == 1]"])
+    with pytest.raises(InvalidWatchError):
+        AnalysisSession(program, source=PPY, watches=["Pr[c =="])

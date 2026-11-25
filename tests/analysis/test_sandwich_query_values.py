@@ -90,7 +90,7 @@ def _session_queries(monkeypatch, engine, *, shortcut: bool):
         used.append(value is not None)
         return value
     monkeypatch.setattr(AnalysisSession, "loop_query_value", spy)
-    session = AnalysisSession(parse_program(SOURCE, "ppy"), source=SOURCE, syntax="ppy", config=ForwardAnalysisConfig(engine=engine),
+    session = AnalysisSession(parse_program(SOURCE, "ppy"), source=SOURCE, config=ForwardAnalysisConfig(engine=engine),
                               decisions={"0": "evt_sandwich"}, capture_output=True)
     out = session.run().to_json()
     assert out["status"] == "ok", out.get("error")
@@ -136,7 +136,7 @@ def test_values_end_at_the_next_instruction(monkeypatch):
         used.append(value is not None)
         return value
     monkeypatch.setattr(AnalysisSession, "loop_query_value", spy)
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=ForwardAnalysisConfig(),
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, config=ForwardAnalysisConfig(),
                               decisions={"0": "evt_sandwich"}, capture_output=True)
     assert session.run().to_json()["status"] == "ok"
     assert used == [False] * 6

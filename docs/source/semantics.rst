@@ -106,7 +106,7 @@ cases of modulo and division by a constant). A modulus or divisor ``0`` is an er
 Floor division
 --------------
 
-``e // q`` (``.ppy`` only; in ``.pgcl`` ``//`` starts a comment) rounds down, as in Python:
+``e // q`` rounds down, as in Python:
 ``7 // 2 == 3``. It is implemented for a natural expression ``e`` and a positive natural constant
 ``q`` (a literal or a ``const``). The type checker also accepts other natural divisors (only a literal
 ``0`` is rejected); the analysis then ends with a "not implemented" error. Guards and

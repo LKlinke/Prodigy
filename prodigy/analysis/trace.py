@@ -119,10 +119,15 @@ _WATCH_PREFIXES = (("query ", ""), ("?", ""))
 _WATCH_KINDS = {"Pr": "probability", "Ex": "expectation", "E": "expectation"}
 
 
-def parse_watch(text: str, syntax: str, names: Optional[Sequence[str]] = None) -> Watch:
+class InvalidWatchError(ValueError):
+    """A watch that is not a query of the program (:func:`parse_watch`); the CLI and the GUI show its message."""
+
+
+def parse_watch(text: str, names: Optional[Sequence[str]] = None) -> Watch:
     """Parses a watch ``Pr[cond]``, ``Ex[expr]`` or ``E[expr]`` (``query Pr[…]`` and ``?Pr[…]`` are
-    accepted too) with the expression parser of ``syntax``; untrusted text never reaches SymPy.
-    With ``names``, the expression may only use these names. Raises ``ValueError``."""
+    accepted too) with the ``.ppy`` expression parser; untrusted text never reaches SymPy.
+    With ``names``, the expression may only use these names. Raises :class:`InvalidWatchError`. The one place
+    of the watch rules: :class:`~prodigy.analysis.session.AnalysisSession` applies it to its watches."""
     # pylint: disable=import-outside-toplevel
     from prodigy.language.ast.walk import Walk, walk_expr
     from prodigy.language.ppy_parser import parse_ppy_expr
@@ -134,20 +139,20 @@ def parse_watch(text: str, syntax: str, names: Optional[Sequence[str]] = None) -
             text = replacement + text[len(prefix):].lstrip()
     head, bracket, rest = text.partition("[")
     if not bracket or not rest.endswith("]") or head.strip() not in _WATCH_KINDS:
-        raise ValueError(f"{original.strip()!r} is not a query: write Pr[condition] or Ex[expression].")
+        raise InvalidWatchError(f"{original.strip()!r} is not a query: write Pr[condition] or Ex[expression].")
     inner = rest[:-1].strip()
     if not inner:
-        raise ValueError(f"{original.strip()!r} has no expression.")
+        raise InvalidWatchError(f"{original.strip()!r} has no expression.")
     try:
         expr = parse_ppy_expr(inner)
     except Exception as exc:  # pylint: disable=broad-except  # lark and syntax errors
         message = str(exc).split("\n", maxsplit=1)[0]
-        raise ValueError(f"{original.strip()!r}: not an expression in the {syntax} syntax ({message})") from None
+        raise InvalidWatchError(f"{original.strip()!r}: not an expression ({message})") from None
     if names is not None:
         allowed = set(names)
         for ref in walk_expr(Walk.DOWN, Mut.alloc(expr)):
             if isinstance(ref.val, VarExpr) and ref.val.var not in allowed:
-                raise ValueError(f"{original.strip()!r}: '{ref.val.var}' is not a variable of the program.")
+                raise InvalidWatchError(f"{original.strip()!r}: '{ref.val.var}' is not a variable of the program.")
     return Watch(original.strip(), _WATCH_KINDS[head.strip()], expr)
 
 
@@ -413,7 +418,7 @@ class Tracer:
         from prodigy.analysis.result import exact_and_float, sym, to_latex, univariate_table
         start = time.perf_counter()
         limits = self.limits
-        dist, dist_values = for_trace(dist, self.session.program, self.session.syntax)
+        dist, dist_values = for_trace(dist, self.session.program)
         try:
             closed = str(dist)
         except Exception:  # pylint: disable=broad-except

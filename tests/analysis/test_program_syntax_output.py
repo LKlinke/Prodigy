@@ -1,5 +1,5 @@
 """Results speak the syntax of the program: queries, loop guards, certificates and steps are
-written in .ppy for a .ppy program and in pGCL for a pGCL program (issue #106)."""
+written in .ppy (issue #106; the only syntax since v0.6.0, #489)."""
 import json
 
 from click.testing import CliRunner
@@ -45,7 +45,7 @@ query Pr[c];
 
 
 def _analyse(source, syntax, decision="unroll:iterations=5"):
-    session = AnalysisSession(parse_program(source, syntax), source=source, syntax=syntax, config=ForwardAnalysisConfig(),
+    session = AnalysisSession(parse_program(source, syntax), source=source, config=ForwardAnalysisConfig(),
                               decisions={"0": decision}, record_steps=True, capture_output=True)
     return session.run().to_json()
 

@@ -8,8 +8,8 @@ next request tells the model why (e.g. Φ(I) − I), so it can correct itself.
 
 Answers are untrusted input. Before any computer algebra system sees a candidate (SymPy's parser
 evaluates Python code), it must consist of numbers, the program's variables and parameters,
-``+ - * / ^``, parentheses, ``sqrt`` and ``exp``, and parse as an expression of the program's
-syntax (pGCL or ``.ppy``, see :func:`admissible_expression`).
+``+ - * / ^``, parentheses, ``sqrt`` and ``exp``, and parse as a ``.ppy`` expression (see
+:func:`admissible_expression`).
 
 Configuration, read from the environment of ``prodigy`` (it never reaches the browser):
 
@@ -30,7 +30,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
-from prodigy.language.expression_allowlist import InadmissibleExpression, admissible_expression, to_syntax
+from prodigy.language.expression_allowlist import InadmissibleExpression, admissible_expression, to_ppy
 
 DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5-5"
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
@@ -256,13 +256,12 @@ def describe_rejection(message: str, details: Optional[Mapping[str, Any]]) -> st
 _FENCE = re.compile(r"```[A-Za-z]*\n?(.*?)```", re.S)
 _ANSWER = re.compile(r"^[\s*_#>]*ANSWER[\s*_]*:[\s*_`$]*(.*?)[\s*_`$]*$", re.I | re.M)
 _PREFIX = re.compile(r"^(?:[A-Za-z_]\w*\s*(?:\([^)]*\))?\s*=\s*)+")
-def candidate_from_answer(answer: str, names: Sequence[str], syntax: str = "ppy") -> str:
+def candidate_from_answer(answer: str, names: Sequence[str]) -> str:
     """The candidate in a model's answer: its last ``ANSWER:`` line, else the last line of its last
-    code block or of the answer, written with the power operator of ``syntax`` (``^`` for pGCL,
-    ``**`` for ``.ppy``).
+    code block or of the answer, written as a ``.ppy`` expression (powers as ``**``).
 
     Raises :class:`CandidateError` unless it is an expression over ``names``, numbers,
-    ``+ - * / ^``, parentheses, ``sqrt`` and ``exp`` that parses as an expression of ``syntax``
+    ``+ - * / ^``, parentheses, ``sqrt`` and ``exp`` that parses as a ``.ppy`` expression
     (:func:`admissible_expression`)."""
     marked = _ANSWER.findall(answer)
     if marked:
@@ -275,6 +274,6 @@ def candidate_from_answer(answer: str, names: Sequence[str], syntax: str = "ppy"
         if not lines:
             raise CandidateError("The answer contains no text.")
         line = lines[-1]
-    candidate = to_syntax(_PREFIX.sub("", line.strip("`$ ")).rstrip(".;").strip(), syntax)
-    admissible_expression(candidate, names, syntax)
+    candidate = to_ppy(_PREFIX.sub("", line.strip("`$ ")).rstrip(".;").strip())
+    admissible_expression(candidate, names)
     return candidate

@@ -5,8 +5,8 @@ A request looks like::
 
     {
       "source": "nat x; ...",
-      "syntax": "pgcl" | "ppy",              # optional, else from "file_name", else pgcl
-      "file_name": "dice.ppy",               # optional, only its extension is used
+      "syntax": "ppy",                       # optional; "pgcl" is rejected (removed in v0.6.0)
+      "file_name": "dice.ppy",               # optional, only its extension is checked
       "input_distribution": "x^3",          # optional, default: all variables 0
       "engine": "sympy" | "ginac",
       "normalize": true,                     # condition on observations
@@ -24,7 +24,7 @@ A request looks like::
 
 Generating functions (``input_distribution`` and the ``expression`` parameters of the loop
 strategies) are untrusted text for SymPy's parser: :func:`validate_request` admits only
-expressions in the program's syntax (:func:`prodigy.language.expression_allowlist.admissible_expression`),
+``.ppy`` expressions (:func:`prodigy.language.expression_allowlist.admissible_expression`),
 and :func:`prepare_request` turns them into the engines' spelling (``x**2`` -> ``x^2``).
 """
 from __future__ import annotations
@@ -52,16 +52,14 @@ MAX_WATCHES = 8
 MAX_STEP_ITERATIONS = 200
 
 
-def request_syntax(request: Dict[str, Any]) -> str:
-    """The syntax of the request's program, ``ppy``. Raises ``ValueError`` (a
-    :class:`~prodigy.analysis.deprecations.PgclRemovedError`) if ``syntax`` or the extension of ``file_name``
-    is ``pgcl``, and for an unknown syntax."""
-    # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.deprecations import program_syntax
+def check_request_syntax(request: Dict[str, Any]) -> None:
+    """The boundary check of the GUI's requests: the program is ``.ppy``. Raises ``ValueError`` (a
+    :class:`~prodigy.language.parser.PgclRemovedError`) if ``syntax`` or the extension of ``file_name``
+    is ``pgcl``, and for an unknown syntax (:func:`prodigy.language.parser.check_syntax`)."""
+    from prodigy.language.parser import check_syntax  # pylint: disable=import-outside-toplevel
     syntax = request.get("syntax")
     file_name = request.get("file_name")
-    return program_syntax(syntax if isinstance(syntax, str) else None,
-                          file_name if isinstance(file_name, str) else None)
+    check_syntax(syntax if isinstance(syntax, str) else None, file_name if isinstance(file_name, str) else None)
 
 
 def _expressions(request: Dict[str, Any]) -> List[Tuple[str, Dict[str, Any], str]]:
@@ -112,15 +110,14 @@ def validate_request(request: Dict[str, Any]) -> List[str]:
     if not isinstance(request.get("source"), str) or not request["source"].strip():
         problems.append("The program is empty.")
     try:
-        syntax = request_syntax(request)
+        check_request_syntax(request)
     except ValueError as exc:
         problems.append(str(exc))
-        syntax = "ppy"
     for label, container, key in _expressions(request):
         if container is not request:
             continue  # the generating functions of the decisions are checked by validate_decisions
         try:
-            admissible_expression(container[key], syntax=syntax, functions=MATH_FUNCTIONS)
+            admissible_expression(container[key], functions=MATH_FUNCTIONS)
         except InadmissibleExpression as exc:
             problems.append(f"{label}: {exc}")
     engine = request.get("engine", "sympy")
@@ -146,16 +143,17 @@ def validate_request(request: Dict[str, Any]) -> List[str]:
         problems.append(f"Solver {request.get('solver')!r}: {exc}.")
     try:
         decisions = parse_decisions(request.get("decisions") or {})
-        problems.extend(validate_decisions(decisions, syntax=syntax))
+        problems.extend(validate_decisions(decisions))
     except ValueError as exc:
         problems.append(str(exc))
-    problems.extend(_trace_problems(request, syntax))
+    problems.extend(_trace_problems(request))
     return problems
 
 
-def _trace_problems(request: Dict[str, Any], syntax: str) -> List[str]:
-    """Problems with ``watches`` and ``step_iterations``; a watch is parsed by the program's
-    expression parser (:func:`prodigy.analysis.trace.parse_watch`), never by SymPy."""
+def _trace_problems(request: Dict[str, Any]) -> List[str]:
+    """Problems with ``watches`` and ``step_iterations``; a watch is parsed by the ``.ppy``
+    expression parser (:func:`prodigy.analysis.trace.parse_watch`), never by SymPy. The program's names are
+    checked when the session is created (:class:`~prodigy.analysis.trace.InvalidWatchError`)."""
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.trace import parse_watch
     problems = []
@@ -168,7 +166,7 @@ def _trace_problems(request: Dict[str, Any], syntax: str) -> List[str]:
         else:
             for watch in watches:
                 try:
-                    parse_watch(watch, syntax)
+                    parse_watch(watch)
                 except ValueError as exc:
                     problems.append(f"Watch: {exc}")
     iterations = request.get("step_iterations")
@@ -196,7 +194,7 @@ def make_config(request: Dict[str, Any]) -> ForwardAnalysisConfig:
     )
 
 
-def check_input_distribution(source: str, syntax: str, text: str, engine: str = "sympy") -> Dict[str, Any]:
+def check_input_distribution(source: str, text: str, engine: str = "sympy") -> Dict[str, Any]:
     """Whether the initial distribution ``text`` is accepted for the program ``source`` (the check
     :func:`run_analysis` makes after the job started, #307): ``{"status": "ok"}``,
     ``{"status": "refused", "message": ..., "proof": ...}`` or ``{"status": "skipped"}`` if the
@@ -205,10 +203,10 @@ def check_input_distribution(source: str, syntax: str, text: str, engine: str = 
     from prodigy.analysis.input_distribution import InputDistributionError, input_distribution_from_text
     from prodigy.language import parse_program
     try:
-        program = parse_program(source, syntax)
+        program = parse_program(source)
         config = make_config({"engine": engine})
         with config.activate():
-            input_distribution_from_text(config, text.strip().replace("**", "^"), program, syntax)
+            input_distribution_from_text(config, text.strip().replace("**", "^"), program)
     except InputDistributionError as exc:
         return {"status": "refused", "message": str(exc), "proof": exc.details.get("proof")}
     except Exception:  # pylint: disable=broad-except
@@ -221,14 +219,14 @@ INPUT_CHECK_SECONDS = 8.0
 _INPUT_CHECK_CONTEXT = "spawn"  # tests use "fork", which carries their fakes into the process
 
 
-def _input_check_worker(connection: Any, source: str, syntax: str, text: str, engine: str) -> None:
+def _input_check_worker(connection: Any, source: str, text: str, engine: str) -> None:
     try:
-        connection.send(check_input_distribution(source, syntax, text, engine))
+        connection.send(check_input_distribution(source, text, engine))
     finally:
         connection.close()
 
 
-def check_input_distribution_bounded(source: str, syntax: str, text: str, engine: str = "sympy",
+def check_input_distribution_bounded(source: str, text: str, engine: str = "sympy",
                                      timeout: Optional[float] = None) -> Dict[str, Any]:
     """:func:`check_input_distribution` in a process of its own that is killed after ``timeout``
     seconds (:data:`INPUT_CHECK_SECONDS`), so that a hard input never blocks the server (the exact
@@ -238,7 +236,7 @@ def check_input_distribution_bounded(source: str, syntax: str, text: str, engine
     import multiprocessing
     context: Any = multiprocessing.get_context(_INPUT_CHECK_CONTEXT)
     receiver, sender = context.Pipe(duplex=False)
-    process = context.Process(target=_input_check_worker, args=(sender, source, syntax, text, engine), daemon=True)
+    process = context.Process(target=_input_check_worker, args=(sender, source, text, engine), daemon=True)
     process.start()
     sender.close()
     try:
@@ -261,16 +259,16 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
     from prodigy.language import parse_program
 
     from prodigy.analysis.session import AnalysisSession
-    from prodigy.analysis.trace import TraceLimits, parse_watch
+    from prodigy.analysis.trace import InvalidWatchError, TraceLimits
 
     problems = validate_request(request)
     if problems:
         return {"status": "error", "error": {"type": "request", "message": " ".join(problems),
                                              "problems": problems}}
     request = prepare_request(request)
-    source, syntax = request["source"], request_syntax(request)
+    source = request["source"]
     try:
-        program = parse_program(source, syntax)
+        program = parse_program(source)
     except Exception as exc:  # pylint: disable=broad-except
         return {"status": "error", "error": {"type": "syntax", "message": str(exc).split("\n", maxsplit=1)[0]}}
     input_distribution = request.get("input_distribution")
@@ -278,33 +276,29 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
         input_distribution = None
     record_steps = bool(request.get("record_steps", False))
     watches = list(request.get("watches") or []) if record_steps else []
-    names = list(program.variables) + list(program.parameters)
-    for watch in watches:
-        try:
-            parse_watch(watch, syntax, names)
-        except ValueError as exc:
-            return {"status": "error", "error": {"type": "request", "message": f"Watch: {exc}",
-                                                 "problems": [f"Watch: {exc}"]}}
-    session = AnalysisSession(
-        program,
-        source=source,
-        syntax=syntax,
-        config=make_config(request),
-        decisions=request.get("decisions") or {},
-        input_distribution=input_distribution,
-        allow_files=False,
-        capture_output=True,
-        output_callback=output,
-        progress_callback=progress,
-        record_steps=record_steps,
-        coefficient_limit=int(request.get("coefficients", 30)),
-        trace_limits=TraceLimits(iterates=int(request.get("step_iterations") or 40)),
-        watches=watches,
-        # Analyze mode: parameter synthesis is a comparison (Compare mode, #154)
-        parameter_synthesis="refuse",
-        # the plots build up while the coefficients are computed (#405)
-        stream_coefficients=progress is not None,
-    )
+    try:
+        session = AnalysisSession(
+            program,
+            source=source,
+            config=make_config(request),
+            decisions=request.get("decisions") or {},
+            input_distribution=input_distribution,
+            allow_files=False,
+            capture_output=True,
+            output_callback=output,
+            progress_callback=progress,
+            record_steps=record_steps,
+            coefficient_limit=int(request.get("coefficients", 30)),
+            trace_limits=TraceLimits(iterates=int(request.get("step_iterations") or 40)),
+            watches=watches,
+            # Analyze mode: parameter synthesis is a comparison (Compare mode, #154)
+            parameter_synthesis="refuse",
+            # the plots build up while the coefficients are computed (#405)
+            stream_coefficients=progress is not None,
+        )
+    except InvalidWatchError as exc:
+        return {"status": "error", "error": {"type": "request", "message": f"Watch: {exc}",
+                                             "problems": [f"Watch: {exc}"]}}
     return session.run().to_json()
 
 
@@ -312,7 +306,7 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
 # Comparing two programs (POST /api/equivalence)
 # ---------------------------------------------------------------------------------------
 
-def loop_program(source: str, syntax: str, loop_id: int) -> Dict[str, Any]:
+def loop_program(source: str, loop_id: int) -> Dict[str, Any]:
     """A loop of a program as a program of its own, for "Compare this loop" (#399): ``program`` (the
     program itself if the loop is all it does, else its declarations and the loop, see
     :func:`prodigy.analysis.session.isolate_loop`), ``loop`` (its id there), ``declarations`` (to start
@@ -322,7 +316,7 @@ def loop_program(source: str, syntax: str, loop_id: int) -> Dict[str, Any]:
     from prodigy.language import parse_program
 
     try:
-        program = parse_program(source, syntax)
+        program = parse_program(source)
     except Exception as exc:  # pylint: disable=broad-except
         raise ValueError(f"The program does not parse: {str(exc).split(chr(10), maxsplit=1)[0]}") from exc
     registry = LoopRegistry(program)
@@ -334,20 +328,21 @@ def loop_program(source: str, syntax: str, loop_id: int) -> Dict[str, Any]:
                          "itself can be compared.")
     instruction = registry.instruction(loop_id)
     assert instruction is not None
-    isolated = isolate_loop(program, instruction, syntax, source)
+    isolated = isolate_loop(program, instruction, source)
     if isolated is None:
-        raise ValueError(f"Loop {loop_id} cannot be written as a program of its own in this syntax.")
+        raise ValueError(f"Loop {loop_id} cannot be written as a program of its own.")
     return {"program": isolated.program, "loop": isolated.loop, "declarations": isolated.declarations,
             "whole": isolated.whole}
 
 
 def other_program_request(request: Dict[str, Any]) -> Dict[str, Any]:
-    """The request of the second program of an equivalence request: ``other_source`` in ``other_syntax``
-    (default: the syntax of the first program) with ``other_decisions``, and the options of the first."""
+    """The request of the second program of an equivalence request: ``other_source`` (with an optional
+    ``other_syntax``, checked like ``syntax``) with ``other_decisions``, and the options of the first."""
     other = {key: value for key, value in request.items()
              if key not in ("source", "syntax", "file_name", "decisions", "record_steps", "watches")}
     other["source"] = request.get("other_source")
-    other["syntax"] = request.get("other_syntax") or request_syntax(request)
+    if request.get("other_syntax") is not None:
+        other["syntax"] = request["other_syntax"]
     other["decisions"] = request.get("other_decisions") or {}
     return {key: value for key, value in other.items() if not key.startswith("other_")}
 
@@ -490,12 +485,12 @@ def run_equivalence(request: Dict[str, Any], *, output: Optional[Callable[[str],
     programs: Dict[str, Any] = {}
     for which, part in (("A", first_request), ("B", second_request)):
         try:
-            programs[which] = parse_program(part["source"], request_syntax(part))
+            programs[which] = parse_program(part["source"])
         except Exception as exc:  # pylint: disable=broad-except
             return _error("syntax", f"Program {which}: {str(exc).split(chr(10), maxsplit=1)[0]}")
     program, other = programs["A"], programs["B"]
     decisions = (first_request.get("decisions") or {}, second_request.get("decisions") or {})
-    session = AnalysisSession(program, source=first_request["source"], syntax=request_syntax(first_request),
+    session = AnalysisSession(program, source=first_request["source"],
                               config=make_config(first_request), decisions=decisions[0], allow_files=False,
                               capture_output=True, output_callback=output, progress_callback=progress,
                               parameter_synthesis="allow")
@@ -534,7 +529,7 @@ def run_equivalence(request: Dict[str, Any], *, output: Optional[Callable[[str],
         "prodigy_version": prodigy_version(),
         "status": "ok",
         "error": None,
-        "syntax": request_syntax(first_request),
+        "syntax": "ppy",
         "loops": loops(False),
         "other_loops": loops(True),
         "log": session.log.getvalue(),
@@ -743,7 +738,7 @@ def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], 
 
     The analysis runs up to the loop to find the distribution entering it. The model's answer is
     untrusted: :func:`~prodigy.analysis.ai_candidates.candidate_from_answer` admits only
-    expressions over the program's variables and parameters, in the program's syntax. The candidate
+    ``.ppy`` expressions over the program's variables and parameters. The candidate
     is a proposal; it is
     checked when the user runs the analysis with it."""
     # pylint: disable=import-outside-toplevel,too-many-locals
@@ -760,14 +755,13 @@ def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], 
     except (ai_candidates.AIConfigurationError, ValueError) as exc:
         return _error("configuration", str(exc))
     analysis = prepare_request(suggestion_analysis_request(request))
-    syntax = request_syntax(analysis)
     try:
-        program = parse_program(analysis["source"], syntax)
+        program = parse_program(analysis["source"])
     except Exception as exc:  # pylint: disable=broad-except
         return _error("syntax", str(exc).split("\n", maxsplit=1)[0])
     loop_id, form = int(request["loop"]), request["form"]
     session = _stopping_session(
-        loop_id, program=program, source=analysis["source"], syntax=syntax, config=make_config(analysis),
+        loop_id, program=program, source=analysis["source"], config=make_config(analysis),
         decisions=analysis["decisions"], allow_files=False, capture_output=True,
         output_callback=output, progress_callback=progress)
     if loop_id not in {loop.id for loop in session.loops}:
@@ -778,7 +772,7 @@ def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], 
         try:
             variables = list(program.variables.keys())
             if isinstance(input_distribution, str) and input_distribution.strip():
-                dist = input_distribution_from_text(session.config, input_distribution, program, syntax)
+                dist = input_distribution_from_text(session.config, input_distribution, program)
             else:
                 dist = session.config.factory.one(*variables)
             compute_discrete_distribution(program, dist, session.config)
@@ -796,13 +790,13 @@ def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], 
         print(f"Asking {provider.model} for an {form} candidate for loop {loop_id} (entered with {entering}).")
         try:
             answer = provider.ask(ai_candidates.SYSTEM_PROMPT, ai_candidates.prompt(
-                form, str(program), str(task.instruction), names, parameters, entering, []))
+                form, str(program), session.spell(task.instruction), names, parameters, entering, []))
         except ai_candidates.AIRequestError as exc:
             return _error("ai_request", str(exc))
     suggestion = {"loop": loop_id, "form": form, "param": ai_candidates.TARGET_PARAMS[form], "provider": provider.name,
                   "model": provider.model, "entering": entering, "answer": answer.strip()[-2000:]}
     try:
-        suggestion["candidate"] = ai_candidates.candidate_from_answer(answer, names + parameters, syntax)
+        suggestion["candidate"] = ai_candidates.candidate_from_answer(answer, names + parameters)
     except ai_candidates.CandidateError as exc:
         reason = str(exc)
         if not answer.strip() and provider.diagnostics:

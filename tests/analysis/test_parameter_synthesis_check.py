@@ -28,7 +28,7 @@ def _engine(engine):
 def _compare(source, other, answers, engine, monkeypatch):
     replies = iter(answers * 10)
     monkeypatch.setattr(builtins, "input", lambda _=None: next(replies))
-    session = AnalysisSession(None, syntax="ppy", config=_engine(engine),
+    session = AnalysisSession(None, config=_engine(engine),
                               provider=InteractiveDecisions(remember=True), parameter_synthesis="allow")
     with session.activate(), session.config.activate():
         return eq.compare(parse_program(source, "ppy"), parse_program(other, "ppy"), session)

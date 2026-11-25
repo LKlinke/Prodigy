@@ -15,7 +15,7 @@ PPY_DECLS = "x: nat;\ny: nat;\nz: nat;\n"
 
 
 def kinds(source, syntax="ppy"):
-    return [(w.kind, w.message) for w in language_warnings(parse_program(source, syntax), syntax)]
+    return [(w.kind, w.message) for w in language_warnings(parse_program(source, syntax))]
 
 
 @pytest.mark.parametrize("expr", ["x - y + z", "x - y + 1", "x - y + (z - 1)"])
@@ -75,7 +75,7 @@ def test_warnings_in_queries():
 def test_json_result_carries_the_warnings_with_position():
     from prodigy.analysis.session import AnalysisSession
     source = PPY_DECLS + "x = x - y + z;\nquery Ex[x];\n"
-    result = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy").run()
+    result = AnalysisSession(parse_program(source, "ppy"), source=source).run()
     assert result.warnings[0].startswith("line 4, column 5: `x - y + z`: ")
 
 

@@ -31,7 +31,7 @@ def _analyse(source, engine, decisions, simplification=True):
         pytest.importorskip("prodigy_ginac")
     config = ForwardAnalysisConfig(engine=getattr(ForwardAnalysisConfig.Engine, engine),
                                    use_simplification=simplification)
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, config=config,
                               decisions=decisions, capture_output=True, coefficient_limit=0)
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]

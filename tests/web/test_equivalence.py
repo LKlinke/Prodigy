@@ -362,7 +362,7 @@ def test_the_command_line_hints_at_check_equality():
     from prodigy.analysis.session import AnalysisSession
     from prodigy.language import parse_program
     source, _, decisions = _synthesis_pair()
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", decisions=decisions,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, decisions=decisions,
                               capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok"

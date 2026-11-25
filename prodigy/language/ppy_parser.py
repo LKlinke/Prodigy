@@ -4,9 +4,8 @@ Parser for .ppy
 ----------------
 
 A Lark-based parser for the Python-like surface syntax ``.ppy`` (see the design
-in ``docs/source/language-design.md``). It produces the same AST as
-the original pGCL parser did for everything that syntax could express (it was removed in v0.6.0),
-so the type checker, the compiler and the analysis do not change.
+in ``docs/source/language-design.md``). It produces the AST that the type checker, the compiler and the
+analysis work on.
 
 Sugar is translated into the existing AST:
 
@@ -311,7 +310,7 @@ def _probability(expr: Expr, meta: Meta) -> RealLitExpr:
 # pylint: disable=missing-function-docstring,too-many-public-methods,unused-argument
 @v_args(meta=True)
 class _ToAst(Transformer):
-    """Turn a Lark parse tree of ``.ppy`` into the pGCL AST."""
+    """Turn a Lark parse tree of ``.ppy`` into the AST."""
     def __init__(self) -> None:
         super().__init__()
         self.pending_loops: List[Tuple[LoopInstr, str, Meta]] = []

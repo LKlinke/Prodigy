@@ -32,7 +32,7 @@ SIMPLIFICATION = [pytest.param(True, id="simplified"), pytest.param(False, id="u
 
 def _queries(source: str, engine, simplification: bool = False) -> list:
     config = ForwardAnalysisConfig(engine=engine, use_simplification=simplification)
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, capture_output=True,
                               config=config)
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]
@@ -172,7 +172,7 @@ def test_algebraic_result(engine):
     # the counterexample of #243: the joint distribution after z := x - y is algebraic, not rational
     source = "x: nat;\ny: nat;\nz: nat = x - y;\nquery Ex[z];\nquery Pr[z == 0];"
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, capture_output=True,
                               config=config, input_distribution="(1/2)/(1 - x/4 - y/4)")
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]
@@ -186,7 +186,7 @@ def test_dependent_infinite_variables_outside_the_method_are_not_implemented(eng
     # (1/2) / (1 - x/4 - y^2/4): the kernel of the residue method is cubic
     source = "x: nat;\ny: nat;\nz: nat = x - y;"
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, capture_output=True,
                               config=config, input_distribution="(1/2)/(1 - x/4 - y^2/4)")
     result = session.run().to_json()
     assert result["status"] == "error"

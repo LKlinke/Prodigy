@@ -12,7 +12,7 @@ EXAMPLES = Path(__file__).resolve().parents[2] / "pgfexamples" / "lower_bounds"
 
 
 def analyse(source, decision, syntax="ppy"):
-    session = AnalysisSession(parse_program(source, syntax), source=source, syntax=syntax, config=ForwardAnalysisConfig(),
+    session = AnalysisSession(parse_program(source, syntax), source=source, config=ForwardAnalysisConfig(),
                               decisions={"0": decision}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result.get("error")

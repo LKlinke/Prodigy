@@ -1,5 +1,5 @@
 """
-Diagnostics for editors: parses and type-checks a program (pGCL or ``.ppy``) and reports
+Diagnostics for editors: parses and type-checks a ``.ppy`` program and reports
 problems with positions, plus an outline of the program (variables, loops with their ids,
 queries).
 
@@ -10,14 +10,16 @@ from __future__ import annotations
 import re
 import threading
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import copy
 
 from prodigy.language import parse_program, substitute
+from prodigy.language.ast import Expr, Instr
 from prodigy.language.check import CheckFail, check_program
 from prodigy.language.language_warnings import LanguageWarning, language_warnings
 from prodigy.language.positions import span_of
+from prodigy.language.ppy_printer import spell
 
 from prodigy.analysis.result import outline_program
 
@@ -59,17 +61,16 @@ def _locate_compact(source: str, text: str) -> Optional[Tuple[int, int, int, int
     return (*_position(source, start), *_position(source, end))
 
 
-def _locate_name(source: str, name: str, syntax: str = "ppy") -> Optional[Tuple[int, int, int, int]]:
-    match = re.search(rf"(?<![\w]){re.escape(name)}(?![\w])", _blank_comments(source, syntax))
+def _locate_name(source: str, name: str) -> Optional[Tuple[int, int, int, int]]:
+    match = re.search(rf"(?<![\w]){re.escape(name)}(?![\w])", _blank_comments(source))
     if match is None:
         return None
     return (*_position(source, match.start()), *_position(source, match.end()))
 
 
-def _blank_comments(source: str, syntax: str = "ppy") -> str:
-    # in .ppy, '//' is floor division; comments are '#' and '/* … */' (keep their line breaks)
-    pattern = r"#.*$|/\*[\s\S]*?\*/" if syntax == "ppy" else r"(#|//).*$"
-    return re.sub(pattern, lambda m: re.sub(r"[^\n]", " ", m.group(0)), source, flags=re.M)
+def _blank_comments(source: str) -> str:
+    # '//' is floor division; comments are '#' and '/* … */' (keep their line breaks)
+    return re.sub(r"#.*$|/\*[\s\S]*?\*/", lambda m: re.sub(r"[^\n]", " ", m.group(0)), source, flags=re.M)
 
 
 def _diagnostic(severity: str, message: str, where: Optional[Tuple[int, int, int, int]],
@@ -97,24 +98,11 @@ def _parse_error(source: str, exc: Exception) -> Dict[str, Any]:
     return _diagnostic("error", message, where, source)
 
 
-def _spelling(node: Any, syntax: str) -> str:
-    """``node`` as it is written in ``syntax`` (for finding it in the source)."""
-    if syntax == "ppy":
-        # pylint: disable=import-outside-toplevel
-        from prodigy.language.ppy_printer import expr_to_ppy, instr_to_ppy
-        printer = expr_to_ppy if type(node).__name__.endswith("Expr") else instr_to_ppy
-        try:
-            return printer(node)
-        except Exception:  # pylint: disable=broad-except  # not printable: search the pGCL spelling
-            pass
-    return str(node)
-
-
-def _check_failure(source: str, failure: CheckFail, syntax: str = "ppy") -> Dict[str, Any]:
+def _check_failure(source: str, failure: CheckFail) -> Dict[str, Any]:
     message = failure.message.replace("NatType(bounds=None)", "nat").replace("BoolType()", "bool") \
         .replace("RealType()", "real")
-    blanked = _blank_comments(source, syntax)
-    assignment = r"=(?!=)" if syntax == "ppy" else ":="
+    blanked = _blank_comments(source)
+    assignment = r"=(?!=)"
     where = None
     location = failure.location
     if location is not None:
@@ -126,16 +114,15 @@ def _check_failure(source: str, failure: CheckFail, syntax: str = "ppy") -> Dict
         if where is None:
             var = getattr(location, "var", None)
             if isinstance(var, str):
-                where = _locate_name(source, var, syntax)
+                where = _locate_name(source, var)
         if where is None:
-            where = _locate_compact(blanked, _spelling(location, syntax))
+            where = _locate_compact(blanked, spell(cast(Union[Expr, Instr], location)))
     if where is None:
         match = re.match(r"(\w+) is not", failure.message)
         if match:
-            where = _locate_name(source, match.group(1), syntax)
+            where = _locate_name(source, match.group(1))
     return _diagnostic("warning", message, where, source,
-                       hint="Reported by the pGCL type checker; Prodigy may still be able to analyse the "
-                            "program.")
+                       hint="Reported by the type checker; Prodigy may still be able to analyse the program.")
 
 
 _LANGUAGE_HINTS = {
@@ -144,17 +131,17 @@ _LANGUAGE_HINTS = {
 }
 
 
-def _locate_in_instruction(source: str, warning: LanguageWarning, syntax: str) -> Optional[Tuple[int, int, int, int]]:
+def _locate_in_instruction(source: str, warning: LanguageWarning) -> Optional[Tuple[int, int, int, int]]:
     """The place of the warning's expression: inside the instruction's source text if the expression is found
     as printed, otherwise the whole instruction (expressions carry no spans of their own)."""
     span = span_of(warning.instr)
     if span is None:
-        return _locate_compact(_blank_comments(source, syntax), _spelling(warning.expr, syntax))
+        return _locate_compact(_blank_comments(source), spell(warning.expr))
     lines = source.split("\n")
     start = sum(len(line) + 1 for line in lines[:span.line - 1]) + span.column - 1
     end = sum(len(line) + 1 for line in lines[:span.end_line - 1]) + span.end_column - 1
-    segment = _blank_comments(source, syntax)[start:end]
-    found = _locate_compact(segment, _spelling(warning.expr, syntax))
+    segment = _blank_comments(source)[start:end]
+    found = _locate_compact(segment, spell(warning.expr))
     if found is None:
         return (span.line, span.column, span.end_line, span.end_column)
     first_line, first_column, last_line, last_column = found
@@ -163,35 +150,34 @@ def _locate_in_instruction(source: str, warning: LanguageWarning, syntax: str) -
             base_line + last_line - 1, last_column + (base_column - 1 if last_line == 1 else 0))
 
 
-def language_warning_diagnostics(program: Any, source: str, syntax: str = "ppy") -> List[Dict[str, Any]]:
+def language_warning_diagnostics(program: Any, source: str) -> List[Dict[str, Any]]:
     """Warnings for valid programs that are likely to surprise (monus, implicit casts), as diagnostics
     with the position of the expression; also used by the CLI."""
     try:
-        warnings = language_warnings(program, syntax)
+        warnings = language_warnings(program)
     except Exception:  # pylint: disable=broad-except  # a heuristic check must never hide the real diagnostics
         return []
-    return [_diagnostic("warning", warning.message, _locate_in_instruction(source, warning, syntax), source,
+    return [_diagnostic("warning", warning.message, _locate_in_instruction(source, warning), source,
                         hint=_LANGUAGE_HINTS[warning.kind]) for warning in warnings]
 
 
-def type_error(program: Any, source: str, syntax: str = "ppy") -> Optional[Dict[str, Any]]:
+def type_error(program: Any, source: str) -> Optional[Dict[str, Any]]:
     """The GUI's diagnostic for the first type error of ``program`` (None if it type checks); also used by the CLI."""
     checked_program = copy.deepcopy(program)
     substitute.substitute_constants(checked_program)
-    failure = check_program(checked_program, spell=lambda node: _spelling(node, syntax))
-    return _check_failure(source, failure, syntax) if isinstance(failure, CheckFail) else None
+    failure = check_program(checked_program)
+    return _check_failure(source, failure) if isinstance(failure, CheckFail) else None
 
 
-def check_source(source: str, syntax: str = "ppy") -> Dict[str, Any]:
-    """Diagnostics and outline for ``source`` in ``syntax`` (``pgcl`` or ``ppy``; cached,
-    thread-safe)."""
-    key = f"{syntax}\0{source}"
+def check_source(source: str) -> Dict[str, Any]:
+    """Diagnostics and outline for the ``.ppy`` program ``source`` (cached, thread-safe)."""
+    key = source
     with _LOCK:
         cached = _CACHE.get(key)
         if cached is not None:
             _CACHE.move_to_end(key)
             return cached
-    result = _check(source, syntax)
+    result = _check(source)
     with _LOCK:
         _CACHE[key] = result
         while len(_CACHE) > _CACHE_SIZE:
@@ -231,15 +217,15 @@ def _nested_inference_limits(program: Any, source: str) -> List[Dict[str, Any]]:
     return found
 
 
-def _check(source: str, syntax: str) -> Dict[str, Any]:
+def _check(source: str) -> Dict[str, Any]:
     diagnostics: List[Dict[str, Any]] = []
     try:
-        program = parse_program(source, syntax)
+        program = parse_program(source)
     except Exception as exc:  # pylint: disable=broad-except
         diagnostics.append(_parse_error(source, exc))
         return {"ok": False, "diagnostics": diagnostics, "outline": None}
     try:
-        outline = outline_program(program, source, syntax)
+        outline = outline_program(program, source)
     except Exception as exc:  # pylint: disable=broad-except
         outline = None
         diagnostics.append(_diagnostic("warning", f"Could not outline the program: {exc}", None, source))
@@ -247,22 +233,20 @@ def _check(source: str, syntax: str) -> Dict[str, Any]:
         # same as prodigy.language.compiler.compile_program, without parsing a second time
         checked_program = copy.deepcopy(program)
         substitute.substitute_constants(checked_program)
-        checked = check_program(checked_program, spell=lambda node: _spelling(node, syntax))
+        checked = check_program(checked_program)
         if isinstance(checked, CheckFail):
-            diagnostics.append(_check_failure(source, checked, syntax))
+            diagnostics.append(_check_failure(source, checked))
     except Exception as exc:  # pylint: disable=broad-except
         diagnostics.append(_diagnostic("warning", f"Type check failed: {exc}", None, source,
-                                       hint="Reported by the pGCL type checker; Prodigy may still be "
+                                       hint="Reported by the type checker; Prodigy may still be "
                                             "able to analyse the program."))
-    diagnostics.extend(language_warning_diagnostics(program, source, syntax))
+    diagnostics.extend(language_warning_diagnostics(program, source))
     diagnostics.extend(_nested_inference_limits(program, source))
     if outline is not None and not outline["queries"]:
         line, _ = _end_of_source(source)
         diagnostics.append({"severity": "info", "line": line, "column": 1, "end_line": line, "end_column": 1,
-                            "message": "No queries: add " + (
-                                "query Pr[...], Ex[...], Var[...] or Cov[...]" if syntax == "ppy"
-                                else "?Pr[...], ?Ex[...], ?Var[...] or ?Cov[...]")
-                                       + " to get values with bounds.",
+                            "message": "No queries: add query Pr[...], Ex[...], Var[...] or Cov[...] to get "
+                                       "values with bounds.",
                             "hint": ""})
     return {"ok": not any(d["severity"] == "error" for d in diagnostics), "diagnostics": diagnostics,
             "outline": outline}

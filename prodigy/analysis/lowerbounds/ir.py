@@ -1,7 +1,7 @@
 # pylint: disable=invalid-name
 # Names follow the mathematics (H, Phi, A, b, ...); scipy and FLINT are imported where they are needed.
 """
-Translation of pGCL programs (the AST of prodigy.language) into the small intermediate representation used by the
+Translation of programs (the AST of prodigy.language) into the small intermediate representation used by the
 exact generating-function calculus of :mod:`prodigy.analysis.lowerbounds.egcalc`.
 
 Statements::
@@ -44,7 +44,7 @@ _CMPS = {Binop.LEQ: "<=", Binop.LT: "<", Binop.GT: ">", Binop.GEQ: ">=", Binop.E
 
 
 def expr_to_ir(expr: Expr) -> IR:
-    """Translate a pGCL expression."""
+    """Translate a program expression."""
     if isinstance(expr, NatLitExpr):
         return "num", Fraction(int(expr.value))
     if isinstance(expr, RealLitExpr):
@@ -69,7 +69,7 @@ def expr_to_ir(expr: Expr) -> IR:
 
 
 def instr_to_ir(instr: Union[Instr, Sequence[Instr]]) -> IR:
-    """Translate a pGCL instruction or a list of instructions."""
+    """Translate a program instruction or a list of instructions."""
     if isinstance(instr, list):
         return "seq", [instr_to_ir(i) for i in instr]
     if isinstance(instr, SkipInstr):

@@ -42,8 +42,7 @@ def exact_c(k):
 def analyse(source, decisions, monkeypatch=None, engine=ForwardAnalysisConfig.Engine.SYMPY, coefficients=12):
     if monkeypatch is not None:
         monkeypatch.setattr(sandwich_module, "evt_sandwich", _fixed_sandwich)
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy",
-                              config=ForwardAnalysisConfig(engine=engine), decisions=decisions,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, config=ForwardAnalysisConfig(engine=engine), decisions=decisions,
                               capture_output=True, coefficient_limit=coefficients)
     result = session.run().to_json()
     assert result["status"] == "ok", result.get("error")

@@ -48,5 +48,5 @@ Exact Division
 
 from .distribution import (CommonDistributionsFactory, Distribution,
                            DistributionParam, MarginalType, NonFiniteMarginalError, ZeroDivisorError,
-                           State, known_convergent_series, output_syntax)
+                           State, known_convergent_series)
 from .ordering import UndecidedComparisonError

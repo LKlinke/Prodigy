@@ -21,7 +21,7 @@ def analyse(source, engine="SYMPY", syntax="ppy", decisions=None):
         pytest.importorskip("prodigy_ginac")
     config = ForwardAnalysisConfig(engine=getattr(ForwardAnalysisConfig.Engine, engine),
                                    use_simplification=True)
-    session = AnalysisSession(parse_program(source, syntax), source=source, syntax=syntax, config=config,
+    session = AnalysisSession(parse_program(source, syntax), source=source, config=config,
                               decisions=decisions or {}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]
@@ -173,8 +173,7 @@ def _query(source, moments):
     # pylint: disable=import-outside-toplevel,protected-access
     from prodigy.analysis.instructionhandler.query_handler import QueryHandler
     program = parse_program(source, "ppy")
-    session = AnalysisSession(program, source=source, syntax="ppy",
-                              config=ForwardAnalysisConfig(), decisions={}, capture_output=True)
+    session = AnalysisSession(program, source=source, config=ForwardAnalysisConfig(), decisions={}, capture_output=True)
     with session.activate():
         QueryHandler._QueryHandler__query_spread(program.instructions[0], _Stub(moments), session)
     return session.queries[-1]

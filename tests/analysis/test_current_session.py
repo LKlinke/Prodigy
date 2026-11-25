@@ -61,7 +61,7 @@ def test_one_session_for_a_whole_run_without_an_active_session(monkeypatch):
 def test_an_active_session_is_used_for_the_run():
     config = ForwardAnalysisConfig()
     program = parse_program(PROGRAM, "ppy")
-    session = AnalysisSession.detached("ppy")
+    session = AnalysisSession.detached()
     with session.activate():
         compute_discrete_distribution(program, config.factory.one(*program.variables), config)
     assert len(session.queries) == 2

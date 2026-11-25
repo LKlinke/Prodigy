@@ -201,7 +201,7 @@ def test_modulo_of_a_conditioned_poisson_variable(engine, rate, modulus, observe
     queries = "".join(f"query Pr[x == {r}];" for r in range(modulus))
     source = f"x: nat; y: nat; x = poisson({rate}); {observe} x = x % {modulus}; y = poisson(1/2); {queries}"
     config = ForwardAnalysisConfig(engine=getattr(ForwardAnalysisConfig.Engine, engine))
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, config=config,
                               capture_output=True, coefficient_limit=12)
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]

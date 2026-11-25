@@ -33,7 +33,7 @@ def _analyse(source: str, engine: Engine):
     if engine == Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, config=config,
                               capture_output=True)
     return session.run().to_json()
 

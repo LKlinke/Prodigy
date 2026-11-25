@@ -177,7 +177,7 @@ def test_high_risk_policyholder_example(engine):
     source = EXAMPLE.read_text(encoding="utf-8")
     assert "negative_binomial" in source
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, config=config,
                               decisions={}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]

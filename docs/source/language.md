@@ -43,8 +43,6 @@ and cannot be used as names:
 `print`, `query`, `real`, `return`, `sample`, `skip`, `switch`, `true`, `while`.
 
 The names of the built-in distributions (`unif`, `geometric`, …) cannot be used for functions.
-`prodigy convert` renames variables of a `.pgcl` program whose name is reserved in `.ppy` by
-appending `_` (`switch` becomes `switch_`).
 
 ### Literals
 
@@ -163,7 +161,7 @@ From the weakest to the strongest binding:
 | `-` (unary) | negation |
 | `**` | power (right-associative; `-x ** 2` is `-(x ** 2)`) |
 
-The canonical spelling is `and`/`or`/`not`; `prodigy convert` and the pretty printer write it.
+The canonical spelling is `and`/`or`/`not`; the pretty printer and all messages write it.
 As in Python, `not` (and `!`) binds weaker than the comparisons: `not x == 1` is `not (x == 1)`.
 Parentheses group as usual. Square brackets are not an expression: there are no Iverson brackets
 `[g]` (a condition as the number 0 or 1); a program that uses them, or the former `tick(e)`
@@ -327,9 +325,6 @@ if (Ex[d] > 1 and Pr[d == 1] < 3/4) { … }
   program state, so a `dist` cannot appear in a query; query a draw instead
   (`y = sample(d); query Ex[y];`, which by the law of total expectation is the mean of `Ex[d]`).
 
-The `.pgcl` syntax is `dist d;`, `d := infer { f(2) }`, `x := sample { d }`, `Pr[d = 1]` and
-`Ex[d]`.
-
 ### What the analysis computes
 
 Every program above has a well-defined semantics (see {doc}`language-design`). The analysis
@@ -389,13 +384,12 @@ Their guarantees are stricter than the one of `Ex`:
   variance is undefined, and so is a covariance with an infinite moment: the query is not computed,
   with a message naming the moment. A value is never `nan`.
 
-In `.pgcl` they are `?Var[e]` and `?Cov[e, f]`.
+Results and messages name queries, loop guards and instructions in `.ppy`: `x == 1 and y < 3`
+(the result JSON keeps the key `syntax`, always `ppy`, see {doc}`gui`).
 
-Results name queries, loop guards and instructions in the syntax of the program: a `.ppy`
-program gets `x == 1 and y < 3`, a `.pgcl` program `(x = 1) & (y < 3)` (the result JSON states the
-syntax in `syntax`, see {doc}`gui`).
+## Differences from the removed `.pgcl` syntax
 
-## Differences from `.pgcl`
+For reading programs written for Prodigy v0.5 and older (the syntax was removed in v0.6.0):
 
 | `.pgcl` | `.ppy` |
 |---|---|
@@ -419,7 +413,7 @@ syntax in `syntax`, see {doc}`gui`).
 
 The [Lark](https://lark-parser.readthedocs.io/) grammar that {mod}`prodigy.language.ppy_parser` is
 built from. The parser turns sugar (`else if`, `switch`, `categorical`, declarations with values)
-into the program representation shared with `.pgcl`, and reports errors with line and column.
+into the program representation (the AST), and reports errors with line and column.
 
 ```{literalinclude} _generated/ppy.lark
 :language: text

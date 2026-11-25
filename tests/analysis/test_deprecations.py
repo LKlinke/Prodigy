@@ -6,10 +6,14 @@ import pytest
 from click.testing import CliRunner
 
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.deprecations import PGCL_REMOVED, REMOVED_ENGINES, PgclRemovedError, program_syntax
+from prodigy.analysis.deprecations import PGCL_REMOVED, REMOVED_ENGINES, PgclRemovedError
 from prodigy.analysis.exceptions import ConfigurationError
+from prodigy.analysis.session import AnalysisSession
 from prodigy.analysis.solver.solver_type import SolverType
 from prodigy.cli import cli
+from prodigy.language.check import CheckFail
+from prodigy.language.compiler import compile_program
+from prodigy.language.parser import check_syntax, parse_program
 from prodigy.web.app import create_app
 from prodigy.web.requests import make_config, validate_request
 
@@ -21,12 +25,13 @@ Z3_REBUILT = "the Z3 solver is being rebuilt (#474); use sympy"
 
 def test_the_message_names_the_release_and_the_migration():
     assert "v0.6.0" in PGCL_REMOVED and "v0.5.x" in PGCL_REMOVED and "prodigy convert" in PGCL_REMOVED
-    assert program_syntax() == program_syntax("ppy") == program_syntax(path="a.ppy") == "ppy"
+    for kwargs in ({}, {"syntax": "ppy"}, {"path": "a.ppy"}):
+        check_syntax(**kwargs)
     for kwargs in ({"syntax": "pgcl"}, {"path": "a.pgcl"}, {"syntax": "ppy", "path": "a.pgcl"}):
         with pytest.raises(PgclRemovedError, match="removed in v0.6.0"):
-            program_syntax(**kwargs)
+            check_syntax(**kwargs)
     with pytest.raises(ValueError, match="Unknown syntax"):
-        program_syntax("java")
+        check_syntax("java")
 
 
 @pytest.mark.parametrize("command", ["main", "analyze", "outline"])
@@ -121,3 +126,18 @@ def test_direct_access_to_a_removed_engine_gives_the_removal_message():
         _ = ForwardAnalysisConfig.Engine.SYMENGINE
     with pytest.raises(AttributeError, match="^FOO$"):
         _ = ForwardAnalysisConfig.Engine.FOO
+
+
+def test_session_syntax_argument_is_deprecated():
+    program = parse_program(PPY)
+    with pytest.warns(DeprecationWarning, match="removed in v0.8.0"):
+        AnalysisSession(program, source=PPY, syntax="ppy")
+    with pytest.warns(DeprecationWarning), pytest.raises(PgclRemovedError):
+        AnalysisSession(program, source=PPY, syntax="pgcl")
+
+
+def test_messages_outside_an_analysis_are_ppy():
+    # the type checker spells expressions in .ppy also when no analysis runs (#489)
+    failure = compile_program("x: nat;\ny: nat;\nx = iid(bernoulli(1/2), y == 1);")
+    assert isinstance(failure, CheckFail)
+    assert "iid(bernoulli(1/2), y == 1)" in failure.message and "got y == 1." in failure.message

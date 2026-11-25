@@ -16,7 +16,7 @@ from .types import Type
 @attr.s
 class Program:
     """
-    A pGCL program has a bunch of variables with types, constants with defining expressions, and a list of instructions.
+    A program has a bunch of variables with types, constants with defining expressions, and a list of instructions.
     """
 
     declarations: List[Decl] = attr.ib(repr=False)
@@ -115,7 +115,9 @@ class Program:
 
     def __str__(self) -> str:
         """
-        Convert this program to corresponding source code in pGCL.
+        The program as the internal text of its parts (like :meth:`Expr.__str__ <prodigy.language.ast.Expr>`);
+        :func:`prodigy.language.ppy_printer.program_to_ppy` prints it as ``.ppy``. (Printing ``.ppy`` here would
+        make the AST import its printer, an import cycle that ``tests/test_layering.py`` forbids.)
 
         .. doctest::
 

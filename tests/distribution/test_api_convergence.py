@@ -123,7 +123,7 @@ x: nat;
 x = geometric(p);
 """
     config = ForwardAnalysisConfig(engine=getattr(Engine, engine))
-    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, config=config,
                               decisions={}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result.get("error")
@@ -239,7 +239,7 @@ def test_filter_with_fresh_variables_is_proven(engine, monkeypatch):
         return "a forced obstacle" if set(summed) & present else None
 
     monkeypatch.setattr("prodigy.distribution.distribution.marginal_obstacle", forced)
-    with pytest.raises(NonFiniteMarginalError, match=r"The filter of \(x - 1\) < 2 is not proven .*forced obstacle"):
+    with pytest.raises(NonFiniteMarginalError, match=r"The filter of x - 1 < 2 is not proven .*forced obstacle"):
         factory.from_expr("1/((2 - x)*(2 - y)) + sqrt(4 - x)", "x", "y").filter(parse_ppy_expr("x - 1 < 2"))
 
 

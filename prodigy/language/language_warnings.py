@@ -4,8 +4,8 @@ Language warnings: programs that are valid but likely to surprise (#377, #335).
 The type checker (:mod:`prodigy.language.check`) rejects programs without a well-defined semantics. This
 module reports programs that are accepted and keep their meaning, but where the reader may expect
 something else. Every warning carries the instruction it stands in (whose source span the caller
-can use) and the expression it is about. The messages spell expressions in the syntax of the
-program. The CLI prints the warnings on stderr; the GUI shows them as editor hints
+can use) and the expression it is about. The messages spell expressions in
+``.ppy``. The CLI prints the warnings on stderr; the GUI shows them as editor hints
 (:mod:`prodigy.web.diagnostics`).
 
 Two checks exist:
@@ -29,7 +29,7 @@ Two checks exist:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Iterator, List
+from typing import Iterator, List
 
 from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType, Expr, Instr, NatLitExpr, NatType,
                   Program, RealLitExpr, UnopExpr, VarExpr)
@@ -47,10 +47,6 @@ class LanguageWarning:
     message: str
     instr: Instr
     expr: Expr
-
-
-def _printer(syntax: str) -> Callable[[Expr], str]:
-    return expr_to_ppy if syntax == "ppy" else str
 
 
 def _is_constant(program: Program, expr: Expr) -> bool:
@@ -75,33 +71,32 @@ def _truncating_subtraction(program: Program, expr: Expr) -> bool:
     return isinstance(get_type(program, expr, check=False), NatType)
 
 
-def _operand(expr: Expr, spell: Callable[[Expr], str]) -> str:
+def _operand(expr: Expr) -> str:
     """``expr`` as an operand of ``+``/``-``: sums and differences get parentheses."""
-    text = spell(expr)
+    text = expr_to_ppy(expr)
     if isinstance(expr, BinopExpr) and expr.operator in (Binop.PLUS, Binop.MINUS):
         return f"({text})"
     return text
 
 
-def _monus_warnings(program: Program, instr: Instr, expr: Expr,
-                    spell: Callable[[Expr], str]) -> Iterator[LanguageWarning]:
+def _monus_warnings(program: Program, instr: Instr, expr: Expr) -> Iterator[LanguageWarning]:
     """Explicit parentheses around the subtraction state that the grouping is intended: no warning."""
     if not isinstance(expr, BinopExpr):
         return
     if expr.operator == Binop.PLUS and _truncating_subtraction(program, expr.lhs) \
             and not is_parenthesized(expr.lhs):
         assert isinstance(expr.lhs, BinopExpr)
-        keep = f"({spell(expr.lhs)}) + {_operand(expr.rhs, spell)}"
-        better = f"({_operand(expr.lhs.lhs, spell)} + {_operand(expr.rhs, spell)}) - {_operand(expr.lhs.rhs, spell)}"
+        keep = f"({expr_to_ppy(expr.lhs)}) + {_operand(expr.rhs)}"
+        better = f"({_operand(expr.lhs.lhs)} + {_operand(expr.rhs)}) - {_operand(expr.lhs.rhs)}"
         yield LanguageWarning(
-            "monus", f"`{spell(expr)}`: `-` is truncated at 0 before `+` is applied; write `{keep}` to keep it, "
+            "monus", f"`{expr_to_ppy(expr)}`: `-` is truncated at 0 before `+` is applied; write `{keep}` to keep it, "
             f"or `{better}` for integer arithmetic.", instr, expr)
     elif expr.operator == Binop.MINUS and _truncating_subtraction(program, expr.rhs) \
             and not is_parenthesized(expr.rhs):
         assert isinstance(expr.rhs, BinopExpr)
-        better = f"({_operand(expr.lhs, spell)} + {_operand(expr.rhs.rhs, spell)}) - {_operand(expr.rhs.lhs, spell)}"
+        better = f"({_operand(expr.lhs)} + {_operand(expr.rhs.rhs)}) - {_operand(expr.rhs.lhs)}"
         yield LanguageWarning(
-            "monus", f"`{spell(expr)}`: the subtraction on the right of `-` is truncated at 0 first, so this is "
+            "monus", f"`{expr_to_ppy(expr)}`: the subtraction on the right of `-` is truncated at 0 first, so this is "
             f"not `a - b + c`; write `{better}` for integer arithmetic.", instr, expr)
 
 
@@ -114,22 +109,21 @@ def _cast_warnings(program: Program, instr: Instr) -> Iterator[LanguageWarning]:
         yield LanguageWarning("cast", "implicit cast from bool to nat (true → 1, false → 0)", instr, instr.rhs)
 
 
-def _warnings_of(program: Program, instructions: List[Instr], syntax: str) -> Iterator[LanguageWarning]:
-    spell = _printer(syntax)
+def _warnings_of(program: Program, instructions: List[Instr]) -> Iterator[LanguageWarning]:
     for ref in walk_instrs(Walk.DOWN, instructions):
         instr = ref.val
         yield from _cast_warnings(program, instr)
         for expr_ref in walk_instr_exprs(Walk.DOWN, instr):
-            yield from _monus_warnings(program, instr, expr_ref.val, spell)
+            yield from _monus_warnings(program, instr, expr_ref.val)
 
 
-def language_warnings(program: Program, syntax: str = "ppy") -> List[LanguageWarning]:
+def language_warnings(program: Program) -> List[LanguageWarning]:
     """The warnings of ``program`` (and its functions), in source order of their instructions.
 
     Call it on a program that type checks, before constants are substituted; expressions that cannot
     be typed are skipped."""
-    found: List[LanguageWarning] = list(_warnings_of(program, program.instructions, syntax))
+    found: List[LanguageWarning] = list(_warnings_of(program, program.instructions))
     for function in program.functions.values():
         local = Program.from_function(function, program, copy_functions=True)
-        found.extend(_warnings_of(local, function.instructions, syntax))
+        found.extend(_warnings_of(local, function.instructions))
     return found

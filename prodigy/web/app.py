@@ -27,7 +27,7 @@ A small Flask application: one page (``templates/app.html`` with the ES modules 
 ================================  ==================================================================
 
 Programs are in the ``.ppy`` syntax. A request with ``syntax`` ``pgcl`` or a ``file_name`` ending in
-``.pgcl`` is rejected with :data:`prodigy.analysis.deprecations.PGCL_REMOVED` (the syntax was removed in
+``.pgcl`` is rejected with :data:`prodigy.language.parser.PGCL_REMOVED` (the syntax was removed in
 v0.6.0).
 
 The server binds to localhost by default. Requests to the API must be JSON and come from
@@ -45,11 +45,11 @@ from urllib.parse import urlparse
 
 from flask import Flask, abort, jsonify, render_template, request
 
-from prodigy.analysis.deprecations import PgclRemovedError, program_syntax
+from prodigy.language.parser import PgclRemovedError, check_syntax
 from prodigy.web.examples import ExampleLibrary, default_examples_dir
 from prodigy.web.jobs import BusyError, JobManager
 from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, check_input_distribution_bounded,
-                                  joint_request, loop_program, request_syntax, validate_equivalence,
+                                  joint_request, loop_program, check_request_syntax, validate_equivalence,
                                   validate_request, validate_suggestion)
 
 # Longest initial distribution that /api/check examines (longer ones are checked by the analysis).
@@ -165,7 +165,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
         if not isinstance(source, str):
             abort(400, description="'source' is missing.")
         try:
-            syntax = request_syntax(payload)
+            check_request_syntax(payload)
         except PgclRemovedError as exc:
             # shown in the editor like any other error of the program
             return jsonify({"ok": False, "outline": None, "syntax": "pgcl", "diagnostics": [
@@ -173,12 +173,12 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
                  "message": str(exc)}]})
         except ValueError as exc:
             abort(400, description=str(exc))
-        result = {**check_source(source, syntax), "syntax": syntax}
+        result = {**check_source(source), "syntax": "ppy"}
         text = payload.get("input_distribution")
         if isinstance(text, str) and text.strip() and len(text) <= MAX_INPUT_DISTRIBUTION:
             engine = payload.get("engine")
             result["input_distribution"] = check_input_distribution_bounded(
-                source, syntax, text, engine if isinstance(engine, str) else "sympy")
+                source, text, engine if isinstance(engine, str) else "sympy")
         return jsonify(result)
 
     @app.post("/api/loop-program")
@@ -189,7 +189,8 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
         if not isinstance(source, str) or not isinstance(loop, int) or isinstance(loop, bool):
             abort(400, description="'source' and the loop id 'loop' are needed.")
         try:
-            return jsonify(loop_program(source, request_syntax(payload), loop))
+            check_request_syntax(payload)
+            return jsonify(loop_program(source, loop))
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 422
 
@@ -306,7 +307,7 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
     @app.get("/api/examples/<path:example_id>")
     def example(example_id: str) -> Any:
         try:
-            program_syntax(request.args.get("syntax"))
+            check_syntax(request.args.get("syntax"))
             return jsonify(library.load(example_id))
         except (FileNotFoundError, OSError):
             abort(404, description="Unknown example.")

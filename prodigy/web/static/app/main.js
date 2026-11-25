@@ -1398,7 +1398,7 @@ async function boot() {
   const storedSource = load("source", null);
   editor = createEditor($("editor"), {
     doc: storedSource ?? WELCOME,
-    // a program kept by an earlier version may be pGCL; the server then reports that .pgcl was removed
+    // a program kept by an earlier version may be .pgcl; the server then reports that .pgcl was removed
     syntax: "ppy",
     onSyntaxChange: syntaxChanged,
     onCompanion: companionApplied,
