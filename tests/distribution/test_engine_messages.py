@@ -8,7 +8,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.distribution import NonFiniteMarginalError
 from prodigy.distribution.generating_function import GeneratingFunction
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 ENGINES = ["SYMPY", "GINAC"]
 
@@ -17,7 +17,7 @@ def _error_message(source, engine):
     if engine == "GINAC":
         pytest.importorskip("prodigy_ginac")
     config = ForwardAnalysisConfig(engine=getattr(ForwardAnalysisConfig.Engine, engine))
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
                               capture_output=True, coefficient_limit=0)
     result = session.run().to_json()
     assert result["status"] == "error"
@@ -51,7 +51,7 @@ def test_iid_of_sample_pgf_is_the_iid_sum_of_the_generating_function(engine):
 
     def distribution(rhs):
         source = f"x: nat;\ny: nat;\nx = 2;\ny = {rhs};\n"
-        session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
+        session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
                                   capture_output=True)
         result = session.run().to_json()
         assert result["status"] == "ok", result
@@ -64,7 +64,7 @@ def test_iid_of_sample_pgf_is_the_iid_sum_of_the_generating_function(engine):
 def test_iid_of_sample_pgf_in_another_variable_is_not_implemented():
     # pylint: disable=import-outside-toplevel
     from prodigy.distribution.generating_function import GeneratingFunction
-    from prodigy.pgcl.ppy_parser import parse_ppy_expr
+    from prodigy.language.ppy_parser import parse_ppy_expr
     call = parse_ppy_expr("sample_pgf(1/2 + z/2, z)")
     with pytest.raises(NotImplementedError, match="only sampling in the assigned variable y"):
         GeneratingFunction("x^2", "x", "y").update_iid(call, parse_ppy_expr("x"), "y")

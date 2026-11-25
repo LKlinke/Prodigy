@@ -8,11 +8,11 @@ from typing import Any, Callable, Dict, Iterable, Iterator, Optional, Union, Seq
 
 import sympy
 
-from prodigy.pgcl import Program, Instr, SkipInstr, AbortInstr, WhileInstr, LoopInstr, QueryInstr, Query, \
+from prodigy.language import Program, Instr, SkipInstr, AbortInstr, WhileInstr, LoopInstr, QueryInstr, Query, \
     ObserveInstr, ChoiceInstr, AsgnInstr, IfInstr, Binop, BinopExpr, NatLitExpr, VarExpr
-from prodigy.pgcl.ast.expressions import InferExpr, SampleExpr
-from prodigy.pgcl.ast.instructions import CovarianceInstr, ExpectationInstr, ProbabilityQueryInstr, VarianceInstr
-from prodigy.pgcl.draws import find_draw
+from prodigy.language.ast.expressions import InferExpr, SampleExpr
+from prodigy.language.ast.instructions import CovarianceInstr, ExpectationInstr, ProbabilityQueryInstr, VarianceInstr
+from prodigy.language.draws import find_draw
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import ObserveZeroEventError
@@ -307,7 +307,7 @@ _CONDITIONS = {IfInstr: "the guard of if", WhileInstr: "the guard of while",
 
 def _check_no_draw_in_condition(instruction: Instr) -> None:
     """A draw (e.g. ``geometric(1/2)``) inside a guard, an observation or a query is not
-    implemented: unlike an assignment (:mod:`prodigy.pgcl.draws`), there is no variable to draw it
+    implemented: unlike an assignment (:mod:`prodigy.language.draws`), there is no variable to draw it
     into. Raises a ``NotImplementedError`` that names the draw."""
     where = _CONDITIONS.get(type(instruction))
     if where is None:

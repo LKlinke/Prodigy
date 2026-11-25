@@ -56,18 +56,18 @@ from prodigy.analysis.exceptions import (UndefinedDistributionError,
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.distribution import Distribution, MarginalType
 from prodigy.distribution.distribution import constant_value
-from prodigy.pgcl import (AsgnInstr, Binop, BinopExpr, BoolLitExpr,
+from prodigy.language import (AsgnInstr, Binop, BinopExpr, BoolLitExpr,
                           CategoricalExpr, Expr, ExprClass, Function,
                           FunctionCallExpr, Instr, LoopInstr, NatLitExpr, NatType,
                           ObserveInstr, Program, RealLitExpr, Unop, UnopExpr,
                           VarExpr, WhileInstr)
-from prodigy.pgcl.ast.expressions import (ExpectationExpr, InferExpr,
+from prodigy.language.ast.expressions import (ExpectationExpr, InferExpr,
                                           ProbabilityExpr, SampleExpr)
-from prodigy.pgcl.ast.types import DistributionType
-from prodigy.pgcl.pgcl_checks import recursion
-from prodigy.pgcl.ast.walk import (Walk, mut_expr_children, walk_expr,
+from prodigy.language.ast.types import DistributionType
+from prodigy.language.checks import recursion
+from prodigy.language.ast.walk import (Walk, mut_expr_children, walk_expr,
                                    walk_instr_exprs, walk_instrs)
-from prodigy.pgcl.util.ref import Mut
+from prodigy.language.util.ref import Mut
 
 Runner = Callable[[Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution,
                    ForwardAnalysisConfig], Tuple[Distribution, Distribution]]

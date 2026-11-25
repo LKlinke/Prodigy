@@ -18,7 +18,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, U
 import sympy
 from lark.exceptions import LarkError
 
-from prodigy.pgcl import Expr, Instr, parse_pgcl, Program, WhileInstr
+from prodigy.language import Expr, Instr, parse_program, Program, WhileInstr
 
 from prodigy.analysis import evt_exploration
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -44,7 +44,7 @@ from prodigy.analysis.session import LoopDecision, current_session
 from prodigy.distribution import Distribution, State, known_convergent_series
 from prodigy.distribution.distribution import NonFiniteMarginalError
 from prodigy.distribution.generating_function import SympyPGF
-from prodigy.pgcl.pgcl_operations import cav_phi
+from prodigy.language.operations import cav_phi
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
@@ -251,7 +251,7 @@ def _strategy_invariant(task: LoopTask) -> LoopOutcome:
     # an invariant is written in the syntax of the program
     syntax = task.session.syntax
     try:
-        inv_prog = parse_pgcl(inv_src, syntax)
+        inv_prog = parse_program(inv_src, syntax)
     except (SyntaxError, LarkError) as exc:
         raise ValueError(f"The invariant is not a valid program in the {syntax} syntax "
                          f"(an invariant uses the syntax of the program): {exc}") from exc
@@ -682,7 +682,7 @@ def _strategy_evt_synthesis(task: LoopTask) -> LoopOutcome:
 
 
 _INVARIANT_PARAMS = (
-    ParamSpec("invariant", "pgcl", "Invariant (loop-free pGCL program)",
+    ParamSpec("invariant", "program", "Invariant (loop-free .ppy program)",
               prompt="Invariant file:\t",
               help="A loop-free program I with the loop's variables and no parameters to find; checked "
                    "against one unrolling of the loop (Park's lemma). Finding parameter values is a "
@@ -1107,7 +1107,7 @@ def _upper_query_bounds(task: LoopTask, upper: Distribution) -> Dict[Tuple[str, 
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.instructionhandler.query_handler import filter_by_cases
     from prodigy.analysis.result import is_monotone_nonnegative
-    from prodigy.pgcl import ExpectationInstr, PlotInstr, PrintInstr, ProbabilityQueryInstr, VarExpr
+    from prodigy.language import ExpectationInstr, PlotInstr, PrintInstr, ProbabilityQueryInstr, VarExpr
     program = task.prog_info.program
     instructions = list(program.instructions)
     index = next((i for i, ins in enumerate(instructions) if ins is task.instruction), None)

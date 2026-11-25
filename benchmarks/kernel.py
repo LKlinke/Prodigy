@@ -149,7 +149,7 @@ def _factory(engine: str):  # -> Type[CommonDistributionsFactory]
 
 def _expr(text: str):  # -> Expr
     """A guard or an assignment of the form `var op value` or `var = var op value`."""
-    from prodigy.pgcl.ast import Binop, BinopExpr, NatLitExpr, VarExpr
+    from prodigy.language.ast import Binop, BinopExpr, NatLitExpr, VarExpr
     operators = {"==": Binop.EQ, ">": Binop.GT, "+": Binop.PLUS, "-": Binop.MINUS, "*": Binop.TIMES}
 
     def atom(token: str):

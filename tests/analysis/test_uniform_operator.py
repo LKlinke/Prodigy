@@ -16,8 +16,8 @@ from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution import MarginalType
 from prodigy.distribution.equality import decide_equal, sympify_distribution
-from prodigy.pgcl import Program, parse_pgcl
-from prodigy.pgcl.compiler import compile_pgcl
+from prodigy.language import Program, parse_program
+from prodigy.language.compiler import compile_program
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import
@@ -37,7 +37,7 @@ n, x, y = sympy.symbols("n x y")
 
 
 def _distribution(source: str, engine):
-    program = compile_pgcl(source, syntax="ppy")
+    program = compile_program(source, syntax="ppy")
     assert isinstance(program, Program), program
     config = ForwardAnalysisConfig(engine=engine, normalize=False)
     with config.activate():
@@ -47,7 +47,7 @@ def _distribution(source: str, engine):
 
 def _session(source: str, engine):
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
                               decisions={}, capture_output=True)
     return session.run().to_json()
 

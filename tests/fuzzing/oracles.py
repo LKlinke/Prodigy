@@ -24,7 +24,7 @@ from prodigy.analysis.session import AnalysisSession
 import sympy
 
 from prodigy.distribution.equality import decide_equal, decide_equal_strings, sympify_engine_string
-from prodigy.pgcl.parser import parse_pgcl
+from prodigy.language.parser import parse_program
 from prodigy.simulator import SimulationError, UnsupportedConstruct, compare, simulate
 
 Engine = ForwardAnalysisConfig.Engine
@@ -163,7 +163,7 @@ _NON_FINITE = ("nan", "zoo", "oo", "inf")
 
 def analyse(source: str, syntax: str, setup: Setup, decisions: Mapping[str, Any]) -> Dict[str, Any]:
     """The JSON result of analysing ``source`` with ``setup``."""
-    program = parse_pgcl(source, syntax)
+    program = parse_program(source, syntax)
     config = ForwardAnalysisConfig(engine=setup.engine, use_simplification=setup.simplification)
     session = AnalysisSession(program, source=source, syntax=syntax, config=config, decisions=dict(decisions),
                               capture_output=True, coefficient_limit=12)
@@ -232,7 +232,7 @@ def check_program(source: str, syntax: str = "ppy", decisions: Optional[Mapping[
                 if decide_equal_strings(value, other, names, prove_equality=False) is False:
                     problems.append(f"{what}: {name} gives {value}, {reference_name} gives {other}")
         try:
-            simulation = simulate(parse_pgcl(source, syntax), runs, seed=seed)
+            simulation = simulate(parse_program(source, syntax), runs, seed=seed)
         except UnsupportedConstruct:
             simulation = None
         except SimulationError as error:
@@ -241,7 +241,7 @@ def check_program(source: str, syntax: str = "ppy", decisions: Optional[Mapping[
         if simulation is not None:
             for name, result in ok.items():
                 problems.extend(f"{name} vs. simulation: {m}"
-                                for m in compare(parse_pgcl(source, syntax), result, simulation))
+                                for m in compare(parse_program(source, syntax), result, simulation))
     return problems
 
 
@@ -347,7 +347,7 @@ def check_parametric(source: str, instantiated: str, values: Mapping[str, Fracti
                                 f"{target}")
     if not ok:
         return problems
-    program = parse_pgcl(instantiated, syntax)
+    program = parse_program(instantiated, syntax)
     try:
         simulation = simulate(program, runs, seed=seed)
     except (UnsupportedConstruct, SimulationError):

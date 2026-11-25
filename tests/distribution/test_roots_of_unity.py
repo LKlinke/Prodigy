@@ -15,8 +15,8 @@ from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.fast_generating_function import FPS
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.distribution.roots_of_unity import NotSingleValuedError, is_single_valued_in, root_of_unity
-from prodigy.pgcl import parse_pgcl
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language import parse_program
+from prodigy.language.ppy_parser import parse_ppy_expr
 
 ENGINES = [GeneratingFunction, FPS]
 VARIABLES = ("c", "y", "z")
@@ -154,7 +154,7 @@ def _walk_invariant(f):
 def test_modulo_guard_after_loop_with_root_invariant_is_rejected(engine, f):
     config = ForwardAnalysisConfig(use_simplification=True, engine=engine)
     decisions = {"0": {"strategy": "evt_invariant", "params": {"invariant": _walk_invariant(f)}}}
-    session = AnalysisSession(parse_pgcl(WALK), source=WALK, config=config, decisions=decisions,
+    session = AnalysisSession(parse_program(WALK), source=WALK, config=config, decisions=decisions,
                               capture_output=True)
     result = session.run().to_json()
     # the query fails alone (#316): no value, never the wrong Pr = 1; the distribution stays
@@ -201,7 +201,7 @@ def test_modulo_of_a_conditioned_poisson_variable(engine, rate, modulus, observe
     queries = "".join(f"query Pr[x == {r}];" for r in range(modulus))
     source = f"x: nat; y: nat; x = poisson({rate}); {observe} x = x % {modulus}; y = poisson(1/2); {queries}"
     config = ForwardAnalysisConfig(engine=getattr(ForwardAnalysisConfig.Engine, engine))
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
                               capture_output=True, coefficient_limit=12)
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]

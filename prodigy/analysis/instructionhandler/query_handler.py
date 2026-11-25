@@ -5,7 +5,7 @@ from typing import get_args, Callable, Optional, Set, Union, Sequence
 
 import sympy
 
-from prodigy.pgcl import Instr, Query, ExpectationInstr, VarianceInstr, CovarianceInstr, VarExpr, NatLitExpr, \
+from prodigy.language import Instr, Query, ExpectationInstr, VarianceInstr, CovarianceInstr, VarExpr, NatLitExpr, \
     RealLitExpr, BinopExpr, Binop, \
     UnopExpr, Unop, BoolLitExpr, ProbabilityQueryInstr, PlotInstr, PrintInstr, OptimizationQuery, OptimizationType, Expr
 

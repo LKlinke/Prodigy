@@ -3,9 +3,9 @@ from __future__ import annotations
 import logging
 from typing import Callable, Dict, Sequence, Union
 
-from prodigy.pgcl import (AsgnInstr, Binop, BinopExpr, Expr, FunctionCallExpr, Instr, NatLitExpr,
+from prodigy.language import (AsgnInstr, Binop, BinopExpr, Expr, FunctionCallExpr, Instr, NatLitExpr,
                           VarExpr, sample_predefined_functions as distr_functions)
-from prodigy.pgcl.ast.types import DistributionType
+from prodigy.language.ast.types import DistributionType
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler import _assume

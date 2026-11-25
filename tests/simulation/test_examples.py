@@ -21,7 +21,7 @@ import pytest
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl.parser import parse_pgcl
+from prodigy.language.parser import parse_program
 from prodigy.simulator import UnsupportedConstruct, compare, simulate
 from tests.fuzzing.oracles import ProgramCrash, ProgramError, ProgramTimeout, isolated
 
@@ -110,7 +110,7 @@ def _examples():
 def _compare(name: str) -> str:
     """Analyses and simulates the example ``name``; the mismatches, or ``skip: <reason>``."""
     source = (EXAMPLES / name).read_text(encoding="utf-8")
-    program = parse_pgcl(source, "ppy")
+    program = parse_program(source, "ppy")
     try:
         simulation = simulate(program, RUNS, seed=name, loop_budget=LOOP_BUDGET)
     except UnsupportedConstruct as reason:

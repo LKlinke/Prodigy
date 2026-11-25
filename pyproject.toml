@@ -10,9 +10,9 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    # parser of prodigy/pgcl
+    # parser of prodigy/language
     "lark>=1.2,<2",
-    # type checker of prodigy/pgcl
+    # type checker of prodigy/language
     "frozendict>=2.3,<3",
     "algebraic-data-types>=0.1.3,<0.3",
     "attrs>=19.3.0",
@@ -78,7 +78,9 @@ default-groups = ["dev"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "prodigy"]
-addopts = ["--doctest-modules"]
+# prodigy/pgcl is the deprecated alias of prodigy.language (#446): importing it would install the alias in the
+# test process; tests/language/test_deprecated_package.py checks it in fresh interpreters
+addopts = ["--doctest-modules", "--ignore=prodigy/pgcl"]
 # A test that runs longer than 10 minutes prints the stack of every thread, so a hang shows where it is.
 faulthandler_timeout = 600
 # pytest-timeout: a test that runs longer than 2 minutes fails with the stack of every thread instead of

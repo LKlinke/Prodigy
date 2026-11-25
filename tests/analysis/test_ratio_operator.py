@@ -18,9 +18,9 @@ from prodigy.analysis.instructionhandler import counter_operators
 from prodigy.analysis.instructionhandler.counter_operators import RatioProbability, apply_ratio, ratio_probability
 from prodigy.distribution import Distribution
 from prodigy.distribution.equality import decide_equal, sympify_distribution
-from prodigy.pgcl import Program
-from prodigy.pgcl.compiler import compile_pgcl
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language import Program
+from prodigy.language.compiler import compile_program
+from prodigy.language.ppy_parser import parse_ppy_expr
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import
@@ -40,7 +40,7 @@ CONSTRUCT = "The probability x / n of the probabilistic choice"
 
 
 def _distribution(source: str, engine):
-    program = compile_pgcl(source, syntax="ppy")
+    program = compile_program(source, syntax="ppy")
     assert isinstance(program, Program), program
     config = ForwardAnalysisConfig(engine=engine, normalize=False)
     with config.activate():
@@ -146,7 +146,7 @@ def test_no_witness_and_no_proof_is_not_implemented(engine, monkeypatch):
 
 
 def _check_on_every_input(guard: str, engine):
-    program = compile_pgcl(f"x: nat; n: nat; y: nat; if ({guard}) {{     {{         y = 1;     }} [x / n] {{         y = 0;     }} }} else {{     skip; }}")
+    program = compile_program(f"x: nat; n: nat; y: nat; if ({guard}) {{     {{         y = 1;     }} [x / n] {{         y = 0;     }} }} else {{     skip; }}")
     assert isinstance(program, Program)
     return check_equivalence(program, program, ForwardAnalysisConfig(engine=engine), compute_semantics)
 

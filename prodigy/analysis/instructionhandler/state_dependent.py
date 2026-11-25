@@ -22,9 +22,9 @@ from typing import Dict, Iterator, List, NamedTuple, Optional, Set, Tuple
 
 import sympy
 
-from prodigy.pgcl import Expr, NatLitExpr, VarExpr
-from prodigy.pgcl.ast.walk import Walk, walk_expr
-from prodigy.pgcl.util.ref import Mut
+from prodigy.language import Expr, NatLitExpr, VarExpr
+from prodigy.language.ast.walk import Walk, walk_expr
+from prodigy.language.util.ref import Mut
 
 from prodigy.analysis.exceptions import InvalidProbabilityError
 from prodigy.distribution import Distribution

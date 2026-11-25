@@ -417,7 +417,7 @@ syntax in `syntax`, see {doc}`gui`).
 
 ## Grammar
 
-The [Lark](https://lark-parser.readthedocs.io/) grammar that {mod}`prodigy.pgcl.ppy_parser` is
+The [Lark](https://lark-parser.readthedocs.io/) grammar that {mod}`prodigy.language.ppy_parser` is
 built from. The parser turns sugar (`else if`, `switch`, `categorical`, declarations with values)
 into the program representation shared with `.pgcl`, and reports errors with line and column.
 

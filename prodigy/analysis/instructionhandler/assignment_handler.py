@@ -6,9 +6,9 @@ import logging
 import re
 from typing import get_args, Callable, List, Union, Sequence
 
-from prodigy.pgcl import (Instr, AsgnInstr, CategoricalExpr, FunctionCallExpr, Expr, BinopExpr, Binop,
+from prodigy.language import (Instr, AsgnInstr, CategoricalExpr, FunctionCallExpr, Expr, BinopExpr, Binop,
                           BoolLitExpr, IfInstr, NatType, Unop, UnopExpr, VarExpr)
-from prodigy.pgcl.draws import Helpers, lower_draws
+from prodigy.language.draws import Helpers, lower_draws
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import ForwardAnalysisError
@@ -92,7 +92,7 @@ def _with_helpers(
         ]
 ) -> tuple[Distribution, Distribution]:
     """
-    An assignment with draws inside its right-hand side (see :mod:`prodigy.pgcl.draws`): the draws
+    An assignment with draws inside its right-hand side (see :mod:`prodigy.language.draws`): the draws
     are assigned to their fresh helper variables first, then ``instruction`` (the right-hand side
     with the helpers in place of the draws) runs, and the helpers are marginalised. A message
     about a helper names its draw instead.

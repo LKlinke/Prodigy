@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 _CATEGORY_TITLES = {
     "inference": "Inference",
@@ -236,7 +236,7 @@ def _command_words(first_line: str) -> List[str]:
 def _count_loops(source: str, syntax: str) -> int:
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.session import LoopRegistry
-    return len(LoopRegistry(parse_pgcl(source, syntax), source, syntax))
+    return len(LoopRegistry(parse_program(source, syntax), source, syntax))
 
 
 def _to_ppy_expression(expression: str) -> str:

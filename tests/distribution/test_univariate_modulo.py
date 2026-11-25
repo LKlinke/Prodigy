@@ -9,7 +9,7 @@ from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.distribution.multisection import rational_multisection
 from prodigy.distribution.roots_of_unity import NotSingleValuedError
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language.ppy_parser import parse_ppy_expr
 
 try:
     from prodigy.distribution.fast_generating_function import FPS

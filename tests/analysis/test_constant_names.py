@@ -6,7 +6,7 @@ import sympy
 
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.pgcl.compiler import parse_pgcl
+from prodigy.language.compiler import parse_program
 
 ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINAC]
 
@@ -31,7 +31,7 @@ def _config(engine):
 def test_variable_named_e(engine):
     config = _config(engine)
     with config.activate():
-        dist, _ = compute_discrete_distribution(parse_pgcl(PROGRAM, "ppy"), config.factory.one("d", "e"), config)
+        dist, _ = compute_discrete_distribution(parse_program(PROGRAM, "ppy"), config.factory.one("d", "e"), config)
         normalized = dist.normalize()
         # given e = 2: d is 1 or 2, so e is 3 or 4, each with probability 1/2
         assert sympy.S(str(normalized.get_expected_value_of("e"))) == sympy.Rational(7, 2)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Sequence, Tuple, Type, TypeVar, Union
 
-from prodigy.pgcl import Instr
+from prodigy.language import Instr
 
 T = TypeVar("T")
 

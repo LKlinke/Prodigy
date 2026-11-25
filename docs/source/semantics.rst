@@ -126,7 +126,7 @@ Block-scoped declarations
 In ``.ppy``, a declaration inside a block (a loop body, a branch, a ``case``) declares a variable
 visible to the end of that block:
 
-.. automodule:: prodigy.pgcl.scope
+.. automodule:: prodigy.language.scope
    :no-index:
 
 Sampling
@@ -149,5 +149,5 @@ argument:
 
 Draws may also stand inside the right-hand side of an assignment:
 
-.. automodule:: prodigy.pgcl.draws
+.. automodule:: prodigy.language.draws
    :no-index:

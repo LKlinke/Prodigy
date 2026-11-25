@@ -1,6 +1,6 @@
 """
 Draws inside expressions (issue #178): ``x = geometric(1/2) + 1`` draws into a fresh helper
-variable, assigns the expression and marginalises the helper (:mod:`prodigy.pgcl.draws`), on every
+variable, assigns the expression and marginalises the helper (:mod:`prodigy.language.draws`), on every
 engine and in both syntaxes. Every occurrence is a draw of its own. The expected generating
 functions are computed by hand. A draw inside a guard, an observation or a query ends with a clear
 "not implemented" message that names it.
@@ -9,8 +9,8 @@ import pytest
 
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.pgcl import Program
-from prodigy.pgcl.compiler import compile_pgcl
+from prodigy.language import Program
+from prodigy.language.compiler import compile_program
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import
@@ -24,7 +24,7 @@ ENGINES = [pytest.param(Engine.SYMPY, id="SymPy"), pytest.param(Engine.GINAC, id
 
 
 def _distribution(source: str, engine, syntax: str):
-    program = compile_pgcl(source, syntax=syntax)
+    program = compile_program(source, syntax=syntax)
     assert isinstance(program, Program), program
     config = ForwardAnalysisConfig(engine=engine)
     with config.activate():
@@ -98,7 +98,7 @@ def test_draws_in_assignments(engine, syntax, ppy, pgcl, expected):
     result, error, factory = _distribution(ppy if syntax == "ppy" else pgcl, engine, syntax)
     assert error.is_zero_dist()
     # the helper variables are marginalised
-    assert result.get_variables() == set(compile_pgcl(ppy, syntax="ppy").variables)
+    assert result.get_variables() == set(compile_program(ppy, syntax="ppy").variables)
     assert result == factory.from_expr(expected, *result.get_variables()), str(result)
 
 
@@ -141,7 +141,7 @@ observe(geometric(1/2) > 2);""", "observe", id="observe"),
 query Pr[geometric(1/2) > x];""", "a query", id="query"),
 ])
 def test_draws_in_conditions_are_not_implemented(syntax, ppy, pgcl, where):
-    program = compile_pgcl(ppy if syntax == "ppy" else pgcl, syntax=syntax)
+    program = compile_program(ppy if syntax == "ppy" else pgcl, syntax=syntax)
     assert isinstance(program, Program), program
     config = ForwardAnalysisConfig(engine=Engine.SYMPY)
     with pytest.raises(NotImplementedError) as info:
@@ -154,7 +154,7 @@ def test_draws_in_conditions_are_not_implemented(syntax, ppy, pgcl, where):
 
 
 def test_message_about_a_helper_names_the_draw():
-    program = compile_pgcl("x: nat;\nx = binomial(geometric(1/2), 1/2);", syntax="ppy")
+    program = compile_program("x: nat;\nx = binomial(geometric(1/2), 1/2);", syntax="ppy")
     config = ForwardAnalysisConfig(engine=Engine.SYMPY)
     with pytest.raises(NotImplementedError) as info:
         with config.activate():

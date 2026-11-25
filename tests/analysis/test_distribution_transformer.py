@@ -1,4 +1,4 @@
-import prodigy.pgcl as pgcl
+import prodigy.language as language
 import pytest
 
 from prodigy.analysis.analyzer import compute_discrete_distribution
@@ -12,7 +12,7 @@ from prodigy.distribution.generating_function import SympyPGF
     (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)
 ])
 def test_context_injection(engine, factory):
-    program = pgcl.parse_pgcl("""
+    program = language.parse_program("""
 x: nat;
 y: nat;
 param p: real;

@@ -21,7 +21,7 @@ from fractions import Fraction
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
 
 from prodigy.distribution.equality import sympify_symbolic_string
-from prodigy.pgcl import Instr, WhileInstr
+from prodigy.language import Instr, WhileInstr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import VerificationError

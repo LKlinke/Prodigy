@@ -30,7 +30,7 @@ from fractions import Fraction
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 if TYPE_CHECKING:  # pragma: no cover
-    from prodigy.pgcl import Instr, WhileInstr
+    from prodigy.language import Instr, WhileInstr
 
     from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.analysis.instructionhandler.program_info import ProgramInfo
@@ -108,16 +108,16 @@ def _parse_expression(raw: Any, syntax: str = "ppy") -> str:
     sees it: SymPy's parser evaluates Python code. Returns it in the engines' spelling (powers as
     ``^``, which GiNaC needs); raises ``ValueError`` (a
     :class:`~prodigy.analysis.ai_candidates.CandidateError`) for anything else
-    (:func:`~prodigy.pgcl.expression_allowlist.admissible_expression`)."""
+    (:func:`~prodigy.language.expression_allowlist.admissible_expression`)."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.pgcl.expression_allowlist import MATH_FUNCTIONS, admissible_expression
+    from prodigy.language.expression_allowlist import MATH_FUNCTIONS, admissible_expression
     return admissible_expression(_parse_text(raw).strip(), syntax=syntax, functions=MATH_FUNCTIONS)
 
 
 _PARSERS: Dict[str, Callable[[Any], Any]] = {
     "int": _parse_int,
     "probability": _parse_probability,
-    "pgcl": _parse_text,
+    "program": _parse_text,
     "expression": _parse_expression,
     "file": _parse_text,
     "choice": _parse_text,
@@ -132,7 +132,7 @@ class ParamSpec:
     """Key in :attr:`LoopDecision.params`."""
 
     kind: str
-    """One of ``int``, ``probability``, ``pgcl`` (program source), ``expression``
+    """One of ``int``, ``probability``, ``program`` (program source), ``expression``
     (generating-function expression), ``file`` (path, CLI only), ``choice``."""
 
     label: str

@@ -3,8 +3,8 @@ from typing import List, Union
 import sympy
 
 from prodigy.distribution.equality import engine_text, sympify_engine_string
-from prodigy.pgcl import Expr, OptimizationType, VarExpr
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language import Expr, OptimizationType, VarExpr
+from prodigy.language.ppy_parser import parse_ppy_expr
 
 from prodigy.distribution.distribution import Distribution
 

@@ -5,7 +5,7 @@ from typing import Any, Mapping
 
 from frozendict import frozendict
 
-from prodigy.pgcl import Program, Var
+from prodigy.language import Program, Var
 
 
 @dataclass(frozen=True)

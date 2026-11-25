@@ -1,8 +1,7 @@
 """
 The dependency rules of ``docs/source/architecture.md`` (#423, #493).
 
-The packages of Prodigy form layers: ``prodigy.util`` below ``prodigy.pgcl`` (the language, ``prodigy.language``
-after #446), below ``prodigy.distribution`` (generating functions and their proof rules), below
+The packages of Prodigy form layers: ``prodigy.util`` below ``prodigy.language`` (the language; ``prodigy.pgcl`` before #446), below ``prodigy.distribution`` (generating functions and their proof rules), below
 ``prodigy.analysis``, below the front ends (``prodigy.cli``, ``prodigy.web``, ``prodigy.plotting``). A layer
 imports nothing from a higher one, also not lazily inside a function or under ``TYPE_CHECKING``; there are no
 import cycles; only the analysis core chooses an engine; the front ends use the front-end API of the analysis.
@@ -89,8 +88,8 @@ FRONT_ENDS = ("prodigy.cli", "prodigy.web", "prodigy.plotting")
 
 
 @pytest.mark.parametrize("package, forbidden", [
-    ("prodigy.util", ("prodigy.pgcl", "prodigy.distribution", "prodigy.analysis", "prodigy.simulator") + FRONT_ENDS),
-    pytest.param("prodigy.pgcl", ("prodigy.distribution", "prodigy.analysis", "prodigy.simulator") + FRONT_ENDS,
+    ("prodigy.util", ("prodigy.language", "prodigy.distribution", "prodigy.analysis", "prodigy.simulator") + FRONT_ENDS),
+    pytest.param("prodigy.language", ("prodigy.distribution", "prodigy.analysis", "prodigy.simulator") + FRONT_ENDS,
                  marks=_expected("T3 (the type checker imports a proof rule)", "P5a")),
     ("prodigy.distribution", ("prodigy.analysis", "prodigy.simulator") + FRONT_ENDS),
     ("prodigy.simulator", ("prodigy.distribution", "prodigy.analysis") + FRONT_ENDS),
@@ -143,7 +142,7 @@ def _cycles(scope: Tuple[str, ...]) -> List[List[str]]:
 
 @pytest.mark.parametrize("scope", [
     ("prodigy.util",),
-    ("prodigy.pgcl",),
+    ("prodigy.language",),
     ("prodigy.distribution",),
     pytest.param(("prodigy.analysis",), marks=_expected("T1/T4 (session, result, strategies and handlers)", "P5a")),
     ("prodigy.web",),
@@ -174,7 +173,7 @@ def test_only_the_analysis_core_chooses_an_engine(package):
 
 
 @pytest.mark.parametrize("package", [
-    "prodigy.analysis", "prodigy.pgcl", "prodigy.util", "prodigy.simulator", "prodigy.cli",
+    "prodigy.analysis", "prodigy.language", "prodigy.util", "prodigy.simulator", "prodigy.cli",
     pytest.param("prodigy.web", marks=_expected("T8 (web/app.py imports prodigy_ginac)", "P7")),
 ])
 def test_only_the_engine_imports_the_bindings(package):
@@ -215,7 +214,7 @@ _API = "prodigy.analysis."
 # that is still an expected failure fails here instead of hiding behind the xfail.
 KNOWN_VIOLATIONS: Dict[str, FrozenSet[str]] = {
     "T3 language imports a proof rule": frozenset({
-        "prodigy/pgcl/check.py -> prodigy.distribution.finite_measure"}),
+        "prodigy/language/check.py -> prodigy.distribution.finite_measure"}),
     "T2/T7 analysis imports front ends": frozenset({
         "prodigy/analysis/instructionhandler/query_handler.py -> prodigy.plotting.plotter",
         "prodigy/analysis/result.py -> prodigy.web.diagnostics"}),
@@ -251,7 +250,7 @@ KNOWN_VIOLATIONS: Dict[str, FrozenSet[str]] = {
 def _current_violations(rule: str) -> Set[str]:
     language = ("prodigy.distribution", "prodigy.analysis", "prodigy.simulator") + FRONT_ENDS
     current = {
-        "T3 language imports a proof rule": lambda: _no_lines(_violations(("prodigy.pgcl",), language)),
+        "T3 language imports a proof rule": lambda: _no_lines(_violations(("prodigy.language",), language)),
         "T2/T7 analysis imports front ends": lambda: _no_lines(_violations(("prodigy.analysis",), FRONT_ENDS)),
         "T5/T6 analysis imports an engine": lambda: {
             v for v in _no_lines(_violations(("prodigy.analysis",), ENGINES))
@@ -273,11 +272,11 @@ def test_known_violations_do_not_grow(rule):
 def test_the_import_walk_sees_every_layer():
     """The rules above are vacuous for a package the walk does not see (as ``prodigy.ppy`` was, T17)."""
     sources: FrozenSet[str] = frozenset(imp.source.split(".")[1] for imp in _imports() if "." in imp.source)
-    assert {"util", "pgcl", "distribution", "analysis", "web", "cli", "plotting", "simulator"} <= sources
+    assert {"util", "language", "distribution", "analysis", "web", "cli", "plotting", "simulator"} <= sources
 
 
 def test_importing_the_distributions_loads_no_analysis():
-    code = ("import sys, prodigy.distribution, prodigy.pgcl; "
+    code = ("import sys, prodigy.distribution, prodigy.language; "
             "print(sorted(m for m in sys.modules if m.startswith('prodigy.analysis')))")
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60, check=True)
     assert out.stdout.strip() == "[]", out.stdout

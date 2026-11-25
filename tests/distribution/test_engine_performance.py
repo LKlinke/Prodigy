@@ -18,7 +18,7 @@ from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.generating_function import (GeneratingFunction, _limit_at_one,
                                                       _polynomial_coefficients)
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 ROOT = Path(__file__).resolve().parents[2]
 HARD = ROOT / "pgfexamples/inference/loopy/hard_distributions"
@@ -31,7 +31,7 @@ def _analyse(source, engine, decisions, simplification=True):
         pytest.importorskip("prodigy_ginac")
     config = ForwardAnalysisConfig(engine=getattr(ForwardAnalysisConfig.Engine, engine),
                                    use_simplification=simplification)
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
                               decisions=decisions, capture_output=True, coefficient_limit=0)
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]

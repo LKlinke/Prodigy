@@ -8,7 +8,7 @@ import pytest
 import sympy
 from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
-import prodigy.pgcl as pgcl
+import prodigy.language as language
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 
@@ -37,7 +37,7 @@ def expected_coefficients() -> list[Fraction]:
 def test_prob_collatz(engine):
     config = ForwardAnalysisConfig(engine=engine)
     with open(PROGRAM, encoding="utf-8") as file:
-        program = pgcl.parse_pgcl(file.read(), path=PROGRAM)
+        program = language.parse_program(file.read(), path=PROGRAM)
     result, error_prob = compute_discrete_distribution(
         program, config.factory.one(*program.variables), config)
 

@@ -12,8 +12,8 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.finite_measure import check_probability_generating_function
 from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
-from prodigy.pgcl.check import CheckFail
-from prodigy.pgcl.compiler import compile_pgcl, parse_pgcl
+from prodigy.language.check import CheckFail
+from prodigy.language.compiler import compile_program, parse_program
 
 Engine = ForwardAnalysisConfig.Engine
 
@@ -33,7 +33,7 @@ def _analyse(source: str, engine: Engine):
     if engine == Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
                               capture_output=True)
     return session.run().to_json()
 
@@ -74,7 +74,7 @@ def test_check_probability_generating_function(text, variables, verdict, reason)
     ("param p: real;\ny: nat;\ny = sample_pgf(p*y - y*y + 1, y);", "y"),
 ])
 def test_refuted_generating_functions_are_type_errors(source, expression):
-    result = compile_pgcl(source, syntax="ppy")
+    result = compile_program(source, syntax="ppy")
     assert isinstance(result, CheckFail), result
     assert "needs a probability generating function" in result.message
     assert "is not one" in result.message and expression in result.message
@@ -93,7 +93,7 @@ def test_refuted_generating_functions_without_type_check(engine, source, reason)
     """Programs that did not pass the type checker (Python API) are checked by the analysis, on every engine."""
     if engine == Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
-    program = parse_pgcl(source)
+    program = parse_program(source)
     config = ForwardAnalysisConfig(engine=engine)
     with pytest.raises(ValueError, match="needs a probability generating function") as error:
         compute_discrete_distribution(program, config.factory.one(*program.variables.keys()), config)

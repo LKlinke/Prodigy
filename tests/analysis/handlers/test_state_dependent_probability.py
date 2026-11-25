@@ -15,8 +15,8 @@ import pytest
 
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.pgcl import Program
-from prodigy.pgcl.compiler import compile_pgcl
+from prodigy.language import Program
+from prodigy.language.compiler import compile_program
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import
@@ -33,7 +33,7 @@ SIMPLIFICATION = [pytest.param(True, id="simplified"), pytest.param(False, id="u
 
 
 def _run(source: str, engine, simplification: bool):
-    program = compile_pgcl(source, syntax="ppy")
+    program = compile_program(source, syntax="ppy")
     assert isinstance(program, Program), program
     config = ForwardAnalysisConfig(engine=engine, use_simplification=simplification, normalize=False)
     result, error_prob = compute_discrete_distribution(program, config.factory.from_expr("1"), config)

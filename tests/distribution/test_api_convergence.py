@@ -13,8 +13,8 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution import NonFiniteMarginalError, known_convergent_series
 from prodigy.distribution.distribution import MarginalType
-from prodigy.pgcl import Binop, BinopExpr, VarExpr, parse_pgcl
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language import Binop, BinopExpr, VarExpr, parse_program
+from prodigy.language.ppy_parser import parse_ppy_expr
 
 Engine = ForwardAnalysisConfig.Engine
 ENGINES = [Engine.SYMPY, Engine.GINAC]
@@ -123,7 +123,7 @@ x: nat;
 x = geometric(p);
 """
     config = ForwardAnalysisConfig(engine=getattr(Engine, engine))
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
                               decisions={}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result.get("error")
@@ -140,7 +140,7 @@ def test_analysis_outputs_are_declared_finite_measures(engine):
 x: nat;
 x = geometric(p);
 """
-    program = parse_pgcl(source, "ppy")
+    program = parse_program(source, "ppy")
     result, error_prob = compute_discrete_distribution(program, factory.one("x"), ForwardAnalysisConfig(engine=engine))
     p = sympy.Symbol("p")
     assert sympy.simplify(_sympy(result.get_expected_value_of("x")) - (1 - p) / p) == 0

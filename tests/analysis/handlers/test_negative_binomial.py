@@ -14,10 +14,10 @@ from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.generating_function import SympyPGF
-from prodigy.pgcl import FunctionCallExpr, NatLitExpr, RealLitExpr, parse_pgcl
-from prodigy.pgcl.check import CheckFail
-from prodigy.pgcl.compiler import compile_pgcl
-from prodigy.pgcl.ppy_printer import program_to_ppy
+from prodigy.language import FunctionCallExpr, NatLitExpr, RealLitExpr, parse_program
+from prodigy.language.check import CheckFail
+from prodigy.language.compiler import compile_program
+from prodigy.language.ppy_printer import program_to_ppy
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import
@@ -36,7 +36,7 @@ EXAMPLE = (Path(__file__).resolve().parents[3]
 
 
 def _run(source: str, engine: ForwardAnalysisConfig.Engine, syntax: str = "ppy"):
-    program = compile_pgcl(source, syntax=syntax)
+    program = compile_program(source, syntax=syntax)
     assert not isinstance(program, CheckFail), program
     config = ForwardAnalysisConfig(engine=engine)
     with config.activate():
@@ -112,18 +112,18 @@ x = negative_binomial(2, 1/2);"""),
     ("ppy", "x: nat;\nx = negative_binomial(2, 1/2);\n"),
 ])
 def test_parsing(syntax, source):
-    program = parse_pgcl(source, syntax)
+    program = parse_program(source, syntax)
     assert program.instructions[0].rhs == FunctionCallExpr(
         "negative_binomial", ([NatLitExpr(2), RealLitExpr("1/2")], {}))
 
 
 def test_printing_and_conversion():
-    program = parse_pgcl("""x: nat;
+    program = parse_program("""x: nat;
 x = negative_binomial(2, 1/2);""")
     printed = program_to_ppy(program)
     assert "x = negative_binomial(2, 1/2);" in printed
-    assert parse_pgcl(printed, "ppy").instructions == program.instructions
-    assert "x = negative_binomial(3, 0.25);" in program_to_ppy(parse_pgcl("""x: nat;
+    assert parse_program(printed, "ppy").instructions == program.instructions
+    assert "x = negative_binomial(3, 0.25);" in program_to_ppy(parse_program("""x: nat;
 x = negative_binomial(3, 0.25);
 """))
 
@@ -134,7 +134,7 @@ x = negative_binomial(3, 0.25);
 ])
 def test_name_is_reserved_for_functions(syntax, source):
     with pytest.raises(SyntaxError, match="negative_binomial"):
-        parse_pgcl(source, syntax)
+        parse_program(source, syntax)
 
 
 @pytest.mark.parametrize("source, message", [
@@ -162,13 +162,13 @@ x = negative_binomial(2);""", "Too few parameters"),
 x = negative_binomial(2, 1/2, 1/2);""", "Too many parameters"),
 ])
 def test_rejected_arguments(source, message):
-    result = compile_pgcl(source)
+    result = compile_program(source)
     assert isinstance(result, CheckFail)
     assert message in result.message
 
 
 def test_constants_are_substituted():
-    program = compile_pgcl("x: nat;\nconst R = 2;\nx = negative_binomial(R, 1/2);\n", syntax="ppy")
+    program = compile_program("x: nat;\nconst R = 2;\nx = negative_binomial(R, 1/2);\n", syntax="ppy")
     assert not isinstance(program, CheckFail), program
 
 
@@ -177,7 +177,7 @@ def test_high_risk_policyholder_example(engine):
     source = EXAMPLE.read_text(encoding="utf-8")
     assert "negative_binomial" in source
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
                               decisions={}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]

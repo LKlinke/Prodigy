@@ -10,7 +10,7 @@ from fractions import Fraction
 import numpy as np
 import pytest
 import sympy
-from prodigy.pgcl import compiler
+from prodigy.language import compiler
 
 from prodigy.analysis.analyzer import compute_semantics
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -32,7 +32,7 @@ EXAMPLES = sorted(glob.glob(os.path.join(ROOT, "sandwich", "*.ppy")) + glob.glob
 def _load(name):
     path = name if os.path.exists(name) else os.path.join(ROOT, name)
     with open(path, encoding="utf-8") as f:
-        prog = compiler.parse_pgcl(f.read(), path=path)
+        prog = compiler.parse_program(f.read(), path=path)
     return prog, load_problem(prog)
 
 
@@ -168,7 +168,7 @@ def test_sandwich_rw_counter_query_bounds():
 def _tail_rates(program: str, seeds: bool = True):
     """Per-period tail rates of the upper templates, as chosen by the parameter heuristic."""
     from prodigy.analysis.lowerbounds.parameters import profile_loop, tail_kernel, upper_tail_rates
-    pb = load_problem(compiler.parse_pgcl(program))
+    pb = load_problem(compiler.parse_program(program))
     profiles, explo = profile_loop(pb.initial_measure(), pb.guard, pb.body, pb.variables)
     kernel = tail_kernel(pb.guard, pb.body, pb.variables, profiles, seeds=list(explo.occupation) if seeds else None)
     fixed = {pb.variables.index(v): float(r) ** (1.0 / p) for v, (r, p) in pb.forced_rates.items()}
@@ -264,7 +264,7 @@ while (x > 0) {
     y = y + 2;
 }
 query Ex[y];"""
-    pb = load_problem(compiler.parse_pgcl(double_geo))
+    pb = load_problem(compiler.parse_program(double_geo))
     res = evt_sandwich(pb, size=300, verbose=False)
     (bound,) = res.bounds
     assert bound.lower <= 2 <= bound.upper < 2 + 1e-4
@@ -275,7 +275,7 @@ def test_observe_is_rejected(name):
     """Conditioning is out of scope: the modes must not silently treat violated observations as non-termination."""
     path = os.path.join(ROOT, name)
     with open(path, encoding="utf-8") as f:
-        prog = compiler.parse_pgcl(f.read(), path=path)
+        prog = compiler.parse_program(f.read(), path=path)
     with pytest.raises(UnsupportedProgram, match="observe"):
         load_problem(prog)
 

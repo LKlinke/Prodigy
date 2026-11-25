@@ -20,8 +20,8 @@ from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.equality import decide_equal, sympy_text
-from prodigy.pgcl import parse_pgcl
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language import parse_program
+from prodigy.language.ppy_parser import parse_ppy_expr
 
 ENGINES = [ForwardAnalysisConfig.Engine.SYMPY, ForwardAnalysisConfig.Engine.GINAC]
 
@@ -35,7 +35,7 @@ def _run(source, engine, decisions=None):
     if engine == ForwardAnalysisConfig.Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
                               decisions=decisions or {}, capture_output=True)
     return session.run().to_json()
 
@@ -385,7 +385,7 @@ def test_counter_operators_do_not_parse_latex_output():
     # engine's expression instead (#445)
     source = "k: nat = poisson(1);\nx: nat = bernoulli(1/(k + 1));\nquery Pr[x == 1];\n"
     config = ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.SYMPY, use_latex=True)
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", config=config,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", config=config,
                               decisions={}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result.get("error")

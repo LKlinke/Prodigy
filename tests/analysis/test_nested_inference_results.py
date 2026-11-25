@@ -12,7 +12,7 @@ import sympy
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 from prodigy.web.diagnostics import check_source
 
 Engine = ForwardAnalysisConfig.Engine
@@ -32,7 +32,7 @@ x: nat = sample(d);
 
 
 def run(source, **kwargs):
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", **kwargs)
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", **kwargs)
     return session.run().to_json()
 
 

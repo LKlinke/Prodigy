@@ -12,7 +12,7 @@ from prodigy.analysis.input_distribution import InputDistributionError, input_di
 from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
 from prodigy.distribution.finite_measure import check_input_expression
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 from prodigy.web.app import create_app
 
 ENGINES = list(ForwardAnalysisConfig.Engine)
@@ -56,7 +56,7 @@ def config(request):
 
 
 def _program(parameters=""):
-    return parse_pgcl(parameters + PROGRAM)
+    return parse_program(parameters + PROGRAM)
 
 
 @pytest.mark.parametrize("text", VALID.values(), ids=VALID.keys())
@@ -113,7 +113,7 @@ def test_unsafe_text_is_refused_before_any_engine_sees_it():
 
 @pytest.mark.parametrize("text", ["1 - x", "1/(1 - x)"])
 def test_session_reports_a_refused_input_as_error(config, text):
-    session = AnalysisSession(parse_pgcl(PROGRAM), source=PROGRAM, config=config, input_distribution=text,
+    session = AnalysisSession(parse_program(PROGRAM), source=PROGRAM, config=config, input_distribution=text,
                               capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "error"

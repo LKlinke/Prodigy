@@ -6,12 +6,12 @@ import pytest
 from click.testing import CliRunner
 
 from prodigy.analysis.ai_candidates import CandidateError
-from prodigy.pgcl.expression_allowlist import MATH_FUNCTIONS, admissible_expression
+from prodigy.language.expression_allowlist import MATH_FUNCTIONS, admissible_expression
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound, get_loop_strategy
 from prodigy.analysis.session import AnalysisSession, InteractiveDecisions, parse_decisions, validate_decisions
 from prodigy.cli import cli
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 GEOMETRIC = """x: nat;
 c: nat;
@@ -102,7 +102,7 @@ def test_validate_decisions_reports_malicious_expressions(tmp_path):
 def test_session_decisions_from_python_are_checked(tmp_path, engine, strategy, param):
     """An ``AnalysisSession`` built from Python reports a malicious decision as an error naming the parameter."""
     for text in _malicious(tmp_path)[:4]:
-        session = AnalysisSession(parse_pgcl(GEOMETRIC), source=GEOMETRIC, config=ForwardAnalysisConfig(engine=engine),
+        session = AnalysisSession(parse_program(GEOMETRIC), source=GEOMETRIC, config=ForwardAnalysisConfig(engine=engine),
                                   decisions={"0": {"strategy": strategy, "params": {param: text}}},
                                   capture_output=True)
         result = session.run().to_json()
@@ -114,7 +114,7 @@ def test_session_decisions_from_python_are_checked(tmp_path, engine, strategy, p
 @pytest.mark.parametrize("engine", list(ForwardAnalysisConfig.Engine), ids=lambda e: e.name.lower())
 def test_session_decisions_accept_valid_expressions(engine):
     for invariant in (INVARIANT, "(x + 1/2)/(1 - c/2)".replace("/", " / ")):
-        session = AnalysisSession(parse_pgcl(GEOMETRIC), source=GEOMETRIC, config=ForwardAnalysisConfig(engine=engine),
+        session = AnalysisSession(parse_program(GEOMETRIC), source=GEOMETRIC, config=ForwardAnalysisConfig(engine=engine),
                                   decisions={"0": {"strategy": "evt_invariant", "params": {"invariant": invariant}}},
                                   capture_output=True)
         result = session.run().to_json()

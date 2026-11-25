@@ -18,7 +18,7 @@ from prodigy.analysis.evtinvariants.template_solver import solve_template
 from prodigy.analysis.loop_strategies import get_loop_strategy
 from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import
@@ -38,7 +38,7 @@ ENGINES = [
 
 def _run(path: Path, decision: str, engine) -> dict:
     source = path.read_text(encoding="utf-8")
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", capture_output=True,
                               decisions={"0": decision}, config=ForwardAnalysisConfig(engine=engine))
     return session.run().to_json()
 

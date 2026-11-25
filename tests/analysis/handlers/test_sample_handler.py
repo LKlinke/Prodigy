@@ -1,5 +1,5 @@
 import pytest
-from prodigy import pgcl as pgcl
+from prodigy import language
 
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -24,7 +24,7 @@ def test_iid_predefined_distributions(engine, factory):
 
     for distribution in distributions.keys():
         result, error_prob = compute_discrete_distribution(
-            pgcl.parse_pgcl("""
+            language.parse_program("""
                     x: nat;
                     param n: nat;
                     param p: real;
@@ -40,7 +40,7 @@ def test_iid_predefined_distributions(engine, factory):
                           (ForwardAnalysisConfig.Engine.GINAC, ProdigyPGF)])
 def test_iid_update(engine, factory):
     result, error_prob = compute_discrete_distribution(
-        pgcl.parse_pgcl("""
+        language.parse_program("""
 x: nat;
 param p: real;
 

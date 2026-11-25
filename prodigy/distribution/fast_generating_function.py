@@ -18,7 +18,7 @@ from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution, DistributionParam,
                                                MarginalType, NonFiniteMarginalError, Operand, State,
                                                canonical_order)
-from prodigy.pgcl import Binop, BinopExpr, Expr, FunctionCallExpr, NatLitExpr, VarExpr
+from prodigy.language import Binop, BinopExpr, Expr, FunctionCallExpr, NatLitExpr, VarExpr
 
 from prodigy.util.order import default_monomial_iterator
 

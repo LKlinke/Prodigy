@@ -12,7 +12,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
 from prodigy.distribution.equality import sympify_engine_string
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 try:
     import prodigy_ginac  # pylint: disable=unused-import
@@ -40,7 +40,7 @@ query Ex[NAME];
 
 
 def _run(source: str, decision: str, engine) -> dict:
-    session = AnalysisSession(parse_pgcl(source, "ppy"), source=source, syntax="ppy", capture_output=True,
+    session = AnalysisSession(parse_program(source, "ppy"), source=source, syntax="ppy", capture_output=True,
                               decisions={"0": decision}, config=ForwardAnalysisConfig(engine=engine))
     return session.run().to_json()
 

@@ -24,7 +24,7 @@ A request looks like::
 
 Generating functions (``input_distribution`` and the ``expression`` parameters of the loop
 strategies) are untrusted text for SymPy's parser: :func:`validate_request` admits only
-expressions in the program's syntax (:func:`prodigy.pgcl.expression_allowlist.admissible_expression`),
+expressions in the program's syntax (:func:`prodigy.language.expression_allowlist.admissible_expression`),
 and :func:`prepare_request` turns them into the engines' spelling (``x**2`` -> ``x^2``).
 """
 from __future__ import annotations
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.analysis.equivalence.verdict import CheckOutcome
     from prodigy.analysis.session import AnalysisSession
-    from prodigy.pgcl import Program
+    from prodigy.language import Program
 
 ENGINES = {
     "sympy": "SymPy",
@@ -104,7 +104,7 @@ def validate_request(request: Dict[str, Any]) -> List[str]:
     from prodigy.analysis.evtinvariants.heuristics.strategies import SELECTABLE_POSITIVITY_HEURISTICS
     from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
     from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
-    from prodigy.pgcl.expression_allowlist import MATH_FUNCTIONS, InadmissibleExpression, admissible_expression
+    from prodigy.language.expression_allowlist import MATH_FUNCTIONS, InadmissibleExpression, admissible_expression
     from prodigy.analysis.session import parse_decisions, validate_decisions
     from prodigy.analysis.solver.solver_type import SolverType
 
@@ -203,9 +203,9 @@ def check_input_distribution(source: str, syntax: str, text: str, engine: str = 
     program does not parse (its diagnostics say why) or the engine is not available."""
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.input_distribution import InputDistributionError, input_distribution_from_text
-    from prodigy.pgcl import parse_pgcl
+    from prodigy.language import parse_program
     try:
-        program = parse_pgcl(source, syntax)
+        program = parse_program(source, syntax)
         config = make_config({"engine": engine})
         with config.activate():
             input_distribution_from_text(config, text.strip().replace("**", "^"), program, syntax)
@@ -258,7 +258,7 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
                  progress: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
     """Runs one analysis request and returns the JSON result (never raises for analysis errors)."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.pgcl import parse_pgcl
+    from prodigy.language import parse_program
 
     from prodigy.analysis.session import AnalysisSession
     from prodigy.analysis.trace import TraceLimits, parse_watch
@@ -270,7 +270,7 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
     request = prepare_request(request)
     source, syntax = request["source"], request_syntax(request)
     try:
-        program = parse_pgcl(source, syntax)
+        program = parse_program(source, syntax)
     except Exception as exc:  # pylint: disable=broad-except
         return {"status": "error", "error": {"type": "syntax", "message": str(exc).split("\n", maxsplit=1)[0]}}
     input_distribution = request.get("input_distribution")
@@ -319,10 +319,10 @@ def loop_program(source: str, syntax: str, loop_id: int) -> Dict[str, Any]:
     program B from) and ``whole``. Raises ``ValueError`` with a message for the person otherwise."""
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.session import LoopRegistry, isolate_loop
-    from prodigy.pgcl import parse_pgcl
+    from prodigy.language import parse_program
 
     try:
-        program = parse_pgcl(source, syntax)
+        program = parse_program(source, syntax)
     except Exception as exc:  # pylint: disable=broad-except
         raise ValueError(f"The program does not parse: {str(exc).split(chr(10), maxsplit=1)[0]}") from exc
     registry = LoopRegistry(program)
@@ -478,7 +478,7 @@ def run_equivalence(request: Dict[str, Any], *, output: Optional[Callable[[str],
     from prodigy.analysis.equivalence import verdict as equivalence
     from prodigy.analysis.result import prodigy_version
     from prodigy.analysis.session import AnalysisSession
-    from prodigy.pgcl import parse_pgcl
+    from prodigy.language import parse_program
     from prodigy.util.integers import unlimited_int_digits
 
     problems = validate_equivalence(request)
@@ -490,7 +490,7 @@ def run_equivalence(request: Dict[str, Any], *, output: Optional[Callable[[str],
     programs: Dict[str, Any] = {}
     for which, part in (("A", first_request), ("B", second_request)):
         try:
-            programs[which] = parse_pgcl(part["source"], request_syntax(part))
+            programs[which] = parse_program(part["source"], request_syntax(part))
         except Exception as exc:  # pylint: disable=broad-except
             return _error("syntax", f"Program {which}: {str(exc).split(chr(10), maxsplit=1)[0]}")
     program, other = programs["A"], programs["B"]
@@ -750,7 +750,7 @@ def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], 
     from prodigy.analysis import ai_candidates
     from prodigy.analysis.analyzer import compute_discrete_distribution
     from prodigy.analysis.input_distribution import input_distribution_from_text
-    from prodigy.pgcl import parse_pgcl
+    from prodigy.language import parse_program
 
     problems = validate_suggestion(request)
     if problems:
@@ -762,7 +762,7 @@ def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], 
     analysis = prepare_request(suggestion_analysis_request(request))
     syntax = request_syntax(analysis)
     try:
-        program = parse_pgcl(analysis["source"], syntax)
+        program = parse_program(analysis["source"], syntax)
     except Exception as exc:  # pylint: disable=broad-except
         return _error("syntax", str(exc).split("\n", maxsplit=1)[0])
     loop_id, form = int(request["loop"]), request["form"]

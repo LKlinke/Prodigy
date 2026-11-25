@@ -6,10 +6,10 @@ from click.testing import CliRunner
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl.ppy_printer import spell
+from prodigy.language.ppy_printer import spell
 from prodigy.cli import EXIT_UNDECIDED, cli
-from prodigy.pgcl import parse_pgcl
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language import parse_program
+from prodigy.language.ppy_parser import parse_ppy_expr
 
 PPY = """x: nat;
 c: nat;
@@ -45,7 +45,7 @@ query Pr[c];
 
 
 def _analyse(source, syntax, decision="unroll:iterations=5"):
-    session = AnalysisSession(parse_pgcl(source, syntax), source=source, syntax=syntax, config=ForwardAnalysisConfig(),
+    session = AnalysisSession(parse_program(source, syntax), source=source, syntax=syntax, config=ForwardAnalysisConfig(),
                               decisions={"0": decision}, record_steps=True, capture_output=True)
     return session.run().to_json()
 

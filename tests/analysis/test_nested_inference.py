@@ -14,8 +14,8 @@ from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl import Program, parse_pgcl
-from prodigy.pgcl.compiler import compile_pgcl
+from prodigy.language import Program, parse_program
+from prodigy.language.compiler import compile_program
 from prodigy.web.diagnostics import check_source
 from prodigy.web.requests import run_analysis
 
@@ -26,10 +26,10 @@ ENGINES = [Engine.SYMPY, Engine.GINAC]
 def analyse(source, engine=Engine.SYMPY, syntax="ppy", decisions=None):
     if engine == Engine.GINAC:
         pytest.importorskip("prodigy_ginac")
-    program = compile_pgcl(source, syntax=syntax)
+    program = compile_program(source, syntax=syntax)
     assert isinstance(program, Program), program
     config = ForwardAnalysisConfig(engine=engine)
-    session = AnalysisSession(parse_pgcl(source, syntax), source=source, syntax=syntax, config=config,
+    session = AnalysisSession(parse_program(source, syntax), source=source, syntax=syntax, config=config,
                               decisions=decisions, capture_output=True)
     return session.run().to_json(), session
 
@@ -384,7 +384,7 @@ def test_functions_call_functions(engine):
      "x: nat = g(1);\n", "g calls f, f calls g"),
 ])
 def test_recursion_is_not_implemented(source, calls):
-    assert isinstance(compile_pgcl(source, syntax="ppy"), Program)  # the type checker accepts it
+    assert isinstance(compile_program(source, syntax="ppy"), Program)  # the type checker accepts it
     result, _ = analyse(source)
     assert result["status"] == "error"
     assert result["error"]["type"] == "UnsupportedFeatureError"
@@ -425,14 +425,14 @@ query Pr[w == 1];
     (F + "d: dist = infer(f, 0);\nx: nat = d + 1;\n", "Expected numeric value"),
 ])
 def test_type_errors(source, message):
-    checked = compile_pgcl(source, syntax="ppy")
+    checked = compile_program(source, syntax="ppy")
     assert not isinstance(checked, Program)
     assert message in checked.message
 
 
 def test_parser_and_printer_round_trip():
     # pylint: disable=import-outside-toplevel
-    from prodigy.pgcl.ppy_printer import program_to_ppy
+    from prodigy.language.ppy_printer import program_to_ppy
     source = F + """
 def g(q: dist) -> nat {
     a: nat = sample(q);
@@ -446,10 +446,10 @@ if (Ex[d] > 1 and Pr[d == 1] < 1/2) {
     skip;
 }
 """
-    program = parse_pgcl(source, "ppy")
+    program = parse_program(source, "ppy")
     printed = program_to_ppy(program)
     assert "Ex[d] > 1 and Pr[d == 1] < 1/2" in printed
-    assert parse_pgcl(printed, "ppy") == program
+    assert parse_program(printed, "ppy") == program
     assert "(Ex[d] > 1) & (Pr[d = 1] < 1/2)" in str(program)
 
 
@@ -481,7 +481,7 @@ if (c == 1) {
 
 
 def test_compute_discrete_distribution_without_session():
-    program = compile_pgcl(F + "d: dist = infer(f, 0);\nx: nat = sample(d);\n", syntax="ppy")
+    program = compile_program(F + "d: dist = infer(f, 0);\nx: nat = sample(d);\n", syntax="ppy")
     config = ForwardAnalysisConfig()
     dist, _ = compute_discrete_distribution(program, config.factory.one(*program.variables), config)
     assert same(str(dist), "(2*x + x^2)/3")

@@ -6,7 +6,7 @@ from fractions import Fraction
 import pytest
 import sympy
 from click.testing import CliRunner
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 from prodigy.analysis import evt_exploration
 from prodigy.analysis.config import ForwardAnalysisConfig
@@ -62,7 +62,7 @@ query Pr[x == 0];
 
 
 def analyse(source, decisions):
-    session = AnalysisSession(parse_pgcl(source), source=source, config=ForwardAnalysisConfig(), decisions=decisions,
+    session = AnalysisSession(parse_program(source), source=source, config=ForwardAnalysisConfig(), decisions=decisions,
                               capture_output=True)
     return session.run().to_json()
 

@@ -11,8 +11,8 @@ from prodigy.analysis.equivalence import verdict as eq
 from prodigy.analysis.instructionhandler.while_handler import InvariantRefutedError
 from prodigy.analysis.session import AnalysisSession, InteractiveDecisions
 from prodigy.distribution.distribution import NonFiniteMarginalError, known_convergent_series
-from prodigy.pgcl import parse_pgcl
-from prodigy.pgcl.pgcl_operations import cav_phi
+from prodigy.language import parse_program
+from prodigy.language.operations import cav_phi
 
 Engine = ForwardAnalysisConfig.Engine
 SYNTHESIS = Path("pgfexamples/template_parameter_synthesis")
@@ -31,12 +31,12 @@ def _compare(source, other, answers, engine, monkeypatch):
     session = AnalysisSession(None, syntax="ppy", config=_engine(engine),
                               provider=InteractiveDecisions(remember=True), parameter_synthesis="allow")
     with session.activate(), session.config.activate():
-        return eq.compare(parse_pgcl(source, "ppy"), parse_pgcl(other, "ppy"), session)
+        return eq.compare(parse_program(source, "ppy"), parse_program(other, "ppy"), session)
 
 
 def test_one_unrolling_keeps_the_parameters_of_the_loop():
-    loop = parse_pgcl("c: nat;\nparam p: real;\nwhile (c == 1) { { c = 0; } [p] { skip; } }\n", "ppy")
-    invariant = parse_pgcl("c: nat;\nc = 0;\n", "ppy")
+    loop = parse_program("c: nat;\nparam p: real;\nwhile (c == 1) { { c = 0; } [p] { skip; } }\n", "ppy")
+    invariant = parse_program("c: nat;\nc = 0;\n", "ppy")
     assert "p" in cav_phi(loop, invariant).parameters
 
 

@@ -11,7 +11,7 @@ from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 ENGINES = ["SYMPY", "GINAC"]
 
@@ -24,7 +24,7 @@ def _engine(name):
 
 def _run(source, syntax, engine):
     config = ForwardAnalysisConfig(engine=_engine(engine))
-    session = AnalysisSession(parse_pgcl(source, syntax), source=source, syntax=syntax, config=config,
+    session = AnalysisSession(parse_program(source, syntax), source=source, syntax=syntax, config=config,
                               decisions={}, capture_output=True)
     return session.run().to_json()
 

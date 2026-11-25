@@ -8,9 +8,9 @@ from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.result import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.distribution import NonFiniteMarginalError
-from prodigy.pgcl import CovarianceInstr, VarianceInstr, parse_pgcl
-from prodigy.pgcl.ppy_parser import parse_ppy
-from prodigy.pgcl.ppy_printer import instr_to_ppy, program_to_ppy
+from prodigy.language import CovarianceInstr, VarianceInstr, parse_program
+from prodigy.language.ppy_parser import parse_ppy
+from prodigy.language.ppy_printer import instr_to_ppy, program_to_ppy
 
 ENGINES = ["SYMPY", "GINAC"]
 R = sympy.Rational
@@ -21,7 +21,7 @@ def analyse(source, engine="SYMPY", syntax="ppy", decisions=None):
         pytest.importorskip("prodigy_ginac")
     config = ForwardAnalysisConfig(engine=getattr(ForwardAnalysisConfig.Engine, engine),
                                    use_simplification=True)
-    session = AnalysisSession(parse_pgcl(source, syntax), source=source, syntax=syntax, config=config,
+    session = AnalysisSession(parse_program(source, syntax), source=source, syntax=syntax, config=config,
                               decisions=decisions or {}, capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "ok", result["error"]
@@ -172,7 +172,7 @@ class _Stub:
 def _query(source, moments):
     # pylint: disable=import-outside-toplevel,protected-access
     from prodigy.analysis.instructionhandler.query_handler import QueryHandler
-    program = parse_pgcl(source, "ppy")
+    program = parse_program(source, "ppy")
     session = AnalysisSession(program, source=source, syntax="ppy",
                               config=ForwardAnalysisConfig(), decisions={}, capture_output=True)
     with session.activate():
@@ -199,7 +199,7 @@ def test_parsing_and_printing_round_trip():
     var, cov = program.instructions
     assert isinstance(var, VarianceInstr) and isinstance(cov, CovarianceInstr)
     assert [instr_to_ppy(instr) for instr in program.instructions] == ["query Var[x];", "query Cov[x, y + 1];"]
-    old = parse_pgcl("""x: nat;
+    old = parse_program("""x: nat;
 y: nat;
 query Var[x];
 query Cov[x, y + 1];

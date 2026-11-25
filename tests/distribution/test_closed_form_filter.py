@@ -11,13 +11,13 @@ import pytest
 import sympy
 from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
-import prodigy.pgcl as pgcl
+import prodigy.language as language
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.fast_generating_function import FPS
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.distribution.rational_series import rational_taylor_coefficients
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language.ppy_parser import parse_ppy_expr
 
 ENGINES = [GeneratingFunction, FPS]
 X, Y, P = sympy.symbols('x y p')
@@ -107,7 +107,7 @@ def test_probability_of_closed_form(engine):
 @pytest.mark.parametrize('engine', list(ForwardAnalysisConfig.Engine))
 def test_program_guard_on_uniform(engine):
     config = ForwardAnalysisConfig(engine=engine)
-    program = pgcl.parse_pgcl("""
+    program = language.parse_program("""
 x: nat;
 y: nat;
 x = unif(0, 3);

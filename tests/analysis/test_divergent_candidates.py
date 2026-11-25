@@ -11,7 +11,7 @@ import pytest
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.session import AnalysisSession
-from prodigy.pgcl import parse_pgcl
+from prodigy.language import parse_program
 
 PROGRAM = """a: nat;
 b: nat;
@@ -65,7 +65,7 @@ def _run(program, engine, invariant):
         pytest.importorskip("prodigy_ginac")
     config = ForwardAnalysisConfig(engine=engine)
     decisions = {"0": {"strategy": "evt_invariant", "params": {"invariant": invariant}}}
-    session = AnalysisSession(parse_pgcl(program), source=program, config=config, decisions=decisions,
+    session = AnalysisSession(parse_program(program), source=program, config=config, decisions=decisions,
                               capture_output=True)
     result = session.run().to_json()
     assert result["status"] == "error"

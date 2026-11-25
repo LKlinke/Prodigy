@@ -3,7 +3,7 @@
 This page states the **target** structure of Prodigy that the maintenance pass of v0.7.0 (#221, #493) works
 towards, and how far the code is from it today. The dependency rules are checked by `tests/test_layering.py`;
 every rule that the code still breaks is an expected failure there, naming the item below (`T1` …) and the work
-package that removes it. Package paths are the current ones; `prodigy/pgcl` becomes `prodigy/language` with #446.
+package that removes it. Package paths are the current ones; `prodigy/pgcl` became `prodigy/language` with #446.
 
 ## Goals
 
@@ -39,7 +39,8 @@ Good design is not given up for these numbers: a module that is long because its
                    |           Distribution: the semantic interface (representation-neutral)
                    |           PGF: shared logic on generating functions, proof rules on closed forms
                    |           engines SymPy, GiNaC (hooks);  kernel: FLINT, exact rational arithmetic
- language     prodigy.pgcl     parser, AST, type checker, warnings, outline (loops, queries, positions),
+ language     prodigy.language
+                   |           parser, AST, type checker, warnings, outline (loops, queries, positions),
                    |           printer (spelling), structured diagnostics
  util         prodigy.util     helpers without Prodigy knowledge
 

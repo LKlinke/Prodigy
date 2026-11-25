@@ -8,12 +8,12 @@ import pytest
 import sympy
 from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
-import prodigy.pgcl as pgcl
+import prodigy.language as language
 from prodigy.analysis.analyzer import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution.fast_generating_function import FPS
 from prodigy.distribution.generating_function import GeneratingFunction
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language.ppy_parser import parse_ppy_expr
 
 ENGINES = [GeneratingFunction, FPS]
 X, Y = sympy.Symbol('x'), sympy.Symbol('y')
@@ -58,7 +58,7 @@ def test_parameters_survive_filter_and_division(engine):
 
 def _run(engine, source: str, syntax: str = "ppy"):
     config = ForwardAnalysisConfig(engine=engine)
-    program = pgcl.parse_pgcl(source, syntax)
+    program = language.parse_program(source, syntax)
     result, error_prob = compute_discrete_distribution(program, config.factory.one(*program.variables), config)
     symbols = {name: sympy.Symbol(name) for name in [*program.variables, *program.parameters]}
     return _to_sympy(str(result), symbols), _to_sympy(str(error_prob), symbols), symbols

@@ -5,12 +5,12 @@ import time
 from copy import deepcopy
 from typing import Iterable, List, Set, Tuple
 
-from prodigy.pgcl import (AsgnInstr, Binop, BinopExpr, BoolLitExpr,
+from prodigy.language import (AsgnInstr, Binop, BinopExpr, BoolLitExpr,
                            ChoiceInstr, ExpectationInstr, FunctionCallExpr,
                            IfInstr, Instr, LoopInstr, NatLitExpr, NatType,
                            ObserveInstr, Program, SkipInstr, Var,
                            VarExpr, WhileInstr)
-from prodigy.pgcl.ast.walk import Walk, walk_instrs
+from prodigy.language.ast.walk import Walk, walk_instrs
 
 from prodigy.analysis.independence.utils import _vars_of_expr, _written_vars, _ancestors_every_node
 from prodigy.util.logger import log_setup

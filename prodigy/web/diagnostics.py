@@ -14,10 +14,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import copy
 
-from prodigy.pgcl import parse_pgcl, substitute
-from prodigy.pgcl.check import CheckFail, check_program
-from prodigy.pgcl.language_warnings import LanguageWarning, language_warnings
-from prodigy.pgcl.positions import span_of
+from prodigy.language import parse_program, substitute
+from prodigy.language.check import CheckFail, check_program
+from prodigy.language.language_warnings import LanguageWarning, language_warnings
+from prodigy.language.positions import span_of
 
 from prodigy.analysis.result import outline_program
 
@@ -101,7 +101,7 @@ def _spelling(node: Any, syntax: str) -> str:
     """``node`` as it is written in ``syntax`` (for finding it in the source)."""
     if syntax == "ppy":
         # pylint: disable=import-outside-toplevel
-        from prodigy.pgcl.ppy_printer import expr_to_ppy, instr_to_ppy
+        from prodigy.language.ppy_printer import expr_to_ppy, instr_to_ppy
         printer = expr_to_ppy if type(node).__name__.endswith("Expr") else instr_to_ppy
         try:
             return printer(node)
@@ -204,9 +204,9 @@ def _nested_inference_limits(program: Any, source: str) -> List[Dict[str, Any]]:
     as far as they can be seen without running it: a loop that assigns a ``dist`` variable."""
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.nested_inference import assigned_dist_variables
-    from prodigy.pgcl import LoopInstr, WhileInstr
-    from prodigy.pgcl.ast.types import DistributionType
-    from prodigy.pgcl.ast.walk import Walk, walk_instrs
+    from prodigy.language import LoopInstr, WhileInstr
+    from prodigy.language.ast.types import DistributionType
+    from prodigy.language.ast.walk import Walk, walk_instrs
     found = []
     bodies = [(program.instructions, program.variables)]
     bodies += [(function.instructions, {decl.var: decl.typ for decl in function.declarations})
@@ -234,7 +234,7 @@ def _nested_inference_limits(program: Any, source: str) -> List[Dict[str, Any]]:
 def _check(source: str, syntax: str) -> Dict[str, Any]:
     diagnostics: List[Dict[str, Any]] = []
     try:
-        program = parse_pgcl(source, syntax)
+        program = parse_program(source, syntax)
     except Exception as exc:  # pylint: disable=broad-except
         diagnostics.append(_parse_error(source, exc))
         return {"ok": False, "diagnostics": diagnostics, "outline": None}
@@ -244,7 +244,7 @@ def _check(source: str, syntax: str) -> Dict[str, Any]:
         outline = None
         diagnostics.append(_diagnostic("warning", f"Could not outline the program: {exc}", None, source))
     try:
-        # same as prodigy.pgcl.compiler.compile_pgcl, without parsing a second time
+        # same as prodigy.language.compiler.compile_program, without parsing a second time
         checked_program = copy.deepcopy(program)
         substitute.substitute_constants(checked_program)
         checked = check_program(checked_program, spell=lambda node: _spelling(node, syntax))

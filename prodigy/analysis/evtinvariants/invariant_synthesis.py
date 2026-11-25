@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import sympy
 from sympy.polys.polyerrors import BasePolynomialError
-from prodigy.pgcl import WhileInstr, Instr
+from prodigy.language import WhileInstr, Instr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategy

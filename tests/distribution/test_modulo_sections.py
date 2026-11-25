@@ -10,7 +10,7 @@ from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 from prodigy.distribution import known_convergent_series
 from prodigy.distribution.generating_function import GeneratingFunction
 from prodigy.distribution.multisection import rational_sections
-from prodigy.pgcl.ppy_parser import parse_ppy_expr
+from prodigy.language.ppy_parser import parse_ppy_expr
 
 try:
     from prodigy.distribution.fast_generating_function import FPS
@@ -114,8 +114,8 @@ def test_roots_of_unity_constants_are_not_parameters():
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.analyzer import compute_discrete_distribution
     from prodigy.analysis.config import ForwardAnalysisConfig
-    from prodigy.pgcl import parse_pgcl
-    program = parse_pgcl("x: nat;\ny: nat;\nx = poisson(2);\nif (x % 3 == 1) {\n    y = 1;\n}\nquery Ex[x];\n", "ppy")
+    from prodigy.language import parse_program
+    program = parse_program("x: nat;\ny: nat;\nx = poisson(2);\nif (x % 3 == 1) {\n    y = 1;\n}\nquery Ex[x];\n", "ppy")
     config = ForwardAnalysisConfig(engine=ForwardAnalysisConfig.Engine.SYMPY)
     result, _ = compute_discrete_distribution(program, config.factory.one(*program.variables), config)
     assert result.get_parameters() == set()

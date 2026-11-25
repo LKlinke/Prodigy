@@ -4,8 +4,8 @@ Status: **implemented** ([#105](https://github.com/LKlinke/Prodigy/issues/105) d
 [#106](https://github.com/LKlinke/Prodigy/issues/106) implementation). `.ppy` is the syntax of
 new programs and of the examples in `pgfexamples/`, which were converted with `prodigy convert`;
 `.pgcl` was removed in v0.6.0. The language is described in {doc}`language`; this page keeps
-the reasons for the design. Parser and pretty printer: `prodigy/pgcl/ppy_parser.py`,
-`prodigy/pgcl/ppy_printer.py`. The CLI (see {doc}`cli`) and the GUI
+the reasons for the design. Parser and pretty printer: `prodigy/language/ppy_parser.py`,
+`prodigy/language/ppy_printer.py`. The CLI (see {doc}`cli`) and the GUI
 (see {doc}`gui`) read `.ppy`, and results write expressions in the syntax of the
 program. Nested inference (`infer`, `sample`, see below) is analysed since
 [#104](https://github.com/LKlinke/Prodigy/issues/104).
@@ -144,7 +144,7 @@ param p: real;
   blocks that do not contain each other, with the same type. Only `nat` and `bool` variables can be
   declared in a block.
 - Implementation: the compiler lowers a declaration inside a block into an assignment of its
-  initial value and an assignment `x = 0` at the end of the block (`prodigy.pgcl.scope`). Setting
+  initial value and an assignment `x = 0` at the end of the block (`prodigy.language.scope`). Setting
   `x` to 0 is the marginalisation (the generating function `G(x, …)` becomes `G(1, …)`), so the
   engines need nothing new, and outside its block the variable is always 0. Input values for it
   are ignored, and it is left out of the output distribution.
@@ -339,7 +339,7 @@ right-hand side of an assignment, e.g. `x = geometric(1/2) + 1` or `x = bernoull
   two independent draws, not twice one draw.
 - Analysis: each draw is assigned to a fresh helper variable first (from left to right, a draw
   inside an argument before the draw it belongs to), then the expression is assigned with the
-  helpers in its place, and the helpers are marginalised (`prodigy.pgcl.draws`). This uses only
+  helpers in its place, and the helpers are marginalised (`prodigy.language.draws`). This uses only
   the existing operations, so it is exact wherever the single draws are, on every engine.
   `sample_pgf(G, x)` inside an expression reads `G` in the helper instead of `x`.
 - A draw inside a guard of `if` or `while`, an observation or a query has no variable to draw into

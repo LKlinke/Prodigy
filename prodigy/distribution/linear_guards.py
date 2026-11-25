@@ -27,10 +27,10 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Dict, Set
 
-from prodigy.pgcl import (Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr,
+from prodigy.language import (Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr,
                           RealLitExpr, VarExpr)
-from prodigy.pgcl.ast.walk import Walk, walk_expr
-from prodigy.pgcl.util.ref import Mut
+from prodigy.language.ast.walk import Walk, walk_expr
+from prodigy.language.util.ref import Mut
 
 LinearForm = Dict[str, Fraction]
 """A linear combination of variables; the key `""` holds the constant."""
