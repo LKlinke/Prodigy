@@ -3,7 +3,7 @@
 Analysis results (JSON format)
 ------------------------------
 
-:func:`build_result` runs an :class:`~prodigy.analysis.session.AnalysisSession` and turns
+:meth:`AnalysisSession.run <prodigy.analysis.session.AnalysisSession.run>` runs an analysis and turns
 everything it recorded into an :class:`AnalysisResult`. :meth:`AnalysisResult.to_json`
 is the exchange format between Prodigy and its front ends (``prodigy analyze --json``,
 the web GUI, a language server). Its top-level keys::
@@ -129,19 +129,11 @@ from __future__ import annotations
 
 import logging
 import re
-import time
-import traceback
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from prodigy.language import Program
-from prodigy.language.outline import outline
-
 from prodigy.analysis.loops.api import Bound
-from prodigy.analysis.values import (QueryResult, _safe, bounds_explanation, describe_distribution, error_type,
-                                     exact_and_float, is_non_finite, to_sympy)
-from prodigy.distribution.distribution import known_convergent_series
-from prodigy.util.integers import unlimited_int_digits
+from prodigy.analysis.values import QueryResult, is_non_finite, to_sympy
 from prodigy.util.logger import log_setup
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -154,7 +146,7 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 SCHEMA = "prodigy/analysis-result@1"
 
-_ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
 
 def prodigy_version() -> str:
@@ -181,7 +173,7 @@ def prodigy_version() -> str:
 # ---------------------------------------------------------------------------------------
 
 
-def _non_finite_parts(result: "AnalysisResult", dist: "Distribution") -> List[str]:
+def non_finite_parts(result: "AnalysisResult", dist: "Distribution") -> List[str]:
     """The parts of an otherwise finished ``result`` that are undefined (see :func:`is_non_finite`);
     the affected queries lose their interval."""
     names = frozenset(map(str, dist.get_variables())) | frozenset(map(str, dist.get_parameters()))
@@ -290,141 +282,11 @@ class AnalysisResult:
         }
 
 
-def _engine_name(config: ForwardAnalysisConfig) -> str:
+def engine_name(config: ForwardAnalysisConfig) -> str:
     return config.engine.name.lower()
 
 
-def build_result(session: "AnalysisSession") -> AnalysisResult:
-    """Runs ``session`` and collects the result; analysis errors end up in the result."""
-    # The checks after the analysis print the distribution again, exact coefficients can have
-    # more digits than Python converts by default (#235).
-    with unlimited_int_digits():
-        return _build_result(session)
-
-
-def _require_type_correct(program: Program, source: Optional[str]) -> None:
-    """Rejects a program that the type checker rejects, with the GUI's message (#351)."""
-    # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.exceptions import ForwardAnalysisError
-    from prodigy.analysis.checks import type_error
-    diagnostic = type_error(program, source or "")
-    if diagnostic is not None:
-        raise ForwardAnalysisError(f"Type error: {diagnostic['message']}")
-
-
-def _build_result(session: "AnalysisSession") -> AnalysisResult:
-    # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.session import compute_discrete_distribution
-    from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
-    from prodigy.analysis.input_distribution import input_distribution_from_text
-    from prodigy.analysis.loops.api import DecisionRequired
-
-    result = AnalysisResult()
-    config = session.config
-    started = time.perf_counter()
-    decisions = {str(k): v.to_json() for k, v in session.provider.decisions.items()}
-    result.input = {
-        "distribution": str(session.input_distribution) if session.input_distribution is not None else None,
-        "engine": _engine_name(config),
-        "normalize": config.normalize,
-        "decisions": decisions,
-    }
-    if session.program is not None:
-        result.program = outline(session.program).to_json()
-
-    analysis_time = 0.0
-    final: Optional["Distribution"] = None
-    # the output of the program's analysis is a finite measure (validated input, #300), also when the summary
-    # evaluates it at 1 after the analysis (#398)
-    output = session._output()  # pylint: disable=protected-access
-    with session.activate(), config.activate(), known_convergent_series(True), output:
-        try:
-            program = session.program
-            assert program is not None
-            _require_type_correct(program, session.source)
-            if session.input_distribution is None:
-                dist = config.factory.one(*program.variables.keys())
-            elif isinstance(session.input_distribution, str):
-                dist = input_distribution_from_text(config, session.input_distribution, program)
-            else:
-                dist = session.input_distribution
-            analysis_start = time.perf_counter()
-            final, error_prob = compute_discrete_distribution(program, dist, config)
-            analysis_time = time.perf_counter() - analysis_start
-            residual, residual_float = exact_and_float(session.residual)
-            track = session.upper
-            result.bounds = {
-                "kind": session.bound_kind,
-                "residual_mass": residual,
-                "residual_mass_float": residual_float,
-                "explanation": bounds_explanation(session.bound_kind, residual, track is not None),
-                "upper": None if track is None else {"closed_form": str(track.distribution),
-                                                     "origin": track.origin},
-            }
-            summary_start = time.perf_counter()
-            stream = session.progress_callback if session.stream_coefficients else None
-            result.distribution = describe_distribution(final, limit=session.coefficient_limit,
-                                                        kind=session.bound_kind,
-                                                        residual=session.residual, stream=stream,
-                                                        simplify=config.use_simplification,
-                                                        upper=session.upper_distribution)
-            if session.dist_values:
-                # pylint: disable=import-outside-toplevel
-                from prodigy.analysis.nested_inference import dist_values_json
-                result.distributions = dist_values_json(session.dist_values,
-                                                        session.coefficient_limit)
-            result.timing["summary"] = round(time.perf_counter() - summary_start, 6)
-            result.error_probability, result.error_probability_float = \
-                exact_and_float(_safe(error_prob.get_probability_mass))
-        except DecisionRequired as exc:
-            analysis_time = time.perf_counter() - started
-            result.status = "needs_decision"
-            result.error = {"type": "decision", **exc.to_json()}
-        except (VerificationError, ForwardAnalysisError) as exc:
-            analysis_time = time.perf_counter() - started
-            result.status = "error"
-            details = getattr(exc, "details", None)
-            result.error = {"type": type(exc).__name__, "message": str(exc), "details": details}
-            verdict = details.get("verdict") if isinstance(details, dict) else None
-            if verdict in ("refuted", "unknown"):
-                result.error["verdict"] = verdict
-        except Exception as exc:  # pylint: disable=broad-except
-            analysis_time = time.perf_counter() - started
-            result.status = "error"
-            result.error = {"type": error_type(exc), "message": str(exc) or type(exc).__name__,
-                            "traceback": traceback.format_exc()}
-
-    result.queries = list(session.queries)
-    undefined_queries: List[str] = []
-    if result.status == "ok" and final is not None:
-        parts = _non_finite_parts(result, final)
-        # an undefined query value loses its interval but does not fail the analysis (#316): the distribution and
-        # the other queries are not affected
-        undefined_queries = [part for part in parts if part.startswith("the query")]
-        if len(undefined_queries) < len(parts):
-            result.status = "error"
-            result.error = {
-                "type": "NonFiniteResult",
-                "message": f"Undefined value (nan or ∞) in {', '.join(parts)}; the result has no guarantee.",
-                "details": {"parts": parts},
-            }
-    if result.status != "ok":
-        result.bounds = failure_bounds(result.status)
-
-    result.loops = [record.to_json() for record in session.loop_records.values()]
-    result.loops.sort(key=lambda r: (r["id"] is None, r["id"] if r["id"] is not None else 0))
-    result.steps = session.steps
-    result.trace = session.tracer.to_json() if session.tracer is not None else None
-    result.warnings = _language_warnings(session) + list(session.warnings) + [
-        f"Undefined value (nan or ∞) in {part}; it has no guarantee. The distribution and the other queries "
-        "are not affected." for part in undefined_queries]
-    result.log = _ANSI.sub("", session.log.getvalue())
-    result.timing["analysis"] = round(analysis_time, 6)
-    result.timing["total"] = round(time.perf_counter() - started, 6)
-    return result
-
-
-def _language_warnings(session: Any) -> List[str]:
+def language_warnings(session: Any) -> List[str]:
     """The language warnings of the program (monus, implicit cast; see :mod:`prodigy.language.language_warnings`) as
     ``"line L, column C: message"``; the entries of ``warnings`` are strings, so the position is part of the text."""
     if session.program is None or session.source is None or session.silent:

@@ -7,6 +7,8 @@ The loop strategies for the front ends (CLI, web GUI, scripts): the registry and
 :mod:`prodigy.analysis.loops.api`, with the built-in strategies registered. The analysis itself imports
 :mod:`prodigy.analysis.loops.api`, never this module (``docs/source/architecture.md``, T1).
 """
+# registers the built-in strategies
+import prodigy.analysis.loops.builtin  # pylint: disable=unused-import
 from prodigy.analysis.loops.api import (STRATEGY_GROUPS, Bound, LoopOutcome, LoopStrategy, LoopTask, ParamSpec,
                                         get_loop_strategy, loop_strategies, register_loop_strategy, strategy_groups)
 

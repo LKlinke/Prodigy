@@ -84,7 +84,7 @@ export function logAxis(values) {
 }
 
 /**
- * Bar chart of a univariate coefficient table (see prodigy/analysis/result.py:
+ * Bar chart of a univariate coefficient table (see prodigy/analysis/values.py:
  * univariate_table). Extra bars: the mass beyond the shown values ("tail") and, for lower
  * bounds, the mass not yet accounted for (hatched). While the coefficients are streamed (#405),
  * `pending` more values are still being computed: their slots are hatched and labelled "computing…".

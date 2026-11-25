@@ -24,8 +24,9 @@ front ends.
 
 Code that calls :func:`~prodigy.analysis.session.compute_discrete_distribution` or the
 handlers directly (tests, scripts, older code) does not need a session: if none is active,
-:func:`current_session` hands out a detached interactive one, which reproduces the old
-behaviour.
+:func:`~prodigy.analysis.context.current_context` (and :func:`current_session`) hands out a
+detached interactive one, which reproduces the old behaviour. The session runs the analysis and
+collects what it recorded; :mod:`prodigy.analysis.result` only assembles the result from it.
 """
 from __future__ import annotations
 
@@ -36,6 +37,7 @@ import os
 import sys
 import tempfile
 import time
+import traceback
 import warnings
 from dataclasses import dataclass, field
 from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, Union,
@@ -46,21 +48,28 @@ from prodigy.language import (CovarianceInstr, ExpectationInstr, Expr, Instr, Op
 
 from prodigy.analysis import nested_inference
 from prodigy.analysis.analyzer import compute_program
+from prodigy.analysis.checks import type_error
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.context import (Scope, current_context, has_current_context, register_detached_context,
                                       reset_context, use_context)
-from prodigy.analysis.input_distribution import validate_input_distribution
+from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
+from prodigy.analysis.input_distribution import input_distribution_from_text, validate_input_distribution
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+from prodigy.analysis.result import (ANSI, AnalysisResult, engine_name, failure_bounds, language_warnings,
+                                     non_finite_parts)
+# registers the built-in strategies
+import prodigy.analysis.loops.builtin  # pylint: disable=unused-import
 from prodigy.analysis.loops.api import (Bound, DecisionRequired, LoopDecision, LoopOutcome, LoopStrategy, LoopTask,
                                         ParamSpec, get_loop_strategy, loop_strategies)
 from prodigy.distribution import known_convergent_series
 from prodigy.language.outline import LoopInfo, outline
 from prodigy.language.positions import span_of
 from prodigy.language.ppy_printer import spell
+from prodigy.analysis.values import _safe, bounds_explanation, describe_distribution, error_type, exact_and_float
+from prodigy.util.integers import unlimited_int_digits
 from prodigy.util.logger import log_setup, print_progress_bar
 
 if TYPE_CHECKING:  # pragma: no cover
-    from prodigy.analysis.result import AnalysisResult
     from prodigy.analysis.values import QueryResult
     from prodigy.analysis.trace import TraceLimits
     from prodigy.analysis.upper_track import Analyzer, UpperTrack
@@ -392,7 +401,6 @@ class LoopRecord:
         return summary + "."
 
     def to_json(self) -> Dict[str, Any]:
-        from prodigy.analysis.values import exact_and_float  # pylint: disable=import-outside-toplevel
         residual, residual_float = exact_and_float(self.residual)
         return {
             "id": self.loop.id if self.loop else None,
@@ -1014,8 +1022,127 @@ class AnalysisSession:
 
     def run(self) -> AnalysisResult:
         """Runs the analysis; never raises for analysis errors (they end up in the result)."""
-        from prodigy.analysis.result import build_result  # pylint: disable=import-outside-toplevel
         return build_result(self)
+
+
+
+def build_result(session: "AnalysisSession") -> AnalysisResult:
+    """Runs ``session`` and collects the result; analysis errors end up in the result."""
+    # The checks after the analysis print the distribution again, exact coefficients can have
+    # more digits than Python converts by default (#235).
+    with unlimited_int_digits():
+        return _build_result(session)
+
+
+def _require_type_correct(program: Program, source: Optional[str]) -> None:
+    """Rejects a program that the type checker rejects, with the GUI's message (#351)."""
+    diagnostic = type_error(program, source or "")
+    if diagnostic is not None:
+        raise ForwardAnalysisError(f"Type error: {diagnostic['message']}")
+
+
+def _build_result(session: "AnalysisSession") -> AnalysisResult:
+    result = AnalysisResult()
+    config = session.config
+    started = time.perf_counter()
+    decisions = {str(k): v.to_json() for k, v in session.provider.decisions.items()}
+    result.input = {
+        "distribution": str(session.input_distribution) if session.input_distribution is not None else None,
+        "engine": engine_name(config),
+        "normalize": config.normalize,
+        "decisions": decisions,
+    }
+    if session.program is not None:
+        result.program = outline(session.program).to_json()
+
+    analysis_time = 0.0
+    final: Optional["Distribution"] = None
+    # the output of the program's analysis is a finite measure (validated input, #300), also when the summary
+    # evaluates it at 1 after the analysis (#398)
+    output = session._output()  # pylint: disable=protected-access
+    with session.activate(), config.activate(), known_convergent_series(True), output:
+        try:
+            program = session.program
+            assert program is not None
+            _require_type_correct(program, session.source)
+            if session.input_distribution is None:
+                dist = config.factory.one(*program.variables.keys())
+            elif isinstance(session.input_distribution, str):
+                dist = input_distribution_from_text(config, session.input_distribution, program)
+            else:
+                dist = session.input_distribution
+            analysis_start = time.perf_counter()
+            final, error_prob = compute_discrete_distribution(program, dist, config)
+            analysis_time = time.perf_counter() - analysis_start
+            residual, residual_float = exact_and_float(session.residual)
+            track = session.upper
+            result.bounds = {
+                "kind": session.bound_kind,
+                "residual_mass": residual,
+                "residual_mass_float": residual_float,
+                "explanation": bounds_explanation(session.bound_kind, residual, track is not None),
+                "upper": None if track is None else {"closed_form": str(track.distribution),
+                                                     "origin": track.origin},
+            }
+            summary_start = time.perf_counter()
+            stream = session.progress_callback if session.stream_coefficients else None
+            result.distribution = describe_distribution(final, limit=session.coefficient_limit,
+                                                        kind=session.bound_kind,
+                                                        residual=session.residual, stream=stream,
+                                                        simplify=config.use_simplification,
+                                                        upper=session.upper_distribution)
+            if session.dist_values:
+                result.distributions = nested_inference.dist_values_json(session.dist_values,
+                                                        session.coefficient_limit)
+            result.timing["summary"] = round(time.perf_counter() - summary_start, 6)
+            result.error_probability, result.error_probability_float = \
+                exact_and_float(_safe(error_prob.get_probability_mass))
+        except DecisionRequired as exc:
+            analysis_time = time.perf_counter() - started
+            result.status = "needs_decision"
+            result.error = {"type": "decision", **exc.to_json()}
+        except (VerificationError, ForwardAnalysisError) as exc:
+            analysis_time = time.perf_counter() - started
+            result.status = "error"
+            details = getattr(exc, "details", None)
+            result.error = {"type": type(exc).__name__, "message": str(exc), "details": details}
+            verdict = details.get("verdict") if isinstance(details, dict) else None
+            if verdict in ("refuted", "unknown"):
+                result.error["verdict"] = verdict
+        except Exception as exc:  # pylint: disable=broad-except
+            analysis_time = time.perf_counter() - started
+            result.status = "error"
+            result.error = {"type": error_type(exc), "message": str(exc) or type(exc).__name__,
+                            "traceback": traceback.format_exc()}
+
+    result.queries = list(session.queries)
+    undefined_queries: List[str] = []
+    if result.status == "ok" and final is not None:
+        parts = non_finite_parts(result, final)
+        # an undefined query value loses its interval but does not fail the analysis (#316): the distribution and
+        # the other queries are not affected
+        undefined_queries = [part for part in parts if part.startswith("the query")]
+        if len(undefined_queries) < len(parts):
+            result.status = "error"
+            result.error = {
+                "type": "NonFiniteResult",
+                "message": f"Undefined value (nan or ∞) in {', '.join(parts)}; the result has no guarantee.",
+                "details": {"parts": parts},
+            }
+    if result.status != "ok":
+        result.bounds = failure_bounds(result.status)
+
+    result.loops = [record.to_json() for record in session.loop_records.values()]
+    result.loops.sort(key=lambda r: (r["id"] is None, r["id"] if r["id"] is not None else 0))
+    result.steps = session.steps
+    result.trace = session.tracer.to_json() if session.tracer is not None else None
+    result.warnings = language_warnings(session) + list(session.warnings) + [
+        f"Undefined value (nan or ∞) in {part}; it has no guarantee. The distribution and the other queries "
+        "are not affected." for part in undefined_queries]
+    result.log = ANSI.sub("", session.log.getvalue())
+    result.timing["analysis"] = round(analysis_time, 6)
+    result.timing["total"] = round(time.perf_counter() - started, 6)
+    return result
 
 
 # without an active session, the parts of the analysis get a detached one (current_context, #195)
@@ -1080,10 +1207,3 @@ class _TeeWriter(io.TextIOBase):
 
     def flush(self) -> None:
         pass
-
-
-def _safe(function: Callable[[], Any]) -> Any:
-    try:
-        return function()
-    except Exception:  # pylint: disable=broad-except
-        return None

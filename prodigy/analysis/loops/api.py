@@ -387,15 +387,10 @@ def register_loop_strategy(strategy: LoopStrategy, *, replace: bool = False) -> 
     return strategy
 
 
-def _ensure_builtins() -> None:
-    # The built-in strategies are registered when the while handler is imported.
-    # pylint: disable=import-outside-toplevel,unused-import
-    import prodigy.analysis.instructionhandler.while_handler  # noqa: F401
-
-
 def loop_strategies() -> List[LoopStrategy]:
-    """All registered strategies; the six historic ones first, in menu order."""
-    _ensure_builtins()
+    """All registered strategies; the six historic ones first, in menu order. The built-in ones are registered
+    by :mod:`prodigy.analysis.loops.builtin` (imported by the session and the front-end module
+    :mod:`prodigy.analysis.loop_strategies`)."""
 
     def key(strategy: LoopStrategy) -> Tuple[int, int, str]:
         if strategy.legacy_key is not None:
@@ -406,7 +401,7 @@ def loop_strategies() -> List[LoopStrategy]:
 
 
 def get_loop_strategy(name: str) -> LoopStrategy:
-    _ensure_builtins()
+    """The registered strategy ``name`` (raises :class:`KeyError` naming the known ones)."""
     try:
         return _REGISTRY[name]
     except KeyError:

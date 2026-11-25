@@ -142,9 +142,9 @@ def _cycles(scope: Tuple[str, ...]) -> List[List[str]]:
     ("prodigy.util",),
     ("prodigy.language",),
     ("prodigy.distribution",),
-    pytest.param(("prodigy.analysis",), marks=_expected("T1/T4 (session, result, strategies and handlers)", "P5a")),
+    ("prodigy.analysis",),
     ("prodigy.web",),
-    pytest.param(("prodigy",), marks=_expected("T1–T4", "P5a")),
+    ("prodigy",),
 ])
 def test_no_import_cycles(scope):
     cycles = _cycles(scope)
@@ -232,13 +232,6 @@ KNOWN_VIOLATIONS: Dict[str, FrozenSet[str]] = {
         ("requests.py", "evtinvariants.heuristics.strategies"),
         ("requests.py", "evtinvariants.heuristics.templates.templates_factory"),
         ("requests.py", "input_distribution"), ("requests.py", "joint_grid"), ("requests.py", "solver.solver_type"))),
-    "T1/T2/T4 modules in import cycles": frozenset(_API + module for module in (
-        "analyzer", "equivalence.verdict", "evt_exploration", "evtinvariants.series_identity",
-        "instructionhandler.assignment_handler", "instructionhandler.function_handler",
-        "instructionhandler.query_handler", "instructionhandler.queryblock_handler",
-        "instructionhandler.sample_handler", "instructionhandler.while_handler", "loops.api", "loops.witness",
-        "lowerbounds.problem", "lowerbounds.subinvariant", "nested_inference", "result", "session", "trace",
-        "upper_track", "values")) | {"prodigy.web.diagnostics"},
 }
 
 
@@ -251,7 +244,6 @@ def _current_violations(rule: str) -> Set[str]:
         "T8 web imports the bindings": lambda: _no_lines(_violations(("prodigy.web",), ("prodigy_ginac",))),
         "T8 CLI uses analysis internals": lambda: _no_lines(_front_end_violations("prodigy.cli")),
         "T8 web uses analysis internals": lambda: _no_lines(_front_end_violations("prodigy.web")),
-        "T1/T2/T4 modules in import cycles": lambda: {m for cycle in _cycles(("prodigy",)) for m in cycle},
     }
     return current[rule]()
 
