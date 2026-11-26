@@ -12,13 +12,13 @@ from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.values import sym
 from prodigy.analysis.session import AnalysisSession
-from prodigy.distribution.fast_generating_function import FPS
-from prodigy.distribution.generating_function import GeneratingFunction
-from prodigy.distribution.roots_of_unity import NotSingleValuedError, is_single_valued_in, root_of_unity
+from prodigy.distribution.pgf.ginac.engine import GinacPGF
+from prodigy.distribution.pgf.sympy.engine import SympyPGF
+from prodigy.distribution.pgf.rules.roots_of_unity import NotSingleValuedError, is_single_valued_in, root_of_unity
 from prodigy.language import parse_program
 from prodigy.language.ppy_parser import parse_ppy_expr
 
-ENGINES = [GeneratingFunction, FPS]
+ENGINES = [SympyPGF, GinacPGF]
 VARIABLES = ("c", "y", "z")
 C, Y, Z = sympy.symbols("c y z")
 DEGREE = 6

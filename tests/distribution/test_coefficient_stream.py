@@ -14,9 +14,9 @@ from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.values import describe_distribution, sym, tidy, univariate_table
 from prodigy.analysis.streaming import Batcher
 from prodigy.distribution import known_convergent_series
-from prodigy.distribution.coefficient_stream import doubling, marginal_stream, taylor_stream
-from prodigy.distribution.generating_function import SympyPGF
-from prodigy.distribution.rational_series import rational_taylor_coefficients, rational_taylor_stream
+from prodigy.distribution.pgf.coefficient_stream import doubling, marginal_stream, taylor_stream
+from prodigy.distribution.pgf.sympy.engine import SympyPGF
+from prodigy.distribution.pgf.rules.rational_series import rational_taylor_coefficients, rational_taylor_stream
 from prodigy.web.jobs import _Sender, merge_stream
 
 
@@ -33,7 +33,7 @@ LIMIT = 24
 
 def _reference(marginal, variable, limit):
     """The coefficients as they were computed before #405 (prodigy.analysis.result._series_coefficients)."""
-    if type(marginal).__name__ == "FPS":
+    if type(marginal).__name__ == "GinacPGF":
         return [prob for prob, _ in itertools.islice(iter(marginal), limit)]
     expr = sym(str(marginal)) if not isinstance(getattr(marginal, "_function", None), sympy.Basic) \
         else marginal._function  # pylint: disable=protected-access

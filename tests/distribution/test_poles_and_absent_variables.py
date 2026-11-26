@@ -10,7 +10,7 @@ import pytest
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.distribution import MarginalType, NonFiniteMarginalError, known_convergent_series
-from prodigy.distribution.generating_function import SympyPGF
+from prodigy.distribution.pgf.sympy.engine import SympyPGF
 from prodigy.language import parse_program
 from prodigy.language.ppy_parser import parse_ppy_expr
 from tests.distribution.engines import ginac_factory

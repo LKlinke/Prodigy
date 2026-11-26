@@ -11,7 +11,7 @@ from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
 from prodigy.distribution.kernel import NotRepresentableError, PoleAtZeroError, RationalGF
-from prodigy.distribution.rational_series import rational_taylor_coefficients
+from prodigy.distribution.pgf.rules.rational_series import rational_taylor_coefficients
 
 X, Y, P = sympy.symbols("x y p")
 PROPERTY = settings(max_examples=60, deadline=None, derandomize=True,

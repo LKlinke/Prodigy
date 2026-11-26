@@ -10,7 +10,7 @@ package that removes it. Package paths are the current ones; `prodigy/pgcl` beca
 The code must stay workable for a person reading it without an assistant:
 
 - **Small modules.** At most about 800 lines per Python module (pylint `max-module-lines`, enforced when
-  `too-many-lines` is switched on); eleven modules are larger today, the largest `distribution.py` with 1 943.
+  `too-many-lines` is switched on); nine modules are larger today, the largest the SymPy engine `pgf/sympy/engine.py` with 1 454 (below 800 in P4c).
 - **Every package says what it owns** in its docstring, and what it does not own.
 - **Shallow, one-way dependencies.** Layers import downwards only; no import cycles, also not through imports
   inside functions; dependencies are passed explicitly, not fetched from a global.
@@ -93,17 +93,22 @@ after which the context variable remains only as the session's own implementatio
 **`Distribution` is the semantic interface** and nothing else: the operations of the semantics (`filter`,
 `update`, `marginal`, probabilities, expectations, `normalize`, `approximate`, the comparisons
 `decide_equal`/`decide_le`). It does not mention generating functions, so another representation could
-implement it. Today these 37 methods are representation-neutral already, but they share `distribution.py` with
-the generating-function logic.
+implement it. It lives alone in `distribution.py`, with `CommonDistributionsFactory`; the value types are in
+`values.py`, the errors in `errors.py`, the term helpers in `terms.py`.
 
 **`PGF(Distribution)` holds all logic on generating functions**: the case analysis of each operation, the
 decisions how and when to simplify, and the proof rules on closed forms (`equality`, `ordering`, `convergence`,
-`roots_of_unity`, `multisection`, … in a subpackage `pgf/rules/`). This is where most of the mathematics of the
+`roots_of_unity`, `multisection`, … in the subpackage `pgf/rules/`). This is where most of the mathematics of the
 analysis goes, so it is in one place, as template methods, each with the class of inputs and the justification
 in its docstring. We have no second representation and none is planned; the split is cheap (it is mostly
 moving code that is already separate in substance) and it makes the name honest: a reader sees which code
-depends on generating functions. Engines: `SympyPGF` and `GinacPGF` (today `GeneratingFunction` and `FPS`;
-the factories become `SympyFactory` and `GinacFactory`, old names kept as deprecated aliases for one release).
+depends on generating functions. `PGF` is built from layers, one module each: `pgf/hooks.py` (the abstract
+engine hooks), `pgf/base.py` (names, comparisons, marginals, convergence proofs), `pgf/filtering.py`,
+`pgf/updating.py` and `pgf/pgf.py`. Engines: `SympyPGF` (`pgf/sympy/`) and `GinacPGF` (`pgf/ginac/`); each is
+its own factory (decided: the factories are class- and staticmethods, `SympyPGF.geometric(…)`), so there are
+no separate factory classes. `GeneratingFunction`, `FPS` and `ProdigyPGF` stay one release as deprecated
+aliases of the engine classes, and the old module paths (`distribution.generating_function`,
+`distribution.equality`, …) stay as re-export modules without logic until the last PR of v0.7.0 (P4a, #511).
 
 **Case analysis and engine hooks** (rule for #488, review §2.1). Case analysis lives in `PGF`: which operand of
 `x // n`, `x % n`, `x ^ n` is fixed, support splits, their order, zero mass, normalising `const op var` in
@@ -166,7 +171,7 @@ problems, solved in three steps:
 
 1. **No own IR.** The tuple IR (`ir.py`) exists only because the calculus covers a fragment of the language. It
    is replaced by the typed AST plus a fragment check that names the unsupported construct, and affine guards
-   come from `distribution/linear_guards.py` (review §2.6). mypy then checks this code. (v0.7.0, P5b.)
+   come from `linear_form` in `distribution/pgf/rules/linear_guards.py` (review §2.6). mypy then checks this code. (v0.7.0, P5b.)
 2. **No own arithmetic.** `product_form`'s polynomials (dictionaries of `Fraction`) become kernel polynomials;
    only what is specific stays: eventually geometric coefficients, the exact positivity check, masses, moments.
    (#417, after the kernel is a hook of `PGF`.)
@@ -209,7 +214,7 @@ Measured on `main` at `0bba880` with an `ast` walk over `prodigy` (all imports, 
 | T7 | `query_handler` imports `plotting` (matplotlib in the analysis) | plot data in the result, rendering in the front ends | P7 |
 | T8 | Front ends import 18 analysis modules outside the front-end API (CLI: `analyzer`, `lowerbounds.*`, `evtinvariants.*`, `program_info`, `independence`, …; web: `analyzer`, `nested_inference`, `ai_candidates`, `joint_grid`, option enums); `web/app.py` imports `prodigy_ginac` | the front-end API, exported with `__all__` | P3, P7 |
 | T9 | Case analysis of `_update_iid`, `_update_division`/`_modulo`/`_power`, `_filter_constant_condition` duplicated in both engines, in different orders | case analysis in `PGF`, CAS hooks per engine | P4b–d (#488) |
-| T10 | `distribution.py` (1 943 lines) mixes the interface, the shared GF logic and value types; the proof rules lie flat beside the engines | `Distribution` interface, `PGF` with `pgf/rules/`, engines `SympyPGF`/`GinacPGF` | P4a |
+| T10 | Removed: `distribution.py` (1 943 lines) mixed the interface, the shared GF logic and value types, and the proof rules lay flat beside the engines. Now the interface is `distribution.py`, the GF logic the layers of `pgf/`, the rules `pgf/rules/`, the engines `pgf/sympy/` and `pgf/ginac/` | `Distribution` interface, `PGF` with `pgf/rules/`, engines `SympyPGF`/`GinacPGF` | P4a (#511) |
 | T11 | Instruction handlers share a 6-argument positional signature (48 of pylint's `too-many-*arguments`) and fetch the session globally | `AnalysisContext`, dispatch table | P5b |
 | T12 | `session.py` holds decision providers, records and the session (the regular expressions over the source are gone: the outline with `LoopInfo` and positions from the parser is `language/outline.py`; `LoopDecision` and `DecisionRequired` are in `loops/api.py`) | session module(s) below 800 lines | P5a (outline, API, done), P5b (split) |
 | T13 | Loop proof rules spread over `while_handler.py` (registry + all strategies), `evtinvariants/`, `lowerbounds/`; the invariant check reaches into the compare mode | `analysis/loops/` as above; strategies declare their goals | P5b |
@@ -244,7 +249,7 @@ Each package PR leaves its own package clean for the checks it is responsible fo
 | `duplicate-code` | 5 blocks in `prodigy` | P4 (engines), P2 (watch validation), P5b (three-valued `all`), P6 (name walk) |
 | `too-many-arguments`, `too-many-positional-arguments` | 75, 72 | P5b (handler context, loops), P7 (CLI), rest in P4/P6 |
 | `too-many-branches`, `-return-statements`, `-statements`, `-nested-blocks` | 33, 50, 8, 1 | P4 (`distribution`: 11, 19), P5b (`lowerbounds`, `evtinvariants`), P6 (`check.py`) |
-| `too-many-lines` (with `max-module-lines = 800`), `too-many-locals`, `-instance-attributes`, `-public-methods` | 11 modules over 800 lines; 94, 20, 2 | P4a (`distribution.py`, `generating_function.py`), P5b (`while_handler`, `session`, `nested_inference`, `result`, `trace`), P6 (`check.py`, `ppy_parser.py`), P7 (`cli.py`, `web/requests.py`) |
+| `too-many-lines` (with `max-module-lines = 800`), `too-many-locals`, `-instance-attributes`, `-public-methods` | 9 modules over 800 lines; 94, 20, 2 | P4c (`pgf/sympy/engine.py`), P5b (`while_handler`, `session`, `nested_inference`, `result`, `trace`), P6 (`check.py`, `ppy_parser.py`), P7 (`cli.py`, `web/requests.py`) |
 
 ### Follow-ups (features, not v0.7.0)
 

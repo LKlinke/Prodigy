@@ -151,8 +151,9 @@ def test_no_import_cycles(scope):
     assert not cycles, "\n".join(" <-> ".join(cycle) for cycle in cycles)
 
 
-ENGINES = ("prodigy.distribution.generating_function", "prodigy.distribution.fast_generating_function",
-           "prodigy.distribution.kernel")
+ENGINES = ("prodigy.distribution.pgf.sympy", "prodigy.distribution.pgf.ginac", "prodigy.distribution.kernel",
+           # the old paths of the engines, re-exported until the end of v0.7.0 (#511)
+           "prodigy.distribution.generating_function", "prodigy.distribution.fast_generating_function")
 ENGINE_CHOICE = ("prodigy.analysis.config",)
 
 

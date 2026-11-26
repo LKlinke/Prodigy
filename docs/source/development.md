@@ -20,14 +20,17 @@ Parsers, AST, type checker and compiler. The package was called `prodigy/pgcl` u
 
 ### `prodigy/distribution` — distributions and engines
 
-- `distribution.py`: the `Distribution` interface and the shared logic (case splits, filters,
-  marginals, the iteration contract).
-- Engines: SymPy (`generating_function.py`, the default), GiNaC via the bindings
-  (`fast_generating_function.py`). SymEngine was removed in v0.6.0 (#416).
-- Proof rules on closed forms: `finite_measure.py`, `product_form.py`, `coefficient_signs.py`,
+- `distribution.py`: the `Distribution` interface (representation-neutral) and
+  `CommonDistributionsFactory`; `values.py`, `errors.py`, `terms.py` hold its value types and errors.
+- `pgf/`: the logic on generating functions, `PGF`, in layers (`hooks.py` the engine hooks, `base.py`,
+  `filtering.py`, `updating.py`, `pgf.py`): case splits, filters, marginals, the iteration contract.
+- Engines: SymPy (`pgf/sympy/engine.py`, `SympyPGF`, the default), GiNaC via the bindings
+  (`pgf/ginac/engine.py`, `GinacPGF`); each engine class is also its factory. SymEngine was removed in
+  v0.6.0 (#416). The old paths `generating_function.py`, `fast_generating_function.py`, … only re-export.
+- Proof rules on closed forms, in `pgf/rules/`: `finite_measure.py`, `product_form.py`, `coefficient_signs.py`,
   `series_transforms.py` (monomial substitution, shift), `dominant_pole.py` (univariate rational
   functions with a unique dominant simple pole, Arb bounds), `convergence.py` (convergence at 1),
-  `ordering.py` (`<=` on distributions).
+  `ordering.py` (`<=` on distributions), `linear_guards.py` (linear forms and guards), ….
 - `prodigy/distribution` and `prodigy/language` import nothing from `prodigy/analysis`
   (`tests/test_layering.py`).
 

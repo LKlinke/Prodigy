@@ -32,7 +32,7 @@ SymPy → kernel → SymPy against SymPy on random rational functions in two var
 
 ## Coefficients of exponentials of polynomials
 
-`prodigy.distribution.exponential_series` (#455) computes the Taylor coefficients of finite sums of
+`prodigy.distribution.pgf.rules.exponential_series` (#455) computes the Taylor coefficients of finite sums of
 `R·exp(g)`, with `R` rational and `g` a polynomial in the expanded variables, in the kernel: from
 `F' = g'·F`, each coefficient of `exp(g − g(0))` follows from the previous `deg g` ones, and the factor
 `R = P/Q` adds a finite convolution with `P` and the recursion of `Q`. Compound Poisson distributions

@@ -12,8 +12,8 @@ import pytest
 import sympy
 
 from prodigy.distribution.distribution import CommonDistributionsFactory, Distribution
-from prodigy.distribution.equality import decide_equal
-from prodigy.distribution.generating_function import SympyPGF
+from prodigy.distribution.pgf.rules.equality import decide_equal
+from prodigy.distribution.pgf.sympy.engine import SympyPGF
 
 Factory = Type[CommonDistributionsFactory]
 
@@ -27,8 +27,8 @@ def ginac_factory() -> Factory:
     """The factory of the GiNaC engine; skips the test if the bindings are not installed."""
     pytest.importorskip("prodigy_ginac")
     # pylint: disable=import-outside-toplevel
-    from prodigy.distribution.fast_generating_function import ProdigyPGF
-    return ProdigyPGF
+    from prodigy.distribution.pgf.ginac.engine import GinacPGF
+    return GinacPGF
 
 
 ENGINES: List[Callable[[], Factory]] = [sympy_factory, ginac_factory]

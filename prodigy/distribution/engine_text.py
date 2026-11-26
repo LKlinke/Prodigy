@@ -9,8 +9,8 @@ and the generating functions, masses and coefficients an engine gives back (writ
 :func:`sympy_text` for SymPy expressions). Its grammar is in ``docs/source/language-design.md`` ("Engine text").
 
 :func:`parse_engine_text` is the one parser of engine text into SymPy; the engines, the analysis and the front
-ends use it (directly or through the shorthands in :mod:`prodigy.distribution.equality`), and nothing else parses
-engine text. It lives in the distribution layer because it produces SymPy objects; the language layer only
+ends use it (directly or through the shorthands in :mod:`prodigy.distribution.pgf.rules.equality`), and nothing
+else parses engine text. It lives in the distribution layer because it produces SymPy objects; the language layer only
 writes engine text and knows nothing of SymPy.
 
 Engine text must come from Prodigy or an engine, never from a user or a language model: SymPy's parser evaluates
