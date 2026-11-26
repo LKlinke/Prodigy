@@ -94,13 +94,13 @@ def test_a_comparison_takes_no_input():
 def test_the_witness_search_has_a_time_limit(monkeypatch):
     """A witness search that runs out of time leaves the verdict open and says so (#348: witnesses on
     logarithmic closed forms can take minutes)."""
-    from prodigy.analysis.equivalence import verdict
+    from prodigy.analysis import tools
 
     def slow(*_args, **_kwargs):
         import time  # pylint: disable=import-outside-toplevel
         time.sleep(30)
     monkeypatch.setattr(web_requests, "WITNESS_SECONDS", 0.3)
-    monkeypatch.setattr(verdict, "analyse_on_input", slow)
+    monkeypatch.setattr(tools, "analyse_on_input", slow)
     equivalence = run_equivalence({"source": TWO, "syntax": "ppy", "other_source": TWO_OTHER,
                                    "engine": "sympy"})["equivalence"]
     assert equivalence["verdict"] == "unknown" and equivalence["witness_search"] == "timeout"

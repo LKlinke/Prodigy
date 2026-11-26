@@ -1,173 +1,113 @@
-import logging
-from typing import Dict, List, Tuple, Union
+"""
+Draws the data of a ``plot`` query with matplotlib (T7 of ``docs/source/architecture.md``).
+
+The analysis does not draw: a ``plot`` statement records its data in the result (``QueryResult.data`` of a query
+of kind ``plot``), the GUI draws it in the browser and the CLI with this module. The data is
+
+- for one variable: ``{"variables": [x], "marginal": table}`` with the rows ``{"value", "prob", "p"}`` of the
+  marginal (``prodigy.analysis.values.univariate_table``), already cut at the statement's term count or
+  probability;
+- for two variables: ``{"variables": [x, y], "joint": table}`` with the rows ``{"state", "prob", "p"}``
+  (``joint_table``), or ``"joint": None`` if the support is infinite.
+
+``p`` is the probability as a float, ``None`` if it depends on a parameter. Data that cannot be drawn raises a
+:class:`PlotError` with the reason, which the front end shows instead of a figure.
+"""
+from typing import List, Mapping, Sequence, Tuple
 
 import matplotlib.pyplot as plt
-import sympy
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
-from prodigy.language import VarExpr
 
-from prodigy.distribution.distribution import Distribution
-from prodigy.util.logger import log_setup
-
-logger = log_setup(__name__, logging.DEBUG)
+PlotData = Mapping[str, object]
+"""``QueryResult.data`` of a ``plot`` query, as described above."""
 
 
-class Plotter:
-    """ Plotter that generates histogram plots using matplotlib."""
+class PlotError(ValueError):
+    """The data of a plot query cannot be drawn; the message says why."""
 
-    @staticmethod
-    def _create_2d_hist(function: Distribution, var_1: str, var_2: str,
-                        threshold: Union[str, int]) -> None:
 
-        x = sympy.S(var_1)
-        y = sympy.S(var_2)
+def _rows(table: object) -> Sequence[Mapping[str, object]]:
+    rows = table.get("rows") if isinstance(table, Mapping) else None
+    if not isinstance(rows, list) or not all(isinstance(row, Mapping) for row in rows):
+        raise PlotError("The plot data has no table of probabilities.")
+    return rows
 
-        # Marginalize distribution to the variables of interest.
-        marginal = function.marginal(x, y)
-        marginal = marginal.set_variables(*function.get_variables())
-        logger.debug("Creating Histogram for %s", marginal)
-        # Collect relevant data from the distribution and plot it.
-        if marginal.is_finite():
-            coord_and_prob: Dict[Tuple[int, int], sympy.Basic] = {}
-            maxima = {x: 0, y: 0}
-            max_prob = 0
-            colors: List[List[float]] = []
 
-            # collect the coordinates and probabilities. Also compute maxima of probabilities and degrees
-            terms = 0
-            prob_sum = 0
-            for prob, state in marginal:
-                if isinstance(threshold,
-                              str) and prob_sum >= sympy.S(threshold):
-                    break
-                if isinstance(threshold, int) and terms >= threshold:
-                    break
-                s_prob = sympy.S(prob)
-                maxima[x], maxima[y] = max(maxima[x], state[var_1]), max(
-                    maxima[y], state[var_2])
-                coord = (state[var_1], state[var_2])
-                coord_and_prob[coord] = s_prob
-                max_prob = max(s_prob, max_prob)
-                terms += 1
-                prob_sum += s_prob
+def _probability(row: Mapping[str, object]) -> float:
+    p = row.get("p")
+    if isinstance(p, bool) or not isinstance(p, (int, float)):
+        raise PlotError("Cannot plot parametrized distributions.")
+    return float(p)
 
-            # Zero out the colors array
-            for _ in range(maxima[y] + 1):
-                colors.append(list(0.0 for _ in range(maxima[x] + 1)))
 
-            # Fill the colors array with the previously collected data.
-            # pylint: disable = consider-using-dict-items
-            for coord in coord_and_prob:
-                colors[coord[1]][coord[0]] = float(
-                    str(coord_and_prob[coord].evalf()))
+def _integer(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise PlotError(f"The plot data has a value {value!r} that is not a natural number.")
+    return value
 
-            # Plot the colors array
-            color_plot = plt.imshow(colors,
-                                    vmin=0,
-                                    origin='lower',
-                                    interpolation='nearest',
-                                    cmap="Blues",
-                                    aspect='auto')
-            # Pass axes to prevent error (cf. https://github.com/matplotlib/matplotlib/issues/23973)
-            plt.colorbar(color_plot, ax=plt.gca())
-            plt.gca().set_xlabel(f"{x}")
-            plt.gca().set_xticks(range(0, maxima[x] + 1))
-            plt.gca().set_ylabel(f"{y}")
-            plt.gca().set_yticks(range(0, maxima[y] + 1))
-            plt.show()
-        else:
-            # make the marginal finite.
-            plt.ion()
-            prev_sum = marginal
-            for subsum in marginal.approximate(threshold):
-                if subsum == prev_sum:
-                    continue
-                Plotter._create_2d_hist(subsum, var_1, var_2, threshold)
-                prev_sum = subsum
 
-    @staticmethod
-    def _create_histogram_for_variable(function: Distribution,
-                                       var: Union[str, VarExpr],
-                                       threshold: Union[str, int]) -> None:
-        marginal = function.marginal(var)
-        if marginal.is_finite():
-            data = []
-            ind = []
-            terms = prob_sum = 0
-            for prob, state in marginal:
-                if isinstance(threshold, int) and terms >= threshold:
-                    break
-                if isinstance(threshold,
-                              str) and prob_sum > sympy.S(threshold):
-                    break
-                data.append(float(sympy.S(prob)))
-                ind.append(float(state[str(var)]))
-                prob_sum += sympy.S(prob)
-                terms += 1
-            axis = plt.subplot()
-            my_cmap = plt.get_cmap("Blues")
-            scalar_mappable = ScalarMappable(cmap=my_cmap,
-                                             norm=Normalize(0, max(data)))
-            scalar_mappable.set_array([])
-            axis.bar(ind,
-                     data,
-                     1,
-                     linewidth=.5,
-                     ec=(0, 0, 0),
-                     color=my_cmap([x / max(data) for x in data]))
-            axis.set_xlabel(f"{var}")
-            axis.set_xticks(ind)
-            axis.set_ylabel(f'Probability p({var})')
-            # Otherwise mypy complains about a possible None type
-            fig_manager = plt.get_current_fig_manager()
-            if fig_manager:
-                fig_manager.set_window_title("Histogram Plot")
-            plt.gcf().suptitle("Histogram")
-            # https://github.com/matplotlib/matplotlib/issues/23973
-            plt.colorbar(scalar_mappable, ax=plt.gca())
-            plt.show()
-        else:
-            prev_gf = marginal
-            for dist in marginal.approximate(threshold):
-                if not dist.is_zero_dist() and not prev_gf == dist:
-                    Plotter._create_histogram_for_variable(
-                        dist, var, threshold)
-                prev_gf = dist
+def histogram(variable: str, table: object) -> None:
+    """A bar chart of the marginal of ``variable`` (rows ``{"value", "p"}``), coloured by probability."""
+    rows = _rows(table)
+    if not rows:
+        raise PlotError(f"The marginal of {variable} has no states to plot.")
+    values = [float(_integer(row.get("value"))) for row in rows]
+    probabilities = [_probability(row) for row in rows]
+    top = max(probabilities) or 1.0
+    colours = plt.get_cmap("Blues")
+    mappable = ScalarMappable(cmap=colours, norm=Normalize(0, top))
+    mappable.set_array([])
+    axis = plt.subplot()
+    axis.bar(values, probabilities, 1, linewidth=.5, ec=(0, 0, 0), color=colours([p / top for p in probabilities]))
+    axis.set_xlabel(variable)
+    axis.set_xticks(values)
+    axis.set_ylabel(f"Probability p({variable})")
+    manager = plt.get_current_fig_manager()
+    if manager:
+        manager.set_window_title("Histogram Plot")
+    plt.gcf().suptitle("Histogram")
+    # pass the axes (https://github.com/matplotlib/matplotlib/issues/23973)
+    plt.colorbar(mappable, ax=plt.gca())
+    plt.show()
 
-    @staticmethod
-    def plot(function: Distribution, *variables: Union[str, sympy.Symbol],
-             threshold: Union[str, int]) -> None:
-        """ Shows the histogram of the marginal distribution of the specified variable(s). """
-        if function.get_parameters():
-            raise ValueError("Cannot Plot parametrized functions.")
-        if variables:
-            if len(variables) > 2:
-                raise NotImplementedError(
-                    "create_plot() cannot handle more than two variables!")
-            if len(variables) == 2:
-                Plotter._create_2d_hist(function,
-                                        var_1=str(variables[0]),
-                                        var_2=str(variables[1]),
-                                        threshold=threshold)
-            if len(variables) == 1:
-                Plotter._create_histogram_for_variable(function,
-                                                       var=variables[0],
-                                                       threshold=threshold)
-        else:
-            if len(function.get_variables()) > 2:
-                raise ValueError(
-                    "Multivariate distributions need to specify the variable to plot"
-                )
 
-            if len(function.get_variables()) == 2:
-                plot_vars = list(function.get_variables())
-                Plotter._create_2d_hist(function,
-                                        var_1=plot_vars[0],
-                                        var_2=plot_vars[1],
-                                        threshold=threshold)
-            else:
-                for plot_var in function.get_variables():
-                    Plotter._create_histogram_for_variable(function,
-                                                           plot_var,
-                                                           threshold=threshold)
+def heatmap(x: str, y: str, table: object) -> None:
+    """The joint probabilities of ``x`` and ``y`` (rows ``{"state", "p"}``) as a coloured grid."""
+    rows = _rows(table)
+    if isinstance(table, Mapping) and table.get("truncated"):
+        raise PlotError(f"The joint distribution of {x} and {y} has too many states to plot.")
+    cells: List[Tuple[int, int, float]] = []
+    for row in rows:
+        state = row.get("state")
+        if not isinstance(state, Mapping):
+            raise PlotError("The plot data has a row without a state.")
+        cells.append((_integer(state.get(x, 0)), _integer(state.get(y, 0)), _probability(row)))
+    if not cells:
+        raise PlotError(f"The joint distribution of {x} and {y} has no states to plot.")
+    width, height = max(c[0] for c in cells) + 1, max(c[1] for c in cells) + 1
+    grid = [[0.0] * width for _ in range(height)]
+    for i, j, p in cells:
+        grid[j][i] += p
+    image = plt.imshow(grid, vmin=0, origin="lower", interpolation="nearest", cmap="Blues", aspect="auto")
+    plt.colorbar(image, ax=plt.gca())
+    plt.gca().set_xlabel(x)
+    plt.gca().set_xticks(range(width))
+    plt.gca().set_ylabel(y)
+    plt.gca().set_yticks(range(height))
+    plt.show()
+
+
+def plot(data: PlotData) -> None:
+    """Draws the data of one ``plot`` query; raises :class:`PlotError` if it cannot be drawn."""
+    variables = data.get("variables")
+    if not isinstance(variables, list) or not all(isinstance(v, str) for v in variables):
+        raise PlotError("The plot data names no variables.")
+    if len(variables) == 1 and "marginal" in data:
+        histogram(variables[0], data["marginal"])
+    elif len(variables) == 2 and "joint" in data:
+        if data["joint"] is None:
+            raise PlotError("Joint plots of infinite-support distributions are not available yet.")
+        heatmap(variables[0], variables[1], data["joint"])
+    else:
+        raise PlotError("The plot data has no table for its variables.")

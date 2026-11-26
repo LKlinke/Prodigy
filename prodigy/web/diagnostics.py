@@ -47,7 +47,7 @@ def _nested_inference_limits(program: Any, source: str) -> List[Dict[str, Any]]:
     """Warnings for valid programs with ``dist`` values that the analysis cannot compute yet,
     as far as they can be seen without running it: a loop that assigns a ``dist`` variable."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.nested_inference import assigned_dist_variables
+    from prodigy.analysis.tools import assigned_dist_variables
     from prodigy.language import LoopInstr, WhileInstr
     from prodigy.language.ast.types import DistributionType
     from prodigy.language.ast.walk import Walk, walk_instrs
