@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-from prodigy.analysis import ai_candidates
+from prodigy.analysis import tools
 from prodigy.analysis.ai_candidates import Provider
 from prodigy.web.app import create_app
 from prodigy.web.requests import ai_status, run_suggestion
@@ -65,7 +65,7 @@ def fake_provider(monkeypatch, answer):
         prompts.append(user)
         return answer
 
-    monkeypatch.setattr(ai_candidates, "get_provider", lambda env=None: Provider("fake", "fake-model", ask))
+    monkeypatch.setattr(tools, "get_provider", lambda env=None: Provider("fake", "fake-model", ask))
     return prompts
 
 

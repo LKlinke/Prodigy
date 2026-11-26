@@ -1,9 +1,9 @@
 import itertools
 from typing import Collection, Iterator, List, Tuple
 
-from prodigy.analysis.evtinvariants.heuristics.templates.templates import TemplateHeuristic
+from prodigy.analysis.evtinvariants.heuristics.templates.templates import TemplateHeuristic, balanced, monomial
 from prodigy.distribution import CommonDistributionsFactory, Distribution
-from prodigy.util import make_poly_clause
+from prodigy.language import Binop, BinopExpr, Expr, NatLitExpr
 
 
 def _ordered_factorisations(size: int, count: int) -> Iterator[Tuple[int, ...]]:
@@ -89,10 +89,12 @@ class RationalFunctionMaxDeg(TemplateHeuristic):
     def generate(self) -> Iterator[Distribution]:
         for level, max_powers_denom in self.templates():
             num_degrees = [range(level + 1) for _ in self.variables]
-            numerator = " + ".join((make_poly_clause(f"n_{c}", self.variables, pows)
-                                    for c, pows in enumerate(itertools.product(*num_degrees))))
+            numerator = balanced(Binop.PLUS, [monomial(f"n_{c}", self.variables, pows)
+                                              for c, pows in enumerate(itertools.product(*num_degrees))])
             denom_degrees = [range(max_powers_denom[i] + 1) for i, _ in enumerate(self.variables)]
             # the first monomial is the constant one (all powers 0), its coefficient is 1
-            denominator = " + ".join(["1"] + [make_poly_clause(f"d_{c}", self.variables, pows) for c, pows in
-                                              enumerate(itertools.product(*denom_degrees)) if c > 0])
-            yield self.dist_fact.from_expr(f"({numerator}) / ({denominator})", *self.variables)
+            denominator_terms: List[Expr] = [NatLitExpr(1)]
+            denominator_terms += [monomial(f"d_{c}", self.variables, pows)
+                                  for c, pows in enumerate(itertools.product(*denom_degrees)) if c > 0]
+            yield self.dist_fact.from_expr(BinopExpr(Binop.DIVIDE, numerator, balanced(Binop.PLUS, denominator_terms)),
+                                           *self.variables)

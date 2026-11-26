@@ -37,6 +37,7 @@ the server publicly without sandboxing (see ``docs/gui.md``).
 """
 from __future__ import annotations
 
+import importlib.util
 import os
 import threading
 import webbrowser
@@ -61,12 +62,10 @@ def _engine_info(default_engine: str) -> List[Dict[str, Any]]:
     engines = []
     for name, label in ENGINES.items():
         available, reason = True, None
-        if name == "ginac":
-            try:
-                import prodigy_ginac  # pylint: disable=import-outside-toplevel,unused-import
-            except ImportError:
-                available = False
-                reason = "Not installed: install prodigy-ppl-ginac (the extra ginac) to use GiNaC."
+        # whether the bindings are installed, without loading them into the server (only the engine imports them)
+        if name == "ginac" and importlib.util.find_spec("prodigy_ginac") is None:
+            available = False
+            reason = "Not installed: install prodigy-ppl-ginac (the extra ginac) to use GiNaC."
         engines.append({"name": name, "label": label, "available": available, "reason": reason,
                         "default": name == default_engine})
     return engines
@@ -77,12 +76,10 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
                examples_dir: Optional[str] = None, default_engine: str = "sympy",
                host: str = "127.0.0.1", allowed_hosts: Sequence[str] = ()) -> Flask:
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.evtinvariants.heuristics.strategies import SELECTABLE_POSITIVITY_HEURISTICS
-    from prodigy.analysis.evtinvariants.heuristics.strategies import SynthesisStrategies
-    from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
     from prodigy.analysis.loop_strategies import loop_strategies
     from prodigy.analysis.result import prodigy_version
-    from prodigy.analysis.joint_grid import MAX_AXIS
+    from prodigy.analysis.tools import (MAX_AXIS, SELECTABLE_POSITIVITY_HEURISTICS, SynthesisStrategies,
+                                        TemplateHeuristics)
     from prodigy.web.diagnostics import check_source
 
     app = Flask(__name__, static_folder="static", template_folder="templates")

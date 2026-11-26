@@ -80,10 +80,6 @@ def _violations(sources: Tuple[str, ...], forbidden: Tuple[str, ...], allowed: T
             if _within(imp.source, sources) and _within(imp.target, forbidden) and not _within(imp.target, allowed)]
 
 
-def _expected(item: str, package: str) -> pytest.MarkDecorator:
-    return pytest.mark.xfail(strict=True, reason=f"{item} of docs/source/architecture.md, removed by {package}")
-
-
 FRONT_ENDS = ("prodigy.cli", "prodigy.web", "prodigy.plotting")
 
 
@@ -92,8 +88,7 @@ FRONT_ENDS = ("prodigy.cli", "prodigy.web", "prodigy.plotting")
     ("prodigy.language", ("prodigy.distribution", "prodigy.analysis", "prodigy.simulator") + FRONT_ENDS),
     ("prodigy.distribution", ("prodigy.analysis", "prodigy.simulator") + FRONT_ENDS),
     ("prodigy.simulator", ("prodigy.distribution", "prodigy.analysis") + FRONT_ENDS),
-    pytest.param("prodigy.analysis", FRONT_ENDS,
-                 marks=_expected("T7 (query_handler imports plotting)", "P7")),
+    ("prodigy.analysis", FRONT_ENDS),
 ])
 def test_lower_layers_do_not_import_higher_ones(package, forbidden):
     violations = _violations((package,), forbidden)
@@ -171,19 +166,20 @@ def test_only_the_analysis_core_chooses_an_engine(package):
 
 
 @pytest.mark.parametrize("package", [
-    "prodigy.analysis", "prodigy.language", "prodigy.util", "prodigy.simulator", "prodigy.cli",
-    pytest.param("prodigy.web", marks=_expected("T8 (web/app.py imports prodigy_ginac)", "P7")),
+    "prodigy.analysis", "prodigy.language", "prodigy.util", "prodigy.simulator", "prodigy.cli", "prodigy.web",
 ])
 def test_only_the_engine_imports_the_bindings(package):
     violations = _violations((package,), ("prodigy_ginac",))
     assert not violations, "\n".join(violations)
 
 
-# The front-end API of the analysis (architecture page, "Interfaces between the layers").
+# The front-end API of the analysis (architecture page, "Interfaces between the layers"); ``tools`` re-exports what
+# the CLI's commands and the GUI's endpoints need beyond the session (T8).
 FRONT_END_API = ("prodigy.analysis", "prodigy.analysis.session", "prodigy.analysis.checks", "prodigy.analysis.result",
                  "prodigy.analysis.trace", "prodigy.analysis.config", "prodigy.analysis.loop_strategies",
                  "prodigy.analysis.loops.api", "prodigy.analysis.values",
-                 "prodigy.analysis.exceptions", "prodigy.analysis.deprecations", "prodigy.analysis.equivalence")
+                 "prodigy.analysis.exceptions", "prodigy.analysis.deprecations", "prodigy.analysis.equivalence",
+                 "prodigy.analysis.tools")
 
 
 def _front_end_violations(package: str) -> List[str]:
@@ -192,61 +188,10 @@ def _front_end_violations(package: str) -> List[str]:
             and imp.target not in FRONT_END_API]
 
 
-@pytest.mark.parametrize("package", [
-    pytest.param("prodigy.cli", marks=_expected("T8 (lowerbounds, evtinvariants, program_info, independence)",
-                                                "P3 and P7")),
-    pytest.param("prodigy.web", marks=_expected("T8 (ai_candidates, joint_grid, heuristics factories)",
-                                                "P3 and P7")),
-    "prodigy.plotting",
-])
+@pytest.mark.parametrize("package", ["prodigy.cli", "prodigy.web", "prodigy.plotting"])
 def test_front_ends_use_the_front_end_api_of_the_analysis(package):
     violations = _front_end_violations(package)
     assert not violations, "\n".join(violations)
-
-
-def _no_lines(violations: List[str]) -> Set[str]:
-    return {f"{v.split(':')[0]} -> {v.split(' imports ')[1]}" for v in violations}
-
-
-_API = "prodigy.analysis."
-# The violations behind the expected failures above, as of #493. They may only shrink: a new violation of a rule
-# that is still an expected failure fails here instead of hiding behind the xfail.
-KNOWN_VIOLATIONS: Dict[str, FrozenSet[str]] = {
-    "T7 analysis imports front ends": frozenset({
-        "prodigy/analysis/instructionhandler/query_handler.py -> prodigy.plotting.plotter"}),
-    "T8 web imports the bindings": frozenset({"prodigy/web/app.py -> prodigy_ginac"}),
-    "T8 CLI uses analysis internals": frozenset(f"prodigy/cli.py -> {_API}{module}" for module in (
-        "analyzer", "equivalence.verdict", "evtinvariants.heuristics.positivity.heuristics_factory",
-        "evtinvariants.heuristics.strategies", "evtinvariants.heuristics.templates.templates_factory",
-        "evtinvariants.invariant_synthesis", "evtinvariants.invariant_verification", "independence.independence",
-        "input_distribution", "instructionhandler.program_info", "lowerbounds.parameters", "lowerbounds.problem",
-        "lowerbounds.sandwich", "lowerbounds.subinvariant", "solver.solver_type")),
-    "T8 web uses analysis internals": frozenset(f"prodigy/web/{path} -> {_API}{module}" for path, module in (
-        ("app.py", "evtinvariants.heuristics.strategies"),
-        ("app.py", "evtinvariants.heuristics.templates.templates_factory"),
-        ("app.py", "joint_grid"), ("diagnostics.py", "nested_inference"), ("grid_cache.py", "joint_grid"),
-        ("requests.py", "ai_candidates"), ("requests.py", "analyzer"), ("requests.py", "equivalence.verdict"),
-        ("requests.py", "evtinvariants.heuristics.positivity.heuristics_factory"),
-        ("requests.py", "evtinvariants.heuristics.strategies"),
-        ("requests.py", "evtinvariants.heuristics.templates.templates_factory"),
-        ("requests.py", "input_distribution"), ("requests.py", "joint_grid"), ("requests.py", "solver.solver_type"))),
-}
-
-
-def _current_violations(rule: str) -> Set[str]:
-    current = {
-        "T7 analysis imports front ends": lambda: _no_lines(_violations(("prodigy.analysis",), FRONT_ENDS)),
-        "T8 web imports the bindings": lambda: _no_lines(_violations(("prodigy.web",), ("prodigy_ginac",))),
-        "T8 CLI uses analysis internals": lambda: _no_lines(_front_end_violations("prodigy.cli")),
-        "T8 web uses analysis internals": lambda: _no_lines(_front_end_violations("prodigy.web")),
-    }
-    return current[rule]()
-
-
-@pytest.mark.parametrize("rule", sorted(KNOWN_VIOLATIONS))
-def test_known_violations_do_not_grow(rule):
-    new = _current_violations(rule) - KNOWN_VIOLATIONS[rule]
-    assert not new, "new violations of a rule that is still an expected failure:\n" + "\n".join(sorted(new))
 
 
 def test_the_import_walk_sees_every_layer():

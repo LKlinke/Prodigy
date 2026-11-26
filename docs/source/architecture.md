@@ -67,7 +67,10 @@ no handler, strategy or session; the semantics imports no session; nothing impor
 functions with three-valued verdicts (`True`, `False` with a witness, `None`). Analysis → front ends:
 `AnalysisSession`, `ForwardAnalysisConfig` with its option enums, the loop registry, the result object and its
 JSON (typed with #379/P9), the value helpers (`values.py`), the checks before a run (`checks.py`), the trace,
-the comparison verdict, the exceptions.
+the comparison verdict, the exceptions, and `tools.py`: the re-exports of what the CLI's commands and the GUI's
+endpoints need beyond the session (invariant synthesis and verification, sandwich bounds, independence, the
+joint grid, language-model candidates). A module moved inside the analysis changes an import there, not a
+front end.
 
 **Where text is parsed.** Program text is parsed once by the language layer, where it enters (front end or
 `AnalysisSession`). Positions of loops and queries come from the parser (`language/outline.py`), not from regular
@@ -211,8 +214,8 @@ Measured on `main` at `0bba880` with an `ast` walk over `prodigy` (all imports, 
 | T4 | Removed: no cycle `lowerbounds.problem` ↔ `lowerbounds.subinvariant` was left (neither the ast walk nor pylint finds one); the private `_contains` shared by both is the public `contains` of `lowerbounds/ir.py` | shared types in one module | P5a (#497) |
 | T5 | Removed: `while_handler` used `SympyPGF.zero()`; it uses `config.factory.zero()` (the zero test of the unrolling is still never true for programs with variables, see the PR) | `factory.zero()` / `is_zero_dist()` | P5a (#497) |
 | T6 | Removed: `result.sym` used the engine's private `_parse_to_sympy`, and `str()` of `Expr`, `Instr` and `Program` was undocumented pGCL-like text that the engines parsed back. Now `str()` of every node is `.ppy` (a printer installed from outside the AST); expressions reach the engines only as documented engine text (`language/engine_text.py`, `language-design.md`), read by the one parser `distribution/engine_text.py::parse_engine_text`; loop queries and loops are looked up by structure, not by text | one engine text format, one printer and one parser | P5a (#497, #479) |
-| T7 | `query_handler` imports `plotting` (matplotlib in the analysis) | plot data in the result, rendering in the front ends | P7 |
-| T8 | Front ends import 18 analysis modules outside the front-end API (CLI: `analyzer`, `lowerbounds.*`, `evtinvariants.*`, `program_info`, `independence`, …; web: `analyzer`, `nested_inference`, `ai_candidates`, `joint_grid`, option enums); `web/app.py` imports `prodigy_ginac` | the front-end API, exported with `__all__` | P3, P7 |
+| T7 | Removed: `query_handler` imported `plotting` (matplotlib in the analysis) to draw in the interactive CLI. Now a `plot` statement always records its data in the result; the GUI draws it and the CLI renders it after the run with `prodigy.plotting` (data that cannot be drawn, such as the joint plot of an infinite support, is reported instead of a figure) | plot data in the result, rendering in the front ends | P7 (#514) |
+| T8 | Removed: front ends imported 18 analysis modules outside the front-end API, and `web/app.py` imported `prodigy_ginac` to see whether GiNaC is installed. Now what the CLI's commands and the GUI's endpoints need beyond the session comes from `analysis/tools.py` (re-exports with `__all__`, no logic), and the GUI asks `importlib.util.find_spec` | the front-end API, exported with `__all__` | P3, P7 (#514) |
 | T9 | Case analysis of `_update_iid`, `_update_division`/`_modulo`/`_power`, `_filter_constant_condition` duplicated in both engines, in different orders | case analysis in `PGF`, CAS hooks per engine | P4b–d (#488) |
 | T10 | Removed: `distribution.py` (1 943 lines) mixed the interface, the shared GF logic and value types, and the proof rules lay flat beside the engines. Now the interface is `distribution.py`, the GF logic the layers of `pgf/`, the rules `pgf/rules/`, the engines `pgf/sympy/` and `pgf/ginac/` | `Distribution` interface, `PGF` with `pgf/rules/`, engines `SympyPGF`/`GinacPGF` | P4a (#511) |
 | T11 | Instruction handlers share a 6-argument positional signature (48 of pylint's `too-many-*arguments`) and fetch the session globally | `AnalysisContext`, dispatch table | P5b |

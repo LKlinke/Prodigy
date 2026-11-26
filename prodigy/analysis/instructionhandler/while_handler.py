@@ -1129,7 +1129,9 @@ def _upper_query_bounds(task: LoopTask, upper: Distribution) -> Dict[QueryKey, T
                 value = parse_engine_text(str(value), upper.get_variables() | upper.get_parameters())
             if value.is_finite is not True or value.is_real is not True or value < 0:
                 continue
-        except Exception:  # pylint: disable=broad-except  # the bound is optional
+        except Exception:  # pylint: disable=broad-except
+            # the bound is optional: without it, the query keeps the bound of the loop's own strategy
+            logger.debug("No upper bound for the query %s", ins, exc_info=True)
             continue
         bounds[query_key(kind, ins.expr)] = (None, value)
     return bounds

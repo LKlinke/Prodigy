@@ -3,15 +3,6 @@
 ``prodigy.util``
 =================
 
-.. autofunction:: prodigy.util.make_poly_clause
+Helpers without Prodigy knowledge (``docs/source/architecture.md``, "Layers"): colours and logging of the terminal
+output, exact integers as text, orders, time limits and three-valued verdicts (:mod:`prodigy.util.three_valued`).
 """
-from typing import Collection
-
-
-def make_poly_clause(coef: str, variables: Collection[str], powers: Collection[int]) -> str:
-    """
-        Generates a polynomial clause _alpha_ * X^a * Y^b * Z^c ...
-    """
-    c = [coef]
-    vp = (['', '{}', '({}^{})'][min(p, 2)].format(v, p) for v, p in zip(variables, powers, strict=True))
-    return '*'.join(c + [s for s in vp if s])

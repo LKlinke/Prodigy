@@ -26,8 +26,6 @@ import threading
 from collections import OrderedDict
 from typing import Any, Dict, List, Optional, Tuple
 
-from prodigy.analysis.joint_grid import GRID_HEADER
-
 MAX_RESULTS = 16
 """Results (closed form, guarantee, engine and pair) whose cells are kept."""
 MAX_CELLS = 20_000
@@ -113,6 +111,8 @@ class GridCache:
 
     def store(self, request: Dict[str, Any], grid: Dict[str, Any]) -> None:
         """Keeps a computed grid of ``request``: under the requested window and its actual one, and its cells."""
+        # loaded with the first grid, not with the server (the analysis runs in the job processes)
+        from prodigy.analysis.tools import GRID_HEADER  # pylint: disable=import-outside-toplevel
         x_values, y_values = grid.get("x_values") or [], grid.get("y_values") or []
         with self._lock:
             entry = self._entry(request, create=True)

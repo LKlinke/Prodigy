@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from prodigy.analysis import ai_candidates
+from prodigy.analysis import tools
 from prodigy.analysis.ai_candidates import CandidateError, Provider, admissible_expression, candidate_from_answer
 from prodigy.web.app import create_app
 from prodigy.web.requests import prepare_request, run_analysis, run_suggestion, validate_request
@@ -110,7 +110,7 @@ def test_candidates_in_the_program_syntax():
 
 
 def test_suggestion_for_a_ppy_program(monkeypatch):
-    monkeypatch.setattr(ai_candidates, "get_provider",
+    monkeypatch.setattr(tools, "get_provider",
                         lambda env=None: Provider("fake", "fake-model", lambda system, user: "ANSWER: 1/(2 - c)^1"))
     result = run_suggestion({"source": GEOMETRIC, "syntax": "ppy", "loop": 0, "form": "evt_invariant"})
     assert result["status"] == "ok", result
