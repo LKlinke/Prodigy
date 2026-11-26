@@ -421,13 +421,23 @@ class ExpectationExpr(ExprClass):
 
 
 def expr_str_parens(expr: ExprClass) -> str:
-    """Wrap parentheses around an expression, but not for simple expressions."""
+    """
+    Wrap parentheses around an expression, but not for simple expressions. A fraction (``1/2``) or a negative
+    literal is compound text, so ``(1/2) / (3/4)`` is not written as ``1/2 / 3/4`` (which reads as ``((1/2)/3)/4``).
+
+    .. doctest::
+
+        >>> str(BinopExpr(Binop.DIVIDE, RealLitExpr("1/2"), RealLitExpr("3/4")))
+        '(1/2) / (3/4)'
+    """
+    text = str(expr)
+    if isinstance(expr, RealLitExpr):
+        return text if text.replace(".", "", 1).isdigit() else f'({text})'
     if isinstance(expr,
-                  (VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr,
+                  (VarExpr, BoolLitExpr, NatLitExpr, UnopExpr,
                    ProbabilityExpr, ExpectationExpr)):
-        return str(expr)
-    else:
-        return f'({expr})'
+        return text
+    return f'({text})'
 
 
 Expr = Union[VarExpr, BoolLitExpr, NatLitExpr, RealLitExpr, UnopExpr,

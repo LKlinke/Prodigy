@@ -623,12 +623,12 @@ class FPS(Distribution):
             symbolic_param = prodigy_ginac.find_symbols(str(param))
             result = self._dist.updateIid(
                 str(variable),
-                prodigy_ginac.Dist(f"{param} * {variable} + (1-{param})", symbolic_param), str(count))
+                prodigy_ginac.Dist(f"({param}) * {variable} + (1-({param}))", symbolic_param), str(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
         if sampling_dist.function == "poisson":
             result = self._dist.updateIid(
-                str(variable), prodigy_ginac.Dist(f"exp({param} * ({variable} - 1))", list(self._parameters)),
+                str(variable), prodigy_ginac.Dist(f"exp(({param}) * ({variable} - 1))", list(self._parameters)),
                 str(count))
             return FPS.from_dist(result, self._variables, self._parameters)
 
@@ -704,7 +704,8 @@ class ProdigyPGF(CommonDistributionsFactory):
     @staticmethod
     def uniform(var: Union[str, VarExpr], lower: DistributionParam,
                 upper: DistributionParam) -> FPS:
-        function = f"1/({upper} - {lower} + 1) * ({var}^{lower}) * (({var}^({upper} - {lower} + 1) - 1)/({var} - 1))"
+        function = f"1/(({upper}) - ({lower}) + 1) * ({var}^({lower})) " \
+                   f"* (({var}^(({upper}) - ({lower}) + 1) - 1)/({var} - 1))"
         return FPS(function, str(var), finite=True)
 
     @staticmethod
