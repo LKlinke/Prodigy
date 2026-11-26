@@ -5,7 +5,8 @@ Distributions: the semantic interface, the generating-function logic and the eng
   :class:`CommonDistributionsFactory`; :mod:`~prodigy.distribution.values`, :mod:`~prodigy.distribution.errors`
   and :mod:`~prodigy.distribution.terms` hold the value types, errors and term helpers it uses.
 * :mod:`prodigy.distribution.pgf`: the logic on probability generating functions
-  (:class:`~prodigy.distribution.pgf.pgf.PGF`, in layers), the proof rules on closed forms (:mod:`prodigy.distribution.pgf.rules`) and the engines
+  (:class:`~prodigy.distribution.pgf.pgf.PGF`, in layers), the proof rules on closed forms
+  (:mod:`prodigy.distribution.pgf.rules`) and the engines
   :class:`~prodigy.distribution.pgf.sympy.engine.SympyPGF` (default) and
   :class:`~prodigy.distribution.pgf.ginac.engine.GinacPGF`, which implement only the CAS hooks.
 * :mod:`prodigy.distribution.kernel`: exact arithmetic on rational functions (FLINT).
