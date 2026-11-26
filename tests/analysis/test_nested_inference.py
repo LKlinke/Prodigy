@@ -450,7 +450,7 @@ if (Ex[d] > 1 and Pr[d == 1] < 1/2) {
     printed = program_to_ppy(program)
     assert "Ex[d] > 1 and Pr[d == 1] < 1/2" in printed
     assert parse_pgcl(printed, "ppy") == program
-    assert "(Ex[d] > 1) & (Pr[d = 1] < 1/2)" in str(program)
+    assert "(Ex[d] > 1) & (Pr[d = 1] < (1/2))" in str(program)
 
 
 @pytest.mark.parametrize("engine", ENGINES)
