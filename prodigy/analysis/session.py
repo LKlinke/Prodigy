@@ -1154,7 +1154,8 @@ def _flush_c_stdio() -> None:
         import ctypes  # pylint: disable=import-outside-toplevel
         ctypes.CDLL(None).fflush(None)
     except Exception:  # pylint: disable=broad-except
-        pass
+        # e.g. no C library to load: Python's own buffers are flushed by the caller
+        logger.debug("Could not flush the C stdio buffers", exc_info=True)
 
 
 @contextlib.contextmanager
@@ -1202,7 +1203,8 @@ class _TeeWriter(io.TextIOBase):
             try:
                 self._callback(text)
             except Exception:  # pylint: disable=broad-except
-                pass
+                # the output is kept in the buffer; a failing listener (e.g. a closed GUI stream) must not stop the run
+                logger.debug("The output callback failed", exc_info=True)
         return len(text)
 
     def flush(self) -> None:

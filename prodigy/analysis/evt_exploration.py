@@ -95,14 +95,15 @@ def extrapolate(last: Sequence[Dict[State, str]]) -> Dict[State, sympy.Expr]:
     """Estimates of lim H_N per state from the coefficients of three consecutive iterates (Aitken's Δ²
     process, which is exact for coefficients that converge like a + b·q^N); a coefficient that did not
     change is kept. Only rational coefficients; an empty dict if there are others."""
-    first, second, third = ({state: _number(text) for state, text in table.items()} for table in last)
-    if any(v is None for table in (first, second, third) for v in table.values()):
+    parsed = [{state: _number(text) for state, text in table.items()} for table in last]
+    if any(v is None for table in parsed for v in table.values()):
         return {}
+    first, second, third = ({state: v for state, v in table.items() if v is not None} for table in parsed)
     zero = sympy.S(0)
     limits: Dict[State, sympy.Expr] = {}
     for state, x2 in third.items():
         x0, x1 = first.get(state, zero), second.get(state, zero)
-        step, curvature = x2 - x1, (x2 - x1) - (x1 - x0)  # type: ignore[operator]
+        step, curvature = x2 - x1, (x2 - x1) - (x1 - x0)
         if step == 0 or curvature == 0 or x0 == 0:
             limits[state] = x2
         else:

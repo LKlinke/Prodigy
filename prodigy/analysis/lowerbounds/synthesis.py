@@ -20,6 +20,7 @@ is re-checked exactly.  Only exactly verified certificates are returned.
 """
 from __future__ import annotations
 
+import logging
 import math
 import time
 from dataclasses import dataclass, field
@@ -30,6 +31,9 @@ import numpy as np
 
 from prodigy.analysis.lowerbounds.egcalc import Denominator, GFCalculus, Num, Value, degrees, padd, pmul, pscale
 from prodigy.analysis.lowerbounds.ir import IR
+from prodigy.util.logger import log_setup
+
+logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
 @dataclass
@@ -300,6 +304,8 @@ class TemplateLP:
                 sol = flint.fmpq_mat(a_ex).solve(
                     flint.fmpq_mat([[flint.fmpq(v.numerator, v.denominator)] for v in b_ex]))
             except Exception:  # pylint: disable=broad-except
+                # a singular choice of tight rows: try the next vertex candidate
+                logger.debug("Exact reconstruction of an LP vertex failed", exc_info=True)
                 continue
             h = [Fraction(0)] * n
             for k, j in enumerate(free):

@@ -3,11 +3,10 @@ from typing import Collection, Iterator
 
 import sympy
 
-from prodigy.analysis.evtinvariants.heuristics.templates.templates import \
-    TemplateHeuristic
+from prodigy.analysis.evtinvariants.heuristics.templates.templates import TemplateHeuristic, balanced, monomial
 from prodigy.distribution.distribution import (CommonDistributionsFactory,
                                                Distribution)
-from prodigy.util import make_poly_clause
+from prodigy.language import Binop
 
 
 class PolynomialEnumeration(TemplateHeuristic):
@@ -34,7 +33,6 @@ class PolynomialEnumeration(TemplateHeuristic):
             degrees = [
                 range(max_powers[i] + 1) for i, _ in enumerate(self.variables)
             ]
-            numerator = " + ".join(
-                (make_poly_clause(f"n_{c}", self.variables, pows)
-                 for c, pows in enumerate(itertools.product(*degrees))))
+            numerator = balanced(Binop.PLUS, [monomial(f"n_{c}", self.variables, pows)
+                                              for c, pows in enumerate(itertools.product(*degrees))])
             yield self.dist_fact.from_expr(numerator, *self.variables)
