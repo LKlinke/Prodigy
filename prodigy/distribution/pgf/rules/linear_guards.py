@@ -58,8 +58,33 @@ def _sum(left: LinearForm, right: LinearForm, sign: int = 1) -> LinearForm:
     return {key: value for key, value in result.items() if value != 0}
 
 
-def _linear_form(expression: Expr, variables: Set[str]) -> LinearForm | None:
-    """The linear form of `expression`, or None if it is not linear in `variables`."""
+def linear_form(expression: Expr, variables: Set[str], *, monus_safe: bool = False) -> LinearForm | None:
+    """
+    The linear form of `expression` over the natural `variables` (built from them, constants, `+`,
+    multiplication by a constant and division by a constant), or None if it is not linear.
+
+    Subtraction on natural numbers is truncated at 0 (monus), so `a - b` is the rational difference only
+    where it is never negative. Without `monus_safe` it is accepted only between constants with `a >= b`.
+    With `monus_safe` it is also accepted between forms with variables if every coefficient and the
+    constant of the difference are non-negative: then the difference is non-negative for all natural
+    values of the variables, so monus and rational difference agree (e.g. `(2*x + 3) - x` is `x + 3`,
+    while `x - y` and `x - 1` stay None).
+
+    .. doctest::
+
+        >>> from prodigy.language.ppy_parser import parse_ppy_expr
+        >>> linear_form(parse_ppy_expr("x/2 + 1"), {"x"})
+        {'x': Fraction(1, 2), '': Fraction(1, 1)}
+        >>> linear_form(parse_ppy_expr("(2*x + 3) - x"), {"x"}) is None
+        True
+        >>> linear_form(parse_ppy_expr("(2*x + 3) - x"), {"x"}, monus_safe=True)
+        {'x': Fraction(1, 1), '': Fraction(3, 1)}
+    """
+    return _linear_form(expression, variables, monus_safe)
+
+
+def _linear_form(expression: Expr, variables: Set[str], monus_safe: bool = False) -> LinearForm | None:
+    """The linear form of `expression`, or None if it is not linear in `variables` (:func:`linear_form`)."""
     # pylint: disable=too-many-return-statements
     if isinstance(expression, NatLitExpr):
         return {"": Fraction(expression.value)} if expression.value != 0 else {}
@@ -72,11 +97,14 @@ def _linear_form(expression: Expr, variables: Set[str]) -> LinearForm | None:
         return {expression.var: Fraction(1)} if expression.var in variables else None
     if not isinstance(expression, BinopExpr):
         return None
-    left = _linear_form(expression.lhs, variables)
-    right = _linear_form(expression.rhs, variables)
+    left = _linear_form(expression.lhs, variables, monus_safe)
+    right = _linear_form(expression.rhs, variables, monus_safe)
     if left is None or right is None:
         return None
     left_value, right_value = _constant(left), _constant(right)
+    if expression.operator == Binop.MINUS and monus_safe:
+        difference = _sum(left, right, -1)
+        return difference if all(value >= 0 for value in difference.values()) else None
     if expression.operator == Binop.PLUS:
         return _sum(left, right)
     if expression.operator == Binop.TIMES:
