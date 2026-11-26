@@ -63,7 +63,7 @@ def state_condition(state: Dict[str, int]) -> Expr:
     .. doctest::
 
         >>> str(state_condition({"x": 1, "y": -2}))
-        '(x = 1) & (y = (-1 * 2))'
+        '(x = 1) & (y = ((-1) * 2))'
     """
     equalities: List[Expr] = [BinopExpr(Binop.EQ, VarExpr(var), value_literal(int(val)))
                               for var, val in state.items()]
