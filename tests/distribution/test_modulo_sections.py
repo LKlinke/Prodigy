@@ -8,18 +8,18 @@ import sympy
 from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
 from prodigy.distribution import known_convergent_series
-from prodigy.distribution.generating_function import GeneratingFunction
-from prodigy.distribution.multisection import rational_sections
+from prodigy.distribution.pgf.sympy.engine import SympyPGF
+from prodigy.distribution.pgf.rules.multisection import rational_sections
 from prodigy.language.ppy_parser import parse_ppy_expr
 
 try:
-    from prodigy.distribution.fast_generating_function import FPS
+    from prodigy.distribution.pgf.ginac.engine import GinacPGF
 except ImportError:  # pragma: no cover - prodigy_ginac has no wheel for this platform
-    FPS = None
+    GinacPGF = None
 
-GINAC = pytest.param(FPS, id="GiNaC",
-                     marks=pytest.mark.skipif(FPS is None, reason="prodigy_ginac is not installed"))
-ENGINES = [pytest.param(GeneratingFunction, id="SymPy"), GINAC]
+GINAC = pytest.param(GinacPGF, id="GiNaC",
+                     marks=pytest.mark.skipif(GinacPGF is None, reason="prodigy_ginac is not installed"))
+ENGINES = [pytest.param(SympyPGF, id="SymPy"), GINAC]
 
 X, Y, P, L = sympy.symbols("x y p l")
 DEGREE = 12

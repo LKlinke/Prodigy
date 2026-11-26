@@ -1,7 +1,7 @@
 """
 Marginals evaluate the closed form at 1; this is the sum of the series only if the series converges there (#393).
 `1/((1 - 2x)(1 - y))` has the finite closed form `-1/(1 - y)` at x = 1, but its series in x diverges (radius
-1/2). `checked_marginal` proves convergence (:mod:`prodigy.distribution.convergence`) and raises
+1/2). `checked_marginal` proves convergence (:mod:`prodigy.distribution.pgf.rules.convergence`) and raises
 `NonFiniteMarginalError` otherwise, except in the analysis of a program from a validated input, whose
 distributions are finite measures (`known_convergent_series`).
 """
@@ -13,7 +13,7 @@ import sympy
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution import NonFiniteMarginalError, known_convergent_series
-from prodigy.distribution.convergence import _roots_outside_unit_disc, marginal_obstacle
+from prodigy.distribution.pgf.rules.convergence import _roots_outside_unit_disc, marginal_obstacle
 from prodigy.language.ppy_parser import parse_ppy_expr
 
 Engine = ForwardAnalysisConfig.Engine

@@ -7,8 +7,8 @@ import random
 import pytest
 import sympy
 
-from prodigy.distribution.generating_function import (GeneratingFunction, _cancel, _is_finite_function, _limit_at_one,
-                                                      _parse_to_sympy)
+from prodigy.distribution.pgf.sympy.engine import SympyPGF
+from prodigy.distribution.pgf.sympy.expressions import _cancel, _is_finite_function, _limit_at_one, _parse_to_sympy
 
 
 def test_split_addend():
@@ -19,7 +19,7 @@ def test_split_addend():
     for i in range(number_of_vars):
         monomial *= sympy.S("x" + str(i))**values[i]
     addend = probability * monomial
-    assert GeneratingFunction._split_addend(addend) == (probability, monomial)
+    assert SympyPGF._split_addend(addend) == (probability, monomial)
 
 
 @pytest.mark.parametrize("function, variables, finite", [
@@ -38,7 +38,7 @@ def test_finiteness_heuristic(function, variables, finite):
     symbols = frozenset(sympy.Symbol(name, real=True) for name in variables.split())
     assert _is_finite_function(expr, symbols) is finite
     assert bool(expr.ratsimp().is_polynomial(*symbols)) is finite
-    assert GeneratingFunction(function, *variables.split())._is_finite is finite
+    assert SympyPGF(function, *variables.split())._is_finite is finite
 
 
 def _exponential_sum(rng, z):

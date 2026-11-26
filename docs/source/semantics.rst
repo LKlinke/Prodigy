@@ -27,7 +27,7 @@ intermediate result of assignments, guards and queries, e.g. ``(n - 7) + 7`` is 
 ``n = 5``. The reason and the consequences are described in :doc:`language-design` (section
 "Subtraction"). An assignment ``t := a - b`` splits the distribution into the states with
 ``a < b``, which get ``0``, and the others, which get the difference. If the difference is provably
-never negative (:mod:`prodigy.distribution.negative_values`), nothing is split. The split is exact
+never negative (:mod:`prodigy.distribution.pgf.rules.negative_values`), nothing is split. The split is exact
 whenever the guard ``a < b`` can be filtered: always if ``b`` (or ``a``) is a constant, and for two
 variables if one of them has a finite marginal or if the generating function is rational (see
 "Guards"). Otherwise the analysis ends with "not implemented" and names the reason. A guard, ``Pr[…]``
@@ -44,7 +44,7 @@ need a variable with a finite marginal, except comparisons of two variables of t
 ``x < y + c`` (also ``<=``, ``==``, ``>``, ``>=``, and with both sides scaled by the same number),
 see below. Linear guards are first rewritten exactly into guards with natural numbers only:
 
-.. automodule:: prodigy.distribution.linear_guards
+.. automodule:: prodigy.distribution.pgf.rules.linear_guards
    :no-index:
 
 **Two variables with infinite marginals.** Rational generating functions are not closed under the
@@ -64,10 +64,10 @@ Everything else (kernels of degree more than two, a branch of the square root th
 proven, parameters with dependent variables, generating functions that are not rational) ends
 with "not implemented" and names the reason; nothing is approximated.
 
-.. automodule:: prodigy.distribution.independent_comparison
+.. automodule:: prodigy.distribution.pgf.rules.independent_comparison
    :no-index:
 
-.. automodule:: prodigy.distribution.algebraic_comparison
+.. automodule:: prodigy.distribution.pgf.rules.algebraic_comparison
    :no-index:
 
 A query (``Pr[…]``, ``Ex[…]``) that cannot be computed on the joint distribution is computed on
@@ -81,14 +81,14 @@ Modulo
 (``x % 2 = 0``) and in assignments. If the generating function is rational in ``x``, the residue
 classes are computed exactly without roots of unity, and the results are rational again:
 
-.. automodule:: prodigy.distribution.multisection
+.. automodule:: prodigy.distribution.pgf.rules.multisection
    :no-index:
 
 Otherwise they are extracted with complex roots of unity, which is exact if the generating function
 is single-valued in ``x``, e.g. ``exp(l*(x - 1))``. On other generating functions, e.g. after a loop
 whose invariant contains a root, the instruction is rejected:
 
-.. automodule:: prodigy.distribution.roots_of_unity
+.. automodule:: prodigy.distribution.pgf.rules.roots_of_unity
    :no-index:
 
 Case splits

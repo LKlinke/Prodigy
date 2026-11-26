@@ -238,7 +238,7 @@ def test_filter_with_fresh_variables_is_proven(engine, monkeypatch):
         present = {str(symbol) for symbol in sympy.sympify(function).free_symbols}
         return "a forced obstacle" if set(summed) & present else None
 
-    monkeypatch.setattr("prodigy.distribution.distribution.marginal_obstacle", forced)
+    monkeypatch.setattr("prodigy.distribution.pgf.base.marginal_obstacle", forced)
     with pytest.raises(NonFiniteMarginalError, match=r"The filter of x - 1 < 2 is not proven .*forced obstacle"):
         factory.from_expr("1/((2 - x)*(2 - y)) + sqrt(4 - x)", "x", "y").filter(parse_ppy_expr("x - 1 < 2"))
 

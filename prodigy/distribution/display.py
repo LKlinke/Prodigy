@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Callable, Dict, Optional, Tuple, Union
 
 import sympy
 
+from prodigy.distribution.pgf.hooks import as_pgf
 from prodigy.util.logger import log_setup
 from prodigy.util.time_limit import TimeLimitReached, time_limit
 
@@ -119,7 +120,7 @@ def display_form(dist: "Distribution", *, seconds: float = DISPLAY_TIME_LIMIT) -
         return DisplayForm(dist, COMPUTED, note, ops, ops, time.perf_counter() - start)
 
     try:
-        computed = dist._sympy_expression()  # pylint: disable=protected-access
+        computed = as_pgf(dist)._sympy_expression()  # pylint: disable=protected-access
     except NotImplementedError:
         return kept("Kept as computed: this engine has no SymPy form.")
     if not isinstance(computed, sympy.Expr):
@@ -154,7 +155,7 @@ def display_form(dist: "Distribution", *, seconds: float = DISPLAY_TIME_LIMIT) -
     if best_name == COMPUTED:
         return kept(f"Kept as computed: {reason}.", computed_ops)
     try:
-        shown = dist._from_sympy_expression(best)  # pylint: disable=protected-access
+        shown = as_pgf(dist)._from_sympy_expression(best)  # pylint: disable=protected-access
     except Exception as exc:  # pylint: disable=broad-except
         logger.info("The simplified form does not convert back to the engine: %s", exc)
         return kept("Kept as computed: the simplified form does not convert back to this engine.", computed_ops)

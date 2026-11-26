@@ -11,9 +11,7 @@ import attr
 
 from prodigy.analysis.optimization import Optimizer
 from prodigy.analysis.optimization.gf_optimizer import GFOptimizer
-from prodigy.distribution.generating_function import (GeneratingFunction,
-                                                      GeneratingFunctionSettings,
-                                                      SympyPGF)
+from prodigy.distribution.pgf.sympy.engine import GeneratingFunctionSettings, SympyPGF
 from prodigy.util.integers import unlimited_int_digits
 from .evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from .evtinvariants.heuristics.strategies import SynthesisStrategies
@@ -107,11 +105,11 @@ class ForwardAnalysisConfig:
             # prodigy-ppl-ginac is only installed where it has wheels; only the GiNaC engine imports it
             try:
                 # pylint: disable=import-outside-toplevel
-                from prodigy.distribution.fast_generating_function import ProdigyPGF
+                from prodigy.distribution.pgf.ginac.engine import GinacPGF
             except ImportError as error:
                 raise ConfigurationError(
                     "The GiNaC engine needs prodigy-ppl-ginac: pip install prodigy-ppl-ginac") from error
-            return ProdigyPGF
+            return GinacPGF
         else:
             return CommonDistributionsFactory
 
@@ -125,5 +123,5 @@ class ForwardAnalysisConfig:
         :meth:`~prodigy.analysis.session.AnalysisSession.run` do this themselves; code that works
         with the distributions outside of them (e.g. printing a result) enters it as well.
         """
-        with unlimited_int_digits(), GeneratingFunction.configured(latex_output=self.use_latex) as settings:
+        with unlimited_int_digits(), SympyPGF.configured(latex_output=self.use_latex) as settings:
             yield settings

@@ -7,7 +7,7 @@ by a GCD here). Program variables and parameters are both ring variables; which 
 caller's business. The operations are the CAS operations of the forward analysis on rational generating
 functions: addition, multiplication, division, integer powers, substitution of a variable by a rational
 function, cancellation and the Taylor coefficients in one variable (by the linear recursion of the
-denominator, as in :mod:`prodigy.distribution.rational_series`), plus the conversion to and from SymPy.
+denominator, as in :mod:`prodigy.distribution.pgf.rules.rational_series`), plus the conversion to and from SymPy.
 
 The kernel is exact or refuses: an input that is not a rational function over ℚ (``exp``, ``log``,
 ``sqrt``, floats, ``pi``, ``I``, symbolic exponents) raises :class:`NotRepresentableError`, which tells the

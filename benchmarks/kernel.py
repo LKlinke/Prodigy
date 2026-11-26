@@ -139,11 +139,11 @@ def sympy_random_walk(iterations: int = 25) -> sympy.Expr:
 
 def _factory(engine: str):  # -> Type[CommonDistributionsFactory]
     if engine == "sympy":
-        from prodigy.distribution.generating_function import SympyPGF
+        from prodigy.distribution.pgf.sympy.engine import SympyPGF
         return SympyPGF
     if engine == "ginac":
-        from prodigy.distribution.fast_generating_function import ProdigyPGF
-        return ProdigyPGF
+        from prodigy.distribution.pgf.ginac.engine import GinacPGF
+        return GinacPGF
     raise ValueError(f"unknown engine {engine!r}")
 
 
@@ -256,9 +256,9 @@ def prepare(workload: str, backend: str) -> Callable[[], object]:
         if backend == "kernel":
             return lambda: [c.to_sympy() for c in RationalGF.from_sympy(function).coefficient_list("alive", 100)]
         if backend == "sympy-cas":
-            from prodigy.distribution.rational_series import rational_taylor_coefficients
+            from prodigy.distribution.pgf.rules.rational_series import rational_taylor_coefficients
             return lambda: rational_taylor_coefficients(function, ALIVE, 100)
-        from prodigy.distribution.coefficient_stream import marginal_stream
+        from prodigy.distribution.pgf.coefficient_stream import marginal_stream
         dist = _factory(backend).from_expr(_text(function), "alive")
         return lambda: list(marginal_stream(dist, "alive", 100, incremental=False))
     if workload == "convert":
