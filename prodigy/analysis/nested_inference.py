@@ -42,6 +42,7 @@ from __future__ import annotations
 import contextlib
 import contextvars
 import copy
+import logging
 from dataclasses import dataclass, field, replace
 from fractions import Fraction
 from typing import (Any, Callable, Dict, Iterator, List, Optional, Sequence,
@@ -71,6 +72,9 @@ from prodigy.language.ppy_printer import spell
 from prodigy.language.ast.walk import (Walk, mut_expr_children, walk_expr,
                                    walk_instr_exprs, walk_instrs)
 from prodigy.language.util.ref import Mut
+from prodigy.util.logger import log_setup
+
+logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 Runner = Callable[[Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution,
                    ForwardAnalysisConfig], Tuple[Distribution, Distribution]]
@@ -1134,11 +1138,13 @@ def _value_json(value: DistValue, limit: int) -> Dict[str, Any]:
         entry["mean"], entry["mean_float"] = exact_and_float(
             "oo" if str(mean).strip().lower() in ("infinity", "oo", "inf") else mean)
     except Exception:  # pylint: disable=broad-except
-        pass
+        # the mean is optional in the display of a dist value
+        logger.debug("No mean for the dist value %s", value.variable, exc_info=True)
     try:
         entry["finite_support"] = bool(renamed.is_finite())
     except Exception:  # pylint: disable=broad-except
-        pass
+        # optional in the display, as the mean
+        logger.debug("Finite support of the dist value %s undecided", value.variable, exc_info=True)
     if limit > 0:
         try:
             entry["table"] = univariate_table(renamed, value.variable, limit)
