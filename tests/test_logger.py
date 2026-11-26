@@ -16,11 +16,33 @@ def test_log_setup_creates_no_file_by_default(tmp_path, monkeypatch):
     assert not any(isinstance(h, logging.FileHandler) for h in logger.handlers)
 
 
+def test_no_debug_record_without_a_log_file(monkeypatch):
+    """Without ``PRODIGY_LOG_FILE`` a debug call creates no record, so its arguments are never formatted (#284)."""
+    monkeypatch.delenv(LOG_FILE_ENV, raising=False)
+    logger = log_setup("test_logger_no_record", logging.DEBUG)
+    records = []
+
+    class Collect(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    logger.addHandler(handler := Collect())
+    try:
+        logger.debug("whole generating function %s", "G")
+        logger.info("progress")
+        logger.warning("kept")
+    finally:
+        logger.removeHandler(handler)
+    assert not logger.isEnabledFor(logging.DEBUG)
+    assert [record.getMessage() for record in records] == ["kept"]
+
+
 def test_debug_file_on_request(tmp_path, monkeypatch):
     target = tmp_path / "debug.log"
     monkeypatch.setenv(LOG_FILE_ENV, str(target))
     logger = log_setup("test_logger_requested", logging.DEBUG)
     logger.debug("hello")
+    assert logger.isEnabledFor(logging.DEBUG)
     assert "hello" in target.read_text()
     for handler in list(logger.handlers):
         logger.removeHandler(handler)

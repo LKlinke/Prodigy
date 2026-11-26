@@ -464,14 +464,11 @@ def _strategy_mass_threshold(task: LoopTask) -> LoopOutcome:
     captured_part = non_sat_part + error_prob
     iterations = 0
     task.iterate(0, non_sat_part, inside=sat_part)
-    while Fraction(captured_part.get_probability_mass()
-                   ) < captured_probability_threshold:
+    while (captured := Fraction(captured_part.get_probability_mass())) < captured_probability_threshold:
         if max_iterations is not None and iterations >= max_iterations:
             task.note(f"Stopped after {iterations} iterations before reaching the threshold.")
             break
-        logger.info("Collected %f of the desired mass", (float(
-            (Fraction(captured_part.get_probability_mass()) /
-             captured_probability_threshold)) * 100))
+        logger.info("Collected %f of the desired mass", float(captured / captured_probability_threshold) * 100)
         iterated_part, error_prob = analyzer(instruction.body, prog_info, sat_part, error_prob, config)
         iterated_sat = iterated_part.filter(instruction.cond)
         iterated_non_sat = iterated_part - iterated_sat

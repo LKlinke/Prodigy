@@ -80,7 +80,7 @@ def compute_program(
     instructions, the upper track, the conditioning on the observations, the values of dist variables. The
     entry point is :func:`~prodigy.analysis.session.compute_discrete_distribution`, which activates a context
     and validates the input."""
-    logger.debug("Compute the distribution for\n%s\nand distribution %s", str(program), dist)
+    logger.debug("Compute the distribution for\n%s\nand distribution %s", program, dist)
 
     # Inject the context from the parsed program into the initial distribution.
     prog_info = program if isinstance(program,
