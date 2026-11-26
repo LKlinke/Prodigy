@@ -233,34 +233,8 @@ class QueryHandler(InstructionHandler):
         variables = [instr.var_1.var]
         variables += [instr.var_2.var] if instr.var_2 else []
 
-        if not session.provider.interactive:
-            # Front ends draw the plot themselves from the recorded coefficients.
-            session.record_query(QueryHandler.__plot_data(instr, variables, dist, session))
-            return dist
-
-        # matplotlib is loaded only when the terminal plots (importing the analysis must not load it; T7 moves
-        # the rendering to the front ends)
-        from prodigy.plotting.plotter import Plotter  # pylint: disable=import-outside-toplevel
-        # User can specify either a probability threshold or a number of terms which are shown in the histogram.
-        if instr.prob:
-            # User chose a probability or oo (meaning, try to compute the whole histogram).
-            if instr.prob.is_infinite():
-                Plotter.plot(dist, *variables, threshold=str(1))
-            else:
-                Plotter.plot(dist, *variables, threshold=str(instr.prob))
-
-        elif instr.term_count:
-            # User has chosen a term limit.
-            Plotter.plot(dist, *variables, threshold=instr.term_count.value)
-            # User did neither specify a term limit nor a threshold probability. We try an iterative approach...
-        else:
-            p = .1
-            inc = .1
-            while True:
-                Plotter.plot(dist, *variables, threshold=str(p))
-                p = p + inc if p + inc < 1 else 1
-                if not session.provider.continue_plot(p):
-                    break
+        # the analysis only records the data; the front ends draw it (GUI in the browser, CLI with prodigy.plotting)
+        session.record_query(QueryHandler.__plot_data(instr, variables, dist, session))
         return dist
 
     @staticmethod

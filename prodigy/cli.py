@@ -12,40 +12,33 @@ import json
 import logging
 import sys
 import time
+from fractions import Fraction
 from itertools import combinations
-from typing import IO, Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar, TYPE_CHECKING
+from typing import IO, Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar
 
 import click
 from prodigy.language import Instr, Program, Var, WhileInstr
 from prodigy.language.parser import check_syntax, parse_program
 from prodigy.language.syntax_errors import ProgramSyntaxError
 
-from prodigy.analysis.analyzer import compute_semantics
 from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import (ConfigurationError, HeuristicsError, InvalidProbabilityError,
                                          UndefinedDistributionError, UnsupportedFeatureError, VerificationError)
-from prodigy.analysis.equivalence.verdict import Comparison, compare, show_valuation
-from prodigy.analysis.input_distribution import InputDistributionError, input_distribution_from_text
-from prodigy.analysis.evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
-from prodigy.analysis.evtinvariants.heuristics.strategies import (DEFAULT_MAX_DEGREE, SELECTABLE_POSITIVITY_HEURISTICS,
-                                                                  SynthesisStrategies)
-from prodigy.analysis.evtinvariants.heuristics.templates.templates_factory import TemplateHeuristics
-from prodigy.analysis.evtinvariants.invariant_synthesis import (DEFAULT_SYNTHESIS_TIME_LIMIT,
-                                                                DEFAULT_TEMPLATE_TIME_LIMIT, evt_invariant_synthesis)
-from prodigy.analysis.evtinvariants.invariant_verification import evt_invariant_verification
-from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.analysis.solver.solver_type import SolverType
-from prodigy.analysis.independence.independence import independent_vars as get_independent_vars_of
 from prodigy.analysis.loop_strategies import loop_strategies, strategy_groups
 from prodigy.analysis.session import (AnalysisSession, DEFAULT_KEY, InteractiveDecisions, LoopRegistry, parse_decisions,
                                       validate_decisions)
+from prodigy.analysis.tools import (DEFAULT_MAX_DEGREE, DEFAULT_SYNTHESIS_TIME_LIMIT, DEFAULT_TEMPLATE_TIME_LIMIT,
+                                    SELECTABLE_POSITIVITY_HEURISTICS, Comparison, InputDistributionError,
+                                    PositivityHeuristics, ProgramInfo, SolverType, SynthesisStrategies,
+                                    TemplateHeuristics, TemplateShape, compare, compute_semantics,
+                                    evt_invariant_synthesis, evt_invariant_verification, evt_sandwich as run_sandwich,
+                                    evt_subinvariant_verification, input_distribution_from_text, load_problem,
+                                    print_result, show_valuation, write_json)
+from prodigy.analysis.tools import independent_vars as get_independent_vars_of
 from prodigy.distribution.display import display_form
 from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
-
-if TYPE_CHECKING:
-    from prodigy.analysis.lowerbounds.parameters import TemplateShape
 
 logger = log_setup("CLI", logging.DEBUG)
 
@@ -282,6 +275,7 @@ def main(ctx: click.Context, program_file: IO, input_dist: str,  # pylint: disab
         dist, error_prob = compute_discrete_distribution(
             program, dist, config)
     stop = time.perf_counter()
+    _draw_plots(session)
 
     shown = display_form(dist).distribution if config.use_simplification else dist
     print(Style.OKBLUE + "Result: \t" + Style.OKGREEN + "(" + str(shown) +
@@ -290,6 +284,20 @@ def main(ctx: click.Context, program_file: IO, input_dist: str,  # pylint: disab
     for warning in session.warnings:
         print(f"{Style.YELLOW}Warning:{Style.RESET} {warning}")
     print(f"CPU-time elapsed: {stop - start:04f} seconds")
+
+
+def _draw_plots(session: AnalysisSession) -> None:
+    """Draws the ``plot`` queries of a finished run with matplotlib (the analysis only records their data, T7)."""
+    plots = [query for query in session.queries if query.kind == "plot"]
+    if not plots:
+        return
+    # matplotlib is loaded only when a program plots
+    from prodigy.plotting.plotter import PlotError, plot  # pylint: disable=import-outside-toplevel
+    for query in plots:
+        try:
+            plot(query.data)
+        except PlotError as exc:
+            print(f"{Style.YELLOW}Plot of {query.expr}:{Style.RESET} {exc}")
 
 
 EXIT_EQUIVALENT = 0
@@ -517,8 +525,6 @@ def evt_lower_bound(ctx: click.Context, program_file: IO, invariant: str, input_
     NU(1,...,1) < oo) and continues the analysis with the resulting lower bound on the output distribution of the
     loop.  No termination assumption is needed.
     """
-    # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.lowerbounds.subinvariant import evt_subinvariant_verification
     source, prog = _read_program(program_file, syntax)
     _require_type_correct(program_file, prog, source)
     prefix, loop, rest = _loop_parts(prog)
@@ -539,11 +545,8 @@ def evt_lower_bound(ctx: click.Context, program_file: IO, invariant: str, input_
     print(f"CPU-time elapsed: {time.perf_counter() - start:04f} seconds")
 
 
-def _parse_shape(spec: str) -> "TemplateShape":
+def _parse_shape(spec: str) -> TemplateShape:
     """'r1,r2;p1,p2;b1,b2' -> TemplateShape"""
-    # pylint: disable=import-outside-toplevel
-    from fractions import Fraction
-    from prodigy.analysis.lowerbounds.parameters import TemplateShape
     parts = spec.split(";")
     if len(parts) != 3:
         raise click.BadParameter("template shapes are given as 'rates;periods;tail starts', e.g. '0,7/8;1,2;24,48'")
@@ -575,14 +578,11 @@ def evt_sandwich(  # pylint: disable=too-many-arguments
         program_file: IO, size: int, lower_specs: Tuple[str, ...], upper_specs: Tuple[str, ...], no_upper: bool,
         objective: str, per_query: Optional[bool], show_certificates: bool, json_path: Optional[str],
         syntax: Optional[str]) -> None:
-    # pylint: disable=import-outside-toplevel
     """
     Sandwich bounds for a program with one loop: synthesises an EVT sub-invariant of finite mass (lower bound,
     no termination assumption) and an EVT super-invariant (upper bound) with eventually geometric templates by
     linear programming, verifies both exactly, and prints two-sided bounds for the queries after the loop.
     """
-    from prodigy.analysis.lowerbounds.problem import load_problem
-    from prodigy.analysis.lowerbounds.sandwich import evt_sandwich as run_sandwich, print_result, write_json
     source, prog = _read_program(program_file, syntax)
     _require_type_correct(program_file, prog, source)
     problem = load_problem(prog)
