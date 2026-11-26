@@ -1,9 +1,10 @@
-from typing import Collection, Optional
+from typing import Collection, Iterator, Optional
 
 from prodigy.distribution.coefficient_signs import series_form, sign
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic, PositivityInput
-from prodigy.distribution import CommonDistributionsFactory
+from prodigy.distribution import CommonDistributionsFactory, Distribution
 from prodigy.distribution.equality import engine_text
+from prodigy.util.three_valued import all_three_valued
 
 
 class IterateTermsHeuristic(PositivityHeuristic):
@@ -30,14 +31,13 @@ class IterateTermsHeuristic(PositivityHeuristic):
 
     def _is_positive(self, f: PositivityInput) -> Optional[bool]:
         dist = self._factory.from_expr(engine_text(f).replace("**", "^"), *self._vars)
-        verdict: Optional[bool] = True
+        return all_three_valued(self._signs(dist))
+
+    def _signs(self, dist: Distribution) -> Iterator[Optional[bool]]:
+        """The signs of the first coefficients, and ``None`` once more terms exist than are inspected."""
         for i, (prob, _) in enumerate(dist):
             if i >= self._max_iters:
-                return None
+                yield None
+                return
             coefficient, _ = series_form(prob, self._vars)
-            result = sign(coefficient)
-            if result is False:
-                return False
-            if result is None:
-                verdict = None
-        return verdict
+            yield sign(coefficient)

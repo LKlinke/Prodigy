@@ -4,6 +4,7 @@ import sympy
 
 from prodigy.analysis.evtinvariants.heuristics.positivity.positivity import PositivityHeuristic, PositivityInput
 from prodigy.distribution.equality import sympify_symbolic_string
+from prodigy.util.three_valued import all_three_valued
 
 
 # pylint: disable-msg=keyword-arg-before-vararg
@@ -31,14 +32,8 @@ class AndHeuristic(PositivityHeuristic):
         self._heuristics: List[PositivityHeuristic] = list(heuristics)
 
     def _is_positive(self, f: PositivityInput) -> Optional[bool]:
-        verdict: Optional[bool] = True
-        for heuristic in self._heuristics:
-            result = heuristic.is_positive(f)
-            if result is False:
-                return False
-            if result is not True:
-                verdict = None
-        return verdict
+        # lazily: the heuristics after a refuting one are not run
+        return all_three_valued(heuristic.is_positive(f) for heuristic in self._heuristics)
 
 
 class NotHeuristic(PositivityHeuristic):

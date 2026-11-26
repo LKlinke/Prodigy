@@ -42,6 +42,7 @@ from typing import Collection, Dict, List, Optional, Sequence, Tuple
 import sympy
 
 from prodigy.distribution.equality import decide_equal, sympify_symbolic_string
+from prodigy.util.three_valued import all_three_valued
 
 MAX_DIRECT_COEFFICIENTS = 10_000
 """How many coefficients :func:`exp_polynomial_nonneg` checks one by one before it gives up (``None``)."""
@@ -392,14 +393,8 @@ def exp_polynomial_nonneg(expr: sympy.Expr, variables: Sequence[str]) -> Optiona
         return None
     _, rate, exp_part, plain_part = parts
     c = fraction_of(rate)
-    verdict: Optional[bool] = True
-    for monomial in set(exp_part) | set(plain_part):
-        result = _series_nonneg(exp_part.get(monomial, {}), plain_part.get(monomial, {}), c)
-        if result is False:
-            return False
-        if result is None:
-            verdict = None
-    return verdict
+    return all_three_valued(_series_nonneg(exp_part.get(monomial, {}), plain_part.get(monomial, {}), c)
+                            for monomial in set(exp_part) | set(plain_part))
 
 
 def independent_factors(expr: sympy.Expr, variables: Sequence[str]) -> Optional[List[sympy.Expr]]:

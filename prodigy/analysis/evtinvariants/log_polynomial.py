@@ -34,6 +34,7 @@ import sympy
 
 from prodigy.analysis.evtinvariants.exp_polynomial import eventually_nonneg, fraction_of
 from prodigy.distribution.equality import sympify_symbolic_string
+from prodigy.util.three_valued import all_three_valued
 
 Laurent = Dict[int, Fraction]
 """A Laurent polynomial in k: ``{j: q_j}`` stands for ``Σ q_j k^j``."""
@@ -134,14 +135,8 @@ def log_form_nonneg(expr: sympy.Expr, variables: Sequence[str]) -> Optional[bool
     form = log_form(expr, variables)
     if form is None:
         return None
-    verdict: Optional[bool] = True
-    for monomial in set(form.plain) | set(form.log):
-        result = _series_nonneg(form.plain.get(monomial, {}), form.log.get(monomial, {}), form.rate)
-        if result is False:
-            return False
-        if result is None:
-            verdict = None
-    return verdict
+    return all_three_valued(_series_nonneg(form.plain.get(monomial, {}), form.log.get(monomial, {}), form.rate)
+                            for monomial in set(form.plain) | set(form.log))
 
 
 def log_form_mass(expr: sympy.Expr, variables: Sequence[str]) -> Optional[Tuple[bool, Optional[sympy.Expr]]]:
