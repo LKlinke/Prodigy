@@ -10,7 +10,7 @@ from prodigy.language import parse_program
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.evtinvariants import invariant_synthesis, invariant_verification
-from prodigy.analysis.instructionhandler import while_handler
+from prodigy.analysis.loops.invariants.exact import strategies as exact_strategies
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.session import AnalysisSession
 
@@ -124,14 +124,14 @@ def one_template(_strategy, variables, factory, **_heuristics):
 
 @pytest.mark.parametrize("engine", ENGINES)
 def test_synthesised_parameter_is_certified(monkeypatch, engine):
-    monkeypatch.setattr(while_handler.SynthesisStrategies, "make", one_template)
+    monkeypatch.setattr(exact_strategies.SynthesisStrategies, "make", one_template)
     result = analyse("evt_synthesis", engine)
     assert result["status"] == "ok" and result["bounds"]["kind"] == Bound.EXACT
 
 
 @pytest.mark.parametrize("engine", ENGINES)
 def test_wrong_solution_of_the_synthesis_solver_is_not_certified(monkeypatch, engine):
-    monkeypatch.setattr(while_handler.SynthesisStrategies, "make", one_template)
+    monkeypatch.setattr(exact_strategies.SynthesisStrategies, "make", one_template)
     monkeypatch.setattr(invariant_synthesis, "solve_template", wrong_solutions)
     result = analyse("evt_synthesis", engine)
     assert result["status"] == "error"

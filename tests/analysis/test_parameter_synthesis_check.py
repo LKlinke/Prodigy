@@ -8,7 +8,7 @@ import pytest
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence import verdict as eq
-from prodigy.analysis.instructionhandler.while_handler import InvariantRefutedError
+from prodigy.analysis.loops.common import InvariantRefutedError
 from prodigy.analysis.session import AnalysisSession, InteractiveDecisions
 from prodigy.distribution.distribution import NonFiniteMarginalError, known_convergent_series
 from prodigy.language import parse_program

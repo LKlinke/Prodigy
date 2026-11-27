@@ -7,7 +7,7 @@ from click.testing import CliRunner
 from prodigy.language import parse_program
 
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.instructionhandler.while_handler import finite_mass
+from prodigy.analysis.loops.invariants.exact.strategies import finite_mass
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.session import AnalysisSession, LoopRegistry, parse_decisions, validate_decisions
 from prodigy.analysis.loops.api import LoopDecision

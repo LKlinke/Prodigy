@@ -10,7 +10,8 @@ from prodigy.language import parse_program
 
 from prodigy.analysis import evt_exploration
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.loop_strategies import STRATEGY_GROUPS, get_loop_strategy, loop_strategies, strategy_groups
+from prodigy.analysis.loop_strategies import (STRATEGY_GROUPS, Bound, Delivers, LoopStrategy, get_loop_strategy,
+                                             loop_strategies, strategies_for, strategy_groups)
 from prodigy.analysis.session import AnalysisSession
 from prodigy.cli import cli
 
@@ -150,14 +151,14 @@ def test_evt_iterate_shows_an_exploration_with_a_checkable_candidate():
 
 def test_evt_synthesis_lists_certified_candidates_first(monkeypatch):
     """The default candidate 0 is a certified one, also if the synthesis returns an uncertified one first (#337)."""
-    from prodigy.analysis.instructionhandler import while_handler  # pylint: disable=import-outside-toplevel
-    real = while_handler.evt_invariant_synthesis
+    from prodigy.analysis.loops.invariants.exact import strategies  # pylint: disable=import-outside-toplevel
+    real = strategies.evt_invariant_synthesis
 
     def uncertified_first(*args, **kwargs):
         found = real(*args, **kwargs)
         return [(found[0][0], False)] + found
 
-    monkeypatch.setattr(while_handler, "evt_invariant_synthesis", uncertified_first)
+    monkeypatch.setattr(strategies, "evt_invariant_synthesis", uncertified_first)
     result = analyse(GEOMETRIC, {"*": "evt_synthesis"})
     candidates = result["loops"][0]["certificates"][0]["candidates"]
     assert [c["nonnegative"] for c in candidates] == [True, False]
@@ -168,8 +169,8 @@ def test_evt_synthesis_lists_certified_candidates_first(monkeypatch):
 def test_auto_keeps_the_upper_bound_of_an_infinite_mass_invariant(monkeypatch):
     """#336: unrolling gives the lower bound, the invariant (an upper bound by Park's lemma) tightens the
     queries right after the loop; the loop stays a lower bound, only the intervals shrink."""
-    from prodigy.analysis.instructionhandler import while_handler  # pylint: disable=import-outside-toplevel
-    real = while_handler.get_loop_strategy
+    from prodigy.analysis.loops import auto  # pylint: disable=import-outside-toplevel
+    real = auto.get_loop_strategy
 
     def fake(name):
         strategy = real(name)
@@ -184,7 +185,7 @@ def test_auto_keeps_the_upper_bound_of_an_infinite_mass_invariant(monkeypatch):
 
         return dataclasses.replace(strategy, run=run)
 
-    monkeypatch.setattr(while_handler, "get_loop_strategy", fake)
+    monkeypatch.setattr(auto, "get_loop_strategy", fake)
     result = analyse(BIASED_WALK, {"*": "auto:iterations=6"})
     query = result["queries"][0]
     assert result["bounds"]["kind"] == "lower" and query["bound"] == "lower"
@@ -200,9 +201,9 @@ def test_auto_without_upper_bound_keeps_the_mass_based_interval():
 
 
 def _auto_with_failing_synthesis(monkeypatch, error):
-    from prodigy.analysis.instructionhandler import while_handler  # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.loops import auto  # pylint: disable=import-outside-toplevel
 
-    real = while_handler.get_loop_strategy
+    real = auto.get_loop_strategy
 
     def failing(_task):
         raise error
@@ -211,7 +212,7 @@ def _auto_with_failing_synthesis(monkeypatch, error):
         strategy = real(name)
         return dataclasses.replace(strategy, run=failing) if name == "evt_synthesis" else strategy
 
-    monkeypatch.setattr(while_handler, "get_loop_strategy", patched)
+    monkeypatch.setattr(auto, "get_loop_strategy", patched)
     result = analyse(GEOMETRIC, {"*": "auto"})
     return result["loops"][0] if "loops" in result else result
 
@@ -229,3 +230,29 @@ def test_auto_treats_expected_synthesis_errors_as_no_invariant(monkeypatch, capl
     loop = _auto_with_failing_synthesis(monkeypatch, NotImplementedError("not here"))
     assert "not here" in str(loop) and "unexpected" not in str(loop)
     assert not [record for record in caplog.records if record.levelname == "ERROR"]
+
+
+# ---- the guarantees each strategy declares (T13) ------------------------------------------
+
+def test_every_built_in_strategy_declares_what_it_delivers():
+    for strategy in loop_strategies():
+        assert strategy.delivers, strategy.name
+        assert all(given.bound in (Bound.EXACT, Bound.LOWER, Bound.UPPER) for given in strategy.delivers)
+        # the nominal soundness is one of the declared guarantees
+        assert strategy.soundness in {given.bound for given in strategy.delivers}, strategy.name
+
+
+def test_strategies_for_a_goal_in_menu_order():
+    names = [strategy.name for strategy in loop_strategies()]
+    for goal in (Bound.EXACT, Bound.LOWER, Bound.UPPER):
+        found = [strategy.name for strategy in strategies_for(goal)]
+        assert found == [name for name in names if name in found]
+    assert {"unroll", "evt_subinvariant", "evt_sandwich", "auto"} <= {s.name for s in strategies_for(Bound.LOWER)}
+    assert {"invariant", "evt_invariant", "evt_sandwich"} <= {s.name for s in strategies_for(Bound.UPPER)}
+    assert "invariant" not in {s.name for s in strategies_for(Bound.EXACT)}  # exact only under a.s. termination
+
+
+def test_a_strategy_without_declaration_delivers_its_soundness():
+    strategy = LoopStrategy(name="extension", title="Extension", soundness=Bound.LOWER, description="",
+                            run=lambda task: None)
+    assert strategy.guarantees == (Delivers(Bound.LOWER),)

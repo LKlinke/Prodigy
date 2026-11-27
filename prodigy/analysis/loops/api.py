@@ -1,27 +1,27 @@
 """
---------------------------
-Loop strategies (registry)
---------------------------
+-----------------------------------
+Loop strategies (the vocabulary)
+-----------------------------------
 
 A *loop strategy* tells the forward analysis how to deal with one ``while`` loop:
 unroll it a fixed number of times, check a user-provided invariant, synthesise an
 EVT invariant, and so on. Up to now the strategy and its parameters were asked for
-interactively inside the handler of while loops (:mod:`prodigy.analysis.instructionhandler.while_handler`).
+interactively inside the handler of while loops.
 
 This module makes strategies explicit data:
 
 * :class:`ParamSpec` describes one parameter (type, label, legacy CLI prompt, default).
 * :class:`LoopStrategy` describes one strategy (stable name, menu text, parameters,
-  nominal soundness) and points to the function that runs it.
+  nominal soundness, the bounds it :class:`Delivers`) and points to the function that runs it.
 * :class:`LoopTask` is what a strategy receives: the loop, the incoming distribution and
   a way to read its parameters (from the session's decisions, or interactively).
 * :class:`LoopOutcome` is what a strategy returns: the outgoing distribution plus what
   is known about it (exact, lower bound with residual mass, upper bound, unknown) and a
   certificate that a front end can display or re-check.
 
-Strategies are registered by name, so additional strategies (for example from the
-lower-bounds work) appear in the CLI menu, the JSON API and the web GUI without touching
-those front ends: call :func:`register_loop_strategy` at import time.
+Strategies are registered by name (:mod:`prodigy.analysis.loops.registry`), so additional strategies appear in
+the CLI menu, the JSON API and the web GUI without touching those front ends: call
+:func:`~prodigy.analysis.loops.registry.register_loop_strategy` at import time.
 """
 from __future__ import annotations
 
@@ -317,6 +317,17 @@ class LoopTask:
 
 
 @dataclass(frozen=True)
+class Delivers:
+    """A guarantee a strategy can give (one of :class:`Bound`), and the condition under which it gives it (empty:
+    always, when the strategy returns a result). The strategy proves the condition itself when it runs; the
+    declaration only says what to expect, e.g. for choosing a strategy by its goal
+    (:func:`~prodigy.analysis.loops.registry.strategies_for`)."""
+
+    bound: str
+    condition: str = ""
+
+
+@dataclass(frozen=True)
 class LoopStrategy:
     """A registered way of analysing a while loop."""
 
@@ -358,6 +369,15 @@ class LoopStrategy:
     requires_unconditioned: bool = False
     """True if the strategy cannot handle observe statements before or inside the loop."""
 
+    delivers: Tuple[Delivers, ...] = ()
+    """The guarantees the strategy can give, each with its condition; empty for the unconditional
+    :attr:`soundness` alone (see :attr:`guarantees`). Not part of :meth:`to_json` yet."""
+
+    @property
+    def guarantees(self) -> Tuple[Delivers, ...]:
+        """:attr:`delivers`, or the unconditional :attr:`soundness` if the strategy declares nothing."""
+        return self.delivers or (Delivers(self.soundness),)
+
     def param(self, name: str) -> ParamSpec:
         for spec in self.params:
             if spec.name == name:
@@ -385,63 +405,6 @@ class LoopStrategy:
             "requires_unconditioned": self.requires_unconditioned,
             "params": [p.to_json() for p in self.params if p.kind != "file"],
         }
-
-
-STRATEGY_GROUPS: Tuple[Tuple[str, str, str], ...] = (
-    ("automatic", "Automatic", "Prodigy picks: exact if it can prove it quickly, otherwise a lower bound."),
-    ("exact", "Exact result", "Prove the loop's output with an invariant: exact, or an upper bound if a side "
-                              "condition fails; without a proof, no result."),
-    ("bounds", "Bounds", "Sound bounds without proving termination: every query becomes an interval."),
-    ("explore", "Explore", "Insight into the loop for guessing an invariant; the result is only a lower bound."),
-    ("other", "More", "Strategies registered by extensions."),
-)
-"""The groups of loop strategies, in menu order: (key, title, one sentence)."""
-
-
-def strategy_groups() -> List[Tuple[str, str, str, List["LoopStrategy"]]]:
-    """The non-empty groups with their strategies, in menu order (within a group in the order of
-    :func:`loop_strategies`); strategies with an unknown group go to ``other``."""
-    known = {key for key, _, _ in STRATEGY_GROUPS}
-    strategies = loop_strategies()
-    groups = []
-    for key, title, text in STRATEGY_GROUPS:
-        members = [s for s in strategies if (s.group if s.group in known else "other") == key]
-        if members:
-            groups.append((key, title, text, members))
-    return groups
-
-
-_REGISTRY: Dict[str, LoopStrategy] = {}
-
-
-def register_loop_strategy(strategy: LoopStrategy, *, replace: bool = False) -> LoopStrategy:
-    """Makes ``strategy`` available to the CLI menu, the JSON API and the web GUI."""
-    if strategy.name in _REGISTRY and not replace:
-        raise ValueError(f"A loop strategy named {strategy.name!r} is already registered")
-    _REGISTRY[strategy.name] = strategy
-    return strategy
-
-
-def loop_strategies() -> List[LoopStrategy]:
-    """All registered strategies; the six historic ones first, in menu order. The built-in ones are registered
-    by :mod:`prodigy.analysis.loops.builtin` (imported by the session and the front-end module
-    :mod:`prodigy.analysis.loop_strategies`)."""
-
-    def key(strategy: LoopStrategy) -> Tuple[int, int, str]:
-        if strategy.legacy_key is not None:
-            return (0, int(strategy.legacy_key), "")
-        return (1, 0, strategy.name)
-
-    return sorted(_REGISTRY.values(), key=key)
-
-
-def get_loop_strategy(name: str) -> LoopStrategy:
-    """The registered strategy ``name`` (raises :class:`KeyError` naming the known ones)."""
-    try:
-        return _REGISTRY[name]
-    except KeyError:
-        known = ", ".join(s.name for s in loop_strategies())
-        raise KeyError(f"Unknown loop strategy {name!r}. Known strategies: {known}") from None
 
 
 @dataclass
