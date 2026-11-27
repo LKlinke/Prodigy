@@ -231,9 +231,6 @@ class DecisionProvider:
     def next_step(self) -> None:
         """Called after each instruction in step-wise mode."""
 
-    def continue_plot(self, probability: float) -> bool:  # pylint: disable=unused-argument
-        return False
-
 
 class InteractiveDecisions(DecisionProvider):
     """Asks on the terminal, with the prompts the CLI has always used.
@@ -309,10 +306,6 @@ class InteractiveDecisions(DecisionProvider):
 
     def next_step(self) -> None:
         input("Next step [Enter]")
-
-    def continue_plot(self, probability: float) -> bool:
-        cont = input(f"Continue with p={probability}? [Y/n]")
-        return cont.lower() != 'n'
 
 
 class FixedDecisions(DecisionProvider):
