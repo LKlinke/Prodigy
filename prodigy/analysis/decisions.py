@@ -17,8 +17,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Uni
 from prodigy.language import WhileInstr
 from prodigy.language.outline import LoopInfo
 
-from prodigy.analysis.loops.api import (DecisionRequired, LoopDecision, LoopStrategy, LoopTask, ParamSpec,
-                                        get_loop_strategy, loop_strategies)
+from prodigy.analysis.loops.api import DecisionRequired, LoopDecision, LoopStrategy, LoopTask, ParamSpec
+from prodigy.analysis.loops.registry import get_loop_strategy, loop_strategies
 from prodigy.util.logger import log_setup
 
 if TYPE_CHECKING:  # pragma: no cover

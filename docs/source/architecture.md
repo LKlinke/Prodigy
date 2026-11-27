@@ -149,7 +149,7 @@ One handler per construct is kept: each handler is one rule of the forward seman
 `docs/source/semantics.md`. What changes is how they are called: an explicit `AnalysisContext` instead of six
 positional arguments and the hidden session, the state as the pair (distribution, error mass), and a dispatch
 table from instruction type to handler instead of an `isinstance` chain. The while handler only hands the loop
-to the registry; the strategies leave `while_handler.py` (1 294 lines today).
+to the registry; the strategies have left `while_handler.py` (T13a: from 1 294 lines to 30).
 
 ## Loops: goals for the user, proof rules in the code
 

@@ -46,9 +46,12 @@ Parsers, AST, type checker and compiler. The package was called `prodigy/pgcl` u
   (`compute_discrete_distribution`, `AnalysisSession.run`). `decisions.py` holds the decision providers
   (terminal, fixed), `loop_records.py` the loops of the program and what each produced,
   `output_capture.py` the capture of the printed output (also of native code).
-- `loop_strategies.py`: the strategy registry for the front ends; the built-in strategies are
-  defined in `instructionhandler/while_handler.py`, registered by `loops/builtin.py` and appear in
-  the CLI menu, `prodigy analyze --loop` and the GUI automatically.
+- `loop_strategies.py`: the strategy registry for the front ends. The registry is `loops/registry.py`
+  (with `strategies_for(goal)`), the vocabulary `loops/api.py` (`LoopStrategy`, `Delivers`, …). The built-in
+  strategies are defined in `loops/` (`unrolling.py`, `exploration.py`, `invariants/park.py`,
+  `invariants/exact/strategies.py`, `invariants/bounds/strategies.py`, `ai.py`, `auto.py`), registered by
+  `loops/builtin.py` and appear in the CLI menu, `prodigy analyze --loop` and the GUI automatically; the while
+  handler only runs the chosen one.
 - `checks.py`: the checks before a run (type check, refuted sampling PGFs).
 - `result.py`: the JSON result `prodigy/analysis-result@1`, assembled from what the session recorded.
 - `upper_track.py`: a loop's proven upper bound (the EVT sandwich's super-invariant), carried through
