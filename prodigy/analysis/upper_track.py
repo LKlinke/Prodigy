@@ -49,28 +49,20 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Callable, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Optional
 
 import sympy
 
+from prodigy.analysis.context import ProgramState
 from prodigy.analysis.loops.api import Bound
 from prodigy.util.logger import log_setup
 
 if TYPE_CHECKING:  # pragma: no cover
-    from prodigy.analysis.config import ForwardAnalysisConfig
-    from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-    from prodigy.analysis.context import AnalysisContext
+    from prodigy.analysis.context import Frame
     from prodigy.distribution import Distribution
     from prodigy.language import Instr
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
-
-Analyzer = Callable[
-    [Union["Instr", Sequence["Instr"]], "ProgramInfo", "Distribution", "Distribution", "ForwardAnalysisConfig"],
-    Tuple["Distribution", "Distribution"]
-]
-"""The forward semantics (:func:`~prodigy.analysis.analyzer.compute_semantics`)."""
-
 
 class UpperTrackEnded(Exception):
     """Raised inside a replay for an instruction that the track cannot follow (a loop): the track ends."""
@@ -105,21 +97,20 @@ def start(upper: "Distribution", error_prob: "Distribution", kind_before: str, o
     return UpperTrack(upper, error_prob, origin)
 
 
-def replay(track: UpperTrack, instruction: "Instr", prog_info: "ProgramInfo", config: "ForwardAnalysisConfig",
-           analyzer: Analyzer, session: "AnalysisContext") -> Optional[UpperTrack]:
+def replay(track: UpperTrack, instruction: "Instr", frame: "Frame") -> Optional[UpperTrack]:
     """``track`` after the loop-free top-level ``instruction`` (a positive linear map, see the module
     documentation), or ``None`` if the track ends there: a loop, a query block, or a replay that fails or is
-    not exact. The replay is a silent sub-analysis: it records no queries, steps or residual mass."""
+    not exact. The replay runs in ``frame`` (the program's top level) as a silent sub-analysis of its context: it
+    records no queries, steps or residual mass."""
     # pylint: disable=import-outside-toplevel
     from prodigy.distribution import known_convergent_series
     from prodigy.language import QueryInstr
     if isinstance(instruction, QueryInstr):
         return None  # a query block normalises inside, which is not linear
     try:
-        with session.upper_replay() as scope, known_convergent_series(True):
+        with frame.context.upper_replay() as scope, known_convergent_series(True):
             # U is a finite measure with non-negative coefficients (see start), as the program's distributions
-            distribution, error_prob = analyzer(instruction, prog_info, track.distribution, track.error_prob,
-                                                config)
+            distribution, error_prob = frame.run([instruction], ProgramState(track.distribution, track.error_prob))
     except UpperTrackEnded:
         return None
     except Exception:  # pylint: disable=broad-except  # the track is only an addition: it ends, the bounds fall back

@@ -1,42 +1,22 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Union, Sequence
 
-from prodigy.language import Instr, IfInstr
+from prodigy.language import IfInstr
 
-from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.instructionhandler import _assume
-from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
-from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.distribution import Distribution
+from prodigy.analysis.context import Frame, ProgramState
 from prodigy.util.logger import log_setup
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
-class ITEHandler(InstructionHandler):
-    @staticmethod
-    def compute(
-            instruction: Union[Instr, Sequence[Instr]], prog_info: ProgramInfo,
-            distribution: Distribution, error_prob: Distribution,
-            config: ForwardAnalysisConfig,
-            analyzer: Callable[
-                [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
-                tuple[Distribution, Distribution]
-            ]
-    ) -> tuple[Distribution, Distribution]:
-        instruction = _assume(instruction, IfInstr, 'ITEHandler')
-
-        logger.info("Filtering the guard %s", instruction.cond)
-        sat_part = distribution.filter(instruction.cond)
-        non_sat_part = distribution - sat_part
-        zero = error_prob * "0"
-        if_branch, if_error_prob = analyzer(
-            instruction.true, prog_info, sat_part, zero, config)
-        else_branch, else_error_prob = analyzer(
-            instruction.false, prog_info, non_sat_part, zero, config)
-        result = if_branch + else_branch
-        res_error_prob = error_prob + if_error_prob + else_error_prob
-        logger.info("Combining if-branches.\n%s", instruction)
-        return result, res_error_prob
+def handle(frame: Frame, instruction: IfInstr, state: ProgramState) -> ProgramState:
+    """``if (c) {A} else {B}``: A runs on the part that satisfies c, B on the rest, and the results add up."""
+    logger.info("Filtering the guard %s", instruction.cond)
+    sat_part = state.dist.filter(instruction.cond)
+    non_sat_part = state.dist - sat_part
+    zero = state.error * "0"
+    if_branch = frame.run(instruction.true, ProgramState(sat_part, zero))
+    else_branch = frame.run(instruction.false, ProgramState(non_sat_part, zero))
+    logger.info("Combining if-branches.\n%s", instruction)
+    return ProgramState(if_branch.dist + else_branch.dist, state.error + if_branch.error + else_branch.error)

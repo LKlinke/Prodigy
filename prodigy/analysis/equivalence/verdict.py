@@ -129,17 +129,18 @@ def run_check(program: "Program", other: "Program", session: "AnalysisSession",
     ``other`` are decided by their own ids (:meth:`AnalysisSession.other_program`); without, they are
     looked up among the loops of ``program``."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.analyzer import compute_semantics
+    from prodigy.analysis.analyzer import analyzer_in
     from prodigy.analysis.equivalence.equivalence_check import check_equivalence
     from prodigy.distribution import Distribution, State
 
     kinds: List[str] = []
+    semantics = analyzer_in(session)
 
     def analyzer(*args: Any) -> Any:
         own = other_decisions is not None and getattr(args[1], "program", None) is other
         decided = session.other_program(other, other_decisions) if own else contextlib.nullcontext()
         with decided, session.sub_analysis("equivalence check") as scope:
-            outcome = compute_semantics(*args)
+            outcome = semantics(*args)
         kinds.append(scope.kind)
         return outcome
 
@@ -173,15 +174,15 @@ def run_check(program: "Program", other: "Program", session: "AnalysisSession",
 
 def analyse_on_input(program: "Program", state: Dict[str, int], session: "AnalysisSession") -> Side:
     """:func:`~prodigy.analysis.loops.witness.analyse_on_input` with the forward analysis."""
-    from prodigy.analysis.analyzer import compute_semantics  # pylint: disable=import-outside-toplevel
-    return witnesses.analyse_on_input(program, state, session, compute_semantics)
+    from prodigy.analysis.analyzer import analyzer_in  # pylint: disable=import-outside-toplevel
+    return witnesses.analyse_on_input(program, state, session, analyzer_in(session))
 
 
 def search_witness(program: "Program", other: "Program", session: "AnalysisSession",
                    state: Dict[str, int]) -> Optional[Dict[str, Any]]:
     """:func:`~prodigy.analysis.loops.witness.search_witness` with the forward analysis."""
-    from prodigy.analysis.analyzer import compute_semantics  # pylint: disable=import-outside-toplevel
-    return witnesses.search_witness(program, other, session, state, compute_semantics)
+    from prodigy.analysis.analyzer import analyzer_in  # pylint: disable=import-outside-toplevel
+    return witnesses.search_witness(program, other, session, state, analyzer_in(session))
 
 
 # ---------------------------------------------------------------------------------------

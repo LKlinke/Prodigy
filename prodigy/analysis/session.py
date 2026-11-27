@@ -23,9 +23,10 @@ whose :meth:`~prodigy.analysis.result.AnalysisResult.to_json` is the exchange fo
 front ends.
 
 Code that calls :func:`~prodigy.analysis.session.compute_discrete_distribution` or the
-handlers directly (tests, scripts, older code) does not need a session: if none is active,
-:func:`~prodigy.analysis.context.current_context` (and :func:`current_session`) hands out a
-detached interactive one, which reproduces the old behaviour. The session runs the analysis and
+handlers directly (tests, scripts, older code) does not need a session: it can pass one
+(``session=``); otherwise the active one is used, or a detached interactive one
+(:func:`~prodigy.analysis.context.boundary_context`), which reproduces the old behaviour. Inside the
+analysis, the context travels in the :class:`~prodigy.analysis.context.Frame`. The session runs the analysis and
 collects what it recorded; :mod:`prodigy.analysis.result` only assembles the result from it.
 """
 from __future__ import annotations
@@ -47,11 +48,12 @@ from prodigy.language import (CovarianceInstr, ExpectationInstr, Expr, Instr, Op
                               ProbabilityQueryInstr, Program, QueryInstr, VarianceInstr, WhileInstr)
 
 from prodigy.analysis import nested_inference
+from prodigy.analysis.nested_inference import DistRegistry
 from prodigy.analysis.analyzer import compute_program
 from prodigy.analysis.checks import type_error
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.context import (Scope, current_context, has_current_context, register_detached_context,
-                                      reset_context, use_context)
+from prodigy.analysis.context import (AnalysisContext, Scope, boundary_context, has_active_context,
+                                      register_detached_context, reset_context, use_context)
 from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
 from prodigy.analysis.input_distribution import input_distribution_from_text, validate_input_distribution
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
@@ -72,7 +74,8 @@ from prodigy.util.logger import log_setup, print_progress_bar
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.values import QueryResult
     from prodigy.analysis.trace import TraceLimits
-    from prodigy.analysis.upper_track import Analyzer, UpperTrack
+    from prodigy.analysis.context import Frame
+    from prodigy.analysis.upper_track import UpperTrack
     from prodigy.distribution import Distribution
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
@@ -427,16 +430,17 @@ ProgressCallback = Callable[[Dict[str, Any]], None]
 
 def has_current_session() -> bool:
     """Whether a session is active (otherwise :func:`current_session` makes a detached one)."""
-    return has_current_context()
+    return has_active_context()
 
 
 def current_session() -> "AnalysisSession":
     """
     The session of the running analysis (the innermost :meth:`AnalysisSession.activate`); without an active
-    session, a new detached interactive one (#195, :func:`~prodigy.analysis.context.current_context`). The parts
-    of the analysis use :func:`~prodigy.analysis.context.current_context`; this is for the front ends and tests.
+    session, a new detached interactive one (#195, :func:`~prodigy.analysis.context.boundary_context`). The
+    parts of the analysis get their context from their :class:`~prodigy.analysis.context.Frame`; this is for the
+    front ends and tests.
     """
-    return cast(AnalysisSession, current_context())
+    return cast(AnalysisSession, boundary_context())
 
 
 # ---------------------------------------------------------------------------------------
@@ -446,7 +450,8 @@ def current_session() -> "AnalysisSession":
 def compute_discrete_distribution(
         program: Program | ProgramInfo, dist: Distribution,
         config: ForwardAnalysisConfig,
-        step_callback: Optional[Callable[[Instr, Distribution, Distribution], None]] = None
+        step_callback: Optional[Callable[[Instr, Distribution, Distribution], None]] = None,
+        *, session: Optional["AnalysisSession"] = None
 ) -> tuple[Distribution, Distribution]:
     """
     Computes the output distribution of ``program`` for the input ``dist``.
@@ -461,6 +466,8 @@ def compute_discrete_distribution(
 
     :param step_callback: if given, called with (instruction, distribution, error_prob) after each
         top-level instruction.
+    :param session: the session that records the analysis; without it, the active session, or a new
+        detached one (:func:`~prodigy.analysis.context.boundary_context`).
 
     With ``config.show_intermediate_steps`` (or ``config.step_wise``) every step of the trace
     (:mod:`prodigy.analysis.trace`) is printed when it is done, with its line (and the analysis
@@ -470,33 +477,22 @@ def compute_discrete_distribution(
     validate_input_distribution(dist, program)
     # the input is a finite measure, so are all distributions of the program's analysis; candidate checks
     # inside it clear this again (AnalysisSession.sub_analysis, #393)
-    with config.activate(), _active_session(), nested_inference.analysis_registry(), _printed_steps(config), \
+    context = boundary_context() if session is None else session
+    with config.activate(), context.activate(), context.own_dist_registry(), _printed_steps(config, context), \
             known_convergent_series(True):
-        result, error_prob = compute_program(program, dist, config, step_callback)
+        result, error_prob = compute_program(context, program, dist, config, step_callback)
     # so that the Python API evaluates them at 1 without a convergence proof, as the analysis does (#398)
     return result.declare_finite_measure(), error_prob.declare_finite_measure()
 
 
 @contextlib.contextmanager
-def _active_session() -> Iterator[None]:
-    """Without a running session, the analysis gets a detached one of its own, so that all its
-    parts (e.g. the exactness of a function's analysis for ``infer``) are booked in one place."""
-    if has_current_session():
-        yield
-        return
-    with AnalysisSession.detached().activate():
-        yield
-
-
-@contextlib.contextmanager
-def _printed_steps(config: ForwardAnalysisConfig) -> Iterator[None]:
+def _printed_steps(config: ForwardAnalysisConfig, session: AnalysisContext) -> Iterator[None]:
     """Prints the steps of the trace while the analysis runs (``--intermediate-results``, ``--stepwise``)."""
     if not (config.show_intermediate_steps or config.step_wise):
         yield
         return
     # pylint: disable=import-outside-toplevel
     from prodigy.analysis.trace import TraceLimits, Tracer, print_step
-    session = current_session()
     if session.tracer is not None:
         yield
         return
@@ -508,8 +504,7 @@ def _printed_steps(config: ForwardAnalysisConfig) -> Iterator[None]:
 
     session.tracer = Tracer(session, TraceLimits(coefficients=0), on_step=on_step)
     try:
-        with session.activate():
-            yield
+        yield
     finally:
         session.tracer = None
 
@@ -577,6 +572,9 @@ class AnalysisSession:
         self.loop_records: Dict[Any, LoopRecord] = {}
         # the values of the dist variables at the end (prodigy.analysis.nested_inference.DistValue)
         self.dist_values: List[Any] = []
+        self.dist_registry = DistRegistry()
+        """The sites of ``dist`` values met by the analysis (:mod:`prodigy.analysis.nested_inference`)."""
+        self._own_registry = False
         self.queries: List[Any] = []
         self.tracer: Optional[Tracer] = None
         """Records the step trace (:mod:`prodigy.analysis.trace`) if ``record_steps`` is set."""
@@ -630,6 +628,20 @@ class AnalysisSession:
             yield self
         finally:
             reset_context(token)
+
+    @contextlib.contextmanager
+    def own_dist_registry(self) -> Iterator[DistRegistry]:
+        """Gives the analysis a new registry of ``dist`` sites, unless it runs inside one of this session (a
+        function, a check), whose sites it shares; site ids so start at 1 for every outermost analysis."""
+        if self._own_registry:
+            yield self.dist_registry
+            return
+        self.dist_registry = DistRegistry()
+        self._own_registry = True
+        try:
+            yield self.dist_registry
+        finally:
+            self._own_registry = False
 
     # -- questions -----------------------------------------------------------------------
 
@@ -771,12 +783,11 @@ class AnalysisSession:
             self.scope.upper = None
             self._loop_upper = (None, None)
 
-    def advance_upper(self, instruction: Instr, prog_info: "ProgramInfo", config: "ForwardAnalysisConfig",
-                      analyzer: "Analyzer") -> None:
+    def advance_upper(self, instruction: Instr, frame: "Frame") -> None:
         """Moves the upper track past the top-level ``instruction``, which has just run
         (:mod:`prodigy.analysis.upper_track`): a loop whose strategy proved an upper bound starts it, a query
         leaves it as it is (normalisation is :meth:`on_normalize`), loop-free code is replayed on it, and
-        everything else ends it."""
+        everything else ends it. ``frame`` is the program's top level, in which the replay runs."""
         # pylint: disable=import-outside-toplevel
         from prodigy.analysis.nested_inference import dist_variables
         from prodigy.analysis.upper_track import replay
@@ -785,7 +796,7 @@ class AnalysisSession:
         scope = self.scope
         started_by, track = self._loop_upper
         self._loop_upper = (None, None)
-        if dist_variables(prog_info):
+        if dist_variables(frame.program):
             scope.upper = None  # nested inference is not followed
         elif started_by is not None and started_by is instruction:
             scope.upper = track
@@ -794,7 +805,7 @@ class AnalysisSession:
         elif scope.kind != Bound.LOWER:
             scope.upper = None
         elif not isinstance(instruction, _QUERY_INSTRS) or isinstance(instruction, QueryInstr):
-            scope.upper = replay(scope.upper, instruction, prog_info, config, analyzer, self)
+            scope.upper = replay(scope.upper, instruction, frame)
 
     def restrict_upper(self, variables: Sequence[str]) -> None:
         """Sums ``variables`` out of the upper track, as out of the program's distribution (a positive linear map,
@@ -1145,7 +1156,7 @@ def _build_result(session: "AnalysisSession") -> AnalysisResult:
     return result
 
 
-# without an active session, the parts of the analysis get a detached one (current_context, #195)
+# without an active session, the entry points get a detached one (boundary_context, #195)
 register_detached_context(AnalysisSession.detached)
 
 

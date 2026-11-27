@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import get_args, Callable, Optional, Set, Union, Sequence
+from typing import Callable, Optional, Set, Union, Sequence
 
 import sympy
 
@@ -10,14 +10,13 @@ from prodigy.language import Instr, Query, ExpectationInstr, VarianceInstr, Cova
     UnopExpr, Unop, BoolLitExpr, ProbabilityQueryInstr, PlotInstr, PrintInstr, OptimizationQuery, OptimizationType, Expr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.instructionhandler import _assume
-from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
+from prodigy.analysis.context import Frame, ProgramState
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.loops.api import Bound
 from prodigy.analysis.values import (QueryResult, describe_distribution, error_type, finish_query, is_non_finite,
                                      is_monotone_nonnegative, joint_table, show, sym, tidy, univariate_table,
                                      with_upper)
-from prodigy.analysis.context import AnalysisContext, current_context
+from prodigy.analysis.context import AnalysisContext
 from prodigy.distribution import Distribution, MarginalType
 from prodigy.distribution.distribution import NonFiniteMarginalError
 from prodigy.util.logger import log_setup
@@ -25,37 +24,28 @@ from prodigy.util.logger import log_setup
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
-class QueryHandler(InstructionHandler):
-    """Answers queries. Results are printed (CLI) and booked in the current session, where
-    they get sound intervals (see :mod:`prodigy.analysis.result`)."""
+def handle(frame: Frame, instruction: Query, state: ProgramState) -> ProgramState:
+    """Answers a query. Results are printed (CLI) and booked in the context, where they get sound intervals (see
+    :mod:`prodigy.analysis.result`). A query does not change the state."""
+    session = frame.context
+    recorded = len(session.queries)
+    try:
+        _Queries.answer(instruction, frame.program, state.dist, frame.config, session)
+    except (NotImplementedError, NonFiniteMarginalError, ArithmeticError, ValueError) as exc:
+        # A query does not change the distribution: one that cannot be computed fails only
+        # itself, and the distribution and the other queries are kept (#306, #316). This includes an
+        # engine's arithmetic error, e.g. GiNaC's log(0) for Ex[x] of a logarithmic generating function.
+        if len(session.queries) != recorded:
+            raise
+        _Queries.record_failure(instruction, exc, session)
+    return state
+
+
+class _Queries:
+    """The answers of the query kinds."""
 
     @staticmethod
-    def compute(
-            instruction: Union[Instr, Sequence[Instr]], prog_info: ProgramInfo,
-            distribution: Distribution, error_prob: Distribution,
-            config: ForwardAnalysisConfig,
-            analyzer: Callable[
-                [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
-                tuple[Distribution, Distribution]
-            ]
-    ) -> tuple[Distribution, Distribution]:
-        _assume(instruction, get_args(Query), 'QueryHandler')
-        assert isinstance(instruction, get_args(Query))
-        session = current_context()
-        recorded = len(session.queries)
-        try:
-            return QueryHandler.__answer(instruction, prog_info, distribution, error_prob, config, session)
-        except (NotImplementedError, NonFiniteMarginalError, ArithmeticError, ValueError) as exc:
-            # A query does not change the distribution: one that cannot be computed fails only
-            # itself, and the distribution and the other queries are kept (#306, #316). This includes an
-            # engine's arithmetic error, e.g. GiNaC's log(0) for Ex[x] of a logarithmic generating function.
-            if len(session.queries) != recorded:
-                raise
-            QueryHandler.__record_failure(instruction, exc, session)
-            return distribution, error_prob
-
-    @staticmethod
-    def __record_failure(instruction: Instr, exc: Exception, session: AnalysisContext) -> None:
+    def record_failure(instruction: Instr, exc: Exception, session: AnalysisContext) -> None:
         message = str(exc) or type(exc).__name__
         if isinstance(instruction, ExpectationInstr):
             kind, expr = "expectation", session.spell(instruction.expr)
@@ -82,9 +72,8 @@ class QueryHandler(InstructionHandler):
                      "and the other queries are not affected.")
 
     @staticmethod
-    def __answer(instruction: Instr, prog_info: ProgramInfo, distribution: Distribution,
-                 error_prob: Distribution, config: ForwardAnalysisConfig,
-                 session: AnalysisContext) -> tuple[Distribution, Distribution]:
+    def answer(instruction: Instr, prog_info: ProgramInfo, distribution: Distribution,
+               config: ForwardAnalysisConfig, session: AnalysisContext) -> None:
         # User wants to compute an expected value of an expression
         if isinstance(instruction, ExpectationInstr):
             expression = instruction.expr
@@ -109,23 +98,20 @@ class QueryHandler(InstructionHandler):
             session.record_query(finish_query(
                 session, QueryResult("expectation", session.spell(expression), value=result),
                 monotone=monotone, probability=False, known=known))
-            return distribution, error_prob
+            return
 
         # User wants the variance or covariance of expressions
         elif isinstance(instruction, (VarianceInstr, CovarianceInstr)):
-            QueryHandler.__query_spread(instruction, distribution, session)
-            return distribution, error_prob
+            _Queries.__query_spread(instruction, distribution, session)
+            return
 
         # User wants to compute a marginal, or the probability of a condition.
         elif isinstance(instruction, ProbabilityQueryInstr):
-            return QueryHandler.__query_probability_of(instruction.expr,
-                                                       distribution, session), \
-                error_prob
+            _Queries.__query_probability_of(instruction.expr, distribution, session)
 
         # User wants to Plot something
         elif isinstance(instruction, PlotInstr):
-            return QueryHandler.__query_plot(instruction, distribution, session), \
-                error_prob
+            _Queries.__query_plot(instruction, distribution, session)
 
         # User wants to print the current distribution.
         elif isinstance(instruction, PrintInstr):
@@ -136,12 +122,10 @@ class QueryHandler(InstructionHandler):
             query.value_float = None
             query.bound = session.bound_kind
             session.record_query(query)
-            return distribution, error_prob
+            return
 
         elif isinstance(instruction, OptimizationQuery):
-            return QueryHandler.__query_optimization(instruction, distribution,
-                                                     config, session), \
-                error_prob
+            _Queries.__query_optimization(instruction, distribution, config, session)
 
         else:
             raise SyntaxError("This should not happen.")
@@ -234,7 +218,7 @@ class QueryHandler(InstructionHandler):
         variables += [instr.var_2.var] if instr.var_2 else []
 
         # the analysis only records the data; the front ends draw it (GUI in the browser, CLI with prodigy.plotting)
-        session.record_query(QueryHandler.__plot_data(instr, variables, dist, session))
+        session.record_query(_Queries.__plot_data(instr, variables, dist, session))
         return dist
 
     @staticmethod

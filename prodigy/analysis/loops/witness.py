@@ -26,8 +26,7 @@ from prodigy.distribution.distribution import known_convergent_series
 
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.config import ForwardAnalysisConfig
-    from prodigy.analysis.context import AnalysisContext
-    from prodigy.analysis.upper_track import Analyzer
+    from prodigy.analysis.context import AnalysisContext, Analyzer
     from prodigy.distribution import Distribution
     from prodigy.language import Program
 
