@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, cast, Optional, Self, Sequence, Set, Union
 
 import sympy
 
-from prodigy.language import BinopExpr, Expr, VarExpr
+from prodigy.language import Binop, BinopExpr, Expr, VarExpr
 from prodigy.distribution.distribution import CommonDistributionsFactory, Distribution, Operand
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.distribution.pgf.pgf import PGF
@@ -35,10 +35,6 @@ class PGFHooks(Distribution, CommonDistributionsFactory):
     @abstractmethod
     def _probability_mass(self) -> str:
         """Engine hook of :meth:`get_probability_mass`: the closed form at 1, without a convergence proof."""
-
-    @abstractmethod
-    def _expected_value_of(self, expression: Union[Expr, str]) -> str:
-        """The expected value of `expression`, computed by the engine (see :meth:`get_expected_value_of`)."""
 
     @abstractmethod
     def _normalize(self) -> PGF:
@@ -98,15 +94,20 @@ class PGFHooks(Distribution, CommonDistributionsFactory):
         """
 
     @abstractmethod
-    def _update_product(self, temp_var: str, first_factor: str,
-                        second_factor: str,
-                        approximate: str | float | None) -> PGF:
+    def _update_scaled(self, temp_var: str, variable: str, factor: int) -> PGF:
         """
-        Applies the update `temp_var = first_factor * second_factor` to this distribution.
+        Engine hook of the update ``temp_var := variable * factor`` for a variable and a natural number: the
+        substitution of ``variable`` by ``variable * temp_var^factor`` (exact on every distribution).
+        """
 
-        If the distribution is infinite and both factors are variables, multiplication is
-        only supported if at least one of the factors has finite range (i.e., a finite marginal)
-        if approximation is disabled.
+    @abstractmethod
+    def _termwise(self, binop: Binop, temp_var: str, left: str, right: str) -> Optional[PGF]:
+        """
+        Engine hook of :meth:`~prodigy.distribution.pgf.updating.PGFUpdating._binary_by_cases` on a finite
+        distribution: ``temp_var := left binop right`` (``*``, ``/``, ``%``, ``**``; operands are variables or
+        natural numbers) term by term, with :func:`~prodigy.distribution.pgf.updating.binary_value` for the
+        value of each term. None if the engine has no term-by-term operation for ``binop``; then the shared
+        logic fixes the operands' values one by one. Raises the errors of ``binary_value``.
         """
 
     @abstractmethod
@@ -116,39 +117,6 @@ class PGFHooks(Distribution, CommonDistributionsFactory):
         Applies the expression `temp_var = sub_from - sub` to this distribution, where the
         difference is never negative on the support (the caller ensures this, see
         :meth:`_update_monus`).
-        """
-
-    @abstractmethod
-    def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
-                       approximate: str | float | None) -> PGF:
-        """
-        Applies the expression `temp_var = left % right` to this distribution. If `self` is
-        infinite, `right` must be a literal or a variable with finite range if approximation is disabled.
-        """
-
-    @abstractmethod
-    def _update_division(self, temp_var: str, numerator: str | int,
-                         denominator: str | int,
-                         approximate: str | float | None) -> PGF:
-        """
-        Applies the expression `temp_var = numerator / denominator` to this distribution.
-        If in some state of the GF, the numerator is not divisible by the denominator, this function
-        raises an error.
-
-        Infinite distributions are only supported if both sides of the division have finite range
-        (i.e., they are either literals or have a finite marginal) if approximation is disabled. The
-        exception is a numerator with infinite marginal and a literal denominator: the division is
-        exact if the generating function is rational in the numerator and all its mass provably lies
-        on multiples of the denominator (see :mod:`prodigy.distribution.pgf.rules.exact_division`).
-        """
-
-    @abstractmethod
-    def _update_power(self, temp_var: str, base: str | int, exp: str | int,
-                      approximate: str | float | None) -> PGF:
-        """
-        Applies the expression `temp_var := base^exp` to this distribution.
-
-        All variables occuring in the expression must have a finite marginal if approximation is disabled.
         """
 
     @abstractmethod

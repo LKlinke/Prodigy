@@ -4,6 +4,7 @@ operands and the operations that the engines do not compute themselves (truncate
 """
 from __future__ import annotations
 
+import itertools
 from fractions import Fraction
 from typing import TYPE_CHECKING, Callable, Iterable, List, Optional, Tuple, Union
 
@@ -18,6 +19,36 @@ from prodigy.distribution.terms import constant_value, spelled, variables_of, wi
 from prodigy.distribution.pgf.messages import in_programs_terms
 from prodigy.distribution.pgf.filtering import PGFFiltering
 from prodigy.distribution.pgf.sampling import is_sampling_distribution, refutes_unit_mass, sampling_pgf
+from prodigy.distribution.pgf.rules.exact_division import divide_exponents
+
+# The operators whose update is a case split over the values of their operands (_binary_by_cases)
+_SYMBOLS = {Binop.TIMES: "*", Binop.DIVIDE: "/", Binop.MODULO: "%", Binop.POWER: "**", Binop.FLOOR_DIVIDE: "//"}
+_NAMES = {Binop.TIMES: "multiplication", Binop.DIVIDE: "division", Binop.MODULO: "modulo",
+          Binop.POWER: "exponentiation", Binop.FLOOR_DIVIDE: "floor division"}
+
+
+def binary_value(operator: Binop, left: int, right: int) -> int:
+    """
+    The value of ``left operator right`` on natural numbers (``*``, ``/``, ``%``, ``**``). Raises
+    ``NotAnIntegerError`` for a quotient that is not a natural number and ``ZeroDivisorError`` for a divisor 0.
+
+    >>> binary_value(Binop.POWER, 2, 10), binary_value(Binop.MODULO, 7, 3), binary_value(Binop.DIVIDE, 6, 3)
+    (1024, 1, 2)
+    """
+    if operator in (Binop.DIVIDE, Binop.MODULO) and right == 0:
+        raise ZeroDivisorError("The modulus has to be positive, got 0." if operator == Binop.MODULO
+                               else "Division by zero: the divisor is 0.")
+    if operator == Binop.TIMES:
+        return left * right
+    if operator == Binop.MODULO:
+        return left % right
+    if operator == Binop.POWER:
+        return left ** right
+    if operator == Binop.DIVIDE:
+        if left % right != 0:
+            raise NotAnIntegerError(f"Cannot compute {left} / {right} because it is not always an integer")
+        return left // right
+    raise ValueError(f"Unsupported binary operator: {operator}")
 
 
 class PGFUpdating(PGFFiltering):  # pylint: disable=abstract-method  # a layer of PGF
@@ -62,12 +93,13 @@ class PGFUpdating(PGFFiltering):  # pylint: disable=abstract-method  # a layer o
             # For binary operator, we need to introduce fresh variables to prevent clashes
             # and recursively evaluate the left- and right-hand side of the operator
             if isinstance(expression, BinopExpr):
-                if expression.operator == Binop.FLOOR_DIVIDE:
+                if expression.operator in _NAMES:
+                    # a case split needs the values of its operands; a parameter has none (B1 of #511)
                     for operand in (expression.lhs, expression.rhs):
                         if isinstance(operand, VarExpr) and operand.var in function.get_parameters():
                             raise NotImplementedError(
-                                f"Cannot compute {spelled(expression)}: floor division with the parameter "
-                                f"{operand.var} is not implemented")
+                                f"Cannot compute {spelled(expression)}: {_NAMES[expression.operator]} with the "
+                                f"parameter {operand.var} is not implemented")
                 # Get two fresh variables
                 xl = function.get_fresh_variable()
                 xr = function.get_fresh_variable({xl})
@@ -82,15 +114,6 @@ class PGFUpdating(PGFFiltering):  # pylint: disable=abstract-method  # a layer o
                 # by calling the corresponding update method within the concrete distribution class
                 if expression.operator == Binop.PLUS:
                     f = f._update_sum(temp_var, t_1, t_2)
-                elif expression.operator == Binop.TIMES:
-                    try:
-                        f = f._split_on_finite_support(
-                            lambda part, left, right: part._update_product(temp_var, left, right, approximate),
-                            t_1, t_2)
-                    except (ValueError, NotImplementedError, NonFiniteMarginalError) as error:
-                        raise in_programs_terms(
-                            error, {str(t_1): spelled(expression.lhs), engine_text_of(t_2): spelled(expression.rhs)}
-                        ) from error
                 elif expression.operator == Binop.MINUS:
                     try:
                         f = f._update_monus(temp_var, t_1, t_2)
@@ -99,17 +122,8 @@ class PGFUpdating(PGFFiltering):  # pylint: disable=abstract-method  # a layer o
                             f"Cannot compute {expression} exactly: subtraction on natural numbers is truncated "
                             f"at 0, which needs the states with {expression.lhs} < {expression.rhs}, and these "
                             f"cannot be filtered here (not implemented). Details: {error}") from error
-                elif expression.operator in (Binop.MODULO, Binop.DIVIDE):
-                    f = f._divisor_update(expression, temp_var, t_1, t_2, approximate)
-                elif expression.operator == Binop.POWER:
-                    try:
-                        f = f._split_on_finite_support(
-                            lambda part, left, right: part._update_power(temp_var, left, right, approximate),
-                            t_1, t_2)
-                    except (ValueError, NotImplementedError, NonFiniteMarginalError) as error:
-                        raise in_programs_terms(
-                            error, {str(t_1): spelled(expression.lhs), engine_text_of(t_2): spelled(expression.rhs)}
-                        ) from error
+                elif expression.operator in (Binop.TIMES, Binop.MODULO, Binop.DIVIDE, Binop.POWER):
+                    f = f._binary_update(expression, temp_var, t_1, t_2, approximate)
                 elif expression.operator == Binop.FLOOR_DIVIDE:
                     f = f._update_floor_division(temp_var, t_1, t_2, approximate, spelled(expression))
                 else:
@@ -172,45 +186,131 @@ class PGFUpdating(PGFFiltering):  # pylint: disable=abstract-method  # a layer o
             result, _ = evaluate(self._pgf(), expression.rhs, variable)
         return result
 
-    def _divisor_update(self, expression: BinopExpr, temp_var: str, left: str, right: str,
-                        approximate: str | float | None) -> PGF:
+    def _binary_update(self, expression: BinopExpr, temp_var: str, left: str, right: str,
+                       approximate: str | float | None) -> PGF:
         """
-        `temp_var = left % right` or `left / right` for the operands `left`, `right` of `expression` (a
-        modulo or division); a divisor 0 names `expression` in the error (#273).
+        `temp_var = left op right` for the operands `left`, `right` of `expression` (`*`, `/`, `%`, `**`) by
+        :meth:`_binary_by_cases`; the errors name the program's terms instead of the temporary variables (#349),
+        a divisor 0 names `expression` (#273).
         """
-        def update(part: PGF, lhs: str, rhs: str) -> PGF:
-            # pylint: disable=protected-access
-            if expression.operator == Binop.MODULO:
-                return part._update_modulo(temp_var, lhs, rhs, approximate)
-            return part._update_division(temp_var, lhs, rhs, approximate)
-
         try:
-            return self._split_on_finite_support(update, left, right)
+            return self._binary_by_cases(expression.operator, temp_var, left, right, approximate)
         except ZeroDivisorError as error:
             if error.expression is not None:
                 raise
             raise ZeroDivisorError(error.reason, engine_text_of(expression)) from error
         except NotAnIntegerError as error:
-            # the engines named temporary variables (SymPy) or the values of a case split (GiNaC, #361)
+            # the operands were temporary variables or the values of a case split (#361)
             raise NotAnIntegerError(f"Cannot compute {spelled(expression)} because it is not always an "
                                     f"integer") from error
+        except (ValueError, NotImplementedError, NonFiniteMarginalError) as error:
+            raise in_programs_terms(
+                error, {engine_text_of(left): spelled(expression.lhs), engine_text_of(right): spelled(expression.rhs)}
+            ) from error
 
-    def _split_on_finite_support(self, update: Callable[[PGF, str, str], PGF],
-                                 left: str, right: str) -> PGF:
+    def _binary_by_cases(self, operator: Binop, temp_var: str, left: str | int, right: str | int,
+                         approximate: str | float | None) -> PGF:
         """
-        `update(self, left, right)`, a binary update whose operands are variables or literals. If it
-        raises `NonFiniteMarginalError` (a case split over the values of an operand on a measure with
-        infinite mass, #242), the operands with a finite support (:meth:`finite_support`) are fixed
-        instead (:meth:`_split_over_finite_supports`, #249). If no operand has a finite support, or the
-        update of a part still needs a marginal that is not finite, the error is raised.
+        The update `temp_var := left operator right` for `*`, `/`, `%`, `**` (#511, P4c), with operands that are
+        variables or natural numbers; the one case analysis of all engines:
+
+        1. a divisor 0 (`/`, `%`) raises `ZeroDivisorError` (:meth:`_require_nonzero_divisor`), also for each
+           value of a case split below;
+        2. two numbers: :func:`binary_value`, on a distribution of positive mass (a quotient that is no
+           natural number on a zero section is no error);
+        3. `*` with a number: the substitution of the engine hook `_update_scaled` (exact everywhere);
+        4. a finite distribution: the engine hook `_termwise`, if the engine has it for the operator;
+        5. the operands with a finite support are fixed, value by value (:meth:`_split_over_finite_supports`:
+           the support, not the marginal, #256), and the parts are updated with numbers;
+        6. exact cases of an operand with infinitely many values: `% q` by its residue classes
+           (`_arithmetic_progression`), `/ q` if all mass lies on multiples of `q`
+           (:mod:`~prodigy.distribution.pgf.rules.exact_division`);
+        7. otherwise a case split over the approximated marginals (:meth:`_approximated_support`) of the right
+           operand if it is a variable, and of the left one if the right one is a number or the operator is `/`
+           or `**` (which stay inexact with a number on the right), all approximated on this distribution:
+           without `approximate`, the one `ValueError` "not implemented without an approximation"; with a
+           marginal that is no finite measure, `NonFiniteMarginalError`.
+
+        Parameters are no operands here; :meth:`update` refuses them before (B1 of #511).
         """
+        symbol = _SYMBOLS[operator]
+        if operator in (Binop.DIVIDE, Binop.MODULO):
+            self._require_nonzero_divisor(right, symbol)
+        variables = self.get_variables()
+        left_text, right_text = engine_text_of(left).strip(), engine_text_of(right).strip()
+        left_variable, right_variable = left_text in variables, right_text in variables
+        if not (left_variable or right_variable):
+            return self._literal_update(operator, temp_var, _natural(left_text), _natural(right_text))
+        if operator == Binop.TIMES and not (left_variable and right_variable):
+            variable, factor = (left_text, right_text) if left_variable else (right_text, left_text)
+            return self._update_scaled(temp_var, variable, _natural(factor))
+        if self.is_finite():
+            termwise = self._termwise(operator, temp_var, left_text, right_text)
+            if termwise is not None:
+                return termwise
+
+        def update(part: PGF, lhs: str, rhs: str) -> PGF:
+            return part._binary_by_cases(operator, temp_var, lhs, rhs, approximate)  # pylint: disable=protected-access
+
+        split = self._split_over_finite_supports(update, left_text, right_text, (right_text, left_text))
+        if split is not None:
+            return split
+        # every variable among the operands takes infinitely many values
+        exact = None if right_variable else self._by_constant(operator, temp_var, left_text, _natural(right_text))
+        if exact is not None:
+            return exact
+        infinite = [name for name, is_variable in ((left_text, left_variable), (right_text, right_variable))
+                    if is_variable]
+        message = (f"Cannot compute {left_text} {symbol} {right_text} exactly: {' and '.join(dict.fromkeys(infinite))} "
+                   f"{'have' if len(set(infinite)) > 1 else 'has'} infinite range, and the case split over the values "
+                   f"is not implemented without an approximation")
+        # The right operand is approximated; the left one as well if it stays inexact with a number on the right
+        # (`/`, `**`), on this distribution (a part has less mass than the approximation asks for).
+        approximated = [right_text] if right_variable else []
+        if left_variable and left_text not in approximated and (
+                not right_variable or operator in (Binop.DIVIDE, Binop.POWER)):
+            approximated.append(left_text)
+        supports = [self._approximated_support(name, approximate, message) for name in approximated]
+        result: Optional[PGF] = None
+        for states in itertools.product(*(list(self._unique_states(support)) for support in supports)):
+            values = {name: state[name] for name, state in zip(approximated, states)}
+            section = self.filter_state(State(values))
+            part = update(section, str(values.get(left_text, left_text)), str(values.get(right_text, right_text)))
+            result = part if result is None else result + part
+        return result if result is not None else self.filter(BoolLitExpr(False))
+
+    def _literal_update(self, operator: Binop, temp_var: str, left: int, right: int) -> PGF:
+        """`temp_var := left operator right` for two numbers (:func:`binary_value`); a quotient that is no natural
+        number is an error only where the distribution has mass (a value without mass, see is_provably_zero)."""
         try:
-            return update(self._pgf(), left, right)
-        except NonFiniteMarginalError:
-            result = self._split_over_finite_supports(update, left, right, (left, right))
-            if result is None:
-                raise
-            return result
+            value = binary_value(operator, left, right)
+        except NotAnIntegerError:
+            if self.is_provably_zero():
+                return self._update_var(temp_var, 0)
+            raise
+        return self._update_var(temp_var, value)
+
+    def _by_constant(self, operator: Binop, temp_var: str, left: str, right: int) -> Optional[PGF]:
+        """The exact cases of `left operator right` for a variable `left` with infinitely many values and a
+        constant `right`: `%` by the residue classes (:meth:`_residue_update`), `/` if all mass lies on multiples
+        of `right` (:func:`~prodigy.distribution.pgf.rules.exact_division.divide_exponents`); None otherwise."""
+        if operator == Binop.MODULO:
+            return self._residue_update(temp_var, left, str(right))
+        if operator == Binop.DIVIDE:
+            divided = divide_exponents(self._sympy_expression(), left, temp_var, right)
+            if divided is not None:
+                return self._from_sympy_expression(divided)
+        return None
+
+    def _residue_update(self, temp_var: str, left: str, modulus: str) -> PGF:
+        """`temp_var := left % modulus` for a constant `modulus`, from the residue classes of `left` (exact for every
+        measure, #249)."""
+        result: Optional[PGF] = None
+        for remainder, section in enumerate(self._arithmetic_progression(left, modulus)):
+            part = section._update_var(temp_var, remainder)  # pylint: disable=protected-access
+            result = part if result is None else result + part
+        assert result is not None
+        return result
 
     def _split_over_finite_supports(self, update: Callable[[PGF, str, str], PGF],
                                     left: str | int, right: str | int,
@@ -251,23 +351,6 @@ class PGFUpdating(PGFFiltering):  # pylint: disable=abstract-method  # a layer o
             return self.filter(BoolLitExpr(False))
         return result
 
-    def _case_split_support(self, variable: str) -> Optional[PGF]:
-        """
-        The values of `variable` for an update that does a case split over them: its
-        :meth:`finite_support` (each state is one value), or None if `variable` takes infinitely many
-        values. The support, not the marginal, is unfolded: in the marginal of a signed measure the
-        mass of a value can cancel to 0, and the case split would lose the part with this value (#256).
-        The coefficients of the support are not probabilities; an update that approximates needs the
-        real marginal (:meth:`checked_marginal`).
-
-        Raises `NonFiniteMarginalError` if `variable` takes infinitely many values and its marginal is
-        not a finite measure (#242).
-        """
-        support = self.finite_support(variable)
-        if support is None:
-            self.checked_marginal(variable)
-        return support
-
     def _approximated_support(self, variable: str, approximate: str | float | None,
                               message: str) -> PGF:
         """
@@ -280,38 +363,6 @@ class PGFUpdating(PGFFiltering):  # pylint: disable=abstract-method  # a layer o
         if approximate is None:
             raise ValueError(message)
         return marginal.approximate_unilaterally(variable, approximate)
-
-    def _product_case_split(self, first_factor: str, second_factor: str,
-                            approximate: str | float | None) -> Tuple[PGF, str, str]:
-        """
-        For `first_factor * second_factor` of two variables on a distribution that is not finite:
-        `(values, fixed, other)`, a split over the values of the factor `fixed` (the first one with a
-        finite support, else the approximated marginal of the first factor) and the other factor.
-        """
-        for fixed, other in ((first_factor, second_factor), (second_factor, first_factor)):
-            support = self.finite_support(fixed)
-            if support is not None:
-                return support, fixed, other
-        self.checked_marginal(second_factor)
-        # TODO can we choose which side to approximate in a smarter way?
-        return self._approximated_support(
-            first_factor, approximate,
-            f'Cannot perform the multiplication {first_factor} * {second_factor} because both variables have '
-            f'infinite range'), first_factor, second_factor
-
-    def _power_case_split(self, base: str, exp: str,
-                          approximate: str | float | None) -> Tuple[PGF, PGF]:
-        """
-        For `base ^ exp` of two variables: the values of `base` and of `exp` for the case split, each
-        its finite support or else its approximated marginal.
-        """
-        message = "Can only perform exponentiation of variables if both have a finite marginal"
-        values = []
-        for variable in (base, exp):
-            support = self.finite_support(variable)
-            values.append(support if support is not None
-                          else self._approximated_support(variable, approximate, message))
-        return values[0], values[1]
 
     def _require_nonzero_divisor(self, right: str | int, operator: str) -> None:
         """
@@ -431,7 +482,7 @@ class PGFUpdating(PGFFiltering):  # pylint: disable=abstract-method  # a layer o
             part = section.set_variables(*section.get_variables(), shifted)
             part = part._update_subtraction(shifted, engine_text_of(numerator), engine_text_of(remainder))
             try:
-                part = part._update_division(temp_var, shifted, engine_text_of(q), approximate)
+                part = part._binary_by_cases(Binop.DIVIDE, temp_var, shifted, engine_text_of(q), approximate)
             except ValueError as exc:
                 raise ValueError(
                     f"Cannot compute the floor division by {q} exactly: it is implemented for a dividend with "
@@ -469,3 +520,11 @@ class PGFUpdating(PGFFiltering):  # pylint: disable=abstract-method  # a layer o
         # the names of the state stay variables in the sample (a parameter of its distribution may be one)
         sample = self.from_expr(text, name, *sorted(self.get_variables() - {name}))
         return self._compose_iid(sample, count.value if isinstance(count, NatLitExpr) else count.var, name)
+
+
+def _natural(text: str) -> int:
+    """The natural number `text` (an operand of a case split that is no variable)."""
+    value = Fraction(text)
+    if value.denominator != 1 or value < 0:
+        raise ValueError(f"Cannot compute with {text}: not a natural number")
+    return value.numerator

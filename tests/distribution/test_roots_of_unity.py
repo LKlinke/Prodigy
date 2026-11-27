@@ -15,7 +15,7 @@ from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.pgf.ginac.engine import GinacPGF
 from prodigy.distribution.pgf.sympy.engine import SympyPGF
 from prodigy.distribution.pgf.rules.roots_of_unity import NotSingleValuedError, is_single_valued_in, root_of_unity
-from prodigy.language import parse_program
+from prodigy.language import Binop, parse_program
 from prodigy.language.ppy_parser import parse_ppy_expr
 
 ENGINES = [SympyPGF, GinacPGF]
@@ -96,7 +96,7 @@ def test_modulo_guard_on_multi_valued_function_is_rejected(engine, expression, g
 @pytest.mark.parametrize("expression", MULTI_VALUED)
 def test_modulo_update_on_multi_valued_function_is_rejected(engine, expression):
     with pytest.raises(NotSingleValuedError, match="not provably single-valued in 'c'"):
-        engine(f"({expression})*z/(2 - z)", *VARIABLES)._update_modulo("z", "c", "2", None)
+        engine(f"({expression})*z/(2 - z)", *VARIABLES)._binary_by_cases(Binop.MODULO, "z", "c", "2", None)
 
 
 @pytest.mark.parametrize("engine", ENGINES)
@@ -116,7 +116,7 @@ def test_modulo_guard_on_single_valued_function_matches_series(engine, expressio
 
 @pytest.mark.parametrize("engine", ENGINES)
 def test_modulo_update_on_single_valued_function_matches_series(engine):
-    result = engine("y/(2 - c)", *VARIABLES)._update_modulo("z", "c", "2", None)
+    result = engine("y/(2 - c)", *VARIABLES)._binary_by_cases(Binop.MODULO, "z", "c", "2", None)
     # c ~ Geometric(1/2) on 0, 1, 2, ... (times y): z = c % 2 is 0 with probability 2/3
     assert _coefficients(result) == _coefficients("y/(2 - c)*(2 + c*z)/(2 + c)")
 

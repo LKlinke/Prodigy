@@ -10,50 +10,34 @@ from __future__ import annotations
 import logging
 import contextlib
 import operator
-from contextvars import ContextVar
-from dataclasses import dataclass
-from typing import Callable, FrozenSet, Generator, Iterator, List, Optional, Set, Tuple, Type, Union, cast
+from typing import Callable, FrozenSet, Generator, Iterator, List, Optional, Set, Type, Union, cast
 
 import sympy
 
 from prodigy.distribution.distribution import CommonDistributionsFactory, Distribution, Operand
-from prodigy.distribution.values import MarginalType, State, canonical_order
+from prodigy.distribution.values import MarginalType, State
 from prodigy.distribution.pgf.pgf import PGF
-from prodigy.distribution.pgf.sympy.expressions import (_cancel, _has_radical, _is_finite_function, _limit_at_one,
-                                                        _parse_to_sympy, _polynomial_coefficients, _substitute_one,
-                                                        _sympy_symbol, _taylor_coefficient,
-                                                        _taylor_coefficient_by_limit, _term_generator,
-                                                        provably_equal, Term)
+from prodigy.distribution.pgf.sympy.terms import SympyTerms
+from prodigy.distribution.pgf.sympy.settings import _SETTINGS, GeneratingFunctionSettings
+from prodigy.distribution.pgf.sympy.hadamard import rational_hadamard_product
+from prodigy.distribution.pgf.updating import binary_value
+from prodigy.distribution.pgf.rules.value_at_one import _substitute_one
+from prodigy.distribution.pgf.sympy.expressions import (_has_radical, _is_finite_function, _limit_at_one,
+                                                        _parse_to_sympy, _polynomial_coefficients,
+                                                        _sympy_symbol, _taylor_coefficient_by_limit,
+                                                        provably_equal)
 from prodigy.distribution.engine_text import sympy_text
 from prodigy.distribution.pgf.rules.equality import decide_equal
-from prodigy.distribution.pgf.rules.exact_division import divide_exponents
 from prodigy.distribution.pgf.rules.rational_series import rational_taylor_coefficients
 from prodigy.distribution.pgf.rules.negative_values import can_be_negative
 from prodigy.distribution.pgf.rules.multisection import rational_sections
 from prodigy.distribution.pgf.rules.roots_of_unity import require_single_valued, root_of_unity
 from prodigy.language import (Binop, BinopExpr, Expr,
-                          NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
-from prodigy.language.operations import state_condition
+                          NatLitExpr, Unop, UnopExpr, VarExpr)
 from prodigy.language.engine_text import engine_text_of
 from prodigy.util.logger import log_setup
 
 logger = log_setup("generating_function", logging.DEBUG)
-
-
-@dataclass(frozen=True)
-class GeneratingFunctionSettings:
-    """How the SymPy engine prints; set per analysis, see :meth:`SympyPGF.configured`.
-
-    No setting changes the computation: closed forms get their numerator and denominator factored, polynomials
-    are expanded (see ``_arithmetic``). Simplifying
-    the shown result is a matter of display (:mod:`prodigy.distribution.display`, #404)."""
-
-    latex_output: bool = False
-    """``str()`` gives LaTeX instead of a SymPy expression."""
-
-
-_SETTINGS: ContextVar[GeneratingFunctionSettings] = ContextVar(
-    "generating_function_settings", default=GeneratingFunctionSettings())
 
 
 MAX_FACTORED_PARAMETERS = 3
@@ -61,7 +45,7 @@ MAX_FACTORED_PARAMETERS = 3
 variables (parameters, the unknown coefficients of a template, see :meth:`SympyPGF._arithmetic`)."""
 
 
-class SympyPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF and the two interfaces
+class SympyPGF(SympyTerms, PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF and the two interfaces
     """
     This class represents a generating function. It wraps the sympy library.
     A SympyPGF object is designed to be immutable.
@@ -213,43 +197,6 @@ class SympyPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
                                   closed=self._is_closed_form,
                                   finite=self._is_finite).set_parameters(*self.get_parameters())
 
-    def _mult_term_generator(self) -> Iterator[Term]:
-        """
-            Generates terms of multivariate generating function in `grlex` order.
-        """
-        i = 1
-        # sorted by name: the order of the set of variables depends on the hash seed of the process, and with it
-        # which states a search such as get_state visits first (and how long it takes)
-        variables = sorted(self._variables, key=str)
-        while True:
-            # The easiest method is to create all monomials of until total degree `i` and sort them.
-            logger.debug("Generating and sorting of new monomials")
-            new_monomials = sorted(
-                sympy.polys.monomials.itermonomials(variables, i),
-                key=sympy.polys.orderings.monomial_key("grlex", variables))
-            # instead of repeating all the monomials for higher total degrees, just cut-off the already created ones.
-            if i > 1:
-                new_monomials = new_monomials[
-                                sympy.polys.monomials.
-                                monomial_count(len(self._variables), i - 1):]
-            logger.debug("Monomial_generation done")
-
-            # after we have the list of new monomials, create (probability, state) pais and yielding them.
-            for monomial in new_monomials:
-                state: dict[str, int] = {}
-                if monomial == 1:
-                    for var in self._variables:
-                        state[var.name] = 0
-                else:
-                    state = {
-                        engine_text_of(var): val
-                        for var, val in
-                        monomial.as_expr().as_powers_dict().items()
-                    }
-                yield self._probability_of_state(State(valuations=state)), monomial.as_expr()
-            logger.debug("\t>Terms generated until total degree of %d", i)
-            i += 1
-
     def _sympy_expression(self) -> sympy.Expr:
         return self._function
 
@@ -312,126 +259,9 @@ class SympyPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
             if not other._variables == self._variables:
                 raise NotImplementedError("Only univariate distributions are supported for the Hadamard product.")
 
-            s_f, s_g = self._function, other._function
-
-            if not (s_f.is_rational_function() and s_g.is_rational_function()):
-                raise ValueError(f"Distributions need to be rational functions. Got {s_f} and {s_g}")
-
-            if s_f.is_polynomial(var):
-                s_f, s_g = s_g, s_f
-            if s_g.is_polynomial(var):
-                if s_g.is_constant(var):
-                    return SympyPGF(s_g * s_f.subs(var, 0), var)
-                g_deg = s_g.as_poly(var).degree()
-                f_series = s_f.series(var, n=g_deg + 1).removeO().as_poly(var)
-                # coefficients from degree 0 up; beyond the shorter list one factor is 0
-                result = sympy.polys.Poly(reversed([cf * cg for cf, cg in zip(reversed(f_series.all_coeffs()), reversed(
-                    s_g.as_poly(var).all_coeffs()), strict=False)]), var)
-                return SympyPGF(result.as_expr(), var)
-
-            _, s_f_denom = s_f.as_numer_denom()
-            _, s_g_denom = s_g.as_numer_denom()
-            f_degree = s_f_denom.as_poly(var).degree()
-            g_degree = s_g_denom.as_poly(var).degree()
-            logger.debug("Degree f: %i\nDegree g: %i", f_degree, g_degree)
-
-            s_compm_f = sympy.Matrix(sympy.matrices.expressions.CompanionMatrix(
-                (var ** f_degree * s_f_denom.subs(var, 1 / var)).as_poly(var).monic()))
-            s_compm_g = sympy.Matrix(sympy.matrices.expressions.CompanionMatrix(
-                (var ** g_degree * s_g_denom.subs(var, 1 / var)).as_poly(var).monic()))
-
-            s_result_denom = sympy.det(
-                sympy.eye(f_degree * g_degree) - (sympy.matrices.kronecker_product(s_compm_f, s_compm_g)) * var)
-            logger.debug("Denominator: %s", s_result_denom)
-            logger.debug("Comparing %i terms", f_degree * g_degree)
-
-            # as above: zip stops at the shorter list, whose missing coefficients are 0
-            result = sympy.polys.Poly(reversed([cf * cg for cf, cg in zip(reversed(
-                s_f.series(var, n=f_degree * g_degree).removeO().as_poly(var).all_coeffs()), reversed(
-                s_g.series(var, n=f_degree * g_degree).removeO().as_poly(var).all_coeffs()), strict=False)]), var)
-            result *= s_result_denom
-            s_num = result.as_expr().series(var, n=f_degree * g_degree).removeO()
-
-            logger.debug("Resulting function: %s", s_num / s_result_denom)
-            return SympyPGF(engine_text_of(s_num / s_result_denom), *self._variables)
+            return SympyPGF(rational_hadamard_product(self._function, other._function, var), var)
 
         raise TypeError(f"Cannot compute the Hadamard Product, where {other=} is of type {type(other)}.")
-
-
-    @staticmethod
-    def _split_addend(addend: sympy.Expr) -> Tuple[sympy.Expr, sympy.Expr]:
-        r"""
-        This method assumes that the addend is given in terms of :math:`\alpha \times X^{\sigma}`, where
-        :math:`\alpha \in [0,1], \sigma \in \mathbb{N}^k`.
-
-        :param addend: the addend to split into its factor and monomial.
-
-        :return: a tuple (factor, monomial)
-        """
-        if addend.free_symbols == set():
-            return addend, sympy.Integer(1)
-        else:
-            factor_powers = addend.as_powers_dict()
-            result = (sympy.Integer(1), sympy.Integer(1))
-            for factor in factor_powers:
-                if factor in addend.free_symbols:
-                    result = (result[0],
-                              result[1] * factor ** factor_powers[factor])
-                else:
-                    result = (result[0] * factor ** factor_powers[factor],
-                              result[1])
-            return result
-
-    def _monomial_to_state(self, monomial: sympy.Expr) -> State:
-        """ Converts a `monomial` into a state representation, i.e., a (variable_name, variable_value) dict.
-            This is tied to a specific instance of a generating function as a variable and parameter context
-            is needed to resolve the types of indeterminates in the monomial.
-        """
-        result = State()
-        if monomial.free_symbols == set():
-            for var in self._variables:
-                result[engine_text_of(var)] = 0
-        else:
-            variables_and_powers = monomial.as_powers_dict()
-            for var in self._variables:
-                if var in variables_and_powers.keys():
-                    result[engine_text_of(var)] = int(variables_and_powers[var])
-                else:
-                    result[engine_text_of(var)] = 0
-        return result
-
-    def _probability_of_state(self, state: State) -> sympy.Expr:
-        """
-        Determines the probability of a single program state encoded by a monomial (discrete only).
-
-        :param state: The queried program state.
-
-        :return: The probability for that state.
-        """
-        logger.debug("probability_of(%s) call", state)
-
-        # complete state by assuming every variable which is not occurring is zero.
-        complete_state = state
-        for s_var in self._variables:
-            if engine_text_of(s_var) not in state:
-                complete_state[engine_text_of(s_var)] = 0
-
-        # When its a closed form, or not finite, do the maths.
-        if self._is_closed_form or not self._is_finite:
-            result = self._function
-            for variable, value in complete_state.items():
-                result = _taylor_coefficient(result, _sympy_symbol(variable), value)
-            return result
-        # Otherwise use poly module and simply extract the correct coefficient from it
-        else:
-            monomial = 1
-            for variable, value in complete_state.items():
-                monomial *= _sympy_symbol(variable) ** value
-            probability = self._function.as_poly(
-                *self._variables).coeff_monomial(monomial)
-            return probability if probability else sympy.core.numbers.Zero()
-
-    # Distribution interface implementation
 
     def get_fresh_variable(
             self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
@@ -471,153 +301,6 @@ class SympyPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
                 return SympyPGF(result, *self._variables)
 
         raise NotImplementedError("unreachable")
-
-    def _update_division(
-            self, temp_var: str, numerator: str | int, denominator: str | int,
-            approximate: str | float | None) -> SympyPGF:
-        update_var = _sympy_symbol(temp_var)
-        div_1, div_2 = _parse_to_sympy(numerator), _parse_to_sympy(denominator)
-
-        if div_1 in self._parameters or div_2 in self._parameters:
-            raise ValueError('Division containing parameters is not allowed')
-        self._require_nonzero_divisor(denominator, "/")
-
-        # The case splits follow the supports of the operands, not their marginals (#256). A
-        # denominator with a finite support is fixed first, so the numerator may take infinitely many
-        # values (e.g. an exact division by a constant, also if its marginal is not finite, #242).
-        if div_2 in self._variables:
-            split = self._split_over_finite_supports(
-                lambda part, left, right: part._update_division(  # pylint: disable=protected-access
-                    temp_var, left, right, approximate), numerator, denominator, (denominator,))
-            if split is not None:
-                assert isinstance(split, SympyPGF)
-                return split
-        infinite = f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'
-        marginal_r: Distribution | sympy.Expr = div_2
-        if div_2 in self._variables:
-            # the denominator takes infinitely many values
-            marginal_r = self._approximated_support(engine_text_of(denominator), approximate, infinite)
-        marginal_l: Distribution | sympy.Expr = div_1
-        if div_1 in self._variables:
-            support_l = self.finite_support(engine_text_of(numerator))
-            if support_l is None:
-                if isinstance(div_2, sympy.Integer):
-                    divided = divide_exponents(self._function, engine_text_of(numerator), temp_var, int(div_2))
-                    if divided is not None:
-                        return SympyPGF(divided, *self._variables, finite=False)
-                support_l = self._approximated_support(engine_text_of(numerator), approximate, infinite)
-            marginal_l = support_l
-
-        result = 0
-        if isinstance(marginal_l, Distribution):
-            for state_l in self._unique_states(marginal_l):
-                if isinstance(marginal_r, Distribution):
-                    for state_r in self._unique_states(marginal_r):
-                        val_l, val_r = state_l[engine_text_of(numerator)], state_r[engine_text_of(denominator)]
-                        x = self.filter(
-                            state_condition({str(numerator): val_l, engine_text_of(denominator): val_r})
-                        )._function
-                        if val_l % val_r != 0 and x != 0 and not provably_equal(x, sympy.Integer(0)):
-                            raise self._not_an_integer_quotient(numerator, denominator, temp_var)
-                        result += _substitute_one(x, update_var) * update_var ** (val_l // val_r)
-                else:
-                    val_l, val_r = state_l[engine_text_of(numerator)], div_2
-                    x = self.filter(
-                        state_condition({str(numerator): val_l}))._function
-                    if val_l % val_r != 0 and x != 0 and not provably_equal(x, sympy.Integer(0)):
-                        raise self._not_an_integer_quotient(numerator, denominator, temp_var)
-                    result += _substitute_one(x, update_var) * update_var ** (val_l // val_r)
-        else:
-            if isinstance(marginal_r, Distribution):
-                for state_r in self._unique_states(marginal_r):
-                    val_l, val_r = div_1, state_r[engine_text_of(denominator)]
-                    x = self.filter(
-                        state_condition({str(denominator): val_r}))._function
-                    if val_l % val_r != 0 and x != 0 and not provably_equal(x, sympy.Integer(0)):
-                        raise self._not_an_integer_quotient(numerator, denominator, temp_var)
-                    result += _substitute_one(x, update_var) * update_var ** (val_l // val_r)
-            else:
-                if div_1 % div_2 != 0:
-                    raise self._not_an_integer_quotient(numerator, denominator, temp_var)
-                result = _substitute_one(self._function, update_var) * update_var ** (div_1 // div_2)
-
-        return SympyPGF(
-            result,
-            *self._variables,
-            closed=self._is_closed_form,
-            finite=self._is_finite).set_parameters(*self.get_parameters())
-
-    def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
-                       approximate: str | float | None) -> SympyPGF:
-        # TODO this function is very inefficient and I'm not sure why (maybe because of all the filtering?)
-
-        left_sym, right_sym = _sympy_symbol(engine_text_of(left)), _sympy_symbol(
-            engine_text_of(right))
-        if left_sym in self._parameters or right_sym in self._parameters:
-            raise ValueError('Cannot perform modulo operation on parameters')
-
-        self._require_nonzero_divisor(right, "%")
-        update_var = _sympy_symbol(temp_var)
-        result = 0
-
-        # On finite GFs, iterate over all states
-        if self._is_finite:
-            for prob, state_r in self._iter_expr_state():
-                if left_sym in self._variables:
-                    left_var = state_r[engine_text_of(left)]
-                else:
-                    left_var = _parse_to_sympy(left)
-                if right_sym in self._variables:
-                    right_var = state_r[engine_text_of(right)]
-                else:
-                    right_var = _parse_to_sympy(right)
-                result += prob * _parse_to_sympy(state_r.to_monomial()).subs(
-                    update_var, 1) * update_var ** (left_var % right_var)
-
-        # If the GF is infinite and right is a variable, it needs to have finite range
-        elif right_sym in self._variables:
-            assert isinstance(right, str)
-            # the case split follows the support of `right`, not its marginal (#256)
-            values_r = self.finite_support(right)
-            if values_r is None:
-                values_r = self._approximated_support(
-                    right, approximate, f'Cannot perform modulo operation with infinite right hand side {right}')
-            for state_r in self._unique_states(values_r):
-                section = self.filter(state_condition({str(right): state_r[right]}))
-                try:
-                    result += section._update_modulo(temp_var, left, state_r[right], None)._function
-                except ValueError:
-                    # a value without mass (coefficient not simplified to 0), see is_provably_zero
-                    if not section.is_provably_zero():
-                        raise
-
-        # If left is a variable, it doesn't have to have finite range
-        elif left_sym in self._variables:
-            assert isinstance(left, str)
-            # A finite support of `left` is unfolded (not its marginal, which may be no finite measure,
-            # #242, or lose values whose mass cancels, #256); else the arithmetic progression, which is
-            # exact for every measure.
-            values_l = self.finite_support(left)
-            if values_l is not None:
-                for state_l in self._unique_states(values_l):
-                    result += self.filter(
-                        state_condition({str(left): state_l[left]}))._update_modulo(
-                        temp_var, state_l[left], right, None)._function
-            else:
-                for index, gf in enumerate(
-                        self._arithmetic_progression(left, engine_text_of(right))):
-                    # TODO this seems to compute the correct result, but it can't always be simplified to 0
-                    result = result + _substitute_one(gf._function, update_var) * update_var ** index
-
-        # If both are not variables, simply compute the result
-        else:
-            return self._update_var(temp_var, int(left) % int(right))
-
-        return SympyPGF(
-            result,
-            *self._variables,
-            closed=self._is_closed_form,
-            finite=self._is_finite).set_parameters(*self.get_parameters())
 
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> SympyPGF:
@@ -670,67 +353,6 @@ class SympyPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
     def _subtraction_never_negative(self, minuend: str, subtrahend: str) -> bool:
         return can_be_negative(self._function, set(self._variables), _parse_to_sympy(minuend),
                                _parse_to_sympy(subtrahend)) is False
-
-    def _update_product(self, temp_var: str, first_factor: str,
-                        second_factor: str,
-                        approximate: str | float | None) -> SympyPGF:
-        # certain simplifications are only possible if we assume the symbols to be nonnegative
-        update_var_with_assumptions = _sympy_symbol(temp_var, nonnegative=True)
-        update_var = _sympy_symbol(temp_var)
-        prod_1, prod_2 = _parse_to_sympy(first_factor), _parse_to_sympy(
-            second_factor)
-        result = self._function
-
-        if prod_1 in self._parameters or prod_2 in self._parameters:
-            raise ValueError('Multiplication of parameters is not allowed')
-
-        # we multiply two variables
-        if prod_1 in self._variables and prod_2 in self._variables:
-            if not self._is_finite:
-                # the case split follows the support of a factor, not its marginal (#256)
-                result = sympy.Integer(0)
-                finite, finite_var, infinite_var = self._product_case_split(first_factor, second_factor,
-                                                                            approximate)
-                for state in self._unique_states(finite):
-                    result += self.filter(
-                        state_condition({str(finite_var): state[finite_var]})
-                    )._update_product(temp_var, engine_text_of(state[finite_var]),
-                                      infinite_var, approximate)._function
-            else:
-                for prob, state_expr in self._iter_expr_expr():
-                    state = self._monomial_to_state(state_expr)
-                    term: sympy.Basic = prob * state_expr
-                    result = result - term
-                    term = term.subs(
-                        update_var, 1) * update_var_with_assumptions ** (
-                                   state[first_factor] * state[second_factor])
-                    result = result + term
-
-        # we multiply a variable with a literal
-        elif prod_1 in self._variables or prod_2 in self._variables:
-            if prod_1 in self._variables:
-                var, lit = prod_1, prod_2
-            else:
-                var, lit = prod_2, prod_1
-            if var == update_var:
-                result = result.subs(update_var,
-                                     update_var_with_assumptions ** lit)
-            else:
-                result = _substitute_one(result, update_var).subs(
-                    var, var * update_var_with_assumptions ** lit)
-
-        # we multiply two literals
-        else:
-            result = _substitute_one(result, update_var) * (
-                update_var_with_assumptions ** (prod_1 * prod_2))
-
-        return SympyPGF(
-            # remove the nonnegativity assumption from all symbols
-            result.replace(lambda expr: expr.is_Symbol,
-                           lambda expr: _sympy_symbol(expr.name)),
-            *self._variables,
-            closed=self._is_closed_form,
-            finite=self._is_finite).set_parameters(*self.get_parameters())
 
     def _update_var(self, updated_var: str,
                     assign_var: str | int) -> SympyPGF:
@@ -799,67 +421,29 @@ class SympyPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
             closed=self._is_closed_form,
             finite=self._is_finite).set_parameters(*self.get_parameters())
 
-    def _update_power(self, temp_var: str, base: str | int, exp: str | int,
-                      approximate: str | float | None) -> SympyPGF:
-        update_var = _sympy_symbol(temp_var)
-        pow_1, pow_2 = _parse_to_sympy(base), _parse_to_sympy(exp)
-        res = self._function
-
-        if pow_1 in self._parameters or pow_2 in self._parameters:
-            raise ValueError(
-                "Cannot perfrom an exponentiation containing parameters")
-
-        # variable to the power of a variable
-        if pow_1 in self._variables and pow_2 in self._variables:
-            assert isinstance(base, str)
-            assert isinstance(exp, str)
-            # the case splits follow the supports, not the marginals (#256)
-            marginal_l, marginal_r = self._power_case_split(base, exp, approximate)
-
-            for state_l in self._unique_states(marginal_l):
-                for state_r in self._unique_states(marginal_r):
-                    x = self.filter(
-                        state_condition({str(base): state_l[base], engine_text_of(exp): state_r[exp]})
-                    )._function
-                    res -= x
-                    res += _substitute_one(x, update_var) * update_var ** (state_l[base] **
-                                                                  state_r[exp])
-
-        # variable to the power of a literal
-        elif pow_1 in self._variables:
-            marginal = self._case_split_support(engine_text_of(base))
-            if marginal is None:
-                raise ValueError(
-                    "Can only perform exponentiation if the base has a finite marginal"
-                )
-
-            for state in self._unique_states(marginal):
-                x = self.filter(state_condition({str(base): state[engine_text_of(base)]}))._function
-                res -= x
-                res += _substitute_one(x, update_var) * update_var ** (state[engine_text_of(base)] ** pow_2)
-
-        # literal to the power of a variable
-        elif pow_2 in self._variables:
-            marginal = self._case_split_support(engine_text_of(exp))
-            if marginal is None:
-                raise ValueError(
-                    "Can only perform exponentiation if the exponent has a finite marginal"
-                )
-
-            for state in self._unique_states(marginal):
-                x = self.filter(state_condition({str(exp): state[engine_text_of(exp)]}))._function
-                res -= x
-                res += _substitute_one(x, update_var) * update_var ** (pow_1 ** state[engine_text_of(exp)])
-
-        # literal to the power of a literal
+    def _update_scaled(self, temp_var: str, variable: str, factor: int) -> SympyPGF:
+        # the simplification of powers of powers needs non-negative symbols
+        update_var = _sympy_symbol(temp_var, nonnegative=True)
+        var = _sympy_symbol(variable)
+        if variable == temp_var:
+            result = self._function.subs(_sympy_symbol(temp_var), update_var ** factor)
         else:
-            res = _substitute_one(res, update_var) * update_var ** (pow_1 ** pow_2)
-
+            result = _substitute_one(self._function, _sympy_symbol(temp_var)).subs(var, var * update_var ** factor)
         return SympyPGF(
-            res,
-            *self._variables,
-            finite=self._is_finite,
-            closed=self._is_closed_form).set_parameters(*self.get_parameters())
+            # remove the nonnegativity assumption from all symbols
+            result.replace(lambda expr: expr.is_Symbol, lambda expr: _sympy_symbol(expr.name)),
+            *self._variables, closed=self._is_closed_form,
+            finite=self._is_finite).set_parameters(*self.get_parameters())
+
+    def _termwise(self, binop: Binop, temp_var: str, left: str, right: str) -> SympyPGF:
+        update_var = _sympy_symbol(temp_var)
+        result = sympy.Integer(0)
+        for probability, monomial in self._iter_expr_expr():
+            state = self._monomial_to_state(monomial)
+            values = [state[operand] if operand in state.valuations else int(operand) for operand in (left, right)]
+            result += probability * monomial.subs(update_var, 1) * update_var ** binary_value(binop, *values)
+        return SympyPGF(result, *self._variables, closed=self._is_closed_form,
+                        finite=self._is_finite).set_parameters(*self.get_parameters())
 
     def _compose_iid(self, sample: PGF, count: Union[str, int], variable: str) -> SympyPGF:
         sample_gf = cast(SympyPGF, sample)._function
@@ -875,41 +459,6 @@ class SympyPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
             counter = _sympy_symbol(count)
             result._function = result._function.subs(counter, counter * sample_gf)
         return result.set_parameters(*(self.get_parameters() | (sample.get_parameters() - self.get_variables())))
-
-    def _expected_value_of(self, expression: Union[Expr, str]) -> str:
-        expr = _parse_to_sympy(engine_text_of(expression)).ratsimp().expand()
-        if not expr.is_polynomial():
-            raise NotImplementedError(
-                "Expected Value only computable for polynomial expressions.")
-
-        if len(expr.free_symbols & self._variables) == 0:
-            return sympy_text(expr)
-        if not expr.free_symbols.issubset(
-                self._variables.union(self._parameters)):
-            raise ValueError(
-                f"Cannot compute expected value of {expression} because it contains unknown symbols"
-            )
-
-        marginal = self._marginal(*(expr.free_symbols & self._variables),
-                                 method=MarginalType.INCLUDE)._function
-        gen_func = SympyPGF(expr,
-                                      *(expr.free_symbols & self._variables))
-        expected_value = sympy.Integer(0)
-        for prob, state in gen_func:
-            tmp = marginal
-            for var, val in state.items():
-                var_sym = _sympy_symbol(var)
-                for _ in range(val):
-                    tmp = tmp.diff(var_sym, 1) * var_sym
-                tmp = _substitute_one(tmp, var_sym)
-            # subtractions of natural numbers are computed before (monus, Distribution.get_expected_value_of),
-            # so a negative summand is a negative coefficient of the (rational) expression itself
-            summand: sympy.Expr = _parse_to_sympy(prob) * tmp
-            expected_value += summand
-        if expected_value == sympy.S('oo'):
-            return engine_text_of(RealLitExpr.infinity())
-        else:
-            return sympy_text(expected_value)
 
     def copy(self, deep: bool = True) -> SympyPGF:
         res = SympyPGF(self._function, *self._variables, closed=True, finite=True)
@@ -1036,44 +585,6 @@ class SympyPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
             return decide_equal(self._function, other._function)
         return super().decide_equal(other)
 
-    def __iter__(self) -> Iterator[Tuple[str, State]]:
-        """ Iterates over the generating function yielding (coefficient, state) pairs.
-
-            For implicit (closed-form) generating functions, we generate terms via tailor expansion.
-            If the generating function is even multivariate this might be costly as we try to enumerate all different
-            k-tuples, for which the coefficient might be zero (this we do not know upfront).
-        """
-        logger.debug("iterating over %s...", self)
-        items = map(lambda term: (engine_text_of(term[0]), self._monomial_to_state(term[1])), self._iter_expr_expr())
-        return iter(canonical_order(items)) if self._is_finite else items
-
-    def _iter_expr_state(self) -> Iterator[Tuple[sympy.Expr, State]]:
-        """Iterates over self and yields the (coefficient, state) pairs as a sympy expression and a `State`"""
-        return map(lambda term: (term[0], self._monomial_to_state(term[1])),
-                   self._iter_expr_expr())
-
-    def _iter_expr_expr(self) -> Iterator[Tuple[sympy.Expr, sympy.Expr]]:
-        """Iterates over self and yields the (coefficient, state) pairs as sympy expressions"""
-
-        if self._is_finite:
-            if self._is_closed_form:
-                # finite: the cancelled form is a polynomial over a constant denominator
-                func = _cancel(self._function).expand().as_poly(*self._variables)
-            else:
-                if not self._variables:
-                    logger.warning(
-                        "Empty Polynomial, introducing auxilliary variable to create polynomial."
-                    )
-                    func = self._function.as_poly(
-                        _parse_to_sympy("empty_generator"))
-                else:
-                    func = self._function.as_poly(*self._variables)
-            return _term_generator(func)
-        else:
-            logger.debug("Multivariate Taylor expansion might take a while...")
-            return self._mult_term_generator()
-
-    # FIXME: It's not nice to have different behaviour depending on the variable type of `threshold`.
     def approximate(
             self,
             threshold: Union[str,
@@ -1257,7 +768,6 @@ class SympyPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
         return {str(s) for s in self._function.free_symbols}
 
     # The common distributions (the factory, #511)
-
 
     @staticmethod
     def zero(*variables: Union[str, VarExpr]) -> SympyPGF:

@@ -43,6 +43,12 @@ def test_the_rules_import_no_engine_and_no_layer():
     assert not _violations(("prodigy.distribution.pgf.rules",), LAYERS + ENGINE_PACKAGES)
 
 
+def test_no_engine_imports_another_engine():
+    for engine in ENGINE_PACKAGES:
+        others = tuple(package for package in ENGINE_PACKAGES if package != engine)
+        assert not _violations((engine,), others)
+
+
 def test_the_layers_import_no_engine():
     assert not _violations(LAYERS + ("prodigy.distribution.pgf.hooks",), ENGINE_PACKAGES)
 

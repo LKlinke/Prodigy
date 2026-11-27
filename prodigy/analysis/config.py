@@ -11,7 +11,8 @@ import attr
 
 from prodigy.analysis.optimization import Optimizer
 from prodigy.analysis.optimization.gf_optimizer import GFOptimizer
-from prodigy.distribution.pgf.sympy.engine import GeneratingFunctionSettings, SympyPGF
+from prodigy.distribution.pgf.sympy.engine import SympyPGF
+from prodigy.distribution.pgf.sympy.settings import GeneratingFunctionSettings
 from prodigy.util.integers import unlimited_int_digits
 from .evtinvariants.heuristics.positivity.heuristics_factory import PositivityHeuristics
 from .evtinvariants.heuristics.strategies import SynthesisStrategies
