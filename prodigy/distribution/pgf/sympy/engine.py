@@ -32,8 +32,7 @@ from prodigy.distribution.pgf.rules.rational_series import rational_taylor_coeff
 from prodigy.distribution.pgf.rules.negative_values import can_be_negative
 from prodigy.distribution.pgf.rules.multisection import rational_sections
 from prodigy.distribution.pgf.rules.roots_of_unity import require_single_valued, root_of_unity
-from prodigy.language import (Binop, BinopExpr, Expr,
-                          NatLitExpr, Unop, UnopExpr, VarExpr)
+from prodigy.language import Binop, Expr, VarExpr
 from prodigy.language.engine_text import engine_text_of
 from prodigy.util.logger import log_setup
 
@@ -45,7 +44,21 @@ MAX_FACTORED_PARAMETERS = 3
 variables (parameters, the unknown coefficients of a template, see :meth:`SympyPGF._arithmetic`)."""
 
 
-class SympyPGF(SympyTerms, PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF and the two interfaces
+def _variable_minus_variable(function: sympy.Expr, target: sympy.Symbol, minuend: sympy.Symbol,
+                             subtrahend: sympy.Symbol) -> sympy.Expr:
+    """`function` after `target := minuend - subtrahend` for two variables (the difference is not truncated: the
+    caller splits off the states where it would be negative)."""
+    if subtrahend == target:
+        if minuend == target:
+            return _substitute_one(function, target)
+        return function.subs([(target, target ** (-1)), (minuend, minuend * target)])
+    if minuend != target:
+        function = _substitute_one(function, target).subs(minuend, minuend * target)
+    return function.subs(subtrahend, subtrahend * target ** (-1))
+
+
+class SympyPGF(SympyTerms, PGF):  # pylint: disable=too-many-ancestors,too-many-public-methods
+    # the layers of PGF and the two interfaces (Distribution, CommonDistributionsFactory), whose methods it implements
     """
     This class represents a generating function. It wraps the sympy library.
     A SympyPGF object is designed to be immutable.
@@ -113,89 +126,25 @@ class SympyPGF(SympyTerms, PGF):  # pylint: disable=too-many-ancestors  # the la
     def factory() -> Type[CommonDistributionsFactory]:
         return SympyPGF
 
-    def _filter_constant_condition(self,
-                                   condition: BinopExpr) -> SympyPGF:
-        # TODO refactor this in superclass?
-        # Normalize the condition into the format _var_ (< | <= | =) const. I.e., having the variable on the lhs.
-
-        # Mapping of operator from expression
-        #   <const> <op> <var>
-        # to
-        #   <var> <op> <const>
-        flipped_operators = {
-            Binop.LT: Binop.GT,
-            Binop.LEQ: Binop.GEQ,
-            Binop.GT: Binop.LT,
-            Binop.GEQ: Binop.LEQ,
-            Binop.EQ: Binop.EQ
-        }
-
-        # Mapping of operator from
-        #   <var> <op> <const>
-        # to
-        #   ¬(<var> <op> <const>)
-        neg_operator = {
-            Binop.GT: Binop.LEQ,
-            Binop.GEQ: Binop.LT
-        }
-
-        # If condition of form
-        #   <const> <op> <var>
-        # flip operator and move to
-        #   <var> <op> <const>
-        if isinstance(condition.rhs, VarExpr):
-            return self.filter(
-                BinopExpr(
-                    operator=flipped_operators[condition.operator],
-                    rhs=condition.lhs,
-                    lhs=condition.rhs
-                )
-            )
-
-        # Now we have the form <var> <op> <const>
-        # As we only allow <op> \in {<, <=, =}, we need to remove the other operator
-        # by using negation
-        if condition.operator in neg_operator:
-            return self.filter(
-                UnopExpr(operator=Unop.NEG, expr=BinopExpr(
-                    operator=neg_operator[condition.operator],
-                    rhs=condition.rhs,
-                    lhs=condition.lhs
-                ))
-            )
-
-        # Now we have an expression of the form _var_ (< | <=, =) _const_.
-        variable = _sympy_symbol(engine_text_of(condition.lhs))
-        if not isinstance(condition.rhs, NatLitExpr):
-            raise ValueError(
-                f"Cannot filter for {condition}: the bound is not a natural number")
-        constant = condition.rhs.value
-        result = 0
-        ranges = {
-            Binop.LT: range(constant),
-            Binop.LEQ: range(constant + 1),
-            Binop.EQ: [constant]
-        }
-
-        # Compute the probabilities of the states _var_ = i where i ranges depending on the operator (< , <=, =).
-        indices = ranges[condition.operator]
-        if not indices:
-            coefficients: List[sympy.Expr] | None = []
-        elif not self._is_closed_form and self._function.is_polynomial(variable):
-            coefficients = _polynomial_coefficients(self._function, variable, indices[-1] + 1)
+    def _filter_relation(self, variable: str, relation: Binop, bound: int) -> SympyPGF:
+        symbol = _sympy_symbol(variable)
+        indices = range(bound + 1) if relation == Binop.LEQ else [bound]
+        result: sympy.Expr = sympy.Integer(0)
+        # the coefficients of variable^i for the indices, from the polynomial, the rational series or limits
+        coefficients: List[sympy.Expr] | None
+        if not self._is_closed_form and self._function.is_polynomial(symbol):
+            coefficients = _polynomial_coefficients(self._function, symbol, indices[-1] + 1)
         else:
-            coefficients = rational_taylor_coefficients(self._function, variable, indices[-1] + 1)
+            coefficients = rational_taylor_coefficients(self._function, symbol, indices[-1] + 1)
         for i in indices:
             if coefficients is None:
-                coefficient = _taylor_coefficient_by_limit(self._function, variable, i)
+                coefficient = _taylor_coefficient_by_limit(self._function, symbol, i)
             else:
                 coefficient = coefficients[i] if i < len(coefficients) else sympy.Integer(0)
-            result += coefficient * variable ** i
+            result += coefficient * symbol ** i
 
-        return SympyPGF(result,
-                                  *self._variables,
-                                  closed=self._is_closed_form,
-                                  finite=self._is_finite).set_parameters(*self.get_parameters())
+        return SympyPGF(result, *self._variables, closed=self._is_closed_form,
+                        finite=self._is_finite).set_parameters(*self.get_parameters())
 
     def _sympy_expression(self) -> sympy.Expr:
         return self._function
@@ -310,16 +259,7 @@ class SympyPGF(SympyTerms, PGF):  # pylint: disable=too-many-ancestors  # the la
 
         # we subtract a variable from another variable
         if sub_1 in self._variables and sub_2 in self._variables:
-            if sub_2 == update_var:
-                if sub_1 == update_var:
-                    result = _substitute_one(result, update_var)
-                else:
-                    result = result.subs([(update_var, update_var ** (-1)),
-                                          (sub_1, sub_1 * update_var)])
-            else:
-                if not sub_1 == update_var:
-                    result = _substitute_one(result, update_var).subs(sub_1, sub_1 * update_var)
-                result = result.subs(sub_2, sub_2 * update_var ** (-1))
+            result = _variable_minus_variable(result, update_var, sub_1, sub_2)
 
         # we subtract a literal / parameter from a variable
         elif sub_1 in self._variables:

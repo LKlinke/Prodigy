@@ -22,7 +22,7 @@ from prodigy.distribution.distribution import Distribution, Operand
 from prodigy.distribution.errors import NonFiniteMarginalError
 from prodigy.distribution.values import MarginalType, State, canonical_order
 from prodigy.distribution.pgf.pgf import PGF
-from prodigy.language import Binop, BinopExpr, Expr, VarExpr
+from prodigy.language import Binop, Expr, VarExpr
 
 from prodigy.util.order import default_monomial_iterator
 from prodigy.language.engine_text import engine_text_of
@@ -299,36 +299,9 @@ class GinacPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
                              self._parameters,
                              finite=True)
 
-    def _filter_constant_condition(self, condition: BinopExpr) -> GinacPGF:
-        # Normalize the conditional to variables on the lhs from the relation symbol.
-        if isinstance(condition.rhs, VarExpr):
-            switch_comparison = {
-                Binop.EQ: Binop.EQ,
-                Binop.LEQ: Binop.GEQ,
-                Binop.LT: Binop.GT,
-                Binop.GEQ: Binop.LEQ,
-                Binop.GT: Binop.LT
-            }
-            return self._filter_constant_condition(
-                BinopExpr(operator=switch_comparison[condition.operator],
-                          lhs=condition.rhs,
-                          rhs=condition.lhs))
-
-        # is normalized conditional
-        if isinstance(condition.lhs, VarExpr) and condition.operator in (
-                Binop.EQ, Binop.LT, Binop.LEQ, Binop.GT, Binop.GEQ):
-            variable, bound = engine_text_of(condition.lhs), engine_text_of(condition.rhs)
-            filters = {
-                Binop.EQ: self._dist.filterEq,
-                Binop.LT: self._dist.filterLess,
-                Binop.LEQ: self._dist.filterLeq,
-                Binop.GT: self._dist.filterGreater,
-                Binop.GEQ: self._dist.filterGeq,
-            }
-            result = filters[condition.operator](variable, bound)
-            return GinacPGF.from_dist(result, self._variables, self._parameters)
-
-        raise ValueError("Parameter is not a constant condition")
+    def _filter_relation(self, variable: str, relation: Binop, bound: int) -> GinacPGF:
+        filtered = (self._dist.filterLeq if relation == Binop.LEQ else self._dist.filterEq)(variable, str(bound))
+        return GinacPGF.from_dist(filtered, self._variables, self._parameters)
 
     def _arithmetic_progression(self, variable: str,
                                 modulus: str) -> List[GinacPGF]:

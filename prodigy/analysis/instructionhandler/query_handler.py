@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Optional, Set, Union, Sequence
+from typing import Callable, Optional, Union, Sequence
 
 import sympy
 
 from prodigy.language import Instr, Query, ExpectationInstr, VarianceInstr, CovarianceInstr, VarExpr, NatLitExpr, \
     RealLitExpr, BinopExpr, Binop, \
-    UnopExpr, Unop, BoolLitExpr, ProbabilityQueryInstr, PlotInstr, PrintInstr, OptimizationQuery, OptimizationType, Expr
+    UnopExpr, Unop, ProbabilityQueryInstr, PlotInstr, PrintInstr, OptimizationQuery, OptimizationType, Expr
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.context import Frame, ProgramState
@@ -272,11 +272,7 @@ class _Queries:
             # the loop strategy right before may know the exact value already (e.g. from its certificate)
             prob = session.loop_query_value("?Pr", expression, dist)
             if prob is None:
-                try:
-                    prob = filter_by_cases(dist, expression).get_probability_mass()
-                except NotImplementedError as error:
-                    # the probability only depends on the marginal of the variables of the condition
-                    prob = filter_by_cases(dist.query_marginal(expression, error), expression).get_probability_mass()
+                prob = dist.get_probability_of(expression)
             text = session.spell(expression)
             print(f"Probability of {text}: {prob}")
             known = session.loop_query_bounds("?Pr", expression)
@@ -289,10 +285,7 @@ class _Queries:
 
 def _probability(dist: Distribution, condition: Expr) -> str:
     """The probability of ``condition`` under ``dist``, as for a ``?Pr`` query."""
-    try:
-        return filter_by_cases(dist, condition).get_probability_mass()
-    except NotImplementedError as error:
-        return filter_by_cases(dist.query_marginal(condition, error), condition).get_probability_mass()
+    return dist.get_probability_of(condition)
 
 
 def _upper_value(session: AnalysisContext, evaluate: Callable[[Distribution], str]) -> Optional[sympy.Expr]:
@@ -311,66 +304,4 @@ def _upper_value(session: AnalysisContext, evaluate: Callable[[Distribution], st
             return tidy(value)
     except Exception:  # pylint: disable=broad-except  # the bound is only an addition
         logger.debug("A query on the upper bound failed", exc_info=True)
-    return None
-
-
-# The most values of one variable that a case split (see :func:`filter_by_cases`) enumerates
-CASE_SPLIT_LIMIT = 1000
-
-
-def filter_by_cases(dist: Distribution, condition: Expr) -> Distribution:
-    """
-    ``dist.filter(condition)``; if the engine cannot filter on `condition` (e.g. ``x + y < 3`` where
-    ``y`` has infinite support), the condition is split into cases over the values of a variable
-    with finite support: the filter is the sum over the values ``v`` of ``x`` of the filter of
-    ``x == v`` and ``condition[x := v]`` (#306). The cases are disjoint, so the sum is exact. Raises
-    the engine's NotImplementedError if no variable of the condition has a finite support.
-    """
-    try:
-        return dist.filter(condition)
-    except NotImplementedError as error:
-        names = sorted(_variables_of(condition) & set(map(str, dist.get_variables())))
-        for name in names:
-            support = dist.finite_support(name)
-            if support is None:
-                continue
-            values = sorted({int(state.valuations[name]) for _, state in support})
-            if len(values) > CASE_SPLIT_LIMIT:
-                continue
-            cases = [_substitute(condition, name, value) for value in values]
-            if any(case is None for case in cases):
-                break
-            total: Optional[Distribution] = None
-            for value, case in zip(values, cases, strict=True):
-                assert case is not None
-                part = dist.filter(BinopExpr(Binop.EQ, VarExpr(name), NatLitExpr(value)))
-                filtered = filter_by_cases(part, case)
-                total = filtered if total is None else total + filtered
-            if total is not None:
-                return total
-        raise error
-
-
-def _variables_of(expr: Expr) -> Set[str]:
-    if isinstance(expr, VarExpr):
-        return {expr.var}
-    if isinstance(expr, BinopExpr):
-        return _variables_of(expr.lhs) | _variables_of(expr.rhs)
-    if isinstance(expr, UnopExpr):
-        return _variables_of(expr.expr)
-    return set()
-
-
-def _substitute(expr: Expr, name: str, value: int) -> Optional[Expr]:
-    """`expr` with the variable `name` replaced by `value`, or None for an expression it does not know."""
-    if isinstance(expr, VarExpr):
-        return NatLitExpr(value) if expr.var == name else expr
-    if isinstance(expr, (NatLitExpr, RealLitExpr, BoolLitExpr)):
-        return expr
-    if isinstance(expr, BinopExpr):
-        lhs, rhs = _substitute(expr.lhs, name, value), _substitute(expr.rhs, name, value)
-        return None if lhs is None or rhs is None else BinopExpr(expr.operator, lhs, rhs)
-    if isinstance(expr, UnopExpr):
-        inner = _substitute(expr.expr, name, value)
-        return None if inner is None else UnopExpr(expr.operator, inner)
     return None

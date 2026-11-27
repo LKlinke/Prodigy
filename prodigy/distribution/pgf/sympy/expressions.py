@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import functools
 from fractions import Fraction
+import operator
 from typing import Callable, Dict, FrozenSet, Iterator, List, Tuple, Union, get_args
 
 import sympy
@@ -16,6 +17,12 @@ from prodigy.language.engine_text import engine_text_of
 from prodigy.distribution.pgf.rules.equality import decide_equal
 from prodigy.distribution.pgf.rules.rational_series import rational_taylor_coefficients
 from prodigy.distribution.pgf.rules.value_at_one import _UNDEFINED_VALUES, _cancel, _continuous_at_one
+
+
+_ARITHMETIC: Dict[Binop, Callable[[sympy.Expr, sympy.Expr], sympy.Expr]] = {
+    Binop.PLUS: operator.add, Binop.MINUS: operator.sub, Binop.TIMES: operator.mul, Binop.DIVIDE: operator.truediv,
+    Binop.POWER: operator.pow, Binop.MODULO: operator.mod}
+"""The arithmetic operators of expressions read into SymPy (:func:`_parse_to_sympy`)."""
 
 
 def _has_radical(function: sympy.Expr) -> bool:
@@ -189,26 +196,10 @@ def _parse_to_sympy(expr: SympyInput, real: bool = True, **kwargs: bool) -> symp
                 return get_function(prob_expr.function)(
                     *map(probably_to_sympy, prob_expr.params[0]))
             if isinstance(prob_expr, BinopExpr):
-                op = prob_expr.operator
-                if op == Binop.DIVIDE:
-                    return probably_to_sympy(
-                        prob_expr.lhs) / probably_to_sympy(prob_expr.rhs)
-                if op == Binop.MINUS:
-                    return probably_to_sympy(
-                        prob_expr.lhs) - probably_to_sympy(prob_expr.rhs)
-                if op == Binop.TIMES:
-                    return probably_to_sympy(
-                        prob_expr.lhs) * probably_to_sympy(prob_expr.rhs)
-                if op == Binop.POWER:
-                    return probably_to_sympy(prob_expr.lhs) ** probably_to_sympy(
-                        prob_expr.rhs)
-                if op == Binop.MODULO:
-                    return probably_to_sympy(
-                        prob_expr.lhs) % probably_to_sympy(prob_expr.rhs)
-                if op == Binop.PLUS:
-                    return probably_to_sympy(
-                        prob_expr.lhs) + probably_to_sympy(prob_expr.rhs)
-                raise ValueError(f'Unsupported operand: {op}')
+                if prob_expr.operator not in _ARITHMETIC:
+                    raise ValueError(f'Unsupported operand: {prob_expr.operator}')
+                return _ARITHMETIC[prob_expr.operator](probably_to_sympy(prob_expr.lhs),
+                                                       probably_to_sympy(prob_expr.rhs))
             raise ValueError(f'Unsupported expression type: {prob_expr}')
 
         s = probably_to_sympy(expr)

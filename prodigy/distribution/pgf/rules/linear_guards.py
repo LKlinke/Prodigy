@@ -84,6 +84,7 @@ def linear_form(expression: Expr, variables: Set[str], *, monus_safe: bool = Fal
 
 
 def _linear_form(expression: Expr, variables: Set[str], monus_safe: bool = False) -> LinearForm | None:
+    # pylint: disable=too-many-branches  # one branch per operator of a linear form
     """The linear form of `expression`, or None if it is not linear in `variables` (:func:`linear_form`)."""
     # pylint: disable=too-many-return-statements
     if isinstance(expression, NatLitExpr):
@@ -146,9 +147,9 @@ def _compare(value: Fraction, operator: Binop) -> bool:
             Binop.GT: value > 0, Binop.GEQ: value >= 0}[operator]
 
 
-def _single_variable_guard(variable: str, operator: Binop, bound: Fraction) -> Expr:
-    """The guard `variable operator bound` for a natural `variable` with natural numbers only."""
-    # pylint: disable=too-many-return-statements
+def single_variable_guard(variable: str, operator: Binop, bound: Fraction) -> Expr:
+    """The guard `variable operator bound` for a natural `variable` with natural numbers only: `x op n` with a
+    natural `n` (positive for `<` and `>=`), or a Boolean literal."""
     if operator == Binop.EQ:
         if bound.denominator != 1 or bound < 0:
             return BoolLitExpr(False)
@@ -211,7 +212,7 @@ def normalize_guard(condition: Expr, variables: Set[str]) -> Expr | None:
     if len(difference) == 1:
         ((variable, coefficient),) = difference.items()
         operator = condition.operator if coefficient > 0 else _FLIPPED[condition.operator]
-        return _single_variable_guard(variable, operator, -constant / coefficient)
+        return single_variable_guard(variable, operator, -constant / coefficient)
     if not (_has_fractional_literal(condition) or _has_division(condition)):
         return None
 
@@ -237,6 +238,7 @@ class DifferenceComparison:
 
 
 def difference_comparison(condition: Expr, variables: Set[str]) -> DifferenceComparison | BoolLitExpr | None:
+    # pylint: disable=too-many-return-statements  # one verdict per case of the rule in the docstring
     """
     The comparison `condition` of two natural variables as a :class:`DifferenceComparison` if it is
     linear with coefficients a and -a for its two variables, e.g. `x < y + 2` or `2*x <= 2*y + 1`;

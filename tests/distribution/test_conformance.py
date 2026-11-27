@@ -943,3 +943,55 @@ def test_kernel_agrees_with_the_engines(factory, function, variables):
     truncated = sum((c * RationalGF.variable("x") ** i for i, c in enumerate(coefficients)),
                     RationalGF.constant(0))
     assert _agrees(dist.filter(P("x <= 4")), truncated)
+
+
+# --- 10. filters of comparisons with constants: one normalisation on all engines (#511, P4d) --------------------
+
+_RELATIONS = ["<", "<=", "=", ">", ">="]
+_BOUNDS = ["0", "3", "5/2", "1/2"]
+_FILTERED = [("1/(2 - x)", "x"), ("1/4 + x/4 + x^2/4 + x^3/4", "x"), ("1/(2 - x)*(1/2 + y/2)", "x, y")]
+
+
+def _holds(relation, value, bound):
+    return {"<": operator.lt, "<=": operator.le, "=": operator.eq, ">": operator.gt, ">=": operator.ge}[relation](
+        value, bound)
+
+
+@pytest.mark.parametrize("function, variables", _FILTERED)
+@pytest.mark.parametrize("relation", _RELATIONS)
+@pytest.mark.parametrize("bound", _BOUNDS)
+@pytest.mark.parametrize("flipped", [False, True])
+def test_filter_of_a_comparison_with_a_constant(factory, function, variables, relation, bound, flipped):
+    """`x op c` and `c op' x` keep exactly the terms x^i with `i op c`, for a natural, fractional or zero bound,
+    on finite and infinite functions (the engines' own normalisations differed, #511)."""
+    names = variables.split(", ")
+    written = {"=": "=="}.get(relation, relation)
+    mirrored = {"<": ">", "<=": ">=", "=": "==", ">": "<", ">=": "<="}[relation]
+    condition = f"{bound} {mirrored} x" if flipped else f"x {written} {bound}"
+    filtered = symbolic(factory.from_expr(function, *names).filter(P(condition)))
+    x = sympy.Symbol("x")
+    expected = sympy.Integer(0)
+    series = sympy.series(sympy.sympify(function.replace("^", "**")), x, n=8).removeO()
+    limit = sympy.Rational(bound)
+    for i in range(8):
+        if _holds(relation, i, limit):
+            expected += series.coeff(x, i) * x ** i
+    # compare the first coefficients in x (the complements of infinite functions stay closed forms)
+    difference = sympy.series(filtered - expected, x, n=8).removeO()
+    assert sympy.simplify(difference) == 0, (condition, filtered)
+
+
+def test_filter_of_a_negative_constant_selects_nothing(factory):
+    dist = factory.from_expr("1/(2 - x)", "x")
+    # 1 - 2 is 0 on natural numbers (monus): x < 0 holds nowhere
+    assert symbolic(dist.filter(P("x < 1 - 2"))) == 0
+    assert symbolic(dist.filter(P("x <= 1/2 - 1/2"))) == sympy.Rational(1, 2)
+
+
+def test_probability_splits_over_a_finite_support(factory):
+    """`get_probability_of` computes a condition of a variable with a finite support and one with an infinite
+    support, by the case split over the finite one where no filter rule applies (#306; before #511 only the query
+    handler split)."""
+    dist = factory.from_expr("(1/2 + x/2)*1/(2 - y)", "x", "y")
+    # x + y < 2: x = 0 and y < 2 (1/2 * 3/4), x = 1 and y < 1 (1/2 * 1/2)
+    assert same(dist.get_probability_of("x + y < 2"), "5/8")

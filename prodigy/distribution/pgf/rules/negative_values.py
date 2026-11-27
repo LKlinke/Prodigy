@@ -27,6 +27,7 @@ import sympy
 
 def can_be_negative(function: sympy.Expr, variables: Iterable[sympy.Symbol], minuend: sympy.Expr,
                     subtrahend: sympy.Expr) -> bool | None:
+    # pylint: disable=too-many-return-statements,too-many-branches  # one verdict per case of the rule in the docstring
     """
     Decides whether `minuend - subtrahend` is negative for some term of the formal power series `function`.
 

@@ -31,6 +31,7 @@ def _symbol(function: sympy.Expr, name: str, like: sympy.Symbol | None = None) -
 
 def divide_exponents(function: sympy.Expr, numerator: str, target: str,
                      divisor: int) -> sympy.Expr | None:
+    # pylint: disable=too-many-locals  # the intermediate values of one algorithm in the docstring
     """
     The generating function after the update `target := numerator / divisor`, or None if it is not
     proven that `numerator` is a multiple of `divisor` in every state. The result is None as well if

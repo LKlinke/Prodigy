@@ -86,6 +86,7 @@ class _Analyticity:
         self.at_zero = at_zero
 
     def obstacle(self, expression: sympy.Expr) -> Obstacle:
+        # pylint: disable=too-many-return-statements  # one obstacle per case of the walk over the expression
         if not expression.has(*self.variables):
             if expression.has(*_NON_FINITE) or expression.is_finite is False:
                 return f"it contains the non-finite value {_text(expression)}"

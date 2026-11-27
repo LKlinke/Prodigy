@@ -178,5 +178,3 @@ class SympyTerms:
         else:
             logger.debug("Multivariate Taylor expansion might take a while...")
             return self._mult_term_generator()
-
-    # FIXME: It's not nice to have different behaviour depending on the variable type of `threshold`.

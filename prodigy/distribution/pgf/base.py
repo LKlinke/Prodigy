@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import contextlib
 from fractions import Fraction
+import operator
 from typing import TYPE_CHECKING, cast, ContextManager, Dict, List, Optional, Self, Set, Tuple, Union
 
 import sympy
@@ -26,6 +27,11 @@ from prodigy.distribution.pgf.rules.value_at_one import _substitute_one
 from prodigy.distribution.pgf.rules.equality import decide_equal_strings, sympify_distribution_string
 from prodigy.distribution.pgf.rules.finite_measure import check_input_expression
 from prodigy.distribution.pgf.rules.ordering import dominates_finite, nonneg_verdict
+
+
+_COMPARISONS = {Binop.EQ: operator.eq, Binop.LEQ: operator.le, Binop.LT: operator.lt, Binop.GT: operator.gt,
+                Binop.GEQ: operator.ge}
+"""The comparisons of conditions, evaluated by :meth:`PGFBase.evaluate_condition`."""
 
 
 class PGFBase(PGFHooks):  # pylint: disable=abstract-method  # a layer of PGF
@@ -121,23 +127,13 @@ class PGFBase(PGFHooks):  # pylint: disable=abstract-method  # a layer of PGF
             else:
                 lhs = cls.evaluate(engine_text_of(condition.lhs), state)
                 rhs = cls.evaluate(engine_text_of(condition.rhs), state)
-            if op == Binop.EQ:
-                return lhs == rhs
-            if op == Binop.LEQ:
-                return lhs <= rhs
-            if op == Binop.LT:
-                return lhs < rhs
-            if op == Binop.GT:
-                return lhs > rhs
-            return lhs >= rhs
-        if op == Binop.OR:
-            return cls.evaluate_condition(condition.lhs,
-                                          state) or cls.evaluate_condition(
-                condition.rhs, state)
-        if op == Binop.AND:
-            return cls.evaluate_condition(condition.lhs,
-                                          state) and cls.evaluate_condition(
-                condition.rhs, state)
+            return bool(_COMPARISONS[op](lhs, rhs))
+        if op in (Binop.OR, Binop.AND):
+            # `or` and `and` evaluate the right side only if needed
+            left_holds = cls.evaluate_condition(condition.lhs, state)
+            if left_holds == (op == Binop.OR):
+                return left_holds
+            return cls.evaluate_condition(condition.rhs, state)
         raise AssertionError(f"Unexpected condition type. {condition}")
 
     @staticmethod
