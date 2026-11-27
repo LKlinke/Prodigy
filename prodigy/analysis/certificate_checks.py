@@ -93,20 +93,27 @@ def _with_remaining(checks: List[Check], cert: Certificate) -> List[Check]:
 # One function per certificate type
 # ---------------------------------------------------------------------------------------
 
-def _unrolling(cert: Certificate, _failed: Optional[str]) -> List[Check]:
-    done = cert.get("iterations_done", cert.get("iterations"))
-    fixpoint = cert.get("fixpoint")
-    checks = [_check("Fixed point", "passed", f"After {done} iteration(s) one more iteration changes nothing.")
-              if fixpoint else _check("Iterations", "info", f"{done} iteration(s) computed.")]
+def _fixed_point_checks(cert: Certificate, done: Any) -> List[Check]:
+    """A fixed point of the unrolling (#508): exact, and the mass still inside the loop diverges."""
+    checks = [_check("Fixed point", "passed", f"After {done} iteration(s) one more iteration changes nothing.")]
     found = _remaining(cert)
-    if found and not (fixpoint and found["status"] == "info"):
+    if found and found["status"] != "info":
         checks.append(found)
-    elif fixpoint and found:
+    elif found:
         checks.append(_check("Divergence", "info", f"Mass {cert.get('remaining_mass')} stays inside the loop forever."))
     return checks
 
 
+def _unrolling(cert: Certificate, _failed: Optional[str]) -> List[Check]:
+    done = cert.get("iterations_done", cert.get("iterations"))
+    if cert.get("fixpoint"):
+        return _fixed_point_checks(cert, done)
+    return _with_remaining([_check("Iterations", "info", f"{done} iteration(s) computed.")], cert)
+
+
 def _mass_threshold(cert: Certificate, _failed: Optional[str]) -> List[Check]:
+    if cert.get("fixpoint"):
+        return _fixed_point_checks(cert, cert.get("iterations"))
     return _with_remaining([_check("Threshold", "info", f"Captured mass {cert.get('captured_mass')} after "
                                                         f"{cert.get('iterations')} iteration(s); threshold "
                                                         f"{cert.get('threshold')}.")], cert)

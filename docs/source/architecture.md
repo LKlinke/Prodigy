@@ -155,8 +155,8 @@ to the registry; the strategies have left `while_handler.py` (T13a: from 1 294 l
 
 The user asks for a **goal**: an exact result, a lower bound, an upper bound, or both. The code is organised by
 **proof rule**, because one rule serves several goals: Park induction gives upper bounds and checks exact
-invariants, lower induction gives lower bounds, unrolling gives lower bounds and, with a termination proof, exact
-results. The registry connects the two: each strategy declares which `Bound`s it can deliver and under which
+invariants, lower induction gives lower bounds, unrolling gives lower bounds and exact results when no mass is left
+inside the loop or an iteration reaches a fixed point. The registry connects the two: each strategy declares which `Bound`s it can deliver and under which
 conditions, and a goal is served by trying the applicable rules from the cheapest to the strongest.
 
 ```text
