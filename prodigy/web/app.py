@@ -24,6 +24,8 @@ A small Flask application: one page (``templates/app.html`` with the ES modules 
 ``POST /api/suggest``             asks a language model for a loop invariant candidate (a job)
 ``GET  /api/examples``            the example library (``pgfexamples``)
 ``GET  /api/examples/<id>``       source of an example and a suggested setup
+``GET  /assets/<token>/<path>``   a static file under a token of the version and the files, so that
+                                  an upgrade loads every ES module anew (:mod:`prodigy.web.assets`)
 ================================  ==================================================================
 
 Programs are in the ``.ppy`` syntax. A request with ``syntax`` ``pgcl`` or a ``file_name`` ending in
@@ -44,9 +46,10 @@ import webbrowser
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set
 from urllib.parse import urlparse
 
-from flask import Flask, abort, jsonify, render_template, request
+from flask import Flask, abort, jsonify, make_response, render_template, request
 
 from prodigy.language.parser import PgclRemovedError, check_syntax
+from prodigy.web.assets import register_assets
 from prodigy.web.examples import ExampleLibrary, default_examples_dir
 from prodigy.web.jobs import BusyError, JobManager
 from prodigy.web.compare import loop_program, validate_equivalence
@@ -123,13 +126,18 @@ def _page_routes(app: Flask, jobs: JobManager, library: ExampleLibrary, default_
 
     version = prodigy_version()
     strategies_json = [s.to_json() for s in loop_strategies()]
+    # scripts and styles under /assets/<token>/: a new version or file gives every module a new URL
+    register_assets(app, version)
 
     @app.get("/")
     @app.get("/analyze")
     @app.get("/compare")
     def index() -> Any:
         """The page; the path selects the mode (Analyze or Compare), which the page keeps in the URL."""
-        return render_template("app.html", version=version)
+        response = make_response(render_template("app.html", version=version))
+        # revalidated on every load, so that a reload always names the current asset token
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
     @app.get("/api/meta")
     def meta() -> Any:
