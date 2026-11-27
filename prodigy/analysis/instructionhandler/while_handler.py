@@ -13,16 +13,16 @@ import functools
 import json
 import logging
 from fractions import Fraction
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 import sympy
 from lark.exceptions import LarkError
 
-from prodigy.language import Expr, Instr, parse_program, Program, WhileInstr
+from prodigy.language import Expr, parse_program, Program, WhileInstr
 
 from prodigy.analysis import evt_exploration
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.context import current_context
+from prodigy.analysis.context import Frame, ProgramState
 from prodigy.analysis.equivalence.equivalence_check import check_equivalence
 from prodigy.analysis.evtinvariants.heuristics.strategies import (DEFAULT_MAX_DEGREE, SynthesisStrategy,
                                                                   SynthesisStrategies)
@@ -35,10 +35,7 @@ from prodigy.analysis.evtinvariants.log_polynomial import log_form_mass, log_for
 from prodigy.analysis.evtinvariants.series_identity import converges_on_unit_polydisc, formal_loop
 from prodigy.analysis.exceptions import (ForwardAnalysisError, HeuristicsError, ParameterSynthesisRequired,
                                               SolveError, VerificationError)
-from prodigy.analysis.instructionhandler import _assume
-from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
 from prodigy.distribution.equality import parse_engine_text, sympify_distribution, sympify_engine_string
-from prodigy.analysis.instructionhandler.program_info import ProgramInfo
 from prodigy.analysis.loops import witness as witnesses
 from prodigy.analysis.loops.witness import show_valuation
 from prodigy.analysis.loops.api import (Bound, LoopDecision, LoopOutcome, LoopStrategy, LoopTask, ParamSpec, QueryKey,
@@ -50,12 +47,6 @@ from prodigy.util.color import Style
 from prodigy.util.logger import log_setup
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
-
-Analyzer = Callable[
-    [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
-    Tuple[Distribution, Distribution]
-]
-
 
 class UnsupportedLoopError(ForwardAnalysisError):
     """The chosen strategy cannot handle this loop (e.g. EVT reasoning with conditioning)."""
@@ -464,14 +455,11 @@ def _strategy_mass_threshold(task: LoopTask) -> LoopOutcome:
     captured_part = non_sat_part + error_prob
     iterations = 0
     task.iterate(0, non_sat_part, inside=sat_part)
-    while Fraction(captured_part.get_probability_mass()
-                   ) < captured_probability_threshold:
+    while (captured := Fraction(captured_part.get_probability_mass())) < captured_probability_threshold:
         if max_iterations is not None and iterations >= max_iterations:
             task.note(f"Stopped after {iterations} iterations before reaching the threshold.")
             break
-        logger.info("Collected %f of the desired mass", (float(
-            (Fraction(captured_part.get_probability_mass()) /
-             captured_probability_threshold)) * 100))
+        logger.info("Collected %f of the desired mass", float(captured / captured_probability_threshold) * 100)
         iterated_part, error_prob = analyzer(instruction.body, prog_info, sat_part, error_prob, config)
         iterated_sat = iterated_part.filter(instruction.cond)
         iterated_non_sat = iterated_part - iterated_sat
@@ -1219,33 +1207,16 @@ register_loop_strategy(LoopStrategy(
 # The handler
 # ---------------------------------------------------------------------------------------
 
-class WhileHandler(InstructionHandler):
-
-    @staticmethod
-    def _run(strategy_name: Optional[str], instruction: WhileInstr, prog_info: ProgramInfo,
-             distribution: Distribution, error_prob: Distribution, config: ForwardAnalysisConfig,
-             analyzer: Analyzer) -> Tuple[Distribution, Distribution]:
-        session = current_context()
-        with session.activate():
-            loop = session.loops.lookup(instruction)
-            decision = session.decide_loop(loop, instruction) if strategy_name is None \
-                else LoopDecision(strategy_name)
-            strategy = get_loop_strategy(decision.strategy)
-            task = LoopTask(instruction=instruction, prog_info=prog_info, distribution=distribution,
-                            error_prob=error_prob, config=config, analyzer=analyzer, session=session,
-                            loop=loop, decision=decision, strategy=strategy)
-            outcome = session.run_loop(task)
-        return outcome.distribution, outcome.error_prob
-
-    @staticmethod
-    def compute(
-            instruction: Union[Instr, Sequence[Instr]],
-            prog_info: ProgramInfo,
-            distribution: Distribution,
-            error_prob: Distribution,
-            config: ForwardAnalysisConfig,
-            analyzer: Analyzer
-    ) -> tuple[Distribution, Distribution]:
-
-        instruction = _assume(instruction, WhileInstr, 'WhileHandler')
-        return WhileHandler._run(None, instruction, prog_info, distribution, error_prob, config, analyzer)
+def handle(frame: Frame, instruction: WhileInstr, state: ProgramState) -> ProgramState:
+    """Asks the frame's context which strategy analyses this occurrence of the loop and runs it. The
+    context is the current one while the strategy runs, for the checks it calls that look it up at their
+    boundary (:func:`~prodigy.analysis.context.boundary_context`)."""
+    session = frame.context
+    with session.activate():
+        loop = session.loops.lookup(instruction)
+        decision = session.decide_loop(loop, instruction)
+        strategy = get_loop_strategy(decision.strategy)
+        task = LoopTask(instruction=instruction, frame=frame, state=state, loop=loop, decision=decision,
+                        strategy=strategy)
+        outcome = session.run_loop(task)
+    return ProgramState(outcome.distribution, outcome.error_prob)

@@ -171,11 +171,11 @@ class _Stub:
 
 def _query(source, moments):
     # pylint: disable=import-outside-toplevel,protected-access
-    from prodigy.analysis.instructionhandler.query_handler import QueryHandler
+    from prodigy.analysis.instructionhandler.query_handler import _Queries
     program = parse_program(source, "ppy")
     session = AnalysisSession(program, source=source, config=ForwardAnalysisConfig(), decisions={}, capture_output=True)
     with session.activate():
-        QueryHandler._QueryHandler__query_spread(program.instructions[0], _Stub(moments), session)
+        _Queries._Queries__query_spread(program.instructions[0], _Stub(moments), session)
     return session.queries[-1]
 
 

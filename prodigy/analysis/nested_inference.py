@@ -39,23 +39,20 @@ taken out of the distribution; :func:`dist_values` describes their values.
 """
 from __future__ import annotations
 
-import contextlib
-import contextvars
 import copy
 import logging
 from dataclasses import dataclass, field, replace
 from fractions import Fraction
-from typing import (Any, Callable, Dict, Iterator, List, Optional, Sequence,
+from typing import (Any, Dict, Iterator, List, Optional, Sequence,
                     Set, Tuple, Union)
 
 import sympy
 from frozendict import frozendict
 
-from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.exceptions import (UndefinedDistributionError,
                                          UnsupportedFeatureError)
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.analysis.context import current_context
+from prodigy.analysis.context import Frame, ProgramState, Semantics
 from prodigy.analysis.loops.api import Bound
 from prodigy.distribution import Distribution, MarginalType
 from prodigy.distribution.distribution import constant_value
@@ -75,10 +72,6 @@ from prodigy.language.util.ref import Mut
 from prodigy.util.logger import log_setup
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
-
-Runner = Callable[[Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution,
-                   ForwardAnalysisConfig], Tuple[Distribution, Distribution]]
-"""Runs instructions (``compute_semantics`` or the untraced ``_semantics``)."""
 
 VALUE_VARIABLE = "dist_value__"
 """The variable of the generating function of a closed site."""
@@ -174,33 +167,6 @@ class DistRegistry:
 
     def store(self, closed: ClosedDist) -> None:
         self._closed[closed.site] = closed
-
-
-_REGISTRY: contextvars.ContextVar[Optional[DistRegistry]] = \
-    contextvars.ContextVar("prodigy_dist_registry", default=None)
-
-
-def registry() -> DistRegistry:
-    """The registry of the running analysis (a new one if none runs)."""
-    found = _REGISTRY.get()
-    if found is None:
-        found = DistRegistry()
-        _REGISTRY.set(found)
-    return found
-
-
-@contextlib.contextmanager
-def analysis_registry() -> Iterator[DistRegistry]:
-    """Gives an analysis its own registry, unless it runs inside one (e.g. a function)."""
-    found = _REGISTRY.get()
-    if found is not None:
-        yield found
-        return
-    token = _REGISTRY.set(DistRegistry())
-    try:
-        yield _REGISTRY.get()  # type: ignore[misc]
-    finally:
-        _REGISTRY.reset(token)
 
 
 # ---------------------------------------------------------------------------------------
@@ -312,7 +278,8 @@ def _split(distribution: Distribution, variables: Sequence[str],
         yield value, distribution.filter(BinopExpr.reduce(Binop.AND, conditions))
 
 
-def split_by_value(distribution: Distribution, var: str, prog_info: ProgramInfo) -> List[DistPart]:
+def split_by_value(distribution: Distribution, var: str, prog_info: ProgramInfo,
+                   reg: DistRegistry) -> List[DistPart]:
     """Splits ``distribution`` by the value of the ``dist`` variable ``var``; slots with finite
     support are split into their values, too."""
     bound = prog_info.dist_bindings.get(var)
@@ -322,7 +289,6 @@ def split_by_value(distribution: Distribution, var: str, prog_info: ProgramInfo)
         return [DistPart(distribution, None)]
     found = _values(distribution, [var])
     assert found is not None, "a dist variable has finitely many values"
-    reg = registry()
     parts: List[DistPart] = []
     for (site_id,), part in _split(distribution, [var], found):
         site = reg.site(site_id)
@@ -341,32 +307,32 @@ def split_by_value(distribution: Distribution, var: str, prog_info: ProgramInfo)
     return parts
 
 
-def split_by_values(distribution: Distribution, variables: Sequence[str],
-                    prog_info: ProgramInfo) -> List[Tuple[Distribution, Dict[str, Optional[DistSite]]]]:
+def split_by_values(distribution: Distribution, variables: Sequence[str], prog_info: ProgramInfo,
+                    reg: DistRegistry) -> List[Tuple[Distribution, Dict[str, Optional[DistSite]]]]:
     """Splits by the values of several ``dist`` variables."""
     parts: List[Tuple[Distribution, Dict[str, Optional[DistSite]]]] = [(distribution, {})]
     for var in variables:
         refined = []
         for part, sites in parts:
-            for sub in split_by_value(part, var, prog_info):
+            for sub in split_by_value(part, var, prog_info, reg):
                 refined.append((sub.distribution, {**sites, var: sub.site}))
         parts = refined
     return parts
 
 
-def _sum(parts: List[Tuple[Distribution, Distribution]], distribution: Distribution,
-         error_prob: Distribution) -> Tuple[Distribution, Distribution]:
+def _sum(parts: Sequence[Tuple[Distribution, Distribution]], distribution: Distribution,
+         error_prob: Distribution) -> ProgramState:
     """The sum of the results of the parts of ``distribution``; their error probabilities are
     added to ``error_prob``."""
     if not parts:
-        return distribution * "0", error_prob
+        return ProgramState(distribution * "0", error_prob)
     result, error = parts[0]
     error = error_prob + error
     for other, other_error in parts[1:]:
         variables = result.get_variables() | other.get_variables()
         result = result.set_variables(*variables) + other.set_variables(*variables)
         error = error + other_error
-    return result, error
+    return ProgramState(result, error)
 
 
 def _spell(node: Any) -> str:
@@ -410,55 +376,44 @@ def _is_plain(expr: Expr) -> bool:
                    for ref in walk_expr(Walk.DOWN, Mut.alloc(expr)))
 
 
-def assign_return_value(distribution: Distribution, function: Function, var: str,
-                        prog_info: ProgramInfo, config: ForwardAnalysisConfig, run: Runner,
-                        error_prob: Distribution) -> Tuple[Distribution, Distribution]:
-    """Assigns the return value of ``function`` to the new variable ``var``."""
-    return _assign_value(_add_variables(distribution, var), var, function.returns, prog_info, config,
-                         run, error_prob)
+def assign_return_value(frame: Frame, function: Function, var: str, state: ProgramState) -> ProgramState:
+    """Assigns the return value of ``function`` to the new variable ``var`` (``frame`` runs the body)."""
+    return _assign_value(frame, var, function.returns, ProgramState(_add_variables(state.dist, var), state.error))
 
 
-def _assign_value(distribution: Distribution, var: str, expr: Expr, prog_info: ProgramInfo,
-                  config: ForwardAnalysisConfig, run: Runner,
-                  error_prob: Distribution) -> Tuple[Distribution, Distribution]:
+def _assign_value(frame: Frame, var: str, expr: Expr, state: ProgramState) -> ProgramState:
     """``var = expr`` for a variable ``var`` of type ``nat`` that the program does not declare.
     A plain expression is an update; a draw (``sample(d)``, ``categorical(…)``, a call) runs
     like an assignment in the program."""
     if _is_plain(expr):
-        return distribution.update(BinopExpr(Binop.EQ, VarExpr(var), expr)), error_prob
-    program = copy.copy(prog_info.program)
+        return ProgramState(state.dist.update(BinopExpr(Binop.EQ, VarExpr(var), expr)), state.error)
+    program = copy.copy(frame.program.program)
     program.variables = {**program.variables, var: NatType(None)}
-    return run(AsgnInstr(var, expr), replace(prog_info, program=program), distribution, error_prob,
-               config)
+    return frame.for_program(replace(frame.program, program=program)).run(AsgnInstr(var, expr), state)
 
 
 def _has_observe(function: Function) -> bool:
     return any(isinstance(ref.val, ObserveInstr) for ref in walk_instrs(Walk.DOWN, function.instructions))
 
 
-def closed_form(site: DistSite, prog_info: ProgramInfo, config: ForwardAnalysisConfig,
-                run: Runner) -> ClosedDist:
+def closed_form(frame: Frame, site: DistSite) -> ClosedDist:
     """The normalised distribution of the closed ``site``, computed exactly (once)."""
-    # pylint: disable=import-outside-toplevel
-    reg = registry()
+    reg = frame.context.dist_registry
     if reg.has_closed(site):
         return reg.closed(site)
     function = reg.functions[site.function]
-    factory = config.factory
+    factory = frame.config.factory
     start = factory.one(*function.variables)
     for var, value in site.args:
         if isinstance(value, DistSite):
-            closed_form(value, prog_info, config, run)
+            closed_form(frame, value)
             value = reg.site_id(value)
         assert isinstance(value, int)
         start = _assign(start, var, value)
-    sub_info = function_program_info(prog_info, function)
-    session = current_context()
-    zero = factory.from_expr("0")
-    with session.nested_inference(site.describe()) as scope:
-        result, error = run(function.instructions, sub_info, start, zero, config)
-        result, error = assign_return_value(result, function, VALUE_VARIABLE, sub_info, config, run,
-                                            error)
+    body = frame.for_program(function_program_info(frame.program, function))
+    with frame.context.nested_inference(site.describe()) as scope:
+        state = body.run(function.instructions, ProgramState(start, factory.from_expr("0")))
+        result, _ = assign_return_value(body, function, VALUE_VARIABLE, state)
     if scope.kind != Bound.EXACT:
         raise UnsupportedFeatureError(
             f"{site.describe()}: the analysis of {site.function} gives only a bound ({scope.kind}), "
@@ -504,17 +459,16 @@ def _depends_on_state(expr: Expr, prog_info: ProgramInfo) -> bool:
     return bool(names)
 
 
-def infer(instr: AsgnInstr, prog_info: ProgramInfo, distribution: Distribution,
-          error_prob: Distribution, config: ForwardAnalysisConfig, run: Runner
-          ) -> Tuple[Distribution, Distribution]:
+def infer(frame: Frame, instr: AsgnInstr, state: ProgramState) -> ProgramState:
     """``d = infer(f, args…)``."""
     assert isinstance(instr.rhs, InferExpr)
+    prog_info, (distribution, error_prob) = frame.program, state
     call = instr.rhs.function
     if call.function not in prog_info.program.functions:
         raise UnsupportedFeatureError(
             f"{_spell(instr.rhs)}: unknown function {call.function}.")
     function = prog_info.program.functions[call.function]
-    reg = registry()
+    reg = frame.context.dist_registry
     reg.functions[call.function] = function
     given = tuple(decl.var for decl in function.declarations[:len(call.params[0])]) + \
         tuple(call.params[1].keys())
@@ -534,7 +488,7 @@ def infer(instr: AsgnInstr, prog_info: ProgramInfo, distribution: Distribution,
         dist_arg_vars.append(expr.var)
 
     results: List[Tuple[Distribution, Distribution]] = []
-    for part, sites in split_by_values(distribution, sorted(set(dist_arg_vars)), prog_info):
+    for part, sites in split_by_values(distribution, sorted(set(dist_arg_vars)), prog_info, reg):
         fixed: Dict[str, Union[int, DistSite, Slot]] = {}
         for var, expr in dist_args.items():
             if isinstance(expr, VarExpr):
@@ -548,15 +502,25 @@ def infer(instr: AsgnInstr, prog_info: ProgramInfo, distribution: Distribution,
                 fixed[var] = site
             else:
                 fixed[var] = 0
-        results.append(_infer_nat_arguments(instr, function, given, assignments, fixed, prog_info,
-                                            part, config, run))
+        results.append(_infer_nat_arguments(frame, instr, _Call(function, given, assignments), fixed, part))
     return _sum(results, distribution, error_prob)
 
 
-def _infer_nat_arguments(instr: AsgnInstr, function: Function, given: Tuple[str, ...],
-                         assignments: Dict[str, Expr], fixed: Dict[str, Union[int, DistSite, Slot]],
-                         prog_info: ProgramInfo, distribution: Distribution,
-                         config: ForwardAnalysisConfig, run: Runner) -> Tuple[Distribution, Distribution]:
+@dataclass(frozen=True)
+class _Call:
+    """The function of an ``infer``, the names of its given arguments and the expressions of all arguments."""
+
+    function: Function
+    given: Tuple[str, ...]
+    assignments: Dict[str, Expr]
+
+
+def _infer_nat_arguments(frame: Frame, instr: AsgnInstr, call: _Call,
+                         fixed: Dict[str, Union[int, DistSite, Slot]], distribution: Distribution) -> ProgramState:
+    """``d = infer(f, args…)`` on a part in which the dist arguments are ``fixed``: the natural arguments are
+    constants, finitely many values (one closed site each) or a slot (only if Z ≡ 1 is proven)."""
+    function, given, assignments = call.function, call.given, call.assignments
+    prog_info, reg = frame.program, frame.context.dist_registry
     target = instr.lhs
     zero = distribution * "0"
     variable_args: Dict[str, Expr] = {}
@@ -579,8 +543,8 @@ def _infer_nat_arguments(instr: AsgnInstr, function: Function, given: Tuple[str,
 
     if not variable_args:
         site = make_site(fixed)
-        closed_form(site, prog_info, config, run)
-        return _set_site(without(distribution, old[1:]), target, registry().site_id(site)), zero
+        closed_form(frame, site)
+        return ProgramState(_set_site(without(distribution, old[1:]), target, reg.site_id(site)), zero)
 
     # evaluate the state-dependent arguments into fresh variables
     temps: Dict[str, str] = {}
@@ -597,8 +561,8 @@ def _infer_nat_arguments(instr: AsgnInstr, function: Function, given: Tuple[str,
             site = make_site({**fixed, **dict(zip(temps.keys(), arg_values, strict=True))})
             if _sym(part.get_probability_mass()) == 0:
                 continue
-            closed_form(site, prog_info, config, run)
-            part = _set_site(without(part, old[1:] + temp_vars), target, registry().site_id(site))
+            closed_form(frame, site)
+            part = _set_site(without(part, old[1:] + temp_vars), target, reg.site_id(site))
             parts.append((part, zero))
         return _sum(parts, distribution, zero)
 
@@ -610,13 +574,12 @@ def _infer_nat_arguments(instr: AsgnInstr, function: Function, given: Tuple[str,
             "on the state with infinite support, and the normalising constant of "
             f"{function_name(instr)} may depend on it (it has observe). Not implemented.")
     slot_site = make_site({**fixed, **{var: Slot(index) for index, var in enumerate(temps)}})
-    _prove_almost_sure_termination(slot_site, extended.marginal(*temp_vars), temps, prog_info,
-                                   config, run, describe)
+    _prove_almost_sure_termination(frame, slot_site, extended.marginal(*temp_vars), temps, describe)
     result = without(extended, old[1:])
     for index, temp in enumerate(temp_vars):
         result = _assign(result, slot_variable(target, index), temp)
     result = without(result, temp_vars)
-    return _set_site(result, target, registry().site_id(slot_site)), zero
+    return ProgramState(_set_site(result, target, reg.site_id(slot_site)), zero)
 
 
 def function_name(instr: AsgnInstr) -> str:
@@ -628,12 +591,11 @@ def _set_site(distribution: Distribution, var: str, site_id: int) -> Distributio
     return _assign(distribution, var, site_id)
 
 
-def _prove_almost_sure_termination(site: DistSite, arguments: Distribution, temps: Dict[str, str],
-                                   prog_info: ProgramInfo, config: ForwardAnalysisConfig,
-                                   run: Runner, describe: str) -> None:
+def _prove_almost_sure_termination(frame: Frame, site: DistSite, arguments: Distribution, temps: Dict[str, str],
+                                   describe: str) -> None:
     """Proves Z(a) = 1 for every value a of the arguments: running the function on the
     distribution of the arguments keeps the mass of every argument value."""
-    reg = registry()
+    reg = frame.context.dist_registry
     function = reg.functions[site.function]
     assignments: Dict[str, Expr] = {}
     for var, value in site.args:
@@ -644,9 +606,9 @@ def _prove_almost_sure_termination(site: DistSite, arguments: Distribution, temp
         else:
             assignments[var] = NatLitExpr(value)
     result_var = arguments.get_fresh_variable()
-    with current_context().nested_inference(site.describe()) as scope:
-        result, _ = call_in_joint(function, assignments, {}, result_var, prog_info,
-                                  _add_variables(arguments, result_var), arguments * "0", config, run)
+    with frame.context.nested_inference(site.describe()) as scope:
+        result, _ = call_in_joint(frame, function, assignments, {}, result_var,
+                                  ProgramState(_add_variables(arguments, result_var), arguments * "0"))
     proven = scope.kind == Bound.EXACT and result.marginal(*temps.values()) == arguments
     if not proven:
         raise UnsupportedFeatureError(
@@ -659,17 +621,17 @@ def _prove_almost_sure_termination(site: DistSite, arguments: Distribution, temp
 # Function calls on the joint distribution
 # ---------------------------------------------------------------------------------------
 
-def call_in_joint(function: Function, assignments: Dict[str, Expr],
-                  bindings: Dict[str, DistSite], lhs: str, prog_info: ProgramInfo,
-                  distribution: Distribution, error_prob: Distribution,
-                  config: ForwardAnalysisConfig, run: Runner) -> Tuple[Distribution, Distribution]:
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments  # the call (function, arguments, dist
+# bindings, target) is the instruction already taken apart by its handler, which needs them itself
+def call_in_joint(frame: Frame, function: Function, assignments: Dict[str, Expr],
+                  bindings: Dict[str, DistSite], lhs: str, state: ProgramState) -> ProgramState:
     """``lhs = function(args)`` with arguments that depend on the state: the body runs on the
     joint distribution, so the result keeps its dependence on the caller's variables.
     ``assignments`` gives every variable of the function its initial value (an expression in
     the caller's variables; a ``dist`` parameter gets a variable of the caller, whose slots are
     copied as well)."""
     types = {decl.var: decl.typ for decl in function.declarations}
-    dist = distribution
+    dist, error_prob = state
     # 1. the arguments, evaluated in the caller's state
     temps: Dict[str, str] = {}
     for var, expr in assignments.items():
@@ -686,8 +648,7 @@ def call_in_joint(function: Function, assignments: Dict[str, Expr],
                 temps[var if index == 0 else slot_variable(var, index - 1)] = temp
             continue
         temp = dist.get_fresh_variable()
-        dist, error_prob = _assign_value(_add_variables(dist, temp), temp, expr, prog_info, config,
-                                         run, error_prob)
+        dist, error_prob = _assign_value(frame, temp, expr, ProgramState(_add_variables(dist, temp), error_prob))
         temps[var] = temp
     # 2. caller variables with the names of the function's variables are kept aside
     own = set(function.variables) | {name for name in temps if name not in function.variables}
@@ -702,11 +663,10 @@ def call_in_joint(function: Function, assignments: Dict[str, Expr],
         dist = _assign(dist, var, temps[var]) if var in temps else _assign(dist, var, 0)
     dist = without(dist, list(temps.values()))
     # 4. the body, then the return value
-    sub_info = function_program_info(prog_info, function, bindings)
-    zero = error_prob * "0"
-    result, error = run(function.instructions, sub_info, dist, zero, config)
+    body = frame.for_program(function_program_info(frame.program, function, bindings))
+    result, error = body.run(function.instructions, ProgramState(dist, error_prob * "0"))
     value = result.get_fresh_variable()
-    result, error = assign_return_value(result, function, value, sub_info, config, run, error)
+    result, error = assign_return_value(body, function, value, ProgramState(result, error))
     # 5. back to the caller's variables
     leftovers = [var for var in result.get_variables() if var in own]
     for name in function.variables:
@@ -717,7 +677,7 @@ def call_in_joint(function: Function, assignments: Dict[str, Expr],
     result = without(result, list(saved.values()))
     result = _assign(result, lhs, value)
     result = without(result, [value])
-    return result, error_prob + error
+    return ProgramState(result, error_prob + error)
 
 
 # ---------------------------------------------------------------------------------------
@@ -731,23 +691,22 @@ def _rename_value(closed: ClosedDist, var: str) -> Distribution:
         BinopExpr(Binop.EQ, VarExpr(var), VarExpr(VALUE_VARIABLE))).marginal(var)
 
 
-def sample(instr: AsgnInstr, prog_info: ProgramInfo, distribution: Distribution,
-           error_prob: Distribution, config: ForwardAnalysisConfig, run: Runner
-           ) -> Tuple[Distribution, Distribution]:
+def sample(frame: Frame, instr: AsgnInstr, state: ProgramState) -> ProgramState:
     """``x = sample(d)``: an independent draw from the value of ``d``."""
     assert isinstance(instr.rhs, SampleExpr)
+    distribution, error_prob = state
     var = instr.rhs.dist
     target = instr.lhs
-    reg = registry()
+    reg = frame.context.dist_registry
     results: List[Tuple[Distribution, Distribution]] = []
-    for part in split_by_value(distribution, var, prog_info):
+    for part in split_by_value(distribution, var, frame.program, reg):
         site = part.site
         if site is None:
             if _sym(part.distribution.get_probability_mass()) == 0:
                 continue
             raise _unassigned(var, _spell(instr.rhs))
         if site.closed:
-            closed = closed_form(site, prog_info, config, run)
+            closed = closed_form(frame, site)
             marginal = without(part.distribution, [target])
             results.append((marginal * _rename_value(closed, target), error_prob * "0"))
             continue
@@ -761,28 +720,28 @@ def sample(instr: AsgnInstr, prog_info: ProgramInfo, distribution: Distribution,
                 assignments[name] = NatLitExpr(reg.site_id(value))
             else:
                 assignments[name] = NatLitExpr(value)
-        results.append(call_in_joint(function, assignments, {}, target, prog_info, part.distribution,
-                                     error_prob * "0", config, run))
+        results.append(call_in_joint(frame, function, assignments, {}, target,
+                                     ProgramState(part.distribution, error_prob * "0")))
     return _sum(results, distribution, error_prob)
 
 
-def copy_dist(instr: AsgnInstr, prog_info: ProgramInfo, distribution: Distribution,
-              error_prob: Distribution) -> Tuple[Distribution, Distribution]:
+def copy_dist(frame: Frame, instr: AsgnInstr, state: ProgramState) -> ProgramState:
     """``d2 = d``: the copy has the same value (independent draws from both)."""
     assert isinstance(instr.rhs, VarExpr)
+    distribution = state.dist
     source, target = instr.rhs.var, instr.lhs
     if source == target:
-        return distribution, error_prob
-    bound = prog_info.dist_bindings.get(source)
+        return state
+    bound = frame.program.dist_bindings.get(source)
     result = without(distribution, encoding_variables(distribution, target)[1:])
     if bound is not None:
-        return _set_site(result, target, registry().site_id(bound)), error_prob
+        return ProgramState(_set_site(result, target, frame.context.dist_registry.site_id(bound)), state.error)
     if source not in result.get_variables():
-        return _set_site(result, target, 0), error_prob
+        return ProgramState(_set_site(result, target, 0), state.error)
     result = _assign(result, target, source)
     for index, slot in enumerate(_slots_present(result, source)):
         result = _assign(result, slot_variable(target, index), slot)
-    return result, error_prob
+    return ProgramState(result, state.error)
 
 
 # ---------------------------------------------------------------------------------------
@@ -820,11 +779,9 @@ def _constant_argument_or_none(expr: Expr) -> Optional[int]:
         return None
 
 
-def query_value(node: Union[ProbabilityExpr, ExpectationExpr], var: str,
-                site: DistSite, prog_info: ProgramInfo, config: ForwardAnalysisConfig,
-                run: Runner) -> Any:
+def query_value(frame: Frame, node: Union[ProbabilityExpr, ExpectationExpr], var: str, site: DistSite) -> Any:
     """The value of ``Pr[d …]`` or ``Ex[d]`` for the closed value ``site`` of ``d`` (sympy)."""
-    closed = closed_form(site, prog_info, config, run)
+    closed = closed_form(frame, site)
     key = repr(node)  # the structure of the query, not its spelling
     if key in closed.values:
         return closed.values[key]
@@ -947,18 +904,19 @@ def _fold(expr: Expr, values: Dict[int, Any]) -> Expr:
     return root.val
 
 
-def resolve_queries(instr: Instr, prog_info: ProgramInfo, distribution: Distribution,
-                    error_prob: Distribution, config: ForwardAnalysisConfig, run: Runner,
-                    run_shell: Runner) -> Optional[Tuple[Distribution, Distribution]]:
+def resolve_queries(frame: Frame, instr: Instr, state: ProgramState,
+                    untraced: Semantics) -> Optional[ProgramState]:
     """Runs ``instr`` with its ``Pr[d …]`` and ``Ex[d]`` replaced by their values, split by the
-    values of the ``dist`` variables they read; ``None`` if it has none."""
+    values of the ``dist`` variables they read; ``None`` if it has none. The instruction with the values
+    (the shell) runs with ``untraced``: it stands for ``instr``, whose step is traced already."""
     nodes = _dist_queries(instr)
     if not nodes:
         return None
-    dist_vars = dist_variables(prog_info)
+    distribution, error_prob = state
+    dist_vars = dist_variables(frame.program)
     variables = sorted({_queried_variable(node, dist_vars) for node in nodes})
     results: List[Tuple[Distribution, Distribution]] = []
-    for part, sites in split_by_values(distribution, variables, prog_info):
+    for part, sites in split_by_values(distribution, variables, frame.program, frame.context.dist_registry):
         values: Dict[int, Any] = {}
         for node in nodes:
             var = _queried_variable(node, dist_vars)
@@ -971,13 +929,13 @@ def resolve_queries(instr: Instr, prog_info: ProgramInfo, distribution: Distribu
                 raise UnsupportedFeatureError(
                     f"{_spell(node)}: the value of {var} depends on the program state with infinite support "
                     f"({site.describe()}); Pr and Ex of such a dist are not implemented.")
-            values[id(node)] = query_value(node, var, site, prog_info, config, run)
+            values[id(node)] = query_value(frame, node, var, site)
         else:
             shell = copy.copy(instr)
             for name, value in list(instr.__dict__.items()):
                 if isinstance(value, ExprClass):
                     setattr(shell, name, _fold(_copy_keeping_ids(value.cast(), values), values))
-            results.append(_run_shell(shell, instr, prog_info, part, error_prob * "0", config, run_shell))
+            results.append(_run_shell(frame, shell, instr, ProgramState(part, error_prob * "0"), untraced))
     return _sum(results, distribution, error_prob)
 
 
@@ -991,13 +949,12 @@ def _nodes(expr: Expr) -> List[Expr]:
     return [ref.val for ref in walk_expr(Walk.DOWN, Mut.alloc(expr))]
 
 
-def _run_shell(shell: Instr, original: Instr, prog_info: ProgramInfo, distribution: Distribution,
-               error_prob: Distribution, config: ForwardAnalysisConfig, run: Runner
-               ) -> Tuple[Distribution, Distribution]:
+def _run_shell(frame: Frame, shell: Instr, original: Instr, state: ProgramState,
+               untraced: Semantics) -> ProgramState:
     if isinstance(shell, WhileInstr) and isinstance(original, WhileInstr):
-        with current_context().loop_alias(shell, original):
-            return run(shell, prog_info, distribution, error_prob, config)
-    return run(shell, prog_info, distribution, error_prob, config)
+        with frame.context.loop_alias(shell, original):
+            return untraced(frame, shell, state)
+    return untraced(frame, shell, state)
 
 
 # ---------------------------------------------------------------------------------------
@@ -1032,11 +989,13 @@ def assigned_dist_variables(instrs: List[Instr], dist_vars: Set[str]) -> List[st
     return found
 
 
-def run_loop(instr: Union[WhileInstr, LoopInstr], prog_info: ProgramInfo,
-             distribution: Distribution, error_prob: Distribution, config: ForwardAnalysisConfig,
-             run: Runner) -> Optional[Tuple[Distribution, Distribution]]:
+def run_loop(frame: Frame, instr: Union[WhileInstr, LoopInstr], state: ProgramState,
+             untraced: Semantics) -> Optional[ProgramState]:
     """Runs a loop with the ``dist`` variables bound to their values (see the module
-    documentation); ``None`` if there is nothing to bind."""
+    documentation); ``None`` if there is nothing to bind. The loop itself runs with ``untraced`` in a frame with
+    the bindings (its step is traced already)."""
+    prog_info, (distribution, error_prob) = frame.program, state
+    reg = frame.context.dist_registry
     dist_vars = dist_variables(prog_info) - set(prog_info.dist_bindings)
     if not dist_vars:
         return None
@@ -1052,7 +1011,7 @@ def run_loop(instr: Union[WhileInstr, LoopInstr], prog_info: ProgramInfo,
     if not present:
         return None
     results: List[Tuple[Distribution, Distribution]] = []
-    for part, sites in split_by_values(distribution, present, prog_info):
+    for part, sites in split_by_values(distribution, present, prog_info, reg):
         bindings = dict(prog_info.dist_bindings)
         removed: List[str] = []
         restore: Dict[str, int] = {}
@@ -1066,9 +1025,9 @@ def run_loop(instr: Union[WhileInstr, LoopInstr], prog_info: ProgramInfo,
             removed.extend(encoding_variables(part, var))
             if site is not None:
                 bindings[var] = site
-                restore[var] = registry().site_id(site)
-        inner = replace(prog_info, dist_bindings=frozendict(bindings))
-        out, error = run(instr, inner, without(part, removed), error_prob * "0", config)
+                restore[var] = reg.site_id(site)
+        inner = frame.for_program(replace(prog_info, dist_bindings=frozendict(bindings)))
+        out, error = untraced(inner, instr, ProgramState(without(part, removed), error_prob * "0"))
         for var, site_id in restore.items():
             out = _set_site(out, var, site_id)
         results.append((out, error))
@@ -1089,12 +1048,11 @@ class DistValue:
     closed: Optional[ClosedDist]
 
 
-def dist_values(distribution: Distribution, prog_info: ProgramInfo) -> List[DistValue]:
-    """The values of the ``dist`` variables in ``distribution``."""
+def dist_values(distribution: Distribution, prog_info: ProgramInfo, reg: DistRegistry) -> List[DistValue]:
+    """The values of the ``dist`` variables in ``distribution`` (``reg`` knows their sites)."""
     found: List[DistValue] = []
-    reg = registry()
     for var in sorted(dist_variables(prog_info)):
-        for part in split_by_value(distribution, var, prog_info):
+        for part in split_by_value(distribution, var, prog_info, reg):
             probability = sympy.nsimplify(_sym(part.distribution.get_probability_mass()))
             if probability == 0:
                 continue
@@ -1170,7 +1128,7 @@ def dist_values_json(values: List[DistValue], limit: int) -> List[Dict[str, Any]
     return result
 
 
-def for_trace(distribution: Distribution, program: Optional[Program]
+def for_trace(distribution: Distribution, program: Optional[Program], reg: DistRegistry
               ) -> Tuple[Distribution, List[Dict[str, Any]]]:
     """A step of the trace shows the program state without the encoding of the ``dist``
     variables, and their values next to it (variable, probability, ``infer`` text, closed form and
@@ -1184,7 +1142,7 @@ def for_trace(distribution: Distribution, program: Optional[Program]
         return distribution, []
     shown: List[Dict[str, Any]] = []
     try:
-        for value in dist_values(distribution, prog_info):
+        for value in dist_values(distribution, prog_info, reg):
             renamed = _rename_value(value.closed, value.variable) if value.closed is not None else None
             closed = str(renamed) if renamed is not None else None
             shown.append({

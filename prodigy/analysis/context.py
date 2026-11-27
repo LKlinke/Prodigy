@@ -6,21 +6,29 @@ The analysis context
 What the parts of a running analysis (instruction handlers, loop strategies, nested inference, the step trace,
 the upper track, the witness search) need from the run they belong to: the configuration, the decisions for
 loops, where they book guarantees, warnings and queries, and how they start sub-analyses. :class:`AnalysisContext`
-names these services; the :class:`~prodigy.analysis.session.AnalysisSession` provides them and makes itself the
-current context while it runs (:meth:`~prodigy.analysis.session.AnalysisSession.activate`), and the parts reach it
-with :func:`current_context`.
+names these services; the :class:`~prodigy.analysis.session.AnalysisSession` provides them.
+
+The parts get the context explicitly (T11 of ``docs/source/architecture.md``). An instruction handler is a function
+``handle(frame, instruction, state) -> state``: the :class:`ProgramState` is the pair (distribution, violation mass),
+and the :class:`Frame` names the run (:attr:`Frame.context`), the program or function body being executed, the
+configuration and how nested instructions run. A context lives as long as one run (one
+:meth:`~prodigy.analysis.session.AnalysisSession.run` or one call of an entry point); sub-analyses and nested
+inference are scopes of the same context. A frame is immutable and lives as long as the program or body it executes.
+
+Only the entry points look a context up: :func:`boundary_context` gives the one made active by
+:meth:`~prodigy.analysis.session.AnalysisSession.activate` (the CLI still activates its session, until it passes it
+explicitly), or a new detached one. Nothing in the semantics calls it.
 
 This module is part of the vocabulary layer of the analysis (``docs/source/architecture.md``): it imports nothing
 of the analysis at run time, so the handlers reach the session without importing it (T1). The types of the
-session's own records appear in annotations only. Passing the context explicitly instead of through a context
-variable is the next step (P5b, T11).
+session's own records appear in annotations only.
 """
 from __future__ import annotations
 
 import contextvars
 from dataclasses import dataclass
-from typing import (TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Mapping, Optional, Protocol, Sequence,
-                    Tuple, Union)
+from typing import (TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Mapping, NamedTuple, Optional, Protocol,
+                    Sequence, Tuple, Union)
 
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.language import Expr, Instr, Program, WhileInstr
@@ -28,15 +36,16 @@ if TYPE_CHECKING:  # pragma: no cover
 
     from prodigy.analysis.config import ForwardAnalysisConfig
     from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+    from prodigy.analysis.nested_inference import DistRegistry
     from prodigy.analysis.loops.api import LoopDecision, LoopOutcome, LoopTask, ParamSpec
     from prodigy.analysis.session import DecisionProvider, LoopRecord, LoopRegistry
     from prodigy.analysis.trace import Tracer
-    from prodigy.analysis.upper_track import Analyzer, UpperTrack
+    from prodigy.analysis.upper_track import UpperTrack
     from prodigy.analysis.values import QueryResult
     from prodigy.distribution import Distribution
 
-__all__ = ["AnalysisContext", "Scope", "current_context", "has_current_context", "register_detached_context",
-           "reset_context", "use_context"]
+__all__ = ["Analyzer", "AnalysisContext", "Frame", "ProgramState", "Scope", "Semantics", "boundary_context",
+           "has_active_context", "register_detached_context", "reset_context", "use_context"]
 
 _EXACT = "exact"  # Bound.EXACT; the vocabulary of loops.api is not imported here at run time
 
@@ -72,6 +81,8 @@ class AnalysisContext(Protocol):  # pylint: disable=too-many-public-methods
     warnings: List[str]
     unproven_conditions: List[str]
     dist_values: List[Any]
+    dist_registry: "DistRegistry"
+    """The ``dist`` sites of the run (:mod:`prodigy.analysis.nested_inference`)."""
 
     @staticmethod
     def spell(node: Union["Expr", "Instr"]) -> str:
@@ -182,12 +193,72 @@ class AnalysisContext(Protocol):  # pylint: disable=too-many-public-methods
     def start_upper(self) -> None:
         """Starts the upper track of the run, if it carries one."""
 
-    def advance_upper(self, instruction: "Instr", prog_info: "ProgramInfo", config: "ForwardAnalysisConfig",
-                      analyzer: "Analyzer") -> None:
+    def advance_upper(self, instruction: "Instr", frame: "Frame") -> None:
         """Moves the upper track over ``instruction``."""
 
     def restrict_upper(self, variables: Sequence[str]) -> None:
         """Removes ``variables`` from the upper track."""
+
+    def own_dist_registry(self) -> ContextManager["DistRegistry"]:
+        """A fresh registry of ``dist`` sites for an analysis, unless it runs inside one (e.g. a function)."""
+
+
+class ProgramState(NamedTuple):
+    """The state of the forward analysis: the distribution of the terminated, valid runs and the mass of the runs
+    that violated an observation (a distribution over the second-order variables, or a constant)."""
+
+    dist: "Distribution"
+    error: "Distribution"
+
+
+class Semantics(Protocol):  # pylint: disable=too-few-public-methods
+    """How a frame runs instructions: :func:`~prodigy.analysis.analyzer.compute_semantics_in` (traced, with nested
+    inference) or the variant of nested inference for the shells of loops."""
+
+    def __call__(self, frame: "Frame", instruction: Union["Instr", Sequence["Instr"]],
+                 state: ProgramState) -> ProgramState:
+        ...
+
+
+Analyzer = Callable[
+    [Union["Instr", Sequence["Instr"]], "ProgramInfo", "Distribution", "Distribution", "ForwardAnalysisConfig"],
+    Tuple["Distribution", "Distribution"]
+]
+"""The forward semantics with positional arguments (instructions, program, distribution, violation mass,
+configuration), for the code that is not converted to :class:`Frame` yet (:meth:`Frame.as_analyzer`)."""
+
+
+@dataclass(frozen=True)
+class Frame:
+    """What one handler call needs besides the state (see the module documentation)."""
+
+    context: AnalysisContext
+    """The run."""
+    program: "ProgramInfo"
+    """The program or function body being executed."""
+    config: "ForwardAnalysisConfig"
+    """The configuration of this analysis (the session's, or the one given to a direct call)."""
+    semantics: Semantics
+    """How nested instructions run."""
+
+    def run(self, instruction: Union["Instr", Sequence["Instr"]], state: ProgramState) -> ProgramState:
+        """The semantics of ``instruction`` (or a list of instructions) on ``state`` in this frame."""
+        return self.semantics(self, instruction, state)
+
+    def for_program(self, program: "ProgramInfo") -> "Frame":
+        """The frame for executing ``program`` (e.g. a function body) in the same run."""
+        return Frame(self.context, program, self.config, self.semantics)
+
+    def as_analyzer(self) -> Analyzer:
+        """This frame's semantics with positional arguments; the program and configuration passed to it select
+        the frame (:attr:`program`, :attr:`config`) of the call."""
+        def analyze(instruction: Union["Instr", Sequence["Instr"]], program: "ProgramInfo",
+                    distribution: "Distribution", error_prob: "Distribution",
+                    config: "ForwardAnalysisConfig") -> Tuple["Distribution", "Distribution"]:
+            frame = Frame(self.context, program, config, self.semantics)
+            result = frame.run(instruction, ProgramState(distribution, error_prob))
+            return result.dist, result.error
+        return analyze
 
 
 _CURRENT: contextvars.ContextVar[Optional[AnalysisContext]] = \
@@ -197,25 +268,16 @@ _DETACHED: List[Callable[[], AnalysisContext]] = []
 
 
 def register_detached_context(factory: Callable[[], AnalysisContext]) -> None:
-    """Registers how :func:`current_context` makes a context when none is active (the session module does)."""
+    """Registers how :func:`boundary_context` makes a context when none is active (the session module does)."""
     _DETACHED[:] = [factory]
 
 
-def has_current_context() -> bool:
-    """Whether a context is active (otherwise :func:`current_context` makes a detached one)."""
-    return _CURRENT.get() is not None
-
-
-def current_context() -> AnalysisContext:
+def boundary_context() -> AnalysisContext:
     """
-    The context of the running analysis (the innermost :func:`use_context`).
-
-    Without an active context, every call returns a new detached interactive session (#195): nothing it
-    records (decisions, loop records, steps, queries) outlives the call. This is only for code that runs
-    handlers directly, e.g. tests. Every entry point of an analysis activates one session for the whole run,
-    so that all its parts share the decisions and the records:
-    :func:`~prodigy.analysis.session.compute_discrete_distribution` (a detached one if none is active),
-    :meth:`~prodigy.analysis.session.AnalysisSession.run`, the CLI commands and the GUI's jobs.
+    For the entry points only (:func:`~prodigy.analysis.session.compute_discrete_distribution`,
+    :func:`~prodigy.analysis.analyzer.compute_semantics`): the context made active by
+    :meth:`~prodigy.analysis.session.AnalysisSession.activate`, or a new detached interactive session (#195), so
+    that nothing a direct call records outlives it. The semantics gets its context from the :class:`Frame`.
     """
     context = _CURRENT.get()
     if context is not None:
@@ -226,8 +288,13 @@ def current_context() -> AnalysisContext:
     return _DETACHED[0]()
 
 
+def has_active_context() -> bool:
+    """Whether a context is active (see :func:`boundary_context`)."""
+    return _CURRENT.get() is not None
+
+
 def use_context(context: AnalysisContext) -> "contextvars.Token[Optional[AnalysisContext]]":
-    """Makes ``context`` the current one; undo with ``_CURRENT.reset(token)`` (see the session's ``activate``)."""
+    """Makes ``context`` the active one; undo with :func:`reset_context` (see the session's ``activate``)."""
     return _CURRENT.set(context)
 
 

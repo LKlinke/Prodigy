@@ -1,39 +1,24 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Union, Sequence
 
-from prodigy.language import Instr, ObserveInstr
+from prodigy.language import ObserveInstr
 
-from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.instructionhandler import _assume
-from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
-from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+from prodigy.analysis.context import Frame, ProgramState
 from prodigy.distribution import Distribution
 from prodigy.util.logger import log_setup
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
-class ObserveHandler(InstructionHandler):
-    @staticmethod
-    def compute(
-            instruction: Union[Instr, Sequence[Instr]], prog_info: ProgramInfo,
-            distribution: Distribution, error_prob: Distribution,
-            config: ForwardAnalysisConfig,
-            analyzer: Callable[
-                [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
-                tuple[Distribution, Distribution]
-            ]
-    ) -> tuple[Distribution, Distribution]:
-        instruction = _assume(instruction, ObserveInstr, 'ObserverHandler')
-
-        sat_part = distribution.filter(instruction.cond)
-        unsat_part = distribution - sat_part
-        so_vars = prog_info.so_vars
-        if so_vars is None or len(so_vars) == 0:
-            unsat_prob: Distribution | str = unsat_part.get_probability_mass()
-        else:
-            unsat_prob = unsat_part.marginal(*so_vars)
-        res_error_prob = error_prob + unsat_prob
-        return sat_part, res_error_prob
+def handle(frame: Frame, instruction: ObserveInstr, state: ProgramState) -> ProgramState:
+    """``observe(c)``: the part that violates c leaves the distribution and is added to the violation mass (as a
+    distribution over the second-order variables, if the program has some)."""
+    sat_part = state.dist.filter(instruction.cond)
+    unsat_part = state.dist - sat_part
+    so_vars = frame.program.so_vars
+    if so_vars is None or len(so_vars) == 0:
+        unsat_prob: Distribution | str = unsat_part.get_probability_mass()
+    else:
+        unsat_prob = unsat_part.marginal(*so_vars)
+    return ProgramState(sat_part, state.error + unsat_prob)

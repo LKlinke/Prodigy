@@ -38,8 +38,8 @@ Parsers, AST, type checker and compiler. The package was called `prodigy/pgcl` u
 
 - The vocabulary layer imports nothing above it (`architecture.md`): `loops/api.py` (`Bound`, the
   strategy API and registry, `LoopDecision`), `values.py` (values, intervals and coefficient tables
-  of a result), `context.py` (`AnalysisContext`, which the handlers reach with `current_context()`).
-- `analyzer.py` dispatches instructions to `instructionhandler/`.
+  of a result), `context.py` (`AnalysisContext`, and the `Frame` and `ProgramState` that every handler receives).
+- `analyzer.py` dispatches instructions to the `handle` functions of `instructionhandler/` (`HANDLERS`).
 - `session.py`: `AnalysisSession`, one decision per loop; it runs an analysis
   (`compute_discrete_distribution`, `AnalysisSession.run`).
 - `loop_strategies.py`: the strategy registry for the front ends; the built-in strategies are

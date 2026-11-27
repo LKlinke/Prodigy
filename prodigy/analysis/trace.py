@@ -418,7 +418,7 @@ class Tracer:
         from prodigy.analysis.values import exact_and_float, sym, to_latex, univariate_table
         start = time.perf_counter()
         limits = self.limits
-        dist, dist_values = for_trace(dist, self.session.program)
+        dist, dist_values = for_trace(dist, self.session.program, self.session.dist_registry)
         try:
             closed = str(dist)
         except Exception:  # pylint: disable=broad-except

@@ -1,36 +1,18 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Union, Sequence
 
-from prodigy.language import Instr, LoopInstr
+from prodigy.language import LoopInstr
 
-from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.instructionhandler import _assume
-from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
-from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.distribution import Distribution
+from prodigy.analysis.context import Frame, ProgramState
 from prodigy.util.logger import log_setup
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
-class LoopHandler(InstructionHandler):
-    @staticmethod
-    def compute(
-            instruction: Union[Instr, Sequence[Instr]],
-            prog_info: ProgramInfo,
-            distribution: Distribution,
-            error_prob: Distribution,
-            config: ForwardAnalysisConfig,
-            analyzer: Callable[
-                [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
-                tuple[Distribution, Distribution]
-            ]
-    ) -> tuple[Distribution, Distribution]:
-        instruction = _assume(instruction, LoopInstr, 'LoopHandler')
-        for i in range(instruction.iterations.value):
-            logger.info("Computing iteration %d out of %d", i + 1,
-                        instruction.iterations.value)
-            distribution, error_prob = analyzer(instruction.body, prog_info, distribution, error_prob, config)
-        return distribution, error_prob
+def handle(frame: Frame, instruction: LoopInstr, state: ProgramState) -> ProgramState:
+    """``loop (n) {B}``: B runs ``n`` times."""
+    for i in range(instruction.iterations.value):
+        logger.info("Computing iteration %d out of %d", i + 1, instruction.iterations.value)
+        state = frame.run(instruction.body, state)
+    return state

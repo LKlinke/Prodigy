@@ -6,7 +6,7 @@ Loop strategies (registry)
 A *loop strategy* tells the forward analysis how to deal with one ``while`` loop:
 unroll it a fixed number of times, check a user-provided invariant, synthesise an
 EVT invariant, and so on. Up to now the strategy and its parameters were asked for
-interactively inside :class:`~prodigy.analysis.instructionhandler.while_handler.WhileHandler`.
+interactively inside the handler of while loops (:mod:`prodigy.analysis.instructionhandler.while_handler`).
 
 This module makes strategies explicit data:
 
@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from fractions import Fraction
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
 
 import attr
 
@@ -36,7 +36,7 @@ from prodigy.language.outline import LoopInfo, is_query, outline
 
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.config import ForwardAnalysisConfig
-    from prodigy.analysis.context import AnalysisContext
+    from prodigy.analysis.context import AnalysisContext, Analyzer, Frame, ProgramState
     from prodigy.analysis.instructionhandler.program_info import ProgramInfo
     from prodigy.distribution import Distribution
 
@@ -234,24 +234,46 @@ class LoopOutcome:
 
 @dataclass
 class LoopTask:
-    """Everything a strategy needs to analyse one occurrence of a loop."""
+    """Everything a strategy needs to analyse one occurrence of a loop: the
+    :class:`~prodigy.analysis.context.Frame` it runs in and the
+    :class:`~prodigy.analysis.context.ProgramState` before the loop. ``prog_info``, ``distribution``,
+    ``error_prob``, ``config``, ``analyzer`` and ``session`` read them, so that registered strategies
+    keep their interface."""
 
     instruction: "WhileInstr"
-    prog_info: "ProgramInfo"
-    distribution: "Distribution"
-    error_prob: "Distribution"
-    config: "ForwardAnalysisConfig"
-    analyzer: Callable[
-        [Union["Instr", Sequence["Instr"]], "ProgramInfo", "Distribution", "Distribution",
-         "ForwardAnalysisConfig"],
-        Tuple["Distribution", "Distribution"]
-    ]
-    session: "AnalysisContext"
+    frame: "Frame"
+    state: "ProgramState"
     loop: Optional["LoopInfo"]
     decision: "LoopDecision"
     strategy: "LoopStrategy"
     record: Any = None
     """The session's :class:`~prodigy.analysis.session.LoopRecord` for this loop."""
+
+    @property
+    def prog_info(self) -> "ProgramInfo":
+        return self.frame.program
+
+    @property
+    def distribution(self) -> "Distribution":
+        return self.state.dist
+
+    @property
+    def error_prob(self) -> "Distribution":
+        return self.state.error
+
+    @property
+    def config(self) -> "ForwardAnalysisConfig":
+        return self.frame.config
+
+    @property
+    def analyzer(self) -> "Analyzer":
+        """Runs instructions of the loop's program (the body, an invariant program) on a given state, in
+        the loop's frame."""
+        return self.frame.as_analyzer()
+
+    @property
+    def session(self) -> "AnalysisContext":
+        return self.frame.context
 
     def param(self, name: str) -> Any:
         """Value of parameter ``name``: from the decision if present, otherwise from the
