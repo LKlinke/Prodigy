@@ -376,7 +376,7 @@ ones.
 ### Nested inference
 
 Status: **implemented** ([#104](https://github.com/LKlinke/Prodigy/issues/104); the encoding is
-described in `prodigy/analysis/nested_inference.py`, the language in {doc}`language`).
+described in `prodigy/analysis/nested_inference/`, the language in {doc}`language`).
 
 ```
 d: dist = infer(f, 10);

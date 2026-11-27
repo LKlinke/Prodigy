@@ -10,9 +10,9 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.values import sym
 from prodigy.analysis.session import AnalysisSession
+from prodigy.analysis.certificate_checks import certificate_checks
 from prodigy.analysis.trace import (MARGINALS_OUT_OF_TIME, MARGINALS_TOO_LARGE, MARGINALS_TURNED_OFF, TraceLimits,
-                                    InvalidWatchError, Tracer, _LoopFrame, certificate_checks,
-                                    parse_watch)
+                                    InvalidWatchError, Tracer, _LoopFrame, parse_watch)
 from prodigy.cli import cli
 from prodigy.language import parse_program
 from prodigy.language.ast.walk import Walk, walk_instrs

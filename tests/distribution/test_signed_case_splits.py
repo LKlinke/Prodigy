@@ -15,7 +15,7 @@ import sympy
 
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.instructionhandler.state_dependent import split_states
-from prodigy.analysis.nested_inference import _values
+from prodigy.analysis.nested_inference.sites import _values
 from prodigy.distribution import ZeroDivisorError
 from prodigy.language.ppy_parser import parse_ppy_expr
 
