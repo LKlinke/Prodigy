@@ -68,8 +68,10 @@ frontend is plain ES modules without a build step. CodeMirror and KaTeX are vend
 animation through `motion.js`, and states and numbers are written by `format.js`. `static/app/main.js`
 only boots the window; the app's modules share `app-state.js` (the state, the editors) and are split by
 concern: `checking.js`, `panels.js` (inspector, setup panel, annotations), `compare-mode.js` (the modes
-and program B), `result-panel.js` and `run.js` (jobs). No module imports `main.js`: the page loads it with a
-version query, so an import would run it a second time.
+and program B), `result-panel.js` and `run.js` (jobs); no module imports `main.js`, the entry point.
+The page loads scripts and styles from `/assets/<token>/…` (`assets.py`): the token changes with the
+version and with any file under `static`, so an upgrade or an edit gives every module a new URL. Modules
+therefore import each other with relative paths only (`tests/web/test_assets.py`).
 
 ### Examples and tests
 

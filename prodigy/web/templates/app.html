@@ -5,15 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>Prodigy</title>
-  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='app/favicon.svg') }}?v={{ version }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/katex/katex.min.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='app/app.css') }}?v={{ version }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='app/components/result-view.css') }}?v={{ version }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='app/components/analysis-card.css') }}?v={{ version }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='app/components/evt-exploration.css') }}?v={{ version }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='app/components/equivalence-view.css') }}?v={{ version }}">
-  <script src="{{ url_for('static', filename='vendor/katex/katex.min.js') }}" defer></script>
-  <script type="module" src="{{ url_for('static', filename='app/main.js') }}?v={{ version }}"></script>
+  <link rel="icon" type="image/svg+xml" href="{{ asset('app/favicon.svg') }}">
+  <link rel="stylesheet" href="{{ asset('vendor/katex/katex.min.css') }}">
+  <link rel="stylesheet" href="{{ asset('app/app.css') }}">
+  <link rel="stylesheet" href="{{ asset('app/components/result-view.css') }}">
+  <link rel="stylesheet" href="{{ asset('app/components/analysis-card.css') }}">
+  <link rel="stylesheet" href="{{ asset('app/components/evt-exploration.css') }}">
+  <link rel="stylesheet" href="{{ asset('app/components/equivalence-view.css') }}">
+  <script src="{{ asset('vendor/katex/katex.min.js') }}" defer></script>
+  <script type="module" src="{{ asset('app/main.js') }}"></script>
 </head>
 <body>
 <div class="app" id="app" data-version="{{ version }}">
