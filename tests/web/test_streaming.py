@@ -71,8 +71,9 @@ def test_pending_cells_say_computing(tmp_path):
               "cells": [[{"prob": "1/2", "p": 0.5}, None]]}
     script.write_text(
         f"const j = await import({(COMPONENTS / 'joint-view.js').as_uri()!r});\n"
+        f"const c = await import({(COMPONENTS / 'joint-cells.js').as_uri()!r});\n"
         f"const grid = j.pendingGrid({json.dumps(stream)});\n"
-        "console.log(JSON.stringify([grid.cells[0][1].pending, j.cellParts(grid, 0, 1), j.cellParts(grid, 0, 0)]));\n",
+        "console.log(JSON.stringify([grid.cells[0][1].pending, c.cellParts(grid, 0, 1), c.cellParts(grid, 0, 0)]));\n",
         encoding="utf-8")
     output = subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60, check=True).stdout
     assert json.loads(output) == [True, {"where": "x = 1, y = 0", "value": "computing…"},

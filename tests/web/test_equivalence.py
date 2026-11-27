@@ -13,7 +13,7 @@ from prodigy.analysis.loop_strategies import Bound
 from prodigy.web.app import create_app
 from prodigy.web.compare import run_equivalence, validate_equivalence
 
-from tests.web.test_app import HOST, wait_for
+from tests.web.test_app import HOST, app_source, wait_for
 
 COMPONENTS = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components"
 EXAMPLES = Path(__file__).parents[2] / "pgfexamples"
@@ -251,6 +251,7 @@ def test_every_equivalence_example_has_its_second_program(client):
 
 MODEL_CHECK = """
 const m = await import(%(module)r);
+const f = await import(%(format)r);
 console.log(JSON.stringify({
   notImplemented: m.verdictOf({ verdict: "unknown", check: { error: { type: "NotImplementedError" } } }),
   forged: m.verdictOf({ verdict: "bogus" }).key,
@@ -261,7 +262,7 @@ console.log(JSON.stringify({
   interval: [m.intervalText({ lower: "1/3", upper: "1/3" }),
              m.intervalText({ lower: "1/3", upper: "123456789/987654321", upper_float: 0.125 }, (e, n) => String(n))],
   input: [m.inputText({ n: 3, x: 1 }), m.inputText({ n: 0, x: 0 }), m.inputText(null)],
-  state: [m.stateText({ x: 0, n: 1 }), m.stateText({})],
+  state: [f.stateText({ x: 0, n: 1 }), f.stateText({}), f.stateText({}, "—")],
   check: m.checkLines({ answer: "failed", error: { type: "NotImplementedError", message: "boom" } }),
   counterexample: m.checkLines({ answer: "different", first: "exact", second: "exact", counterexample: { x: 2 } }),
 }));
@@ -271,7 +272,8 @@ console.log(JSON.stringify({
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
 def test_frontend_model(tmp_path):
     script = tmp_path / "check.mjs"
-    script.write_text(MODEL_CHECK % {"module": (COMPONENTS / "equivalence-model.js").as_uri()}, encoding="utf-8")
+    script.write_text(MODEL_CHECK % {"module": (COMPONENTS / "equivalence-model.js").as_uri(),
+                                     "format": (COMPONENTS / "format.js").as_uri()}, encoding="utf-8")
     output = json.loads(subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60,
                                        check=True).stdout)
     assert output["notImplemented"]["title"] == "Not decided: not implemented"
@@ -283,7 +285,7 @@ def test_frontend_model(tmp_path):
     assert output["constraints"] == ["p = 1/3", "p = 1/2, q = 1"]
     assert output["interval"] == ["1/3", "[1/3, 0.125]"]
     assert output["input"] == ["n = 3, x = 1", "every variable 0", "every variable 0"]
-    assert output["state"] == ["x = 0, n = 1", "the empty state"]
+    assert output["state"] == ["x = 0, n = 1", "the empty state", "—"]
     assert output["check"] == ["The check did not finish.", "Not implemented: boom"]
     assert output["counterexample"][-1] == "Counterexample of the solver: input x = 2."
 
@@ -293,8 +295,8 @@ def test_compare_mode_has_its_own_url(client):
     for path in ("/", "/analyze", "/compare"):
         response = client.get(path, headers=HOST)
         assert response.status_code == 200 and b'id="mode-switch"' in response.data
-    main = (COMPONENTS.parent / "main.js").read_text(encoding="utf-8")
-    assert "function modeFromUrl()" in main and "pushState" in main and 'addEventListener("popstate"' in main
+    modes = app_source("compare-mode.js")
+    assert "function modeFromUrl()" in modes and "pushState" in modes and 'addEventListener("popstate"' in modes
 
 
 def test_page_has_the_second_editor(client):
@@ -382,9 +384,9 @@ def test_parameter_synthesis_examples_open_in_compare(client):
 def test_the_result_view_offers_to_open_in_compare():
     view = (COMPONENTS / "result-view.js").read_text(encoding="utf-8")
     assert 'error.details?.type === "parameter_synthesis"' in view and "Open in Compare" in view
-    main = (COMPONENTS.parent / "main.js").read_text(encoding="utf-8")
-    assert "function openInCompare(details)" in main and "onOpenInCompare: openInCompare" in main
-    library = (COMPONENTS.parent / "main.js").read_text(encoding="utf-8")
+    modes = app_source("compare-mode.js")
+    assert "function openInCompare(details)" in modes and "onOpenInCompare: openInCompare" in app_source("result-panel.js")
+    library = app_source("main.js")  # loadExample
     assert 'setMode("compare")' in library and 'setMode("analyze")' in library
 
 

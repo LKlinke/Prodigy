@@ -7,8 +7,9 @@
 import { explorationCard, explorations } from "./evt-exploration.js";
 import { h, icon } from "./dom.js";
 import { chartFocus, intervalBar, marginalChart } from "./charts.js";
-import { BOUND_TEXT, chartLegend, exactIsInformative, formatNumber, formatSeconds, formatValue, qualify, shortExact } from "./format.js";
-import { analysisCard, verdictText } from "./analysis-card.js";
+import { BOUND_TEXT, chartLegend, exactIsInformative, formatNumber, formatSeconds, formatValue, qualify, shortExact, stateText } from "./format.js";
+import { analysisCard } from "./analysis-card.js";
+import { verdictText } from "./checks-lens.js";
 import { chartState, tweenChart } from "./motion.js";
 import { distributionFigure, expressionBox, guaranteeBadge } from "./parts.js";
 import { viewOptions } from "./view-options.js";
@@ -152,7 +153,7 @@ function errorView(result, options) {
   }
   const details = error.details;
   if (verdict) children.push(h("p", {}, `Verdict: ${verdictText(verdict)}.`));
-  const valuation = (state) => Object.entries(state).map(([k, v]) => `${k} = ${v}`).join(", ") || "—";
+  const valuation = (state) => stateText(state, "—");
   if (details?.counterexample) {
     // a counterexample of the solver is only a candidate; "refuted" comes with a witness (#403)
     const label = details.witness

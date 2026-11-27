@@ -23,7 +23,9 @@ Parsers, AST, type checker and compiler. The package was called `prodigy/pgcl` u
 - `distribution.py`: the `Distribution` interface (representation-neutral) and
   `CommonDistributionsFactory`; `values.py`, `errors.py`, `terms.py` hold its value types and errors.
 - `pgf/`: the logic on generating functions, `PGF`, in layers (`hooks.py` the engine hooks, `base.py`,
-  `filtering.py`, `updating.py`, `pgf.py`): case splits, filters, marginals, the iteration contract.
+  `filtering.py`, `updating.py`, `pgf.py`): case splits, filters, marginals, the iteration contract;
+  `sampling.py` is the table of the distributions of the language (their generating functions and the
+  ranges of their parameters), from which the factories and `iid` build them on every engine.
 - Engines: SymPy (`pgf/sympy/engine.py`, `SympyPGF`, the default), GiNaC via the bindings
   (`pgf/ginac/engine.py`, `GinacPGF`); each engine class is also its factory. SymEngine was removed in
   v0.6.0 (#416). The old paths `generating_function.py`, `fast_generating_function.py`, … only re-export.
@@ -66,7 +68,11 @@ share `--max-jobs`, background jobs (joint grids, suggestions) have `--max-backg
 frontend is plain ES modules without a build step. CodeMirror and KaTeX are vendored under
 `static/vendor` and rebuilt via `prodigy/web/frontend`. Shared components are in
 `static/app/components`: every KaTeX formula goes through `formula-box.js` (bounded size), every
-animation through `motion.js`.
+animation through `motion.js`, and states and numbers are written by `format.js`. `static/app/main.js`
+only boots the window; the app's modules share `app-state.js` (the state, the editors) and are split by
+concern: `checking.js`, `panels.js` (inspector, setup panel, annotations), `compare-mode.js` (the modes
+and program B), `result-panel.js` and `run.js` (jobs). No module imports `main.js`: the page loads it with a
+version query, so an import would run it a second time.
 
 ### Examples and tests
 

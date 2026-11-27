@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, cast, Optional, Self, Sequence, Set, Union
 
 import sympy
 
-from prodigy.language import BinopExpr, Expr, NatLitExpr, VarExpr
+from prodigy.language import BinopExpr, Expr, VarExpr
 from prodigy.distribution.distribution import CommonDistributionsFactory, Distribution, Operand
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.distribution.pgf.pgf import PGF
@@ -152,9 +152,15 @@ class PGFHooks(Distribution, CommonDistributionsFactory):
         """
 
     @abstractmethod
-    def _update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
-                    variable: Union[str, VarExpr]) -> PGF:
-        """Engine hook of :meth:`update_iid`, without a convergence proof."""
+    def _compose_iid(self, sample: PGF, count: Union[str, int], variable: str) -> PGF:
+        """
+        Engine hook of :meth:`update_iid`: ``variable`` becomes the sum of ``count`` independent copies of
+        ``sample`` (a generating function in ``variable`` of mass 1). With ``count`` a natural number ``n``:
+        ``variable`` summed out, times ``sample^n``; with ``count == variable``: ``variable`` substituted by
+        ``sample(variable)``; with another variable ``count``: ``variable`` summed out, then ``count`` substituted
+        by ``count * sample(variable)``. The variables are those of this distribution (``sample`` may contain other
+        variables of the state); its parameters gain those of ``sample``.
+        """
 
     @abstractmethod
     def _marginal(self, *variables: Union[str, VarExpr],

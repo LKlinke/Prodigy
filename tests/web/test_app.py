@@ -10,6 +10,18 @@ import pytest
 from prodigy.web.app import create_app
 
 HOST = {"Host": "localhost:8080"}
+APP = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app"
+
+
+def app_source(name):
+    """The text of one module of the GUI's app (main.js wires the modules: app-state, checking, panels,
+    compare-mode, result-panel, run)."""
+    return (APP / name).read_text(encoding="utf-8")
+
+
+def all_app_sources():
+    """The app's modules together, for what none of them may contain."""
+    return "\n".join(path.read_text(encoding="utf-8") for path in sorted(APP.glob("*.js")))
 
 GEOMETRIC = """x: nat;
 c: nat;
@@ -276,8 +288,7 @@ def test_page_has_the_analysis_card_and_no_steps_tab(client):
         response = client.get(f"/static/{path}", headers=HOST)
         assert response.status_code == 404, path
         response.close()
-    main = (COMPONENTS.parent / "main.js").read_text(encoding="utf-8")
-    assert 'TABS = ["setup", "result"]' in main and "stepper" not in main
+    assert 'TABS = ["setup", "result"]' in app_source("panels.js") and "stepper" not in all_app_sources()
 
 
 def test_formulas_are_rendered_in_bounded_boxes(client):
@@ -504,6 +515,8 @@ def test_result_tab_is_an_answer_card_an_analysis_card_and_a_details_line():
         assert gone not in view, gone
     card = (components / "analysis-card.js").read_text(encoding="utf-8")
     assert '[["distribution", "Distribution"], ["size", "Size"], ["time", "Time"], ["checks", "Checks"]]' in card
+    # the lenses Size, Time and Checks are modules of their own
+    card += "".join((components / name).read_text(encoding="utf-8") for name in ("cost-lenses.js", "checks-lens.js"))
     for part in ("massSummary(", "positionChart(", "timelineControl(", "Record Steps", "function certificateView(",
                  "Table of all positions", "Queries after every step"):
         assert part in card, part
@@ -554,12 +567,12 @@ def test_result_staleness(tmp_path):
 def test_finished_run_keeps_edits_and_marks_its_result():
     """finish() keeps the program and setup as they are and compares them with the request of the
     run instead of declaring the result current (#310); the outdated result offers Analyze Again."""
-    main = (COMPONENTS.parent / "main.js").read_text(encoding="utf-8")
-    finish = main[main.index("function finish("):main.index("async function stop(")]
+    running = app_source("run.js")
+    finish = running[running.index("function finish("):running.index("async function stop(")]
     assert "changeSince(request, buildRequest())" in finish and "__request: request" in finish
     assert "resultStale = false" not in finish and "setSource" not in finish and "state.setup =" not in finish
-    assert "state.job = { id: response.job, request," in main
-    assert "markStale" not in main  # replaced by refreshStale, which compares both ways
+    assert "state.job = { id: response.job, request," in running
+    assert "markStale" not in all_app_sources()  # replaced by refreshStale, which compares both ways
     view = (COMPONENTS / "result-view.js").read_text(encoding="utf-8")
     assert '"Analyze Again"' in view and "staleText(options.change)" in view
 
@@ -651,10 +664,10 @@ def test_editing_the_program_cancels_running_suggestions_and_the_busy_message_is
     """#322: an edit stops the suggestion in flight (its job is cancelled through the request's signal), and the
     busy message of the toolbar opens in full like every run message instead of being cut off (#426)."""
     app_dir = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app"
-    main = (app_dir / "main.js").read_text(encoding="utf-8")
+    main = app_source("main.js")
     setup = (app_dir / "setup.js").read_text(encoding="utf-8")
     assert "export function cancelSuggestions()" in setup and "entry.controller.abort()" in setup
     handler = main.split("onChange: (source) => {", 1)[1].split("},", 1)[0]
     assert "cancelSuggestions();" in handler
-    busy = main.split("function showBusy(", 1)[1].split("\n}\n", 1)[0]
+    busy = app_source("run.js").split("function showBusy(", 1)[1].split("\n}\n", 1)[0]
     assert 'showRunMessage(message, "error", [cancel])' in busy

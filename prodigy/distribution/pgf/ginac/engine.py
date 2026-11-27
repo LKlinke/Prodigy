@@ -9,7 +9,7 @@ from __future__ import annotations
 import itertools
 import re
 
-from typing import (Any, Callable, Dict, FrozenSet, Generator, Iterator, List, Optional, Set, Tuple,
+from typing import (cast, Any, Callable, Dict, FrozenSet, Generator, Iterator, List, Optional, Set, Tuple,
                     Type, Union)
 
 import prodigy_ginac
@@ -20,14 +20,14 @@ from prodigy.distribution.pgf.rules.exact_division import divide_exponents
 from prodigy.distribution.pgf.sympy.engine import SympyPGF
 from prodigy.distribution.pgf.rules.negative_values import can_be_negative, operand
 from prodigy.distribution.pgf.rules.roots_of_unity import require_single_valued
-from prodigy.distribution.distribution import Distribution, DistributionParam, Operand
+from prodigy.distribution.distribution import Distribution, Operand
 from prodigy.distribution.errors import NonFiniteMarginalError
 from prodigy.distribution.values import MarginalType, State, canonical_order
 from prodigy.distribution.pgf.pgf import PGF
-from prodigy.language import Binop, BinopExpr, Expr, FunctionCallExpr, NatLitExpr, VarExpr
+from prodigy.language import Binop, BinopExpr, Expr, VarExpr
 
 from prodigy.util.order import default_monomial_iterator
-from prodigy.language.engine_text import engine_format, engine_text_of
+from prodigy.language.engine_text import engine_text_of
 
 
 def _is_division_by_zero(error: ValueError) -> bool:
@@ -581,82 +581,11 @@ class GinacPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
             self._case_split(lambda: self._dist.update_power(temp_var, base, exp, approximate), base, exp),
             self._variables, self._parameters)
 
-    def _update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
-                    variable: Union[str, VarExpr]) -> GinacPGF:
-        if not isinstance(sampling_dist, FunctionCallExpr):
-            result = GinacPGF.from_dist(
-                self._dist.updateIid(engine_text_of(variable),
-                                     prodigy_ginac.Dist(engine_text_of(sampling_dist), list(self._parameters)),
-                                     engine_text_of(count)), self._variables,
-                self._parameters)
-            return result
-
-        if sampling_dist.function in {"unif", "unif_d"}:
-            [start, end] = sampling_dist.params[0]
-            # Note: add parameters in constructor call of prodigy_ginac.Dist
-            result = self._dist.updateIid(
-                engine_text_of(variable),
-                prodigy_ginac.Dist(
-                    engine_format("1/(({end}) - ({start}) + 1) * test^({start}) "
-                                  "* (test^(({end}) - ({start}) + 1) - 1) / (test - 1)", end=end, start=start),
-                    list(self._parameters)),
-                engine_text_of(count))
-            return GinacPGF.from_dist(result, self._variables, self._parameters)
-
-        if sampling_dist.function == "binomial":
-            [n, p] = sampling_dist.params[0]
-            # Note: add parameters in constructor call of prodigy_ginac.Dist
-            result = self._dist.updateIid(
-                engine_text_of(variable),
-                prodigy_ginac.Dist(engine_format('(1 - ({p}) + ({p}) * {variable})^({n})', p=p, variable=variable, n=n),
-                                   list(self._parameters)),
-                engine_text_of(count))
-            return GinacPGF.from_dist(result, self._variables, self._parameters)
-
-        if sampling_dist.function == "negative_binomial":
-            [r, p] = sampling_dist.params[0]
-            result = self._dist.updateIid(
-                engine_text_of(variable),
-                prodigy_ginac.Dist(engine_format('(({p}) / (1 - (1 - ({p})) * {variable}))^({r})',
-                                                 p=p, variable=variable, r=r), list(self._parameters)),
-                engine_text_of(count))
-            return GinacPGF.from_dist(result, self._variables, self._parameters)
-
-        [param] = sampling_dist.params[0]
-        if sampling_dist.function == "geometric":
-            result = self._dist.updateIid(
-                engine_text_of(variable), prodigy_ginac.geometric(engine_text_of(variable), engine_text_of(param)),
-                engine_text_of(count))
-            return GinacPGF.from_dist(result, self._variables, self._parameters)
-
-        if sampling_dist.function == "bernoulli":
-            symbolic_param = prodigy_ginac.find_symbols(engine_text_of(param))
-            result = self._dist.updateIid(
-                engine_text_of(variable),
-                prodigy_ginac.Dist(engine_format("({param}) * {variable} + (1-({param}))",
-                                                 param=param, variable=variable),
-                                   symbolic_param), engine_text_of(count))
-            return GinacPGF.from_dist(result, self._variables, self._parameters)
-
-        if sampling_dist.function == "poisson":
-            result = self._dist.updateIid(
-                engine_text_of(variable),
-                prodigy_ginac.Dist(engine_format("exp(({param}) * ({variable} - 1))", param=param, variable=variable),
-                                   list(self._parameters)),
-                engine_text_of(count))
-            return GinacPGF.from_dist(result, self._variables, self._parameters)
-
-        if sampling_dist.function == 'logdist':
-            result = self._dist.updateIid(
-                engine_text_of(variable),
-                prodigy_ginac.Dist(
-                    engine_format('log(1 - ({param}) * {variable}) / log(1 - ({param}))',
-                                  param=param, variable=variable),
-                    list(self._parameters)),
-                engine_text_of(count))
-            return GinacPGF.from_dist(result, self._variables, self._parameters)
-
-        raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
+    def _compose_iid(self, sample: PGF, count: Union[str, int], variable: str) -> GinacPGF:
+        result = self._dist.updateIid(variable, cast(GinacPGF, sample)._dist,  # pylint: disable=protected-access
+                                      str(count))
+        return GinacPGF.from_dist(result, self._variables,
+                                  self._parameters | (sample.get_parameters() - self._variables))
 
     def _marginal(self,
                  *variables: Union[str, VarExpr],
@@ -710,52 +639,12 @@ class GinacPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
 
 
     @staticmethod
-    def geometric(var: Union[str, VarExpr], p: DistributionParam) -> GinacPGF:
-        return GinacPGF.from_dist(prodigy_ginac.geometric(var, engine_text_of(p)), {str(var)},
-                             {*prodigy_ginac.find_symbols(engine_text_of(p))})
-
-    @staticmethod
-    def uniform(var: Union[str, VarExpr], lower: DistributionParam,
-                upper: DistributionParam) -> GinacPGF:
-        function = engine_format("1/(({upper}) - ({lower}) + 1) * ({var}^({lower})) "
-                                 "* (({var}^(({upper}) - ({lower}) + 1) - 1)/({var} - 1))",
-                                 upper=upper, lower=lower, var=var)
-        return GinacPGF(function, engine_text_of(var), finite=True)
-
-    @staticmethod
-    def bernoulli(var: Union[str, VarExpr], p: DistributionParam) -> GinacPGF:
-        function = engine_format("({p}) * {var} + 1-({p})", p=p, var=var)
-        return GinacPGF(function, engine_text_of(var), finite=True)
-
-    @staticmethod
-    def poisson(var: Union[str, VarExpr], lam: DistributionParam) -> GinacPGF:
-        function = engine_format("exp(({lam}) * ({var} - 1))", lam=lam, var=var)
-        return GinacPGF(function, engine_text_of(var))
-
-    @staticmethod
-    def log(var: Union[str, VarExpr], p: DistributionParam) -> GinacPGF:
-        function = engine_format("log(1-({p})*{var})/log(1-({p}))", p=p, var=var)
-        return GinacPGF(function, engine_text_of(var))
-
-    @staticmethod
-    def binomial(var: Union[str, VarExpr], n: DistributionParam,
-                 p: DistributionParam) -> GinacPGF:
-        function = engine_format("(({p})*{var} + (1-({p})))^({n})", p=p, var=var, n=n)
-        return GinacPGF(function, engine_text_of(var))
-
-    @staticmethod
-    def negative_binomial(var: Union[str, VarExpr], r: DistributionParam,
-                          p: DistributionParam) -> GinacPGF:
-        function = engine_format("(({p}) / (1 - (1-({p})) * {var}))^({r})", p=p, var=var, r=r)
-        return GinacPGF(function, engine_text_of(var))
-
-    @staticmethod
     def one(*variables: Union[str, VarExpr]) -> GinacPGF:
         return GinacPGF("1", *variables, finite=True)
 
     @staticmethod
     def from_expr(expression: Union[str, Expr], *variables: Union[str, VarExpr], **kwargs: Optional[bool]) -> GinacPGF:
-        return GinacPGF(engine_text_of(expression), *variables)
+        return GinacPGF(engine_text_of(expression), *variables, finite=kwargs.get("finite"))
 
     @staticmethod
     def zero(*variables: Union[str, VarExpr]) -> GinacPGF:
