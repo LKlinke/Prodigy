@@ -24,7 +24,7 @@ steps. A ``while`` loop is one step whose ``loop`` entry tells what its strategy
   loop, and the mass still inside the loop, which shrinks; at most ``TraceLimits.iterates`` of
   them, spread evenly over the run, plus the last one;
 * every strategy records the checks of its certificate in words (fixed point, non-negativity,
-  finite mass, ...) and, if a check failed, why.
+  finite mass, ...) and, if a check failed, why (:mod:`prodigy.analysis.certificate_checks`).
 
 Soundness
 ---------
@@ -65,6 +65,7 @@ from prodigy.language import (AbortInstr, AsgnInstr, ChoiceInstr, Expr, IfInstr,
                           QueryInstr, SkipInstr, VarExpr, WhileInstr)
 from prodigy.language.positions import span_of
 
+from prodigy.analysis.certificate_checks import certificate_checks
 from prodigy.analysis.loops.api import Bound
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -154,176 +155,6 @@ def parse_watch(text: str, names: Optional[Sequence[str]] = None) -> Watch:
             if isinstance(ref.val, VarExpr) and ref.val.var not in allowed:
                 raise InvalidWatchError(f"{original.strip()!r}: '{ref.val.var}' is not a variable of the program.")
     return Watch(original.strip(), _WATCH_KINDS[head.strip()], expr)
-
-
-# ---------------------------------------------------------------------------------------
-# Certificate checks in words
-# ---------------------------------------------------------------------------------------
-
-def _valuation(state: Dict[str, Any]) -> str:
-    return ", ".join(f"{k} = {v}" for k, v in state.items()) or "where every variable is 0"
-
-
-def _check(label: str, status: str, text: str) -> Dict[str, str]:
-    """``status``: ``passed`` (proven by Prodigy), ``failed``, ``unknown`` (not established) or ``info``."""
-    return {"label": label, "status": status, "text": text}
-
-
-def _remaining(certificate: Mapping[str, Any], key: str = "remaining_mass") -> Optional[Dict[str, str]]:
-    remaining = certificate.get(key)
-    if remaining is None:
-        return None
-    if str(remaining) == "0":
-        return _check("Residual mass", "passed", "No mass is left inside the loop: the result is exact.")
-    return _check("Residual mass", "info",
-                  f"Mass {remaining} is still inside the loop, so the result is a lower bound with this residual "
-                  "mass (it may still terminate with any value, or never).")
-
-
-def _tristate(value: Any, label: str, yes: str, no: str, undecided: str, *, no_status: str = "failed"
-              ) -> Dict[str, str]:
-    if value is True or (isinstance(value, str) and value not in ("", "None", "False")):
-        return _check(label, "passed", yes)
-    if value is False:
-        return _check(label, no_status, no)
-    return _check(label, "unknown", undecided)
-
-
-def certificate_checks(certificate: Optional[Mapping[str, Any]], failed: Optional[str] = None
-                       ) -> List[Dict[str, str]]:
-    """The checks of a loop certificate (or of the ``details`` of a failed check) in words. A check is
-    only ``passed`` if the certificate says that Prodigy proved it."""
-    # pylint: disable=import-outside-toplevel,too-many-branches,too-many-statements
-    from prodigy.analysis.ai_candidates import describe_rejection
-    cert = dict(certificate or {})
-    kind = cert.get("type")
-    verdict = cert.get("verdict")
-    checks: List[Dict[str, str]] = []
-    if failed is not None and (verdict in ("refuted", "unknown") or cert.get("condition")):
-        status = "failed" if verdict == "refuted" else "unknown" if verdict == "unknown" else "failed"
-        checks.append(_check("Certificate", status, describe_rejection(failed, cert)))
-    automatic = cert.get("automatic")
-    if automatic:
-        checks.append(_check("Automatic", "info",
-                             "An EVT invariant was synthesised and certified exact."
-                             if automatic.get("chosen") == "evt_synthesis" else
-                             f"No exact EVT invariant was found ({automatic.get('synthesis')}); unrolled instead."))
-    if kind == "unrolling":
-        done = cert.get("iterations_done", cert.get("iterations"))
-        if cert.get("fixpoint"):
-            checks.append(_check("Fixed point", "passed",
-                                 f"After {done} iteration(s) one more iteration changes nothing."))
-        else:
-            checks.append(_check("Iterations", "info", f"{done} iteration(s) computed."))
-        found = _remaining(cert)
-        if found and not (cert.get("fixpoint") and found["status"] == "info"):
-            checks.append(found)
-        elif cert.get("fixpoint") and found:
-            checks.append(_check("Divergence", "info",
-                                 f"Mass {cert.get('remaining_mass')} stays inside the loop forever."))
-    elif kind == "mass_threshold":
-        checks.append(_check("Threshold", "info", f"Captured mass {cert.get('captured_mass')} after "
-                                                   f"{cert.get('iterations')} iteration(s); threshold "
-                                                   f"{cert.get('threshold')}."))
-        found = _remaining(cert)
-        if found:
-            checks.append(found)
-    elif kind == "evt_iteration":
-        checks.append(_check("Iterations", "info", f"{cert.get('iterations')} application(s) of the EVT operator."))
-        checks.append(_check("Exploration", "info", "The iterates H_N are expected visiting times, not the output "
-                                                     "distribution; the result is their terminating part."))
-        guess = (cert.get("exploration") or {}).get("guess")
-        if guess:
-            checks.append(_check("Candidate", "info", f"Guessed EVT invariant {guess.get('candidate')} (not "
-                                                       "checked; use Check EVT invariant)."))
-        found = _remaining(cert)
-        if found:
-            checks.append(found)
-    elif kind == "invariant":
-        if verdict == "verified":
-            checks.append(_check("Fixed point", "passed",
-                                 "Φ(I) = I holds for all inputs: I equals one unrolling of the loop followed by I."))
-            if cert.get("constraints"):
-                checks.append(_check("Constraints", "info", f"Only under the constraints {cert['constraints']}."))
-            checks.append(_check("Park's lemma", "info",
-                                 "So the result is an upper bound; it is exact if the loop terminates almost "
-                                 "surely, which is not checked."))
-        elif verdict == "refuted" and failed is None:
-            checks.append(_check("Fixed point", "failed",
-                                 f"Φ(I) ≠ I: witness {cert.get('witness')}."))
-        elif verdict == "unknown" and failed is None:
-            checks.append(_check("Fixed point", "unknown",
-                                 f"Fixed point not proven: Φ(I) − I = {cert.get('difference')} could not be shown "
-                                 "to vanish."))
-        elif verdict == "refuted" and cert.get("witness") is not None:
-            witness = cert["witness"]
-            checks.append(_check("Witness", "failed",
-                                 "I and one unrolling of the loop give provably different probabilities to the "
-                                 "output state " + _valuation(witness.get("state") or {}) + " on the input "
-                                 + _valuation(cert.get("counterexample") or {}) + "."))
-        elif verdict == "unknown" and cert.get("counterexample") is not None:
-            # a raw "different" of the check without a witness is no refutation (#403)
-            checks.append(_check("Counterexample", "unknown",
-                                 "Candidate only: the check found I and one unrolling of the loop to differ on the "
-                                 "input " + _valuation(cert["counterexample"]) + ", but no witness was confirmed."))
-    elif kind in ("evt_invariant", "evt_synthesis"):
-        if verdict not in ("refuted", "unknown"):
-            checks.append(_check("Fixed point", "passed",
-                                 f"I = G + ⟦body⟧(⟨I⟩_guard) holds for I = {cert.get('invariant')}."))
-            checks.append(_tristate(cert.get("nonnegative"), "Non-negative", "I has non-negative coefficients.",
-                                    "I has negative coefficients, so Park's lemma does not apply.",
-                                    "Non-negativity of the coefficients of I could not be established."))
-            mass = cert.get("mass")
-            checks.append(_tristate(cert.get("finite_mass"), "Finite mass",
-                                    f"I has finite mass |I| = {mass}, so the fixed point is the least one: exact.",
-                                    "I has infinite mass and may be a spurious fixed point: at most an upper bound.",
-                                    "Finite mass of I was not shown, so exactness is not certified.",
-                                    no_status="unknown"))
-            if cert.get("nonnegative") is True and cert.get("finite_mass") is not True:
-                reason = cert.get("series_identity")
-                checks.append(_check("Series", "passed" if reason else "unknown",
-                                     f"The equation also holds for the power series of I ({reason}), so Park's "
-                                     "lemma gives an upper bound." if reason else
-                                     "The equation was shown for the closed form of I only: the series of I may "
-                                     "diverge where the loop body evaluates it (e.g. a marginal), so Park's "
-                                     "lemma does not apply."))
-    elif kind == "evt_subinvariant":
-        if failed is None:
-            checks.append(_tristate(cert.get("nonnegative"), "ν ≥ 0",
-                                    f"ν has non-negative coefficients ({cert.get('nonnegative')}).",
-                                    "ν has negative coefficients.", "Non-negativity of ν was not established."))
-            checks.append(_tristate(cert.get("subinvariance"), "ν ≤ Φ(ν)",
-                                    f"ν ≤ Φ(ν) coefficient-wise ({cert.get('subinvariance')}).",
-                                    "ν ≤ Φ(ν) fails.", "ν ≤ Φ(ν) was not established."))
-            checks.append(_check("Finite mass", "passed", f"|ν| = {cert.get('mass')} is finite."))
-            missing = cert.get("missing_mass")
-            if missing is not None:
-                checks.append(_check("Residual mass", "passed" if str(missing) == "0" else "info",
-                                     "Nothing is missing: exact." if str(missing) == "0"
-                                     else f"Lower bound; at most {missing} of the mass is not accounted for."))
-    elif kind == "evt_sandwich":
-        low, high = (cert.get("termination_probability") or [None, None])[:2]
-        checks.append(_check("Termination probability", "info", f"Between {low} and {high}."))
-        for name, label in (("lower", "Sub-invariant"), ("upper", "Super-invariant")):
-            part = cert.get(name)
-            if part:
-                checks.append(_check(label, "passed", f"Checked exactly: {part.get('check') or 'verified'}."))
-            elif name == "upper":
-                checks.append(_check(label, "unknown", "No super-invariant found: no upper bounds."))
-    elif kind == "ai_attempts":
-        for attempt in cert.get("attempts") or []:
-            status = {"proven": "passed", "not_larger": "info", "unknown": "unknown"}.get(attempt.get("verdict"),
-                                                                                         "failed")
-            checks.append(_check(f"Attempt {attempt.get('attempt')}", status,
-                                 attempt.get("reason") or f"Candidate {attempt.get('candidate')}."))
-    if cert.get("ai"):
-        ai = cert["ai"]
-        checks.append(_check("Language model", "info",
-                             f"Candidate {ai.get('candidate')} proposed by {ai.get('model')} "
-                             f"(attempt {ai.get('attempts')} of {ai.get('asked')}), checked by Prodigy."))
-    if failed is not None and not checks:
-        checks.append(_check("Strategy", "failed", describe_rejection(failed, cert)))
-    return checks
 
 
 # ---------------------------------------------------------------------------------------

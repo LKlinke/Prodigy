@@ -27,7 +27,7 @@ the web GUI, a language server). Its top-level keys::
 Comparing two programs
 ----------------------
 The result of comparing two programs (``POST /api/equivalence``,
-:func:`prodigy.web.requests.run_equivalence`) is the result of the first program with the extra key
+:func:`prodigy.web.compare.run_equivalence`) is the result of the first program with the extra key
 ``equivalence``; ``equivalence.other`` is the result of the second program, in this format as well.
 ``verdict`` is ``equivalent`` only if equality was proven with both programs analysed exactly,
 ``not_equivalent`` only with a ``witness`` (an output state whose probabilities provably differ), and
@@ -129,11 +129,15 @@ from __future__ import annotations
 
 import logging
 import re
+import time
+import traceback
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from prodigy.analysis.loops.api import Bound
-from prodigy.analysis.values import QueryResult, is_non_finite, to_sympy
+from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
+from prodigy.analysis.loops.api import Bound, DecisionRequired
+from prodigy.analysis.values import (QueryResult, _safe, bounds_explanation, describe_distribution, error_type,
+                                     exact_and_float, is_non_finite, to_sympy)
 from prodigy.util.logger import log_setup
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -295,3 +299,95 @@ def language_warnings(session: Any) -> List[str]:
     from prodigy.language.diagnostics import language_warning_diagnostics
     found = language_warning_diagnostics(session.program, session.source)
     return [f"line {d['line']}, column {d['column']}: {d['message']}" for d in found]
+
+
+# ---------------------------------------------------------------------------------------
+# Assembling the result of a session (prodigy.analysis.session.build_result runs the analysis)
+# ---------------------------------------------------------------------------------------
+
+def result_input(session: "AnalysisSession") -> Dict[str, Any]:
+    """The ``input`` section: the input distribution, the engine, normalisation and the decisions."""
+    config = session.config
+    return {
+        "distribution": str(session.input_distribution) if session.input_distribution is not None else None,
+        "engine": engine_name(config),
+        "normalize": config.normalize,
+        "decisions": {str(k): v.to_json() for k, v in session.provider.decisions.items()},
+    }
+
+
+def describe_output(result: AnalysisResult, session: "AnalysisSession", final: "Distribution",
+                    error_prob: "Distribution") -> None:
+    """The ``bounds``, ``distribution``, ``distributions`` and violation mass of a finished analysis; runs inside
+    the session's analysis context (its errors are the analysis' errors)."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.nested_inference import dist_values_json  # the nested inference is above this layer
+    config = session.config
+    residual, residual_float = exact_and_float(session.residual)
+    track = session.upper
+    result.bounds = {
+        "kind": session.bound_kind,
+        "residual_mass": residual,
+        "residual_mass_float": residual_float,
+        "explanation": bounds_explanation(session.bound_kind, residual, track is not None),
+        "upper": None if track is None else {"closed_form": str(track.distribution), "origin": track.origin},
+    }
+    summary_start = time.perf_counter()
+    stream = session.progress_callback if session.stream_coefficients else None
+    result.distribution = describe_distribution(final, limit=session.coefficient_limit, kind=session.bound_kind,
+                                                residual=session.residual, stream=stream,
+                                                simplify=config.use_simplification,
+                                                upper=session.upper_distribution)
+    if session.dist_values:
+        result.distributions = dist_values_json(session.dist_values, session.coefficient_limit)
+    result.timing["summary"] = round(time.perf_counter() - summary_start, 6)
+    result.error_probability, result.error_probability_float = \
+        exact_and_float(_safe(error_prob.get_probability_mass))
+
+
+def record_failure(result: AnalysisResult, exc: Exception) -> None:
+    """The ``status`` and ``error`` of an analysis that ended with ``exc``: a missing decision, a failed
+    verification or analysis (with its verdict, if it has one), or any other error (with its traceback)."""
+    if isinstance(exc, DecisionRequired):
+        result.status = "needs_decision"
+        result.error = {"type": "decision", **exc.to_json()}
+    elif isinstance(exc, (VerificationError, ForwardAnalysisError)):
+        result.status = "error"
+        details = getattr(exc, "details", None)
+        result.error = {"type": type(exc).__name__, "message": str(exc), "details": details}
+        verdict = details.get("verdict") if isinstance(details, dict) else None
+        if verdict in ("refuted", "unknown"):
+            result.error["verdict"] = verdict
+    else:
+        result.status = "error"
+        result.error = {"type": error_type(exc), "message": str(exc) or type(exc).__name__,
+                        "traceback": traceback.format_exc()}
+
+
+def finish_result(result: AnalysisResult, session: "AnalysisSession", final: Optional["Distribution"]) -> None:
+    """What the session recorded (queries, loops, steps, trace, warnings, log), and the check that no value of
+    the result is undefined (nan or ∞)."""
+    result.queries = list(session.queries)
+    undefined_queries: List[str] = []
+    if result.status == "ok" and final is not None:
+        parts = non_finite_parts(result, final)
+        # an undefined query value loses its interval but does not fail the analysis (#316): the distribution and
+        # the other queries are not affected
+        undefined_queries = [part for part in parts if part.startswith("the query")]
+        if len(undefined_queries) < len(parts):
+            result.status = "error"
+            result.error = {
+                "type": "NonFiniteResult",
+                "message": f"Undefined value (nan or ∞) in {', '.join(parts)}; the result has no guarantee.",
+                "details": {"parts": parts},
+            }
+    if result.status != "ok":
+        result.bounds = failure_bounds(result.status)
+    result.loops = [record.to_json() for record in session.loop_records.values()]
+    result.loops.sort(key=lambda r: (r["id"] is None, r["id"] if r["id"] is not None else 0))
+    result.steps = session.steps
+    result.trace = session.tracer.to_json() if session.tracer is not None else None
+    result.warnings = language_warnings(session) + list(session.warnings) + [
+        f"Undefined value (nan or ∞) in {part}; it has no guarantee. The distribution and the other queries "
+        "are not affected." for part in undefined_queries]
+    result.log = ANSI.sub("", session.log.getvalue())
