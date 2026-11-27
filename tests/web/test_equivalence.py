@@ -11,7 +11,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.equivalence import verdict as eq
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.web.app import create_app
-from prodigy.web.requests import run_equivalence, validate_equivalence
+from prodigy.web.compare import run_equivalence, validate_equivalence
 
 from tests.web.test_app import HOST, wait_for
 
@@ -155,7 +155,7 @@ def test_gamblers_ruin_with_swapped_branches_is_refuted(monkeypatch):
     refuted on x = 0, n = 1 (the loop keeps x = 0, the closed form sets x = 1). The witness search on that input
     proves the programs different."""
     # the search takes 8-12 s here; on a loaded CI runner the default limit of 20 s ended it with "unknown"
-    monkeypatch.setattr("prodigy.web.requests.WITNESS_SECONDS", 100.0)
+    monkeypatch.setattr("prodigy.web.compare.WITNESS_SECONDS", 100.0)
     equivalence = compare(GAMBLER, GAMBLER_CLOSED, decisions={"0": {"strategy": "invariant",
                                                                     "params": {"invariant": GAMBLER_CLOSED}}}
                           )["equivalence"]

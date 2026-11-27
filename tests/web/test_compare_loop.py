@@ -12,7 +12,8 @@ from prodigy.analysis.session import LoopRegistry
 from prodigy.analysis.loops.api import isolate_loop
 from prodigy.language import parse_program
 from prodigy.web.app import create_app
-from prodigy.web.requests import loop_program, run_analysis
+from prodigy.web.compare import loop_program
+from prodigy.web.requests import run_analysis
 
 from tests.web.test_app import HOST
 from tests.web.test_equivalence import compare

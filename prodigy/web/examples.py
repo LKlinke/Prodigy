@@ -167,6 +167,23 @@ class ExampleLibrary:
         files = [path.parent / "invariants" / f"{path.stem}_invariant{k}{path.suffix}" for k in range(1, loops + 1)]
         return files if all(f.is_file() for f in files) else []
 
+    def _suggest_second_program(self, arg: str, loops: int, suggestion: Dict[str, Any]) -> None:
+        """The setup of an equivalence example whose second program is ``arg``: with one loop, the second
+        program is its invariant."""
+        other = self._resolve_arg(arg)
+        if other is None or self.root is None:
+            return
+        name = other.relative_to(self.root).as_posix()
+        if loops == 1:
+            suggestion["decisions"] = {"0": {"strategy": "invariant",
+                                             "params": {"invariant": other.read_text(encoding="utf-8")}}}
+            suggestion["note"] = (f"Equivalence example: both programs are loaded ({name} is the second), "
+                                  "and Compare checks them for every input. The loop uses the second "
+                                  "program as its invariant.")
+        elif loops == 0:
+            suggestion["note"] = (f"Equivalence example: both programs are loaded ({name} is the second), "
+                                  "and Compare checks them for every input.")
+
     def _suggest(self, path: Path, source: str, example: Optional[Example]) -> Dict[str, Any]:
         suggestion: Dict[str, Any] = {"decisions": {}, "input_distribution": None, "note": ""}
         if example is None:
@@ -184,19 +201,7 @@ class ExampleLibrary:
                                   f"input. The loops use the invariants {', '.join(inv.name for inv in numbered)} "
                                   "(one per loop, in textual order).")
         elif example.command == "check_equality" and example.args and self.root is not None:
-            other = self._resolve_arg(example.args[0])
-            if other is not None:
-                other_source = other.read_text(encoding="utf-8")
-                name = other.relative_to(self.root).as_posix()
-                if loops == 1:
-                    suggestion["decisions"] = {"0": {"strategy": "invariant",
-                                                     "params": {"invariant": other_source}}}
-                    suggestion["note"] = (f"Equivalence example: both programs are loaded ({name} is the second), "
-                                          "and Compare checks them for every input. The loop uses the second "
-                                          "program as its invariant.")
-                elif loops == 0:
-                    suggestion["note"] = (f"Equivalence example: both programs are loaded ({name} is the second), "
-                                          "and Compare checks them for every input.")
+            self._suggest_second_program(example.args[0], loops, suggestion)
         elif example.command == "invariant_synthesis":
             suggestion["decisions"] = {"*": {"strategy": "evt_synthesis", "params": {}}}
             suggestion["note"] = "Expected-visiting-time invariant synthesis."

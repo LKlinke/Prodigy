@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import threading
 from collections import OrderedDict
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Set
 
 import copy
 
@@ -43,11 +43,24 @@ def check_source(source: str) -> Dict[str, Any]:
     return result
 
 
+def _dist_assigned_in_loop(loop: Any, dist_vars: Set[str], source: str) -> Optional[Dict[str, Any]]:
+    """The warning for ``loop`` if its body assigns one of the ``dist`` variables ``dist_vars``, else None."""
+    from prodigy.analysis.tools import assigned_dist_variables  # pylint: disable=import-outside-toplevel
+    assigned = assigned_dist_variables(loop.body, dist_vars)
+    if not assigned:
+        return None
+    span = span_of(loop)
+    where = (span.line, span.column, span.line, span.column + 5) if span else None
+    return diagnostic(
+        "warning", f"The loop assigns the dist variable {assigned[0]}; dist values in the state "
+        "of a loop are not implemented yet.", where, source,
+        hint="The program is valid, but the analysis will stop here. Assign it before the loop.")
+
+
 def _nested_inference_limits(program: Any, source: str) -> List[Dict[str, Any]]:
     """Warnings for valid programs with ``dist`` values that the analysis cannot compute yet,
     as far as they can be seen without running it: a loop that assigns a ``dist`` variable."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.tools import assigned_dist_variables
     from prodigy.language import LoopInstr, WhileInstr
     from prodigy.language.ast.types import DistributionType
     from prodigy.language.ast.walk import Walk, walk_instrs
@@ -60,18 +73,10 @@ def _nested_inference_limits(program: Any, source: str) -> List[Dict[str, Any]]:
         if not dist_vars:
             continue
         for ref in walk_instrs(Walk.DOWN, instructions):
-            loop = ref.val
-            if not isinstance(loop, (WhileInstr, LoopInstr)):
-                continue
-            assigned = assigned_dist_variables(loop.body, dist_vars)
-            if not assigned:
-                continue
-            span = span_of(loop)
-            where = (span.line, span.column, span.line, span.column + 5) if span else None
-            found.append(diagnostic(
-                "warning", f"The loop assigns the dist variable {assigned[0]}; dist values in the state "
-                "of a loop are not implemented yet.", where, source,
-                hint="The program is valid, but the analysis will stop here. Assign it before the loop."))
+            if isinstance(ref.val, (WhileInstr, LoopInstr)):
+                warning = _dist_assigned_in_loop(ref.val, dist_vars, source)
+                if warning is not None:
+                    found.append(warning)
     return found
 
 
