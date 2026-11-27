@@ -10,14 +10,16 @@ LOG_FILE_ENV = "PRODIGY_LOG_FILE"
 
 def log_setup(name: str, level: Union[int, str], file: Optional[str] = None) -> logging.Logger:
     """
-    The logger ``name``. By default it writes nothing to disk: records of level WARNING and above
-    reach stderr through Python's last-resort handler. DEBUG output (it contains whole generating
-    functions) is written only on request, to ``file`` or to the file named by the environment
-    variable ``PRODIGY_LOG_FILE``.
+    The logger ``name``. By default it writes nothing to disk and its level is WARNING: records of level WARNING
+    and above reach stderr through Python's last-resort handler, and a debug or info call creates no record at all
+    (its arguments are formatted only for a record, so the calls stay cheap). DEBUG output (it contains whole
+    generating functions) is written only on request, to ``file`` or to the file named by the environment variable
+    ``PRODIGY_LOG_FILE``; then the logger has the given ``level`` (#284).
     """
     logger = logging.getLogger(name)
-    logger.setLevel(level)
     file = file or os.environ.get(LOG_FILE_ENV)
+    numeric = level if isinstance(level, int) else logging.getLevelNamesMapping()[level]
+    logger.setLevel(numeric if file else max(numeric, logging.WARNING))
     if file and not any(isinstance(h, logging.FileHandler) and h.baseFilename == os.path.abspath(file)
                         for h in logger.handlers):
         fhandler = logging.FileHandler(filename=file, mode='a')

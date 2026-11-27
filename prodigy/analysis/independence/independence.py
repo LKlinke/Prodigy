@@ -141,7 +141,7 @@ def independent_vars(program: Program) -> Set[frozenset[Var]]:
     # build edge set
     graph_start = time.perf_counter()
     graph = build_dependence_graph(mod_program)
-    logger.debug(" graph: %s", str(graph))
+    logger.debug(" graph: %s", graph)
 
     # Filter out params as they are unchangeable
     mod_graph = filter(lambda x: x[0] not in mod_program.parameters, graph)
@@ -150,7 +150,7 @@ def independent_vars(program: Program) -> Set[frozenset[Var]]:
     dsep_start = time.perf_counter()
     result = _dsep(mod_graph, mod_program.variables)
     dsep_end = time.perf_counter()
-    logger.debug(" result: %s", str(result))
+    logger.debug(" result: %s", result)
     logger.debug(" prep: %.4f, graph: %.4f, dsep: %.4f", prep_end - prep_start,
                  graph_end - graph_start, dsep_end - dsep_start)
 

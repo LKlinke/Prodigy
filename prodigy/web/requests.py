@@ -29,18 +29,13 @@ and :func:`prepare_request` turns them into the engines' spelling (``x**2`` -> `
 """
 from __future__ import annotations
 
-import contextlib
 import copy
-import time
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 from prodigy.analysis.deprecations import REMOVED_ENGINES
 
 if TYPE_CHECKING:
     from prodigy.analysis.config import ForwardAnalysisConfig
-    from prodigy.analysis.tools import CheckOutcome
-    from prodigy.analysis.session import AnalysisSession
-    from prodigy.language import Program
 
 ENGINES = {
     "sympy": "SymPy",
@@ -96,14 +91,10 @@ def prepare_request(request: Dict[str, Any]) -> Dict[str, Any]:
     return prepared
 
 
-def validate_request(request: Dict[str, Any]) -> List[str]:
-    """Problems that can be found without running the analysis."""
+def _program_problems(request: Dict[str, Any]) -> List[str]:
+    """Problems with the program (empty, removed syntax) and the generating functions of the request."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.tools import (SELECTABLE_POSITIVITY_HEURISTICS, SolverType, SynthesisStrategies,
-                                        TemplateHeuristics)
     from prodigy.language.expression_allowlist import MATH_FUNCTIONS, InadmissibleExpression, admissible_expression
-    from prodigy.analysis.session import parse_decisions, validate_decisions
-
     problems = []
     if not isinstance(request.get("source"), str) or not request["source"].strip():
         problems.append("The program is empty.")
@@ -118,6 +109,15 @@ def validate_request(request: Dict[str, Any]) -> List[str]:
             admissible_expression(container[key], functions=MATH_FUNCTIONS)
         except InadmissibleExpression as exc:
             problems.append(f"{label}: {exc}")
+    return problems
+
+
+def _option_problems(request: Dict[str, Any]) -> List[str]:
+    """Problems with the options: engine, coefficients, synthesis strategy and heuristics, solver."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.tools import (SELECTABLE_POSITIVITY_HEURISTICS, SolverType, SynthesisStrategies,
+                                        TemplateHeuristics)
+    problems = []
     engine = request.get("engine", "sympy")
     if engine in REMOVED_ENGINES:
         problems.append(REMOVED_ENGINES[engine])
@@ -139,6 +139,13 @@ def validate_request(request: Dict[str, Any]) -> List[str]:
         SolverType.named(str(request.get("solver", "sympy")))
     except ValueError as exc:
         problems.append(f"Solver {request.get('solver')!r}: {exc}.")
+    return problems
+
+
+def validate_request(request: Dict[str, Any]) -> List[str]:
+    """Problems that can be found without running the analysis."""
+    from prodigy.analysis.session import parse_decisions, validate_decisions  # pylint: disable=import-outside-toplevel
+    problems = _program_problems(request) + _option_problems(request)
     try:
         decisions = parse_decisions(request.get("decisions") or {})
         problems.extend(validate_decisions(decisions))
@@ -298,248 +305,6 @@ def run_analysis(request: Dict[str, Any], *, output: Optional[Callable[[str], No
 
 
 # ---------------------------------------------------------------------------------------
-# Comparing two programs (POST /api/equivalence)
-# ---------------------------------------------------------------------------------------
-
-def loop_program(source: str, loop_id: int) -> Dict[str, Any]:
-    """A loop of a program as a program of its own, for "Compare this loop" (#399): ``program`` (the
-    program itself if the loop is all it does, else its declarations and the loop, see
-    :func:`prodigy.analysis.loops.api.isolate_loop`), ``loop`` (its id there), ``declarations`` (to start
-    program B from) and ``whole``. Raises ``ValueError`` with a message for the person otherwise."""
-    # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.session import LoopRegistry
-    from prodigy.analysis.loops.api import isolate_loop
-    from prodigy.language import parse_program
-
-    try:
-        program = parse_program(source)
-    except Exception as exc:  # pylint: disable=broad-except
-        raise ValueError(f"The program does not parse: {str(exc).split(chr(10), maxsplit=1)[0]}") from exc
-    registry = LoopRegistry(program)
-    info = next((loop for loop in registry if loop.id == loop_id), None)
-    if info is None:
-        raise ValueError(f"The program has no loop {loop_id}.")
-    if info.function is not None:
-        raise ValueError(f"Loop {loop_id} is inside the function {info.function}; only loops of the program "
-                         "itself can be compared.")
-    instruction = registry.instruction(loop_id)
-    assert instruction is not None
-    isolated = isolate_loop(program, instruction, source)
-    if isolated is None:
-        raise ValueError(f"Loop {loop_id} cannot be written as a program of its own.")
-    return {"program": isolated.program, "loop": isolated.loop, "declarations": isolated.declarations,
-            "whole": isolated.whole}
-
-
-def other_program_request(request: Dict[str, Any]) -> Dict[str, Any]:
-    """The request of the second program of an equivalence request: ``other_source`` (with an optional
-    ``other_syntax``, checked like ``syntax``) with ``other_decisions``, and the options of the first."""
-    other = {key: value for key, value in request.items()
-             if key not in ("source", "syntax", "file_name", "decisions", "record_steps", "watches")}
-    other["source"] = request.get("other_source")
-    if request.get("other_syntax") is not None:
-        other["syntax"] = request["other_syntax"]
-    other["decisions"] = request.get("other_decisions") or {}
-    return {key: value for key, value in other.items() if not key.startswith("other_")}
-
-
-def validate_equivalence(request: Dict[str, Any]) -> List[str]:
-    """Problems with an equivalence request: an analysis request (the first program, without an initial
-    distribution: the check covers every input) plus ``other_source``, optional ``other_syntax`` and
-    ``other_decisions`` (the second program)."""
-    first = {key: value for key, value in request.items() if not key.startswith("other_")}
-    problems = validate_request(first)
-    if isinstance(request.get("input_distribution"), str) and request["input_distribution"].strip():
-        problems.append("A comparison checks every input at once; it takes no initial distribution.")
-    if not isinstance(request.get("other_source"), str) or not request["other_source"].strip():
-        return problems + ["Program B is empty."]
-    try:
-        other = other_program_request(request)
-    except ValueError as exc:
-        return problems + [str(exc)]
-    return problems + [f"Program B: {problem}" for problem in validate_request(other)
-                       if problem not in problems]
-
-
-EQUIVALENCE_SCHEMA = "prodigy/equivalence-result@1"
-"""The schema of the result of a comparison (:func:`run_equivalence`)."""
-
-WITNESS_SECONDS = 20.0
-"""How long a comparison looks for a witness (at most a third of the job's time limit)."""
-
-WITNESS_UNROLLING = 30
-"""Iterations of each loop when the witness search unrolls the loops (lower bounds with residual mass)."""
-
-
-class WitnessTimeout(Exception):
-    """The witness search ran out of its time (:data:`WITNESS_SECONDS`)."""
-
-
-@contextlib.contextmanager
-def _time_budget(seconds: float) -> Iterator[None]:
-    """Raises :class:`WitnessTimeout` in the block after ``seconds`` (SIGALRM, so only in the main thread of
-    a process; elsewhere there is no limit). A timer that was running (e.g. pytest-timeout's) is restored with
-    the time it has left. Native code (GiNaC) is interrupted only when it returns to Python."""
-    # pylint: disable=import-outside-toplevel
-    import signal
-    import threading
-    if not hasattr(signal, "setitimer") or threading.current_thread() is not threading.main_thread():
-        yield
-        return
-
-    def expire(_signum: int, _frame: Any) -> None:
-        raise WitnessTimeout()
-
-    previous = signal.signal(signal.SIGALRM, expire)
-    start = time.monotonic()
-    remaining, interval = signal.setitimer(signal.ITIMER_REAL, max(seconds, 0.001))
-    try:
-        yield
-    finally:
-        signal.setitimer(signal.ITIMER_REAL, 0)
-        signal.signal(signal.SIGALRM, previous)
-        if remaining > 0:
-            signal.setitimer(signal.ITIMER_REAL, max(remaining - (time.monotonic() - start), 0.001), interval)
-
-
-WitnessInput = Dict[str, int]
-"""The input state of a witness search: variable values, absent variables are 0."""
-
-
-def _witness_input(check: "CheckOutcome") -> WitnessInput:
-    """Where to look for a witness: the counterexample of the check, else the input on which an invariant was
-    refuted, else every variable 0."""
-    if check.counterexample:
-        return dict(check.counterexample)
-    details = (check.error or {}).get("details") or {}
-    found = details.get("counterexample")
-    if isinstance(found, dict) and all(isinstance(v, int) and not isinstance(v, bool) for v in found.values()):
-        return {str(k): v for k, v in found.items()}
-    return {}
-
-
-def _search_witness(program: "Program", other: "Program", session: "AnalysisSession", state: WitnessInput,
-                    decisions: Tuple[Dict[str, Any], Dict[str, Any]], seconds: float
-                    ) -> Tuple[Optional[Dict[str, Any]], bool]:
-    """A witness on the input ``state`` (:func:`~prodigy.analysis.equivalence.verdict.find_witness`): both
-    programs are analysed on it, first with the strategies of the request (``decisions`` of A and B), then
-    with every loop unrolled (:data:`WITNESS_UNROLLING`; a lower bound with its residual mass is still
-    sound for a witness). Returns the witness or None, and whether the search ran out of time."""
-    # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.tools import analyse_on_input, find_witness
-    from prodigy.analysis.session import parse_decisions
-    unrolled = {"*": {"strategy": "unroll", "params": {"iterations": WITNESS_UNROLLING}}}
-    attempts = [decisions, (unrolled, unrolled)]
-    try:
-        with _time_budget(seconds):
-            for first, second in attempts:
-                kept = session.provider.decisions
-                session.provider.decisions = parse_decisions(first)
-                try:
-                    one = analyse_on_input(program, state, session)
-                    with session.other_program(other, second):
-                        two = analyse_on_input(other, state, session)
-                    witness = find_witness(one, two)
-                except WitnessTimeout:
-                    raise
-                except Exception:  # pylint: disable=broad-except
-                    witness = None
-                finally:
-                    session.provider.decisions = kept
-                if witness is not None:
-                    return witness, False
-    except WitnessTimeout:
-        return None, True
-    return None, False
-
-
-def run_equivalence(request: Dict[str, Any], *, output: Optional[Callable[[str], None]] = None,
-                    progress: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
-    """Checks whether two programs are equivalent for every input (in a job process): the second-order check
-    (:func:`~prodigy.analysis.equivalence.verdict.run_check`) and, unless it proved the computed distributions
-    equal, a witness search on the input of its counterexample (or every variable 0). No program runs on an
-    input of the person's choosing, and there is no output distribution of either program.
-
-    The result (``prodigy/equivalence-result@1``) has ``status``, ``error``, ``syntax``, ``loops`` and
-    ``other_loops`` (what the loops of programs A and B were proven to be in the check), ``log``, ``timing``
-    and ``equivalence``: the sound verdict (:mod:`prodigy.analysis.equivalence.verdict`), the witness if there
-    is one (with its ``input``), the raw outcome of the check and, if the witness search ran out of time,
-    ``witness_search: "timeout"``. Never raises for analysis errors."""
-    # pylint: disable=import-outside-toplevel,too-many-locals
-    from prodigy.analysis.tools import UNKNOWN, CheckOutcome, decide, different_variables, run_check
-    from prodigy.analysis.result import prodigy_version
-    from prodigy.analysis.session import AnalysisSession
-    from prodigy.language import parse_program
-    from prodigy.util.integers import unlimited_int_digits
-
-    problems = validate_equivalence(request)
-    if problems:
-        return _error("request", " ".join(problems), problems=problems)
-    start = time.perf_counter()
-    first_request = prepare_request({key: value for key, value in request.items() if not key.startswith("other_")})
-    second_request = prepare_request(other_program_request(request))
-    programs: Dict[str, Any] = {}
-    for which, part in (("A", first_request), ("B", second_request)):
-        try:
-            programs[which] = parse_program(part["source"])
-        except Exception as exc:  # pylint: disable=broad-except
-            return _error("syntax", f"Program {which}: {str(exc).split(chr(10), maxsplit=1)[0]}")
-    program, other = programs["A"], programs["B"]
-    decisions = (first_request.get("decisions") or {}, second_request.get("decisions") or {})
-    session = AnalysisSession(program, source=first_request["source"],
-                              config=make_config(first_request), decisions=decisions[0], allow_files=False,
-                              capture_output=True, output_callback=output, progress_callback=progress,
-                              parameter_synthesis="allow")
-    variables_differ = different_variables(program, other)
-    check = CheckOutcome("failed", error={"type": "variables", "message": variables_differ or ""})
-    witness: Optional[Dict[str, Any]] = None
-    timed_out = False
-    with session.activate(), session.config.activate(), session._output():  # pylint: disable=protected-access
-        if variables_differ is None:
-            print("Checking the equivalence for every input (second-order generating functions) …")
-            # each program's loops are decided by their own ids and decisions
-            check = run_check(program, other, session, other_decisions=decisions[1])
-        records = list(session.loop_records.items())
-        if variables_differ is None and check.answer != "equal":
-            state = _witness_input(check)
-            shown = ", ".join(f"{k} = {v}" for k, v in sorted(state.items()) if v) or "every variable 0"
-            print(f"Looking for a witness on the input {shown} …")
-            limit = request.get("time_limit")
-            seconds = WITNESS_SECONDS if not isinstance(limit, (int, float)) else min(WITNESS_SECONDS, limit / 3)
-            with unlimited_int_digits():
-                witness, timed_out = _search_witness(program, other, session, state, decisions, seconds)
-            if witness is not None:
-                witness["input"] = {name: state.get(name, 0) for name in sorted(program.variables)}
-            elif timed_out:
-                print(f"The witness search stopped after {seconds:g} s.")
-    verdict = decide(check, witness, variables_differ=variables_differ, input_tips=False)
-    if timed_out and verdict["verdict"] == UNKNOWN:
-        verdict["reason"] += " The witness search ran out of time."
-
-    def loops(other_program: bool) -> List[Dict[str, Any]]:
-        found = [record.to_json() for key, record in records if isinstance(key, tuple) == other_program]
-        return sorted(found, key=lambda r: (r["id"] is None, r["id"] if r["id"] is not None else 0))
-
-    return {
-        "schema": EQUIVALENCE_SCHEMA,
-        "prodigy_version": prodigy_version(),
-        "status": "ok",
-        "error": None,
-        "syntax": "ppy",
-        "loops": loops(False),
-        "other_loops": loops(True),
-        "log": session.log.getvalue(),
-        "timing": {"total": round(time.perf_counter() - start, 6)},
-        "equivalence": {
-            **verdict,
-            "witness": witness,
-            "witness_search": "timeout" if timed_out else None,
-            "check": check.to_json(),
-        },
-    }
-
-
-# ---------------------------------------------------------------------------------------
 # Coefficient grids of two variables (POST /api/jobs/<id>/joint)
 # ---------------------------------------------------------------------------------------
 
@@ -619,12 +384,32 @@ def joint_request(result: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, 
     }
 
 
+def _computed_grid(request: Dict[str, Any], config: ForwardAnalysisConfig, known: Dict[Tuple[int, int], Any],
+                   progress: Optional[Callable[[Dict[str, Any]], None]]) -> Dict[str, Any]:
+    """The grid of a :func:`joint_request` computed from the closed form (the cells in ``known`` are reused)."""
+    from prodigy.analysis.tools import GridError, joint_grid  # pylint: disable=import-outside-toplevel
+    try:
+        dist = config.factory.from_expr(request["closed_form"], *request["variables"])
+        upper = request.get("upper_closed_form")
+        # the server's own proven upper bound of the same result, a finite measure as well
+        upper_dist = config.factory.from_expr(upper, *request["variables"]) if upper else None
+        grid = joint_grid(dist, request["x"], request["y"], x_window=request.get("x_window"),
+                          y_window=request.get("y_window"), kind=request["bound"],
+                          residual=request.get("residual_mass") or 0, stream=progress, upper=upper_dist,
+                          known=known)
+    except GridError as exc:
+        return error_result("request", str(exc))
+    except Exception as exc:  # pylint: disable=broad-except
+        return error_result(_error_type(exc), f"The grid could not be computed: {str(exc) or type(exc).__name__}")
+    return {"status": "ok", "joint": grid}
+
+
 def run_joint(request: Dict[str, Any], *, output: Optional[Callable[[str], None]] = None,
               progress: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
     """Computes the coefficient grid of a :func:`joint_request` (in a job process); the cells go to
     ``progress`` while they are computed (#405)."""
     # pylint: disable=import-outside-toplevel,unused-argument
-    from prodigy.analysis.tools import GridError, grid_from_known, joint_grid
+    from prodigy.analysis.tools import grid_from_known
     from prodigy.util.integers import unlimited_int_digits
     from prodigy.distribution import known_convergent_series
     config = make_config({"engine": request["engine"]})
@@ -638,20 +423,7 @@ def run_joint(request: Dict[str, Any], *, output: Optional[Callable[[str], None]
                                    residual=request.get("residual_mass") or 0)
             if grid is not None:
                 return {"status": "ok", "joint": grid}
-        try:
-            dist = config.factory.from_expr(request["closed_form"], *request["variables"])
-            upper = request.get("upper_closed_form")
-            # the server's own proven upper bound of the same result, a finite measure as well
-            upper_dist = config.factory.from_expr(upper, *request["variables"]) if upper else None
-            grid = joint_grid(dist, request["x"], request["y"], x_window=request.get("x_window"),
-                              y_window=request.get("y_window"), kind=request["bound"],
-                              residual=request.get("residual_mass") or 0, stream=progress, upper=upper_dist,
-                              known=known)
-        except GridError as exc:
-            return _error("request", str(exc))
-        except Exception as exc:  # pylint: disable=broad-except
-            return _error(_error_type(exc), f"The grid could not be computed: {str(exc) or type(exc).__name__}")
-    return {"status": "ok", "joint": grid}
+        return _computed_grid(request, config, known, progress)
 
 
 # ---------------------------------------------------------------------------------------
@@ -723,8 +495,96 @@ def _error_type(exc: BaseException) -> str:
     return error_type(exc)
 
 
-def _error(kind: str, message: str, **extra: Any) -> Dict[str, Any]:
+def error_result(kind: str, message: str, **extra: Any) -> Dict[str, Any]:
+    """The result of a request that failed before or outside the analysis: ``status`` "error" and the error."""
     return {"status": "error", "error": {"type": kind, "message": message, **extra}}
+
+
+class _SuggestionFailed(Exception):
+    """A suggestion request ends with the error result ``result``."""
+
+    def __init__(self, kind: str, message: str, **extra: Any) -> None:
+        super().__init__(message)
+        self.result = error_result(kind, message, **extra)
+
+
+def _entering_task(program: Any, session: Any, input_distribution: Any, loop_id: int) -> Any:
+    """The task of loop ``loop_id`` with the distribution entering it: the analysis runs until it reaches the
+    loop (:func:`_stopping_session`)."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.session import compute_discrete_distribution
+    from prodigy.analysis.tools import input_distribution_from_text
+    try:
+        if isinstance(input_distribution, str) and input_distribution.strip():
+            dist = input_distribution_from_text(session.config, input_distribution, program)
+        else:
+            dist = session.config.factory.one(*program.variables.keys())
+        compute_discrete_distribution(program, dist, session.config)
+    except _LoopReached as reached:
+        return reached.task
+    except Exception as exc:  # pylint: disable=broad-except
+        raise _SuggestionFailed(_error_type(exc), f"The distribution entering loop {loop_id} could not be "
+                                                  f"computed: {str(exc) or type(exc).__name__}") from exc
+    raise _SuggestionFailed("unreachable", f"The analysis never reaches loop {loop_id}, so there is nothing "
+                                           "to suggest.")
+
+
+def _suggestion_session(request: Dict[str, Any], output: Optional[Callable[[str], None]],
+                        progress: Optional[Callable[[Dict[str, Any]], None]]) -> Tuple[Any, Any, Any]:
+    """The program, the session that stops at the loop of the request and the analysis request up to it."""
+    from prodigy.language import parse_program  # pylint: disable=import-outside-toplevel
+    analysis = prepare_request(suggestion_analysis_request(request))
+    try:
+        program = parse_program(analysis["source"])
+    except Exception as exc:  # pylint: disable=broad-except
+        raise _SuggestionFailed("syntax", str(exc).split("\n", maxsplit=1)[0]) from exc
+    loop_id = int(request["loop"])
+    session = _stopping_session(
+        loop_id, program=program, source=analysis["source"], config=make_config(analysis),
+        decisions=analysis["decisions"], allow_files=False, capture_output=True,
+        output_callback=output, progress_callback=progress)
+    if loop_id not in {loop.id for loop in session.loops}:
+        raise _SuggestionFailed("request", f"The program has no loop {loop_id}.")
+    return program, session, analysis
+
+
+def _suggestion(request: Dict[str, Any], provider: Any, output: Optional[Callable[[str], None]],
+                progress: Optional[Callable[[Dict[str, Any]], None]]) -> Dict[str, Any]:
+    """The suggestion of :func:`run_suggestion`; raises :class:`_SuggestionFailed`."""
+    from prodigy.analysis import tools  # pylint: disable=import-outside-toplevel
+    program, session, analysis = _suggestion_session(request, output, progress)
+    loop_id = int(request["loop"])
+    names = [str(v) for v in program.variables.keys()] + [str(p) for p in program.parameters.keys()]
+    with session.activate(), session._output():  # pylint: disable=protected-access
+        task = _entering_task(program, session, analysis.get("input_distribution"), loop_id)
+        entering = str(task.distribution)
+        print(f"Asking {provider.model} for an {request['form']} candidate for loop {loop_id} "
+              f"(entered with {entering}).")
+        try:
+            answer = provider.ask(tools.SYSTEM_PROMPT, tools.prompt(
+                request["form"], str(program), session.spell(task.instruction), names[:len(program.variables)],
+                names[len(program.variables):], entering, []))
+        except tools.AIRequestError as exc:
+            raise _SuggestionFailed("ai_request", str(exc)) from exc
+    suggestion = {"loop": loop_id, "form": request["form"], "param": tools.TARGET_PARAMS[request["form"]],
+                  "provider": provider.name, "model": provider.model, "entering": entering,
+                  "answer": answer.strip()[-2000:]}
+    return _with_candidate(suggestion, answer, names, provider)
+
+
+def _with_candidate(suggestion: Dict[str, Any], answer: str, names: List[str], provider: Any) -> Dict[str, Any]:
+    """``suggestion`` with the candidate of the untrusted ``answer`` (an expression over ``names`` only);
+    raises :class:`_SuggestionFailed` if it has none."""
+    from prodigy.analysis import tools  # pylint: disable=import-outside-toplevel
+    try:
+        suggestion["candidate"] = tools.candidate_from_answer(answer, names)
+    except tools.CandidateError as exc:
+        reason = str(exc)
+        if not answer.strip() and provider.diagnostics:
+            reason += f" The model stopped with {provider.diagnostics.get('stop_reason')}."
+        raise _SuggestionFailed("candidate", f"The answer of {provider.model} contains no usable candidate: "
+                                             f"{reason}", suggestion=suggestion) from exc
+    return suggestion
 
 
 def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], None]] = None,
@@ -737,65 +597,15 @@ def run_suggestion(request: Dict[str, Any], *, output: Optional[Callable[[str], 
     ``.ppy`` expressions over the program's variables and parameters. The candidate
     is a proposal; it is
     checked when the user runs the analysis with it."""
-    # pylint: disable=import-outside-toplevel,too-many-locals
-    from prodigy.analysis import tools
-    from prodigy.analysis.session import compute_discrete_distribution
-    from prodigy.language import parse_program
-
+    from prodigy.analysis import tools  # pylint: disable=import-outside-toplevel
     problems = validate_suggestion(request)
     if problems:
-        return _error("request", " ".join(problems), problems=problems)
+        return error_result("request", " ".join(problems), problems=problems)
     try:
         provider = tools.get_provider()
     except (tools.AIConfigurationError, ValueError) as exc:
-        return _error("configuration", str(exc))
-    analysis = prepare_request(suggestion_analysis_request(request))
+        return error_result("configuration", str(exc))
     try:
-        program = parse_program(analysis["source"])
-    except Exception as exc:  # pylint: disable=broad-except
-        return _error("syntax", str(exc).split("\n", maxsplit=1)[0])
-    loop_id, form = int(request["loop"]), request["form"]
-    session = _stopping_session(
-        loop_id, program=program, source=analysis["source"], config=make_config(analysis),
-        decisions=analysis["decisions"], allow_files=False, capture_output=True,
-        output_callback=output, progress_callback=progress)
-    if loop_id not in {loop.id for loop in session.loops}:
-        return _error("request", f"The program has no loop {loop_id}.")
-    input_distribution = analysis.get("input_distribution")
-    task = None
-    with session.activate(), session._output():  # pylint: disable=protected-access
-        try:
-            variables = list(program.variables.keys())
-            if isinstance(input_distribution, str) and input_distribution.strip():
-                dist = tools.input_distribution_from_text(session.config, input_distribution, program)
-            else:
-                dist = session.config.factory.one(*variables)
-            compute_discrete_distribution(program, dist, session.config)
-        except _LoopReached as reached:
-            task = reached.task
-        except Exception as exc:  # pylint: disable=broad-except
-            return _error(_error_type(exc), f"The distribution entering loop {loop_id} could not be "
-                                              f"computed: {str(exc) or type(exc).__name__}")
-        if task is None:
-            return _error("unreachable", f"The analysis never reaches loop {loop_id}, so there is nothing "
-                                         "to suggest.")
-        names = [str(v) for v in program.variables.keys()]
-        parameters = [str(p) for p in program.parameters.keys()]
-        entering = str(task.distribution)
-        print(f"Asking {provider.model} for an {form} candidate for loop {loop_id} (entered with {entering}).")
-        try:
-            answer = provider.ask(tools.SYSTEM_PROMPT, tools.prompt(
-                form, str(program), session.spell(task.instruction), names, parameters, entering, []))
-        except tools.AIRequestError as exc:
-            return _error("ai_request", str(exc))
-    suggestion = {"loop": loop_id, "form": form, "param": tools.TARGET_PARAMS[form], "provider": provider.name,
-                  "model": provider.model, "entering": entering, "answer": answer.strip()[-2000:]}
-    try:
-        suggestion["candidate"] = tools.candidate_from_answer(answer, names + parameters)
-    except tools.CandidateError as exc:
-        reason = str(exc)
-        if not answer.strip() and provider.diagnostics:
-            reason += f" The model stopped with {provider.diagnostics.get('stop_reason')}."
-        return _error("candidate", f"The answer of {provider.model} contains no usable candidate: {reason}",
-                      suggestion=suggestion)
-    return {"status": "ok", "suggestion": suggestion}
+        return {"status": "ok", "suggestion": _suggestion(request, provider, output, progress)}
+    except _SuggestionFailed as failed:
+        return failed.result

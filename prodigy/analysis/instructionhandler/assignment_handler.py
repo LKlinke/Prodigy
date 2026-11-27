@@ -4,77 +4,56 @@ import copy
 import dataclasses
 import logging
 import re
-from typing import get_args, Callable, List, Union, Sequence
+from typing import get_args, List
 
-from prodigy.language import (Instr, AsgnInstr, CategoricalExpr, FunctionCallExpr, Expr, BinopExpr, Binop,
+from prodigy.language import (AsgnInstr, CategoricalExpr, FunctionCallExpr, Expr, BinopExpr, Binop,
                           BoolLitExpr, IfInstr, NatType, Unop, UnopExpr, VarExpr)
 from prodigy.language.draws import Helpers, lower_draws
 
-from prodigy.analysis.config import ForwardAnalysisConfig
+from prodigy.analysis.context import Frame, ProgramState
 from prodigy.analysis.exceptions import ForwardAnalysisError
-from prodigy.analysis.instructionhandler import _assume
-from prodigy.analysis.instructionhandler.function_handler import FunctionHandler
-from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
-from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.analysis.context import current_context
-from prodigy.distribution import Distribution
+from prodigy.analysis.instructionhandler import function_handler
 from prodigy.util.logger import log_setup
 
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
-class AssignmentHandler(InstructionHandler):
-    @staticmethod
-    def compute(
-            instruction: Union[Instr, Sequence[Instr]], prog_info: ProgramInfo,
-            distribution: Distribution, error_prob: Distribution,
-            config: ForwardAnalysisConfig,
-            analyzer: Callable[
-                [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
-                tuple[Distribution, Distribution]
-            ]
-    ) -> tuple[Distribution, Distribution]:
-        instruction = _assume(instruction, AsgnInstr, 'AssignmentHandler')
+def handle(frame: Frame, instruction: AsgnInstr, state: ProgramState) -> ProgramState:
+    """An assignment ``x = e``: draws inside ``e`` are lowered first, a Boolean operation becomes a case split, a
+    categorical choice and a function call have their own rules, and anything else updates the distribution."""
+    prog_info = frame.program
+    taken = set(prog_info.variables) | set(prog_info.parameters) | set(prog_info.functions)
+    names: List[str] = []
 
-        taken = set(prog_info.variables) | set(prog_info.parameters) | set(prog_info.functions)
-        names: List[str] = []
+    def fresh() -> str:
+        name = state.dist.get_fresh_variable(exclude=taken | set(names))
+        names.append(name)
+        return name
 
-        def fresh() -> str:
-            name = distribution.get_fresh_variable(exclude=taken | set(names))
-            names.append(name)
-            return name
+    helpers, rhs = lower_draws(instruction.rhs, set(prog_info.functions), fresh)
+    if helpers:
+        return _with_helpers(frame, AsgnInstr(instruction.lhs, rhs), helpers, state)
 
-        helpers, rhs = lower_draws(instruction.rhs, set(prog_info.functions), fresh)
-        if helpers:
-            return _with_helpers(AsgnInstr(instruction.lhs, rhs), helpers, prog_info, distribution,
-                                 error_prob, config, analyzer)
+    if _is_boolean_operation(instruction.rhs):
+        # "b = cond" is "if (cond) { b = true } else { b = false }" (#319)
+        logger.info("Lower %s to a case split", instruction)
+        return frame.run(IfInstr(cond=instruction.rhs,
+                                 true=[AsgnInstr(instruction.lhs, BoolLitExpr(True))],
+                                 false=[AsgnInstr(instruction.lhs, BoolLitExpr(False))]), state)
 
-        if _is_boolean_operation(instruction.rhs):
-            # "b = cond" is "if (cond) { b = true } else { b = false }" (#319)
-            logger.info("Lower %s to a case split", instruction)
-            return analyzer(IfInstr(cond=instruction.rhs,
-                                    true=[AsgnInstr(instruction.lhs, BoolLitExpr(True))],
-                                    false=[AsgnInstr(instruction.lhs, BoolLitExpr(False))]),
-                            prog_info, distribution, error_prob, config)
+    if isinstance(instruction.rhs, CategoricalExpr):
+        return _categorical(frame, instruction.lhs, instruction.rhs, state)
 
-        if isinstance(instruction.rhs, CategoricalExpr):
-            return _categorical(instruction.lhs, instruction.rhs, prog_info, distribution, error_prob,
-                                config, analyzer)
+    if isinstance(instruction.rhs, FunctionCallExpr):
+        return function_handler.handle(frame, instruction, state)
 
-        if isinstance(instruction.rhs, FunctionCallExpr):
-            return FunctionHandler.compute(instruction, prog_info,
-                                           distribution, error_prob, config, analyzer)
-
-        if not isinstance(instruction.rhs, get_args(Expr)):
-            raise SyntaxError(
-                f"Assignment {instruction} is ill-formed. right-hand-side must be an expression."
-            )
-        logger.info("Update %s", instruction)
-        return distribution.update(
-            BinopExpr(operator=Binop.EQ,
-                      lhs=VarExpr(instruction.lhs),
-                      rhs=instruction.rhs)), \
-            error_prob
+    if not isinstance(instruction.rhs, get_args(Expr)):
+        raise SyntaxError(
+            f"Assignment {instruction} is ill-formed. right-hand-side must be an expression."
+        )
+    logger.info("Update %s", instruction)
+    return ProgramState(state.dist.update(BinopExpr(operator=Binop.EQ, lhs=VarExpr(instruction.lhs),
+                                                    rhs=instruction.rhs)), state.error)
 
 
 def _is_boolean_operation(expr: object) -> bool:
@@ -84,14 +63,7 @@ def _is_boolean_operation(expr: object) -> bool:
     return isinstance(expr, BinopExpr) and expr.operator.returns_boolean()
 
 
-def _with_helpers(
-        instruction: AsgnInstr, helpers: Helpers, prog_info: ProgramInfo, distribution: Distribution,
-        error_prob: Distribution, config: ForwardAnalysisConfig,
-        analyzer: Callable[
-            [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
-            tuple[Distribution, Distribution]
-        ]
-) -> tuple[Distribution, Distribution]:
+def _with_helpers(frame: Frame, instruction: AsgnInstr, helpers: Helpers, state: ProgramState) -> ProgramState:
     """
     An assignment with draws inside its right-hand side (see :mod:`prodigy.language.draws`): the draws
     are assigned to their fresh helper variables first, then ``instruction`` (the right-hand side
@@ -102,24 +74,24 @@ def _with_helpers(
     from prodigy.analysis.nested_inference import without
     logger.info("Lower the draws of %s into %s", instruction, ", ".join(name for name, _ in helpers))
     names = [name for name, _ in helpers]
-    program = copy.copy(prog_info.program)
+    program = copy.copy(frame.program.program)
     program.variables = {**program.variables, **{name: NatType(None) for name in names}}
-    info = dataclasses.replace(prog_info, program=program)
+    inner = frame.for_program(dataclasses.replace(frame.program, program=program))
+    distribution = state.dist
     missing = [name for name in names if name not in distribution.get_variables()]
-    distribution = distribution.set_variables(*distribution.get_variables(), *missing)
+    state = ProgramState(distribution.set_variables(*distribution.get_variables(), *missing), state.error)
     try:
         for name, draw in helpers:
-            distribution, error_prob = analyzer(AsgnInstr(name, draw), info, distribution, error_prob,
-                                                config)
-        distribution, error_prob = analyzer(instruction, info, distribution, error_prob, config)
+            state = inner.run(AsgnInstr(name, draw), state)
+        state = inner.run(instruction, state)
     except (NotImplementedError, ValueError, ArithmeticError, ForwardAnalysisError) as exc:
         if len(exc.args) == 1 and isinstance(exc.args[0], str):
             message = exc.args[0]
             for name, draw in helpers:
-                message = _replace_name(message, name, current_context().spell(draw))
+                message = _replace_name(message, name, frame.context.spell(draw))
             exc.args = (message,)
         raise
-    return without(distribution, names), without(error_prob, names)
+    return ProgramState(without(state.dist, names), without(state.error, names))
 
 
 def _replace_name(message: str, name: str, text: str) -> str:
@@ -127,14 +99,7 @@ def _replace_name(message: str, name: str, text: str) -> str:
     return re.sub(rf"(?<![\w]){re.escape(name)}(?![\w])", lambda _: text, message)
 
 
-def _categorical(
-        var: str, expr: CategoricalExpr, prog_info: ProgramInfo, distribution: Distribution,
-        error_prob: Distribution, config: ForwardAnalysisConfig,
-        analyzer: Callable[
-            [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
-            tuple[Distribution, Distribution]
-        ]
-) -> tuple[Distribution, Distribution]:
+def _categorical(frame: Frame, var: str, expr: CategoricalExpr, state: ProgramState) -> ProgramState:
     """
     ``var = categorical({v1: p1, …})`` is the choice between the assignments ``var = v_i`` with the
     probabilities ``p_i`` (literals that sum to 1, checked by the parser). Every assignment runs on
@@ -144,14 +109,14 @@ def _categorical(
     the program variables.
     """
     logger.info("Update %s = %s", var, expr)
-    zero = error_prob * "0"
-    result = distribution * "0"
-    errors = error_prob
+    zero = state.error * "0"
+    result = state.dist * "0"
+    errors = state.error
     for value, prob in expr.exprs:
         probability = prob.to_fraction()
         if probability == 0:
             continue
-        branch, branch_error = analyzer(AsgnInstr(var, value), prog_info, distribution, zero, config)
-        result += branch * str(probability)
-        errors += branch_error * str(probability)
-    return result, errors
+        branch = frame.run(AsgnInstr(var, value), ProgramState(state.dist, zero))
+        result += branch.dist * str(probability)
+        errors += branch.error * str(probability)
+    return ProgramState(result, errors)

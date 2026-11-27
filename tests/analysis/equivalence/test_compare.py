@@ -201,7 +201,7 @@ x = 1;
 """)
     with AnalysisSession.detached().activate(), pytest.raises(CheckNotImplemented, match="infinite mass"):
         check_equivalence(program, program, ForwardAnalysisConfig(), analyzer)
-    monkeypatch.setattr("prodigy.analysis.analyzer.compute_semantics", analyzer)
+    monkeypatch.setattr("prodigy.analysis.analyzer.analyzer_in", lambda _context: analyzer)
     session = _session([], monkeypatch)
     with session.activate(), session.config.activate():
         check = eq.run_check(program, program, session)

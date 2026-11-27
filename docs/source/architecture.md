@@ -86,10 +86,12 @@ adds wording and envelope.
 **Where the engine is chosen.** Once, in `ForwardAnalysisConfig.factory`. Nothing above imports an engine
 module or `prodigy_ginac`; the engines' availability is a function of the configuration.
 
-**Dependencies are passed, not fetched.** Instruction handlers receive an `AnalysisContext` (program info,
-configuration, the session's services: spelling, loop decisions, trace). Today (P5a) they reach it with
-`analysis.context.current_context()`, so they no longer import the session; passing it explicitly is P5b (T11),
-after which the context variable remains only as the session's own implementation detail.
+**Dependencies are passed, not fetched.** Every instruction handler is a function
+`handle(frame, instruction, state) -> ProgramState`, dispatched by the table `analyzer.HANDLERS`. The immutable
+`Frame` carries the `AnalysisContext` (the session's services: spelling, loop decisions, trace, the registry of
+`dist` values), the program, the configuration and the semantics for nested instructions; `ProgramState` is the
+distribution and the violation mass. Only the entry points (`compute_discrete_distribution`, which also takes
+`session=`, and the positional `compute_semantics`) look up the active session with `boundary_context()`.
 
 ## Distributions: interface, generating functions, engines, kernel
 
@@ -208,7 +210,7 @@ Measured on `main` at `0bba880` with an `ast` walk over `prodigy` (all imports, 
 
 | # | Current state | Target | Removed by |
 |---|---|---|---|
-| T1 | Removed: a cycle of 17 modules (`session`, `result`, `trace`, `upper_track`, `nested_inference`, `analyzer`, all instruction handlers, `loop_strategies`, `equivalence.verdict`, `evt_exploration`, `series_identity`, `web.diagnostics`) through handlers importing `session`, the registry importing `while_handler` and `result` running the analysis. Now the vocabulary layer (`Bound` and the strategy API in `loops/api.py`, values in `values.py`, `AnalysisContext` in `context.py`) imports nothing above it; handlers reach the run with `current_context()`; `loops/builtin.py` registers the built-in strategies; the session runs the analysis and `result.py` only assembles | no module cycle (ast walk and pylint) | P5a (#497) |
+| T1 | Removed: a cycle of 17 modules (`session`, `result`, `trace`, `upper_track`, `nested_inference`, `analyzer`, all instruction handlers, `loop_strategies`, `equivalence.verdict`, `evt_exploration`, `series_identity`, `web.diagnostics`) through handlers importing `session`, the registry importing `while_handler` and `result` running the analysis. Now the vocabulary layer (`Bound` and the strategy API in `loops/api.py`, values in `values.py`, `AnalysisContext` in `context.py`) imports nothing above it; handlers reached the run with `current_context()` (since T11 through their `Frame`); `loops/builtin.py` registers the built-in strategies; the session runs the analysis and `result.py` only assembles | no module cycle (ast walk and pylint) | P5a (#497) |
 | T2 | Removed: `analysis.result` imported `web.diagnostics`; the structured diagnostics are in `language/diagnostics.py`, the first failure of a program in `analysis/checks.py` | structured diagnostics in the language layer | P5a (#497) |
 | T3 | Removed: the type checker imported a proof rule (`distribution.finite_measure`) to refute sampling PGFs; the refutation is `analysis.checks.refute_sampling_pgfs`, run after the type check on every entry path (CLI, session, GUI) | the PGF refutation is a check of the analysis, run before the session | P5a (#497) |
 | T4 | Removed: no cycle `lowerbounds.problem` ↔ `lowerbounds.subinvariant` was left (neither the ast walk nor pylint finds one); the private `_contains` shared by both is the public `contains` of `lowerbounds/ir.py` | shared types in one module | P5a (#497) |
@@ -252,7 +254,7 @@ Each package PR leaves its own package clean for the checks it is responsible fo
 | `duplicate-code` | 5 blocks in `prodigy` | P4 (engines), P2 (watch validation), P5b (three-valued `all`), P6 (name walk) |
 | `too-many-arguments`, `too-many-positional-arguments` | 75, 72 | P5b (handler context, loops), P7 (CLI), rest in P4/P6 |
 | `too-many-branches`, `-return-statements`, `-statements`, `-nested-blocks` | 33, 50, 8, 1 | P4 (`distribution`: 11, 19), P5b (`lowerbounds`, `evtinvariants`), P6 (`check.py`) |
-| `too-many-lines` (with `max-module-lines = 800`), `too-many-locals`, `-instance-attributes`, `-public-methods` | 9 modules over 800 lines; 94, 20, 2 | P4c (`pgf/sympy/engine.py`), P5b (`while_handler`, `session`, `nested_inference`, `result`, `trace`), P6 (`check.py`, `ppy_parser.py`), P7 (`cli.py`, `web/requests.py`) |
+| `too-many-lines` (with `max-module-lines = 800`), `too-many-locals`, `-instance-attributes`, `-public-methods` | 9 modules over 800 lines; 94, 20, 2 | P4c (`pgf/sympy/engine.py`), P5b (`while_handler`, `session`, `nested_inference`, `result`, `trace`), P6 (`check.py`, `ppy_parser.py`), P7 (`cli.py`, `web/requests.py`: done with #514, now the `cli/` package and `web/compare.py`) |
 
 ### Follow-ups (features, not v0.7.0)
 

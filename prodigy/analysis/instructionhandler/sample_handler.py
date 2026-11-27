@@ -1,24 +1,19 @@
 from __future__ import annotations
 
 import logging
-from abc import abstractmethod
 from fractions import Fraction
-from typing import Callable, Dict, List, Sequence, Set, Tuple, Union
+from typing import Callable, Dict, List, Set, Tuple
 
 from prodigy.language.ast.types import NatType
-from prodigy.language import (Instr, AsgnInstr, ChoiceInstr, Expr, FunctionCallExpr, NatLitExpr, Var, VarExpr,
+from prodigy.language import (AsgnInstr, ChoiceInstr, Expr, FunctionCallExpr, NatLitExpr, Var, VarExpr,
                           sample_predefined_functions as distr_functions)
 from prodigy.language.engine_text import engine_text_of
 
-from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.analysis.instructionhandler import _assume
-from prodigy.analysis.instructionhandler.instruction_handler import InstructionHandler
-from prodigy.analysis.instructionhandler.program_info import ProgramInfo
+from prodigy.analysis.context import Frame, ProgramState
 from prodigy.analysis.instructionhandler.counter_operators import (counter_probability, ratio_probability,
                                                                    uniform_up_to)
 from prodigy.analysis.instructionhandler.state_dependent import (expression_variables, instantiate,
                                                                  split_states, state_variables)
-from prodigy.analysis.context import current_context
 from prodigy.distribution import Distribution, MarginalType
 from prodigy.distribution.distribution import State, constant_value
 from prodigy.util.logger import log_setup
@@ -26,90 +21,87 @@ from prodigy.util.logger import log_setup
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
-class SampleHandler(InstructionHandler):
-    @staticmethod
-    @abstractmethod
-    def compute(
-            instruction: Union[Instr, Sequence[Instr]], prog_info: ProgramInfo,
-            distribution: Distribution, error_prob: Distribution,
-            config: ForwardAnalysisConfig,
-            analyzer: Callable[
-                [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
-                tuple[Distribution, Distribution]
-            ]
-    ) -> tuple[Distribution, Distribution]:
-        instruction = _assume(instruction, AsgnInstr, 'SampleHandler')
-        assert isinstance(instruction.rhs, FunctionCallExpr), "The Instruction handled by a SampleHandler must be of" \
-                                                              f" type FunctionCallExpr, got {type(instruction)}"
-        assert instruction.rhs.function in distr_functions, f"Not a pre-defined function: {instruction.rhs.function}"
+def handle(frame: Frame, instruction: AsgnInstr, state: ProgramState) -> ProgramState:
+    """A sampling assignment ``x = d(args)`` of a predefined distribution ``d``."""
+    assert isinstance(instruction.rhs, FunctionCallExpr), "A sampling assignment must have a right-hand side" \
+                                                          f" of type FunctionCallExpr, got {type(instruction.rhs)}"
+    assert instruction.rhs.function in distr_functions, f"Not a pre-defined function: {instruction.rhs.function}"
 
-        variables = state_variables(_arguments(instruction.rhs), distribution)
-        if variables:
-            return _sample_state_dependent(instruction, variables, prog_info, distribution,
-                                           error_prob, config, analyzer)
+    variables = state_variables(_arguments(instruction.rhs), state.dist)
+    if variables:
+        return _sample_state_dependent(frame, instruction, variables, state)
+    return ProgramState(_sampled(frame, instruction, state.dist), state.error)
 
-        _check_arguments(instruction.rhs)
-        _check_generating_functions(instruction.rhs, instruction.lhs, prog_info)
-        logger.info("Computing distribution sampling update.\n%s", instruction)
-        variable: Var = instruction.lhs
-        marginal = distribution.marginal(variable, method=MarginalType.EXCLUDE)
-        factory = config.factory
-        distr = instruction.rhs.function
 
-        # rhs is a uniform distribution
-        if distr in {"unif_d", "unif"}:
-            start, end = instruction.rhs.params[0]
-            return marginal * factory.uniform(variable, start, end), error_prob
+def _sampled(frame: Frame, instruction: AsgnInstr, distribution: Distribution) -> Distribution:
+    """``distribution`` after the sampling ``instruction`` whose arguments do not depend on the state."""
+    # pylint: disable=too-many-return-statements  # one return per predefined distribution
+    assert isinstance(instruction.rhs, FunctionCallExpr)
+    config = frame.config
+    _check_arguments(instruction.rhs)
+    _check_generating_functions(frame, instruction.rhs, instruction.lhs)
+    logger.info("Computing distribution sampling update.\n%s", instruction)
+    variable: Var = instruction.lhs
+    marginal = distribution.marginal(variable, method=MarginalType.EXCLUDE)
+    factory = config.factory
+    distr = instruction.rhs.function
 
-        # rhs is binomial distribution
-        if distr == "binomial":
-            n, p = instruction.rhs.params[0]
-            return marginal * factory.binomial(variable, n, p), error_prob
+    # rhs is a uniform distribution
+    if distr in {"unif_d", "unif"}:
+        start, end = instruction.rhs.params[0]
+        return marginal * factory.uniform(variable, start, end)
 
-        # rhs is a negative binomial distribution
-        if distr == "negative_binomial":
-            r, p = instruction.rhs.params[0]
-            return marginal * factory.negative_binomial(variable, r, p), error_prob
+    # rhs is binomial distribution
+    if distr == "binomial":
+        n, p = instruction.rhs.params[0]
+        return marginal * factory.binomial(variable, n, p)
 
-        # rhs is an iid sampling expression
-        if distr == "iid":
-            dist, count = instruction.rhs.params[0]
-            # the type checker only admits a program variable or a natural number as count
-            if not isinstance(count, (VarExpr, NatLitExpr)):
-                raise ValueError(f"The number of samples in {instruction.rhs} must be a program "
-                                 f"variable or a natural number, got {count}.")
-            updated = distribution.update_iid(dist, count, instruction.lhs)
-            return updated, error_prob
+    # rhs is a negative binomial distribution
+    if distr == "negative_binomial":
+        r, p = instruction.rhs.params[0]
+        return marginal * factory.negative_binomial(variable, r, p)
 
-        if distr == "sample_pgf":
-            dist_expr, dist_var = instruction.rhs.params[0]
-            # the type checker only admits sampling in the assigned variable
-            if dist_var != VarExpr(variable):
-                raise ValueError(f"{instruction.rhs} samples a generating function in {dist_var}, "
-                                 f"but only sampling in the assigned variable {variable} is supported.")
-            sampled_dist = factory.from_expr(dist_expr, variable)
-            return marginal * sampled_dist, error_prob
+    # rhs is an iid sampling expression
+    if distr == "iid":
+        dist, count = instruction.rhs.params[0]
+        # the type checker only admits a program variable or a natural number as count
+        if not isinstance(count, (VarExpr, NatLitExpr)):
+            raise ValueError(f"The number of samples in {instruction.rhs} must be a program "
+                             f"variable or a natural number, got {count}.")
+        updated = distribution.update_iid(dist, count, instruction.lhs)
+        return updated
 
-        # all remaining distributions have only one parameter
-        [param] = instruction.rhs.params[0]
+    if distr == "sample_pgf":
+        dist_expr, dist_var = instruction.rhs.params[0]
+        # the type checker only admits sampling in the assigned variable
+        if dist_var != VarExpr(variable):
+            raise ValueError(f"{instruction.rhs} samples a generating function in {dist_var}, "
+                             f"but only sampling in the assigned variable {variable} is supported.")
+        sampled_dist = factory.from_expr(dist_expr, variable)
+        return marginal * sampled_dist
 
-        # rhs is geometric distribution
-        if distr == "geometric":
-            return marginal * factory.geometric(variable, param), error_prob
+    # all remaining distributions have only one parameter
+    [param] = instruction.rhs.params[0]
 
-        # rhs is poisson distribution
-        if distr == "poisson":
-            return marginal * factory.poisson(variable, param), error_prob
+    # rhs is geometric distribution
+    if distr == "geometric":
+        return marginal * factory.geometric(variable, param)
 
-        # rhs is bernoulli distribution
-        if distr == "bernoulli":
-            return marginal * factory.bernoulli(variable, param), error_prob
+    # rhs is poisson distribution
+    if distr == "poisson":
+        return marginal * factory.poisson(variable, param)
 
-        # rhs is logarithmic distribution
-        if distr == "logdist":
-            return marginal * factory.log(variable, param), error_prob
+    # rhs is bernoulli distribution
+    if distr == "bernoulli":
+        return marginal * factory.bernoulli(variable, param)
 
-        raise ValueError("Unknown distribution type!")
+    # rhs is logarithmic distribution
+    if distr == "logdist":
+        return marginal * factory.log(variable, param)
+
+    raise ValueError("Unknown distribution type!")
+
+
 
 
 def _natural(value: Fraction) -> bool:
@@ -172,7 +164,7 @@ def _generating_functions(call: FunctionCallExpr, assigned: Var) -> List[Tuple[F
     return []
 
 
-def _check_generating_functions(call: FunctionCallExpr, assigned: Var, prog_info: ProgramInfo) -> None:
+def _check_generating_functions(frame: Frame, call: FunctionCallExpr, assigned: Var) -> None:
     """
     Checks that the generating functions given to ``sample_pgf`` and ``iid`` are probability generating
     functions: power series at 0 with non-negative coefficients and mass 1 (#424), with the rules of input
@@ -186,8 +178,8 @@ def _check_generating_functions(call: FunctionCallExpr, assigned: Var, prog_info
     """
     # pylint: disable=import-outside-toplevel
     from prodigy.distribution.finite_measure import check_probability_generating_function
-    session = current_context()
-    parameters = {str(name): typ for name, typ in prog_info.parameters.items()}
+    session = frame.context
+    parameters = {str(name): typ for name, typ in frame.program.parameters.items()}
     natural = tuple(sorted(name for name, typ in parameters.items() if isinstance(typ, NatType)))
     for sampling, generating_function, variable in _generating_functions(call, assigned):
         names = expression_variables([generating_function])
@@ -257,13 +249,8 @@ def _uniform_infinite_bound(instruction: AsgnInstr, variables: Set[str], distrib
     return uniform_up_to(distribution, instruction.lhs, end.var, construct)
 
 
-def _sample_state_dependent(
-        instruction: AsgnInstr, variables: Set[str], prog_info: ProgramInfo,
-        distribution: Distribution, error_prob: Distribution, config: ForwardAnalysisConfig,
-        analyzer: Callable[
-            [Union[Instr, Sequence[Instr]], ProgramInfo, Distribution, Distribution, ForwardAnalysisConfig],
-            tuple[Distribution, Distribution]
-        ]) -> tuple[Distribution, Distribution]:
+def _sample_state_dependent(frame: Frame, instruction: AsgnInstr, variables: Set[str],
+                            state: ProgramState) -> ProgramState:
     """
     A sampling instruction whose distribution arguments depend on program variables, e.g.
     ``x = bernoulli(1/k)``: a case split over the values of these variables
@@ -271,6 +258,7 @@ def _sample_state_dependent(
     values in each part.
     """
     assert isinstance(instruction.rhs, FunctionCallExpr)
+    distribution = state.dist
     if instruction.rhs.function == "bernoulli":
         probability = instruction.rhs.params[0][0]
         operator = counter_probability(probability, variables)
@@ -283,19 +271,18 @@ def _sample_state_dependent(
             # the choice applies p as an operator in the counter (#323) or in the two variables of x/n (#237)
             choice = ChoiceInstr(probability, [AsgnInstr(instruction.lhs, NatLitExpr(1))],
                                  [AsgnInstr(instruction.lhs, NatLitExpr(0))])
-            return analyzer(choice, prog_info, distribution, error_prob, config)
+            return frame.run(choice, state)
     if instruction.rhs.function in ("unif", "unif_d") and not distribution.is_zero_dist() \
             and distribution.finite_support(*sorted(variables)) is None:
-        return _uniform_infinite_bound(instruction, variables, distribution), error_prob
+        return ProgramState(_uniform_infinite_bound(instruction, variables, distribution), state.error)
     logger.info("Splitting the states for the arguments of %s", instruction.rhs)
     construct = f"The distribution {instruction.rhs}"
     result = distribution * "0"
     for part in split_states(distribution, variables, construct):
         concrete = AsgnInstr(instruction.lhs, _instantiate_call(instruction.rhs, part.state))
         try:
-            sampled, _ = SampleHandler.compute(concrete, prog_info, part.distribution, error_prob, config,
-                                               analyzer)
+            sampled = handle(frame, concrete, ProgramState(part.distribution, state.error)).dist
         except ValueError as error:
             raise ValueError(f"{construct} is not defined in {part.describe()}: {error}") from error
         result += sampled
-    return result, error_prob
+    return ProgramState(result, state.error)

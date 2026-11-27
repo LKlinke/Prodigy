@@ -51,13 +51,13 @@ class SympySolver(Solver):
         else:
             is_equal = s_equation.equals(0)
             if is_equal is None:
-                self.logger.debug("Could not determine equality of %s and %s", str(f), str(g))
+                self.logger.debug("Could not determine equality of %s and %s", f, g)
                 return None, []
             if is_equal is False:
-                self.logger.debug("no solutions exist for %s == %s ", str(f), str(g))
+                self.logger.debug("no solutions exist for %s == %s ", f, g)
                 return False, []
             if is_equal:
-                self.logger.debug("Validated %s == %s", str(f), str(g))
+                self.logger.debug("Validated %s == %s", f, g)
                 return True, []
 
         raise RuntimeError("This should not be reachable")
