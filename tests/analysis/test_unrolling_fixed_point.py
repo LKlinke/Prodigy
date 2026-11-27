@@ -61,7 +61,7 @@ def test_fixed_point_stops_exactly_with_divergence(engine, decision):
     assert loop["kind"] == Bound.EXACT
     assert "Exact: the iteration reached a fixed point after 1 step(s)." in loop["messages"]
     assert "Mass 1/2 stays inside the loop forever (divergence)." in loop["messages"]
-    assert any("one more iteration changes nothing" in message for message in loop["messages"])
+    assert len(loop["messages"]) == 2  # the stop is said by the outcome, no extra note (#229 summaries)
 
 
 @pytest.mark.parametrize("engine", ENGINES)
@@ -77,7 +77,7 @@ def test_terminated_loop_stops_early(engine):
     assert result["bounds"]["kind"] == Bound.EXACT and value(result) == "6"
     messages = result["loops"][0]["messages"]
     assert "Exact: no mass is left inside the loop after 3 iterations." in messages
-    assert "Stopped after 3 of 50 iterations: no mass is left inside the loop." in messages
+    assert messages == ["Exact: no mass is left inside the loop after 3 iterations."]
 
 
 @pytest.mark.parametrize("engine", ENGINES)

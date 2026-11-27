@@ -72,7 +72,6 @@ def _strategy_unroll(task: LoopTask) -> LoopOutcome:
     for i in range(max_iter):
         if sat_part.is_provably_zero():
             done = i
-            task.note(f"Stopped after {i} of {max_iter} iterations: no mass is left inside the loop.")
             break
         task.progress(i + 1, max_iter)
         iterated_part, error_after = analyzer(instruction.body, prog_info, sat_part, error_prob, config)
@@ -80,7 +79,6 @@ def _strategy_unroll(task: LoopTask) -> LoopOutcome:
         iterated_non_sat = iterated_part - iterated_sat
         if _fixed_point(sat_part, error_prob, iterated_sat, iterated_non_sat, error_after):
             done, fixpoint = i + 1, True
-            task.note(f"Stopped after {i + 1} of {max_iter} iterations: one more iteration changes nothing.")
             break
         error_prob = error_after
         non_sat_part += iterated_non_sat
@@ -126,15 +124,13 @@ def _strategy_mass_threshold(task: LoopTask) -> LoopOutcome:
     sat_part = task.distribution.filter(instruction.cond)
     non_sat_part = task.distribution - sat_part
     captured_part = non_sat_part + error_prob
-    iterations, fixpoint = 0, False
+    iterations, fixpoint, capped = 0, False, False
     task.iterate(0, non_sat_part, inside=sat_part)
     while (captured := Fraction(captured_part.get_probability_mass())) < captured_probability_threshold:
         if max_iterations is not None and iterations >= max_iterations:
-            task.note(f"Stopped after {iterations} iterations before reaching the threshold.")
+            capped = True
             break
         if sat_part.is_provably_zero():
-            task.note(f"Stopped after {iterations} iterations below the threshold: no mass is left inside the "
-                      "loop.")
             break
         logger.info("Collected %f of the desired mass", float(captured / captured_probability_threshold) * 100)
         iterated_part, error_after = analyzer(instruction.body, prog_info, sat_part, error_prob, config)
@@ -142,8 +138,6 @@ def _strategy_mass_threshold(task: LoopTask) -> LoopOutcome:
         iterated_non_sat = iterated_part - iterated_sat
         if _fixed_point(sat_part, error_prob, iterated_sat, iterated_non_sat, error_after):
             iterations, fixpoint = iterations + 1, True
-            task.note(f"Stopped after {iterations} iterations below the threshold: one more iteration changes "
-                      "nothing.")
             break
         error_prob = error_after
         non_sat_part += iterated_non_sat
@@ -167,8 +161,9 @@ def _strategy_mass_threshold(task: LoopTask) -> LoopOutcome:
         return LoopOutcome(non_sat_part, error_prob, kind=Bound.EXACT, certificate=certificate,
                            messages=[f"Exact: no mass is left inside the loop after {iterations} iterations."])
     return LoopOutcome(non_sat_part, error_prob, kind=Bound.LOWER, residual=remaining, certificate=certificate,
-                       messages=[f"Lower bound after {iterations} iterations; mass {remaining} is still "
-                                 "inside the loop."])
+                       messages=[f"Lower bound after {iterations} iterations"
+                                 f"{' (the cap, before reaching the threshold)' if capped else ''}; mass {remaining} "
+                                 "is still inside the loop."])
 
 
 register_loop_strategy(LoopStrategy(
