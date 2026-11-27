@@ -309,7 +309,8 @@ class PpyPrinter:
             return f"param {_name(decl.var)}: {_type(decl.typ)};"
         if isinstance(decl, FunctionDecl):
             function = decl.body
-            # all declarations of a function are its parameters in the old syntax
+            # the AST keeps no separate parameter list: its local variables are printed as parameters too
+            # (each is set to 0 at its declaration, so the body computes the same)
             params = ", ".join(f"{_name(var.var)}: {_type(var.typ)}" for var in function.declarations)
             body = [self.instr(instr) for instr in function.instructions]
             body.append(f"return {self.expr(function.returns)};")

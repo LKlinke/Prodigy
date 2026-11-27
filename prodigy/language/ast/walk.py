@@ -37,11 +37,12 @@ This makes it hard to forget calling a recursive traversal call, which could eas
 from __future__ import annotations
 
 from enum import Enum, auto
-from typing import Callable, Dict, Iterable, List, TypeVar, cast
+from typing import Callable, Dict, Iterable, Iterator, List, Set, TypeVar, Union, cast
 
 from prodigy.language.util.ref import Mut
 
-from .expressions import Expr, ExprClass
+from .ast import Var
+from .expressions import Expr, ExprClass, SampleExpr, VarExpr
 from .instructions import Instr, InstrClass
 
 T = TypeVar("T")
@@ -129,6 +130,36 @@ def walk_expr(walk: Walk, expr_ref: Mut[Expr]) -> Iterable[Mut[Expr]]:
     """Walk an expression."""
     assert isinstance(expr_ref.val, ExprClass)
     return walk.walk(mut_expr_children, expr_ref)
+
+
+def name_uses(*exprs: Expr) -> Iterator[Union[VarExpr, SampleExpr]]:
+    """
+    The nodes of ``exprs`` that read a name, top-down: every :class:`VarExpr` (a variable, parameter or
+    constant) and every :class:`SampleExpr` (the ``dist`` variable of ``sample(d)``).
+
+    .. doctest::
+
+        >>> from . import *
+        >>> list(name_uses(BinopExpr(Binop.PLUS, VarExpr('x'), NatLitExpr(1)), SampleExpr('d')))
+        [VarExpr('x'), SampleExpr(dist='d')]
+    """
+    for expr in exprs:
+        for ref in walk_expr(Walk.DOWN, Mut.alloc(expr)):
+            if isinstance(ref.val, (VarExpr, SampleExpr)):
+                yield ref.val
+
+
+def names_in(*exprs: Expr) -> Set[Var]:
+    """
+    Every name that ``exprs`` read (:func:`name_uses`).
+
+    .. doctest::
+
+        >>> from . import *
+        >>> sorted(names_in(BinopExpr(Binop.TIMES, VarExpr('x'), VarExpr('n')), SampleExpr('d')))
+        ['d', 'n', 'x']
+    """
+    return {use.var if isinstance(use, VarExpr) else use.dist for use in name_uses(*exprs)}
 
 
 def _mut_instr_children(node_ref: Mut[Instr]) -> Iterable[Mut[Instr]]:

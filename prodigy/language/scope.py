@@ -13,8 +13,8 @@ the analysis already understand:
 
 - the variable becomes an ordinary variable of the program (or of the function whose body contains
   the block);
-- the declaration becomes the assignment ``x := value`` (``x := 0`` without a value);
-- the end of the block gets the assignment ``x := 0``.
+- the declaration becomes the assignment ``x = value`` (``x = 0`` without a value);
+- the end of the block gets the assignment ``x = 0``.
 
 Setting ``x`` to 0 is the marginalisation: it maps a generating function ``G(x, …)`` to
 ``G(1, …)``, the marginal of the other variables, and outside its block ``x`` is 0 in every state,
@@ -55,10 +55,9 @@ from prodigy.language.ast import (AsgnInstr, BoolLitExpr, BoolType, ChoiceInstr,
                               Expr, Function, FunctionDecl, IfInstr, Instr,
                               LocalDeclInstr, LoopInstr, NatLitExpr, NatType,
                               OptimizationQuery, Program, QueryInstr,
-                              SampleExpr, Type, VarDecl, VarExpr, WhileInstr)
+                              Type, VarDecl, WhileInstr)
 from prodigy.language.positions import copy_span
-from prodigy.language.ast.walk import Walk, instr_exprs, walk_expr, walk_instrs
-from prodigy.language.util.ref import Mut
+from prodigy.language.ast.walk import Walk, instr_exprs, names_in, walk_instrs
 
 
 class ScopeError(Exception):
@@ -86,21 +85,9 @@ def _zero(typ: Type) -> Expr:
 
 def _used_names(instr: Instr) -> Set[str]:
     """The names an instruction reads or writes itself (not in nested blocks)."""
-    names: Set[str] = set()
+    names = names_in(*instr_exprs(instr))
     if isinstance(instr, AsgnInstr):
         names.add(instr.lhs)
-    for expr in instr_exprs(instr):
-        names |= _expr_names(expr)
-    return names
-
-
-def _expr_names(expr: Expr) -> Set[str]:
-    names: Set[str] = set()
-    for sub in walk_expr(Walk.DOWN, Mut.alloc(expr)):
-        if isinstance(sub.val, VarExpr):
-            names.add(sub.val.var)
-        elif isinstance(sub.val, SampleExpr):
-            names.add(sub.val.dist)
     return names
 
 
@@ -167,7 +154,7 @@ class _Lowering:
                 f"'{name}' is declared in several blocks with different types; use different "
                 f"names.", instr)
         if instr.value is not None:
-            self.check_uses(_expr_names(instr.value), visible)
+            self.check_uses(names_in(instr.value), visible)
         return copy_span(instr, AsgnInstr(name, _zero(typ) if instr.value is None else instr.value))
 
     def _compound(self, instr: Instr, visible: Set[str]) -> Instr:
@@ -195,7 +182,7 @@ def _lower_function(function: Function, program: Program) -> Function:
     outer = set(function.variables) | set(program.constants) | set(program.parameters)
     lowering = _Lowering(outer, function.instructions)
     instructions = lowering.body(function.instructions, set())
-    lowering.check_uses(_expr_names(function.returns), set())
+    lowering.check_uses(names_in(function.returns), set())
     declarations = list(function.declarations)
     declarations.extend(VarDecl(name, typ) for name, typ in lowering.types.items())
     return Function(declarations, set(function.variables) | set(lowering.types), instructions,

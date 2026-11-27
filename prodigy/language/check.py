@@ -31,7 +31,7 @@ from .ast import (AsgnInstr, Binop, BinopExpr, BoolLitExpr, BoolType,
                   ProbabilityQueryInstr, Program, RealLitExpr, RealType,
                   SkipInstr, Type, Unop, UnopExpr, Var,
                   VarExpr, WhileInstr)
-from .ast.walk import Walk, walk_expr, walk_instrs
+from .ast.walk import Walk, name_uses, walk_expr, walk_instrs
 
 _T = TypeVar('_T')
 
@@ -621,18 +621,12 @@ def _check_constant_declarations(program: Program) -> Optional[CheckFail]:
     """
     declared = set()
     for name, value in program.constants.items():
-        for subexpr_ref in walk_expr(Walk.DOWN, Mut.alloc(value)):
-            if isinstance(subexpr_ref.val, VarExpr):
-                subexpr_var = subexpr_ref.val.var
-                subexpr_def = program.constants.get(subexpr_var)
-                if subexpr_def is None:
-                    return CheckFail(
-                        subexpr_ref.val,
-                        "Variable used in constant definition is not a constant"
-                    )
-                if subexpr_var not in declared:
-                    return CheckFail(subexpr_ref.val,
-                                     "Constant is not yet defined")
+        for use in name_uses(value):
+            if isinstance(use, VarExpr):
+                if use.var not in program.constants:
+                    return CheckFail(use, "Variable used in constant definition is not a constant")
+                if use.var not in declared:
+                    return CheckFail(use, "Constant is not yet defined")
         declared.add(name)
 
     return None
@@ -966,8 +960,8 @@ def check_function(
                                List[VarDecl]] = sample_predefined_functions
 ) -> Optional[CheckFail]:
     """
-    Check a function for type-safety. Functions currently may only contain and
-    return integers.
+    Check a function for type-safety. Its parameters and variables are ``nat`` or ``dist``, and it returns a
+    ``nat``.
     """
 
     for decl in function.declarations:
