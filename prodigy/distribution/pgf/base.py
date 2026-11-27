@@ -7,7 +7,7 @@ from __future__ import annotations
 import contextlib
 from fractions import Fraction
 import operator
-from typing import TYPE_CHECKING, cast, ContextManager, Dict, List, Optional, Self, Set, Tuple, Union
+from typing import TYPE_CHECKING, cast, ContextManager, Dict, Generator, List, Optional, Self, Set, Tuple, Union
 
 import sympy
 
@@ -26,12 +26,21 @@ from prodigy.distribution.pgf.rules.convergence import marginal_obstacle
 from prodigy.distribution.pgf.rules.value_at_one import _substitute_one
 from prodigy.distribution.pgf.rules.equality import decide_equal_strings, sympify_distribution_string
 from prodigy.distribution.pgf.rules.finite_measure import check_input_expression
+from prodigy.distribution.pgf.rules.hadamard import rational_hadamard_product
 from prodigy.distribution.pgf.rules.ordering import dominates_finite, nonneg_verdict
 
 
 _COMPARISONS = {Binop.EQ: operator.eq, Binop.LEQ: operator.le, Binop.LT: operator.lt, Binop.GT: operator.gt,
                 Binop.GEQ: operator.ge}
 """The comparisons of conditions, evaluated by :meth:`PGFBase.evaluate_condition`."""
+
+
+def _exact_number(text: str, what: str) -> sympy.Rational:
+    """The exact rational number that the engine text `text` denotes; ValueError naming `what` otherwise."""
+    value = sympy.nsimplify(parse_engine_text(text, set()), rational=True)
+    if not isinstance(value, sympy.Rational):
+        raise ValueError(f"{what} {text} is not a number, so approximate cannot compare it")
+    return value
 
 
 class PGFBase(PGFHooks):  # pylint: disable=abstract-method  # a layer of PGF
@@ -88,6 +97,57 @@ class PGFBase(PGFHooks):  # pylint: disable=abstract-method  # a layer of PGF
                 and dominates_finite(self, other):  # pylint: disable=protected-access
             return OrderVerdict(True)
         return verdict
+
+    def approximate(self, threshold: Union[str, int]) -> Generator[PGF, None, None]:
+        """
+        The partial sums of the series, one more state each, in the order of :meth:`__iter__`, until their mass
+        reaches `threshold` (#487, on every engine). The threshold is a probability mass only: a number in engine
+        text such as `"0.99"` or `"99/100"`, read exactly. A count of states (an `int`, which only SymPy accepted
+        before) is refused: which states come first depends on the engine's order of an infinite multivariate
+        function and on the zero coefficients an infinite function may yield, whereas the mass says what the
+        approximation is good for; the first `n` states are `itertools.islice(dist, n)`.
+
+        Raises `ValueError` if the threshold is not a number or exceeds the mass of the distribution (it would never
+        be reached), or if the mass or a coefficient is not a number (parameters).
+        """
+        if not isinstance(threshold, str):
+            raise TypeError(f"The threshold of approximate is a probability mass in engine text (e.g. \"0.99\"), not "
+                            f"{type(threshold).__name__}; the first n states are itertools.islice(dist, n)")
+        target = _exact_number(threshold, "The threshold")
+        mass = _exact_number(self._probability_mass(), "The probability mass")
+        if target > mass:
+            raise ValueError(f"The threshold {threshold} exceeds the probability mass {mass} of {self}")
+        return self._partial_sums(target)
+
+    def _partial_sums(self, target: sympy.Rational) -> Generator[PGF, None, None]:
+        """:meth:`approximate` after its checks (a generator, so that the checks run when it is called)."""
+        terms: List[str] = []
+        reached = sympy.Integer(0)
+        names = self.get_variables() | self.get_parameters()
+        for probability, state in self:
+            if reached >= target:
+                return
+            coefficient = parse_engine_text(probability, names)
+            if coefficient == 0:
+                continue
+            reached += _exact_number(probability, "A coefficient")
+            monomial = state.to_monomial()
+            terms.append(f"({probability})*{monomial}" if monomial else f"({probability})")
+            yield self.from_expr(" + ".join(terms), *self.get_variables(), finite=True)
+
+    def hadamard_product(self, other: Distribution) -> PGF:
+        """The termwise product of the coefficients of two univariate rational functions in the same variable
+        (:mod:`~prodigy.distribution.pgf.rules.hadamard`, #487 on every engine)."""
+        if not isinstance(other, PGFBase):
+            raise TypeError(f"Cannot compute the Hadamard product, where {other=} is of type {type(other)}.")
+        if len(self.get_variables()) > 1 or other.get_variables() != self.get_variables():
+            raise NotImplementedError("Only univariate distributions in the same variable are supported for the "
+                                      "Hadamard product.")
+        (name,) = self.get_variables()
+        left, right = self._sympy_expression(), other._sympy_expression()  # pylint: disable=protected-access
+        variable = next((symbol for symbol in left.free_symbols if str(symbol) == name), sympy.Symbol(name))
+        right = right.xreplace({symbol: variable for symbol in right.free_symbols if str(symbol) == name})
+        return self._from_sympy_expression(rational_hadamard_product(left, right, variable))
 
     def get_probability_mass(self) -> str:
         self._require_convergent_evaluation(set(), "The probability mass")

@@ -44,6 +44,7 @@ from typing import Iterable, Set, Tuple, Union
 import sympy
 
 from prodigy.distribution.pgf.rules.independent_comparison import ComparisonNotImplemented
+from prodigy.distribution.pgf.rules.linear_guards import DifferenceComparison
 from prodigy.distribution.pgf.rules.rational_series import rational_taylor_coefficients
 
 PARAMETERS = "the compared variables are not independent, and the generating function has parameters"
@@ -87,19 +88,19 @@ def _sum_below_one(poly: sympy.Poly) -> bool:
     return bool(total < 1)
 
 
-def filter_difference_algebraic(function: sympy.Expr, x: str, y: str, relation: str, shift: int,
-                                variables: Iterable[str], condition: str) -> sympy.Expr:
-    # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-branches,too-many-statements
-    # (one rule with the arguments of filter_difference; the steps are numbered in the docstring)
+def filter_difference_algebraic(function: sympy.Expr, comparison: DifferenceComparison, variables: Iterable[str],
+                                condition: str) -> sympy.Expr:
+    # pylint: disable=too-many-branches,too-many-statements  # one rule; its steps are numbered in the docstring
     """
-    The part of the rational `function` whose exponents i of the variable x and j of y satisfy
+    The part of the rational `function` whose exponents i of the variable x and j of y of `comparison` satisfy
     `j - i >= shift` (relation `"ge"`) or `j - i = shift` (`"eq"`), possibly algebraic (see the
-    module documentation). `variables` are the variables of the distribution; other symbols are
-    parameters, which are not supported.
+    module documentation; its `complement` is left to the caller). `variables` are the variables of the
+    distribution; other symbols are parameters, which are not supported.
 
     :raises ComparisonNotImplemented: if the result cannot be computed with a proven branch.
     """
     # pylint: disable=too-many-locals
+    x, y, relation, shift = comparison.x, comparison.y, comparison.relation, comparison.shift
     function = sympy.sympify(function)
     names: Set[str] = set(variables)
     if any(str(symbol) not in names for symbol in function.free_symbols):

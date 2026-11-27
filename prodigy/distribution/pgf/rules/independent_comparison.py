@@ -47,6 +47,7 @@ from sympy.polys.domains.domain import Domain
 from sympy.polys.domains.domainelement import DomainElement
 from sympy.polys.matrices import DomainMatrix
 
+from prodigy.distribution.pgf.rules.linear_guards import DifferenceComparison
 from prodigy.distribution.pgf.rules.multisection import _to_rational
 
 
@@ -233,18 +234,16 @@ def _filtered(factors: _Factors, swap: bool, shift: int, diagonal: bool) -> Elem
     return result + weighted[0, 0].element
 
 
-def filter_difference(function: sympy.Expr, x: str, y: str, relation: str, shift: int,
-                      condition: str) -> sympy.Expr:
-    # pylint: disable=too-many-arguments,too-many-positional-arguments
-    # (the comparison (x, y, relation, shift) and its text for messages)
+def filter_difference(function: sympy.Expr, comparison: DifferenceComparison, condition: str) -> sympy.Expr:
     """
-    The part of `function` whose exponents i of the variable x and j of y satisfy `j - i >= shift` (relation
-    `"ge"`) or `j - i = shift` (relation `"eq"`), see the module documentation. Other symbols are
-    coefficients.
+    The part of `function` whose exponents i of the variable x and j of y of `comparison` satisfy
+    `j - i >= shift` (relation `"ge"`) or `j - i = shift` (relation `"eq"`), see the module documentation; its
+    `complement` is left to the caller. Other symbols are coefficients.
 
     :raises ComparisonNotImplemented: if `function` is not a product of a rational function in x and
         a rational function in y (given the other symbols); `condition` names the guard.
     """
+    x, y, relation, shift = comparison.x, comparison.y, comparison.relation, comparison.shift
     function = sympy.sympify(function)
     # the symbols of `function` with these names (an engine may give its symbols assumptions)
     by_name = {str(symbol): symbol for symbol in function.free_symbols}

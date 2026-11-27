@@ -283,15 +283,14 @@ class PGFFiltering(PGFBase):  # pylint: disable=abstract-method  # a layer of PG
                 raise ComparisonNotImplemented(engine_text_of(condition), NOT_A_DIFFERENCE) from error
             raise error
         function = self._sympy_expression()
-        arguments = (comparison.x, comparison.y, comparison.relation, comparison.shift)
         try:
-            filtered = self._from_sympy_expression(filter_difference(function, *arguments, engine_text_of(condition)))
+            filtered = self._from_sympy_expression(filter_difference(function, comparison, engine_text_of(condition)))
         except ComparisonNotImplemented as not_independent:
             if not_independent.reason != DEPENDENT:
                 raise
             # dependent variables: the residue method, whose result may be algebraic (not rational)
             filtered = self._from_sympy_expression(filter_difference_algebraic(
-                function, *arguments, self.get_variables(), engine_text_of(condition)))
+                function, comparison, self.get_variables(), engine_text_of(condition)))
         return self - filtered if comparison.complement else filtered
 
     def without_computed_terms(self, expression: Expr) -> Tuple[PGF, Expr, List[str]]:
