@@ -2,10 +2,10 @@
 // why, the parameter values of a synthesis, and for "not equivalent" the witness that proves it. Compare runs no
 // program on an input of its own, so there are no output distributions here. Needs only the result JSON.
 import { h, icon } from "./dom.js";
-import { formatSeconds, formatValue } from "./format.js";
+import { formatSeconds, formatValue, stateText } from "./format.js";
 import { expressionBox, guaranteeBadge } from "./parts.js";
 import {
-  CONTINUE_GUARANTEE, checkLines, constraintTexts, inputText, intervalText, relationText, stateText, verdictOf,
+  CONTINUE_GUARANTEE, checkLines, constraintTexts, inputText, intervalText, relationText, verdictOf,
 } from "./equivalence-model.js";
 import { staleText } from "../staleness.js";
 

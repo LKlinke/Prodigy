@@ -6,6 +6,7 @@
 // table whose cells are shaded by their value; the value is always written, so the shading is only an aid).
 // "Use as EVT invariant candidate" switches the loop to Check EVT invariant, prefilled with a guess.
 import { h, icon } from "./dom.js";
+import { formatValue, stateText } from "./format.js";
 import { formulaBox } from "./formula-box.js";
 
 let counter = 0;
@@ -18,16 +19,6 @@ export function explorations(result) {
     if (cert) found.push({ loop, exploration: cert.exploration });
   }
   return found;
-}
-
-function stateText(state) {
-  return Object.entries(state).map(([name, value]) => `${name} = ${value}`).join(", ");
-}
-
-function shortNumber(value, exact) {
-  if (value === null || value === undefined) return exact;
-  if (Number.isInteger(value)) return String(value);
-  return Math.abs(value) >= 1000 || (value !== 0 && Math.abs(value) < 0.001) ? value.toExponential(2) : value.toFixed(3);
 }
 
 /** The candidate offered for Check EVT invariant: the rational fit, else the closed form of the chosen H_N. */
@@ -68,7 +59,7 @@ export function explorationCard(loop, exploration, options = {}) {
         const value = row.floats[i];
         const share = max > 0 && typeof value === "number" ? Math.max(0, Math.min(1, value / max)) : 0;
         return h("td", { class: `num${i === index ? " current" : ""}`, title: exact,
-          style: `--evt-share: ${Math.round(share * 32)}%` }, shortNumber(value, exact));
+          style: `--evt-share: ${Math.round(share * 32)}%` }, formatValue(exact, value));
       })));
     return h("table", { class: "evt-table" }, h("caption", { class: "visually-hidden" },
       `Expected visiting times per state for N = ${iterates.map((it) => it.n).join(", ")}`),

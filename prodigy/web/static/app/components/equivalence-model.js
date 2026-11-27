@@ -2,6 +2,7 @@
 // the witness. No DOM, so that Node can test it;
 // equivalence-view.js draws it. The input is the `equivalence` part of a result (see
 // prodigy/analysis/equivalence/verdict.py and docs/gui.md).
+import { stateText } from "./format.js";
 
 /** Each verdict has its own glyph and word: status is never shown by colour alone. `tone` picks the
  * colour token (exact: proven equal; data: proven different, which is no failure; unknown). */
@@ -45,13 +46,7 @@ export function relationText(relation) {
 
 /** "p = 1/3" for each solution of a parameter synthesis. */
 export function constraintTexts(constraints) {
-  return (constraints || []).map((c) => Object.entries(c).map(([name, value]) => `${name} = ${value}`).join(", "))
-    .filter(Boolean);
-}
-
-export function stateText(state) {
-  const entries = Object.entries(state || {});
-  return entries.length ? entries.map(([k, v]) => `${k} = ${v}`).join(", ") : "the empty state";
+  return (constraints || []).map((c) => stateText(c, "")).filter(Boolean);
 }
 
 /** "1/3" for an exact value, "[a, b]" for an interval; long exact numbers as decimals (`format` turns an
@@ -85,8 +80,7 @@ function boundWord(kind) {
 
 /** The input of a witness (a state, every variable listed) in words: "x = 1, n = 3", or "every variable 0". */
 export function inputText(input) {
-  const set = Object.entries(input || {}).filter(([, value]) => value);
-  return set.length ? set.map(([name, value]) => `${name} = ${value}`).join(", ") : "every variable 0";
+  return stateText(Object.fromEntries(Object.entries(input || {}).filter(([, value]) => value)), "every variable 0");
 }
 
 /** A probability for a table cell: a short exact value as it is, else the decimal. */

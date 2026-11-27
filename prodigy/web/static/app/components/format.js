@@ -12,6 +12,12 @@ function trimZeros(text) {
   return text.includes(".") ? text.replace(/0+$/, "").replace(/\.$/, "") : text;
 }
 
+/** A state (or any valuation) in words: "x = 0, n = 1", or `empty` when it has no variable. */
+export function stateText(state, empty = "the empty state") {
+  const entries = Object.entries(state || {});
+  return entries.length ? entries.map(([name, value]) => `${name} = ${value}`).join(", ") : empty;
+}
+
 /** A float for display: 4 significant digits, scientific notation for very small values. */
 export function formatNumber(x, digits = 4) {
   if (x === null || x === undefined || Number.isNaN(x)) return "—";

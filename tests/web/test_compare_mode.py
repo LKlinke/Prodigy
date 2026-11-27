@@ -13,7 +13,7 @@ from prodigy.analysis.session import AnalysisSession
 from prodigy.web import compare as web_compare
 from prodigy.web.compare import run_equivalence, validate_equivalence
 
-from tests.web.test_app import HOST, wait_for
+from tests.web.test_app import HOST, all_app_sources, app_source, wait_for
 
 APP = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app"
 COMPONENTS = APP / "components"
@@ -202,15 +202,17 @@ def test_an_analyze_setup_does_not_reach_compare(tmp_path):
 
 def test_main_keeps_one_setup_per_mode():
     """The window reads and writes the setup of the shown mode only; nothing copies Analyze's setup into Compare."""
-    main = (APP / "main.js").read_text(encoding="utf-8")
-    assert "get setup() { return this.setups[this.mode]; }" in main
-    assert 'save("setup", state.setup)' not in main and 'load("setup"' not in main
-    assert "restoreSetup(load(SETUP_KEYS[mode], null), state.meta, mode)" in main
+    assert "get setup() { return this.setups[this.mode]; }" in app_source("app-state.js")
+    everything = all_app_sources()
+    assert 'save("setup", state.setup)' not in everything and 'load("setup"' not in everything
+    assert "restoreSetup(load(SETUP_KEYS[mode], null), state.meta, mode)" in app_source("main.js")
     # "Compare this loop" takes only the loop-free program along, not the loop's strategy
-    compare_loop = main[main.index("async function compareLoop"):main.index("/** What the verdict card offers")]
+    modes = app_source("compare-mode.js")
+    compare_loop = modes[modes.index("async function compareLoop"):modes.index("/** What the verdict card offers")]
     assert "structuredClone(current)" not in compare_loop and "state.setup.decisions = {};" in compare_loop
     # the request of a comparison has no input and only the options of the check
-    build = main[main.index("function buildRequest()"):main.index("async function requestSuggestion")]
+    running = app_source("run.js")
+    build = running[running.index("function buildRequest()"):running.index("async function requestSuggestion")]
     compare_request = build[:build.index("const steps")]
     assert 'state.mode === "compare"' in compare_request and "input_distribution" not in compare_request
     assert "coefficients" not in compare_request and "normalize" not in compare_request
@@ -229,5 +231,4 @@ def test_compare_view_shows_only_the_verdict():
     assert "renderResult" not in view and "comparePlots" not in view and "Result of" not in view
     assert "Output distributions" not in view and "witnessTable(" in view
     assert not (COMPONENTS / "compare-plots.js").exists()
-    main = (APP / "main.js").read_text(encoding="utf-8")
-    assert "equivalence?.other" not in main and "result?.other_loops" in main
+    assert "equivalence?.other" not in all_app_sources() and "result?.other_loops" in app_source("panels.js")

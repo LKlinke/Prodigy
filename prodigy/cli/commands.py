@@ -56,9 +56,7 @@ def main(ctx: click.Context, *,  # pylint: disable=too-many-arguments  # one par
     session = AnalysisSession.interactive(program, source=program_source, config=config,
                                           decisions=decisions)
     start = time.perf_counter()
-    with session.activate():
-        dist, error_prob = compute_discrete_distribution(
-            program, dist, config)
+    dist, error_prob = compute_discrete_distribution(program, dist, config, session=session)
     seconds = time.perf_counter() - start
     draw_plots(session)
     _print_result(session, display_form(dist).distribution if config.use_simplification else dist, error_prob,
