@@ -9,15 +9,13 @@ from __future__ import annotations
 import itertools
 import re
 
-from typing import (cast, Any, Callable, Dict, FrozenSet, Generator, Iterator, List, Optional, Set, Tuple,
+from typing import (cast, Any, Dict, FrozenSet, Generator, Iterator, List, Optional, Set, Tuple,
                     Type, Union)
 
 import prodigy_ginac
 from sympy import Expr as Expr_, Symbol, parse_expr
 from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
-from prodigy.distribution.pgf.rules.exact_division import divide_exponents
-from prodigy.distribution.pgf.sympy.engine import SympyPGF
 from prodigy.distribution.pgf.rules.negative_values import can_be_negative, operand
 from prodigy.distribution.pgf.rules.roots_of_unity import require_single_valued
 from prodigy.distribution.distribution import Distribution, Operand
@@ -267,10 +265,9 @@ class GinacPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
                 raise
         # The bindings evaluate the moments at 1 and fail at a pole (#227) or at log(0) for a logarithmic
         # generating function (#371), e.g. an infinite expected value.
-        # The SymPy engine computes the limit from below, which is the value of the series (Abel's theorem).
-        # The other symbols of the function are its parameters.
-        sympy_engine = SympyPGF(engine_text_of(self._dist), *self._variables)
-        return sympy_engine._expected_value_of(text)  # pylint: disable=protected-access
+        # The shared rule takes the limit from below, which is the value of the series (Abel's theorem), on the
+        # closed form read by SymPy (the bindings' marginal would evaluate at the pole as well).
+        return self._series_expected_value(text, self._sympy_expression())
 
     def _normalize(self) -> GinacPGF:
         return GinacPGF.from_dist(self._dist.normalize(), self._variables, self._parameters)
@@ -384,73 +381,6 @@ class GinacPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
                                   engine_text_of(second_summand)), self._variables,
             self._parameters)
 
-    def _case_split(self, update: Callable[[], prodigy_ginac.Dist], *operands: str | int) -> prodigy_ginac.Dist:
-        """
-        Calls `update`, an update of the bindings that does a case split over the values of the
-        variables among `operands`. The bindings sum out the other variables for it and raise
-        `ValueError: power::eval(): division by zero` if that diverges; this becomes the
-        `NonFiniteMarginalError` of the other engines (#250). Callers check the marginals the bindings
-        approximate first (:meth:`_require_approximable`, #393).
-        """
-        try:
-            return update()
-        except ValueError as error:
-            if not _is_division_by_zero(error):
-                raise
-            for name in dict.fromkeys(engine_text_of(operand) for operand in operands):
-                if name in self._variables:
-                    self.checked_marginal(name)
-            raise
-
-    def _require_approximable(self, variable: str, approximate: str | float | None, message: str) -> None:
-        """
-        Before the bindings split over the approximated marginal of `variable`, which takes infinitely
-        many values: raises `NonFiniteMarginalError` if this marginal is not proven to be the sum of its
-        series (:meth:`checked_marginal`, #242, #393), and `ValueError` with `message` if `approximate`
-        is None (nothing to approximate with).
-        """
-        self.checked_marginal(variable)
-        if approximate is None:
-            raise ValueError(message)
-
-    def _split_operands(self, update: Callable[[PGF, str, str], PGF], left: str | int,
-                        right: str | int, *names: str | int) -> GinacPGF | None:
-        """
-        The update as a sum over the values of the variables among `names` that have a finite support
-        (see :meth:`Distribution._split_over_finite_supports`), or None if none has one. The bindings
-        unfold the marginal of an operand for a case split, which loses the values whose mass cancels
-        in the marginal of a signed measure (#256); with these operands fixed to literals, they do not
-        split over them.
-        """
-        result = self._split_over_finite_supports(update, left, right, names)
-        assert result is None or isinstance(result, GinacPGF)
-        return result
-
-    def _update_product(self, temp_var: str, first_factor: str,
-                        second_factor: str,
-                        approximate: str | float | None) -> GinacPGF:
-        variables = self._variables
-        # On a polynomial, the bindings multiply term by term; else they split over a marginal.
-        if not self._finite and first_factor in variables and second_factor in variables:
-            for fixed in (first_factor, second_factor):
-                split = self._split_operands(
-                    lambda part, left, right: part._update_product(  # pylint: disable=protected-access
-                        temp_var, left, right, approximate), first_factor, second_factor, fixed)
-                if split is not None:
-                    return split
-            # both take infinitely many values: raises without an approximation, and the bindings
-            # approximate a marginal that has to be the sum of its series (#393)
-            self.checked_marginal(second_factor)
-            self._require_approximable(
-                first_factor, approximate,
-                f'Cannot perform the multiplication {first_factor} * {second_factor} because both variables have '
-                f'infinite range')
-        return GinacPGF.from_dist(
-            self._case_split(lambda: self._dist.update_product(temp_var, first_factor, second_factor,
-                                                               self._variables, self._finite, approximate),
-                             first_factor, second_factor),
-            self._variables, self._parameters)
-
     def _update_subtraction(self, temp_var: str, sub_from: str | int,
                             sub: str | int) -> GinacPGF:
         res = self._dist.update_subtraction(temp_var, engine_text_of(sub_from), engine_text_of(sub))
@@ -460,83 +390,6 @@ class GinacPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
         variables = self.get_variables()
         return can_be_negative(self._sympy_function(), {Symbol(var) for var in variables},
                                operand(minuend, variables), operand(subtrahend, variables)) is False
-
-    def _update_modulo(self, temp_var: str, left: str | int, right: str | int,
-                       approximate: str | float | None) -> GinacPGF:
-        # before the bindings, which report a non-finite marginal on a measure with infinite mass (#257)
-        self._require_nonzero_divisor(right, "%")
-        variables = self._variables
-        # On a polynomial, the bindings compute the remainder term by term. Else they would split over
-        # the marginal of an operand (#256): the operands with a finite support are fixed instead.
-        if not self._finite and engine_text_of(right) in variables:
-            split = self._split_operands(
-                lambda part, l, r: part._update_modulo(temp_var, l, r, approximate),  # pylint: disable=protected-access
-                left, right, right)
-            if split is not None:
-                return split
-            self._require_approximable(
-                engine_text_of(right), approximate,
-                f'Cannot perform modulo operation with infinite right hand side {right}')
-        elif not self._finite and engine_text_of(left) in variables:
-            split = self._split_operands(
-                lambda part, l, r: part._update_modulo(temp_var, l, r, approximate),  # pylint: disable=protected-access
-                left, right, left)
-            if split is not None:
-                return split
-            if engine_text_of(right).isdigit():
-                # the residue classes modulo a constant are exact for every measure (#249)
-                return self._modulo_by_progression(temp_var, engine_text_of(left), engine_text_of(right))
-        if not self._finite and engine_text_of(left) in variables:
-            # With an infinite marginal of `left`, GiNaC extracts the residue classes of `left` with
-            # roots of unity.
-            require_single_valued(self._sympy_function(), engine_text_of(left), f"{left} % {right}")
-        return GinacPGF.from_dist(
-            self._case_split(lambda: self._dist.update_modulo(temp_var, engine_text_of(left), engine_text_of(right),
-                                                              self._variables, self._finite, approximate),
-                             left, right),
-            self._variables, self._parameters)
-
-    def _modulo_by_progression(self, temp_var: str, left: str, right: str) -> GinacPGF:
-        """`temp_var := left % right` for a constant `right`, from the residue classes of `left`."""
-        result: Distribution | None = None
-        for remainder, section in enumerate(self._arithmetic_progression(engine_text_of(left), engine_text_of(right))):
-            part = section._update_var(temp_var, remainder)  # pylint: disable=protected-access
-            result = part if result is None else result + part
-        assert isinstance(result, GinacPGF)
-        return result
-
-    def _update_division(self, temp_var: str, numerator: str | int,
-                         denominator: str | int,
-                         approximate: str | float | None) -> GinacPGF:
-        # before the bindings, which report a non-finite marginal on a measure with infinite mass (#257)
-        self._require_nonzero_divisor(denominator, "/")
-        # The bindings split over the marginals of the operands (#256), on polynomials as well: the
-        # operands with a finite support are fixed instead.
-        infinite = f'Cannot perform the division {numerator} / {denominator} because at least one has infinite range'
-        for fixed in (denominator, numerator):
-            if engine_text_of(fixed) not in self._variables:
-                continue
-            split = self._split_operands(
-                lambda part, l, r: part._update_division(temp_var, l, r, approximate),  # pylint: disable=protected-access
-                numerator, denominator, fixed)
-            if split is not None:
-                return split
-            if fixed == numerator and engine_text_of(denominator).isdigit():
-                divided = self._divide_exponents(temp_var, engine_text_of(numerator), int(engine_text_of(denominator)))
-                if divided is not None:
-                    return divided
-            self._require_approximable(engine_text_of(fixed), approximate, infinite)
-        try:
-            numerator_text, denominator_text = engine_text_of(numerator), engine_text_of(denominator)
-            divided = self._case_split(lambda: self._dist.update_division(temp_var, numerator_text, denominator_text,
-                                                                          approximate),
-                                       numerator, denominator)
-        except ValueError as error:
-            if "not always divisible" not in engine_text_of(error):
-                raise
-            # the bindings' words for the error of the shared contract (#361)
-            raise self._not_an_integer_quotient(numerator, denominator, temp_var) from error
-        return GinacPGF.from_dist(divided, self._variables, self._parameters)
 
     def _sympy_function(self) -> Expr_:
         """This generating function as a SymPy expression (all symbols without assumptions)."""
@@ -552,34 +405,21 @@ class GinacPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
         dist = prodigy_ginac.Dist(engine_text_of(expression).replace('**', '^'), list(self._parameters))
         return GinacPGF.from_dist(dist, set(self._variables), set(self._parameters))
 
-    def _divide_exponents(self, temp_var: str, numerator: str, divisor: int) -> GinacPGF | None:
-        """
-        The update `temp_var := numerator / divisor` for an infinite marginal of `numerator`, or None
-        if it is not proven that `numerator` is always a multiple of `divisor` (see
-        :mod:`prodigy.distribution.pgf.rules.exact_division`).
-        """
-        divided = divide_exponents(self._sympy_function(), numerator, temp_var, divisor)
-        if divided is None:
-            return None
-        return GinacPGF(engine_text_of(divided).replace('**', '^'), *self._variables, finite=False)
-
-    def _update_power(self, temp_var: str, base: str | int, exp: str | int,
-                      approximate: str | float | None) -> GinacPGF:
-        # The bindings split over the marginals of the operands (#256), on polynomials as well: the
-        # operands with a finite support are fixed instead.
-        split = self._split_operands(
-            lambda part, l, r: part._update_power(temp_var, l, r, approximate),  # pylint: disable=protected-access
-            base, exp, base, exp)
-        if split is not None:
-            return split
-        for operand_ in (base, exp):
-            if engine_text_of(operand_) in self._variables:
-                self._require_approximable(
-                    engine_text_of(operand_), approximate,
-                    "Can only perform exponentiation if the base and the exponent have a finite marginal")
+    def _update_scaled(self, temp_var: str, variable: str, factor: int) -> GinacPGF:
         return GinacPGF.from_dist(
-            self._case_split(lambda: self._dist.update_power(temp_var, base, exp, approximate), base, exp),
+            self._dist.update_product(temp_var, variable, str(factor), self._variables, self._finite, None),
             self._variables, self._parameters)
+
+    def _termwise(self, binop: Binop, temp_var: str, left: str, right: str) -> Optional[GinacPGF]:
+        # the bindings multiply and take remainders term by term on a polynomial; for / and ** the shared
+        # logic fixes the operands' values
+        if binop == Binop.TIMES:
+            dist = self._dist.update_product(temp_var, left, right, self._variables, True, None)
+        elif binop == Binop.MODULO:
+            dist = self._dist.update_modulo(temp_var, left, right, self._variables, True, None)
+        else:
+            return None
+        return GinacPGF.from_dist(dist, self._variables, self._parameters)
 
     def _compose_iid(self, sample: PGF, count: Union[str, int], variable: str) -> GinacPGF:
         result = self._dist.updateIid(variable, cast(GinacPGF, sample)._dist,  # pylint: disable=protected-access

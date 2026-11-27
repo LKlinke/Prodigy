@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, cast, ContextManager, Dict, List, Optional, Se
 
 import sympy
 
-from prodigy.language import Binop, BinopExpr, Expr, Unop, UnopExpr, VarExpr
+from prodigy.language import Binop, BinopExpr, Expr, RealLitExpr, Unop, UnopExpr, VarExpr
 from prodigy.language.engine_text import engine_text_of
 from prodigy.distribution.distribution import Distribution
 if TYPE_CHECKING:  # pragma: no cover
@@ -20,7 +20,9 @@ from prodigy.distribution.values import MarginalType, OrderVerdict, State, Value
 from prodigy.distribution.terms import is_true, state_value
 from prodigy.distribution.pgf.messages import with_terms
 from prodigy.distribution.pgf.hooks import PGFHooks
+from prodigy.distribution.engine_text import parse_engine_text, sympy_text
 from prodigy.distribution.pgf.rules.convergence import marginal_obstacle
+from prodigy.distribution.pgf.rules.value_at_one import _substitute_one
 from prodigy.distribution.pgf.rules.equality import decide_equal_strings, sympify_distribution_string
 from prodigy.distribution.pgf.rules.finite_measure import check_input_expression
 from prodigy.distribution.pgf.rules.ordering import dominates_finite, nonneg_verdict
@@ -261,6 +263,53 @@ class PGFBase(PGFHooks):  # pylint: disable=abstract-method  # a layer of PGF
         text = engine_text_of(self._sympy_expression()).replace("**", "^")
         verdict, _ = check_input_expression(text, sorted(self.get_variables()))
         return verdict is True
+
+    def _expected_value_of(self, expression: Union[Expr, str]) -> str:
+        """The expected value of `expression` (see :meth:`get_expected_value_of`) by :meth:`_series_expected_value`
+        on the engine's marginal; an engine may compute it itself first."""
+        return self._series_expected_value(expression)
+
+    def _series_expected_value(self, expression: Union[Expr, str], function: Optional[sympy.Expr] = None) -> str:
+        """
+        The expected value of the polynomial `expression` in the variables and parameters: for each term
+        ``c * x1^k1 * … * xm^km``, ``c`` times the value at 1 of ``(x1 d/dx1)^k1 … (xm d/dxm)^km`` applied to the
+        marginal of ``x1, …, xm`` (the moments of a generating function). The value at 1 is the limit from below
+        (Abel's theorem, :func:`~prodigy.distribution.pgf.rules.value_at_one._substitute_one`), so an infinite
+        moment is ∞. The marginal is the engine's (:meth:`_marginal`), or, with `function` (this distribution as
+        a SymPy expression), the other variables of `function` summed out by their values at 1.
+        """
+        expr = parse_engine_text(engine_text_of(expression), rational=True).ratsimp().expand()
+        if not expr.is_polynomial():
+            raise NotImplementedError("Expected Value only computable for polynomial expressions.")
+        names = {symbol.name for symbol in expr.free_symbols}
+        variables = sorted(names & self.get_variables())
+        if not variables:
+            return sympy_text(expr)
+        if not names <= self.get_variables() | self.get_parameters():
+            raise ValueError(f"Cannot compute expected value of {expression} because it contains unknown symbols")
+        if function is None:
+            marginal = self._marginal(*variables, method=MarginalType.INCLUDE)._sympy_expression()  # pylint: disable=protected-access
+        else:
+            marginal = function
+            for symbol in sorted(function.free_symbols, key=lambda s: s.name):
+                if symbol.name in self.get_variables() and symbol.name not in variables:
+                    marginal = _substitute_one(marginal, symbol)
+        symbols = {symbol.name: symbol for symbol in marginal.free_symbols}
+        expr = expr.xreplace({symbol: symbols[symbol.name] for symbol in expr.free_symbols if symbol.name in symbols})
+        generators = [symbols.get(name, sympy.Symbol(name)) for name in variables]
+        expected_value = sympy.Integer(0)
+        for exponents, coefficient in sympy.Poly(expr, *generators).terms():
+            moment = marginal
+            for symbol, exponent in zip(generators, exponents):
+                for _ in range(exponent):
+                    moment = moment.diff(symbol) * symbol
+                moment = _substitute_one(moment, symbol)
+            # subtractions of natural numbers are computed before (monus, get_expected_value_of), so a negative
+            # summand is a negative coefficient of the (rational) expression itself
+            expected_value += coefficient * moment
+        if expected_value == sympy.oo:
+            return engine_text_of(RealLitExpr.infinity())
+        return sympy_text(expected_value)
 
     def set_variables(self, *variables: str) -> Self:
         new_variables = set(variables)

@@ -13,7 +13,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.values import sym
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.equality import decide_equal
-from prodigy.language import parse_program
+from prodigy.language import Binop, parse_program
 
 Engine = ForwardAnalysisConfig.Engine
 ENGINES = [Engine.SYMPY, Engine.GINAC]
@@ -88,7 +88,7 @@ def test_approximated_case_split_with_parameters_counts_each_value_once():
     # pylint: disable=import-outside-toplevel
     from prodigy.distribution.fast_generating_function import FPS
     geometric = FPS("(1-p)/(1-p*x)", "x")
-    result = geometric._update_product("y", "x", "x", "0.5")  # pylint: disable=protected-access
+    result = geometric._binary_by_cases(Binop.TIMES, "y", "x", "x", "0.5")  # pylint: disable=protected-access
     assert decide_equal(_expr(str(result).replace("^", "**")), 1 - p) is True
 
 

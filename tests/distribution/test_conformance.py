@@ -19,6 +19,8 @@ checks that they agree there.
 import itertools
 import operator
 
+import re
+
 import pytest
 import sympy
 
@@ -762,7 +764,8 @@ ERRORS = [
     ("x^3", ("x",), "x == x / 0", ZeroDivisorError, "Division by zero: the divisor is 0"),
     ("x", ("x",), "x == z + 1", ValueError, "z is neither a variable nor a parameter"),
     ("1/(3 - 2*a)*exp(4*(b - 1))*c", ("a", "b", "c"), "c == a * b", ValueError,
-     "Cannot perform the multiplication a * b because both variables have infinite range"),
+     "Cannot compute a * b exactly: a and b have infinite range, and the case split over the values is not "
+     "implemented without an approximation"),
 ]
 
 
@@ -786,8 +789,54 @@ def test_error_message_is_the_same_on_all_engines(function, variables, update, e
 
 def test_power_of_infinite_variables(factory):
     dist = factory.from_expr("x^3*y^5*z^9", "x", "y", "z") * factory.poisson("w", 3)
-    with pytest.raises(ValueError, match="exponentiation .* finite marginal"):
+    # x is fixed to its value 3, w takes infinitely many values
+    with pytest.raises(ValueError, match=r"Cannot compute w \*\* 3 exactly: w has infinite range"):
         dist.update(P("z == w ** x"))
+
+
+# --- 9. binary operators: one case analysis on all engines (#511, P4c) ------------------------------------------
+
+
+@pytest.mark.parametrize("operator", ["*", "/", "%", "**", "//"])
+@pytest.mark.parametrize("parameter_left", [True, False])
+def test_operators_with_a_parameter_are_not_implemented(factory, operator, parameter_left):
+    """B1: an operand that is a parameter has no values to split over; the message names the program's term
+    (before, the engines reported an assignment of a temporary variable, ``_1 = n``)."""
+    term = f"n {operator} x" if parameter_left else f"x {operator} n"
+    with pytest.raises(NotImplementedError, match=f"Cannot compute {re.escape(term)}: .* with the parameter n is "
+                                                  f"not implemented"):
+        factory.from_expr("n*x + (1 - n)*x^2", "x").update(P(f"x == {term}"))
+
+
+@pytest.mark.parametrize("update", ["y == x ** z", "y == z ** x", "y == x * z", "y == x % (z + 1)"])
+def test_two_infinite_operands_are_approximated_alike(update):
+    """(c): both operands take infinitely many values; with ``approximate``, every engine splits over the
+    approximated marginals (GiNaC's bindings failed on ``x ** z``)."""
+    results = [symbolic(engine().from_expr("1/(2 - x)*1/(2 - z)", "x", "y", "z").update(P(update), approximate="0.9"))
+               for engine in ENGINES]
+    assert sympy.simplify(results[0] - results[1]) == 0
+    assert 0 < results[0].subs({sympy.Symbol(name): 1 for name in "xyz"}) <= 1
+
+
+@pytest.mark.parametrize("update, error", [("y == x / z", ZeroDivisorError), ("y == x % z", ZeroDivisorError)])
+def test_a_divisor_zero_of_an_approximated_split_is_a_zero_divisor_error(factory, update, error):
+    """(d): ``z`` takes the value 0 in the approximated marginal; the split reports the divisor 0 alike (SymPy
+    raised Python's ``ZeroDivisionError``, GiNaC ``NotAnIntegerError`` or ``RuntimeError``)."""
+    with pytest.raises(error, match="0"):
+        factory.from_expr("1/(2 - x)*1/(2 - z)", "x", "y", "z").update(P(update), approximate="0.9")
+
+
+@pytest.mark.parametrize("update", ["y == x ** 2", "y == 2 ** x", "y == x % z", "y == x / z", "y == x * z"])
+def test_infinite_operands_without_approximation_have_one_message(update):
+    """(e): the message names the program's operands (no temporary variable) and is the same on all engines."""
+    messages = set()
+    for engine in ENGINES:
+        with pytest.raises(ValueError) as caught:
+            engine().from_expr("1/(2 - x)*1/(2 - z)", "x", "y", "z").update(P(update))
+        messages.add(str(caught.value))
+    assert len(messages) == 1, messages
+    (message,) = messages
+    assert "infinite range" in message and not re.search(r"\b(_\d+|sym_\d+)\b", message), message
 
 
 # --- Declared differences ------------------------------------------------------------------------------------

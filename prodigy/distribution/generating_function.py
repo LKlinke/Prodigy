@@ -6,11 +6,11 @@ the engine and its factory at once.
 
 from prodigy.distribution.pgf.sympy.engine import (
     GeneratingFunction,
-    GeneratingFunctionSettings,
     MAX_FACTORED_PARAMETERS,
     SympyPGF,
 )
-from prodigy.distribution.pgf.sympy.expressions import (
+from prodigy.distribution.pgf.sympy.settings import GeneratingFunctionSettings
+from prodigy.distribution.pgf.rules.value_at_one import (
     _continuous_at_one,
     _substitute_one,
 )
