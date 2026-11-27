@@ -260,5 +260,5 @@ Each package PR leaves its own package clean for the checks it is responsible fo
 
 Goal-first loop choice in GUI and CLI (the registry of P5b makes it possible); acceleration and Newton iteration
 as loop rules; a CLI batch mode `prodigy plot`; using proven independence to enable operations (soundness
-first); parameter fitting with `optimize`. The frontend's large ES modules (`main.js` 1 481 lines,
-`analysis-card.js` 980) are split in P7 as review W5.
+first); parameter fitting with `optimize`. (The frontend's large ES modules were split in P7, review W5:
+`main.js` by concern and mode, `analysis-card.js` by lens, `joint-view.js` into cells and 3D bars.)

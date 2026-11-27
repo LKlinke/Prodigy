@@ -63,7 +63,11 @@ share `--max-jobs`, background jobs (joint grids, suggestions) have `--max-backg
 frontend is plain ES modules without a build step. CodeMirror and KaTeX are vendored under
 `static/vendor` and rebuilt via `prodigy/web/frontend`. Shared components are in
 `static/app/components`: every KaTeX formula goes through `formula-box.js` (bounded size), every
-animation through `motion.js`.
+animation through `motion.js`, and states and numbers are written by `format.js`. `static/app/main.js`
+only boots the window; the app's modules share `app-state.js` (the state, the editors) and are split by
+concern: `checking.js`, `panels.js` (inspector, setup panel, annotations), `compare-mode.js` (the modes
+and program B), `result-panel.js` and `run.js` (jobs). No module imports `main.js`: the page loads it with a
+version query, so an import would run it a second time.
 
 ### Examples and tests
 
