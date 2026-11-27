@@ -251,6 +251,7 @@ def test_every_equivalence_example_has_its_second_program(client):
 
 MODEL_CHECK = """
 const m = await import(%(module)r);
+const f = await import(%(format)r);
 console.log(JSON.stringify({
   notImplemented: m.verdictOf({ verdict: "unknown", check: { error: { type: "NotImplementedError" } } }),
   forged: m.verdictOf({ verdict: "bogus" }).key,
@@ -261,7 +262,7 @@ console.log(JSON.stringify({
   interval: [m.intervalText({ lower: "1/3", upper: "1/3" }),
              m.intervalText({ lower: "1/3", upper: "123456789/987654321", upper_float: 0.125 }, (e, n) => String(n))],
   input: [m.inputText({ n: 3, x: 1 }), m.inputText({ n: 0, x: 0 }), m.inputText(null)],
-  state: [m.stateText({ x: 0, n: 1 }), m.stateText({})],
+  state: [f.stateText({ x: 0, n: 1 }), f.stateText({}), f.stateText({}, "—")],
   check: m.checkLines({ answer: "failed", error: { type: "NotImplementedError", message: "boom" } }),
   counterexample: m.checkLines({ answer: "different", first: "exact", second: "exact", counterexample: { x: 2 } }),
 }));
@@ -271,7 +272,8 @@ console.log(JSON.stringify({
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
 def test_frontend_model(tmp_path):
     script = tmp_path / "check.mjs"
-    script.write_text(MODEL_CHECK % {"module": (COMPONENTS / "equivalence-model.js").as_uri()}, encoding="utf-8")
+    script.write_text(MODEL_CHECK % {"module": (COMPONENTS / "equivalence-model.js").as_uri(),
+                                     "format": (COMPONENTS / "format.js").as_uri()}, encoding="utf-8")
     output = json.loads(subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=60,
                                        check=True).stdout)
     assert output["notImplemented"]["title"] == "Not decided: not implemented"
@@ -283,7 +285,7 @@ def test_frontend_model(tmp_path):
     assert output["constraints"] == ["p = 1/3", "p = 1/2, q = 1"]
     assert output["interval"] == ["1/3", "[1/3, 0.125]"]
     assert output["input"] == ["n = 3, x = 1", "every variable 0", "every variable 0"]
-    assert output["state"] == ["x = 0, n = 1", "the empty state"]
+    assert output["state"] == ["x = 0, n = 1", "the empty state", "—"]
     assert output["check"] == ["The check did not finish.", "Not implemented: boom"]
     assert output["counterexample"][-1] == "Counterexample of the solver: input x = 2."
 
