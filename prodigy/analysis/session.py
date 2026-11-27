@@ -34,40 +34,35 @@ from __future__ import annotations
 import contextlib
 import io
 import logging
-import os
-import sys
-import tempfile
 import time
-import traceback
 import warnings
-from dataclasses import dataclass, field
 from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, Union,
                     cast)
 
 from prodigy.language import (CovarianceInstr, ExpectationInstr, Expr, Instr, OptimizationQuery, PlotInstr, PrintInstr,
                               ProbabilityQueryInstr, Program, QueryInstr, VarianceInstr, WhileInstr)
 
-from prodigy.analysis import nested_inference
 from prodigy.analysis.nested_inference import DistRegistry
 from prodigy.analysis.analyzer import compute_program
 from prodigy.analysis.checks import type_error
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.context import (AnalysisContext, Scope, boundary_context, has_active_context,
                                       register_detached_context, reset_context, use_context)
-from prodigy.analysis.exceptions import ForwardAnalysisError, VerificationError
+from prodigy.analysis.exceptions import ForwardAnalysisError
 from prodigy.analysis.input_distribution import input_distribution_from_text, validate_input_distribution
 from prodigy.analysis.instructionhandler.program_info import ProgramInfo
-from prodigy.analysis.result import (ANSI, AnalysisResult, engine_name, failure_bounds, language_warnings,
-                                     non_finite_parts)
+from prodigy.analysis.decisions import (DEFAULT_KEY, DecisionProvider, FixedDecisions, InteractiveDecisions,
+                                        parse_decisions, validate_decisions)
+from prodigy.analysis.loop_records import LoopRecord, LoopRegistry
+from prodigy.analysis.output_capture import captured_output
+from prodigy.analysis.result import AnalysisResult, describe_output, finish_result, record_failure, result_input
 # registers the built-in strategies
 import prodigy.analysis.loops.builtin  # pylint: disable=unused-import
-from prodigy.analysis.loops.api import (Bound, DecisionRequired, LoopDecision, LoopOutcome, LoopStrategy, LoopTask,
-                                        ParamSpec, QueryKey, get_loop_strategy, loop_strategies, query_key)
+from prodigy.analysis.loops.api import (Bound, DecisionRequired, LoopDecision, LoopOutcome, LoopTask, ParamSpec,
+                                        QueryKey, query_key)
 from prodigy.distribution import known_convergent_series
 from prodigy.language.outline import LoopInfo, outline
-from prodigy.language.positions import span_of
 from prodigy.language.ppy_printer import spell
-from prodigy.analysis.values import _safe, bounds_explanation, describe_distribution, error_type, exact_and_float
 from prodigy.util.integers import unlimited_int_digits
 from prodigy.util.logger import log_setup, print_progress_bar
 
@@ -78,6 +73,11 @@ if TYPE_CHECKING:  # pragma: no cover
     from prodigy.analysis.upper_track import UpperTrack
     from prodigy.distribution import Distribution
 
+# the front ends import the decisions and loop records from here
+__all__ = ["DEFAULT_KEY", "AnalysisSession", "DecisionProvider", "FixedDecisions", "InteractiveDecisions",
+           "LoopRecord", "LoopRegistry", "build_result", "compute_discrete_distribution", "current_session",
+           "has_current_session", "parse_decisions", "validate_decisions"]
+
 logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 
@@ -87,342 +87,6 @@ logger = log_setup(str(__name__).rsplit(".", maxsplit=1)[-1], logging.DEBUG)
 
 _QUERY_INSTRS = (CovarianceInstr, VarianceInstr, ExpectationInstr, OptimizationQuery, PlotInstr, PrintInstr,
                  ProbabilityQueryInstr, QueryInstr)
-
-
-class LoopRegistry:
-    """The loops of the analysed program with their ids (:func:`~prodigy.language.outline.outline`); finds the
-    :class:`LoopInfo` of a loop instruction, also of a copy of it."""
-
-    def __init__(self, program: Optional[Program]):
-        self.loops: List[LoopInfo] = []
-        self._by_identity: Dict[int, LoopInfo] = {}
-        self._by_position: Dict[Tuple[int, int], LoopInfo] = {}
-        self._by_structure: Dict[str, List[LoopInfo]] = {}
-        self._instructions: List[WhileInstr] = []
-        if program is None:
-            return
-        found = outline(program)
-        for info, instr in zip(found.loops, found.loop_instructions, strict=True):
-            self.loops.append(info)
-            self._instructions.append(instr)
-            self._by_identity[id(instr)] = info
-            if info.line is not None and info.column is not None:
-                self._by_position[(info.line, info.column)] = info
-            self._by_structure.setdefault(repr(instr), []).append(info)
-
-    def lookup(self, instr: WhileInstr) -> Optional[LoopInfo]:
-        """The loop ``instr``, or the loop it is a copy of: found by identity, else by its source position (a
-        deep copy keeps it, :mod:`prodigy.language.positions`), else by its structure (the ``repr`` of the tree) if
-        that is unique (a copy without position, e.g. of a program built in Python)."""
-        info = self._by_identity.get(id(instr))
-        if info is not None:
-            return info
-        span = span_of(instr)
-        if span is not None and (span.line, span.column) in self._by_position:
-            return self._by_position[(span.line, span.column)]
-        candidates = self._by_structure.get(repr(instr), [])
-        return candidates[0] if len(candidates) == 1 else None
-
-    def instruction(self, loop_id: int) -> Optional[WhileInstr]:
-        """The loop with id ``loop_id`` (``None`` if there is none)."""
-        return self._instructions[loop_id] if 0 <= loop_id < len(self._instructions) else None
-
-    def alias(self, copy: WhileInstr, original: WhileInstr) -> None:
-        """Looks up ``copy`` as ``original`` (see :meth:`AnalysisSession.loop_alias`)."""
-        info = self.lookup(original)
-        if info is not None:
-            self._by_identity[id(copy)] = info
-
-    def unalias(self, copy: WhileInstr) -> None:
-        self._by_identity.pop(id(copy), None)
-
-    def __iter__(self) -> Iterator[LoopInfo]:
-        return iter(self.loops)
-
-    def __len__(self) -> int:
-        return len(self.loops)
-
-
-# ---------------------------------------------------------------------------------------
-# Decisions
-# ---------------------------------------------------------------------------------------
-
-
-DEFAULT_KEY = "*"
-"""Key for the decision that applies to every loop without an own decision."""
-
-
-def parse_decisions(data: Optional[Mapping[Any, Any]]) -> Dict[Union[int, str], LoopDecision]:
-    """Parses ``{"0": {...}, "1": "unroll:iterations=10", "*": {...}}``."""
-    result: Dict[Union[int, str], LoopDecision] = {}
-    for key, value in (data or {}).items():
-        if value is None:
-            continue
-        if str(key).strip() == DEFAULT_KEY:
-            result[DEFAULT_KEY] = LoopDecision.from_json(value)
-            continue
-        try:
-            loop_id = int(key)
-        except (TypeError, ValueError):
-            raise ValueError(f"Loop decisions are keyed by loop id or '*', got {key!r}") from None
-        result[loop_id] = LoopDecision.from_json(value)
-    return result
-
-
-def validate_decisions(decisions: Mapping[Union[int, str], LoopDecision],
-                       loops: Optional[LoopRegistry] = None) -> List[str]:
-    """Problems with ``decisions`` (unknown strategies, unknown loops, bad parameters, generating
-    functions that are not ``.ppy`` expressions)."""
-    problems: List[str] = []
-    known_ids = {loop.id for loop in loops} if loops is not None else None
-    for key, decision in decisions.items():
-        where = "default decision" if key == DEFAULT_KEY else f"loop {key}"
-        if known_ids is not None and key != DEFAULT_KEY and key not in known_ids:
-            problems.append(f"{where}: the program has no loop with this id")
-        try:
-            strategy = get_loop_strategy(decision.strategy)
-        except KeyError as exc:
-            problems.append(f"{where}: {exc.args[0]}")
-            continue
-        names = {p.name for p in strategy.params}
-        for name, raw in decision.params.items():
-            if name not in names:
-                problems.append(f"{where}: strategy {strategy.name} has no parameter {name!r}")
-                continue
-            if raw is None or (isinstance(raw, str) and raw.strip() == ""):
-                continue
-            try:
-                strategy.param(name).parse(raw)
-            except (ValueError, TypeError) as exc:
-                problems.append(f"{where}: {strategy.param(name).label}: {exc}")
-    return problems
-
-
-class DecisionProvider:
-    """Answers the questions an analysis may have while it runs."""
-
-    interactive: bool = False
-
-    def __init__(self, decisions: Optional[Mapping[Any, Any]] = None):
-        self.decisions: Dict[Union[int, str], LoopDecision] = \
-            {k: LoopDecision.from_json(v) for k, v in (decisions or {}).items()}
-
-    def preset(self, loop: Optional[LoopInfo]) -> Optional[LoopDecision]:
-        if loop is not None and loop.id in self.decisions:
-            return self.decisions[loop.id]
-        return self.decisions.get(DEFAULT_KEY)
-
-    def loop_decision(self, session: "AnalysisSession", loop: Optional[LoopInfo],
-                      instruction: WhileInstr) -> LoopDecision:
-        raise NotImplementedError
-
-    def ask_param(self, session: "AnalysisSession", task: LoopTask, spec: ParamSpec) -> Any:
-        raise NotImplementedError
-
-    def choose_candidate(self, task: LoopTask, candidates: List[str]) -> int:
-        raw = task.decision.params.get("candidate")
-        index = int(raw) if raw not in (None, "") else 0
-        if not 0 <= index < len(candidates):
-            raise DecisionRequired(
-                f"Candidate {index} does not exist; {len(candidates)} candidate(s) were found",
-                loop=task.loop, strategy=task.strategy.name, param="candidate")
-        return index
-
-    def next_step(self) -> None:
-        """Called after each instruction in step-wise mode."""
-
-    def continue_plot(self, probability: float) -> bool:  # pylint: disable=unused-argument
-        return False
-
-
-class InteractiveDecisions(DecisionProvider):
-    """Asks on the terminal, with the prompts the CLI has always used.
-
-    Decisions given up front (e.g. ``prodigy main --loop 0=unroll:iterations=10``) are used
-    without asking.
-    """
-
-    interactive = True
-
-    def __init__(self, decisions: Optional[Mapping[Any, Any]] = None, *, remember: bool = False):
-        super().__init__(decisions)
-        self.remember = remember
-        """Answer every question about the same loop instruction with the first answer, e.g. when
-        ``prodigy check_equality`` analyses a program again on one input after the check."""
-        # id of the loop instruction -> (the instruction, kept alive so that the id stays its own; the answer)
-        self._choices: Dict[int, Tuple[WhileInstr, LoopDecision]] = {}
-        self._params: Dict[Tuple[int, str], Tuple[WhileInstr, Any]] = {}
-
-    def loop_decision(self, session: AnalysisSession, loop: Optional[LoopInfo],
-                      instruction: WhileInstr) -> LoopDecision:
-        preset = self.preset(loop)
-        if preset is not None:
-            return preset
-        if not self.remember:
-            return self._ask_strategy()
-        if id(instruction) not in self._choices:
-            self._choices[id(instruction)] = (instruction, self._ask_strategy())
-        return self._choices[id(instruction)][1]
-
-    def _ask_strategy(self) -> LoopDecision:
-        options: Dict[str, LoopStrategy] = {}
-        lines = ["While Instruction has only limited support. Choose an option:\n"]
-        numbered = [int(s.legacy_key) for s in loop_strategies() if s.legacy_key and s.legacy_key.isdigit()]
-        extra_key = max(numbered, default=0) + 1
-        for strategy in loop_strategies():
-            key = strategy.legacy_key
-            if key is None:
-                key = str(extra_key)
-                extra_key += 1
-            options[key] = strategy
-            lines.append(f"[{key}]: {strategy.menu_line}\n")
-        lines.append("[q]: Quit.\n")
-        menu = "".join(lines)
-        while True:
-            user_choice = input(menu)
-            logger.info("User chose %s", user_choice)
-            if user_choice in options:
-                return LoopDecision(options[user_choice].name)
-            if user_choice == "q":
-                sys.exit()
-            print(f"Invalid input: {user_choice}")
-
-    def ask_param(self, session: AnalysisSession, task: LoopTask, spec: ParamSpec) -> Any:
-        if not self.remember:
-            return self._ask_param(session, task, spec)
-        key = (id(task.instruction), spec.name)
-        if key not in self._params:
-            self._params[key] = (task.instruction, self._ask_param(session, task, spec))
-        return self._params[key][1]
-
-    def _ask_param(self, session: AnalysisSession, task: LoopTask, spec: ParamSpec) -> Any:
-        alias = next((p for p in task.strategy.params if p.alias_of == spec.name), None)
-        while True:
-            if alias is not None and alias.kind == "file":
-                path = input(alias.prompt)
-                return session.resolve_alias(task, alias, path)
-            raw = input(spec.prompt or f"{spec.label}: ")
-            try:
-                return spec.parse(raw)
-            except (ValueError, TypeError) as exc:
-                print(f"Invalid input: {exc}")
-
-    def next_step(self) -> None:
-        input("Next step [Enter]")
-
-    def continue_plot(self, probability: float) -> bool:
-        cont = input(f"Continue with p={probability}? [Y/n]")
-        return cont.lower() != 'n'
-
-
-class FixedDecisions(DecisionProvider):
-    """Answers only from decisions given up front; never blocks."""
-
-    interactive = False
-
-    def loop_decision(self, session: AnalysisSession, loop: Optional[LoopInfo],
-                      instruction: WhileInstr) -> LoopDecision:
-        preset = self.preset(loop)
-        if preset is not None:
-            return preset
-        what = loop.describe() if loop is not None else f"while ({session.spell(instruction.cond)})"
-        raise DecisionRequired(f"No strategy chosen for {what}", loop=loop)
-
-    def ask_param(self, session: AnalysisSession, task: LoopTask, spec: ParamSpec) -> Any:
-        if spec.default is not None:
-            return spec.parse(spec.default)
-        where = task.loop.describe() if task.loop is not None else "a loop"
-        raise DecisionRequired(
-            f"Strategy '{task.strategy.title}' for {where} needs a value for '{spec.label}'",
-            loop=task.loop, strategy=task.strategy.name, param=spec.name)
-
-
-# ---------------------------------------------------------------------------------------
-# Records
-# ---------------------------------------------------------------------------------------
-
-@dataclass
-class LoopRecord:
-    """Everything one loop produced during a run (a loop may be entered several times)."""
-
-    loop: Optional[LoopInfo]
-    cond: str
-    strategy: str
-    params: Dict[str, Any]
-    invocations: int = 0
-    kind: str = Bound.EXACT
-    residual: Any = 0
-    time: float = 0.0
-    certificates: List[Dict[str, Any]] = field(default_factory=list)
-    messages: List[str] = field(default_factory=list)
-    progress: Optional[Tuple[int, Optional[int]]] = None
-    failed: Optional[str] = None
-    """Error message if the strategy failed (e.g. a refuted invariant)."""
-    inside_checks: int = 0
-    """How many of the invocations happened inside the check of another loop's invariant."""
-    suppressed_messages: int = 0
-    execution_kinds: Dict[str, int] = field(default_factory=dict)
-    """How many executions that returned an outcome gave each kind of guarantee."""
-    execution_messages: Dict[str, int] = field(default_factory=dict)
-    """The messages of the outcomes, each with the number of executions that gave it (in order)."""
-
-    MAX_MESSAGES = 4
-
-    def add_message(self, message: str) -> None:
-        """A message that does not belong to one outcome (a note, the error of a failed execution)."""
-        if message in self.messages:
-            return
-        if len(self.messages) >= self.MAX_MESSAGES:
-            self.suppressed_messages += 1
-            return
-        self.messages.append(message)
-
-    def add_outcome(self, kind: str, messages: Sequence[str]) -> None:
-        """Books the guarantee and the messages of one execution of the loop."""
-        self.execution_kinds[kind] = self.execution_kinds.get(kind, 0) + 1
-        for message in dict.fromkeys(messages):
-            self.execution_messages[message] = self.execution_messages.get(message, 0) + 1
-
-    def outcome_messages(self) -> List[str]:
-        """The messages of the outcomes. A loop that ran several times (e.g. inside another loop) gets
-        the messages that all its executions gave and, if the others differ between executions (e.g.
-        the residual mass of each), one summary instead of them (#229)."""
-        executions = sum(self.execution_kinds.values())
-        common = [message for message, count in self.execution_messages.items() if count == executions]
-        if len(common) == len(self.execution_messages):
-            return common
-        return common + [self._summary(executions)]
-
-    def _summary(self, executions: int) -> str:
-        order = (Bound.UNKNOWN, Bound.UPPER, Bound.LOWER, Bound.EXACT)
-        labels = {Bound.UNKNOWN: "no guarantee", Bound.UPPER: "upper bound", Bound.LOWER: "lower bound",
-                  Bound.EXACT: "exact"}
-        counts = [f"{labels[kind]} in {self.execution_kinds[kind]}" for kind in order if kind in self.execution_kinds]
-        summary = f"{executions} executions: {', '.join(counts)}"
-        if self.execution_kinds.get(Bound.LOWER) and self.residual != 0:
-            summary += f"; in total, mass {self.residual} is still inside the loop"
-        return summary + "."
-
-    def to_json(self) -> Dict[str, Any]:
-        residual, residual_float = exact_and_float(self.residual)
-        return {
-            "id": self.loop.id if self.loop else None,
-            "line": self.loop.line if self.loop else None,
-            "depth": self.loop.depth if self.loop else None,
-            "cond": self.cond,
-            "strategy": self.strategy,
-            "params": dict(self.params),
-            "invocations": self.invocations,
-            "kind": self.kind,
-            "residual_mass": residual,
-            "residual_mass_float": residual_float,
-            "time": round(self.time, 6),
-            "certificates": self.certificates,
-            "messages": self.outcome_messages() + self.messages
-            + ([f"… {self.suppressed_messages} similar message(s) omitted."] if self.suppressed_messages else []),
-            "failed": self.failed,
-            "inside_checks": self.inside_checks,
-        }
 
 
 ProgressCallback = Callable[[Dict[str, Any]], None]
@@ -1025,10 +689,8 @@ class AnalysisSession:
         if not self.capture_output:
             yield
             return
-        writer = _TeeWriter(self.log, self.output_callback)
-        # Native code (the GiNaC bindings) writes to file descriptor 1 directly; keep that out
-        # of the real stdout as well (e.g. for `prodigy analyze --json`).
-        with _native_stdout_captured(writer.write), contextlib.redirect_stdout(writer):
+        # native code (the GiNaC bindings) writes to file descriptor 1 directly: captured as well
+        with captured_output(self.log, self.output_callback):
             yield
 
     def run(self) -> AnalysisResult:
@@ -1038,11 +700,39 @@ class AnalysisSession:
 
 
 def build_result(session: "AnalysisSession") -> AnalysisResult:
-    """Runs ``session`` and collects the result; analysis errors end up in the result."""
+    """Runs ``session`` and collects the result; analysis errors end up in the result. The session runs the
+    analysis, :mod:`prodigy.analysis.result` assembles the result from what it recorded."""
     # The checks after the analysis print the distribution again, exact coefficients can have
     # more digits than Python converts by default (#235).
     with unlimited_int_digits():
-        return _build_result(session)
+        config = session.config
+        started = time.perf_counter()
+        result = AnalysisResult()
+        result.input = result_input(session)
+        if session.program is not None:
+            result.program = outline(session.program).to_json()
+        analysis_time = 0.0
+        final: Optional["Distribution"] = None
+        # the output of the program's analysis is a finite measure (validated input, #300), also when the summary
+        # evaluates it at 1 after the analysis (#398)
+        output = session._output()  # pylint: disable=protected-access
+        with session.activate(), config.activate(), known_convergent_series(True), output:
+            try:
+                program = session.program
+                assert program is not None
+                _require_type_correct(program, session.source)
+                dist = _input_distribution(session, program)
+                analysis_start = time.perf_counter()
+                final, error_prob = compute_discrete_distribution(program, dist, config, session=session)
+                analysis_time = time.perf_counter() - analysis_start
+                describe_output(result, session, final, error_prob)
+            except Exception as exc:  # pylint: disable=broad-except  # every analysis error ends up in the result
+                analysis_time = time.perf_counter() - started
+                record_failure(result, exc)
+        finish_result(result, session, final)
+        result.timing["analysis"] = round(analysis_time, 6)
+        result.timing["total"] = round(time.perf_counter() - started, 6)
+        return result
 
 
 def _require_type_correct(program: Program, source: Optional[str]) -> None:
@@ -1052,171 +742,15 @@ def _require_type_correct(program: Program, source: Optional[str]) -> None:
         raise ForwardAnalysisError(f"Type error: {diagnostic['message']}")
 
 
-def _build_result(session: "AnalysisSession") -> AnalysisResult:
-    result = AnalysisResult()
+def _input_distribution(session: "AnalysisSession", program: Program) -> "Distribution":
+    """The session's input distribution: the given one, parsed from its text, or the point mass at 0."""
     config = session.config
-    started = time.perf_counter()
-    decisions = {str(k): v.to_json() for k, v in session.provider.decisions.items()}
-    result.input = {
-        "distribution": str(session.input_distribution) if session.input_distribution is not None else None,
-        "engine": engine_name(config),
-        "normalize": config.normalize,
-        "decisions": decisions,
-    }
-    if session.program is not None:
-        result.program = outline(session.program).to_json()
-
-    analysis_time = 0.0
-    final: Optional["Distribution"] = None
-    # the output of the program's analysis is a finite measure (validated input, #300), also when the summary
-    # evaluates it at 1 after the analysis (#398)
-    output = session._output()  # pylint: disable=protected-access
-    with session.activate(), config.activate(), known_convergent_series(True), output:
-        try:
-            program = session.program
-            assert program is not None
-            _require_type_correct(program, session.source)
-            if session.input_distribution is None:
-                dist = config.factory.one(*program.variables.keys())
-            elif isinstance(session.input_distribution, str):
-                dist = input_distribution_from_text(config, session.input_distribution, program)
-            else:
-                dist = session.input_distribution
-            analysis_start = time.perf_counter()
-            final, error_prob = compute_discrete_distribution(program, dist, config)
-            analysis_time = time.perf_counter() - analysis_start
-            residual, residual_float = exact_and_float(session.residual)
-            track = session.upper
-            result.bounds = {
-                "kind": session.bound_kind,
-                "residual_mass": residual,
-                "residual_mass_float": residual_float,
-                "explanation": bounds_explanation(session.bound_kind, residual, track is not None),
-                "upper": None if track is None else {"closed_form": str(track.distribution),
-                                                     "origin": track.origin},
-            }
-            summary_start = time.perf_counter()
-            stream = session.progress_callback if session.stream_coefficients else None
-            result.distribution = describe_distribution(final, limit=session.coefficient_limit,
-                                                        kind=session.bound_kind,
-                                                        residual=session.residual, stream=stream,
-                                                        simplify=config.use_simplification,
-                                                        upper=session.upper_distribution)
-            if session.dist_values:
-                result.distributions = nested_inference.dist_values_json(session.dist_values,
-                                                        session.coefficient_limit)
-            result.timing["summary"] = round(time.perf_counter() - summary_start, 6)
-            result.error_probability, result.error_probability_float = \
-                exact_and_float(_safe(error_prob.get_probability_mass))
-        except DecisionRequired as exc:
-            analysis_time = time.perf_counter() - started
-            result.status = "needs_decision"
-            result.error = {"type": "decision", **exc.to_json()}
-        except (VerificationError, ForwardAnalysisError) as exc:
-            analysis_time = time.perf_counter() - started
-            result.status = "error"
-            details = getattr(exc, "details", None)
-            result.error = {"type": type(exc).__name__, "message": str(exc), "details": details}
-            verdict = details.get("verdict") if isinstance(details, dict) else None
-            if verdict in ("refuted", "unknown"):
-                result.error["verdict"] = verdict
-        except Exception as exc:  # pylint: disable=broad-except
-            analysis_time = time.perf_counter() - started
-            result.status = "error"
-            result.error = {"type": error_type(exc), "message": str(exc) or type(exc).__name__,
-                            "traceback": traceback.format_exc()}
-
-    result.queries = list(session.queries)
-    undefined_queries: List[str] = []
-    if result.status == "ok" and final is not None:
-        parts = non_finite_parts(result, final)
-        # an undefined query value loses its interval but does not fail the analysis (#316): the distribution and
-        # the other queries are not affected
-        undefined_queries = [part for part in parts if part.startswith("the query")]
-        if len(undefined_queries) < len(parts):
-            result.status = "error"
-            result.error = {
-                "type": "NonFiniteResult",
-                "message": f"Undefined value (nan or ∞) in {', '.join(parts)}; the result has no guarantee.",
-                "details": {"parts": parts},
-            }
-    if result.status != "ok":
-        result.bounds = failure_bounds(result.status)
-
-    result.loops = [record.to_json() for record in session.loop_records.values()]
-    result.loops.sort(key=lambda r: (r["id"] is None, r["id"] if r["id"] is not None else 0))
-    result.steps = session.steps
-    result.trace = session.tracer.to_json() if session.tracer is not None else None
-    result.warnings = language_warnings(session) + list(session.warnings) + [
-        f"Undefined value (nan or ∞) in {part}; it has no guarantee. The distribution and the other queries "
-        "are not affected." for part in undefined_queries]
-    result.log = ANSI.sub("", session.log.getvalue())
-    result.timing["analysis"] = round(analysis_time, 6)
-    result.timing["total"] = round(time.perf_counter() - started, 6)
-    return result
+    if session.input_distribution is None:
+        return config.factory.one(*program.variables.keys())
+    if isinstance(session.input_distribution, str):
+        return input_distribution_from_text(config, session.input_distribution, program)
+    return session.input_distribution
 
 
 # without an active session, the entry points get a detached one (boundary_context, #195)
 register_detached_context(AnalysisSession.detached)
-
-
-def _flush_c_stdio() -> None:
-    try:
-        import ctypes  # pylint: disable=import-outside-toplevel
-        ctypes.CDLL(None).fflush(None)
-    except Exception:  # pylint: disable=broad-except
-        # e.g. no C library to load: Python's own buffers are flushed by the caller
-        logger.debug("Could not flush the C stdio buffers", exc_info=True)
-
-
-@contextlib.contextmanager
-def _native_stdout_captured(append: Callable[[str], Any]) -> Iterator[None]:
-    """Redirects file descriptor 1 into a temporary file and hands its content to ``append``."""
-    try:
-        target = sys.__stdout__
-        descriptor = target.fileno() if target is not None else 1
-    except (AttributeError, OSError, ValueError):
-        yield
-        return
-    try:
-        if target is not None:
-            target.flush()
-        _flush_c_stdio()
-        saved = os.dup(descriptor)
-    except OSError:
-        yield
-        return
-    with tempfile.TemporaryFile() as spool:
-        os.dup2(spool.fileno(), descriptor)
-        try:
-            yield
-        finally:
-            _flush_c_stdio()
-            os.dup2(saved, descriptor)
-            os.close(saved)
-            spool.seek(0)
-            data = spool.read().decode("utf-8", "replace")
-            if data:
-                append(data)
-
-
-class _TeeWriter(io.TextIOBase):
-    """stdout replacement that keeps a copy and forwards chunks to a callback."""
-
-    def __init__(self, buffer: io.StringIO, callback: Optional[Callable[[str], None]]):
-        super().__init__()
-        self._buffer = buffer
-        self._callback = callback
-
-    def write(self, text: str) -> int:
-        self._buffer.write(text)
-        if self._callback is not None and text:
-            try:
-                self._callback(text)
-            except Exception:  # pylint: disable=broad-except
-                # the output is kept in the buffer; a failing listener (e.g. a closed GUI stream) must not stop the run
-                logger.debug("The output callback failed", exc_info=True)
-        return len(text)
-
-    def flush(self) -> None:
-        pass
