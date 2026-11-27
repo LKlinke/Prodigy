@@ -41,19 +41,22 @@ Parsers, AST, type checker and compiler. The package was called `prodigy/pgcl` u
   of a result), `context.py` (`AnalysisContext`, and the `Frame` and `ProgramState` that every handler receives).
 - `analyzer.py` dispatches instructions to the `handle` functions of `instructionhandler/` (`HANDLERS`).
 - `session.py`: `AnalysisSession`, one decision per loop; it runs an analysis
-  (`compute_discrete_distribution`, `AnalysisSession.run`).
+  (`compute_discrete_distribution`, `AnalysisSession.run`). `decisions.py` holds the decision providers
+  (terminal, fixed), `loop_records.py` the loops of the program and what each produced,
+  `output_capture.py` the capture of the printed output (also of native code).
 - `loop_strategies.py`: the strategy registry for the front ends; the built-in strategies are
   defined in `instructionhandler/while_handler.py`, registered by `loops/builtin.py` and appear in
   the CLI menu, `prodigy analyze --loop` and the GUI automatically.
 - `checks.py`: the checks before a run (type check, refuted sampling PGFs).
-- `result.py`: the JSON result `prodigy/analysis-result@1`, assembled from a finished session.
+- `result.py`: the JSON result `prodigy/analysis-result@1`, assembled from what the session recorded.
 - `upper_track.py`: a loop's proven upper bound (the EVT sandwich's super-invariant), carried through
   the rest of the program; it tightens the upper ends of coefficients and queries (#451).
 - `equivalence/`: the equivalence check of two programs and its three-valued verdict.
 - `evtinvariants/`: EVT invariants, their synthesis and the positivity heuristics.
 - `lowerbounds/`: occupation sub-invariants and the sandwich (`evt_subinvariant`, `evt_sandwich`).
 - `ai_candidates.py`: invariant candidates from a language model (`ai_invariant`).
-- `nested_inference.py`: `dist` values, `infer`, `sample` (`language-design.md`).
+- `nested_inference/`: `dist` values, `infer`, `sample` (`language-design.md`): sites and their encoding,
+  functions, `Pr[d …]`/`Ex[d]`, loops, the values in the result.
 - `trace.py`: the step trace (`prodigy analyze --steps`, the GUI's analysis timeline).
 
 ### `prodigy/web` — the GUI
