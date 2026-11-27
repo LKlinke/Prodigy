@@ -10,11 +10,11 @@ A small Flask application: one page (``templates/app.html`` with the ES modules 
                                   with ``input_distribution`` also whether that initial
                                   distribution is accepted
 ``POST /api/loop-program``        a loop of a program as a program of its own (``loop``: its id), for
-                                  "Compare this loop" (:func:`prodigy.web.requests.loop_program`)
+                                  "Compare this loop" (:func:`prodigy.web.compare.loop_program`)
 ``POST /api/analyze``             starts an analysis in its own process, returns a job id
 ``GET /``, ``/analyze``, …        the page; ``/compare`` opens it in Compare mode (#154)
 ``POST /api/equivalence``         starts a job that compares two programs (``other_source``, see
-                                  :func:`prodigy.web.requests.run_equivalence`), returns a job id
+                                  :func:`prodigy.web.compare.run_equivalence`), returns a job id
 ``GET  /api/jobs/<id>``           state, new console output, progress, result when done
 ``GET  /api/jobs``                 the running jobs (analyses and checks, background jobs)
 ``DELETE /api/jobs/<id>``         cancels the analysis
@@ -41,7 +41,7 @@ import importlib.util
 import os
 import threading
 import webbrowser
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set
 from urllib.parse import urlparse
 
 from flask import Flask, abort, jsonify, render_template, request
@@ -49,9 +49,9 @@ from flask import Flask, abort, jsonify, render_template, request
 from prodigy.language.parser import PgclRemovedError, check_syntax
 from prodigy.web.examples import ExampleLibrary, default_examples_dir
 from prodigy.web.jobs import BusyError, JobManager
+from prodigy.web.compare import loop_program, validate_equivalence
 from prodigy.web.requests import (ENGINES, MAX_COEFFICIENTS, ai_status, check_input_distribution_bounded,
-                                  joint_request, loop_program, check_request_syntax, validate_equivalence,
-                                  validate_request, validate_suggestion)
+                                  joint_request, check_request_syntax, validate_request, validate_suggestion)
 
 # Longest initial distribution that /api/check examines (longer ones are checked by the analysis).
 MAX_INPUT_DISTRIBUTION = 500
@@ -71,43 +71,23 @@ def _engine_info(default_engine: str) -> List[Dict[str, Any]]:
     return engines
 
 
-def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_jobs: int = 2,
-               memory_limit: Optional[int] = None,
-               examples_dir: Optional[str] = None, default_engine: str = "sympy",
-               host: str = "127.0.0.1", allowed_hosts: Sequence[str] = ()) -> Flask:
-    # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.loop_strategies import loop_strategies
-    from prodigy.analysis.result import prodigy_version
-    from prodigy.analysis.tools import (MAX_AXIS, SELECTABLE_POSITIVITY_HEURISTICS, SynthesisStrategies,
-                                        TemplateHeuristics)
-    from prodigy.web.diagnostics import check_source
-
-    app = Flask(__name__, static_folder="static", template_folder="templates")
-    app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
-    provider = getattr(app, "json", None)
-    if provider is not None and hasattr(provider, "sort_keys"):
-        provider.sort_keys = False  # Flask >= 2.2: keep the result's key order
-    else:
-        app.config["JSON_SORT_KEYS"] = False
-
-    jobs = JobManager(max_jobs=max_jobs, max_auxiliary=max_background_jobs, time_limit=time_limit,
-                      memory_limit=memory_limit)
-    library = ExampleLibrary(examples_dir or default_examples_dir())
-    app.extensions["prodigy_jobs"] = jobs
-    app.extensions["prodigy_examples"] = library
-
+def _permitted_hosts(host: str, allowed_hosts: Sequence[str]) -> Optional[Set[str]]:
+    """The host names under which the API answers; None (any) if bound to a public address without
+    ``--allowed-host``."""
     if host in _LOOPBACK or allowed_hosts:
         permitted_hosts = set(_LOOPBACK) | {h.lower() for h in allowed_hosts}
         if host not in ("0.0.0.0", "::"):
             permitted_hosts.add(host.lower())
-    else:
-        permitted_hosts = None  # bound to a public address without --allowed-host
+        return permitted_hosts
+    return None
 
-    version = prodigy_version()
-    strategies_json = [s.to_json() for s in loop_strategies()]
+
+def _guard(app: Flask, permitted_hosts: Optional[Set[str]]) -> None:
+    """Requests to the API come from the page itself (Host and Origin are checked) and are JSON; its errors
+    are JSON as well."""
 
     @app.before_request
-    def _guard() -> None:
+    def _guard_api() -> None:
         if not request.path.startswith("/api/"):
             return None
         if permitted_hosts is not None:
@@ -132,6 +112,18 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
             return jsonify({"error": getattr(error, "description", str(error))}), error.code
         return error
 
+
+def _page_routes(app: Flask, jobs: JobManager, library: ExampleLibrary, default_engine: str) -> None:
+    """The page and the server's metadata."""
+    # pylint: disable=import-outside-toplevel
+    from prodigy.analysis.loop_strategies import loop_strategies
+    from prodigy.analysis.result import prodigy_version
+    from prodigy.analysis.tools import (MAX_AXIS, SELECTABLE_POSITIVITY_HEURISTICS, SynthesisStrategies,
+                                        TemplateHeuristics)
+
+    version = prodigy_version()
+    strategies_json = [s.to_json() for s in loop_strategies()]
+
     @app.get("/")
     @app.get("/analyze")
     @app.get("/compare")
@@ -148,12 +140,17 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
             "synthesis_strategies": [s.name.lower() for s in SynthesisStrategies],
             "template_heuristics": [name.lower() for name in TemplateHeuristics.__members__],
             "positivity_heuristics": list(SELECTABLE_POSITIVITY_HEURISTICS),
-            "limits": {"time_limit": jobs.time_limit, "max_jobs": jobs.max_jobs,
-                       "max_background_jobs": jobs.max_auxiliary,
+            "limits": {"time_limit": jobs.limits.time_limit, "max_jobs": jobs.limits.max_jobs,
+                       "max_background_jobs": jobs.limits.max_auxiliary,
                        "max_coefficients": MAX_COEFFICIENTS, "max_joint_axis": MAX_AXIS},
             "examples": library.root is not None,
             "ai": ai_status(),
         })
+
+
+def _program_routes(app: Flask, library: ExampleLibrary) -> None:
+    """The checks of a program while it is edited, a loop as a program, and the examples."""
+    from prodigy.web.diagnostics import check_source  # pylint: disable=import-outside-toplevel
 
     @app.post("/api/check")
     def check() -> Any:
@@ -191,21 +188,56 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 422
 
+    @app.get("/api/examples")
+    def examples() -> Any:
+        return jsonify({"examples": library.list()})
+
+    @app.get("/api/examples/<path:example_id>")
+    def example(example_id: str) -> Any:
+        try:
+            check_syntax(request.args.get("syntax"))
+            return jsonify(library.load(example_id))
+        except (FileNotFoundError, OSError):
+            abort(404, description="Unknown example.")
+        except ValueError as exc:
+            abort(400, description=str(exc))
+
+
+_ANALYSIS_KEYS = ("source", "syntax", "file_name", "input_distribution", "engine", "normalize", "simplification",
+                  "decisions", "coefficients", "record_steps", "watches", "step_iterations", "synthesis_strategy",
+                  "template_heuristic", "positivity_heuristic", "solver")
+"""The fields of ``POST /api/analyze`` that go to the job."""
+_EQUIVALENCE_KEYS = ("source", "syntax", "file_name", "engine", "normalize", "simplification", "decisions",
+                     "synthesis_strategy", "template_heuristic", "positivity_heuristic", "solver",
+                     "other_source", "other_syntax", "other_decisions")
+"""The fields of ``POST /api/equivalence`` that go to the job."""
+_SUGGESTION_KEYS = ("source", "syntax", "file_name", "input_distribution", "engine", "normalize", "simplification",
+                    "decisions", "synthesis_strategy", "template_heuristic", "positivity_heuristic", "solver", "loop",
+                    "form")
+"""The fields of ``POST /api/suggest`` that go to the job."""
+
+
+def _submit(jobs: JobManager, job_request: Dict[str, Any], time_limit: Any = None, kind: str = "analysis") -> Any:
+    """202 with the id and time limit of the new job, or 429 with what is running (``running``, to cancel with
+    ``DELETE /api/jobs/<id>``)."""
+    try:
+        job = jobs.submit(job_request, time_limit=time_limit, kind=kind)
+    except BusyError as exc:
+        return jsonify({"error": f"{exc}. Wait for one to finish or cancel it.", "running": exc.running}), 429
+    return jsonify({"job": job.id, "time_limit": job.time_limit}), 202
+
+
+def _start_routes(app: Flask, jobs: JobManager) -> None:
+    """The requests that start a job: an analysis, a comparison, a suggestion of a language model."""
+
     @app.post("/api/analyze")
     def analyze() -> Any:
         payload: Dict[str, Any] = request.get_json(silent=True) or {}
         problems = validate_request(payload)
         if problems:
             return jsonify({"error": " ".join(problems), "problems": problems}), 400
-        analysis_request: Dict[str, Any] = {key: payload.get(key) for key in (
-            "source", "syntax", "file_name", "input_distribution", "engine", "normalize", "simplification",
-            "decisions", "coefficients", "record_steps", "watches", "step_iterations", "synthesis_strategy",
-            "template_heuristic", "positivity_heuristic", "solver") if key in payload}
-        try:
-            job = jobs.submit(analysis_request, time_limit=payload.get("time_limit"))
-        except BusyError as exc:
-            return _busy(exc)
-        return jsonify({"job": job.id, "time_limit": job.time_limit}), 202
+        return _submit(jobs, {key: payload.get(key) for key in _ANALYSIS_KEYS if key in payload},
+                       payload.get("time_limit"))
 
     @app.post("/api/equivalence")
     def equivalence() -> Any:
@@ -216,18 +248,11 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
         problems = validate_equivalence(payload)
         if problems:
             return jsonify({"error": " ".join(problems), "problems": problems}), 400
-        equivalence_request: Dict[str, Any] = {key: payload.get(key) for key in (
-            "source", "syntax", "file_name", "engine", "normalize", "simplification", "decisions",
-            "synthesis_strategy", "template_heuristic", "positivity_heuristic", "solver",
-            "other_source", "other_syntax", "other_decisions") if key in payload}
-        # the witness search gets a part of the job's time (requests.WITNESS_SECONDS)
-        equivalence_request["time_limit"] = jobs.time_limit if payload.get("time_limit") is None \
-            else min(float(payload["time_limit"]), jobs.time_limit)
-        try:
-            job = jobs.submit(equivalence_request, time_limit=payload.get("time_limit"), kind="equivalence")
-        except BusyError as exc:
-            return _busy(exc)
-        return jsonify({"job": job.id, "time_limit": job.time_limit}), 202
+        equivalence_request = {key: payload.get(key) for key in _EQUIVALENCE_KEYS if key in payload}
+        # the witness search gets a part of the job's time (compare.WITNESS_SECONDS)
+        equivalence_request["time_limit"] = jobs.limits.time_limit if payload.get("time_limit") is None \
+            else min(float(payload["time_limit"]), jobs.limits.time_limit)
+        return _submit(jobs, equivalence_request, payload.get("time_limit"), kind="equivalence")
 
     @app.post("/api/suggest")
     def suggest() -> Any:
@@ -240,19 +265,12 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
         status = ai_status()
         if not status["available"]:
             return jsonify({"error": status["reason"]}), 503
-        suggestion_request: Dict[str, Any] = {key: payload.get(key) for key in (
-            "source", "syntax", "file_name", "input_distribution", "engine", "normalize", "simplification",
-            "decisions", "synthesis_strategy", "template_heuristic", "positivity_heuristic", "solver", "loop", "form")
-            if key in payload}
-        try:
-            job = jobs.submit(suggestion_request, time_limit=payload.get("time_limit"), kind="suggest")
-        except BusyError as exc:
-            return _busy(exc)
-        return jsonify({"job": job.id, "time_limit": job.time_limit}), 202
+        return _submit(jobs, {key: payload.get(key) for key in _SUGGESTION_KEYS if key in payload},
+                       payload.get("time_limit"), kind="suggest")
 
-    def _busy(exc: BusyError) -> Any:
-        """429: what is running (``running``, to cancel with ``DELETE /api/jobs/<id>``)."""
-        return jsonify({"error": f"{exc}. Wait for one to finish or cancel it.", "running": exc.running}), 429
+
+def _job_routes(app: Flask, jobs: JobManager) -> None:
+    """The requests about jobs: list, state, cancel, and the grid job of a finished analysis."""
 
     @app.get("/api/jobs")
     def job_list() -> Any:
@@ -291,30 +309,41 @@ def create_app(*, time_limit: float = 120.0, max_jobs: int = 2, max_background_j
             grid_request = joint_request(job.result, payload)
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
-        try:
-            grid_job = jobs.submit(grid_request, kind="joint")
-        except BusyError as exc:
-            return _busy(exc)
-        return jsonify({"job": grid_job.id, "time_limit": grid_job.time_limit}), 202
+        return _submit(jobs, grid_request, kind="joint")
 
-    @app.get("/api/examples")
-    def examples() -> Any:
-        return jsonify({"examples": library.list()})
 
-    @app.get("/api/examples/<path:example_id>")
-    def example(example_id: str) -> Any:
-        try:
-            check_syntax(request.args.get("syntax"))
-            return jsonify(library.load(example_id))
-        except (FileNotFoundError, OSError):
-            abort(404, description="Unknown example.")
-        except ValueError as exc:
-            abort(400, description=str(exc))
+# keyword-only, one parameter per option of `prodigy web` (serve passes them on)
+def create_app(*, time_limit: float = 120.0, max_jobs: int = 2,  # pylint: disable=too-many-arguments
+               max_background_jobs: int = 2, memory_limit: Optional[int] = None,
+               examples_dir: Optional[str] = None, default_engine: str = "sympy",
+               host: str = "127.0.0.1", allowed_hosts: Sequence[str] = ()) -> Flask:
+    """The Flask application of the GUI with its job manager (``app.extensions["prodigy_jobs"]``) and example
+    library (``app.extensions["prodigy_examples"]``)."""
+    app = Flask(__name__, static_folder="static", template_folder="templates")
+    app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
+    provider = getattr(app, "json", None)
+    if provider is not None and hasattr(provider, "sort_keys"):
+        provider.sort_keys = False  # Flask >= 2.2: keep the result's key order
+    else:
+        app.config["JSON_SORT_KEYS"] = False
 
+    jobs = JobManager(max_jobs=max_jobs, max_auxiliary=max_background_jobs, time_limit=time_limit,
+                      memory_limit=memory_limit)
+    library = ExampleLibrary(examples_dir or default_examples_dir())
+    app.extensions["prodigy_jobs"] = jobs
+    app.extensions["prodigy_examples"] = library
+
+    _guard(app, _permitted_hosts(host, allowed_hosts))
+    _page_routes(app, jobs, library, default_engine)
+    _program_routes(app, library)
+    _start_routes(app, jobs)
+    _job_routes(app, jobs)
     return app
 
 
-def serve(*, host: str = "127.0.0.1", port: int = 8080, open_browser: bool = True, time_limit: float = 120.0,
+# keyword-only, one parameter per option of `prodigy web`
+def serve(*, host: str = "127.0.0.1", port: int = 8080,  # pylint: disable=too-many-arguments
+          open_browser: bool = True, time_limit: float = 120.0,
           max_jobs: int = 2, max_background_jobs: int = 2, memory_limit: Optional[int] = None,
           examples_dir: Optional[str] = None,
           default_engine: str = "sympy", allowed_hosts: Iterable[str] = ()) -> None:

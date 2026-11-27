@@ -254,7 +254,7 @@ Each package PR leaves its own package clean for the checks it is responsible fo
 | `duplicate-code` | 5 blocks in `prodigy` | P4 (engines), P2 (watch validation), P5b (three-valued `all`), P6 (name walk) |
 | `too-many-arguments`, `too-many-positional-arguments` | 75, 72 | P5b (handler context, loops), P7 (CLI), rest in P4/P6 |
 | `too-many-branches`, `-return-statements`, `-statements`, `-nested-blocks` | 33, 50, 8, 1 | P4 (`distribution`: 11, 19), P5b (`lowerbounds`, `evtinvariants`), P6 (`check.py`) |
-| `too-many-lines` (with `max-module-lines = 800`), `too-many-locals`, `-instance-attributes`, `-public-methods` | 9 modules over 800 lines; 94, 20, 2 | P4c (`pgf/sympy/engine.py`), P5b (`while_handler`, `session`, `nested_inference`, `result`, `trace`), P6 (`check.py`, `ppy_parser.py`), P7 (`cli.py`, `web/requests.py`) |
+| `too-many-lines` (with `max-module-lines = 800`), `too-many-locals`, `-instance-attributes`, `-public-methods` | 9 modules over 800 lines; 94, 20, 2 | P4c (`pgf/sympy/engine.py`), P5b (`while_handler`, `session`, `nested_inference`, `result`, `trace`), P6 (`check.py`, `ppy_parser.py`), P7 (`cli.py`, `web/requests.py`: done with #514, now the `cli/` package and `web/compare.py`) |
 
 ### Follow-ups (features, not v0.7.0)
 
