@@ -11,11 +11,11 @@ from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 import prodigy.language as language
 from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.distribution.fast_generating_function import FPS
-from prodigy.distribution.generating_function import GeneratingFunction
+from prodigy.distribution.pgf.ginac.engine import GinacPGF
+from prodigy.distribution.pgf.sympy.engine import SympyPGF
 from prodigy.language.ppy_parser import parse_ppy_expr
 
-ENGINES = [GeneratingFunction, FPS]
+ENGINES = [SympyPGF, GinacPGF]
 X, Y = sympy.Symbol('x'), sympy.Symbol('y')
 
 # (guard, the values of x for which it holds)

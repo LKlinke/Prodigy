@@ -11,8 +11,8 @@ import random
 import pytest
 import sympy
 
-from prodigy.distribution.coefficient_stream import series_prefix, taylor_stream, taylor_window
-from prodigy.distribution.exponential_series import exp_polynomial_columns, exp_polynomial_taylor_stream
+from prodigy.distribution.pgf.coefficient_stream import series_prefix, taylor_stream, taylor_window
+from prodigy.distribution.pgf.rules.exponential_series import exp_polynomial_columns, exp_polynomial_taylor_stream
 
 x, y, z, p, lam = sympy.symbols("x y z p lam")
 HALF = sympy.Rational(1, 2)

@@ -9,12 +9,12 @@ from fractions import Fraction
 import pytest
 import sympy
 
-from prodigy.distribution import dominant_pole
-from prodigy.distribution.dominant_pole import dominant_pole_verdict
-from prodigy.distribution.finite_measure import check_input_expression, check_series
-from prodigy.distribution.generating_function import SympyPGF
-from prodigy.distribution.rational_series import rational_taylor_coefficients
-from prodigy.distribution.series_transforms import low_coefficients_vanish, monomial_substitution, shift
+from prodigy.distribution.pgf.rules import dominant_pole
+from prodigy.distribution.pgf.rules.dominant_pole import dominant_pole_verdict
+from prodigy.distribution.pgf.rules.finite_measure import check_input_expression, check_series
+from prodigy.distribution.pgf.sympy.engine import SympyPGF
+from prodigy.distribution.pgf.rules.rational_series import rational_taylor_coefficients
+from prodigy.distribution.pgf.rules.series_transforms import low_coefficients_vanish, monomial_substitution, shift
 
 x, y = sympy.symbols("x y")
 

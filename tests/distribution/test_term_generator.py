@@ -1,7 +1,7 @@
 """``_term_generator`` yields the (coefficient, monomial) pairs of a finite SymPy polynomial, smallest first (#348)."""
 import sympy
 
-from prodigy.distribution.generating_function import _term_generator
+from prodigy.distribution.pgf.sympy.expressions import _term_generator
 
 X, Y = sympy.symbols("x y")
 

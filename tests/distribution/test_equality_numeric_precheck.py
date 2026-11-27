@@ -1,6 +1,6 @@
 import sympy
 
-from prodigy.distribution.equality import _numerically_nonzero, decide_equal
+from prodigy.distribution.pgf.rules.equality import _numerically_nonzero, decide_equal
 
 Y = sympy.Symbol("y")
 OMEGA = sympy.exp(2 * sympy.I * sympy.pi / 3)

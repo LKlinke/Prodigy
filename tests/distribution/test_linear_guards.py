@@ -12,12 +12,12 @@ from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 import prodigy.language as language
 from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.distribution.fast_generating_function import FPS
-from prodigy.distribution.generating_function import GeneratingFunction
-from prodigy.distribution.linear_guards import normalize_guard
+from prodigy.distribution.pgf.ginac.engine import GinacPGF
+from prodigy.distribution.pgf.sympy.engine import SympyPGF
+from prodigy.distribution.pgf.rules.linear_guards import linear_form, normalize_guard
 from prodigy.language.ppy_parser import parse_ppy_expr
 
-ENGINES = [GeneratingFunction, FPS]
+ENGINES = [SympyPGF, GinacPGF]
 X, Y = sympy.Symbol('x'), sympy.Symbol('y')
 DEGREE = 12
 
@@ -125,3 +125,55 @@ if (1/2 * x < 2) {
     result, error_prob = compute_discrete_distribution(program, config.factory.one('x'), config)
     assert sympy.simplify(_to_sympy(result) - (sympy.Rational(15, 16) + X / 16)) == 0
     assert sympy.S(str(error_prob)) == 0
+
+
+# (expression, its linear form without monus_safe, with monus_safe); None: not linear
+LINEAR_FORMS = [
+    ("3", {"": Fraction(3)}, {"": Fraction(3)}),
+    ("0", {}, {}),
+    ("x/2 + 1/3*y", {"x": Fraction(1, 2), "y": Fraction(1, 3)}, {"x": Fraction(1, 2), "y": Fraction(1, 3)}),
+    ("2*(x + 1) / 4", {"x": Fraction(1, 2), "": Fraction(1, 2)}, {"x": Fraction(1, 2), "": Fraction(1, 2)}),
+    ("5 - 2", {"": Fraction(3)}, {"": Fraction(3)}),
+    ("2 - 5", None, None),  # truncated at 0
+    ("(2*x + 3) - x", None, {"x": Fraction(1), "": Fraction(3)}),
+    ("(x + y) - y", None, {"x": Fraction(1)}),
+    ("x - x", None, {}),
+    ("x - 1", None, None),  # 0 for x = 0, not -1
+    ("x - y", None, None),
+    ("(x + 1) - 2*x", None, None),
+    ("x*y", None, None),
+    ("x / y", None, None),
+    ("z + 1", None, None),  # not a variable
+]
+
+
+@pytest.mark.parametrize("expression, plain, monus_safe", LINEAR_FORMS)
+def test_linear_form(expression, plain, monus_safe):
+    """The linear form of an expression over the natural variables x and y, with and without monus_safe."""
+    expr = parse_ppy_expr(expression)
+    assert linear_form(expr, {"x", "y"}) == plain
+    assert linear_form(expr, {"x", "y"}, monus_safe=True) == monus_safe
+
+
+def _monus_value(expr, values):
+    """The value of a linear expression on natural numbers, with subtraction truncated at 0."""
+    if isinstance(expr, language.VarExpr):
+        return Fraction(values[expr.var])
+    if isinstance(expr, language.NatLitExpr):
+        return Fraction(expr.value)
+    if isinstance(expr, language.RealLitExpr):
+        return expr.to_fraction()
+    left, right = _monus_value(expr.lhs, values), _monus_value(expr.rhs, values)
+    return {language.Binop.PLUS: lambda: left + right, language.Binop.MINUS: lambda: max(left - right, 0),
+            language.Binop.TIMES: lambda: left * right, language.Binop.DIVIDE: lambda: left / right}[expr.operator]()
+
+
+@pytest.mark.parametrize("expression, _plain, form", [case for case in LINEAR_FORMS if case[2] is not None])
+def test_monus_safe_linear_form_agrees_with_monus(expression, _plain, form):
+    """Where monus_safe accepts a subtraction, the form has the value of the expression with monus for all
+    natural values."""
+    expr = parse_ppy_expr(expression)
+    for x, y in product(range(5), repeat=2):
+        point = {"x": x, "y": y, "": 1}
+        assert sum((coefficient * point[key] for key, coefficient in form.items()), Fraction(0)) \
+            == _monus_value(expr, {"x": x, "y": y}), (expression, x, y)

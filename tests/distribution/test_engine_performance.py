@@ -5,7 +5,7 @@ Regression tests for engine-specific slowdowns.
 degree 2^k of a doubled variable and read their coefficients from a dense list. (The SymEngine engine, removed
 in v0.6.0, #416, had slowdowns of its own.)
 
-#274: ``GeneratingFunction.marginal`` called SymPy's ``limit``, which hangs on some removable singularities.
+#274: ``SympyPGF.marginal`` called SymPy's ``limit``, which hangs on some removable singularities.
 """
 from pathlib import Path
 
@@ -16,8 +16,8 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.loop_strategies import Bound
 from prodigy.analysis.values import sym
 from prodigy.analysis.session import AnalysisSession
-from prodigy.distribution.generating_function import (GeneratingFunction, _limit_at_one,
-                                                      _polynomial_coefficients)
+from prodigy.distribution.pgf.sympy.engine import SympyPGF
+from prodigy.distribution.pgf.sympy.expressions import _limit_at_one, _polynomial_coefficients
 from prodigy.language import parse_program
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -86,7 +86,7 @@ def test_marginal_with_removable_singularity(engine, simplification):
 @pytest.mark.timeout(60)
 def test_marginal_at_one_stays_small():
     z, w = sympy.symbols("z w", real=True)
-    with GeneratingFunction.configured(latex_output=False):
+    with SympyPGF.configured(latex_output=False):
         cases = {
             # removable singularity, the value is 0 (limit did not finish)
             (-z ** 2 / 2 - z / 2 + z * (z ** 2 - 1) / (2 * (z - 1))) / (2 - w): sympy.Integer(0),
@@ -99,7 +99,7 @@ def test_marginal_at_one_stays_small():
             assert sympy.simplify(value - expected) == 0
             # up to the sign in front, e.g. -2*w/(3*w - 6) instead of 2*w/(6 - 3*w)
             assert sympy.count_ops(value) <= sympy.count_ops(expected) + 1
-        gf = GeneratingFunction("(-z**2/2 - z/2 + z*(z**2 - 1)/(2*(z - 1)))/(2 - w)", "z", "w")
+        gf = SympyPGF("(-z**2/2 - z/2 + z*(z**2 - 1)/(2*(z - 1)))/(2 - w)", "z", "w")
         assert str(gf.marginal("w")) == "0"
 
 

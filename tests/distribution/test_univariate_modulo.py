@@ -6,19 +6,19 @@ import pytest
 import sympy
 from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
-from prodigy.distribution.generating_function import GeneratingFunction
-from prodigy.distribution.multisection import rational_multisection
-from prodigy.distribution.roots_of_unity import NotSingleValuedError
+from prodigy.distribution.pgf.sympy.engine import SympyPGF
+from prodigy.distribution.pgf.rules.multisection import rational_multisection
+from prodigy.distribution.pgf.rules.roots_of_unity import NotSingleValuedError
 from prodigy.language.ppy_parser import parse_ppy_expr
 
 try:
-    from prodigy.distribution.fast_generating_function import FPS
+    from prodigy.distribution.pgf.ginac.engine import GinacPGF
 except ImportError:  # pragma: no cover - prodigy_ginac has no wheel for this platform
-    FPS = None
+    GinacPGF = None
 
-GINAC = pytest.param(FPS, id="GiNaC",
-                     marks=pytest.mark.skipif(FPS is None, reason="prodigy_ginac is not installed"))
-ENGINES = [pytest.param(GeneratingFunction, id="SymPy"), GINAC]
+GINAC = pytest.param(GinacPGF, id="GiNaC",
+                     marks=pytest.mark.skipif(GinacPGF is None, reason="prodigy_ginac is not installed"))
+ENGINES = [pytest.param(SympyPGF, id="SymPy"), GINAC]
 
 X, P = sympy.symbols("x p")
 DEGREE = 10
@@ -76,7 +76,7 @@ def test_modulo_guard_probability(engine):
 @pytest.mark.parametrize("expression", MULTI_VALUED)
 @pytest.mark.parametrize("guard", ["x % 2 == 0", "x % 2 == 1", "x % 3 == 2"])
 def test_modulo_guard_on_multi_valued_function_is_rejected(engine, expression, guard):
-    if engine is FPS and expression == "sqrt(x^2)":
+    if engine is GinacPGF and expression == "sqrt(x^2)":
         pytest.skip("GiNaC parses sqrt(x^2) as x, which is single-valued")
     with pytest.raises(NotSingleValuedError, match="not provably single-valued in 'x'"):
         engine(expression, "x").filter(parse_ppy_expr(guard))

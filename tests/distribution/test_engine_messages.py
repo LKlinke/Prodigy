@@ -7,7 +7,7 @@ import sympy
 from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.analysis.session import AnalysisSession
 from prodigy.distribution.distribution import NonFiniteMarginalError
-from prodigy.distribution.generating_function import GeneratingFunction
+from prodigy.distribution.pgf.sympy.engine import SympyPGF
 from prodigy.language import parse_program
 
 ENGINES = ["SYMPY", "GINAC"]
@@ -63,18 +63,18 @@ def test_iid_of_sample_pgf_is_the_iid_sum_of_the_generating_function(engine):
 @pytest.mark.timeout(60)
 def test_iid_of_sample_pgf_in_another_variable_is_not_implemented():
     # pylint: disable=import-outside-toplevel
-    from prodigy.distribution.generating_function import GeneratingFunction
+    from prodigy.distribution.pgf.sympy.engine import SympyPGF
     from prodigy.language.ppy_parser import parse_ppy_expr
     call = parse_ppy_expr("sample_pgf(1/2 + z/2, z)")
     with pytest.raises(NotImplementedError, match="only sampling in the assigned variable y"):
-        GeneratingFunction("x^2", "x", "y").update_iid(call, parse_ppy_expr("x"), "y")
+        SympyPGF("x^2", "x", "y").update_iid(call, parse_ppy_expr("x"), "y")
 
 
 @pytest.mark.timeout(60)
 def test_convergence_message_substitutes_the_term_for_the_temporary_variable():
     """The convergence message names the closed form in the terms of the program, without the temporary
     variable and its 'where' clause (#221)."""
-    dist = GeneratingFunction("1/((1 - 2*_0)*(1 - y))", "_0", "y")
+    dist = SympyPGF("1/((1 - 2*_0)*(1 - y))", "_0", "y")
     with pytest.raises(NonFiniteMarginalError) as caught:
         dist._require_convergent_evaluation({"y"}, "The filter", {"_0": "x - 1"})  # pylint: disable=protected-access
     message = str(caught.value)
@@ -88,7 +88,8 @@ def test_messages_parenthesise_compound_terms_for_temporary_variables():
     """A compound term of the program replaces the temporary variable in parentheses, so that the closed form
     in a message does not read as `2*x - 1*x - 1` (#454); a name or a number stays bare."""
     # pylint: disable=import-outside-toplevel,protected-access
-    from prodigy.distribution.distribution import ComparisonNotImplemented, _in_programs_terms
+    from prodigy.distribution.pgf.messages import in_programs_terms as _in_programs_terms
+    from prodigy.distribution.pgf.rules.independent_comparison import ComparisonNotImplemented
     names = {"_0": "x - 1", "_1": "y * y", "_2": "z", "_3": "2"}
     error = _in_programs_terms(NonFiniteMarginalError("2*_0 - _1 + _2*_3"), names)
     assert str(error) == "2*(x - 1) - (y * y) + z*2"

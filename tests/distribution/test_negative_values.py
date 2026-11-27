@@ -5,8 +5,8 @@ import sympy
 import prodigy.language as language
 from prodigy.analysis.session import compute_discrete_distribution
 from prodigy.analysis.config import ForwardAnalysisConfig
-from prodigy.distribution.generating_function import SympyPGF
-from prodigy.distribution.negative_values import can_be_negative
+from prodigy.distribution.pgf.sympy.engine import SympyPGF
+from prodigy.distribution.pgf.rules.negative_values import can_be_negative
 from prodigy.language.ppy_parser import parse_ppy_expr
 from tests.distribution.engines import ginac_factory
 

@@ -44,7 +44,7 @@ random programs: assignments, the built-in distributions, `if`, probabilistic ch
 each program the tests check that
 
 - SymPy (with the simplification of the shown result on and off) and GiNaC give equal results, decided with
-  {func}`prodigy.distribution.equality.decide_equal_strings` (only a proven difference fails), and the same
+  {func}`prodigy.distribution.pgf.rules.equality.decide_equal_strings` (only a proven difference fails), and the same
   kind of guarantee;
 - no result with status `ok` contains `nan`, `zoo` or `oo`;
 - the results agree with the simulation.

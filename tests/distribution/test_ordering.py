@@ -5,7 +5,7 @@ with a witness state, or ``UndecidedComparisonError``, never a guess.
 import pytest
 
 from prodigy.distribution import State, UndecidedComparisonError
-from prodigy.distribution.generating_function import SympyPGF
+from prodigy.distribution.pgf.sympy.engine import SympyPGF
 from tests.distribution.engines import ginac_factory
 
 
