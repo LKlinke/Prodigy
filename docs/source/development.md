@@ -26,13 +26,15 @@ Parsers, AST, type checker and compiler. The package was called `prodigy/pgcl` u
   `filtering.py`, `updating.py`, `pgf.py`): case splits, filters, marginals, the iteration contract;
   `sampling.py` is the table of the distributions of the language (their generating functions and the
   ranges of their parameters), from which the factories and `iid` build them on every engine.
-- Engines: SymPy (`pgf/sympy/engine.py`, `SympyPGF`, the default), GiNaC via the bindings
-  (`pgf/ginac/engine.py`, `GinacPGF`); each engine class is also its factory. SymEngine was removed in
+- Engines: SymPy (`pgf/sympy/engine.py`, `SympyPGF`, the default; beside it `expressions.py`, `terms.py` the
+  iteration over terms, `hadamard.py`, `settings.py`), GiNaC via the bindings (`pgf/ginac/engine.py`,
+  `GinacPGF`); each engine class is also its factory and holds only the CAS hooks of `pgf/hooks.py`. SymEngine was removed in
   v0.6.0 (#416). The old paths `generating_function.py`, `fast_generating_function.py`, … only re-export.
 - Proof rules on closed forms, in `pgf/rules/`: `finite_measure.py`, `product_form.py`, `coefficient_signs.py`,
   `series_transforms.py` (monomial substitution, shift), `dominant_pole.py` (univariate rational
   functions with a unique dominant simple pole, Arb bounds), `convergence.py` (convergence at 1),
-  `ordering.py` (`<=` on distributions), `linear_guards.py` (linear forms and guards), ….
+  `ordering.py` (`<=` on distributions), `linear_guards.py` (linear forms and guards), `value_at_one.py`
+  (the value of a closed form at 1), ….
 - `prodigy/distribution` and `prodigy/language` import nothing from `prodigy/analysis`
   (`tests/test_layering.py`).
 
