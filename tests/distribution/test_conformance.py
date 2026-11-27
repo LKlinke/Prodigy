@@ -531,6 +531,62 @@ def test_iid_with_a_variable_count(factory, sampled, pgf):
     assert infinite == factory.from_expr(f"1/(2 - x*{pgf})", "x", "y")
 
 
+@pytest.mark.parametrize("sampled, pgf", IID)
+def test_iid_with_the_assigned_variable_as_count(factory, sampled, pgf):
+    # y := iid(G, y): the count is the old value of y, so y is substituted by G(y)
+    result = factory.from_expr("x^2*y^2", "x", "y").update_iid(P(sampled), P("y"), "y")
+    assert result == factory.from_expr(f"x^2*({pgf})^2", "x", "y")
+
+
+@pytest.mark.parametrize("sampled", ["y/2", "2*y", "y**2 + y", "1/(3 - y)"])
+def test_iid_of_a_function_of_another_mass_is_refused(factory, sampled):
+    """``iid(G, n)`` needs a generating function of mass 1; the type checker rejects every other one before the
+    analysis, and at the interface both engines refuse it alike (decided in #511)."""
+    with pytest.raises(ValueError, match="mass 1"):
+        factory.from_expr("x^2", "x", "y").update_iid(P(sampled), P("x"), "y")
+
+
+FACTORIES = [
+    (lambda f: f.geometric("x", "1/2"), "1/(2 - x)"),
+    (lambda f: f.uniform("x", "1", "3"), "(x + x^2 + x^3)/3"),
+    (lambda f: f.bernoulli("x", "1/3"), "2/3 + x/3"),
+    (lambda f: f.poisson("x", "3"), "exp(3*(x - 1))"),
+    (lambda f: f.log("x", "1/2"), "log(1 - x/2)/log(1/2)"),
+    (lambda f: f.binomial("x", "4", "1/3"), "(2/3 + x/3)^4"),
+    (lambda f: f.negative_binomial("x", "2", "1/2"), "1/(2 - x)^2"),
+]
+
+
+@pytest.mark.parametrize("make, pgf", FACTORIES)
+def test_factories_build_the_table(factory, make, pgf):
+    built = make(factory)
+    assert isinstance(built, factory)
+    assert built == factory.from_expr(pgf, "x")
+    assert built.get_variables() == {"x"} and not built.get_parameters()
+
+
+def test_factories_with_parameters(factory):
+    built = factory.geometric("x", "p")
+    assert built.get_variables() == {"x"} and built.get_parameters() == {"p"}
+    assert built == factory.from_expr("p/(1 - (1 - p)*x)", "x")
+
+
+@pytest.mark.parametrize("make", [
+    lambda f: f.geometric("x", "0"), lambda f: f.geometric("x", "3/2"), lambda f: f.uniform("x", "3", "1"),
+    lambda f: f.uniform("x", "-1", "1"), lambda f: f.bernoulli("x", "2"), lambda f: f.poisson("x", "-1"),
+    lambda f: f.log("x", "2"), lambda f: f.binomial("x", "-1", "1/2"), lambda f: f.binomial("x", "2", "2"),
+    lambda f: f.negative_binomial("x", "r", "1/2"), lambda f: f.negative_binomial("x", "2", "0"),
+])
+def test_factories_validate_constant_parameters_alike(factory, make):
+    with pytest.raises(ValueError):
+        make(factory)
+
+
+def test_iid_validates_the_parameters_of_its_distribution(factory):
+    with pytest.raises(ValueError, match="0 < p <= 1"):
+        factory.from_expr("x^2", "x", "y").update_iid(P("geometric(2)"), P("x"), "y")
+
+
 def test_iid_in_its_own_count(factory):
     # y := iid(bernoulli(1/2), y): the count is the old value of y
     result = factory.from_expr("y^3", "y").update_iid(P("bernoulli(1/2)"), P("y"), "y")
@@ -760,15 +816,30 @@ def test_declared_difference_hadamard_product(factory):
             left.hadamard_product(right)
 
 
-def test_declared_difference_iid_of_a_function_that_is_no_pgf(factory):
-    """``iid(G, n)`` needs a generating function of mass 1. The type checker rejects every other one before the
-    analysis; at the interface, SymPy computes G^n, GiNaC refuses."""
+def test_declared_difference_iid_of_a_parametric_mass(factory):
+    """``iid(G, n)`` with a mass that depends on parameters (``p*y + q``): SymPy computes the formula, which holds
+    for the parameter values with mass 1; GiNaC's bindings refuse every ``G`` whose mass they cannot prove to be 1.
+    Neither result is wrong; the analysis checks the generating function before it runs."""
     dist = factory.from_expr("x^2", "x", "y")
     if factory.__name__ == "SympyPGF":
-        assert dist.update_iid(P("y/2"), P("x"), "y") == factory.from_expr("x^2*y^2/4", "x", "y")
+        assert dist.update_iid(P("p*y + q"), P("x"), "y") == factory.from_expr("x^2*(p*y + q)^2", "x", "y")
     else:
         with pytest.raises(ValueError, match="must not be a sub distribution"):
-            dist.update_iid(P("y/2"), P("x"), "y")
+            dist.update_iid(P("p*y + q"), P("x"), "y")
+
+
+def test_declared_difference_iid_of_a_function_of_another_state_variable(factory):
+    """``iid(G, n)`` whose ``G`` also contains another variable of the state (``c``, as the invariants of
+    ``pgfexamples/equivalence/loopy/invariants`` write it): SymPy composes it and keeps ``c`` a variable, GiNaC's
+    bindings take only a univariate ``G``."""
+    dist = factory.from_expr("x^2*c", "x", "c", "y")
+    if factory.__name__ == "SympyPGF":
+        result = dist.update_iid(P("1/2 + c*y/2"), P("2"), "y")
+        assert result.get_variables() == {"x", "c", "y"} and not result.get_parameters()
+        assert result == factory.from_expr("x^2*c*(1/2 + c*y/2)^2", "x", "c", "y")
+    else:
+        with pytest.raises(ValueError, match="univariate"):
+            dist.update_iid(P("1/2 + c*y/2"), P("2"), "y")
 
 
 def test_declared_difference_fresh_variable_names(factory):

@@ -14,6 +14,8 @@ from __future__ import annotations
 from typing import Collection, Iterable, List, Optional, Sequence, Tuple, Union
 
 import sympy
+
+from prodigy.util.three_valued import all_three_valued
 from prodigy.distribution.pgf.rules.equality import sympify_symbolic_string
 
 MAX_DIVISION_ORDERS = 6
@@ -46,14 +48,7 @@ def sign(coefficient: sympy.Expr) -> Optional[bool]:
 
 def all_nonneg(coefficients: Iterable[sympy.Expr]) -> Optional[bool]:
     """Three-valued: ``False`` if one coefficient is proven negative, ``True`` if all are proven non-negative."""
-    verdict: Optional[bool] = True
-    for coefficient in coefficients:
-        result = sign(coefficient)
-        if result is False:
-            return False
-        if result is None:
-            verdict = None
-    return verdict
+    return all_three_valued(sign(coefficient) for coefficient in coefficients)
 
 
 def polynomial_verdict(expr: sympy.Expr, gens: Sequence[sympy.Symbol]) -> Optional[bool]:

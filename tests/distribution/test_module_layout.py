@@ -57,6 +57,18 @@ def test_every_engine_implements_every_hook(engine):
     assert isinstance(factory.from_expr("x", "x"), PGFHooks)
 
 
+# the distributions of the language, built from the shared table (pgf/sampling.py, #511 P4b)
+SAMPLING_FACTORIES = ("geometric", "uniform", "bernoulli", "poisson", "log", "binomial", "negative_binomial")
+
+
+@pytest.mark.parametrize("engine", ENGINES)
+def test_engines_take_iid_and_the_factories_from_the_shared_logic(engine):
+    factory = engine()
+    for name in SAMPLING_FACTORIES + ("update_iid",):
+        assert name not in vars(factory), f"{factory.__name__} defines {name} itself"
+        assert getattr(factory, name).__qualname__.startswith(("PGF.", "PGFUpdating.")), name
+
+
 @pytest.mark.parametrize("old, new", sorted(MOVED.items()))
 def test_old_paths_only_re_export(old, new):
     if new.startswith("prodigy.distribution.pgf.ginac"):

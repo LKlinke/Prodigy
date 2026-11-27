@@ -23,7 +23,9 @@ Parsers, AST, type checker and compiler. The package was called `prodigy/pgcl` u
 - `distribution.py`: the `Distribution` interface (representation-neutral) and
   `CommonDistributionsFactory`; `values.py`, `errors.py`, `terms.py` hold its value types and errors.
 - `pgf/`: the logic on generating functions, `PGF`, in layers (`hooks.py` the engine hooks, `base.py`,
-  `filtering.py`, `updating.py`, `pgf.py`): case splits, filters, marginals, the iteration contract.
+  `filtering.py`, `updating.py`, `pgf.py`): case splits, filters, marginals, the iteration contract;
+  `sampling.py` is the table of the distributions of the language (their generating functions and the
+  ranges of their parameters), from which the factories and `iid` build them on every engine.
 - Engines: SymPy (`pgf/sympy/engine.py`, `SympyPGF`, the default), GiNaC via the bindings
   (`pgf/ginac/engine.py`, `GinacPGF`); each engine class is also its factory. SymEngine was removed in
   v0.6.0 (#416). The old paths `generating_function.py`, `fast_generating_function.py`, … only re-export.
