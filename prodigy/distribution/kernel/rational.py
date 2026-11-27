@@ -319,6 +319,7 @@ class RationalGF:
         return RationalGF(numerator, denominator)
 
     def coefficients(self, name: str) -> Iterator[RationalGF]:
+        # pylint: disable=too-many-locals  # the intermediate values of one algorithm in the docstring
         """
         The Taylor coefficients of x^0, x^1, ... of the function around x = 0 for x = `name`, as functions of
         the other ring variables (in the same ring). They satisfy the recursion of the denominator

@@ -102,6 +102,7 @@ def _cancels_with_frozen_constants(expression: sympy.Expr) -> bool:
 
 def decide_equal(lhs: sympy.Expr, rhs: sympy.Expr, use_simplify: bool = True, *,
                  prove_equality: bool = True) -> Optional[bool]:
+    # pylint: disable=too-many-return-statements  # one verdict per case of the rule in the docstring
     """
     Decides ``lhs == rhs`` as an identity in all symbols.
 

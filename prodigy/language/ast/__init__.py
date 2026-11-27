@@ -135,8 +135,9 @@ from .instructions import (AsgnInstr, ChoiceInstr, CovarianceInstr, VarianceInst
                            PrintInstr, ProbabilityQueryInstr, Query,
                            QueryInstr, SkipInstr, WhileInstr, AbortInstr)
 from .program import Program
-from .types import BoolType, Bounds, NatType, RealType, Type
-from .walk import (Walk, mut_expr_children, walk_expr, walk_instrs, instr_exprs, mut_instr_exprs, walk_instr_exprs)
+from .types import BoolType, Bounds, DistributionType, NatType, RealType, Type
+from .walk import (Walk, mut_expr_children, walk_expr, walk_instrs, instr_exprs, mut_instr_exprs, walk_instr_exprs,
+                   name_uses, names_in)
 
 # the API of the package (#379, step 1)
 __all__ = ["Node", "Var", "ConstDecl", "Decl", "Function", "FunctionDecl", "ParameterDecl", "VarDecl", "Binop",
@@ -145,6 +146,6 @@ __all__ = ["Node", "Var", "ConstDecl", "Decl", "Function", "FunctionDecl", "Para
            "VarExpr", "AsgnInstr", "ChoiceInstr", "CovarianceInstr", "VarianceInstr",
            "ExpectationInstr", "IfInstr", "Instr", "InstrClass", "LocalDeclInstr", "LoopInstr", "ObserveInstr",
            "OptimizationQuery", "OptimizationType", "PlotInstr", "PrintInstr", "ProbabilityQueryInstr", "Query",
-           "QueryInstr", "SkipInstr", "WhileInstr", "AbortInstr", "Program", "BoolType", "Bounds", "NatType",
-           "RealType", "Type", "Walk", "mut_expr_children", "walk_expr", "walk_instrs", "instr_exprs",
-           "mut_instr_exprs", "walk_instr_exprs"]
+           "QueryInstr", "SkipInstr", "WhileInstr", "AbortInstr", "Program", "BoolType", "Bounds",
+           "DistributionType", "NatType", "RealType", "Type", "Walk", "mut_expr_children", "walk_expr",
+           "walk_instrs", "instr_exprs", "mut_instr_exprs", "walk_instr_exprs", "name_uses", "names_in"]

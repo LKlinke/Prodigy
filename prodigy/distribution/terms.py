@@ -5,9 +5,9 @@ and the terms that are computed into fresh variables (floor division, truncated 
 from __future__ import annotations
 
 from fractions import Fraction
-from typing import Set
+from typing import Callable, Dict, Optional, Set
 
-from prodigy.language import Binop, BinopExpr, Expr, NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr
+from prodigy.language import Binop, BinopExpr, BoolLitExpr, Expr, NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr
 from prodigy.language.ast.walk import Walk, walk_expr
 from prodigy.language.ppy_printer import spell
 from prodigy.language.util.ref import Mut
@@ -34,27 +34,34 @@ def constant_value(expression: Expr) -> Fraction | None:
     left, right = constant_value(expression.lhs), constant_value(expression.rhs)
     if left is None or right is None:
         return None
-    if expression.operator == Binop.PLUS:
-        return left + right
-    if expression.operator == Binop.TIMES:
-        return left * right
-    if expression.operator == Binop.MINUS:
-        if _is_natural(left) and _is_natural(right):
-            return max(left - right, Fraction(0))
-        return left - right if left >= right else None
-    if expression.operator == Binop.DIVIDE:
-        return left / right if right != 0 else None
-    if expression.operator == Binop.MODULO:
-        if left.denominator == 1 and right.denominator == 1 and right != 0:
-            return Fraction(left.numerator % right.numerator)
-        return None
-    if expression.operator == Binop.FLOOR_DIVIDE:
-        if left.denominator == 1 and right.denominator == 1 and right != 0:
-            return Fraction(left.numerator // right.numerator)
-        return None
-    if expression.operator == Binop.POWER:
-        return left**right.numerator if right.denominator == 1 else None
-    return None
+    operation = _CONSTANT_OPERATIONS.get(expression.operator)
+    return None if operation is None else operation(left, right)
+
+
+def _difference(left: Fraction, right: Fraction) -> Fraction | None:
+    """`left - right` as in :func:`constant_value`: truncated for natural numbers, else only if not negative."""
+    if _is_natural(left) and _is_natural(right):
+        return max(left - right, Fraction(0))
+    return left - right if left >= right else None
+
+
+def _integers(left: Fraction, right: Fraction) -> bool:
+    """Whether `left` and `right` are integers and `right` is no divisor 0."""
+    return left.denominator == 1 and right.denominator == 1 and right != 0
+
+
+_CONSTANT_OPERATIONS: Dict[Binop, Callable[[Fraction, Fraction], Optional[Fraction]]] = {
+    Binop.PLUS: lambda left, right: left + right,
+    Binop.TIMES: lambda left, right: left * right,
+    Binop.MINUS: _difference,
+    Binop.DIVIDE: lambda left, right: left / right if right != 0 else None,
+    Binop.MODULO: lambda left, right: Fraction(left.numerator % right.numerator) if _integers(left, right) else None,
+    Binop.FLOOR_DIVIDE: lambda left, right: (Fraction(left.numerator // right.numerator) if _integers(left, right)
+                                             else None),
+    Binop.POWER: lambda left, right: left ** right.numerator if right.denominator == 1 else None,
+}
+"""The operators of :func:`constant_value` on exact values; None for a result that natural-number arithmetic does
+not allow."""
 
 
 def _is_natural(value: Fraction) -> bool:
@@ -159,6 +166,22 @@ def replace_term(expression: Expr, term: Expr, replacement: Expr) -> Expr:
 def variables_of(expression: Expr) -> Set[str]:
     """The names of the variables in `expression`."""
     return {node.val.var for node in walk_expr(Walk.DOWN, Mut.alloc(expression)) if isinstance(node.val, VarExpr)}
+
+
+def substitute_value(expression: Expr, name: str, value: int) -> Optional[Expr]:
+    """`expression` with the variable `name` replaced by the literal `value`, or None if it contains an
+    expression other than variables, literals and unary or binary operators."""
+    if isinstance(expression, VarExpr):
+        return NatLitExpr(value) if expression.var == name else expression
+    if isinstance(expression, (NatLitExpr, RealLitExpr, BoolLitExpr)):
+        return expression
+    if isinstance(expression, BinopExpr):
+        lhs, rhs = substitute_value(expression.lhs, name, value), substitute_value(expression.rhs, name, value)
+        return None if lhs is None or rhs is None else BinopExpr(expression.operator, lhs, rhs)
+    if isinstance(expression, UnopExpr):
+        inner = substitute_value(expression.expr, name, value)
+        return None if inner is None else UnopExpr(expression.operator, inner)
+    return None
 
 
 def is_true(variable: VarExpr) -> Expr:

@@ -89,6 +89,8 @@ def _sum_below_one(poly: sympy.Poly) -> bool:
 
 def filter_difference_algebraic(function: sympy.Expr, x: str, y: str, relation: str, shift: int,
                                 variables: Iterable[str], condition: str) -> sympy.Expr:
+    # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-branches,too-many-statements
+    # (one rule with the arguments of filter_difference; the steps are numbered in the docstring)
     """
     The part of the rational `function` whose exponents i of the variable x and j of y satisfy
     `j - i >= shift` (relation `"ge"`) or `j - i = shift` (`"eq"`), possibly algebraic (see the

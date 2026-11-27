@@ -28,12 +28,7 @@ def rational_hadamard_product(f: sympy.Expr, g: sympy.Expr, var: sympy.Symbol) -
     if s_g.is_polynomial(var):
         if s_g.is_constant(var):
             return s_g * s_f.subs(var, 0)
-        g_deg = s_g.as_poly(var).degree()
-        f_series = s_f.series(var, n=g_deg + 1).removeO().as_poly(var)
-        # coefficients from degree 0 up; beyond the shorter list one factor is 0
-        result = sympy.polys.Poly(reversed([cf * cg for cf, cg in zip(reversed(f_series.all_coeffs()), reversed(
-            s_g.as_poly(var).all_coeffs()), strict=False)]), var)
-        return result.as_expr()
+        return _coefficient_product(s_f, s_g, var, s_g.as_poly(var).degree() + 1).as_expr()
 
     _, s_f_denom = s_f.as_numer_denom()
     _, s_g_denom = s_g.as_numer_denom()
@@ -51,13 +46,18 @@ def rational_hadamard_product(f: sympy.Expr, g: sympy.Expr, var: sympy.Symbol) -
     logger.debug("Denominator: %s", s_result_denom)
     logger.debug("Comparing %i terms", f_degree * g_degree)
 
-    # as above: zip stops at the shorter list, whose missing coefficients are 0
-    result = sympy.polys.Poly(reversed([cf * cg for cf, cg in zip(reversed(
-        s_f.series(var, n=f_degree * g_degree).removeO().as_poly(var).all_coeffs()), reversed(
-        s_g.series(var, n=f_degree * g_degree).removeO().as_poly(var).all_coeffs()), strict=False)]), var)
-    result *= s_result_denom
+    result = _coefficient_product(s_f, s_g, var, f_degree * g_degree) * s_result_denom
     s_num = result.as_expr().series(var, n=f_degree * g_degree).removeO()
 
     logger.debug("Resulting function: %s", s_num / s_result_denom)
     # read back from text, as the engine reads every closed form
     return _parse_to_sympy(engine_text_of(s_num / s_result_denom))
+
+
+def _coefficient_product(f: sympy.Expr, g: sympy.Expr, var: sympy.Symbol, count: int) -> sympy.Poly:
+    """The polynomial whose coefficients of ``var^0``, …, ``var^(count-1)`` are the products of those of ``f`` and
+    ``g``."""
+    f_coefficients = reversed(f.series(var, n=count).removeO().as_poly(var).all_coeffs())
+    g_coefficients = reversed(g.series(var, n=count).removeO().as_poly(var).all_coeffs())
+    # coefficients from degree 0 up; zip stops at the shorter list, whose missing coefficients are 0
+    return sympy.polys.Poly(reversed([cf * cg for cf, cg in zip(f_coefficients, g_coefficients, strict=False)]), var)

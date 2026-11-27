@@ -177,6 +177,7 @@ def _bound_index(rho: flint.arb, sigma: flint.arb, d: int, ratio: flint.arb) -> 
 
 
 def _decide(p: flint.fmpq_poly, q: flint.fmpq_poly) -> PoleVerdict:
+    # pylint: disable=too-many-locals  # the intermediate values of one algorithm in the docstring
     polynomial, remainder = divmod(p, q)
     rho, sigma, d = _dominant(q)
     q_arb = [_arb(c) for c in q.coeffs()]

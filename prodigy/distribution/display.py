@@ -126,13 +126,36 @@ def display_form(dist: "Distribution", *, seconds: float = DISPLAY_TIME_LIMIT) -
     if not isinstance(computed, sympy.Expr):
         return kept("Kept as computed.")
     computed_ops = int(sympy.count_ops(computed))
-    if computed_ops <= SMALL_OPS:
-        return kept("Kept as computed: already short.", computed_ops)
-    if computed_ops > GCD_MAX_OPS:
-        return kept("Kept as computed: too large to simplify within the bounds.", computed_ops)
-    if _max_exponent(computed) > GCD_MAX_DEGREE:
-        return kept("Kept as computed: the degree is too high to simplify within the bounds.", computed_ops)
+    too_small_or_large = _not_searched(computed, computed_ops)
+    if too_small_or_large is not None:
+        return kept(f"Kept as computed: {too_small_or_large}.", computed_ops)
+    best_name, best, best_ops, reason = _shortest_rewrite(computed, computed_ops, seconds)
+    if best_name == COMPUTED:
+        return kept(f"Kept as computed: {reason}.", computed_ops)
+    try:
+        shown = as_pgf(dist)._from_sympy_expression(best)  # pylint: disable=protected-access
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.info("The simplified form does not convert back to the engine: %s", exc)
+        return kept("Kept as computed: the simplified form does not convert back to this engine.", computed_ops)
+    return DisplayForm(shown, best_name, f"Simplified ({best_name}).", computed_ops, best_ops,
+                       time.perf_counter() - start)
 
+
+def _not_searched(computed: sympy.Expr, computed_ops: int) -> Optional[str]:
+    """Why the search for a shorter form is not started for ``computed`` (``computed_ops`` operations), or None."""
+    if computed_ops <= SMALL_OPS:
+        return "already short"
+    if computed_ops > GCD_MAX_OPS:
+        return "too large to simplify within the bounds"
+    if _max_exponent(computed) > GCD_MAX_DEGREE:
+        return "the degree is too high to simplify within the bounds"
+    return None
+
+
+def _shortest_rewrite(computed: sympy.Expr, computed_ops: int,
+                      seconds: float) -> Tuple[str, sympy.Expr, int, str]:
+    """The shortest of the rewrites of ``computed`` equal to it within ``seconds``: its name, form and number of
+    operations, and why the search stopped (``COMPUTED`` and ``computed`` itself if none is shorter)."""
     best_name, best, best_ops = COMPUTED, computed, computed_ops
     reason = "no shorter form found"
     try:
@@ -152,12 +175,4 @@ def display_form(dist: "Distribution", *, seconds: float = DISPLAY_TIME_LIMIT) -
                     logger.info("The rewrite %s failed: %s", name, exc)
     except TimeLimitReached:
         reason = f"time limit of {seconds:g} s reached"
-    if best_name == COMPUTED:
-        return kept(f"Kept as computed: {reason}.", computed_ops)
-    try:
-        shown = as_pgf(dist)._from_sympy_expression(best)  # pylint: disable=protected-access
-    except Exception as exc:  # pylint: disable=broad-except
-        logger.info("The simplified form does not convert back to the engine: %s", exc)
-        return kept("Kept as computed: the simplified form does not convert back to this engine.", computed_ops)
-    return DisplayForm(shown, best_name, f"Simplified ({best_name}).", computed_ops, best_ops,
-                       time.perf_counter() - start)
+    return best_name, best, best_ops, reason

@@ -296,6 +296,8 @@ class ProductFormSeries:
 
 # ------------------------------------------------------------------------------------------- closed forms
 def to_product_form(expr: Union[str, sympy.Expr], variables: Sequence[str]) -> Optional[Tuple[Num, Denominator]]:
+    # pylint: disable=too-many-return-statements,too-many-locals
+    # (one algorithm with an exit per case that has no product form (docstring))
     """Write a rational generating function as ``P / prod_i (1 - r_i X_i^{p_i})`` (at most one factor per variable,
     ``r_i >= 0``), or return None if this is not possible."""
     syms = [sympy.Symbol(v) for v in variables]

@@ -127,6 +127,7 @@ def taylor_stream(expr: sympy.Expr, symbol: sympy.Symbol, limit: int, *,
 def taylor_window(expr: sympy.Expr, first: sympy.Symbol, second: sympy.Symbol, first_window: Window,
                   second_window: Window, *, incremental: bool = True,
                   on_wait: Waiting = None) -> Iterator[Iterator[sympy.Expr]]:
+    # pylint: disable=too-many-arguments  # the two variables and their windows of the rectangle, see the docstring
     """
     The coefficients of ``first^i second^j`` of ``expr`` for ``i`` and ``j`` in the windows (inclusive ranges
     ``(low, high)``) as columns, lazily: the column of ``i`` yields the coefficients of ``j = low, ..., high``.

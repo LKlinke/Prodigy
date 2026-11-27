@@ -20,7 +20,7 @@ Sugar is translated into the existing AST:
   the declaration;
 - ``loop(N)`` with a constant ``N`` uses the constant's literal value.
 
-Two constructs have no counterpart in the old syntax. A declaration inside a
+Two constructs are more than sugar. A declaration inside a
 block is parsed into :class:`~prodigy.language.ast.LocalDeclInstr`; its scope is
 checked here (see :mod:`prodigy.language.scope`), and
 :func:`prodigy.language.parser.parse_program` lowers it into plain assignments.
@@ -64,12 +64,11 @@ from prodigy.language.ast import (AbortInstr, AsgnInstr, Binop, BinopExpr,
                               Type, Unop, UnopExpr, VarDecl,
                               VarExpr, WhileInstr)
 from prodigy.language.ast.types import DistributionType
-from prodigy.language.ast.walk import Walk, walk_expr, walk_instr_exprs, walk_instrs
+from prodigy.language.ast.walk import Walk, instr_exprs, names_in, walk_instrs
 from prodigy.language.positions import mark_parenthesized, set_span, span_from_meta
 from prodigy.language.scope import ScopeError, lower_block_scope
 from prodigy.language.syntax_errors import (ProgramSyntaxError, position,
                                         removed_construct)
-from prodigy.language.util.ref import Mut
 
 PPY_GRAMMAR = r"""
     start: item*
@@ -275,7 +274,7 @@ def _spanned(method: _F) -> _F:
 
 
 _MONADIC = (CategoricalExpr, InferExpr, SampleExpr)
-"""Expressions that denote a distribution, allowed only where the old syntax has an rvalue."""
+"""Expressions that denote a distribution, allowed only as a whole value (see ``_ToAst._plain``)."""
 
 
 def _zero_for(typ: Type) -> Optional[Expr]:
@@ -287,7 +286,7 @@ def _zero_for(typ: Type) -> Optional[Expr]:
 
 
 def _fraction(num: Expr, denom: Expr, meta: Meta) -> Expr:
-    # same as the old parser: a quotient of two literals is a probability literal
+    # a quotient of two literals is a probability literal (a Fraction), which the printer writes back as p/q
     if isinstance(num, NatLitExpr) and isinstance(denom, NatLitExpr):
         if denom.value == 0:
             raise _error(meta, f"Division by zero in {num.value}/0")
@@ -413,7 +412,7 @@ class _ToAst(Transformer):
         return self._binop(Binop.POWER, meta, children)
 
     def uminus(self, meta: Meta, children: _Children) -> BinopExpr:
-        # the same representation as the old parser: -e is (-1) * e
+        # -e is represented as (-1) * e, which the printer writes back as -e
         return BinopExpr(Binop.TIMES, RealLitExpr(Fraction(-1)),
                          self._plain(children[0], meta))
 
@@ -750,7 +749,7 @@ class _ToAst(Transformer):
 
     def _check_calls(self) -> None:
         # A function's own variables follow its parameters in its declarations
-        # (the old AST has no separate list); only the parameters may be passed.
+        # (the AST has no separate list); only the parameters may be passed.
         functions = {decl.var: decl.body for decl in self.function_decls}
         for call, meta in self.calls:
             function = functions.get(call.function)
@@ -813,14 +812,8 @@ def _names_in(instructions: List[Instr], value: Optional[Expr]) -> Set[str]:
             names.add(instr.lhs)
         if isinstance(instr, OptimizationQuery):
             names.add(instr.parameter)
-        exprs.extend(sub.val for sub in walk_instr_exprs(Walk.DOWN, instr))
-    for expr in exprs:
-        for sub in walk_expr(Walk.DOWN, Mut.alloc(expr)):
-            if isinstance(sub.val, VarExpr):
-                names.add(sub.val.var)
-            elif isinstance(sub.val, SampleExpr):
-                names.add(sub.val.dist)
-    return names
+        exprs.extend(instr_exprs(instr))
+    return names | names_in(*exprs)
 
 
 def _describe_terminal(name: str) -> str:
