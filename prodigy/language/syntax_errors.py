@@ -52,7 +52,7 @@ class ProgramSyntaxError(SyntaxError):
 
 class ProgramTypeError(ProgramSyntaxError):
     """A type error that the parser reports with line and column, e.g. a guard that is no
-    ``bool`` (see :func:`prodigy.language.check.check_guards`)."""
+    ``bool`` (see :func:`prodigy.language.check.non_bool_guard`)."""
 
 
 def removed_construct(source: str, offset: Optional[int], expects_operand: bool) -> Optional[Tuple[str, int]]:

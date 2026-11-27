@@ -13,7 +13,7 @@ Parsers, AST, type checker and compiler. The package was called `prodigy/pgcl` u
 - `ppy_parser.py`, `ppy_printer.py`: the `.ppy` syntax (the default, `language.md`).
 - `parser.py`: `parse_program`, the entry point that reads a `.ppy` program (the `.pgcl` syntax and its
   parser, taken over from probably, were removed in v0.6.0, #433; see `prodigy/language/NOTICE`).
-- `check.py`: the type checker; `checks.py`, `operations.py`: further checks and AST
+- `check/`: the type checker, one handler per node class (`expressions.py`, `instructions.py`); `checks.py`, `operations.py`: further checks and AST
   operations.
 - `scope.py`: block scope, lowered to assignments and marginalisation.
 - `positions.py`: source positions for messages and the editor.
