@@ -1,4 +1,4 @@
-"""Tests for the .ppy syntax: parser, pretty printer and agreement with the old parser."""
+"""Tests for the .ppy syntax: parser, pretty printer, and agreement of sugar with its canonical spelling."""
 from fractions import Fraction
 from pathlib import Path
 
