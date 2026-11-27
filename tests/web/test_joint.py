@@ -210,7 +210,7 @@ def test_heatmap_colour_scale(tmp_path):
     """The colour scale of the heatmap (viridis, colour-blind safe): linear (λ = 1) from 0 to the
     largest value, logarithmic (λ = 0, #452) with both ends labelled (#307), no colour for 0 or
     unknown values."""
-    module = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components" / "joint-view.js"
+    module = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components" / "joint-cells.js"
     script = tmp_path / "check.mjs"
     script.write_text(
         f"const j = await import({str(module.as_uri())!r});\n"
@@ -227,7 +227,7 @@ def test_heatmap_colour_scale(tmp_path):
 def test_cell_text_of_heatmap_and_3d_view(tmp_path):
     """The heatmap's readout and the 3D view's tooltip (#287) name the values of both variables
     and the probability as an interval (#405), with its exact form."""
-    module = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components" / "joint-view.js"
+    module = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components" / "joint-cells.js"
     script = tmp_path / "check.mjs"
     grid = {
         "x": "x", "y": "y", "x_values": [0, 1], "y_values": [2], "bound": "lower",

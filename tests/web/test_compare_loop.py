@@ -15,7 +15,7 @@ from prodigy.web.app import create_app
 from prodigy.web.compare import loop_program
 from prodigy.web.requests import run_analysis
 
-from tests.web.test_app import HOST
+from tests.web.test_app import HOST, app_source
 from tests.web.test_equivalence import compare
 
 APP = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app"
@@ -186,10 +186,10 @@ def test_frontend_continue_offer(tmp_path):
 
 
 def test_analyze_hides_the_strategy_invariant_and_compare_offers_the_continue_flow():
-    main = (APP / "main.js").read_text(encoding="utf-8")
-    assert 'const COMPARE_ONLY = new Set(["invariant"]);' in main
-    assert '{ hidden: COMPARE_ONLY, onCompareLoop: compareLoop }' in main
-    assert "continueTo: continueTarget()" in main and "api.loopProgram(" in main
+    panels = app_source("panels.js")
+    assert 'const COMPARE_ONLY = new Set(["invariant"]);' in panels
+    assert '{ hidden: COMPARE_ONLY, onCompareLoop: compareLoop }' in panels
+    assert "continueTo: continueTarget()" in app_source("result-panel.js") and "api.loopProgram(" in app_source("compare-mode.js")
     setup = (APP / "setup.js").read_text(encoding="utf-8")
     assert "Compare this loop" in setup and "Open in Compare" in setup and "Choose a strategy" in setup
     view = (APP / "components" / "equivalence-view.js").read_text(encoding="utf-8")

@@ -226,7 +226,7 @@ function paramField(param, value, onInput, suggest = null) {
 const suggestions = new Map();
 
 /** Stops the requests in flight: the program they were asked about has changed (#322). The server job is
- * cancelled through the request's signal (:func:`requestSuggestion` in main.js). */
+ * cancelled through the request's signal (:func:`requestSuggestion` in run.js). */
 export function cancelSuggestions() {
   for (const [key, entry] of [...suggestions]) {
     if (entry.state !== "running") continue;

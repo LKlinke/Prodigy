@@ -167,7 +167,7 @@ def test_view_options_replace_the_scale_switch():
         source = (COMPONENTS / name).read_text(encoding="utf-8")
         assert "viewOptionsControl(" in source and ".frame(" in source and "onViewOptionsChange(" in source, name
         assert "loadScale" not in source and '["log", "Log"]]' not in source.split("sizeScale")[0], name
-    joint = (COMPONENTS / "joint-view.js").read_text(encoding="utf-8")
+    joint = "".join((COMPONENTS / name).read_text(encoding="utf-8") for name in ("joint-view.js", "joint-bars3d.js"))
     assert "ownUpperEnds" in joint and '"tower"' in joint and "colours.colour(" in joint
     charts = (COMPONENTS / "charts.js").read_text(encoding="utf-8")
     assert "view.unaccounted" in charts and "mc-ext-hover" in charts and "probabilityScale(" in charts

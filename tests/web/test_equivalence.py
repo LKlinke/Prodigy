@@ -13,7 +13,7 @@ from prodigy.analysis.loop_strategies import Bound
 from prodigy.web.app import create_app
 from prodigy.web.compare import run_equivalence, validate_equivalence
 
-from tests.web.test_app import HOST, wait_for
+from tests.web.test_app import HOST, app_source, wait_for
 
 COMPONENTS = Path(__file__).parents[2] / "prodigy" / "web" / "static" / "app" / "components"
 EXAMPLES = Path(__file__).parents[2] / "pgfexamples"
@@ -295,8 +295,8 @@ def test_compare_mode_has_its_own_url(client):
     for path in ("/", "/analyze", "/compare"):
         response = client.get(path, headers=HOST)
         assert response.status_code == 200 and b'id="mode-switch"' in response.data
-    main = (COMPONENTS.parent / "main.js").read_text(encoding="utf-8")
-    assert "function modeFromUrl()" in main and "pushState" in main and 'addEventListener("popstate"' in main
+    modes = app_source("compare-mode.js")
+    assert "function modeFromUrl()" in modes and "pushState" in modes and 'addEventListener("popstate"' in modes
 
 
 def test_page_has_the_second_editor(client):
@@ -384,9 +384,9 @@ def test_parameter_synthesis_examples_open_in_compare(client):
 def test_the_result_view_offers_to_open_in_compare():
     view = (COMPONENTS / "result-view.js").read_text(encoding="utf-8")
     assert 'error.details?.type === "parameter_synthesis"' in view and "Open in Compare" in view
-    main = (COMPONENTS.parent / "main.js").read_text(encoding="utf-8")
-    assert "function openInCompare(details)" in main and "onOpenInCompare: openInCompare" in main
-    library = (COMPONENTS.parent / "main.js").read_text(encoding="utf-8")
+    modes = app_source("compare-mode.js")
+    assert "function openInCompare(details)" in modes and "onOpenInCompare: openInCompare" in app_source("result-panel.js")
+    library = app_source("main.js")  # loadExample
     assert 'setMode("compare")' in library and 'setMode("analyze")' in library
 
 
