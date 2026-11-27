@@ -9,6 +9,7 @@ finally sends the JSON result (:mod:`prodigy.analysis.result`).
 from __future__ import annotations
 
 import contextlib
+import logging
 import multiprocessing
 import os
 import re
@@ -21,7 +22,10 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, List, Optional
 
+from prodigy.util.logger import log_setup
 from prodigy.web.grid_cache import GridCache
+
+logger = log_setup(__name__, logging.DEBUG)
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 _MAX_LOG = 2_000_000
@@ -125,20 +129,22 @@ def _limit_memory(megabytes: Optional[int]) -> None:
         limit = int(megabytes) * 1024 * 1024
         resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
     except Exception:  # pylint: disable=broad-except
-        pass
+        # e.g. no module resource (Windows) or a limit the system refuses: the job runs without one
+        logger.debug("The memory limit of %s MB could not be set.", megabytes, exc_info=True)
 
 
 def _worker(request: Dict[str, Any], conn: Any, memory_limit: Optional[int], kind: str = "analysis") -> None:
     """Entry point of the analysis process; ``kind`` "suggest" asks a language model for a
     candidate instead (:func:`prodigy.web.requests.run_suggestion`), ``kind`` "joint" computes the
     coefficient grid of two variables of a finished analysis (:func:`prodigy.web.requests.run_joint`), ``kind``
-    "equivalence" compares two programs (:func:`prodigy.web.requests.run_equivalence`)."""
+    "equivalence" compares two programs (:func:`prodigy.web.compare.run_equivalence`)."""
     _limit_memory(memory_limit)
     sender = _Sender(conn)
     try:
         sender.send("state", "running")
         # pylint: disable=import-outside-toplevel
-        from prodigy.web.requests import run_analysis, run_equivalence, run_joint, run_suggestion
+        from prodigy.web.compare import run_equivalence
+        from prodigy.web.requests import run_analysis, run_joint, run_suggestion
         run = {"suggest": run_suggestion, "joint": run_joint, "equivalence": run_equivalence}.get(kind, run_analysis)
         result = run(request, output=sender.log, progress=sender.progress)
         sender.flush()
@@ -153,12 +159,13 @@ def _worker(request: Dict[str, Any], conn: Any, memory_limit: Optional[int], kin
                                              "message": str(exc) or type(exc).__name__,
                                              "traceback": traceback.format_exc()}})
         except Exception:  # pylint: disable=broad-except
-            pass
+            # the server is gone or stopped the job; it reports the job's end itself
+            logger.debug("The error of a %s job could not be sent.", kind, exc_info=True)
     finally:
         try:
             conn.close()
         except Exception:  # pylint: disable=broad-except
-            pass
+            logger.debug("The pipe of a %s job could not be closed.", kind, exc_info=True)
 
 
 # ---------------------------------------------------------------------------------------
@@ -212,8 +219,9 @@ def _importable_main() -> Iterator[None]:
         main.__file__ = path
 
 
+# a record of one job: each field is part of what GET /api/jobs/<id> reports or of the job's life cycle
 @dataclass
-class Job:
+class Job:  # pylint: disable=too-many-instance-attributes
     id: str  # pylint: disable=invalid-name
     process: Any
     conn: Any
@@ -236,6 +244,14 @@ class Job:
     @property
     def auxiliary(self) -> bool:
         return self.summary.get("kind") in AUXILIARY_KINDS
+
+    def close_pipe(self) -> None:
+        """Closes the server's end of the pipe to the job's process."""
+        try:
+            self.conn.close()
+        except Exception:  # pylint: disable=broad-except
+            logger.debug("The pipe of job %s could not be closed.", self.id, exc_info=True)
+        self.conn = None
 
     def listing(self) -> Dict[str, Any]:
         """What the GUI shows about a running job: id, kind, a description and the time so far."""
@@ -268,17 +284,29 @@ class Job:
         }
 
 
+@dataclass(frozen=True)
+class JobLimits:
+    """The limits of a :class:`JobManager`."""
+    max_jobs: int = 2
+    """Analyses and checks running at the same time."""
+    max_auxiliary: int = 2
+    """Background jobs of the GUI (:data:`AUXILIARY_KINDS`) running at the same time, besides ``max_jobs``."""
+    time_limit: float = 120.0
+    """Seconds a job may run; a request may ask for less."""
+    memory_limit: Optional[int] = None
+    """Memory per job process in MB (Linux), None for no limit."""
+    keep_finished: int = 32
+    """Finished jobs whose results are kept."""
+
+
 class JobManager:
     """Starts, watches and stops analysis processes. Analyses and checks (started by the user) count against
     ``max_jobs``; the background jobs of the GUI (:data:`AUXILIARY_KINDS`) against ``max_auxiliary``."""
 
     def __init__(self, *, max_jobs: int = 2, time_limit: float = 120.0, memory_limit: Optional[int] = None,
                  keep_finished: int = 32, max_auxiliary: int = 2):
-        self.max_jobs = max_jobs
-        self.max_auxiliary = max_auxiliary
-        self.time_limit = time_limit
-        self.memory_limit = memory_limit
-        self.keep_finished = keep_finished
+        self.limits = JobLimits(max_jobs=max_jobs, max_auxiliary=max_auxiliary, time_limit=time_limit,
+                                memory_limit=memory_limit, keep_finished=keep_finished)
         self._context = multiprocessing.get_context("spawn")
         self._jobs: "OrderedDict[str, Job]" = OrderedDict()
         self.grids = GridCache()
@@ -290,7 +318,7 @@ class JobManager:
     # -- public ------------------------------------------------------------------------
 
     def submit(self, request: Dict[str, Any], time_limit: Optional[float] = None, kind: str = "analysis") -> Job:
-        limit = self.time_limit if time_limit is None else min(float(time_limit), self.time_limit)
+        limit = self.limits.time_limit if time_limit is None else min(float(time_limit), self.limits.time_limit)
         grid_request = request if kind == "joint" else None
         if kind == "joint":
             # a window shown before needs no process; another one gets the cells computed before (#469)
@@ -302,7 +330,7 @@ class JobManager:
         with self._lock:
             self._make_room(kind)
             receiver, sender = self._context.Pipe(duplex=False)
-            process = self._context.Process(target=_worker, args=(request, sender, self.memory_limit, kind),
+            process = self._context.Process(target=_worker, args=(request, sender, self.limits.memory_limit, kind),
                                             name="prodigy-analysis", daemon=True)
             with _importable_main():
                 process.start()
@@ -364,7 +392,7 @@ class JobManager:
         replaces the oldest one that is running."""
         auxiliary = kind in AUXILIARY_KINDS
         group = [job for job in self._jobs.values() if job.running and job.auxiliary == auxiliary]
-        limit = self.max_auxiliary if auxiliary else self.max_jobs
+        limit = self.limits.max_auxiliary if auxiliary else self.limits.max_jobs
         while len(group) >= limit:
             same = [job for job in group if job.summary.get("kind") == kind]
             if kind not in PREEMPTIBLE_KINDS or not same:
@@ -409,7 +437,8 @@ class JobManager:
                         self.grids.store(job.grid_request, payload["joint"])
                     return
         except (EOFError, OSError):
-            pass
+            # the process closed its end of the pipe; whether it crashed is checked below
+            logger.debug("The pipe of job %s ended.", job.id, exc_info=True)
         if job.running and not job.process.is_alive():
             # the process ended without a result (crash, memory limit, ...)
             job.state = "crashed"
@@ -428,11 +457,7 @@ class JobManager:
 
     def _finish(self, job: Job) -> None:
         job.finished = time.monotonic()
-        try:
-            job.conn.close()
-        except Exception:  # pylint: disable=broad-except
-            pass
-        job.conn = None
+        job.close_pipe()
         job.process.join(timeout=1)
 
     def _stop_process(self, job: Job, state: str) -> None:
@@ -449,15 +474,12 @@ class JobManager:
                    else f"{what} was cancelled.")
         job.result = {"status": state, "error": {"type": state, "message": message}}
         job.finished = time.monotonic()
-        try:
-            job.conn.close()
-        except Exception:  # pylint: disable=broad-except
-            pass
-        job.conn = None
+        job.close_pipe()
 
     def _prune(self) -> None:
         # grids go first: the analyses they are computed from must stay available
         finished = sorted((job_id for job_id, job in self._jobs.items() if not job.running),
                           key=lambda job_id: self._jobs[job_id].summary.get("kind") != "joint")
-        for job_id in finished[:-self.keep_finished] if len(finished) > self.keep_finished else []:
+        keep = self.limits.keep_finished
+        for job_id in finished[:-keep] if len(finished) > keep else []:
             del self._jobs[job_id]

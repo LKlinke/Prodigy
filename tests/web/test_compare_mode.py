@@ -10,8 +10,8 @@ import pytest
 
 from prodigy.web.app import create_app
 from prodigy.analysis.session import AnalysisSession
-from prodigy.web import requests as web_requests
-from prodigy.web.requests import run_equivalence, validate_equivalence
+from prodigy.web import compare as web_compare
+from prodigy.web.compare import run_equivalence, validate_equivalence
 
 from tests.web.test_app import HOST, wait_for
 
@@ -99,7 +99,7 @@ def test_the_witness_search_has_a_time_limit(monkeypatch):
     def slow(*_args, **_kwargs):
         import time  # pylint: disable=import-outside-toplevel
         time.sleep(30)
-    monkeypatch.setattr(web_requests, "WITNESS_SECONDS", 0.3)
+    monkeypatch.setattr(web_compare, "WITNESS_SECONDS", 0.3)
     monkeypatch.setattr(tools, "analyse_on_input", slow)
     equivalence = run_equivalence({"source": TWO, "syntax": "ppy", "other_source": TWO_OTHER,
                                    "engine": "sympy"})["equivalence"]
