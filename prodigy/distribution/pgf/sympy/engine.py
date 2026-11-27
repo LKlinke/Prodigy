@@ -12,11 +12,11 @@ import contextlib
 import operator
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Callable, FrozenSet, Generator, Iterator, List, Optional, Set, Tuple, Type, Union, get_args
+from typing import Callable, FrozenSet, Generator, Iterator, List, Optional, Set, Tuple, Type, Union, cast
 
 import sympy
 
-from prodigy.distribution.distribution import CommonDistributionsFactory, Distribution, DistributionParam, Operand
+from prodigy.distribution.distribution import CommonDistributionsFactory, Distribution, Operand
 from prodigy.distribution.values import MarginalType, State, canonical_order
 from prodigy.distribution.pgf.pgf import PGF
 from prodigy.distribution.pgf.sympy.expressions import (_cancel, _has_radical, _is_finite_function, _limit_at_one,
@@ -31,12 +31,10 @@ from prodigy.distribution.pgf.rules.rational_series import rational_taylor_coeff
 from prodigy.distribution.pgf.rules.negative_values import can_be_negative
 from prodigy.distribution.pgf.rules.multisection import rational_sections
 from prodigy.distribution.pgf.rules.roots_of_unity import require_single_valued, root_of_unity
-from prodigy.language import (Binop, BinopExpr, Expr, FunctionCallExpr,
+from prodigy.language import (Binop, BinopExpr, Expr,
                           NatLitExpr, RealLitExpr, Unop, UnopExpr, VarExpr)
-from prodigy.language.ppy_parser import parse_ppy_expr
-from prodigy.language.checks import has_variable
 from prodigy.language.operations import state_condition
-from prodigy.language.engine_text import engine_format, engine_text_of
+from prodigy.language.engine_text import engine_text_of
 from prodigy.util.logger import log_setup
 
 logger = log_setup("generating_function", logging.DEBUG)
@@ -863,65 +861,20 @@ class SympyPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
             finite=self._is_finite,
             closed=self._is_closed_form).set_parameters(*self.get_parameters())
 
-    def _update_iid(self, sampling_dist: Expr, count: Union[VarExpr, NatLitExpr],
-                    variable: Union[str, VarExpr]) -> SympyPGF:
-
-        variable = engine_text_of(variable)  # the assigned variable, by name
-        subst_var = count.var if isinstance(count, VarExpr) else None
-
-        def subs(dist_gf: sympy.Expr, subst_var: Optional[str], variable: Union[str, VarExpr]) -> SympyPGF:
-            result = self._marginal(
-                variable,
-                method=MarginalType.EXCLUDE) if subst_var != variable else self
-            result = result.set_variables(*self.get_variables(), engine_text_of(variable))
-            if subst_var is None:
-                # a fixed number of samples: the sum has the generating function dist_gf^count
-                result._function = result._function * dist_gf ** _parse_to_sympy(engine_text_of(count))
-            elif subst_var == variable:
-                result._function = result._function.subs(
-                    _sympy_symbol(subst_var), dist_gf)
-            else:
-                result._function = result._function.subs(
-                    _sympy_symbol(subst_var),
-                    _sympy_symbol(subst_var) * dist_gf)
-            return result.set_parameters(*self.get_parameters())
-
-        if not isinstance(sampling_dist, FunctionCallExpr):
-            # create distribution in correct variable:
-            dist_gf = _parse_to_sympy(engine_text_of(sampling_dist))
-            return subs(dist_gf, subst_var, variable)
-
-        if sampling_dist.function == "binomial":
-            n, p = map(_parse_to_sympy, sampling_dist.params[0])
-            dist_gf = (1 - p + p * _sympy_symbol(variable)) ** n
-            return subs(dist_gf, subst_var, variable)
-        if sampling_dist.function == "negative_binomial":
-            r, p = map(_parse_to_sympy, sampling_dist.params[0])
-            dist_gf = (p / (1 - (1 - p) * _sympy_symbol(variable))) ** r
-            return subs(dist_gf, subst_var, variable)
-        if sampling_dist.function in {"unif", "unif_d"}:
-            start, end = map(_parse_to_sympy, sampling_dist.params[0])
-            var = _sympy_symbol(variable)
-            dist_gf = 1 / (end - start + 1) * var ** start * (
-                    var ** (end - start + 1) - 1) / (var - 1)
-            return subs(dist_gf, subst_var, variable)
-        # All remaining distributions have only one parameter
-        [param] = map(_parse_to_sympy, sampling_dist.params[0])
-        if sampling_dist.function == "geometric":
-            dist_gf = param / (1 - (1 - param) * _sympy_symbol(variable))
-            return subs(dist_gf, subst_var, variable)
-        if sampling_dist.function == "logdist":
-            dist_gf = sympy.log(1 - param *
-                                _sympy_symbol(variable)) / sympy.log(1 - param)
-            return subs(dist_gf, subst_var, variable)
-        if sampling_dist.function == "bernoulli":
-            dist_gf = param * _sympy_symbol(variable) + (1 - param)
-            return subs(dist_gf, subst_var, variable)
-        if sampling_dist.function == "poisson":
-            dist_gf = sympy.exp(param * (_sympy_symbol(variable) - 1))
-            return subs(dist_gf, subst_var, variable)
-
-        raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
+    def _compose_iid(self, sample: PGF, count: Union[str, int], variable: str) -> SympyPGF:
+        sample_gf = cast(SympyPGF, sample)._function
+        symbol = _sympy_symbol(variable)
+        result = self if count == variable else self._marginal(variable, method=MarginalType.EXCLUDE)
+        result = result.set_variables(*self.get_variables(), variable)
+        if isinstance(count, int):
+            # a fixed number of samples: the sum has the generating function sample^count
+            result._function = result._function * sample_gf ** count
+        elif count == variable:
+            result._function = result._function.subs(symbol, sample_gf)
+        else:
+            counter = _sympy_symbol(count)
+            result._function = result._function.subs(counter, counter * sample_gf)
+        return result.set_parameters(*(self.get_parameters() | (sample.get_parameters() - self.get_variables())))
 
     def _expected_value_of(self, expression: Union[Expr, str]) -> str:
         expr = _parse_to_sympy(engine_text_of(expression)).ratsimp().expand()
@@ -1305,135 +1258,6 @@ class SympyPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
 
     # The common distributions (the factory, #511)
 
-
-    @staticmethod
-    def geometric(var: Union[str, VarExpr],
-                  p: DistributionParam) -> SympyPGF:
-        if not isinstance(p, get_args(Expr)):
-            expr = parse_ppy_expr(engine_text_of(p))
-        else:
-            expr = p
-        if not has_variable(expr, None) and not 0 < _parse_to_sympy(p) <= 1:
-            raise ValueError(
-                f"parameter of geom distr must be 0 < p <= 1, was {p}")
-        return SympyPGF(engine_format("({p}) / (1 - (1-({p})) * {var})", p=p, var=var),
-                                  engine_text_of(var),
-                                  closed=True,
-                                  finite=False)
-
-    @staticmethod
-    def uniform(var: Union[str, VarExpr], lower: DistributionParam,
-                upper: DistributionParam) -> SympyPGF:
-        if not isinstance(lower, get_args(Expr)):
-            expr_l = parse_ppy_expr(engine_text_of(lower))
-        else:
-            expr_l = lower
-        if not isinstance(upper, get_args(Expr)):
-            expr_u = parse_ppy_expr(engine_text_of(upper))
-        else:
-            expr_u = upper
-        if not has_variable(expr_l, None) and (
-                not 0 <= _parse_to_sympy(lower) or
-                (not has_variable(expr_u, None)
-                 and not _parse_to_sympy(lower) <= _parse_to_sympy(upper))):
-            raise ValueError(
-                "Distribution parameters must satisfy 0 <= a < b < oo")
-        return SympyPGF(
-            engine_format("1/(({upper}) - ({lower}) + 1) * {var}**({lower}) * ({var}**(({upper}) - ({lower}) + 1) - 1) "
-                          "/ ({var} - 1)", upper=upper, lower=lower, var=var),
-            engine_text_of(var),
-            closed=True,
-            finite=True)
-
-    @staticmethod
-    def bernoulli(var: Union[str, VarExpr],
-                  p: DistributionParam) -> SympyPGF:
-        if not isinstance(p, get_args(Expr)):
-            expr = parse_ppy_expr(engine_text_of(p))
-        else:
-            expr = p
-        if not has_variable(expr, None) and not 0 <= _parse_to_sympy(p) <= 1:
-            raise ValueError(
-                f"Parameter of Bernoulli Distribution must be in [0,1], but was {p}"
-            )
-        return SympyPGF(engine_format("1 - ({p}) + ({p}) * {var}", p=p, var=var),
-                                  engine_text_of(var),
-                                  closed=True,
-                                  finite=True)
-
-    @staticmethod
-    def poisson(var: Union[str, VarExpr],
-                lam: DistributionParam) -> SympyPGF:
-        if not isinstance(lam, get_args(Expr)):
-            expr = parse_ppy_expr(engine_text_of(lam))
-        else:
-            expr = lam
-        if not has_variable(expr, None) and _parse_to_sympy(lam) < 0:
-            raise ValueError(
-                f"Parameter of Poisson Distribution must be in [0, oo), but was {lam}"
-            )
-        return SympyPGF(engine_format("exp(({lam}) * ({var} - 1))", lam=lam, var=var),
-                                  engine_text_of(var),
-                                  closed=True,
-                                  finite=False)
-
-    @staticmethod
-    def log(var: Union[str, VarExpr],
-            p: DistributionParam) -> SympyPGF:
-        if not isinstance(p, get_args(Expr)):
-            expr = parse_ppy_expr(engine_text_of(p))
-        else:
-            expr = p
-        if not has_variable(expr, None) and not 0 <= _parse_to_sympy(p) <= 1:
-            raise ValueError(
-                f"Parameter of Logarithmic Distribution must be in [0,1], but was {p}"
-            )
-        return SympyPGF(engine_format("log(1-({p})*{var})/log(1-({p}))", p=p, var=var),
-                                  engine_text_of(var),
-                                  closed=True,
-                                  finite=False)
-
-    @staticmethod
-    def binomial(var: Union[str, VarExpr], n: DistributionParam,
-                 p: DistributionParam) -> SympyPGF:
-        if not isinstance(p, get_args(Expr)):
-            expr_p = parse_ppy_expr(engine_text_of(p))
-        else:
-            expr_p = p
-        if not has_variable(expr_p, None) and not 0 <= _parse_to_sympy(p) <= 1:
-            raise ValueError(
-                f"Parameter of Binomial Distribution must be in [0,1], but was {p}"
-            )
-        if not isinstance(n, get_args(Expr)):
-            expr_n = parse_ppy_expr(engine_text_of(n))
-        else:
-            expr_n = n
-        if not has_variable(expr_n, None) and not 0 <= _parse_to_sympy(n):
-            raise ValueError(
-                f"Parameter of Binomial Distribution must be in [0,oo), but was {n}"
-            )
-        return SympyPGF(engine_format("(1-({p})+({p})*{var})**({n})", p=p, var=var, n=n),
-                                  engine_text_of(var),
-                                  closed=True,
-                                  finite=True)
-
-    @staticmethod
-    def negative_binomial(var: Union[str, VarExpr], r: DistributionParam,
-                          p: DistributionParam) -> SympyPGF:
-        expr_p = p if isinstance(p, get_args(Expr)) else parse_ppy_expr(engine_text_of(p))
-        if not has_variable(expr_p, None) and not 0 < _parse_to_sympy(p) <= 1:
-            raise ValueError(
-                f"Parameter p of Negative Binomial Distribution must be in (0,1], but was {p}"
-            )
-        expr_r = r if isinstance(r, get_args(Expr)) else parse_ppy_expr(engine_text_of(r))
-        if not isinstance(expr_r, NatLitExpr):
-            raise ValueError(
-                f"Parameter r of Negative Binomial Distribution must be a natural number, but was {r}"
-            )
-        return SympyPGF(engine_format("(({p}) / (1 - (1-({p})) * {var}))**({r})", p=p, var=var, r=r),
-                                  engine_text_of(var),
-                                  closed=True,
-                                  finite=expr_r.value == 0)
 
     @staticmethod
     def zero(*variables: Union[str, VarExpr]) -> SympyPGF:

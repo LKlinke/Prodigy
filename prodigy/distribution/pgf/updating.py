@@ -17,6 +17,7 @@ from prodigy.distribution.values import MarginalType, State
 from prodigy.distribution.terms import constant_value, spelled, variables_of, without_fractional_constants
 from prodigy.distribution.pgf.messages import in_programs_terms
 from prodigy.distribution.pgf.filtering import PGFFiltering
+from prodigy.distribution.pgf.sampling import is_sampling_distribution, refutes_unit_mass, sampling_pgf
 
 
 class PGFUpdating(PGFFiltering):  # pylint: disable=abstract-method  # a layer of PGF
@@ -456,4 +457,15 @@ class PGFUpdating(PGFFiltering):  # pylint: disable=abstract-method  # a layer o
             sampling_dist = generating_function
         self._require_convergent_evaluation(self.get_variables() - {name},
                                             f"The sampling {name} := iid({sampling_dist}, {count})")
-        return self._update_iid(sampling_dist, count, variable)
+        if isinstance(sampling_dist, FunctionCallExpr):
+            if not is_sampling_distribution(sampling_dist.function):
+                raise NotImplementedError(f"Unsupported distribution: {sampling_dist}")
+            text = sampling_pgf(sampling_dist.function, sampling_dist.params[0], name).text
+        else:
+            text = engine_text_of(sampling_dist)
+            if refutes_unit_mass(text, name):
+                raise ValueError(f"The sampling {name} := iid({sampling_dist}, {count}) needs a probability "
+                                 f"generating function of mass 1, but {sampling_dist} has another mass.")
+        # the names of the state stay variables in the sample (a parameter of its distribution may be one)
+        sample = self.from_expr(text, name, *sorted(self.get_variables() - {name}))
+        return self._compose_iid(sample, count.value if isinstance(count, NatLitExpr) else count.var, name)
