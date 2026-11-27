@@ -27,7 +27,7 @@ the web GUI, a language server). Its top-level keys::
 Comparing two programs
 ----------------------
 The result of comparing two programs (``POST /api/equivalence``,
-:func:`prodigy.web.requests.run_equivalence`) is the result of the first program with the extra key
+:func:`prodigy.web.compare.run_equivalence`) is the result of the first program with the extra key
 ``equivalence``; ``equivalence.other`` is the result of the second program, in this format as well.
 ``verdict`` is ``equivalent`` only if equality was proven with both programs analysed exactly,
 ``not_equivalent`` only with a ``witness`` (an output state whose probabilities provably differ), and

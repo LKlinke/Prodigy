@@ -11,7 +11,7 @@ failed certificate, the automatic choice, the language model's candidate) are ad
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Mapping, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 __all__ = ["certificate_checks"]
 
@@ -73,8 +73,10 @@ def _remaining(certificate: Mapping[str, Any], key: str = "remaining_mass") -> O
                   "mass (it may still terminate with any value, or never).")
 
 
-def _tristate(value: Any, label: str, yes: str, no: str, undecided: str, *, no_status: str = "failed") -> Check:
-    """A three-valued fact of the certificate: proven (``True`` or a reason), refuted (``False``) or undecided."""
+def _tristate(value: Any, label: str, texts: Tuple[str, str, str], *, no_status: str = "failed") -> Check:
+    """A three-valued fact of the certificate: proven (``True`` or a reason), refuted (``False``) or undecided,
+    described by the first, second or third of ``texts``."""
+    yes, no, undecided = texts
     if value is True or (isinstance(value, str) and value not in ("", "None", "False")):
         return _check(label, "passed", yes)
     if value is False:
@@ -156,13 +158,13 @@ def _evt_invariant(cert: Certificate, _failed: Optional[str]) -> List[Check]:
         return []
     checks = [
         _check("Fixed point", "passed", f"I = G + ⟦body⟧(⟨I⟩_guard) holds for I = {cert.get('invariant')}."),
-        _tristate(cert.get("nonnegative"), "Non-negative", "I has non-negative coefficients.",
+        _tristate(cert.get("nonnegative"), "Non-negative", ("I has non-negative coefficients.",
                   "I has negative coefficients, so Park's lemma does not apply.",
-                  "Non-negativity of the coefficients of I could not be established."),
+                  "Non-negativity of the coefficients of I could not be established.")),
         _tristate(cert.get("finite_mass"), "Finite mass",
-                  f"I has finite mass |I| = {cert.get('mass')}, so the fixed point is the least one: exact.",
-                  "I has infinite mass and may be a spurious fixed point: at most an upper bound.",
-                  "Finite mass of I was not shown, so exactness is not certified.", no_status="unknown"),
+                  (f"I has finite mass |I| = {cert.get('mass')}, so the fixed point is the least one: exact.",
+                   "I has infinite mass and may be a spurious fixed point: at most an upper bound.",
+                   "Finite mass of I was not shown, so exactness is not certified."), no_status="unknown"),
     ]
     if cert.get("nonnegative") is True and cert.get("finite_mass") is not True:
         reason = cert.get("series_identity")
@@ -179,10 +181,12 @@ def _evt_subinvariant(cert: Certificate, failed: Optional[str]) -> List[Check]:
     if failed is not None:
         return []
     checks = [
-        _tristate(cert.get("nonnegative"), "ν ≥ 0", f"ν has non-negative coefficients ({cert.get('nonnegative')}).",
-                  "ν has negative coefficients.", "Non-negativity of ν was not established."),
-        _tristate(cert.get("subinvariance"), "ν ≤ Φ(ν)", f"ν ≤ Φ(ν) coefficient-wise ({cert.get('subinvariance')}).",
-                  "ν ≤ Φ(ν) fails.", "ν ≤ Φ(ν) was not established."),
+        _tristate(cert.get("nonnegative"), "ν ≥ 0", (f"ν has non-negative coefficients ({cert.get('nonnegative')}).",
+                                                     "ν has negative coefficients.",
+                                                     "Non-negativity of ν was not established.")),
+        _tristate(cert.get("subinvariance"), "ν ≤ Φ(ν)",
+                  (f"ν ≤ Φ(ν) coefficient-wise ({cert.get('subinvariance')}).", "ν ≤ Φ(ν) fails.",
+                   "ν ≤ Φ(ν) was not established.")),
         _check("Finite mass", "passed", f"|ν| = {cert.get('mass')} is finite."),
     ]
     missing = cert.get("missing_mass")

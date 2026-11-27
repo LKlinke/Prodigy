@@ -296,8 +296,9 @@ def _prove_almost_sure_termination(frame: Frame, site: DistSite, arguments: Dist
 # Function calls on the joint distribution
 # ---------------------------------------------------------------------------------------
 
-# pylint: disable-next=too-many-arguments,too-many-positional-arguments  # the call (function, arguments, dist
-# bindings, target) is the instruction already taken apart by its handler, which needs them itself
+# The call (function, arguments, dist bindings, target) is the instruction already taken apart by its handler,
+# which needs the parts itself.
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
 def call_in_joint(frame: Frame, function: Function, assignments: Dict[str, Expr],
                   bindings: Dict[str, DistSite], lhs: str, state: ProgramState) -> ProgramState:
     """``lhs = function(args)`` with arguments that depend on the state: the body runs on the

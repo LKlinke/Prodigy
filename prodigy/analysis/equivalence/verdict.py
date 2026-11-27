@@ -23,7 +23,7 @@ surely).
 
 :func:`compare` runs the whole comparison (check, witness search, verdict); the command line uses
 it, the GUI combines :func:`run_check`, :func:`analyse_on_input`, :func:`find_witness` and :func:`decide`
-with a time limit for the witness search (:func:`prodigy.web.requests.run_equivalence`).
+with a time limit for the witness search (:func:`prodigy.web.compare.run_equivalence`).
 
 The case analysis lives here and uses only the :class:`~prodigy.distribution.Distribution`
 interface and exact SymPy arithmetic on the coefficients the engines print, so it is the same for
