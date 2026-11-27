@@ -10,6 +10,7 @@ from prodigy.analysis.config import ForwardAnalysisConfig
 from prodigy.distribution import NonFiniteMarginalError, known_convergent_series
 from prodigy.distribution.pgf.rules.algebraic_comparison import filter_difference_algebraic
 from prodigy.distribution.pgf.rules.independent_comparison import ComparisonNotImplemented, filter_difference
+from prodigy.distribution.pgf.rules.linear_guards import DifferenceComparison
 from prodigy.language.ppy_parser import parse_ppy_expr
 
 try:
@@ -58,7 +59,7 @@ def _coefficients(function, order):
 @pytest.mark.parametrize("relation", ["ge", "eq"])
 @pytest.mark.parametrize("shift", [-2, -1, 0, 1, 3])
 def test_coefficients(function, relation, shift):
-    filtered = filter_difference(function, "x", "y", relation, shift, "guard")
+    filtered = filter_difference(function, DifferenceComparison("x", "y", relation, shift), "guard")
     assert not (filtered.free_symbols - function.free_symbols)
     order = 6
     expected = _coefficients(function.subs(POINT), order)
@@ -71,21 +72,22 @@ def test_coefficients(function, relation, shift):
 def test_closed_forms():
     # x geometric (Pr[i] = 2^-(i+1)), y geometric (Pr[j] = (2/3) 3^-j): Pr[x < y] = 1/5
     function = _geometric(HALF, x) * _geometric(THIRD, y)
-    below = filter_difference(function, "x", "y", "ge", 1, "x < y")
+    below = filter_difference(function, DifferenceComparison("x", "y", "ge", 1), "x < y")
     assert sympy.simplify(below - 2 * y / ((3 - y) * (6 - x * y))) == 0
     assert below.subs({x: 1, y: 1}) == sympy.Rational(1, 5)
     # Pr[x = y] = sum_i 2^-(i+1) (2/3) 3^-i = 2/5
-    assert filter_difference(function, "x", "y", "eq", 0, "x == y").subs({x: 1, y: 1}) == sympy.Rational(2, 5)
+    equal = filter_difference(function, DifferenceComparison("x", "y", "eq", 0), "x == y")
+    assert equal.subs({x: 1, y: 1}) == sympy.Rational(2, 5)
     # parametric: x with Pr[i] = (1-p) p^i, y with Pr[j] = (1/2)^(j+1): Pr[x < y] = (1-p) / (2-p)
     parametric = _geometric(p, x) * _geometric(HALF, y)
-    probability = filter_difference(parametric, "x", "y", "ge", 1, "x < y").subs({x: 1, y: 1})
+    probability = filter_difference(parametric, DifferenceComparison("x", "y", "ge", 1), "x < y").subs({x: 1, y: 1})
     assert sympy.simplify(probability - (1 - p) / (2 - p)) == 0
 
 
 def test_counterexample_is_no_product():
     # the part with x < y of (1/2) / (1 - x/4 - y/4) is algebraic, not rational: no product either
     with pytest.raises(ComparisonNotImplemented, match="not independent"):
-        filter_difference(HALF / (1 - x / 4 - y / 4), "x", "y", "ge", 1, "x < y")
+        filter_difference(HALF / (1 - x / 4 - y / 4), DifferenceComparison("x", "y", "ge", 1), "x < y")
 
 
 @pytest.mark.parametrize("function, reason", [
@@ -95,7 +97,7 @@ def test_counterexample_is_no_product():
 ])
 def test_outside_the_class(function, reason):
     with pytest.raises(ComparisonNotImplemented, match=reason):
-        filter_difference(function, "x", "y", "ge", 1, "x < y")
+        filter_difference(function, DifferenceComparison("x", "y", "ge", 1), "x < y")
 
 
 @pytest.mark.parametrize("engine", ENGINES)
@@ -124,7 +126,8 @@ t = sympy.Symbol("t")
 def _check_algebraic(function, relation, shift, variables=("x", "y"), point=None):
     """Compares the series of the filtered part along x = a t, y = b t with the filtered series of `function`."""
     point = point or {}
-    filtered = filter_difference_algebraic(function, "x", "y", relation, shift, variables, "guard")
+    filtered = filter_difference_algebraic(function, DifferenceComparison("x", "y", relation, shift), variables,
+                                           "guard")
     order = 6
     for a, b in ((1, 1), (THIRD, 2)):
         series = sympy.series(filtered.subs({x: a * t, y: b * t} | point), t, 0, order).removeO()
@@ -173,7 +176,7 @@ def test_algebraic_coefficients(function, variables, point, relation, shift):
 ])
 def test_algebraic_outside(function, reason):
     with pytest.raises(ComparisonNotImplemented, match=reason):
-        filter_difference_algebraic(function, "x", "y", "ge", 1, ("x", "y"), "x < y")
+        filter_difference_algebraic(function, DifferenceComparison("x", "y", "ge", 1), ("x", "y"), "x < y")
 
 
 @pytest.mark.parametrize("engine", ENGINES)

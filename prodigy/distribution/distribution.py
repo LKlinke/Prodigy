@@ -429,11 +429,13 @@ class Distribution(ABC):  # pylint: disable=too-many-public-methods  # the seman
             self,
             threshold: Union[str, int]) -> Generator[Distribution, None, None]:
         """
-        Computes the approximation until the given threshold is reached (might not terminate).
+        The partial sums of the series until their probability mass reaches `threshold`, a number in engine text
+        (might not terminate for a threshold equal to the mass of an infinite distribution). A count of states is
+        refused (`TypeError`), see :meth:`~prodigy.distribution.pgf.base.PGFBase.approximate`.
 
-        :param threshold: The threshold either as a maximum number of states (int), or a certain probability mass (str).
+        :param threshold: The probability mass to reach.
 
-        :return: The approximated (truncated) probability distribution.
+        :return: The approximated (truncated) probability distributions, one more state each.
         """
 
     @abstractmethod

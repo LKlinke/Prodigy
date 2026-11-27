@@ -10,16 +10,15 @@ from __future__ import annotations
 import logging
 import contextlib
 import operator
-from typing import Callable, FrozenSet, Generator, Iterator, List, Optional, Set, Type, Union, cast
+from typing import Callable, FrozenSet, Iterator, List, Optional, Set, Type, Union, cast
 
 import sympy
 
-from prodigy.distribution.distribution import CommonDistributionsFactory, Distribution, Operand
+from prodigy.distribution.distribution import CommonDistributionsFactory, Operand
 from prodigy.distribution.values import MarginalType, State
 from prodigy.distribution.pgf.pgf import PGF
 from prodigy.distribution.pgf.sympy.terms import SympyTerms
 from prodigy.distribution.pgf.sympy.settings import _SETTINGS, GeneratingFunctionSettings
-from prodigy.distribution.pgf.sympy.hadamard import rational_hadamard_product
 from prodigy.distribution.pgf.updating import binary_value
 from prodigy.distribution.pgf.rules.value_at_one import _substitute_one
 from prodigy.distribution.pgf.sympy.expressions import (_has_radical, _is_finite_function, _limit_at_one,
@@ -194,23 +193,6 @@ class SympyPGF(SympyTerms, PGF):  # pylint: disable=too-many-ancestors,too-many-
             gf._parameters = set(self._parameters)
             result.append(gf)
         return result
-
-    def hadamard_product(self, other: Distribution) -> SympyPGF:
-        """
-            Computes the Hadamard product of two univariate rational functions, i.e. the point-wise product of the
-            coefficients in their formal power series representation.
-        """
-        logger.debug("Compute Hadamard product of %s and %s", self, other)
-        if len(self._variables) > 1:
-            raise NotImplementedError("Currently only univariate distributions are supported for the Hadamard product.")
-        var = next(iter(self._variables))
-        if isinstance(other, SympyPGF):
-            if not other._variables == self._variables:
-                raise NotImplementedError("Only univariate distributions are supported for the Hadamard product.")
-
-            return SympyPGF(rational_hadamard_product(self._function, other._function, var), var)
-
-        raise TypeError(f"Cannot compute the Hadamard Product, where {other=} is of type {type(other)}.")
 
     def get_fresh_variable(
             self, exclude: Set[str] | FrozenSet[str] = frozenset()) -> str:
@@ -524,53 +506,6 @@ class SympyPGF(SympyTerms, PGF):  # pylint: disable=too-many-ancestors,too-many-
                 and self._parameters == other._parameters:
             return decide_equal(self._function, other._function)
         return super().decide_equal(other)
-
-    def approximate(
-            self,
-            threshold: Union[str,
-            int]) -> Generator[SympyPGF, None, None]:
-        """
-        Generate an approximation of a generating function, until `threshold` percent or terms of the probability
-        mass is captured.
-
-        :param threshold: The probability percentage threshold of the probability mass of the distribution.
-
-        :return: A Generating Function generator.
-        """
-        logger.debug("expand_until() call")
-        approx = sympy.Integer(0)
-        precision = sympy.Integer(0)
-
-        if isinstance(threshold, int):
-            assert threshold > 0, "Expanding to less than 0 terms is not valid."
-            for n, (prob, state) in enumerate(self._iter_expr_expr()):
-                if n >= threshold:
-                    break
-                approx += prob * state
-                precision += prob
-                yield SympyPGF(approx,
-                                         *self._variables,
-                                         closed=False,
-                                         finite=True)
-
-        elif isinstance(threshold, str):
-            s_threshold = _parse_to_sympy(threshold)
-            assert s_threshold < self._coefficient_sum(), \
-                f"Threshold cannot be larger than total coefficient sum! Threshold:" \
-                f" {s_threshold}, CSum {self._coefficient_sum()}"
-            for s_prob, state in self._iter_expr_expr():
-                if precision >= _parse_to_sympy(threshold):
-                    break
-                approx += s_prob * state
-                precision += s_prob
-                yield SympyPGF(engine_text_of(approx.expand()),
-                                         *self._variables,
-                                         closed=False,
-                                         finite=True)
-        else:
-            raise TypeError(
-                f"Parameter threshold can only be of type str or int,"
-                f" not {type(threshold)}.")
 
     def coefficient_sum(self) -> sympy.Expr:
         """

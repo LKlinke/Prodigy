@@ -843,28 +843,6 @@ def test_infinite_operands_without_approximation_have_one_message(update):
 # Each difference is a test that states what each engine does; a change of either side fails it.
 
 
-def test_declared_difference_approximate(factory):
-    """``approximate`` (partial sums of the series, used by the plots) exists on SymPy only."""
-    dist = factory.from_expr("2/(2-x) - 1", "x")
-    if factory.__name__ == "SympyPGF":
-        assert list(dist.approximate("0.99"))[-1] == factory.from_expr(
-            " + ".join(f"1/{2 ** i}*x^{i}" for i in range(1, 8)), "x")
-        assert not list(factory.zero("x", "y").approximate(10))
-    else:
-        with pytest.raises(NotImplementedError, match="Not implemented: approximate"):
-            list(dist.approximate("0.99"))
-
-
-def test_declared_difference_hadamard_product(factory):
-    """The Hadamard product exists on SymPy only."""
-    left, right = factory.from_expr("x/2 + x^2/2", "x"), factory.from_expr("x/3 + 2/3*x^2", "x")
-    if factory.__name__ == "SympyPGF":
-        assert left.hadamard_product(right) == factory.from_expr("x/6 + x^2/3", "x")
-    else:
-        with pytest.raises(NotImplementedError, match="Hadamard product"):
-            left.hadamard_product(right)
-
-
 def test_declared_difference_iid_of_a_parametric_mass(factory):
     """``iid(G, n)`` with a mass that depends on parameters (``p*y + q``): SymPy computes the formula, which holds
     for the parameter values with mass 1; GiNaC's bindings refuse every ``G`` whose mass they cannot prove to be 1.
@@ -995,3 +973,54 @@ def test_probability_splits_over_a_finite_support(factory):
     dist = factory.from_expr("(1/2 + x/2)*1/(2 - y)", "x", "y")
     # x + y < 2: x = 0 and y < 2 (1/2 * 3/4), x = 1 and y < 1 (1/2 * 1/2)
     assert same(dist.get_probability_of("x + y < 2"), "5/8")
+
+
+# --- 11. approximate and the Hadamard product on all engines (#487) ---------------------------------------------
+
+
+def test_approximate_reaches_a_probability_mass(factory):
+    """The partial sums in the order of the iteration, one more state each, until the mass reaches the threshold
+    (formerly SymPy only, a declared difference)."""
+    dist = factory.from_expr("2/(2-x) - 1", "x")
+    sums = list(dist.approximate("0.99"))
+    assert len(sums) == 7
+    assert sums[-1] == factory.from_expr(" + ".join(f"1/{2 ** i}*x^{i}" for i in range(1, 8)), "x")
+    assert sums[0] == factory.from_expr("x/2", "x")
+    assert list(dist.approximate("99/100"))[-1] == sums[-1]
+
+
+def test_approximate_of_a_finite_distribution_up_to_its_mass(factory):
+    dist = factory.from_expr("1/4 + x*y/4 + x^2/2", "x", "y")
+    assert list(dist.approximate("1"))[-1] == dist
+    assert not list(factory.zero("x", "y").approximate("0"))
+
+
+@pytest.mark.parametrize("threshold, error", [(10, TypeError), ("2", ValueError), ("p", ValueError)])
+def test_approximate_refuses_counts_and_unreachable_thresholds(factory, threshold, error):
+    with pytest.raises(error):
+        list(factory.from_expr("1/(2-x)", "x").approximate(threshold))
+
+
+def test_approximate_with_a_parametric_mass_is_refused(factory):
+    with pytest.raises(ValueError, match="not a number"):
+        list(factory.from_expr("p*x + 1 - p", "x").approximate("1/2"))
+
+
+@pytest.mark.parametrize("left, right, expected", [
+    ("x/2 + x^2/2", "x/3 + 2/3*x^2", "x/6 + x^2/3"),
+    ("1/(2-x)", "1/(2-x)", "1/(4-x)"),
+    ("1/(2-x)", "1/2 + x/2", "1/4 + x/8"),
+    ("1/(2-x)", "1/(3-x)", "1/(6-x)"),
+])
+def test_hadamard_product(factory, left, right, expected):
+    """The termwise product of the coefficients of two univariate rational functions (formerly SymPy only)."""
+    result = factory.from_expr(left, "x").hadamard_product(factory.from_expr(right, "x"))
+    assert same(symbolic(result), expected)
+
+
+def test_hadamard_product_needs_one_common_variable(factory):
+    with pytest.raises(NotImplementedError, match="univariate"):
+        factory.from_expr("x*y", "x", "y").hadamard_product(factory.from_expr("x*y", "x", "y"))
+    with pytest.raises(NotImplementedError, match="univariate"):
+        factory.from_expr("x", "x").hadamard_product(factory.from_expr("y", "y"))
+

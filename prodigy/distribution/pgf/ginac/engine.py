@@ -9,7 +9,7 @@ from __future__ import annotations
 import itertools
 import re
 
-from typing import (cast, Any, Dict, FrozenSet, Generator, Iterator, List, Optional, Set, Tuple,
+from typing import (cast, Any, Dict, FrozenSet, Iterator, List, Optional, Set, Tuple,
                     Type, Union)
 
 import prodigy_ginac
@@ -18,7 +18,7 @@ from sympy.parsing.sympy_parser import convert_xor, standard_transformations
 
 from prodigy.distribution.pgf.rules.negative_values import can_be_negative, operand
 from prodigy.distribution.pgf.rules.roots_of_unity import require_single_valued
-from prodigy.distribution.distribution import Distribution, Operand
+from prodigy.distribution.distribution import Operand
 from prodigy.distribution.errors import NonFiniteMarginalError
 from prodigy.distribution.values import MarginalType, State, canonical_order
 from prodigy.distribution.pgf.pgf import PGF
@@ -315,9 +315,6 @@ class GinacPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
             for dist in self._dist.arithmetic_progression(variable, modulus)
         ]
 
-    def hadamard_product(self, other: Distribution) -> GinacPGF:
-        raise NotImplementedError("Hadamard product currently not implemented in GiNaC")
-
     def is_zero_dist(self) -> bool:
         res = self._dist.is_zero()
         if res == prodigy_ginac.troolean.false:
@@ -433,12 +430,6 @@ class GinacPGF(PGF):  # pylint: disable=too-many-ancestors  # the layers of PGF 
             # the bindings keep the parameters of a function: a name that changes sides is read anew
             dist = prodigy_ginac.Dist(engine_text_of(dist), sorted(parameters))
         return GinacPGF.from_dist(dist, variables, parameters)
-
-    def approximate(
-            self,
-            threshold: Union[str, int]) -> Generator[Distribution, None, None]:
-        raise NotImplementedError("Not implemented: approximate (the partial sums of the series) on the GiNaC "
-                                  "engine")
 
     def approximate_unilaterally(
             self, variable: str,

@@ -1,12 +1,13 @@
-"""The Hadamard product of two univariate rational generating functions on SymPy (#511), split from
-:meth:`~prodigy.distribution.pgf.sympy.engine.SympyPGF.hadamard_product`."""
+"""The Hadamard product of two univariate rational generating functions (the termwise product of their
+coefficients), the rule of :meth:`~prodigy.distribution.pgf.base.PGFBase.hadamard_product` on all engines
+(#487)."""
 from __future__ import annotations
 
 import logging
 
 import sympy
 
-from prodigy.distribution.pgf.sympy.expressions import _parse_to_sympy
+from prodigy.distribution.engine_text import parse_engine_text
 from prodigy.language.engine_text import engine_text_of
 
 logger = logging.getLogger("generating_function")
@@ -51,7 +52,8 @@ def rational_hadamard_product(f: sympy.Expr, g: sympy.Expr, var: sympy.Symbol) -
 
     logger.debug("Resulting function: %s", s_num / s_result_denom)
     # read back from text, as the engine reads every closed form
-    return _parse_to_sympy(engine_text_of(s_num / s_result_denom))
+    result = s_num / s_result_denom
+    return parse_engine_text(engine_text_of(result), sorted(str(symbol) for symbol in result.free_symbols))
 
 
 def _coefficient_product(f: sympy.Expr, g: sympy.Expr, var: sympy.Symbol, count: int) -> sympy.Poly:
