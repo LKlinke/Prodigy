@@ -18,13 +18,18 @@ from prodigy.distribution.errors import NonFiniteMarginalError
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.distribution.pgf.pgf import PGF
 from prodigy.distribution.values import MarginalType, State
-from prodigy.distribution.terms import computed_term, constant_value, is_true, replace_term, spelled, variables_of
+from prodigy.distribution.terms import (computed_term, constant_value, is_true, replace_term, spelled,
+                                        substitute_value, variables_of)
 from prodigy.distribution.pgf.messages import in_programs_terms
 from prodigy.distribution.pgf.base import PGFBase
 from prodigy.distribution.pgf.rules.algebraic_comparison import filter_difference_algebraic
 from prodigy.distribution.pgf.rules.independent_comparison import (DEPENDENT, NOT_A_DIFFERENCE,
                                                                    ComparisonNotImplemented, filter_difference)
-from prodigy.distribution.pgf.rules.linear_guards import difference_comparison, normalize_guard
+from prodigy.distribution.pgf.rules.linear_guards import difference_comparison, normalize_guard, single_variable_guard
+
+
+CASE_SPLIT_LIMIT = 1000
+"""The most values of one variable that the case split of :meth:`PGFFiltering._filter_by_cases` enumerates."""
 
 
 class PGFFiltering(PGFBase):  # pylint: disable=abstract-method  # a layer of PGF
@@ -37,9 +42,9 @@ class PGFFiltering(PGFBase):  # pylint: disable=abstract-method  # a layer of PG
             expr = parse_ppy_expr(expr)
         with self._declared_context():
             try:
-                filtered = self.filter(expr)
+                filtered = self._filter_by_cases(expr)
             except NotImplementedError as error:
-                filtered = self.query_marginal(expr, error).filter(expr)
+                filtered = self.query_marginal(expr, error)._filter_by_cases(expr)  # pylint: disable=protected-access
             # the mass of the filtered measure, proven outside analyses (#398)
             filtered._require_convergent_evaluation(set(), f"Pr[{expr}]")  # pylint: disable=protected-access
             return filtered._probability_mass()  # pylint: disable=protected-access
@@ -86,39 +91,74 @@ class PGFFiltering(PGFBase):  # pylint: disable=abstract-method  # a layer of PG
 
         res = self._pgf()
         for var, val in state.items():
-            # pylint: disable=protected-access
-            # this accesses the same type which is fine
-            res = res._filter_constant_condition(
-                BinopExpr(Binop.EQ, lhs=VarExpr(var), rhs=NatLitExpr(val)))
-            # pylint: enable=protected-access
-
+            res = res._filter_relation(var, Binop.EQ, int(val))  # pylint: disable=protected-access
         return res
 
+    def _filter_constant(self, condition: BinopExpr) -> PGF:
+        """
+        The filter of a comparison of a variable with a constant (`x < 5/2`, `3 >= x`, `x = 1/2`), normalised
+        for every engine to the hook :meth:`_filter_relation` with `=` or `<=` and a natural bound (#511, P4d):
+        the comparison is turned to `x op c`, `c` is evaluated exactly (:func:`constant_value`) and rounded for a
+        natural `x` (:func:`~prodigy.distribution.pgf.rules.linear_guards.single_variable_guard`: `x < c` is
+        `x < ceil(c)`, `x <= c` is `x <= floor(c)`, `x = c` holds nowhere unless `c` is a natural number), then
+        `x < n` is `x <= n - 1`, and `x > n`, `x >= n` are the complements of `x <= n`, `x < n`.
+        """
+        flipped = {Binop.LT: Binop.GT, Binop.LEQ: Binop.GEQ, Binop.GT: Binop.LT, Binop.GEQ: Binop.LEQ,
+                   Binop.EQ: Binop.EQ}
+        if isinstance(condition.lhs, VarExpr):
+            variable, relation, bound_expression = condition.lhs.var, condition.operator, condition.rhs
+        else:
+            assert isinstance(condition.rhs, VarExpr)
+            variable, relation, bound_expression = condition.rhs.var, flipped[condition.operator], condition.lhs
+        bound = constant_value(bound_expression)
+        if bound is None:
+            raise ValueError(f"Cannot filter for {spelled(condition)}: the bound is not a constant number")
+        guard = single_variable_guard(variable, relation, bound)
+        if not isinstance(guard, BinopExpr):
+            return self.filter(guard)  # always or never
+        assert isinstance(guard.rhs, NatLitExpr)
+        if guard.operator == Binop.EQ:
+            return self._filter_relation(variable, Binop.EQ, guard.rhs.value)
+        # x <= n, and x < n as x <= n - 1 (n > 0); x > n and x >= n are their complements
+        below = self._filter_relation(variable, Binop.LEQ,
+                                      guard.rhs.value - (1 if guard.operator in (Binop.LT, Binop.GEQ) else 0))
+        return below if guard.operator in (Binop.LEQ, Binop.LT) else self._pgf() - below
+
+    def _filter_by_cases(self, condition: Expr) -> PGF:
+        """
+        ``self.filter(condition)``; if no filter rule applies to `condition` (e.g. ``x + y < 3`` where ``y`` has
+        infinite support), the condition is split into cases over the values of a variable with a finite support
+        (at most :data:`CASE_SPLIT_LIMIT` values): the filter is the sum over the values ``v`` of ``x`` of the
+        filter of ``x = v`` and ``condition[x := v]`` (#306). The cases are disjoint, so the sum is exact. Raises
+        the filter's NotImplementedError if no variable of the condition has such a support. Used by
+        :meth:`get_probability_of`; guards of ``if`` and ``while`` use :meth:`filter` (#507).
+        """
+        try:
+            return self.filter(condition)
+        except NotImplementedError as error:
+            for name in sorted(variables_of(condition) & self.get_variables()):
+                support = self.finite_support(name)
+                if support is None:
+                    continue
+                values = sorted({int(state.valuations[name]) for _, state in support})
+                if len(values) > CASE_SPLIT_LIMIT:
+                    continue
+                cases = [substitute_value(condition, name, value) for value in values]
+                if any(case is None for case in cases):
+                    break
+                total: Optional[PGF] = None
+                for value, case in zip(values, cases, strict=True):
+                    assert case is not None
+                    part = self._filter_relation(name, Binop.EQ, value)._filter_by_cases(case)  # pylint: disable=protected-access
+                    total = part if total is None else total + part
+                if total is not None:
+                    return total
+            raise error
+
     def filter(self, condition: Expr) -> PGF:
-        # Boolean literals
-        if isinstance(condition, BoolLitExpr):
-            return self._pgf() if condition.value else self.from_expr(
-                "0", *self.get_variables())
-
-        if isinstance(condition, BinopExpr):
-            if condition.operator == Binop.AND:
-                return self.filter(condition.lhs).filter(condition.rhs)
-            if condition.operator == Binop.OR:
-                filtered_left = self.filter(condition.lhs)
-                return filtered_left + self.filter(
-                    condition.rhs) - filtered_left.filter(condition.rhs)
-
-        if isinstance(condition, VarExpr):
-            # a bool variable as condition: it holds where the variable is 1, i.e. not 0
-            return self.filter(is_true(condition))
-
-        if isinstance(condition, UnopExpr):
-            # unary relation
-            if condition.operator == Unop.NEG:
-                return self - self.filter(condition.expr)
-            raise SyntaxError(
-                f"We do not support filtering for {condition.operator} expressions."
-            )
+        connective = self._filter_connective(condition)
+        if connective is not None:
+            return connective
 
         # A parameter is an unknown constant: whether `x < p` holds in a state depends on its value, which
         # the generating function does not fix. The engines read it as 0 or did not terminate (#361).
@@ -132,19 +172,48 @@ class PGFFiltering(PGFBase):  # pylint: disable=abstract-method  # a layer of PG
         # x // 2 < 3 becomes t < 3 for t := x // 2 (an exact update); t is a function of the state,
         # so it can be dropped again
         if computed_term(condition, self.get_variables()) is not None:
-            extended, replaced, fresh, names = self._replace_computed_terms(condition)
-            try:
-                filtered = extended.filter(replaced)
-            except (NotImplementedError, NonFiniteMarginalError, ValueError) as error:
-                # the guard names the fresh variables; the program wrote the terms (#425)
-                raise in_programs_terms(error, names) from error
-            if not fresh:
-                return filtered
-            # summing out the fresh variables evaluates at 1 (#427)
-            filtered._require_convergent_evaluation(  # pylint: disable=protected-access
-                filtered.get_variables() - set(fresh), f"The filter of {spelled(condition)}", names)
-            return filtered._marginal(*fresh, method=MarginalType.EXCLUDE)  # pylint: disable=protected-access
+            return self._filter_computed_terms(condition)
+        return self._filter_comparison(condition)
 
+    def _filter_connective(self, condition: Expr) -> Optional[PGF]:
+        """The filter of a Boolean literal, `and`, `or`, `not` or a `bool` variable, from the filters of the
+        parts; None for any other condition."""
+        if isinstance(condition, BoolLitExpr):
+            return self._pgf() if condition.value else self.from_expr("0", *self.get_variables())
+        if isinstance(condition, BinopExpr) and condition.operator == Binop.AND:
+            return self.filter(condition.lhs).filter(condition.rhs)
+        if isinstance(condition, BinopExpr) and condition.operator == Binop.OR:
+            filtered_left = self.filter(condition.lhs)
+            return filtered_left + self.filter(condition.rhs) - filtered_left.filter(condition.rhs)
+        if isinstance(condition, VarExpr):
+            # a bool variable as condition: it holds where the variable is 1, i.e. not 0
+            return self.filter(is_true(condition))
+        if isinstance(condition, UnopExpr):
+            if condition.operator == Unop.NEG:
+                return self - self.filter(condition.expr)
+            raise SyntaxError(f"We do not support filtering for {condition.operator} expressions.")
+        return None
+
+    def _filter_computed_terms(self, condition: Expr) -> PGF:
+        """The filter of a condition with floor divisions or subtractions, on the distribution extended by
+        their values (:meth:`_replace_computed_terms`), which are summed out again."""
+        extended, replaced, fresh, names = self._replace_computed_terms(condition)
+        try:
+            filtered = extended.filter(replaced)
+        except (NotImplementedError, NonFiniteMarginalError, ValueError) as error:
+            # the guard names the fresh variables; the program wrote the terms (#425)
+            raise in_programs_terms(error, names) from error
+        if not fresh:
+            return filtered
+        # summing out the fresh variables evaluates at 1 (#427)
+        filtered._require_convergent_evaluation(  # pylint: disable=protected-access
+            filtered.get_variables() - set(fresh), f"The filter of {spelled(condition)}", names)
+        return filtered._marginal(*fresh, method=MarginalType.EXCLUDE)  # pylint: disable=protected-access
+
+    def _filter_comparison(self, condition: Expr) -> PGF:
+        """The filter of a comparison without computed terms and parameters: linear guards are normalised, constant
+        ones decided, modulus conditions and comparisons with constants filtered exactly, finite distributions
+        searched, and otherwise the finite supports unfolded or a difference of two variables filtered."""
         # Linear comparisons are evaluated exactly, e.g. 1/2*x < 2 becomes x < 4
         normalized = normalize_guard(condition, self.get_variables())
         if normalized is not None and normalized != condition:
@@ -172,8 +241,14 @@ class PGFFiltering(PGFBase):  # pylint: disable=abstract-method  # a layer of PG
 
         # Constant expressions
         if check_is_constant_constraint(condition, self.get_parameters()):
-            return self._filter_constant_condition(condition)
+            return self._filter_constant(condition)
 
+        return self._filter_by_search(condition)
+
+    def _filter_by_search(self, condition: Expr) -> PGF:
+        """The filter of any other condition: by exhaustive search on a finite distribution, else by unfolding the
+        finite supports of its variables or, for two variables with infinite supports, as a difference
+        (:meth:`_filter_difference`)."""
         # all other conditions given that the Generating Function is finite (exhaustive search)
         if self.is_finite():
             return self._exhaustive_search(condition)

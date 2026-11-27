@@ -23,7 +23,7 @@ import sympy
 from sympy.polys.domains.domain import Domain
 from sympy.polys.domains.domainelement import DomainElement
 
-from prodigy.distribution.pgf.rules.multisection import _to_rational
+from prodigy.distribution.pgf.rules.multisection import rational_parts
 
 GroundElement = Union[DomainElement, numbers.Rational]
 """An element of the ground domain of the recursion: a rational number of QQ (mpq, fmpq) or a FracElement of
@@ -52,13 +52,10 @@ def rational_taylor_stream(function: sympy.Expr, variable: sympy.Symbol) -> Opti
     last non-zero coefficient of a polynomial; otherwise it does not end. The coefficients are those of
     :func:`rational_taylor_coefficients`.
     """
-    replacements: Dict[sympy.Expr, sympy.Dummy] = {}
-    rational = _to_rational(sympy.sympify(function), variable, replacements)
-    if rational is None:
+    parts = rational_parts(function, variable)
+    if parts is None:
         return None
-
-    numerator, denominator = sympy.fraction(sympy.cancel(sympy.together(rational)))
-    others = sorted(rational.free_symbols - {variable}, key=sympy.default_sort_key)
+    numerator, denominator, others, back = parts
     domain = sympy.QQ.frac_field(*others) if others else sympy.QQ
     try:
         p = [domain.from_sympy(c) for c in reversed(sympy.Poly(numerator, variable, domain=domain).all_coeffs())]
@@ -67,7 +64,6 @@ def rational_taylor_stream(function: sympy.Expr, variable: sympy.Symbol) -> Opti
         return None
     if not q[0]:
         return None  # pole at 0: not a power series
-    back = {dummy: original for original, dummy in replacements.items()}
     return _recurrence(p, q, domain, others, back)
 
 

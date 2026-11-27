@@ -91,6 +91,7 @@ def _normalised_denominator(denominator: sympy.Expr, gens: Sequence[sympy.Symbol
 
 
 def _quotient_by_construction(expr: sympy.Expr, gens: Sequence[sympy.Symbol]) -> bool:
+    # pylint: disable=too-many-return-statements  # one verdict per case of the rule in the docstring
     """``expr = N / (k * D)`` with ``D = D_1 * ... * D_m`` as in :func:`_normalised_denominator`, and either
     ``N / k`` has non-negative coefficients, or the division ``N / k = Q * E + r`` by ``E = D`` or by one factor
     ``E = D_i`` (in some lex order of the variables) gives a quotient ``Q`` and a remainder ``r`` with

@@ -20,7 +20,7 @@ falls back to the roots of unity.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 import sympy
 
@@ -51,6 +51,30 @@ def _to_rational(expression: sympy.Expr, variable: Union[sympy.Symbol, Tuple[sym
     return replacements[expression]
 
 
+class RationalParts(NamedTuple):
+    """A function as a reduced fraction of polynomials in a variable and the other symbols (:func:`rational_parts`)."""
+    numerator: sympy.Expr
+    denominator: sympy.Expr
+    others: List[sympy.Symbol]
+    """the symbols other than the variable, in a fixed order"""
+    back: Dict[sympy.Dummy, sympy.Expr]
+    """the subexpressions that the dummies stand for (see :func:`_to_rational`)"""
+
+
+def rational_parts(function: sympy.Expr, variable: sympy.Symbol) -> Optional[RationalParts]:
+    """`function` as a reduced fraction of polynomials in `variable` and the other symbols, with dummies for the
+    subexpressions without `variable` that are no such polynomials, or None if it is not a rational function in
+    `variable` (shared by the multisection and the Taylor coefficients of rational functions)."""
+    replacements: Dict[sympy.Expr, sympy.Dummy] = {}
+    rational = _to_rational(sympy.sympify(function), variable, replacements)
+    if rational is None:
+        return None
+    numerator, denominator = sympy.fraction(sympy.cancel(sympy.together(rational)))
+    others = sorted(rational.free_symbols - {variable}, key=sympy.default_sort_key)
+    return RationalParts(numerator, denominator, others,
+                         {dummy: original for original, dummy in replacements.items()})
+
+
 def _norm(denominator: sympy.Poly, modulus: int) -> sympy.Poly:
     """N(x) = prod_m Q(w^m x) for the q-th roots of unity w, a polynomial in x^q."""
     variable = denominator.gens[0]
@@ -66,6 +90,7 @@ def _norm(denominator: sympy.Poly, modulus: int) -> sympy.Poly:
 
 
 def rational_sections(function: sympy.Expr, variable: sympy.Symbol, modulus: int) -> Optional[List[sympy.Expr]]:
+    # pylint: disable=too-many-locals  # the intermediate values of one algorithm in the docstring
     """
     Returns the sections f_0, ..., f_{q-1} of `function` in `variable` for q = `modulus`, or None if
     `function` is not a rational function in `variable` (see the module documentation). Other symbols are
@@ -75,31 +100,27 @@ def rational_sections(function: sympy.Expr, variable: sympy.Symbol, modulus: int
     """
     if modulus < 1:
         raise ValueError(f"The modulus has to be positive, got {modulus}.")
-    replacements: Dict[sympy.Expr, sympy.Dummy] = {}
-    rational = _to_rational(sympy.sympify(function), variable, replacements)
-    if rational is None:
+    parts = rational_parts(function, variable)
+    if parts is None:
         return None
-
-    numerator, denominator = sympy.fraction(sympy.cancel(sympy.together(rational)))
-    others = sorted((rational.free_symbols - {variable}), key=sympy.default_sort_key)
-    gens = (variable, *others)
-    numerator_poly = sympy.Poly(numerator, *gens)
-    denominator_poly = sympy.Poly(denominator, *gens)
+    gens = (variable, *parts.others)
+    numerator_poly = sympy.Poly(parts.numerator, *gens)
+    denominator_poly = sympy.Poly(parts.denominator, *gens)
     if not numerator_poly.domain.is_Exact or not denominator_poly.domain.is_Exact:
         return None  # pragma: no cover - only symbols and rational numbers are left
 
     norm = _norm(denominator_poly, modulus)
     cofactor, remainder = norm.div(denominator_poly)
     if not remainder.is_zero:
-        raise AssertionError(f"The norm of {denominator} is not divisible by it.")  # pragma: no cover
+        raise AssertionError(f"The norm of {parts.denominator} is not divisible by it.")  # pragma: no cover
     product = numerator_poly * cofactor
 
-    parts: List[Dict[tuple, sympy.Expr]] = [{} for _ in range(modulus)]
+    residues: List[Dict[tuple, sympy.Expr]] = [{} for _ in range(modulus)]
     for monomial, coefficient in product.as_dict().items():
-        parts[monomial[0] % modulus][monomial] = coefficient
-    back = {dummy: original for original, dummy in replacements.items()}
+        residues[monomial[0] % modulus][monomial] = coefficient
+    back = parts.back
     sections: List[sympy.Expr] = []
-    for part in parts:
+    for part in residues:
         if not part:
             sections.append(sympy.Integer(0))
             continue

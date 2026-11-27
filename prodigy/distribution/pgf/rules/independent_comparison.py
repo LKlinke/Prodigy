@@ -235,6 +235,8 @@ def _filtered(factors: _Factors, swap: bool, shift: int, diagonal: bool) -> Elem
 
 def filter_difference(function: sympy.Expr, x: str, y: str, relation: str, shift: int,
                       condition: str) -> sympy.Expr:
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
+    # (the comparison (x, y, relation, shift) and its text for messages)
     """
     The part of `function` whose exponents i of the variable x and j of y satisfy `j - i >= shift` (relation
     `"ge"`) or `j - i = shift` (relation `"eq"`), see the module documentation. Other symbols are

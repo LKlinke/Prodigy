@@ -7,7 +7,7 @@ The check of input distributions (:mod:`prodigy.analysis.input_distribution`, #2
 if proven, ``(False, reason)`` if refuted and ``(None, reason)`` if not proven. The proofs, all exact:
 
 * polynomials: every coefficient is checked; with parameters, SymPy must prove its sign from the
-  parameter's type (``nparam`` is a natural number, ``rparam`` has no known sign);
+  parameter's type (``param n: nat`` is a natural number, ``param p: real`` has no known sign);
 * rational functions: the reduced denominator does not vanish at 0 (power series); the
   coefficients are non-negative by the exact finite positivity check for product denominators
   (:func:`~prodigy.distribution.pgf.rules.product_form.to_product_form`, which also refutes) or by
@@ -95,6 +95,7 @@ def check_probability_generating_function(text: str, variables: Tuple[str, ...],
 
 
 def _check_probability_mass(expr: sympy.Expr, syms: List[sympy.Symbol], verdict: Verdict) -> Verdict:
+    # pylint: disable=too-many-return-statements  # one verdict per case of the rule in the docstring
     """``verdict`` on the coefficients of ``expr``, combined with the condition that its mass (its value at 1,
     the limit from below on the diagonal) is 1."""
     if verdict[0] is False:
@@ -137,7 +138,7 @@ def _identifiers(text: str) -> List[str]:
 
 
 def _parameter_symbol(name: str, typ: Optional[Type]) -> sympy.Symbol:
-    """A parameter as symbol with what its type proves: ``nparam`` is a natural number."""
+    """A parameter as symbol with what its type proves: a ``nat`` parameter is a natural number."""
     if isinstance(typ, NatType):
         return sympy.Symbol(name, integer=True, nonnegative=True)
     return sympy.Symbol(name)
@@ -219,7 +220,7 @@ def _parameter_hint(value: sympy.Expr, syms: List[sympy.Symbol]) -> str:
     if not parameters:
         return ""
     return (f" (it depends on the parameter{'s' if len(parameters) > 1 else ''} {', '.join(parameters)}, "
-            "whose sign is not known; only nparam parameters are known to be non-negative)")
+            "whose sign is not known; only nat parameters are known to be non-negative)")
 
 
 def _monomial_text(monomial: Sequence[int], syms: List[sympy.Symbol]) -> str:
@@ -242,6 +243,7 @@ def _check_polynomial(expr: sympy.Expr, syms: List[sympy.Symbol]) -> Verdict:
 
 
 def _check_rational(expr: sympy.Expr, syms: List[sympy.Symbol]) -> Verdict:
+    # pylint: disable=too-many-return-statements  # one verdict per case of the rule in the docstring
     variables = _names(syms)
     reduced = sympy.cancel(sympy.together(expr))
     _, denominator = sympy.fraction(reduced)
@@ -305,6 +307,7 @@ def _check_dominant_pole(reduced: sympy.Expr, syms: List[sympy.Symbol]) -> Verdi
 
 
 def _check_structure(expr: sympy.Expr, syms: List[sympy.Symbol]) -> Verdict:
+    # pylint: disable=too-many-return-statements  # one verdict per case of the rule in the docstring
     """Sufficient rules for closed forms that are not rational (see the module documentation)."""
     power_verdict = _check_fractional_power(expr, syms)
     if power_verdict is not None:
@@ -367,6 +370,7 @@ def _normalise_factor_signs(expr: sympy.Mul, syms: List[sympy.Symbol]) -> sympy.
 
 
 def _check_fractional_power(expr: sympy.Expr, syms: List[sympy.Symbol]) -> Optional[Verdict]:
+    # pylint: disable=too-many-return-statements  # one verdict per case of the rule in the docstring
     """``A + B * (1 - r*x)^a`` with numbers A, B, a rational in (0, 1) and r in (0, 1]: the series of
     ``(1 - r*x)^a`` is ``1 - sum_{n>=1} |binom(a, n)| r^n x^n``, so the constant coefficient of the sum is
     ``A + B`` (the series value at 0, not that of a single summand) and the others are ``-B |binom(a, n)| r^n``.

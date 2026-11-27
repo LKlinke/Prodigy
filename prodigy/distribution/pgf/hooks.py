@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, cast, Optional, Self, Sequence, Set, Union
 
 import sympy
 
-from prodigy.language import Binop, BinopExpr, Expr, VarExpr
+from prodigy.language import Binop, Expr, VarExpr
 from prodigy.distribution.distribution import CommonDistributionsFactory, Distribution, Operand
 if TYPE_CHECKING:  # pragma: no cover
     from prodigy.distribution.pgf.pgf import PGF
@@ -57,14 +57,11 @@ class PGFHooks(Distribution, CommonDistributionsFactory):
         """
 
     @abstractmethod
-    def _filter_constant_condition(self,
-                                   condition: BinopExpr) -> PGF:
+    def _filter_relation(self, variable: str, relation: Binop, bound: int) -> PGF:
         """
-        Filters out the terms that satisfy a constant condition, e.g., (var <= 5) (var > 5) (var = 5).
-
-        :param condition: The condition to filter.
-
-        :return: The filtered distribution.
+        The terms in which `variable` equals `bound` (`relation` is `Binop.EQ`) or is at most `bound`
+        (`Binop.LEQ`), for a natural number `bound`; the other comparisons with constants are normalised to
+        these two by :meth:`~prodigy.distribution.pgf.filtering.PGFFiltering._filter_constant` (#511, P4d).
         """
 
     @abstractmethod

@@ -123,6 +123,7 @@ def _column(prepared: _Prepared, parts: Sequence[KernelTerm], name: str, window:
 
 
 def _prepare(function: sympy.Expr, variables: Tuple[sympy.Symbol, ...]) -> Optional[_Prepared]:
+    # pylint: disable=too-many-locals  # the intermediate values of one algorithm in the docstring
     """``function`` as terms of the class in the kernel, or None if it is not in the class (module docstring)."""
     replacements: Dict[sympy.Expr, sympy.Dummy] = {}
     rationals: List[Tuple[sympy.Expr, sympy.Expr]] = []
@@ -244,6 +245,7 @@ def _padded(polynomial: RationalGF, name: str) -> List[RationalGF]:
 
 def _recurrence(g: List[RationalGF], p: List[RationalGF], q: List[RationalGF],
                 zero: RationalGF) -> Iterator[RationalGF]:
+    # pylint: disable=too-many-locals  # the intermediate values of one algorithm in the docstring
     """s_n of the module docstring for n = 0, 1, ...: ``g``, ``p`` and ``q`` are the coefficients of ĝ, P and Q."""
     weighted = [(k, g[k] * k) for k in range(1, len(g)) if not g[k].is_zero()]
     numerator = [(j, pj) for j, pj in enumerate(p) if not pj.is_zero()]

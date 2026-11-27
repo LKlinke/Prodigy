@@ -28,7 +28,7 @@ Operand = Union["Distribution", str, int, float]
 variables of the first one. Each engine accepts its own distributions and some of the others."""
 
 
-class Distribution(ABC):
+class Distribution(ABC):  # pylint: disable=too-many-public-methods  # the semantic interface of all engines
     """
     The semantic interface of a distribution (#511, ``docs/source/architecture.md``): the operations of the
     semantics (filter, update, marginal, probabilities, expectations, normalisation, approximation and the

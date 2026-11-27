@@ -33,7 +33,6 @@ def _upper_query_bounds(task: LoopTask, upper: Distribution) -> Dict[QueryKey, T
     expression is non-negative), so each value bounds the query of the exact result. A query that cannot be
     evaluated, or whose value is not finite, is left out: the bound is only an addition."""
     # pylint: disable=import-outside-toplevel
-    from prodigy.analysis.instructionhandler.query_handler import filter_by_cases
     from prodigy.analysis.values import is_monotone_nonnegative
     from prodigy.language import ExpectationInstr, PlotInstr, PrintInstr, ProbabilityQueryInstr, VarExpr
     program = task.prog_info.program
@@ -49,7 +48,7 @@ def _upper_query_bounds(task: LoopTask, upper: Distribution) -> Dict[QueryKey, T
             if isinstance(ins, ProbabilityQueryInstr):
                 if isinstance(ins.expr, VarExpr):
                     continue  # a marginal
-                value = filter_by_cases(upper, ins.expr).get_probability_mass()
+                value = upper.get_probability_of(ins.expr)
                 kind = "?Pr"
             else:
                 if not is_monotone_nonnegative(ins.expr, program):

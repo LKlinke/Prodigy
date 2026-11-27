@@ -119,6 +119,7 @@ _UNDEFINED_VALUES = (sympy.nan, sympy.zoo, sympy.oo, -sympy.oo)
 
 
 def _continuous_at_one(function: sympy.Expr, variable: sympy.Symbol) -> bool:
+    # pylint: disable=too-many-return-statements  # one verdict per case of the rule in the docstring
     """
     True only if `function` is continuous in `variable` at 1 wherever its value there is finite.
 
